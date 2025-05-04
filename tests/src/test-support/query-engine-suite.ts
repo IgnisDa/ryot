@@ -6,17 +6,17 @@ import {
 	buildTableDisplayConfiguration,
 	buildTableRequest,
 	createAuthenticatedClient,
-	createCrossSchemaRuntimeFixture,
+	createCrossSchemaQueryEngineFixture,
 	createEntitySchema,
 	createEventSchema,
-	createRuntimeEntity,
-	createRuntimeEvent,
-	createSingleSchemaRuntimeFixture,
+	createQueryEngineEntity,
+	createQueryEngineEvent,
+	createSingleSchemaQueryEngineFixture,
 	createTracker,
 	entityColumnExpression,
 	entityField,
-	executeViewRuntime,
-	getRuntimeFieldOrThrow,
+	executeQueryEngine,
+	getQueryEngineFieldOrThrow,
 	literalExpression,
 	schemaPropertyExpression,
 	toRequiredExpression,
@@ -33,7 +33,7 @@ async function createImageFallbackFixture() {
 		propertiesSchema: { fields: { category: { type: "string" } } },
 	});
 
-	await createRuntimeEntity({
+	await createQueryEngineEntity({
 		client,
 		cookies,
 		image: null,
@@ -47,7 +47,7 @@ async function createImageFallbackFixture() {
 
 async function createLatestEventJoinFixture() {
 	const { client, cookies, entityIdsByName, schema } =
-		await createSingleSchemaRuntimeFixture();
+		await createSingleSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
 	if (!alphaPhoneId || !gammaPhoneId) {
@@ -64,21 +64,21 @@ async function createLatestEventJoinFixture() {
 		},
 	});
 
-	await createRuntimeEvent({
+	await createQueryEngineEvent({
 		client,
 		cookies,
 		entityId: alphaPhoneId,
 		eventSchemaId: reviewSchema.id,
 		properties: { rating: 2, note: "draft" },
 	});
-	await createRuntimeEvent({
+	await createQueryEngineEvent({
 		client,
 		cookies,
 		entityId: alphaPhoneId,
 		eventSchemaId: reviewSchema.id,
 		properties: { rating: 5, note: "final" },
 	});
-	await createRuntimeEvent({
+	await createQueryEngineEvent({
 		client,
 		cookies,
 		entityId: gammaPhoneId,
@@ -97,7 +97,7 @@ async function createMixedLatestEventJoinFixture() {
 		smartphoneSlug,
 		entityIdsByName,
 		smartphoneSchema,
-	} = await createCrossSchemaRuntimeFixture();
+	} = await createCrossSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
 	if (!alphaPhoneId || !gammaPhoneId) {
@@ -112,14 +112,14 @@ async function createMixedLatestEventJoinFixture() {
 		propertiesSchema: { fields: { rating: { type: "number" } } },
 	});
 
-	await createRuntimeEvent({
+	await createQueryEngineEvent({
 		client,
 		cookies,
 		entityId: alphaPhoneId,
 		properties: { rating: 5 },
 		eventSchemaId: reviewSchema.id,
 	});
-	await createRuntimeEvent({
+	await createQueryEngineEvent({
 		client,
 		cookies,
 		entityId: gammaPhoneId,
@@ -130,12 +130,12 @@ async function createMixedLatestEventJoinFixture() {
 	return { client, cookies, smartphoneSlug, tabletSlug };
 }
 
-export function registerViewRuntimePresentationAndErrorTests() {
+export function registerQueryEnginePresentationAndErrorTests() {
 	it("returns semantic keys for grid and list layouts with raw image unions", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 
-		const gridResult = await executeViewRuntime(
+		const gridResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -143,7 +143,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				pagination: { page: 1, limit: 1 },
 			}),
 		);
-		const listResult = await executeViewRuntime(
+		const listResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildListRequest({
@@ -155,70 +155,70 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		expect(gridResult.response.status).toBe(200);
 		expect(listResult.response.status).toBe(200);
 		expect(
-			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "badge"),
+			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "badge"),
 		).toEqual({
 			key: "badge",
 			kind: "text",
 			value: "phone",
 		});
 		expect(
-			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "subtitle"),
+			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "subtitle"),
 		).toEqual({
 			key: "subtitle",
 			kind: "number",
 			value: 2018,
 		});
 		expect(
-			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "title"),
+			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "title"),
 		).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
 		expect(
-			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "image"),
+			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image"),
 		).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(
-			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "badge"),
+			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "badge"),
 		).toEqual({
 			key: "badge",
 			kind: "text",
 			value: "phone",
 		});
 		expect(
-			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "subtitle"),
+			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "subtitle"),
 		).toEqual({
 			key: "subtitle",
 			kind: "number",
 			value: 2018,
 		});
 		expect(
-			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "title"),
+			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "title"),
 		).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
 		expect(
-			getRuntimeFieldOrThrow(listResult.data?.data.items[0], "image"),
+			getQueryEngineFieldOrThrow(listResult.data?.data.items[0], "image"),
 		).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(gridResult.data?.data.items[0]?.image).toEqual(
-			getRuntimeFieldOrThrow(gridResult.data?.data.items[0], "image").value,
+			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image").value,
 		);
 	});
 
 	it("returns null wrappers for empty grid display references", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -232,22 +232,24 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "badge")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "badge")).toEqual({
 			key: "badge",
 			kind: "null",
 			value: null,
 		});
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "subtitle")).toEqual({
-			key: "subtitle",
-			kind: "null",
-			value: null,
-		});
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "title")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "subtitle")).toEqual(
+			{
+				key: "subtitle",
+				kind: "null",
+				value: null,
+			},
+		);
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "image")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
@@ -256,8 +258,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 	it("returns ordered table fields and null wrappers for empty property references", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -281,8 +283,8 @@ export function registerViewRuntimePresentationAndErrorTests() {
 
 	it("coalesces cross-schema display configuration values", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createCrossSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -314,32 +316,36 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "badge")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "badge")).toEqual({
 			key: "badge",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "subtitle")).toEqual({
-			key: "subtitle",
-			kind: "text",
-			value: "Acme",
-		});
-		expect(getRuntimeFieldOrThrow(data?.data.items[1], "badge")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "subtitle")).toEqual(
+			{
+				key: "subtitle",
+				kind: "text",
+				value: "Acme",
+			},
+		);
+		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "badge")).toEqual({
 			key: "badge",
 			kind: "number",
 			value: 2019,
 		});
-		expect(getRuntimeFieldOrThrow(data?.data.items[1], "subtitle")).toEqual({
-			key: "subtitle",
-			kind: "text",
-			value: "Tabula",
-		});
+		expect(getQueryEngineFieldOrThrow(data?.data.items[1], "subtitle")).toEqual(
+			{
+				key: "subtitle",
+				kind: "text",
+				value: "Tabula",
+			},
+		);
 	});
 
 	it("rejects mixed image and text display fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -369,7 +375,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 	it("rejects mixed image and text list fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildListRequest({
@@ -399,7 +405,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 	it("rejects mixed image and text table fallbacks when @image is null", async () => {
 		const { client, cookies, schema } = await createImageFallbackFixture();
 
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -430,7 +436,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 	it("filters, sorts, and displays latest-event join data", async () => {
 		const { client, cookies, schema } = await createLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -474,7 +480,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -497,7 +503,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			"Omega Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getRuntimeFieldOrThrow(item, "badge")).toEqual({
+			expect(getQueryEngineFieldOrThrow(item, "badge")).toEqual({
 				key: "badge",
 				kind: "null",
 				value: null,
@@ -509,7 +515,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.rating"]);
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -531,19 +537,19 @@ export function registerViewRuntimePresentationAndErrorTests() {
 			"Gamma Phone",
 		]);
 		for (const item of data?.data.items ?? []) {
-			expect(getRuntimeFieldOrThrow(item, "badge").kind).toBe("number");
+			expect(getQueryEngineFieldOrThrow(item, "badge").kind).toBe("number");
 		}
 	});
 
 	it("returns 404 and 400 errors for invalid runtime requests", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const missingSchemaResult = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const missingSchemaResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({ entitySchemaSlugs: ["missing-schema"] }),
 		);
-		const missingPropertyResult = await executeViewRuntime(
+		const missingPropertyResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -556,7 +562,7 @@ export function registerViewRuntimePresentationAndErrorTests() {
 				},
 			}),
 		);
-		const mismatchedValueResult = await executeViewRuntime(
+		const mismatchedValueResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({

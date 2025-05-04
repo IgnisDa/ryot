@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { expectDataResult } from "~/lib/test-helpers";
 import {
-	ViewRuntimeNotFoundError,
-	ViewRuntimeValidationError,
+	QueryEngineNotFoundError,
+	QueryEngineValidationError,
 } from "~/lib/views/errors";
 import { getBuiltInMediaOverview } from "./service";
 
@@ -94,12 +94,12 @@ describe("getBuiltInMediaOverview", () => {
 		expect(queries[2]?.userId).toBe("user_1");
 	});
 
-	it("maps ViewRuntimeNotFoundError to not_found error", async () => {
+	it("maps QueryEngineNotFoundError to not_found error", async () => {
 		const result = await getBuiltInMediaOverview(
 			{ userId: "user_1" },
 			{
 				executeSectionQuery: async () => {
-					throw new ViewRuntimeNotFoundError("Schema missing");
+					throw new QueryEngineNotFoundError("Schema missing");
 				},
 			},
 		);
@@ -110,12 +110,12 @@ describe("getBuiltInMediaOverview", () => {
 		});
 	});
 
-	it("maps ViewRuntimeValidationError to validation error", async () => {
+	it("maps QueryEngineValidationError to validation error", async () => {
 		const result = await getBuiltInMediaOverview(
 			{ userId: "user_1" },
 			{
 				executeSectionQuery: async () => {
-					throw new ViewRuntimeValidationError("Invalid config");
+					throw new QueryEngineValidationError("Invalid config");
 				},
 			},
 		);

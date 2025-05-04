@@ -14,7 +14,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { match } from "ts-pattern";
-import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import { QueryEngineValidationError } from "~/lib/views/errors";
 import type { ViewExpression } from "~/lib/views/expression";
 import {
 	assertContainsCompatibleExpression,
@@ -67,7 +67,7 @@ export const buildPredicateClause = (input: {
 			buildPredicateClause({ predicate, compiler }),
 		);
 		if (!first) {
-			throw new ViewRuntimeValidationError("And predicates must not be empty");
+			throw new QueryEngineValidationError("And predicates must not be empty");
 		}
 
 		return rest.length ? (and(first, ...rest) ?? first) : first;
@@ -78,7 +78,7 @@ export const buildPredicateClause = (input: {
 			buildPredicateClause({ predicate, compiler }),
 		);
 		if (!first) {
-			throw new ViewRuntimeValidationError("Or predicates must not be empty");
+			throw new QueryEngineValidationError("Or predicates must not be empty");
 		}
 
 		return rest.length ? (or(first, ...rest) ?? first) : first;
@@ -149,7 +149,7 @@ export const buildPredicateClause = (input: {
 	const expressionType = compiler.getTypeInfo(input.predicate.expression);
 	assertContainsCompatibleExpression(expressionType);
 	if (expressionType.kind !== "property") {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			"Filter operator 'contains' requires a property expression",
 		);
 	}
@@ -173,7 +173,7 @@ export const buildPredicateClause = (input: {
 		return sql`${expression} @> ${value}`;
 	}
 
-	throw new ViewRuntimeValidationError(
+	throw new QueryEngineValidationError(
 		`Filter operator 'contains' is not supported for expression type '${expressionType.propertyType}'`,
 	);
 };

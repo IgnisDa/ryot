@@ -3,31 +3,31 @@ import {
 	buildComputedField,
 	buildGridDisplayConfiguration,
 	buildGridRequest,
-	buildRuntimeField,
+	buildQueryEngineField,
 	buildTableDisplayConfiguration,
 	buildTableRequest,
 	computedFieldExpression,
 	createAuthenticatedClient,
-	createCrossSchemaRuntimeFixture,
+	createCrossSchemaQueryEngineFixture,
 	createEntitySchema,
 	createEventSchema,
-	createRuntimeEntity,
-	createSingleSchemaRuntimeFixture,
+	createQueryEngineEntity,
+	createSingleSchemaQueryEngineFixture,
 	createTracker,
 	entityColumnExpression,
 	entityField,
-	executeViewRuntime,
-	getRuntimeFieldOrThrow,
+	executeQueryEngine,
+	getQueryEngineFieldOrThrow,
 	literalExpression,
 	schemaPropertyExpression,
 } from "../fixtures";
-import { registerViewRuntimePresentationAndErrorTests } from "../test-support/view-runtime-suite";
+import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
-describe("View runtime E2E", () => {
+describe("Query engine E2E", () => {
 	it("executes a simple single-schema query with the full response shape", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({ entitySchemaSlugs: [schema.slug] }),
@@ -47,22 +47,22 @@ describe("View runtime E2E", () => {
 			kind: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
-		expect(getRuntimeFieldOrThrow(firstItem, "badge")).toEqual({
+		expect(getQueryEngineFieldOrThrow(firstItem, "badge")).toEqual({
 			key: "badge",
 			kind: "text",
 			value: "phone",
 		});
-		expect(getRuntimeFieldOrThrow(firstItem, "subtitle")).toEqual({
+		expect(getQueryEngineFieldOrThrow(firstItem, "subtitle")).toEqual({
 			key: "subtitle",
 			kind: "number",
 			value: 2018,
 		});
-		expect(getRuntimeFieldOrThrow(firstItem, "title")).toEqual({
+		expect(getQueryEngineFieldOrThrow(firstItem, "title")).toEqual({
 			key: "title",
 			kind: "text",
 			value: "Alpha Phone",
 		});
-		expect(getRuntimeFieldOrThrow(firstItem, "image")).toEqual({
+		expect(getQueryEngineFieldOrThrow(firstItem, "image")).toEqual({
 			key: "image",
 			kind: "image",
 			value: {
@@ -82,8 +82,8 @@ describe("View runtime E2E", () => {
 
 	it("accepts literal and coalesce expressions in raw runtime fields", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(client, cookies, {
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(client, cookies, {
 			entitySchemaSlugs: [schema.slug],
 			eventJoins: [],
 			pagination: { page: 1, limit: 1 },
@@ -92,8 +92,8 @@ describe("View runtime E2E", () => {
 				expression: entityColumnExpression(schema.slug, "name"),
 			},
 			fields: [
-				buildRuntimeField("label", { type: "literal", value: "Pinned" }),
-				buildRuntimeField("yearOrFallback", {
+				buildQueryEngineField("label", { type: "literal", value: "Pinned" }),
+				buildQueryEngineField("yearOrFallback", {
 					type: "coalesce",
 					values: [
 						{ type: "literal", value: null },
@@ -120,7 +120,7 @@ describe("View runtime E2E", () => {
 
 	it("reuses computed fields in raw output and preserves null latest-event values", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		await createEventSchema(client, cookies, {
 			name: "Review",
 			slug: "review",
@@ -130,7 +130,7 @@ describe("View runtime E2E", () => {
 			},
 		});
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
+		const { data, response } = await executeQueryEngine(client, cookies, {
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: {
@@ -138,9 +138,9 @@ describe("View runtime E2E", () => {
 				direction: "asc",
 			},
 			fields: [
-				buildRuntimeField("title", ["computed.entityLabel"]),
-				buildRuntimeField("badge", ["computed.reviewOrLabel"]),
-				buildRuntimeField("rawReview", ["computed.reviewLabel"]),
+				buildQueryEngineField("title", ["computed.entityLabel"]),
+				buildQueryEngineField("badge", ["computed.reviewOrLabel"]),
+				buildQueryEngineField("rawReview", ["computed.reviewLabel"]),
 			],
 			eventJoins: [
 				{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
@@ -174,12 +174,12 @@ describe("View runtime E2E", () => {
 
 	it("sorts and filters by computed fields in raw runtime requests", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const yearExpression = schemaPropertyExpression(schema.slug, "year");
 		const nextYearReference = computedFieldExpression("nextYear");
 		const labelReference = computedFieldExpression("label");
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
+		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -209,8 +209,8 @@ describe("View runtime E2E", () => {
 				},
 			],
 			fields: [
-				buildRuntimeField("label", labelReference),
-				buildRuntimeField("nextYear", nextYearReference),
+				buildQueryEngineField("label", labelReference),
+				buildQueryEngineField("nextYear", nextYearReference),
 			],
 		});
 
@@ -231,8 +231,8 @@ describe("View runtime E2E", () => {
 
 	it("rejects invalid computed field references and cycles in raw runtime requests", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const missingComputedFieldResult = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const missingComputedFieldResult = await executeQueryEngine(
 			client,
 			cookies,
 			{
@@ -245,10 +245,10 @@ describe("View runtime E2E", () => {
 					expression: entityColumnExpression(schema.slug, "name"),
 				},
 				filter: null,
-				fields: [buildRuntimeField("title", ["computed.missingLabel"])],
+				fields: [buildQueryEngineField("title", ["computed.missingLabel"])],
 			},
 		);
-		const cycleResult = await executeViewRuntime(client, cookies, {
+		const cycleResult = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -261,7 +261,7 @@ describe("View runtime E2E", () => {
 				buildComputedField("first", ["computed.second"]),
 				buildComputedField("second", ["computed.first"]),
 			],
-			fields: [buildRuntimeField("title", ["computed.first"])],
+			fields: [buildQueryEngineField("title", ["computed.first"])],
 		});
 
 		expect(missingComputedFieldResult.response.status).toBe(400);
@@ -276,8 +276,8 @@ describe("View runtime E2E", () => {
 
 	it("rejects invalid computed field types and non-display image usage in raw runtime requests", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const imageSortResult = await executeViewRuntime(client, cookies, {
+			await createSingleSchemaQueryEngineFixture();
+		const imageSortResult = await executeQueryEngine(client, cookies, {
 			filter: null,
 			eventJoins: [],
 			entitySchemaSlugs: [schema.slug],
@@ -292,9 +292,11 @@ describe("View runtime E2E", () => {
 					expression: entityColumnExpression(schema.slug, "image"),
 				},
 			],
-			fields: [buildRuntimeField("image", [entityField(schema.slug, "image")])],
+			fields: [
+				buildQueryEngineField("image", [entityField(schema.slug, "image")]),
+			],
 		});
-		const mismatchedFilterResult = await executeViewRuntime(client, cookies, {
+		const mismatchedFilterResult = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -326,7 +328,9 @@ describe("View runtime E2E", () => {
 					},
 				},
 			],
-			fields: [buildRuntimeField("title", [entityField(schema.slug, "name")])],
+			fields: [
+				buildQueryEngineField("title", [entityField(schema.slug, "name")]),
+			],
 		});
 
 		expect(imageSortResult.response.status).toBe(400);
@@ -341,7 +345,7 @@ describe("View runtime E2E", () => {
 
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const categoryExpression = schemaPropertyExpression(
 			schema.slug,
 			"category",
@@ -349,7 +353,7 @@ describe("View runtime E2E", () => {
 		const nameExpression = entityColumnExpression(schema.slug, "name");
 		const yearExpression = schemaPropertyExpression(schema.slug, "year");
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
+		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			entitySchemaSlugs: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -372,8 +376,8 @@ describe("View runtime E2E", () => {
 				},
 			],
 			fields: [
-				buildRuntimeField("nextYear", ["computed.nextYear"]),
-				buildRuntimeField("rounded", {
+				buildQueryEngineField("nextYear", ["computed.nextYear"]),
+				buildQueryEngineField("rounded", {
 					type: "round",
 					expression: {
 						type: "arithmetic",
@@ -382,7 +386,7 @@ describe("View runtime E2E", () => {
 						right: { type: "literal", value: 3 },
 					},
 				}),
-				buildRuntimeField("floored", {
+				buildQueryEngineField("floored", {
 					type: "floor",
 					expression: {
 						type: "arithmetic",
@@ -391,11 +395,11 @@ describe("View runtime E2E", () => {
 						right: { type: "literal", value: 3 },
 					},
 				}),
-				buildRuntimeField("wholeYear", {
+				buildQueryEngineField("wholeYear", {
 					type: "integer",
 					expression: yearExpression,
 				}),
-				buildRuntimeField("label", {
+				buildQueryEngineField("label", {
 					type: "concat",
 					values: [
 						{ type: "literal", value: "Gamma / " },
@@ -404,7 +408,7 @@ describe("View runtime E2E", () => {
 						yearExpression,
 					],
 				}),
-				buildRuntimeField("badge", {
+				buildQueryEngineField("badge", {
 					type: "conditional",
 					whenTrue: { type: "literal", value: "modern" },
 					whenFalse: { type: "literal", value: "classic" },
@@ -431,10 +435,10 @@ describe("View runtime E2E", () => {
 
 	it("truncates integer normalization toward zero for fractional values", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const yearExpression = schemaPropertyExpression(schema.slug, "year");
 
-		const { data, response } = await executeViewRuntime(client, cookies, {
+		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			computedFields: [],
 			entitySchemaSlugs: [schema.slug],
@@ -450,7 +454,7 @@ describe("View runtime E2E", () => {
 				expression: entityColumnExpression(schema.slug, "name"),
 			},
 			fields: [
-				buildRuntimeField("integerNormalized", {
+				buildQueryEngineField("integerNormalized", {
 					type: "integer",
 					expression: {
 						type: "arithmetic",
@@ -470,7 +474,7 @@ describe("View runtime E2E", () => {
 
 	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const scenarios = [
 			{
 				expected: ["Alpha Phone", "Gamma Phone"],
@@ -551,7 +555,7 @@ describe("View runtime E2E", () => {
 		];
 
 		for (const scenario of scenarios) {
-			const { data, response } = await executeViewRuntime(
+			const { data, response } = await executeQueryEngine(
 				client,
 				cookies,
 				buildGridRequest({
@@ -569,8 +573,8 @@ describe("View runtime E2E", () => {
 
 	it("ands multiple filters within a single schema", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -601,8 +605,8 @@ describe("View runtime E2E", () => {
 
 	it("applies explicit entity name filters across every schema", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createCrossSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -644,8 +648,8 @@ describe("View runtime E2E", () => {
 
 	it("ors schema-qualified filters across different schemas", async () => {
 		const { client, cookies, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaRuntimeFixture();
-		const { data, response } = await executeViewRuntime(
+			await createCrossSchemaQueryEngineFixture();
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -684,13 +688,13 @@ describe("View runtime E2E", () => {
 
 	it("sorts by name in both directions and by schema properties", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const ascResult = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const ascResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({ entitySchemaSlugs: [schema.slug] }),
 		);
-		const descResult = await executeViewRuntime(
+		const descResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -701,7 +705,7 @@ describe("View runtime E2E", () => {
 				},
 			}),
 		);
-		const yearResult = await executeViewRuntime(
+		const yearResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -738,13 +742,13 @@ describe("View runtime E2E", () => {
 
 	it("filters, sorts, and displays entity @id", async () => {
 		const { client, cookies, entityIdsByName, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const targetId = entityIdsByName["Gamma Phone"];
 		if (!targetId) {
 			throw new Error("Missing runtime entity fixture id for @id test");
 		}
 
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildTableRequest({
@@ -778,7 +782,7 @@ describe("View runtime E2E", () => {
 
 	it("filters entity @id with contains", async () => {
 		const { client, cookies, entityIdsByName, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const targetId = entityIdsByName["Beta Tablet"];
 		if (!targetId) {
 			throw new Error(
@@ -787,7 +791,7 @@ describe("View runtime E2E", () => {
 		}
 		const suffix = targetId.slice(-8);
 
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -806,7 +810,7 @@ describe("View runtime E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items.map((item) => item.name)).toEqual(["Beta Tablet"]);
-		expect(getRuntimeFieldOrThrow(data?.data.items[0], "badge")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "badge")).toEqual({
 			key: "badge",
 			kind: "text",
 			value: targetId,
@@ -815,7 +819,7 @@ describe("View runtime E2E", () => {
 
 	it("sorts across schemas with COALESCE and keeps null values last", async () => {
 		const { client, cookies, smartphoneSlug, tabletSchema, tabletSlug } =
-			await createCrossSchemaRuntimeFixture();
+			await createCrossSchemaQueryEngineFixture();
 		const neutralDisplay = buildGridDisplayConfiguration({
 			badgeProperty: null,
 			subtitleProperty: null,
@@ -830,7 +834,7 @@ describe("View runtime E2E", () => {
 				],
 			},
 		};
-		const coalesceResult = await executeViewRuntime(
+		const coalesceResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -840,7 +844,7 @@ describe("View runtime E2E", () => {
 			}),
 		);
 
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			name: "Null Tablet",
@@ -848,7 +852,7 @@ describe("View runtime E2E", () => {
 			properties: { maker: "Ghost" },
 		});
 
-		const nullsLastResult = await executeViewRuntime(
+		const nullsLastResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -872,7 +876,7 @@ describe("View runtime E2E", () => {
 
 	it("returns correct pagination metadata for first, middle, and last pages", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 		const scenarios = [
 			{
 				pagination: { page: 1, limit: 2 },
@@ -913,7 +917,7 @@ describe("View runtime E2E", () => {
 		];
 
 		for (const scenario of scenarios) {
-			const { data, response } = await executeViewRuntime(
+			const { data, response } = await executeQueryEngine(
 				client,
 				cookies,
 				buildGridRequest({
@@ -932,8 +936,8 @@ describe("View runtime E2E", () => {
 
 	it("returns empty out-of-range pages and zero-result pagination metadata", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const emptyPageResult = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const emptyPageResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -941,7 +945,7 @@ describe("View runtime E2E", () => {
 				pagination: { page: 100, limit: 2 },
 			}),
 		);
-		const emptyResult = await executeViewRuntime(
+		const emptyResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -980,8 +984,8 @@ describe("View runtime E2E", () => {
 
 	it("keeps empty pages aligned with filtered totals in the single-query path", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const outOfRangeFilteredResult = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const outOfRangeFilteredResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -995,7 +999,7 @@ describe("View runtime E2E", () => {
 				},
 			}),
 		);
-		const zeroResultsLaterPage = await executeViewRuntime(
+		const zeroResultsLaterPage = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1035,8 +1039,8 @@ describe("View runtime E2E", () => {
 
 	it("rejects empty runtime sort fields at payload validation time", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
-		const result = await executeViewRuntime(
+			await createSingleSchemaQueryEngineFixture();
+		const result = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1053,9 +1057,9 @@ describe("View runtime E2E", () => {
 
 	it("filters with contains using ilike on string properties and entity @name", async () => {
 		const { client, cookies, schema } =
-			await createSingleSchemaRuntimeFixture();
+			await createSingleSchemaQueryEngineFixture();
 
-		const nameResult = await executeViewRuntime(
+		const nameResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1067,7 +1071,7 @@ describe("View runtime E2E", () => {
 				},
 			}),
 		);
-		const categoryResult = await executeViewRuntime(
+		const categoryResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1106,7 +1110,7 @@ describe("View runtime E2E", () => {
 			},
 		});
 
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			image: null,
@@ -1114,7 +1118,7 @@ describe("View runtime E2E", () => {
 			entitySchemaId: schema.schemaId,
 			properties: { tags: ["sci-fi", "action"] },
 		});
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			image: null,
@@ -1122,7 +1126,7 @@ describe("View runtime E2E", () => {
 			properties: { tags: ["drama"] },
 			entitySchemaId: schema.schemaId,
 		});
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			image: null,
@@ -1131,7 +1135,7 @@ describe("View runtime E2E", () => {
 			properties: { tags: ["action"] },
 		});
 
-		const { data, response } = await executeViewRuntime(
+		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1166,7 +1170,7 @@ describe("View runtime E2E", () => {
 			propertiesSchema: { fields: { sku: { type: "string" } } },
 		});
 
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			image: null,
@@ -1174,7 +1178,7 @@ describe("View runtime E2E", () => {
 			properties: { sku: "A%B" },
 			entitySchemaId: schema.schemaId,
 		});
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			image: null,
@@ -1182,7 +1186,7 @@ describe("View runtime E2E", () => {
 			properties: { sku: "A_B" },
 			entitySchemaId: schema.schemaId,
 		});
-		await createRuntimeEntity({
+		await createQueryEngineEntity({
 			client,
 			cookies,
 			image: null,
@@ -1196,7 +1200,7 @@ describe("View runtime E2E", () => {
 			subtitleProperty: null,
 		});
 
-		const percentResult = await executeViewRuntime(
+		const percentResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1209,7 +1213,7 @@ describe("View runtime E2E", () => {
 				},
 			}),
 		);
-		const underscoreResult = await executeViewRuntime(
+		const underscoreResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1247,7 +1251,7 @@ describe("View runtime E2E", () => {
 			},
 		});
 
-		const result = await executeViewRuntime(
+		const result = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
@@ -1270,5 +1274,5 @@ describe("View runtime E2E", () => {
 		);
 	});
 
-	registerViewRuntimePresentationAndErrorTests();
+	registerQueryEnginePresentationAndErrorTests();
 });
