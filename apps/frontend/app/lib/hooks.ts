@@ -118,7 +118,8 @@ export const useMetadataDetails = (
 	metadataId?: string | null,
 	enabled?: boolean,
 ) => {
-	return useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	const query = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
+	return query;
 };
 
 export const useUserMetadataDetails = (
