@@ -1,175 +1,51 @@
 import { describe, expect, it } from "bun:test";
-import { serviceData } from "~/lib/result";
 import { expectDataResult } from "~/lib/test-helpers";
 import {
 	ViewRuntimeNotFoundError,
 	ViewRuntimeValidationError,
 } from "~/lib/views/errors";
-import { getBuiltInMediaOverview, loadOverviewItems } from "./service";
+import { getBuiltInMediaOverview } from "./service";
 
 const date = (value: string) => new Date(value);
 
 describe("getBuiltInMediaOverview", () => {
-	it("assembles ordered sections with UI-ready labels", async () => {
+	it("assembles sections from parallel queries", async () => {
 		const result = expectDataResult(
 			await getBuiltInMediaOverview(
 				{ userId: "user_1" },
 				{
-					loadOverviewItems: async () =>
-						serviceData([
+					executeSectionQuery: async () => ({
+						items: [
 							{
+								image: null,
 								id: "book-1",
-								image: null,
-								reviewAt: null,
-								backlogAt: null,
-								totalUnits: 300,
-								completeAt: null,
-								completedOn: null,
-								publishYear: 2020,
-								reviewRating: null,
-								title: "First Book",
-								progressPercent: 25,
+								name: "Test Book",
 								entitySchemaSlug: "book",
-								progressAt: date("2026-03-20T10:00:00.000Z"),
+								entitySchemaId: "schema-1",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+								fields: [
+									{
+										key: "progressAt",
+										kind: "date" as const,
+										value: date("2024-03-20"),
+									},
+									{
+										value: 50,
+										key: "progressPercent",
+										kind: "number" as const,
+									},
+								],
 							},
-							{
-								image: null,
-								id: "anime-1",
-								reviewAt: null,
-								totalUnits: 24,
-								progressAt: null,
-								completeAt: null,
-								publishYear: 2024,
-								completedOn: null,
-								reviewRating: null,
-								progressPercent: null,
-								title: "Queued Anime",
-								entitySchemaSlug: "anime",
-								backlogAt: date("2026-03-22T10:00:00.000Z"),
-							},
-							{
-								image: null,
-								id: "manga-1",
-								reviewAt: null,
-								completeAt: null,
-								totalUnits: null,
-								completedOn: null,
-								publishYear: null,
-								reviewRating: null,
-								progressPercent: 55,
-								title: "Unread Manga",
-								entitySchemaSlug: "manga",
-								backlogAt: date("2026-03-19T10:00:00.000Z"),
-								progressAt: date("2026-03-21T10:00:00.000Z"),
-							},
-							{
-								image: null,
-								id: "anime-2",
-								totalUnits: 12,
-								backlogAt: null,
-								reviewRating: 3,
-								progressAt: null,
-								publishYear: 2022,
-								progressPercent: null,
-								title: "Finished Anime",
-								entitySchemaSlug: "anime",
-								reviewAt: date("2026-03-18T10:00:00.000Z"),
-								completeAt: date("2026-03-19T10:00:00.000Z"),
-								completedOn: date("2026-03-23T10:00:00.000Z"),
-							},
-						]),
-				},
-			),
-		);
-
-		expect(result.continue.items.map((item) => item.id)).toEqual([
-			"manga-1",
-			"book-1",
-		]);
-		expect(result.continue.items[0]).toMatchObject({
-			entitySchemaSlug: "manga",
-			labels: { cta: "Log Progress", progress: "55% complete" },
-			progress: { totalUnits: null, currentUnits: null, progressPercent: 55 },
-		});
-		expect(result.continue.items[1]).toMatchObject({
-			entitySchemaSlug: "book",
-			subtitle: { raw: 2020, label: "2020" },
-			labels: { progress: "75 / 300 pages", cta: "Log Progress" },
-			progress: { currentUnits: 75, totalUnits: 300, progressPercent: 25 },
-		});
-
-		expect(result.upNext.items).toEqual([
-			expect.objectContaining({
-				id: "anime-1",
-				labels: { cta: "Start" },
-				subtitle: { raw: 2024, label: "2024" },
-			}),
-		]);
-
-		expect(result.rateThese.items).toEqual([
-			expect.objectContaining({
-				rating: 3,
-				id: "anime-2",
-				reviewAt: date("2026-03-18T10:00:00.000Z"),
-				completedAt: date("2026-03-23T10:00:00.000Z"),
-			}),
-		]);
-	});
-});
-
-describe("loadOverviewItems", () => {
-	it("loads every runtime page before building sections", async () => {
-		const items = expectDataResult(
-			await loadOverviewItems(
-				{ userId: "user_1" },
-				{
-					executeOverviewPage: async ({ page }) => ({
-						items:
-							page === 1
-								? [
-										{
-											image: null,
-											id: "book-1",
-											name: "First Book",
-											entitySchemaSlug: "book",
-											entitySchemaId: "schema_1",
-											updatedAt: date("2026-03-01T10:00:00.000Z"),
-											createdAt: date("2026-03-01T10:00:00.000Z"),
-											fields: [
-												{
-													kind: "date",
-													key: "progressAt",
-													value: date("2026-03-21T10:00:00.000Z"),
-												},
-											],
-										},
-									]
-								: [
-										{
-											image: null,
-											id: "anime-1",
-											name: "Second Anime",
-											entitySchemaSlug: "anime",
-											entitySchemaId: "schema_2",
-											createdAt: date("2026-03-01T10:00:00.000Z"),
-											updatedAt: date("2026-03-01T10:00:00.000Z"),
-											fields: [
-												{
-													kind: "date",
-													key: "backlogAt",
-													value: date("2026-03-22T10:00:00.000Z"),
-												},
-											],
-										},
-									],
+						],
 						meta: {
 							pagination: {
-								page,
-								total: 2,
-								limit: 1,
-								totalPages: 2,
-								hasNextPage: page < 2,
-								hasPreviousPage: page > 1,
+								page: 1,
+								limit: 6,
+								total: 1,
+								totalPages: 1,
+								hasNextPage: false,
+								hasPreviousPage: false,
 							},
 						},
 					}),
@@ -177,14 +53,52 @@ describe("loadOverviewItems", () => {
 			),
 		);
 
-		expect(items.map((item) => item.id)).toEqual(["book-1", "anime-1"]);
+		expect(result.continue.items).toHaveLength(1);
+		expect(result.upNext.items).toHaveLength(0);
+		expect(result.rateThese.items).toHaveLength(0);
+		expect(result.continue.items[0]).toMatchObject({
+			id: "book-1",
+			title: "Test Book",
+			entitySchemaSlug: "book",
+		});
 	});
 
-	it("maps missing built-in schemas to a predictable not found error", async () => {
-		const result = await loadOverviewItems(
+	it("runs 3 parallel queries with correct filters", async () => {
+		const queries: Array<{ userId: string; request: unknown }> = [];
+
+		await getBuiltInMediaOverview(
 			{ userId: "user_1" },
 			{
-				executeOverviewPage: async () => {
+				executeSectionQuery: async (userId, request) => {
+					queries.push({ userId, request });
+					return {
+						items: [],
+						meta: {
+							pagination: {
+								page: 1,
+								total: 0,
+								limit: 10,
+								totalPages: 0,
+								hasNextPage: false,
+								hasPreviousPage: false,
+							},
+						},
+					};
+				},
+			},
+		);
+
+		expect(queries).toHaveLength(3);
+		expect(queries[0]?.userId).toBe("user_1");
+		expect(queries[1]?.userId).toBe("user_1");
+		expect(queries[2]?.userId).toBe("user_1");
+	});
+
+	it("maps ViewRuntimeNotFoundError to not_found error", async () => {
+		const result = await getBuiltInMediaOverview(
+			{ userId: "user_1" },
+			{
+				executeSectionQuery: async () => {
 					throw new ViewRuntimeNotFoundError("Schema missing");
 				},
 			},
@@ -196,12 +110,12 @@ describe("loadOverviewItems", () => {
 		});
 	});
 
-	it("maps invalid built-in configuration to a validation error", async () => {
-		const result = await loadOverviewItems(
+	it("maps ViewRuntimeValidationError to validation error", async () => {
+		const result = await getBuiltInMediaOverview(
 			{ userId: "user_1" },
 			{
-				executeOverviewPage: async () => {
-					throw new ViewRuntimeValidationError("Invalid schema reference");
+				executeSectionQuery: async () => {
+					throw new ViewRuntimeValidationError("Invalid config");
 				},
 			},
 		);
@@ -212,93 +126,205 @@ describe("loadOverviewItems", () => {
 		});
 	});
 
-	describe("date field parsing", () => {
-		it("passes through Date objects from view-runtime fields unchanged", async () => {
-			const items = expectDataResult(
-				await loadOverviewItems(
-					{ userId: "user_1" },
-					{
-						executeOverviewPage: async () => ({
-							items: [
-								{
-									image: null,
-									id: "book-1",
-									name: "Test Book",
-									entitySchemaSlug: "book",
-									entitySchemaId: "schema_1",
-									updatedAt: date("2024-06-15T14:30:00.000Z"),
-									createdAt: date("2024-06-15T14:30:00.000Z"),
-									fields: [
-										{
-											key: "progressAt",
-											kind: "date" as const,
-											value: date("2024-06-15T14:30:00.000Z"),
-										},
-									],
-								},
-							],
-							meta: {
-								pagination: {
-									page: 1,
-									total: 1,
-									limit: 1,
-									totalPages: 1,
-									hasNextPage: false,
-									hasPreviousPage: false,
-								},
-							},
-						}),
+	it("re-throws unexpected errors", async () => {
+		expect(
+			getBuiltInMediaOverview(
+				{ userId: "user_1" },
+				{
+					executeSectionQuery: async () => {
+						throw new Error("Unexpected error");
 					},
-				),
-			);
+				},
+			),
+		).rejects.toThrow("Unexpected error");
+	});
 
-			const book = items.find((item) => item.id === "book-1");
-			expect(book).toBeDefined();
-			expect(book?.progressAt).toEqual(date("2024-06-15T14:30:00.000Z"));
-		});
-
-		it("parses ISO 8601 string field values into Date objects", async () => {
-			const items = expectDataResult(
-				await loadOverviewItems(
-					{ userId: "user_1" },
-					{
-						executeOverviewPage: async () => ({
-							items: [
-								{
-									image: null,
-									id: "anime-1",
-									name: "Test Anime",
-									entitySchemaSlug: "anime",
-									entitySchemaId: "schema_2",
-									updatedAt: date("2024-06-15T14:30:00.000Z"),
-									createdAt: date("2024-06-15T14:30:00.000Z"),
-									fields: [
-										{
-											key: "backlogAt",
-											kind: "date" as const,
-											value: "2024-06-15T14:30:00.000Z",
-										},
-									],
-								},
-							],
-							meta: {
-								pagination: {
-									page: 1,
-									total: 1,
-									limit: 1,
-									totalPages: 1,
-									hasNextPage: false,
-									hasPreviousPage: false,
-								},
+	it("filters Continue items requiring progressAt", async () => {
+		const result = expectDataResult(
+			await getBuiltInMediaOverview(
+				{ userId: "user_1" },
+				{
+					executeSectionQuery: async () => ({
+						items: [
+							{
+								id: "book-1",
+								name: "With Progress",
+								image: null,
+								entitySchemaSlug: "book",
+								entitySchemaId: "schema-1",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+								fields: [
+									{
+										key: "progressAt",
+										kind: "date" as const,
+										value: date("2024-03-20"),
+									},
+								],
 							},
-						}),
-					},
-				),
-			);
+							{
+								id: "book-2",
+								name: "Without Progress",
+								image: null,
+								entitySchemaSlug: "book",
+								entitySchemaId: "schema-1",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+								fields: [],
+							},
+						],
+						meta: {
+							pagination: {
+								page: 1,
+								limit: 6,
+								total: 2,
+								totalPages: 1,
+								hasNextPage: false,
+								hasPreviousPage: false,
+							},
+						},
+					}),
+				},
+			),
+		);
 
-			const anime = items.find((item) => item.id === "anime-1");
-			expect(anime).toBeDefined();
-			expect(anime?.backlogAt).toEqual(date("2024-06-15T14:30:00.000Z"));
-		});
+		expect(result.continue.items).toHaveLength(1);
+		expect(result.continue.items[0]?.id).toBe("book-1");
+	});
+
+	it("filters Up Next items requiring backlogAt", async () => {
+		const result = expectDataResult(
+			await getBuiltInMediaOverview(
+				{ userId: "user_1" },
+				{
+					executeSectionQuery: async () => ({
+						items: [
+							{
+								image: null,
+								id: "anime-1",
+								name: "With Backlog",
+								entitySchemaSlug: "anime",
+								entitySchemaId: "schema-2",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+								fields: [
+									{
+										key: "backlogAt",
+										kind: "date" as const,
+										value: date("2024-03-20"),
+									},
+								],
+							},
+							{
+								fields: [],
+								image: null,
+								id: "anime-2",
+								name: "Without Backlog",
+								entitySchemaSlug: "anime",
+								entitySchemaId: "schema-2",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+							},
+						],
+						meta: {
+							pagination: {
+								page: 1,
+								total: 2,
+								limit: 20,
+								totalPages: 1,
+								hasNextPage: false,
+								hasPreviousPage: false,
+							},
+						},
+					}),
+				},
+			),
+		);
+
+		expect(result.upNext.items).toHaveLength(1);
+		expect(result.upNext.items[0]?.id).toBe("anime-1");
+	});
+
+	it("filters Rate These items requiring completeAt", async () => {
+		const result = expectDataResult(
+			await getBuiltInMediaOverview(
+				{ userId: "user_1" },
+				{
+					executeSectionQuery: async () => ({
+						items: [
+							{
+								image: null,
+								id: "manga-1",
+								name: "With Complete",
+								entitySchemaSlug: "manga",
+								entitySchemaId: "schema-3",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+								fields: [
+									{
+										key: "completeAt",
+										kind: "date" as const,
+										value: date("2024-03-20"),
+									},
+								],
+							},
+							{
+								fields: [],
+								image: null,
+								id: "manga-2",
+								name: "Without Complete",
+								entitySchemaSlug: "manga",
+								entitySchemaId: "schema-3",
+								createdAt: date("2024-01-01"),
+								updatedAt: date("2024-01-01"),
+							},
+						],
+						meta: {
+							pagination: {
+								page: 1,
+								total: 2,
+								limit: 12,
+								totalPages: 1,
+								hasNextPage: false,
+								hasPreviousPage: false,
+							},
+						},
+					}),
+				},
+			),
+		);
+
+		expect(result.rateThese.items).toHaveLength(1);
+		expect(result.rateThese.items[0]?.id).toBe("manga-1");
+	});
+
+	it("uses different limits for each section", async () => {
+		const limits: number[] = [];
+
+		await getBuiltInMediaOverview(
+			{ userId: "user_1" },
+			{
+				executeSectionQuery: async (_userId, request) => {
+					limits.push(request.pagination.limit);
+					return {
+						items: [],
+						meta: {
+							pagination: {
+								page: 1,
+								total: 0,
+								limit: 10,
+								totalPages: 0,
+								hasNextPage: false,
+								hasPreviousPage: false,
+							},
+						},
+					};
+				},
+			},
+		);
+
+		expect(limits).toContain(6);
+		expect(limits).toContain(20);
+		expect(limits).toContain(12);
 	});
 });
