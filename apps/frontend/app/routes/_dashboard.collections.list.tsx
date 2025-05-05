@@ -543,9 +543,9 @@ const CreateOrUpdateModal = (props: {
 					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
 				</Title>
 				<TextInput
-					label="Name"
 					required
 					name="name"
+					label="Name"
 					defaultValue={props.toUpdateCollection?.name}
 					readOnly={props.toUpdateCollection?.isDefault}
 					description={
@@ -626,50 +626,50 @@ const CreateOrUpdateModal = (props: {
 						{informationTemplate.map((field, index) => (
 							<Paper withBorder key={index.toString()} p="xs">
 								<TextInput
-									label="Name"
 									required
-									name={`informationTemplate[${index}].name`}
 									size="xs"
+									label="Name"
 									defaultValue={field.name}
+									name={`informationTemplate[${index}].name`}
 								/>
 								<Textarea
-									label="Description"
 									required
-									name={`informationTemplate[${index}].description`}
 									size="xs"
+									label="Description"
 									defaultValue={field.description}
+									name={`informationTemplate[${index}].description`}
 								/>
 								<Group wrap="nowrap">
 									<Select
-										label="Input type"
-										required
 										flex={1}
+										required
+										size="xs"
+										label="Input type"
+										defaultValue={field.lot}
 										name={`informationTemplate[${index}].lot`}
 										data={Object.values(CollectionExtraInformationLot).map(
 											(lot) => ({ value: lot, label: changeCase(lot) }),
 										)}
-										size="xs"
-										defaultValue={field.lot}
 									/>
 									<TextInput
-										label="Default value"
 										flex={1}
-										name={`informationTemplate[${index}].defaultValue`}
 										size="xs"
+										label="Default value"
 										defaultValue={field.defaultValue || undefined}
+										name={`informationTemplate[${index}].defaultValue`}
 									/>
 								</Group>
 								<Group mt="xs" justify="space-around">
 									<Checkbox
 										size="sm"
 										label="Required"
-										name={`informationTemplate[${index}].required`}
 										defaultChecked={field.required || undefined}
+										name={`informationTemplate[${index}].required`}
 									/>
 									<Button
 										size="xs"
-										variant="subtle"
 										color="red"
+										variant="subtle"
 										leftSection={<IconTrash />}
 										onClick={() => setInformationTemplate.remove(index)}
 									>
