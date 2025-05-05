@@ -22,8 +22,8 @@ use dependent_models::{
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
 use dependent_utils::{
-    add_entity_to_collection, create_or_update_collection, generic_metadata,
-    remove_entity_from_collection, update_metadata_and_notify_users,
+    add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
+    generic_metadata, remove_entity_from_collection, update_metadata_and_notify_users,
 };
 use enum_models::EntityLot;
 use media_models::{
@@ -430,8 +430,11 @@ ORDER BY RANDOM() LIMIT 10;
         let Some(c) = collection else {
             return Ok(false);
         };
-        let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await;
-        Ok(resp.is_ok())
+        let resp = Collection::delete_by_id(c.id).exec(&self.0.db).await?;
+        if resp.rows_affected > 0 {
+            expire_user_collections_list_cache(&user_id, &self.0).await?;
+        }
+        Ok(true)
     }
 
     pub async fn add_entity_to_collection(
