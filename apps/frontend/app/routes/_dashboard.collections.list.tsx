@@ -537,11 +537,7 @@ const CreateOrUpdateModal = (props: {
 		);
 
 	return (
-		<Box
-			method="POST"
-			component={Form}
-			action={withQuery(".", { intent: "createOrUpdate" })}
-		>
+		<Form method="POST" action={withQuery(".", { intent: "createOrUpdate" })}>
 			<Stack>
 				<Title order={3}>
 					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
@@ -693,6 +689,6 @@ const CreateOrUpdateModal = (props: {
 					{props.toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
 			</Stack>
-		</Box>
+		</Form>
 	);
 };
