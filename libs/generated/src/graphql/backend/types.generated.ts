@@ -190,6 +190,7 @@ export type CollectionContentsSortInput = {
 export type CollectionExtraInformation = {
   __typename?: 'CollectionExtraInformation';
   defaultValue?: Maybe<Scalars['String']['output']>;
+  defaultValues?: Maybe<Array<Scalars['String']['output']>>;
   description: Scalars['String']['output'];
   lot: CollectionExtraInformationLot;
   name: Scalars['String']['output'];
@@ -198,6 +199,7 @@ export type CollectionExtraInformation = {
 
 export type CollectionExtraInformationInput = {
   defaultValue?: InputMaybe<Scalars['String']['input']>;
+  defaultValues?: InputMaybe<Array<Scalars['String']['input']>>;
   description: Scalars['String']['input'];
   lot: CollectionExtraInformationLot;
   name: Scalars['String']['input'];
