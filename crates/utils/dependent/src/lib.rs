@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     future::Future,
     iter::zip,
     sync::Arc,
@@ -63,7 +63,7 @@ use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating,
+    CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating, ImportOrExportMetadataItem,
     MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
     MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadata, PartialMetadataPerson,
     PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
@@ -2375,6 +2375,50 @@ where
     F: Future<Output = Result<()>>,
 {
     let preferences = user_by_id(user_id, ss).await?.preferences;
+
+    let mut aggregated_metadata: HashMap<
+        (MediaSource, String, MediaLot),
+        ImportOrExportMetadataItem,
+    > = HashMap::new();
+    let mut other_items = Vec::new();
+
+    for item in import.completed {
+        match item {
+            ImportCompletedItem::Metadata(mut current_metadata) => {
+                let key = (
+                    current_metadata.source,
+                    current_metadata.identifier.clone(),
+                    current_metadata.lot,
+                );
+                match aggregated_metadata.entry(key) {
+                    Entry::Occupied(mut entry) => {
+                        let existing_metadata = entry.get_mut();
+                        existing_metadata
+                            .seen_history
+                            .append(&mut current_metadata.seen_history);
+                        existing_metadata
+                            .reviews
+                            .append(&mut current_metadata.reviews);
+                        existing_metadata
+                            .collections
+                            .append(&mut current_metadata.collections);
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(current_metadata);
+                    }
+                }
+            }
+            other => {
+                other_items.push(other);
+            }
+        }
+    }
+
+    import.completed = aggregated_metadata
+        .into_values()
+        .map(ImportCompletedItem::Metadata)
+        .chain(other_items.into_iter())
+        .collect();
 
     import.completed.retain(|i| match i {
         ImportCompletedItem::Metadata(m) => {
