@@ -139,7 +139,6 @@ pub struct CollectionExtraInformation {
     pub required: Option<bool>,
     pub default_value: Option<String>,
     pub lot: CollectionExtraInformationLot,
-    pub default_values: Option<Vec<String>>,
     pub possible_values: Option<Vec<String>>,
 }
 

@@ -55,7 +55,6 @@ query UserCollectionsList {
 				required
 				description
 				defaultValue
-				defaultValues
 				possibleValues
 			}
 		}
