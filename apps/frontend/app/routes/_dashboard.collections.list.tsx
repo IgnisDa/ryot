@@ -15,6 +15,7 @@ import {
 	Paper,
 	Select,
 	Stack,
+	TagsInput,
 	Text,
 	TextInput,
 	Textarea,
@@ -188,6 +189,7 @@ const createOrUpdateSchema = z.object({
 				description: z.string(),
 				defaultValue: z.string().optional(),
 				required: zodCheckboxAsString.optional(),
+				possibleValues: zodCommaDelimitedString.optional(),
 				lot: z.nativeEnum(CollectionExtraInformationLot),
 			}),
 		)
@@ -667,6 +669,14 @@ const CreateOrUpdateModal = (props: {
 										/>
 									) : null}
 								</Group>
+								{field.lot === CollectionExtraInformationLot.StringArray ? (
+									<TagsInput
+										size="xs"
+										label="Possible values"
+										defaultValue={field.possibleValues || []}
+										name={`informationTemplate[${index}].possibleValues`}
+									/>
+								) : null}
 								<Group mt="xs" justify="space-around">
 									<Checkbox
 										size="sm"
