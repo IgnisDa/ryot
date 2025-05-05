@@ -42,6 +42,7 @@ use sea_query::{
     Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr, extension::postgres::PgExpr,
 };
 use supporting_service::SupportingService;
+use uuid::Uuid;
 
 pub struct CollectionService(pub Arc<SupportingService>);
 
@@ -451,5 +452,12 @@ ORDER BY RANDOM() LIMIT 10;
         input: ChangeCollectionToEntityInput,
     ) -> Result<StringIdObject> {
         remove_entity_from_collection(user_id, input, &self.0).await
+    }
+
+    pub async fn handle_entity_added_to_collection_event(
+        &self,
+        collection_to_entity_id: Uuid,
+    ) -> Result<()> {
+        Ok(())
     }
 }
