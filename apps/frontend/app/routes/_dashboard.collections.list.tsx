@@ -13,8 +13,6 @@ import {
 	Modal,
 	MultiSelect,
 	Paper,
-	Pill,
-	PillsInput,
 	Select,
 	Stack,
 	Text,
@@ -659,16 +657,7 @@ const CreateOrUpdateModal = (props: {
 											});
 										}}
 									/>
-									{field.lot === CollectionExtraInformationLot.StringArray ? (
-										<PillsInput label="Default values" size="xs">
-											<Pill.Group>
-												{field.defaultValues?.map((v) => (
-													<Pill key={v}>{v}</Pill>
-												))}
-												<PillsInput.Field placeholder="Enter values" />
-											</Pill.Group>
-										</PillsInput>
-									) : (
+									{field.lot !== CollectionExtraInformationLot.StringArray ? (
 										<TextInput
 											flex={1}
 											size="xs"
@@ -676,7 +665,7 @@ const CreateOrUpdateModal = (props: {
 											defaultValue={field.defaultValue || undefined}
 											name={`informationTemplate[${index}].defaultValue`}
 										/>
-									)}
+									) : null}
 								</Group>
 								<Group mt="xs" justify="space-around">
 									<Checkbox
