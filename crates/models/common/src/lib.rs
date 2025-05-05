@@ -140,6 +140,7 @@ pub struct CollectionExtraInformation {
     pub default_value: Option<String>,
     pub lot: CollectionExtraInformationLot,
     pub default_values: Option<Vec<String>>,
+    pub possible_values: Option<Vec<String>>,
 }
 
 #[derive(Display, EnumIter)]
@@ -420,5 +421,4 @@ pub struct YoutubeMusicSongListened {
 #[graphql(input_name = "UserToCollectionExtraInformationInput")]
 pub struct UserToCollectionExtraInformation {
     pub is_hidden: Option<bool>,
-    pub possible_values: Option<Vec<String>>,
 }

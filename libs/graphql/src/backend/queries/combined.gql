@@ -41,13 +41,12 @@ query UserCollectionsList {
 				name
 			}
 			collaborators {
+				extraInformation {
+					isHidden
+				}
 				collaborator {
 					id
 					name
-				}
-				extraInformation {
-					isHidden
-					possibleValues
 				}
 			}
 			informationTemplate {
@@ -57,6 +56,7 @@ query UserCollectionsList {
 				description
 				defaultValue
 				defaultValues
+				possibleValues
 			}
 		}
 	}
