@@ -458,6 +458,20 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         collection_to_entity_id: Uuid,
     ) -> Result<()> {
+        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
+            .one(&self.0.db)
+            .await?
+            .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+        let users = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::UserId)
+            .filter(user_to_entity::Column::CollectionId.eq(&cte.collection_id))
+            .into_tuple::<String>()
+            .all(&self.0.db)
+            .await?;
+        for user in users {
+            expire_user_collections_list_cache(&user, &self.0).await?;
+        }
         Ok(())
     }
 }
