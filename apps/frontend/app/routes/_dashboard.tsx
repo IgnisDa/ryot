@@ -113,6 +113,7 @@ import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
+import { MultiSelectCreatable } from "~/components/common";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
@@ -160,7 +161,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-import { MultiSelectCreatable } from "~/components/common";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
