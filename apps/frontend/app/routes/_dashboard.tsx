@@ -311,7 +311,7 @@ export default function Layout() {
 	const closeReviewEntityModal = () => setEntityToReview(null);
 	const [addEntityToCollectionsData, setAddEntityToCollectionsData] =
 		useAddEntityToCollections();
-	const closeAddEntityToCollectionsModal = () =>
+	const closeAddEntityToCollectionsDrawer = () =>
 		setAddEntityToCollectionsData(null);
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
@@ -498,11 +498,11 @@ export default function Layout() {
 			</Modal>
 			<Drawer
 				withCloseButton={false}
-				onClose={closeAddEntityToCollectionsModal}
+				onClose={closeAddEntityToCollectionsDrawer}
 				opened={addEntityToCollectionsData !== null}
 			>
 				<AddEntityToCollectionsForm
-					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsModal}
+					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsDrawer}
 				/>
 			</Drawer>
 			<Drawer
