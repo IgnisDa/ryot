@@ -464,9 +464,8 @@ ORDER BY RANDOM() LIMIT 10;
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
         let collection = collection.ok_or_else(|| Error::new("Collection does not exist"))?;
-        if !collection
-            .information_template
-            .unwrap_or_default()
+        let fields = collection.information_template.unwrap_or_default();
+        if !fields
             .iter()
             .any(|i| i.lot == CollectionExtraInformationLot::StringArray)
         {
