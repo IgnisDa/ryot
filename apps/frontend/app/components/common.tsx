@@ -91,7 +91,7 @@ import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
-import type { ReactNode, Ref } from "react";
+import type { Dispatch, ReactNode, Ref, SetStateAction } from "react";
 import { Fragment, useState } from "react";
 import {
 	Form,
@@ -1621,7 +1621,12 @@ export const BulkEditingAffix = (props: {
 };
 
 type MultiSelectCreatableProps = {
+	label: string;
 	data: string[];
+	value: string[];
+	required?: boolean;
+	description?: string;
+	setValue: Dispatch<SetStateAction<string[]>>;
 };
 
 export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
@@ -1632,7 +1637,6 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 
 	const [search, setSearch] = useState("");
 	const [data, setData] = useState(props.data);
-	const [value, setValue] = useState<string[]>([]);
 
 	const exactOptionMatch = data.some((item) => item === search);
 
@@ -1641,9 +1645,9 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 
 		if (val === "$create") {
 			setData((current) => [...current, search]);
-			setValue((current) => [...current, search]);
+			props.setValue((current) => [...current, search]);
 		} else {
-			setValue((current) =>
+			props.setValue((current) =>
 				current.includes(val)
 					? current.filter((v) => v !== val)
 					: [...current, val],
@@ -1652,9 +1656,9 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 	};
 
 	const handleValueRemove = (val: string) =>
-		setValue((current) => current.filter((v) => v !== val));
+		props.setValue((current) => current.filter((v) => v !== val));
 
-	const values = value.map((item) => (
+	const values = props.value.map((item) => (
 		<Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
 			{item}
 		</Pill>
@@ -1663,9 +1667,13 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 	const options = data
 		.filter((item) => item.toLowerCase().includes(search.trim().toLowerCase()))
 		.map((item) => (
-			<Combobox.Option value={item} key={item} active={value.includes(item)}>
+			<Combobox.Option
+				value={item}
+				key={item}
+				active={props.value.includes(item)}
+			>
 				<Group gap="sm">
-					{value.includes(item) ? <IconCheck size={12} /> : null}
+					{props.value.includes(item) ? <IconCheck size={12} /> : null}
 					<span>{item}</span>
 				</Group>
 			</Combobox.Option>
@@ -1678,7 +1686,12 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 			withinPortal={false}
 		>
 			<Combobox.DropdownTarget>
-				<PillsInput onClick={() => combobox.openDropdown()}>
+				<PillsInput
+					label={props.label}
+					required={props.required}
+					description={props.description}
+					onClick={() => combobox.openDropdown()}
+				>
 					<Pill.Group>
 						{values}
 
@@ -1695,7 +1708,7 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 								onKeyDown={(event) => {
 									if (event.key === "Backspace" && search.length === 0) {
 										event.preventDefault();
-										handleValueRemove(value[value.length - 1]);
+										handleValueRemove(props.value[props.value.length - 1]);
 									}
 								}}
 							/>
