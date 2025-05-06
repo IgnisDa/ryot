@@ -1641,8 +1641,6 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 	const exactOptionMatch = data.some((item) => item === search);
 
 	const handleValueSelect = (val: string) => {
-		setSearch("");
-
 		if (val === "$create") {
 			setData((current) => [...current, search]);
 			props.setValue([...props.value, search]);
@@ -1653,6 +1651,7 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 					: [...props.value, val],
 			);
 		}
+		setSearch("");
 	};
 
 	const handleValueRemove = (val: string) =>
@@ -1668,8 +1667,8 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 		.filter((item) => item.toLowerCase().includes(search.trim().toLowerCase()))
 		.map((item) => (
 			<Combobox.Option
-				value={item}
 				key={item}
+				value={item}
 				active={props.value.includes(item)}
 			>
 				<Group gap="sm">
@@ -1697,10 +1696,10 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 
 						<Combobox.EventsTarget>
 							<PillsInput.Field
-								onFocus={() => combobox.openDropdown()}
-								onBlur={() => combobox.closeDropdown()}
 								value={search}
 								placeholder="Search values"
+								onFocus={() => combobox.openDropdown()}
+								onBlur={() => combobox.closeDropdown()}
 								onChange={(event) => {
 									combobox.updateSelectedOptionIndex();
 									setSearch(event.currentTarget.value);
@@ -1720,11 +1719,9 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 			<Combobox.Dropdown>
 				<Combobox.Options>
 					{options}
-
 					{!exactOptionMatch && search.trim().length > 0 && (
 						<Combobox.Option value="$create">+ Create {search}</Combobox.Option>
 					)}
-
 					{exactOptionMatch &&
 						search.trim().length > 0 &&
 						options.length === 0 && (
