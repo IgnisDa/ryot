@@ -176,7 +176,8 @@ impl IntegrationService {
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {
-            Ok(pu) => {
+            Ok(None) => Ok("No progress update".to_owned()),
+            Ok(Some(pu)) => {
                 self.integration_progress_update(integration, pu)
                     .await
                     .trace_ok();

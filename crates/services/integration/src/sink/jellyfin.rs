@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use anyhow::Result;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
@@ -46,7 +46,7 @@ mod models {
     }
 }
 
-pub async fn sink_progress(payload: String) -> Result<ImportResult> {
+pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
     let payload = serde_json::from_str::<models::JellyfinWebhookPayload>(&payload)?;
     let identifier = payload
         .item
@@ -65,7 +65,7 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
     let lot = match payload.item.item_type.as_str() {
         "Episode" => MediaLot::Show,
         "Movie" => MediaLot::Movie,
-        _ => bail!("Only movies and shows supported"),
+        _ => return Ok(None),
     };
 
     let mut seen_item = ImportOrExportMetadataItemSeen {
@@ -93,7 +93,7 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
         }
     }
 
-    Ok(ImportResult {
+    Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             identifier,
@@ -102,5 +102,5 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
             ..Default::default()
         })],
         ..Default::default()
-    })
+    }))
 }
