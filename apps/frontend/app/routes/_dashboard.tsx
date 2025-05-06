@@ -160,6 +160,7 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
+import { MultiSelectCreatable } from "~/components/common";
 
 const discordLink = "https://discord.gg/D9XTg2a7R8";
 const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
@@ -1839,79 +1840,24 @@ const AddEntityToCollectionsForm = ({
 										/>
 									))
 									.with(CollectionExtraInformationLot.StringArray, () => (
-										<Input.Wrapper
+										<MultiSelectCreatable
 											label={template.name}
 											required={!!template.required}
 											description={template.description}
-										>
-											<Stack gap="xs" mt={4}>
-												{(
-													selectedCollection.userExtraInformationData[
-														template.name
-													] || [""]
-												).map((val: string, i: number) => (
-													<Group key={i.toString()}>
-														<TextInput
-															flex={1}
-															value={val}
-															onChange={(e) => {
-																const arr = [
-																	...(selectedCollection
-																		.userExtraInformationData[
-																		template.name
-																	] || [""]),
-																];
-																arr[i] = e.currentTarget.value;
-																handleCustomFieldChange(
-																	selectedCollection.id,
-																	template.name,
-																	arr,
-																);
-															}}
-														/>
-														<Anchor
-															ml="auto"
-															size="xs"
-															onClick={() => {
-																const arr = [
-																	...(selectedCollection
-																		.userExtraInformationData[
-																		template.name
-																	] || [""]),
-																];
-																arr.splice(i, 1);
-																handleCustomFieldChange(
-																	selectedCollection.id,
-																	template.name,
-																	arr,
-																);
-															}}
-														>
-															Remove
-														</Anchor>
-													</Group>
-												))}
-												<Anchor
-													ml={4}
-													size="xs"
-													onClick={() => {
-														const arr = [
-															...(selectedCollection.userExtraInformationData[
-																template.name
-															] || [""]),
-														];
-														arr.push("");
-														handleCustomFieldChange(
-															selectedCollection.id,
-															template.name,
-															arr,
-														);
-													}}
-												>
-													Add more
-												</Anchor>
-											</Stack>
-										</Input.Wrapper>
+											data={template.possibleValues || []}
+											value={
+												selectedCollection.userExtraInformationData[
+													template.name
+												] || []
+											}
+											setValue={(newValue) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													newValue,
+												)
+											}
+										/>
 									))
 									.exhaustive()}
 							</Fragment>
