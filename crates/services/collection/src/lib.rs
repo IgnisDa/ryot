@@ -3,8 +3,8 @@ use std::sync::Arc;
 use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
 use common_models::{
-    ChangeCollectionToEntityInput, DefaultCollection, SearchDetails, StringIdObject,
-    UserLevelCacheKey,
+    ChangeCollectionToEntityInput, CollectionExtraInformationLot, DefaultCollection, SearchDetails,
+    StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
@@ -458,10 +458,20 @@ ORDER BY RANDOM() LIMIT 10;
         &self,
         collection_to_entity_id: Uuid,
     ) -> Result<()> {
-        let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
+        let (cte, collection) = CollectionToEntity::find_by_id(collection_to_entity_id)
+            .find_also_related(Collection)
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+        let collection = collection.ok_or_else(|| Error::new("Collection does not exist"))?;
+        if !collection
+            .information_template
+            .unwrap_or_default()
+            .iter()
+            .any(|i| i.lot == CollectionExtraInformationLot::StringArray)
+        {
+            return Ok(());
+        }
         let users = UserToEntity::find()
             .select_only()
             .column(user_to_entity::Column::UserId)
