@@ -8,11 +8,13 @@ application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
+chrono = { workspace = true }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-utils = { path = "../../utils/dependent" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
+itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 sea-orm = { workspace = true }
