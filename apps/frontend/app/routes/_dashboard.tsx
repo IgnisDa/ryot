@@ -496,8 +496,7 @@ export default function Layout() {
 			>
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
-			<Modal
-				centered
+			<Drawer
 				withCloseButton={false}
 				onClose={closeAddEntityToCollectionsModal}
 				opened={addEntityToCollectionsData !== null}
@@ -505,7 +504,7 @@ export default function Layout() {
 				<AddEntityToCollectionsForm
 					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsModal}
 				/>
-			</Modal>
+			</Drawer>
 			<Drawer
 				title="Add new measurement"
 				opened={measurementsDrawerOpen}
