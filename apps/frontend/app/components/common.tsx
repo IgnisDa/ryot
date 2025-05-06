@@ -91,7 +91,7 @@ import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
-import type { Dispatch, ReactNode, Ref, SetStateAction } from "react";
+import type { ReactNode, Ref } from "react";
 import { Fragment, useState } from "react";
 import {
 	Form,
@@ -1626,7 +1626,7 @@ type MultiSelectCreatableProps = {
 	value: string[];
 	required?: boolean;
 	description?: string;
-	setValue: Dispatch<SetStateAction<string[]>>;
+	setValue: (value: string[]) => void;
 };
 
 export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
@@ -1645,18 +1645,18 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 
 		if (val === "$create") {
 			setData((current) => [...current, search]);
-			props.setValue((current) => [...current, search]);
+			props.setValue([...props.value, search]);
 		} else {
-			props.setValue((current) =>
-				current.includes(val)
-					? current.filter((v) => v !== val)
-					: [...current, val],
+			props.setValue(
+				props.value.includes(val)
+					? props.value.filter((v) => v !== val)
+					: [...props.value, val],
 			);
 		}
 	};
 
 	const handleValueRemove = (val: string) =>
-		props.setValue((current) => current.filter((v) => v !== val));
+		props.setValue(props.value.filter((v) => v !== val));
 
 	const values = props.value.map((item) => (
 		<Pill key={item} withRemoveButton onRemove={() => handleValueRemove(item)}>
@@ -1685,6 +1685,7 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 			onOptionSubmit={handleValueSelect}
 			withinPortal={false}
 		>
+			{JSON.stringify(props.value, null, 3)}
 			<Combobox.DropdownTarget>
 				<PillsInput
 					label={props.label}
