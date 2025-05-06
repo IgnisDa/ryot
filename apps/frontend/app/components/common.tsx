@@ -1681,8 +1681,8 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 	return (
 		<Combobox
 			store={combobox}
-			onOptionSubmit={handleValueSelect}
 			withinPortal={false}
+			onOptionSubmit={handleValueSelect}
 		>
 			<Combobox.DropdownTarget>
 				<PillsInput
@@ -1693,7 +1693,6 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 				>
 					<Pill.Group>
 						{values}
-
 						<Combobox.EventsTarget>
 							<PillsInput.Field
 								value={search}
