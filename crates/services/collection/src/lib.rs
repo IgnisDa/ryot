@@ -1,7 +1,8 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
+use chrono::Utc;
 use common_models::{
     ChangeCollectionToEntityInput, CollectionExtraInformationLot, DefaultCollection, SearchDetails,
     StringIdObject, UserLevelCacheKey,
@@ -26,6 +27,7 @@ use dependent_utils::{
     generic_metadata, remove_entity_from_collection, update_metadata_and_notify_users,
 };
 use enum_models::EntityLot;
+use itertools::Itertools;
 use media_models::{
     CollectionContentsSortBy, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
 };
@@ -34,9 +36,9 @@ use migrations::{
     AliasedMetadataGroup, AliasedPerson, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::{
-    ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable,
-    JoinType, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    Statement,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, Statement,
 };
 use sea_query::{
     Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr, extension::postgres::PgExpr,
@@ -464,12 +466,41 @@ ORDER BY RANDOM() LIMIT 10;
             .await?
             .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
         let collection = collection.ok_or_else(|| Error::new("Collection does not exist"))?;
-        let fields = collection.information_template.unwrap_or_default();
+        let mut fields = collection.clone().information_template.unwrap_or_default();
         if !fields
             .iter()
             .any(|i| i.lot == CollectionExtraInformationLot::StringArray)
         {
             return Ok(());
+        }
+        let mut updated_needed = false;
+        for field in fields.iter_mut() {
+            if field.lot == CollectionExtraInformationLot::StringArray {
+                let updated_values = cte
+                    .information
+                    .as_ref()
+                    .and_then(|v| v.get(field.name.clone()).and_then(|f| f.as_array()))
+                    .map(|f| {
+                        f.iter()
+                            .map(|v| v.as_str().unwrap_or_default())
+                            .collect_vec()
+                    });
+                if let Some(updated_values) = updated_values {
+                    let mut current_possible_values: HashSet<String> =
+                        HashSet::from_iter(field.possible_values.clone().unwrap_or_default());
+                    for value in updated_values {
+                        current_possible_values.insert(value.to_string());
+                    }
+                    field.possible_values = Some(current_possible_values.into_iter().collect_vec());
+                    updated_needed = true;
+                }
+            }
+        }
+        if updated_needed {
+            let mut col: collection::ActiveModel = collection.into();
+            col.information_template = ActiveValue::Set(Some(fields));
+            col.last_updated_on = ActiveValue::Set(Utc::now());
+            col.update(&self.0.db).await?;
         }
         let users = UserToEntity::find()
             .select_only()
