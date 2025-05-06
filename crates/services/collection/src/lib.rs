@@ -488,11 +488,15 @@ ORDER BY RANDOM() LIMIT 10;
                 if let Some(updated_values) = updated_values {
                     let mut current_possible_values: HashSet<String> =
                         HashSet::from_iter(field.possible_values.clone().unwrap_or_default());
+                    let old_size = current_possible_values.len();
                     for value in updated_values {
                         current_possible_values.insert(value.to_string());
                     }
-                    field.possible_values = Some(current_possible_values.into_iter().collect_vec());
-                    updated_needed = true;
+                    if current_possible_values.len() != old_size {
+                        field.possible_values =
+                            Some(current_possible_values.into_iter().collect_vec());
+                        updated_needed = true;
+                    }
                 }
             }
         }
