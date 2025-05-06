@@ -35,7 +35,7 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         completed.push(ImportCompletedItem::Measurement(measurement));
     }
     for workout in complete_data.workouts.unwrap_or_default() {
-        completed.push(ImportCompletedItem::ApplicationWorkout(workout));
+        completed.push(ImportCompletedItem::ApplicationWorkout(Box::new(workout)));
     }
     for media_group in complete_data.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));

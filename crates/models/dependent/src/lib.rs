@@ -398,7 +398,7 @@ pub enum ImportCompletedItem {
     Measurement(user_measurement::Model),
     Collection(CreateOrUpdateCollectionInput),
     MetadataGroup(ImportOrExportMetadataGroupItem),
-    ApplicationWorkout(ImportOrExportWorkoutItem),
+    ApplicationWorkout(Box<ImportOrExportWorkoutItem>),
 }
 
 #[derive(Debug, Default, Clone, Serialize)]

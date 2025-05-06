@@ -17,7 +17,7 @@ pub async fn sink_progress(payload: String) -> Result<ImportResult> {
         completed.push(ImportCompletedItem::Measurement(measurement));
     }
     for workout in payload.workouts.unwrap_or_default() {
-        completed.push(ImportCompletedItem::ApplicationWorkout(workout));
+        completed.push(ImportCompletedItem::ApplicationWorkout(Box::new(workout)));
     }
     for media_group in payload.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));
