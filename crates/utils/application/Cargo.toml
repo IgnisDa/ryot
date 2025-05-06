@@ -5,13 +5,11 @@ edition = "2024"
 
 [dependencies]
 async-graphql = { workspace = true }
-async-trait = { workspace = true }
 axum = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 common-utils = { path = "../common" }
 config = { path = "../../config" }
-file-storage-service = { path = "../../services/file-storage" }
 jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 openidconnect = { workspace = true }

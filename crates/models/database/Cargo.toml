@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-application-utils = { path = "../../utils/application" }
 argon2 = { workspace = true }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
@@ -14,7 +13,6 @@ common-models = { path = "../../models/common" }
 educe = { workspace = true }
 enum-models = { path = "../../models/enum" }
 importer-models = { path = "../../models/importer" }
-file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }
 nanoid = { workspace = true }

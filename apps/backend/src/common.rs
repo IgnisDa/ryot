@@ -46,6 +46,7 @@ pub struct AppServices {
     pub importer_service: Arc<ImporterService>,
     pub exporter_service: Arc<ExporterService>,
     pub statistics_service: Arc<StatisticsService>,
+    pub collection_service: Arc<CollectionService>,
     pub integration_service: Arc<IntegrationService>,
     pub miscellaneous_service: Arc<MiscellaneousService>,
 }
@@ -158,6 +159,7 @@ pub async fn create_app_services(
             importer_service,
             exporter_service,
             statistics_service,
+            collection_service,
             integration_service,
             miscellaneous_service,
         }),

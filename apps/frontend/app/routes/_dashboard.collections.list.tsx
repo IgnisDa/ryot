@@ -15,6 +15,7 @@ import {
 	Paper,
 	Select,
 	Stack,
+	TagsInput,
 	Text,
 	TextInput,
 	Textarea,
@@ -188,6 +189,7 @@ const createOrUpdateSchema = z.object({
 				description: z.string(),
 				defaultValue: z.string().optional(),
 				required: zodCheckboxAsString.optional(),
+				possibleValues: zodCommaDelimitedString.optional(),
 				lot: z.nativeEnum(CollectionExtraInformationLot),
 			}),
 		)
@@ -537,19 +539,15 @@ const CreateOrUpdateModal = (props: {
 		);
 
 	return (
-		<Box
-			method="POST"
-			component={Form}
-			action={withQuery(".", { intent: "createOrUpdate" })}
-		>
+		<Form method="POST" action={withQuery(".", { intent: "createOrUpdate" })}>
 			<Stack>
 				<Title order={3}>
 					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
 				</Title>
 				<TextInput
-					label="Name"
 					required
 					name="name"
+					label="Name"
 					defaultValue={props.toUpdateCollection?.name}
 					readOnly={props.toUpdateCollection?.isDefault}
 					description={
@@ -630,50 +628,66 @@ const CreateOrUpdateModal = (props: {
 						{informationTemplate.map((field, index) => (
 							<Paper withBorder key={index.toString()} p="xs">
 								<TextInput
-									label="Name"
 									required
-									name={`informationTemplate[${index}].name`}
 									size="xs"
+									label="Name"
 									defaultValue={field.name}
+									name={`informationTemplate[${index}].name`}
 								/>
 								<Textarea
-									label="Description"
 									required
-									name={`informationTemplate[${index}].description`}
 									size="xs"
+									label="Description"
 									defaultValue={field.description}
+									name={`informationTemplate[${index}].description`}
 								/>
 								<Group wrap="nowrap">
 									<Select
-										label="Input type"
-										required
 										flex={1}
+										required
+										size="xs"
+										label="Input type"
+										defaultValue={field.lot}
 										name={`informationTemplate[${index}].lot`}
 										data={Object.values(CollectionExtraInformationLot).map(
 											(lot) => ({ value: lot, label: changeCase(lot) }),
 										)}
-										size="xs"
-										defaultValue={field.lot}
+										onChange={(v) => {
+											setInformationTemplate.setItem(index, {
+												...field,
+												lot: v as CollectionExtraInformationLot,
+											});
+										}}
 									/>
-									<TextInput
-										label="Default value"
-										flex={1}
-										name={`informationTemplate[${index}].defaultValue`}
-										size="xs"
-										defaultValue={field.defaultValue || undefined}
-									/>
+									{field.lot !== CollectionExtraInformationLot.StringArray ? (
+										<TextInput
+											flex={1}
+											size="xs"
+											label="Default value"
+											defaultValue={field.defaultValue || undefined}
+											name={`informationTemplate[${index}].defaultValue`}
+										/>
+									) : null}
 								</Group>
+								{field.lot === CollectionExtraInformationLot.StringArray ? (
+									<TagsInput
+										size="xs"
+										label="Possible values"
+										defaultValue={field.possibleValues || []}
+										name={`informationTemplate[${index}].possibleValues`}
+									/>
+								) : null}
 								<Group mt="xs" justify="space-around">
 									<Checkbox
 										size="sm"
 										label="Required"
-										name={`informationTemplate[${index}].required`}
 										defaultChecked={field.required || undefined}
+										name={`informationTemplate[${index}].required`}
 									/>
 									<Button
 										size="xs"
-										variant="subtle"
 										color="red"
+										variant="subtle"
 										leftSection={<IconTrash />}
 										onClick={() => setInformationTemplate.remove(index)}
 									>
@@ -693,6 +707,6 @@ const CreateOrUpdateModal = (props: {
 					{props.toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
 			</Stack>
-		</Box>
+		</Form>
 	);
 };

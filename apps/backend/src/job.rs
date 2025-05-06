@@ -165,6 +165,11 @@ pub async fn perform_lp_application_job(
                 .integration_service
                 .handle_entity_added_to_collection_event(collection_to_entity_id)
                 .await
+                .ok();
+            app_services
+                .collection_service
+                .handle_entity_added_to_collection_event(collection_to_entity_id)
+                .await
         }
         LpApplicationJob::HandleOnSeenComplete(id) => {
             app_services

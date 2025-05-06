@@ -113,6 +113,7 @@ import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
+import { MultiSelectCreatable } from "~/components/common";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
@@ -310,7 +311,7 @@ export default function Layout() {
 	const closeReviewEntityModal = () => setEntityToReview(null);
 	const [addEntityToCollectionsData, setAddEntityToCollectionsData] =
 		useAddEntityToCollections();
-	const closeAddEntityToCollectionsModal = () =>
+	const closeAddEntityToCollectionsDrawer = () =>
 		setAddEntityToCollectionsData(null);
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
@@ -495,16 +496,15 @@ export default function Layout() {
 			>
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
-			<Modal
-				centered
+			<Drawer
 				withCloseButton={false}
-				onClose={closeAddEntityToCollectionsModal}
+				onClose={closeAddEntityToCollectionsDrawer}
 				opened={addEntityToCollectionsData !== null}
 			>
 				<AddEntityToCollectionsForm
-					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsModal}
+					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsDrawer}
 				/>
-			</Modal>
+			</Drawer>
 			<Drawer
 				title="Add new measurement"
 				opened={measurementsDrawerOpen}
@@ -1839,79 +1839,24 @@ const AddEntityToCollectionsForm = ({
 										/>
 									))
 									.with(CollectionExtraInformationLot.StringArray, () => (
-										<Input.Wrapper
+										<MultiSelectCreatable
 											label={template.name}
 											required={!!template.required}
 											description={template.description}
-										>
-											<Stack gap="xs" mt={4}>
-												{(
-													selectedCollection.userExtraInformationData[
-														template.name
-													] || [""]
-												).map((val: string, i: number) => (
-													<Group key={i.toString()}>
-														<TextInput
-															flex={1}
-															value={val}
-															onChange={(e) => {
-																const arr = [
-																	...(selectedCollection
-																		.userExtraInformationData[
-																		template.name
-																	] || [""]),
-																];
-																arr[i] = e.currentTarget.value;
-																handleCustomFieldChange(
-																	selectedCollection.id,
-																	template.name,
-																	arr,
-																);
-															}}
-														/>
-														<Anchor
-															ml="auto"
-															size="xs"
-															onClick={() => {
-																const arr = [
-																	...(selectedCollection
-																		.userExtraInformationData[
-																		template.name
-																	] || [""]),
-																];
-																arr.splice(i, 1);
-																handleCustomFieldChange(
-																	selectedCollection.id,
-																	template.name,
-																	arr,
-																);
-															}}
-														>
-															Remove
-														</Anchor>
-													</Group>
-												))}
-												<Anchor
-													ml={4}
-													size="xs"
-													onClick={() => {
-														const arr = [
-															...(selectedCollection.userExtraInformationData[
-																template.name
-															] || [""]),
-														];
-														arr.push("");
-														handleCustomFieldChange(
-															selectedCollection.id,
-															template.name,
-															arr,
-														);
-													}}
-												>
-													Add more
-												</Anchor>
-											</Stack>
-										</Input.Wrapper>
+											data={template.possibleValues || []}
+											value={
+												selectedCollection.userExtraInformationData[
+													template.name
+												] || []
+											}
+											setValue={(newValue) =>
+												handleCustomFieldChange(
+													selectedCollection.id,
+													template.name,
+													newValue,
+												)
+											}
+										/>
 									))
 									.exhaustive()}
 							</Fragment>

@@ -20,15 +20,15 @@ pub struct StringIdObject {
 }
 
 #[derive(
+    Eq,
     Debug,
-    SimpleObject,
+    Clone,
+    Default,
+    Schematic,
+    PartialEq,
     Serialize,
     Deserialize,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    Schematic,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[serde(rename_all = "snake_case")]
@@ -139,6 +139,7 @@ pub struct CollectionExtraInformation {
     pub required: Option<bool>,
     pub default_value: Option<String>,
     pub lot: CollectionExtraInformationLot,
+    pub possible_values: Option<Vec<String>>,
 }
 
 #[derive(Display, EnumIter)]

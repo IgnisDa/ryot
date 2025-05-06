@@ -2295,11 +2295,11 @@ async fn create_collection_and_add_entity_to_it(
 ) {
     if let Err(e) = create_or_update_collection(
         user_id,
+        ss,
         CreateOrUpdateCollectionInput {
             name: collection_name.clone(),
             ..Default::default()
         },
-        ss,
     )
     .await
     {
@@ -2678,7 +2678,7 @@ where
                 }
             }
             ImportCompletedItem::Collection(col_details) => {
-                if let Err(e) = create_or_update_collection(user_id, col_details.clone(), ss).await
+                if let Err(e) = create_or_update_collection(user_id, ss, col_details.clone()).await
                 {
                     import.failed.push(ImportFailedItem {
                         error: Some(e.message),
@@ -2914,8 +2914,8 @@ pub async fn expire_user_collections_list_cache(
 
 pub async fn create_or_update_collection(
     user_id: &String,
-    input: CreateOrUpdateCollectionInput,
     ss: &Arc<SupportingService>,
+    input: CreateOrUpdateCollectionInput,
 ) -> Result<StringIdObject> {
     ryot_log!(debug, "Creating or updating collection: {:?}", input);
     let txn = ss.db.begin().await?;
@@ -2929,27 +2929,28 @@ pub async fn create_or_update_collection(
     let created = match meta {
         Some(m) if input.update_id.is_none() => m.id,
         _ => {
-            let col = collection::ActiveModel {
-                id: match input.update_id {
-                    Some(i) => {
-                        let already = Collection::find_by_id(i.clone())
-                            .one(&txn)
-                            .await
-                            .unwrap()
-                            .unwrap();
-                        if DefaultCollection::iter()
-                            .map(|s| s.to_string())
-                            .contains(&already.name)
-                        {
-                            new_name = already.name;
-                        }
-                        ActiveValue::Unchanged(i.clone())
+            let id = match input.update_id {
+                None => ActiveValue::NotSet,
+                Some(i) => {
+                    let already = Collection::find_by_id(i.clone())
+                        .one(&txn)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if DefaultCollection::iter()
+                        .map(|s| s.to_string())
+                        .contains(&already.name)
+                    {
+                        new_name = already.name;
                     }
-                    None => ActiveValue::NotSet,
-                },
-                last_updated_on: ActiveValue::Set(Utc::now()),
+                    ActiveValue::Unchanged(i.clone())
+                }
+            };
+            let col = collection::ActiveModel {
+                id,
                 name: ActiveValue::Set(new_name),
                 user_id: ActiveValue::Set(user_id.to_owned()),
+                last_updated_on: ActiveValue::Set(Utc::now()),
                 description: ActiveValue::Set(input.description),
                 information_template: ActiveValue::Set(input.information_template),
                 ..Default::default()

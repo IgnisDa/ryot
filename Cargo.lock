@@ -194,13 +194,11 @@ name = "application-utils"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "async-trait",
  "axum",
  "chrono",
  "chrono-tz",
  "common-utils",
  "config",
- "file-storage-service",
  "jwt-service",
  "media-models",
  "openidconnect",
@@ -1273,6 +1271,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
+ "chrono",
  "common-models",
  "common-utils",
  "database-models",
@@ -1280,12 +1279,14 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
+ "itertools 0.14.0",
  "media-models",
  "migrations",
  "sea-orm",
  "sea-query",
  "supporting-service",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1310,7 +1311,6 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "chrono",
- "educe",
  "enum-models",
  "enum_meta",
  "rust_decimal",
@@ -1667,7 +1667,6 @@ checksum = "575f75dfd25738df5b91b8e43e14d44bda14637a58fae779fd2b064f8bf3e010"
 name = "database-models"
 version = "0.1.0"
 dependencies = [
- "application-utils",
  "argon2",
  "async-graphql",
  "async-trait",
@@ -1676,7 +1675,6 @@ dependencies = [
  "common-models",
  "educe",
  "enum-models",
- "file-storage-service",
  "fitness-models",
  "importer-models",
  "media-models",
@@ -1761,7 +1759,6 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "enum_meta",
- "file-storage-service",
  "fitness-models",
  "importer-models",
  "itertools 0.14.0",
@@ -2337,7 +2334,6 @@ version = "0.1.0"
 dependencies = [
  "aws-sdk-s3",
  "chrono",
- "common-models",
  "nanoid",
 ]
 
@@ -2375,7 +2371,6 @@ dependencies = [
 name = "fitness-service"
 version = "0.1.0"
 dependencies = [
- "application-utils",
  "async-graphql",
  "background-models",
  "common-models",
