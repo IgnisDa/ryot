@@ -500,21 +500,22 @@ ORDER BY RANDOM() LIMIT 10;
                 }
             }
         }
-        if updated_needed {
-            let mut col: collection::ActiveModel = collection.into();
-            col.information_template = ActiveValue::Set(Some(fields));
-            col.last_updated_on = ActiveValue::Set(Utc::now());
-            col.update(&self.0.db).await?;
-            let users = UserToEntity::find()
-                .select_only()
-                .column(user_to_entity::Column::UserId)
-                .filter(user_to_entity::Column::CollectionId.eq(&cte.collection_id))
-                .into_tuple::<String>()
-                .all(&self.0.db)
-                .await?;
-            for user in users {
-                expire_user_collections_list_cache(&user, &self.0).await?;
-            }
+        if !updated_needed {
+            return Ok(());
+        }
+        let mut col: collection::ActiveModel = collection.into();
+        col.information_template = ActiveValue::Set(Some(fields));
+        col.last_updated_on = ActiveValue::Set(Utc::now());
+        col.update(&self.0.db).await?;
+        let users = UserToEntity::find()
+            .select_only()
+            .column(user_to_entity::Column::UserId)
+            .filter(user_to_entity::Column::CollectionId.eq(&cte.collection_id))
+            .into_tuple::<String>()
+            .all(&self.0.db)
+            .await?;
+        for user in users {
+            expire_user_collections_list_cache(&user, &self.0).await?;
         }
         Ok(())
     }
