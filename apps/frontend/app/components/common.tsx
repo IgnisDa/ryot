@@ -1685,7 +1685,6 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 			onOptionSubmit={handleValueSelect}
 			withinPortal={false}
 		>
-			{JSON.stringify(props.value, null, 3)}
 			<Combobox.DropdownTarget>
 				<PillsInput
 					label={props.label}
