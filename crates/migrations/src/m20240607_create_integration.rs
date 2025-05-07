@@ -15,6 +15,7 @@ pub enum Integration {
     Provider,
     CreatedOn,
     IsDisabled,
+    ExtraSettings,
     TriggerResult,
     LastFinishedAt,
     MinimumProgress,
@@ -58,6 +59,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
                     .col(ColumnDef::new(Integration::IsDisabled).boolean())
                     .col(ColumnDef::new(Integration::Name).text())
+                    .col(
+                        ColumnDef::new(Integration::ExtraSettings)
+                            .json_binary()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("integration_to_user_foreign_key")
