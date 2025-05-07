@@ -47,7 +47,10 @@ mod models {
     }
 }
 
-pub async fn sink_progress(payload: String, db: &DatabaseConnection) -> Result<ImportResult> {
+pub async fn sink_progress(
+    payload: String,
+    db: &DatabaseConnection,
+) -> Result<Option<ImportResult>> {
     let payload: models::EmbyWebhookPayload = serde_json::from_str(&payload)?;
     let runtime = payload
         .item
@@ -82,7 +85,7 @@ pub async fn sink_progress(payload: String, db: &DatabaseConnection) -> Result<I
             }
             _ => bail!("Only movies and shows supported"),
         };
-    Ok(ImportResult {
+    Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             identifier,
@@ -97,5 +100,5 @@ pub async fn sink_progress(payload: String, db: &DatabaseConnection) -> Result<I
             ..Default::default()
         })],
         ..Default::default()
-    })
+    }))
 }

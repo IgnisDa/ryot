@@ -784,6 +784,24 @@ pub struct IntegrationTriggerResult {
 
 #[skip_serializing_none]
 #[derive(
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "IntegrationExtraSettingsInput")]
+pub struct IntegrationExtraSettings {
+    pub disable_on_continuous_errors: bool,
+}
+
+#[skip_serializing_none]
+#[derive(
     Debug,
     Serialize,
     Deserialize,
@@ -964,6 +982,7 @@ pub struct CreateOrUpdateUserIntegrationInput {
     pub maximum_progress: Option<Decimal>,
     pub provider: Option<IntegrationProvider>,
     pub sync_to_owned_collection: Option<bool>,
+    pub extra_settings: IntegrationExtraSettings,
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 

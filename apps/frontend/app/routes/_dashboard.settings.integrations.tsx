@@ -173,6 +173,9 @@ const createOrUpdateSchema = z.object({
 	isDisabled: zodCheckboxAsString.optional(),
 	syncToOwnedCollection: zodCheckboxAsString.optional(),
 	provider: z.nativeEnum(IntegrationProvider).optional(),
+	extraSettings: z.object({
+		disableOnContinuousErrors: zodCheckboxAsString,
+	}),
 	providerSpecifics: z
 		.object({
 			plexYankBaseUrl: z.string().optional(),
@@ -780,6 +783,15 @@ const CreateOrUpdateModal = (props: {
 								name="isDisabled"
 								label="Pause integration"
 								defaultChecked={props.integrationData?.isDisabled || undefined}
+							/>
+							<Checkbox
+								label="Disable on continuous errors"
+								name="extraSettings.disableOnContinuousErrors"
+								description="If the integration fails 5 times in a row, it will be disabled"
+								defaultChecked={
+									props.integrationData?.extraSettings
+										.disableOnContinuousErrors || undefined
+								}
 							/>
 						</Stack>
 					</Collapse>

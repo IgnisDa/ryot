@@ -321,6 +321,7 @@ export type CreateOrUpdateReviewInput = {
 };
 
 export type CreateOrUpdateUserIntegrationInput = {
+  extraSettings: IntegrationExtraSettingsInput;
   integrationId?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;
@@ -935,6 +936,7 @@ export enum ImportSource {
 export type Integration = {
   __typename?: 'Integration';
   createdOn: Scalars['DateTime']['output'];
+  extraSettings: IntegrationExtraSettings;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
   lastFinishedAt?: Maybe<Scalars['DateTime']['output']>;
@@ -946,6 +948,15 @@ export type Integration = {
   providerSpecifics?: Maybe<IntegrationProviderSpecifics>;
   syncToOwnedCollection?: Maybe<Scalars['Boolean']['output']>;
   triggerResult: Array<IntegrationTriggerResult>;
+};
+
+export type IntegrationExtraSettings = {
+  __typename?: 'IntegrationExtraSettings';
+  disableOnContinuousErrors: Scalars['Boolean']['output'];
+};
+
+export type IntegrationExtraSettingsInput = {
+  disableOnContinuousErrors: Scalars['Boolean']['input'];
 };
 
 export enum IntegrationLot {

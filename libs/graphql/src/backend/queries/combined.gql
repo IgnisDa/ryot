@@ -73,6 +73,9 @@ query UserIntegrations {
 		maximumProgress
 		minimumProgress
 		syncToOwnedCollection
+		extraSettings {
+			disableOnContinuousErrors
+		}
 		triggerResult {
 			error
 			finishedAt
