@@ -321,7 +321,7 @@ export type CreateOrUpdateReviewInput = {
 };
 
 export type CreateOrUpdateUserIntegrationInput = {
-  extraSettings?: InputMaybe<IntegrationExtraSettingsInput>;
+  extraSettings: IntegrationExtraSettingsInput;
   integrationId?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   maximumProgress?: InputMaybe<Scalars['Decimal']['input']>;

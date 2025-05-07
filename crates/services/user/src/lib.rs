@@ -594,6 +594,7 @@ ORDER BY RANDOM() LIMIT 10;
             name: ActiveValue::Set(input.name),
             user_id: ActiveValue::Set(user_id),
             is_disabled: ActiveValue::Set(input.is_disabled),
+            extra_settings: ActiveValue::Set(input.extra_settings),
             minimum_progress: ActiveValue::Set(input.minimum_progress),
             maximum_progress: ActiveValue::Set(input.maximum_progress),
             provider_specifics: ActiveValue::Set(input.provider_specifics),

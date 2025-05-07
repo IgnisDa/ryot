@@ -982,7 +982,7 @@ pub struct CreateOrUpdateUserIntegrationInput {
     pub maximum_progress: Option<Decimal>,
     pub provider: Option<IntegrationProvider>,
     pub sync_to_owned_collection: Option<bool>,
-    pub extra_settings: Option<IntegrationExtraSettings>,
+    pub extra_settings: IntegrationExtraSettings,
     pub provider_specifics: Option<IntegrationProviderSpecifics>,
 }
 
