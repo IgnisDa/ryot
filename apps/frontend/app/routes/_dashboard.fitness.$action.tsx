@@ -1630,10 +1630,10 @@ const ExerciseDisplay = (props: {
 					</ScrollArea>
 					{coreDetails.isServerKeyValidated ? (
 						<Carousel
-							align="start"
 							slideGap="md"
 							withControls={false}
 							style={{ userSelect: "none" }}
+							emblaOptions={{ align: "start" }}
 							onSlideChange={setActiveHistoryIdx}
 							slideSize={{ base: "100%", md: "50%" }}
 						>

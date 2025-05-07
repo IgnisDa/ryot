@@ -1073,8 +1073,8 @@ const MetadataNewProgressUpdateForm = ({
 }) => {
 	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
-		new Date(),
+	const [selectedDate, setSelectedDate] = useState<string | null | undefined>(
+		formatDateToNaiveDate(new Date()),
 	);
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
@@ -1101,9 +1101,7 @@ const MetadataNewProgressUpdateForm = ({
 					? ["metadataLot", metadataDetails.lot]
 					: undefined,
 				watchTime === WatchTimes.JustStartedIt ? ["progress", "0"] : undefined,
-				selectedDate
-					? ["date", formatDateToNaiveDate(selectedDate)]
-					: undefined,
+				selectedDate ? ["date", selectedDate] : undefined,
 			]
 				.filter((v) => typeof v !== "undefined")
 				.map(([k, v]) => (
@@ -1280,7 +1278,7 @@ const MetadataNewProgressUpdateForm = ({
 						setWatchTime(v as typeof watchTime);
 						match(v)
 							.with(WatchTimes.JustCompletedNow, () =>
-								setSelectedDate(new Date()),
+								setSelectedDate(formatDateToNaiveDate(new Date())),
 							)
 							.with(
 								WatchTimes.IDontRemember,
@@ -1297,8 +1295,8 @@ const MetadataNewProgressUpdateForm = ({
 						clearable
 						dropdownType="modal"
 						maxDate={new Date()}
-						onChange={setSelectedDate}
 						label="Enter exact date"
+						onChange={setSelectedDate}
 					/>
 				) : null}
 				{watchTime !== WatchTimes.JustStartedIt ? (
@@ -1919,7 +1917,9 @@ const CreateMeasurementForm = (props: {
 				onChange={(v) =>
 					setInput(
 						produce(input, (draft) => {
-							draft.timestamp = v?.toISOString() ?? new Date().toISOString();
+							draft.timestamp = v
+								? new Date(v).toISOString()
+								: new Date().toISOString();
 						}),
 					)
 				}
