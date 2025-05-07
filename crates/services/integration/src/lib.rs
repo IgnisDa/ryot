@@ -54,13 +54,21 @@ impl IntegrationService {
         }
         new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
         let are_all_errors = new_trigger_result.iter().take(5).all(|r| r.error.is_some());
+
+        let should_disable =
+            integration.extra_settings.disable_on_continuous_errors && are_all_errors;
+
         let mut integration: integration::ActiveModel = integration.clone().into();
         integration.last_finished_at = last_finished_at;
         integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
-        integration.is_disabled = ActiveValue::Set(Some(are_all_errors));
+
+        if should_disable {
+            integration.is_disabled = ActiveValue::Set(Some(true));
+        }
+
         let integration = integration.update(&self.0.db).await?;
 
-        if are_all_errors {
+        if should_disable {
             send_notification_for_user(
                 &integration.user_id,
                 &self.0,
