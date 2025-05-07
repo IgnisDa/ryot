@@ -1917,9 +1917,9 @@ const CreateMeasurementForm = (props: {
 				onChange={(v) =>
 					setInput(
 						produce(input, (draft) => {
-							draft.timestamp = formatDateToNaiveDate(
-								v ? new Date(v) : new Date(),
-							);
+							draft.timestamp = v
+								? new Date(v).toISOString()
+								: new Date().toISOString();
 						}),
 					)
 				}
