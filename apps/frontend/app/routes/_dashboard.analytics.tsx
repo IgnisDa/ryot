@@ -432,9 +432,9 @@ const CustomDateSelectModal = (props: {
 	const loaderData = useLoaderData<typeof loader>();
 	const { timeSpanSettings, setTimeSpanSettings, startDate, endDate } =
 		useTimeSpanSettings();
-	const [value, setValue] = useState<[Date | null, Date | null]>([
-		new Date(startDate),
-		new Date(endDate),
+	const [value, setValue] = useState<[string | null, string | null]>([
+		startDate,
+		endDate,
 	]);
 
 	return (
@@ -464,8 +464,12 @@ const CustomDateSelectModal = (props: {
 					onClick={() => {
 						setTimeSpanSettings(
 							produce(timeSpanSettings, (draft) => {
-								draft.startDate = formatDateToNaiveDate(value[0] || new Date());
-								draft.endDate = formatDateToNaiveDate(value[1] || new Date());
+								draft.startDate = formatDateToNaiveDate(
+									value[0] ? new Date(value[0]) : new Date(),
+								);
+								draft.endDate = formatDateToNaiveDate(
+									value[1] ? new Date(value[1]) : new Date(),
+								);
 								draft.range = ApplicationTimeRange.Custom;
 							}),
 						);
