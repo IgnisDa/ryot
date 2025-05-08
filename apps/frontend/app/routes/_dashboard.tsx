@@ -38,7 +38,6 @@ import {
 	Tooltip,
 	UnstyledButton,
 	rem,
-	useDirection,
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
@@ -70,7 +69,6 @@ import {
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
-	IconChevronLeft,
 	IconChevronRight,
 	IconChevronsLeft,
 	IconChevronsRight,
@@ -790,11 +788,9 @@ interface LinksGroupProps {
 }
 
 const LinksGroup = (props: LinksGroupProps) => {
-	const { dir } = useDirection();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const hasLinks = Array.isArray(props.links);
-	const ChevronIcon = dir === "ltr" ? IconChevronRight : IconChevronLeft;
 	const linkItems = (hasLinks ? props.links || [] : []).map((link) => (
 		<NavLink
 			to={link.link}
@@ -839,14 +835,12 @@ const LinksGroup = (props: LinksGroupProps) => {
 					{hasLinks ? (
 						<ClientOnly>
 							{() => (
-								<ChevronIcon
+								<IconChevronRight
 									size={16}
 									stroke={1.5}
 									className={classes.chevron}
 									style={{
-										transform: props.opened
-											? `rotate(${dir === "rtl" ? -90 : 90}deg)`
-											: "none",
+										transform: props.opened ? "rotate(90deg)" : "none",
 									}}
 								/>
 							)}
