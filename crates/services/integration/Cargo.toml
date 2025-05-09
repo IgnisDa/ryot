@@ -22,7 +22,6 @@ external-utils = { path = "../../utils/external" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }
-radarr-api-rs = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
