@@ -1,14 +1,9 @@
 use anyhow::Result;
 use common_utils::ryot_log;
 use enum_models::MediaLot;
-use sonarr_api_rs::{
-    apis::{
-        configuration::{ApiKey as SonarrApiKey, Configuration as SonarrConfiguration},
-        series_api::api_v3_series_post as sonarr_api_v3_series_post,
-    },
-    models::{AddSeriesOptions as SonarrAddSeriesOptions, SeriesResource as SonarrSeriesResource},
-};
-use traits::TraceOk;
+use reqwest::Client;
+use reqwest::header::HeaderMap;
+use serde_json::json;
 
 pub async fn push_progress(
     api_key: String,
@@ -23,26 +18,28 @@ pub async fn push_progress(
         ryot_log!(debug, "Not a show, skipping {:#?}", metadata_title);
         return Ok(());
     }
-    let mut configuration = SonarrConfiguration::new();
-    configuration.base_path = base_url.clone();
-    configuration.api_key = Some(SonarrApiKey {
-        prefix: None,
-        key: api_key.clone(),
+    let resource = json!({
+        "monitored": true,
+        "seasonFolder": true,
+        "title": metadata_title,
+        "qualityProfileId": profile_id,
+        "rootFolderPath": root_folder_path,
+        "tvdbId": tvdb_id.parse::<i32>().unwrap(),
+        "addOptions": {
+            "searchForMissingEpisodes": true
+        }
     });
-    let mut resource = SonarrSeriesResource::new();
-    resource.title = Some(Some(tvdb_id.clone()));
-    resource.tvdb_id = Some(tvdb_id.parse().unwrap());
-    resource.quality_profile_id = Some(profile_id);
-    resource.root_folder_path = Some(Some(root_folder_path.clone()));
-    resource.monitored = Some(true);
-    resource.season_folder = Some(true);
-    resource.title = Some(Some(metadata_title.clone()));
-    let mut options = SonarrAddSeriesOptions::new();
-    options.search_for_missing_episodes = Some(true);
-    resource.add_options = Some(Box::new(options));
     ryot_log!(debug, "Pushing series to Sonarr {:?}", resource);
-    sonarr_api_v3_series_post(&configuration, Some(resource))
-        .await
-        .trace_ok();
+    let client = Client::new();
+    let mut headers = HeaderMap::new();
+    headers.insert("X-Api-Key", api_key.parse().unwrap());
+    let url = format!("{}/api/v3/series", base_url.trim_end_matches('/'));
+    client
+        .post(url)
+        .headers(headers)
+        .json(&resource)
+        .send()
+        .await?
+        .error_for_status()?;
     Ok(())
 }
