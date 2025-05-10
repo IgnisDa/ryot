@@ -200,8 +200,8 @@ impl FitnessService {
         let reviews =
             item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, &self.0).await?;
         let mut resp = UserExerciseDetails {
-            reviews,
             collections,
+            reviews,
             ..Default::default()
         };
         if let Some(association) = UserToEntity::find()

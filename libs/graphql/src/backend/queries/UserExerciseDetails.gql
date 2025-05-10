@@ -8,7 +8,6 @@ query UserExerciseDetails($exerciseId: String!) {
 		}
 		history {
 			idx
-			numSets
 			workoutId
 			workoutEndOn
 			bestSet {
