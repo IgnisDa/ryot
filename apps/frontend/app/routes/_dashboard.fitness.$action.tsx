@@ -2069,7 +2069,11 @@ const SetDisplay = (props: {
 
 	const { data: previousSetData } = useQuery({
 		enabled: !!userExerciseDetails,
-		queryKey: ["previousSetData", exercise.identifier, set.identifier],
+		queryKey: [
+			"previousSetData",
+			`exercise-${props.exerciseIdx}`,
+			`set-${props.setIdx}`,
+		],
 		queryFn: async () => {
 			const globalSetIndex = getGlobalSetIndex(
 				props.setIdx,
