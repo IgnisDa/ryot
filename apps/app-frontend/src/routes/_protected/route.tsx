@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_protected")({
 				search: { redirect: location.href },
 			});
 
-		return { user: session.data.user };
+		return { user: session.data };
 	},
 });
 
