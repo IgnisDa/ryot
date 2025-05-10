@@ -20,7 +20,13 @@ export function useCreateEntityForm(props: UseCreateEntityFormProps) {
 			onChange: buildCreateEntityFormSchema(props.propertiesSchema) as never,
 		},
 		onSubmit: async ({ value }) => {
-			await props.onSubmit(toCreateEntityPayload(value, props.entitySchemaId));
+			await props.onSubmit(
+				toCreateEntityPayload(
+					value,
+					props.entitySchemaId,
+					props.propertiesSchema,
+				),
+			);
 		},
 	});
 }
