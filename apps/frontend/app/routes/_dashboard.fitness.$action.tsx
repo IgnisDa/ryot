@@ -2070,8 +2070,6 @@ const SetDisplay = (props: {
 
 	useDidUpdate(() => {
 		const fn = async () => {
-			if (!userExerciseDetails?.history) return undefined;
-
 			const globalSetIndex = getGlobalSetIndex(
 				props.setIdx,
 				props.exerciseIdx,
@@ -2080,11 +2078,11 @@ const SetDisplay = (props: {
 
 			const allPreviousSets: WorkoutSetStatistic[] = [];
 
-			for (const history of userExerciseDetails.history) {
+			for (const history of userExerciseDetails?.history || []) {
+				if (allPreviousSets.length > globalSetIndex) break;
 				const workout = await getWorkoutDetails(history.workoutId);
 				const exercise = workout.details.information.exercises[history.idx];
 				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
-				if (globalSetIndex >= allPreviousSets.length) break;
 			}
 
 			setPreviousSetData(allPreviousSets[globalSetIndex]);
