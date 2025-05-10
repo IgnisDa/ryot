@@ -2003,8 +2003,7 @@ const getGlobalSetIndex = (
 	exerciseIdx: number,
 	currentWorkout: InProgressWorkout,
 ): number => {
-	const targetExercise = currentWorkout.exercises[exerciseIdx];
-	const { exerciseId } = targetExercise;
+	const exerciseId = currentWorkout.exercises[exerciseIdx].exerciseId;
 	let globalIndex = 0;
 	for (let i = 0; i < currentWorkout.exercises.length; i++) {
 		if (i === exerciseIdx) break;
