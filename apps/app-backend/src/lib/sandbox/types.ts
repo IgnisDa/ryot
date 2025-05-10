@@ -3,6 +3,7 @@ import {
 	nonEmptyStringSchema,
 	stringUnknownRecordSchema,
 } from "~/lib/zod/base";
+import type { sandboxRunJobData, sandboxRunJobResult } from "./jobs";
 
 export type HostFunction<TContext extends Record<string, unknown>> = (
 	context: TContext,
@@ -20,21 +21,17 @@ export const apiFunctionDescriptorSchema = z.object({
 
 export type ApiFunctionDescriptor = z.infer<typeof apiFunctionDescriptorSchema>;
 
-export interface SandboxEnqueueOptions {
-	code: string;
-	userId: string;
-	scriptId?: string;
-	driverName?: string;
-	context?: Record<string, unknown>;
-	apiFunctionDescriptors?: Array<ApiFunctionDescriptor>;
-}
+export type SandboxEnqueueOptions = Pick<
+	z.infer<typeof sandboxRunJobData>,
+	| "code"
+	| "userId"
+	| "context"
+	| "scriptId"
+	| "driverName"
+	| "apiFunctionDescriptors"
+>;
 
-export interface SandboxResult {
-	logs?: string;
-	error?: string;
-	value?: unknown;
-	success: boolean;
-}
+export type SandboxResult = z.infer<typeof sandboxRunJobResult>;
 
 export type ApiSuccess<T> = { data: T; success: true };
 
