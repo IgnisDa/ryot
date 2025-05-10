@@ -14,6 +14,9 @@ export const listedSavedViewSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	isBuiltin: z.boolean(),
+	facetId: z.string().nullable(),
+	icon: nonEmptyTrimmedStringSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
 	queryDefinition: savedViewQueryDefinitionSchema,
 });
 
@@ -26,7 +29,10 @@ export const listSavedViewsQuery = z.object({
 });
 
 export const createSavedViewBody = z.object({
+	icon: nonEmptyTrimmedStringSchema,
 	name: nonEmptyTrimmedStringSchema,
+	accentColor: nonEmptyTrimmedStringSchema,
+	facetId: nonEmptyTrimmedStringSchema.optional(),
 	queryDefinition: savedViewQueryDefinitionSchema,
 });
 
