@@ -255,6 +255,22 @@ where
         .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
         .map(|f| f.collection_id.clone())
         .collect_vec();
+    
+    if is_in.is_empty() && !is_not_in.is_empty() {
+        let items_in_collections = CollectionToEntity::find()
+            .select_only()
+            .column(entity_column)
+            .filter(entity_column.is_not_null())
+            .filter(
+                Expr::col((
+                    AliasedCollectionToEntity::Table,
+                    collection_to_entity::Column::CollectionId,
+                ))
+                .is_in(is_not_in),
+            );
+        
+        return query.filter(id_column.not_in_subquery(items_in_collections.into_query()));
+    }
     let subquery = CollectionToEntity::find()
         .select_only()
         .column(entity_column)
@@ -265,14 +281,19 @@ where
                 collection_to_entity::Column::CollectionId,
             ))
             .is_in(is_in),
-        )
-        .filter(
+        );
+        
+    let subquery = match is_not_in.is_empty() {
+        true => subquery,
+        false => subquery.filter(
             Expr::col((
                 AliasedCollectionToEntity::Table,
                 collection_to_entity::Column::CollectionId,
             ))
             .is_not_in(is_not_in),
-        );
+        ),
+    };
+    
     query.filter(id_column.in_subquery(subquery.into_query()))
 }
 
