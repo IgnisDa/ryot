@@ -2047,6 +2047,8 @@ const SetDisplay = (props: {
 	);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
+	const [previousSetData, setPreviousSetData] =
+		useState<WorkoutSetStatistic | null>(null);
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -2066,31 +2068,35 @@ const SetDisplay = (props: {
 			);
 	}, [value]);
 
-	const previousSetData = useMemo(() => {
-		if (!userExerciseDetails?.history) return undefined;
+	useDidUpdate(() => {
+		const fn = async () => {
+			if (!userExerciseDetails?.history) return undefined;
 
-		const globalSetIndex = getGlobalSetIndex(
-			props.setIdx,
-			props.exerciseIdx,
-			currentWorkout,
-		);
+			const globalSetIndex = getGlobalSetIndex(
+				props.setIdx,
+				props.exerciseIdx,
+				currentWorkout,
+			);
 
-		const totalCurrentSetsForExerciseId = currentWorkout.exercises
-			.filter((ex) => ex.exerciseId === exercise.exerciseId)
-			.reduce((sum, ex) => sum + ex.sets.length, 0);
+			const totalCurrentSetsForExerciseId = currentWorkout.exercises
+				.filter((ex) => ex.exerciseId === exercise.exerciseId)
+				.reduce((sum, ex) => sum + ex.sets.length, 0);
 
-		const historicalSets = userExerciseDetails.history || [];
+			const historicalSets = userExerciseDetails.history || [];
 
-		const relevantRecentHistoryNewestFirst = historicalSets.slice(
-			0,
-			totalCurrentSetsForExerciseId,
-		);
+			const relevantRecentHistoryNewestFirst = historicalSets.slice(
+				0,
+				totalCurrentSetsForExerciseId,
+			);
 
-		const orderedRelevantHistoryOldestFirst = [
-			...relevantRecentHistoryNewestFirst,
-		].reverse();
+			const orderedRelevantHistoryOldestFirst = [
+				...relevantRecentHistoryNewestFirst,
+			].reverse();
 
-		return orderedRelevantHistoryOldestFirst[globalSetIndex];
+			return orderedRelevantHistoryOldestFirst[globalSetIndex];
+		};
+
+		fn();
 	}, [
 		exercise,
 		props.setIdx,
