@@ -622,6 +622,7 @@ export const CollectionsFilter = (props: {
 							<Select
 								size="xs"
 								searchable
+								allowDeselect={false}
 								value={f.collectionId}
 								placeholder="Select a collection"
 								data={collections.map((c) => ({
