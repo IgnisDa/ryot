@@ -2063,6 +2063,12 @@ const SetDisplay = (props: {
 
 	if (!currentWorkout || !exercise || !set) return null;
 
+	const globalSetIndex = getGlobalSetIndex(
+		props.setIdx,
+		props.exerciseIdx,
+		currentWorkout,
+	);
+
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
