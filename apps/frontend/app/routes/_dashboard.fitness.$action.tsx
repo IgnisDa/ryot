@@ -2042,6 +2042,9 @@ const SetDisplay = (props: {
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set?.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(exercise.exerciseId),
+	);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
@@ -2063,11 +2066,38 @@ const SetDisplay = (props: {
 
 	if (!currentWorkout || !exercise || !set) return null;
 
-	const globalSetIndex = getGlobalSetIndex(
+	const previousSetData = useMemo(() => {
+		if (!userExerciseDetails?.history) return undefined;
+
+		const globalSetIndex = getGlobalSetIndex(
+			props.setIdx,
+			props.exerciseIdx,
+			currentWorkout,
+		);
+
+		const totalCurrentSetsForExerciseId = currentWorkout.exercises
+			.filter((ex) => ex.exerciseId === exercise.exerciseId)
+			.reduce((sum, ex) => sum + ex.sets.length, 0);
+
+		const historicalSets = userExerciseDetails.history || [];
+
+		const relevantRecentHistoryNewestFirst = historicalSets.slice(
+			0,
+			totalCurrentSetsForExerciseId,
+		);
+
+		const orderedRelevantHistoryOldestFirst = [
+			...relevantRecentHistoryNewestFirst,
+		].reverse();
+
+		return orderedRelevantHistoryOldestFirst[globalSetIndex];
+	}, [
+		exercise,
 		props.setIdx,
-		props.exerciseIdx,
 		currentWorkout,
-	);
+		props.exerciseIdx,
+		userExerciseDetails,
+	]);
 
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
