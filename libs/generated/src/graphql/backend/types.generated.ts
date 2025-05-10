@@ -2806,6 +2806,7 @@ export type UserToExerciseHistoryExtraInformation = {
   __typename?: 'UserToExerciseHistoryExtraInformation';
   bestSet?: Maybe<WorkoutSetRecord>;
   idx: Scalars['Int']['output'];
+  numSets: Scalars['Int']['output'];
   workoutEndOn: Scalars['DateTime']['output'];
   workoutId: Scalars['String']['output'];
 };
