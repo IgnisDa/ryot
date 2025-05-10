@@ -1,4 +1,4 @@
-import { tmpdir } from "os";
+import { tmpdir } from "node:os";
 import sandboxRunnerSource from "./scripts/runner-source.txt";
 
 export class RunnerFileManager {
