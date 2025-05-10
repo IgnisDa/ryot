@@ -1607,6 +1607,7 @@ const ExerciseDisplay = (props: {
 					<Select
 						size="sm"
 						label="Unit system"
+						allowDeselect={false}
 						value={selectedUnitSystem}
 						data={Object.values(UserUnitSystem).map((c) => ({
 							value: c,
