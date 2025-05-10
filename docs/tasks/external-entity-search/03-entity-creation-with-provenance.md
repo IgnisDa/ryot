@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -23,20 +23,20 @@ tests.
 
 ## Acceptance criteria
 
-- [ ] `POST /entities` with `externalId` + `detailsSandboxScriptId` creates the entity with
+- [x] `POST /entities` with `externalId` + `detailsSandboxScriptId` creates the entity with
       both provenance fields persisted.
-- [ ] A second `POST /entities` call with the same `externalId`, `detailsSandboxScriptId`,
+- [x] A second `POST /entities` call with the same `externalId`, `detailsSandboxScriptId`,
       and `entitySchemaId` for the same user returns the existing entity (`200`) without
       inserting a new row.
-- [ ] Providing only `externalId` (without `detailsSandboxScriptId`) returns a `400`
+- [x] Providing only `externalId` (without `detailsSandboxScriptId`) returns a `400`
       validation error, and vice-versa.
-- [ ] Omitting both fields preserves the existing behaviour (entity created without
+- [x] Omitting both fields preserves the existing behaviour (entity created without
       provenance).
-- [ ] `EntityServiceDeps` includes a `findEntityByExternalIdForUser` slot so the upsert
+- [x] `EntityServiceDeps` includes a `findEntityByExternalIdForUser` slot so the upsert
       logic is fully unit-testable without a live database.
-- [ ] Unit tests cover: upsert returns existing entity, upsert creates new entity, partial
+- [x] Unit tests cover: upsert returns existing entity, upsert creates new entity, partial
       provenance fields rejected, no provenance fields unchanged behaviour.
-- [ ] `bun run typecheck` and `bun test` pass in `apps/app-backend`.
+- [x] `bun run typecheck` and `bun test` pass in `apps/app-backend`.
 
 ## Blocked by
 

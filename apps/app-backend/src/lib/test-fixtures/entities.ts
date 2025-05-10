@@ -40,25 +40,28 @@ export const createListedEntity = (
 export const createEntityDeps = (
 	overrides: Partial<EntityServiceDeps> = {},
 ): EntityServiceDeps => ({
-	createEntityForUser: async (input) =>
-		createListedEntity({
-			name: input.name,
-			image: input.image,
-			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
-		}),
+	findEntityByExternalIdForUser: async () => undefined,
 	getEntityByIdForUser: async (input) =>
 		createListedEntity({ id: input.entityId }),
+	getEntityScopeForUser: async (input) => ({
+		isBuiltin: false,
+		entityId: input.entityId,
+		entitySchemaId: "schema_1",
+	}),
 	getEntitySchemaScopeForUser: async (input) => ({
 		isBuiltin: false,
 		userId: input.userId,
 		id: input.entitySchemaId,
 		propertiesSchema: createRequiredTitlePropertiesSchema(),
 	}),
-	getEntityScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entitySchemaId: "schema_1",
-	}),
+	createEntityForUser: async (input) =>
+		createListedEntity({
+			name: input.name,
+			image: input.image,
+			properties: input.properties,
+			entitySchemaId: input.entitySchemaId,
+			externalId: input.externalId ?? null,
+			detailsSandboxScriptId: input.detailsSandboxScriptId ?? null,
+		}),
 	...overrides,
 });
