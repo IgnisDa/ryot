@@ -1,3 +1,11 @@
-export type { BuiltInMediaOverviewResponse } from "./schemas";
+export type {
+	BuiltInMediaOverviewContinueResponse,
+	BuiltInMediaOverviewRateTheseResponse,
+	BuiltInMediaOverviewUpNextResponse,
+} from "./schemas";
 
-export { getBuiltInMediaOverview } from "./service";
+export {
+	getContinueItems,
+	getRateTheseItems,
+	getUpNextItems,
+} from "./service";
