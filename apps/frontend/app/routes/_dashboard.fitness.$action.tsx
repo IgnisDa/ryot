@@ -2326,11 +2326,12 @@ const SetDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box
-						w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
 						ta="center"
+						w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
 					>
-						{exercise.alreadyDoneSets[props.setIdx] ? (
+						{previousSetData ? (
 							<Box
+								style={{ cursor: "pointer" }}
 								onClick={() => {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
@@ -2339,20 +2340,17 @@ const SetDisplay = (props: {
 												: props.setIdx;
 											const setToTarget =
 												draft.exercises[props.exerciseIdx].sets[idxToTarget];
-											if (setToTarget)
-												setToTarget.statistic =
-													exercise.alreadyDoneSets[props.setIdx].statistic;
+											if (setToTarget) setToTarget.statistic = previousSetData;
 										}),
 									);
 								}}
-								style={{ cursor: "pointer" }}
 							>
 								<DisplaySetStatistics
 									hideExtras
 									centerText
 									lot={exercise.lot}
+									statistic={previousSetData}
 									unitSystem={exercise.unitSystem}
-									statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
 								/>
 							</Box>
 						) : (
