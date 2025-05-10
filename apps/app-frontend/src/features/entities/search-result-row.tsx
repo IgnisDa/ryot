@@ -262,7 +262,7 @@ export function SearchResultRow(props: {
 	lifecycleErrorMessage: string | null;
 	actionState: SearchResultRowActionState;
 	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
-	addStatus: "idle" | "loading" | "done" | "error";
+	addStatus: "idle" | "loading" | "done" | "error" | "partial_error";
 	onSaveCollection: () => void;
 	canUseCollectionAction: boolean;
 	collectionState: CollectionDiscoveryState;
