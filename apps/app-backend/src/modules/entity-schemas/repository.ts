@@ -2,6 +2,8 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { type DbClient, db } from "~/lib/db";
 import {
 	entitySchema,
+	entitySchemaSandboxScript,
+	sandboxScript,
 	savedView,
 	tracker,
 	trackerEntitySchema,
@@ -11,7 +13,7 @@ import {
 	defaultDisplayConfiguration,
 } from "../saved-views/constants";
 import { buildBuiltinSavedViewName } from "../saved-views/service";
-import type { ListedEntitySchema } from "./schemas";
+import type { ListedEntitySchema, SearchProvider } from "./schemas";
 import type { EntitySchemaPropertiesShape } from "./service";
 
 type EntitySchemaRow = Omit<ListedEntitySchema, "propertiesSchema"> & {
@@ -65,41 +67,111 @@ export const listEntitySchemasForUser = async (input: {
 	}
 
 	const rows = await db
-		.select(listedEntitySchemaSelection)
+		.select({
+			...listedEntitySchemaSelection,
+			searchScriptName: sandboxScript.name,
+			searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
+			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+		})
 		.from(trackerEntitySchema)
 		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
 		.innerJoin(
 			entitySchema,
 			eq(entitySchema.id, trackerEntitySchema.entitySchemaId),
 		)
+		.leftJoin(
+			entitySchemaSandboxScript,
+			eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
+		)
+		.leftJoin(
+			sandboxScript,
+			eq(sandboxScript.id, entitySchemaSandboxScript.searchSandboxScriptId),
+		)
 		.where(and(...whereClauses))
 		.orderBy(asc(entitySchema.name), asc(entitySchema.createdAt));
 
-	return rows.map(toListedEntitySchema);
+	const schemaMap = new Map<
+		string,
+		{ entry: EntitySchemaRow; seen: Set<string> }
+	>();
+	for (const row of rows) {
+		const schemaKey = `${row.id}::${row.trackerId}`;
+		let record = schemaMap.get(schemaKey);
+		if (!record) {
+			record = { entry: { ...row, searchProviders: [] }, seen: new Set() };
+			schemaMap.set(schemaKey, record);
+		}
+		if (row.searchScriptId && row.detailsScriptId && row.searchScriptName) {
+			const providerKey = `${row.searchScriptId}::${row.detailsScriptId}`;
+			if (!record.seen.has(providerKey)) {
+				record.seen.add(providerKey);
+				record.entry.searchProviders.push({
+					name: row.searchScriptName,
+					searchScriptId: row.searchScriptId,
+					detailsScriptId: row.detailsScriptId,
+				});
+			}
+		}
+	}
+	return Array.from(schemaMap.values()).map(({ entry }) =>
+		toListedEntitySchema(entry),
+	);
 };
 
 export const getEntitySchemaByIdForUser = async (input: {
-	entitySchemaId: string;
 	userId: string;
+	entitySchemaId: string;
 }) => {
-	const [row] = await db
-		.select(listedEntitySchemaSelection)
+	const rows = await db
+		.select({
+			...listedEntitySchemaSelection,
+			searchScriptName: sandboxScript.name,
+			searchScriptId: entitySchemaSandboxScript.searchSandboxScriptId,
+			detailsScriptId: entitySchemaSandboxScript.detailsSandboxScriptId,
+		})
 		.from(entitySchema)
 		.innerJoin(
 			trackerEntitySchema,
 			eq(trackerEntitySchema.entitySchemaId, entitySchema.id),
 		)
 		.innerJoin(tracker, eq(tracker.id, trackerEntitySchema.trackerId))
+		.leftJoin(
+			entitySchemaSandboxScript,
+			eq(entitySchemaSandboxScript.entitySchemaId, entitySchema.id),
+		)
+		.leftJoin(
+			sandboxScript,
+			eq(sandboxScript.id, entitySchemaSandboxScript.searchSandboxScriptId),
+		)
 		.where(
 			and(
 				eq(entitySchema.id, input.entitySchemaId),
 				eq(tracker.userId, input.userId),
 			),
 		)
-		.orderBy(asc(trackerEntitySchema.createdAt))
-		.limit(1);
+		.orderBy(asc(trackerEntitySchema.createdAt));
 
-	return row ? toListedEntitySchema(row) : undefined;
+	const baseRow = rows[0];
+	if (!baseRow) {
+		return undefined;
+	}
+
+	const seenProviders = new Set<string>();
+	const searchProviders: SearchProvider[] = [];
+	for (const row of rows) {
+		if (row.searchScriptId && row.detailsScriptId && row.searchScriptName) {
+			const providerKey = `${row.searchScriptId}::${row.detailsScriptId}`;
+			if (!seenProviders.has(providerKey)) {
+				seenProviders.add(providerKey);
+				searchProviders.push({
+					name: row.searchScriptName,
+					searchScriptId: row.searchScriptId,
+					detailsScriptId: row.detailsScriptId,
+				});
+			}
+		}
+	}
+	return toListedEntitySchema({ ...baseRow, searchProviders });
 };
 
 export const getEntitySchemaBySlugForUser = async (input: {
@@ -217,6 +289,7 @@ export const createEntitySchemaForUser = async (input: {
 
 		return toListedEntitySchema({
 			...createdEntitySchema,
+			searchProviders: [],
 			trackerId: createdTrackerEntitySchema.trackerId,
 		});
 	});
