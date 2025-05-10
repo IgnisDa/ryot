@@ -2034,13 +2034,15 @@ const SetDisplay = (props: {
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	invariant(currentWorkout);
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	invariant(set);
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
-	const [value, setValue] = useDebouncedState(set?.note || "", 500);
+	const [value, setValue] = useDebouncedState(set.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const { data: userExerciseDetails } = useQuery(
 		getUserExerciseDetailsQuery(exercise.exerciseId),
@@ -2056,8 +2058,6 @@ const SetDisplay = (props: {
 	};
 
 	const closeRpeModal = () => setIsRpeModalOpen(false);
-
-	if (!currentWorkout || !exercise || !set) return null;
 
 	useDidUpdate(() => {
 		if (isString(value))
