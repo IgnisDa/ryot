@@ -86,6 +86,7 @@ impl FitnessService {
                 lot: db_ex.lot,
                 notes: exercise.notes,
                 id: exercise.exercise_id,
+                unit_system: exercise.unit_system,
                 sets: exercise
                     .sets
                     .into_iter()

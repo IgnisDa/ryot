@@ -1519,6 +1519,7 @@ const ExerciseDisplay = (props: {
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	invariant(currentWorkout);
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
@@ -1561,8 +1562,6 @@ const ExerciseDisplay = (props: {
 		.exhaustive();
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
-
-	if (!currentWorkout) return null;
 
 	const exerciseProgress = getProgressOfExercise(
 		currentWorkout,
@@ -1607,6 +1606,7 @@ const ExerciseDisplay = (props: {
 					<Select
 						size="sm"
 						label="Unit system"
+						allowDeselect={false}
 						value={selectedUnitSystem}
 						data={Object.values(UserUnitSystem).map((c) => ({
 							value: c,
@@ -1998,6 +1998,23 @@ const DisplayExerciseSetRestTimer = (props: {
 	);
 };
 
+const getGlobalSetIndex = (
+	setIdx: number,
+	exerciseIdx: number,
+	currentWorkout: InProgressWorkout,
+) => {
+	const exerciseId = currentWorkout.exercises[exerciseIdx].exerciseId;
+	let globalIndex = 0;
+	for (let i = 0; i < currentWorkout.exercises.length; i++) {
+		if (i === exerciseIdx) break;
+		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
+			globalIndex += currentWorkout.exercises[i].sets.length;
+		}
+	}
+	globalIndex += setIdx;
+	return globalIndex;
+};
+
 const SetDisplay = (props: {
 	setIdx: number;
 	repsCol: boolean;
@@ -2017,14 +2034,19 @@ const SetDisplay = (props: {
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	invariant(currentWorkout);
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	invariant(set);
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
-	const [value, setValue] = useDebouncedState(set?.note || "", 500);
+	const [value, setValue] = useDebouncedState(set.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const { data: userExerciseDetails } = useQuery(
+		getUserExerciseDetailsQuery(exercise.exerciseId),
+	);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
@@ -2036,7 +2058,7 @@ const SetDisplay = (props: {
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
 	useDidUpdate(() => {
-		if (currentWorkout && isString(value))
+		if (isString(value))
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					draft.exercises[props.exerciseIdx].sets[props.setIdx].note = value;
@@ -2044,7 +2066,32 @@ const SetDisplay = (props: {
 			);
 	}, [value]);
 
-	if (!currentWorkout || !exercise || !set) return null;
+	const { data: previousSetData } = useQuery({
+		enabled: !!userExerciseDetails,
+		queryKey: [
+			"previousSetData",
+			`exercise-${props.exerciseIdx}`,
+			`set-${props.setIdx}`,
+		],
+		queryFn: async () => {
+			const globalSetIndex = getGlobalSetIndex(
+				props.setIdx,
+				props.exerciseIdx,
+				currentWorkout,
+			);
+
+			const allPreviousSets: WorkoutSetStatistic[] = [];
+
+			for (const history of userExerciseDetails?.history || []) {
+				if (allPreviousSets.length > globalSetIndex) break;
+				const workout = await getWorkoutDetails(history.workoutId);
+				const exercise = workout.details.information.exercises[history.idx];
+				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
+			}
+
+			return allPreviousSets[globalSetIndex];
+		},
+	});
 
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
@@ -2273,11 +2320,12 @@ const SetDisplay = (props: {
 						</Menu.Dropdown>
 					</Menu>
 					<Box
-						w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
 						ta="center"
+						w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
 					>
-						{exercise.alreadyDoneSets[props.setIdx] ? (
+						{previousSetData ? (
 							<Box
+								style={{ cursor: "pointer" }}
 								onClick={() => {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
@@ -2286,20 +2334,17 @@ const SetDisplay = (props: {
 												: props.setIdx;
 											const setToTarget =
 												draft.exercises[props.exerciseIdx].sets[idxToTarget];
-											if (setToTarget)
-												setToTarget.statistic =
-													exercise.alreadyDoneSets[props.setIdx].statistic;
+											if (setToTarget) setToTarget.statistic = previousSetData;
 										}),
 									);
 								}}
-								style={{ cursor: "pointer" }}
 							>
 								<DisplaySetStatistics
 									hideExtras
 									centerText
 									lot={exercise.lot}
+									statistic={previousSetData}
 									unitSystem={exercise.unitSystem}
-									statistic={exercise.alreadyDoneSets[props.setIdx].statistic}
 								/>
 							</Box>
 						) : (

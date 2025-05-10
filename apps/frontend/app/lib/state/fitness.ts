@@ -48,8 +48,6 @@ export type ExerciseSet = {
 	restTimer?: { duration: number; hasElapsed?: boolean } | null;
 };
 
-type AlreadyDoneExerciseSet = Pick<ExerciseSet, "statistic">;
-
 type S3Key = string;
 
 export type Exercise = {
@@ -63,7 +61,6 @@ export type Exercise = {
 	sets: Array<ExerciseSet>;
 	scrollMarginRemoved?: true;
 	unitSystem: UserUnitSystem;
-	alreadyDoneSets: Array<AlreadyDoneExerciseSet>;
 };
 
 export type Superset = Omit<WorkoutSupersetsInformation, "exercises"> & {
@@ -333,7 +330,6 @@ export const duplicateOldWorkout = async (
 			exerciseId: ex.id,
 			identifier: randomUUID(),
 			unitSystem: ex.unitSystem,
-			alreadyDoneSets: sets.map((s) => ({ statistic: s.statistic })),
 		});
 	}
 	const supersets = workoutInformation.supersets.map((sup) => ({
@@ -380,7 +376,6 @@ export const addExerciseToCurrentWorkout = async (
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
-		const exerciseDetails = await getExerciseDetails(ex.name);
 		const setLot = SetLot.Normal;
 		const restTimer = await getRestTimerForSet(
 			setLot,
@@ -396,14 +391,13 @@ export const addExerciseToCurrentWorkout = async (
 				restTimer: restTimer ? { duration: restTimer } : undefined,
 			},
 		];
-		let alreadyDoneSets: AlreadyDoneExerciseSet[] = [];
+		const exerciseDetails = await getExerciseDetails(ex.name);
 		const history = (exerciseDetails.userDetails.history || []).at(0);
 		if (history) {
 			const workout = await getWorkoutDetails(history.workoutId);
 			sets = workout.details.information.exercises[history.idx].sets.map((v) =>
 				convertHistorySetToCurrentSet(v),
 			);
-			alreadyDoneSets = sets.map((s) => ({ statistic: s.statistic }));
 		}
 		draft.exercises.push({
 			sets,
@@ -411,7 +405,6 @@ export const addExerciseToCurrentWorkout = async (
 			images: [],
 			videos: [],
 			lot: ex.lot,
-			alreadyDoneSets,
 			exerciseId: ex.name,
 			identifier: randomUUID(),
 			unitSystem: userFitnessPreferences.exercises.unitSystem,
