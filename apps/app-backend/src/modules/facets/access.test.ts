@@ -11,8 +11,8 @@ describe("resolveCustomFacetAccess", () => {
 	it("rejects built-in facets", () => {
 		const result = resolveCustomFacetAccess({
 			id: "facet_1",
-			userId: null,
 			isBuiltin: true,
+			userId: "user_1",
 		});
 
 		expect(result).toEqual({ error: "builtin" });
