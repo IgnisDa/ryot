@@ -2078,22 +2078,16 @@ const SetDisplay = (props: {
 				currentWorkout,
 			);
 
-			const totalCurrentSetsForExerciseId = currentWorkout.exercises
-				.filter((ex) => ex.exerciseId === exercise.exerciseId)
-				.reduce((sum, ex) => sum + ex.sets.length, 0);
+			const allPreviousSets: WorkoutSetStatistic[] = [];
 
-			const historicalSets = userExerciseDetails.history || [];
+			for (const history of userExerciseDetails.history) {
+				const workout = await getWorkoutDetails(history.workoutId);
+				const exercise = workout.details.information.exercises[history.idx];
+				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
+				if (globalSetIndex >= allPreviousSets.length) break;
+			}
 
-			const relevantRecentHistoryNewestFirst = historicalSets.slice(
-				0,
-				totalCurrentSetsForExerciseId,
-			);
-
-			const orderedRelevantHistoryOldestFirst = [
-				...relevantRecentHistoryNewestFirst,
-			].reverse();
-
-			return orderedRelevantHistoryOldestFirst[globalSetIndex];
+			setPreviousSetData(allPreviousSets[globalSetIndex]);
 		};
 
 		fn();
