@@ -11,6 +11,7 @@
 
 - **Pattern matching**: Prefer `match` from `ts-pattern` over `switch` statements for type-safe pattern matching.
 - **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns and replicate them.
+- **Dates**: Prefer `@ryot/ts-utils/dayjs` for date parsing, formatting, comparison, and arithmetic. Avoid manual `Date` handling unless required by an external API.
 - **Comments**: Avoid unless strictly necessary. Prefer self-documenting code.
 - **File size**: Keep files below 500 lines. Split if exceeded.
 - **React props**: Use a single `props` parameter, not destructured arguments.

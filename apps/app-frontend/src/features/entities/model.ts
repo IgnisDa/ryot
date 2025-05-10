@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type {
 	ApiGetResponseData,
 	ApiPostRequestBody,
@@ -105,13 +106,13 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 	return {
 		id,
 		name,
-		createdAt: new Date(createdAt),
-		updatedAt: new Date(updatedAt),
-		entitySchemaId,
 		fields,
 		properties,
 		externalId,
+		entitySchemaId,
 		sandboxScriptId,
+		createdAt: dayjs(createdAt).toDate(),
+		updatedAt: dayjs(updatedAt).toDate(),
 		image: toAppEntityImage(entityImage),
 		entitySchemaSlug: isQueryEngineEntity(entity)
 			? entity.entitySchemaSlug
@@ -124,7 +125,7 @@ export function sortEntities(entities: AppEntity[]) {
 		if (a.name !== b.name) {
 			return a.name.localeCompare(b.name);
 		}
-		return a.createdAt.getTime() - b.createdAt.getTime();
+		return dayjs(a.createdAt).valueOf() - dayjs(b.createdAt).valueOf();
 	});
 }
 

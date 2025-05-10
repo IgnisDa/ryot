@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import {
 	keepPreviousData,
 	useQueries,
@@ -111,7 +112,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 
 	const pollSandboxResultQuery = useCallback(
 		async (jobId: string, signal: AbortSignal) => {
-			const startedAt = Date.now();
+			const startedAt = dayjs();
 
 			while (true) {
 				throwIfAborted(signal);
@@ -125,7 +126,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				throwIfAborted(signal);
 				const data = result.data;
 				if (data?.status === "pending") {
-					if (Date.now() - startedAt >= SANDBOX_TIMEOUT_MS) {
+					if (dayjs().diff(startedAt) >= SANDBOX_TIMEOUT_MS) {
 						throw new Error("Timed out waiting for sandbox result");
 					}
 					await sleep(POLL_MS, signal);
