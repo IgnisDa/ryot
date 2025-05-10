@@ -382,7 +382,7 @@ export const addExerciseToCurrentWorkout = async (
 			ex.name,
 			userFitnessPreferences.exercises.setRestTimers,
 		);
-		const sets: ExerciseSet[] = [
+		let sets: ExerciseSet[] = [
 			{
 				lot: setLot,
 				statistic: {},
@@ -391,6 +391,14 @@ export const addExerciseToCurrentWorkout = async (
 				restTimer: restTimer ? { duration: restTimer } : undefined,
 			},
 		];
+		const exerciseDetails = await getExerciseDetails(ex.name);
+		const history = (exerciseDetails.userDetails.history || []).at(0);
+		if (history) {
+			const workout = await getWorkoutDetails(history.workoutId);
+			sets = workout.details.information.exercises[history.idx].sets.map((v) =>
+				convertHistorySetToCurrentSet(v),
+			);
+		}
 		draft.exercises.push({
 			sets,
 			notes: [],
