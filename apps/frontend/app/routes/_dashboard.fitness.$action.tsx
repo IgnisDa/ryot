@@ -2068,7 +2068,7 @@ const SetDisplay = (props: {
 			);
 	}, [value]);
 
-	useDidUpdate(() => {
+	useEffect(() => {
 		const fn = async () => {
 			const globalSetIndex = getGlobalSetIndex(
 				props.setIdx,
