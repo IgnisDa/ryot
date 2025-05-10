@@ -1519,6 +1519,7 @@ const ExerciseDisplay = (props: {
 	const navigate = useNavigate();
 	const [parent] = useAutoAnimate();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	invariant(currentWorkout);
 	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	invariant(exercise);
@@ -1561,8 +1562,6 @@ const ExerciseDisplay = (props: {
 		.exhaustive();
 	const toBeDisplayedColumns =
 		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
-
-	if (!currentWorkout) return null;
 
 	const exerciseProgress = getProgressOfExercise(
 		currentWorkout,
