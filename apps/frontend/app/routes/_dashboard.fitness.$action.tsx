@@ -2055,16 +2055,16 @@ const SetDisplay = (props: {
 
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
+	if (!currentWorkout || !exercise || !set) return null;
+
 	useDidUpdate(() => {
-		if (currentWorkout && isString(value))
+		if (isString(value))
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					draft.exercises[props.exerciseIdx].sets[props.setIdx].note = value;
 				}),
 			);
 	}, [value]);
-
-	if (!currentWorkout || !exercise || !set) return null;
 
 	const previousSetData = useMemo(() => {
 		if (!userExerciseDetails?.history) return undefined;
