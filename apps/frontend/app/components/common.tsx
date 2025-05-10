@@ -605,6 +605,7 @@ export const CollectionsFilter = (props: {
 							<Select
 								size="xs"
 								value={f.presence}
+								allowDeselect={false}
 								data={Object.values(MediaCollectionPresenceFilter).map((o) => ({
 									value: o,
 									label: startCase(o.toLowerCase()),
