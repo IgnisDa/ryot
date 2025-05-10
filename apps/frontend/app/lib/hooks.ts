@@ -7,6 +7,7 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router";
 import {
 	useRevalidator,
 	useRouteLoaderData,
@@ -104,6 +105,7 @@ export const useConfirmSubmit = () => {
 
 export const useGetWorkoutStarter = () => {
 	const revalidator = useRevalidator();
+	const navigate = useNavigate();
 	const [_w, setCurrentWorkout] = useCurrentWorkout();
 	const [_t, setTimer] = useCurrentWorkoutTimerAtom();
 	const [_s, setStopwatch] = useCurrentWorkoutStopwatchAtom();
@@ -112,7 +114,7 @@ export const useGetWorkoutStarter = () => {
 		setTimer(null);
 		setStopwatch(null);
 		setCurrentWorkout(wkt);
-		window.location.href = $path("/fitness/:action", { action });
+		navigate($path("/fitness/:action", { action }));
 		revalidator.revalidate();
 	};
 	return fn;
