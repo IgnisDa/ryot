@@ -65,13 +65,13 @@ export function createBacklogEventPayload(input: {
 
 export function createReviewEventPayload(input: {
 	rating: number;
-	review: string;
+	review?: string;
 	entityId: string;
 	eventSchemas: AppEventSchema[];
 }): CreateEventPayload {
 	const schemas = resolveLifecycleEventSchemas(input.eventSchemas);
 	const rating = resolveRating(input.rating);
-	const review = input.review.trim();
+	const review = input.review?.trim();
 
 	return [
 		{
