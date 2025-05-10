@@ -2050,8 +2050,6 @@ const SetDisplay = (props: {
 	);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
-	const [previousSetData, setPreviousSetData] =
-		useState<WorkoutSetStatistic | null>(null);
 
 	const playCheckSound = () => {
 		const sound = new Howl({ src: ["/check.mp3"] });
@@ -2069,8 +2067,10 @@ const SetDisplay = (props: {
 			);
 	}, [value]);
 
-	useEffect(() => {
-		const fn = async () => {
+	const { data: previousSetData } = useQuery({
+		enabled: !!userExerciseDetails,
+		queryKey: ["previousSetData", exercise.identifier, set.identifier],
+		queryFn: async () => {
 			const globalSetIndex = getGlobalSetIndex(
 				props.setIdx,
 				props.exerciseIdx,
@@ -2086,17 +2086,9 @@ const SetDisplay = (props: {
 				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
 			}
 
-			setPreviousSetData(allPreviousSets[globalSetIndex]);
-		};
-
-		fn();
-	}, [
-		exercise,
-		props.setIdx,
-		currentWorkout,
-		props.exerciseIdx,
-		userExerciseDetails,
-	]);
+			return allPreviousSets[globalSetIndex];
+		},
+	});
 
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
