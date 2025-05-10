@@ -188,7 +188,7 @@ const roundHalfUp = (value: number, scale: number) => {
 	return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
-const getDefaultPropertyLabel = (key: string) =>
+export const getDefaultPropertyLabel = (key: string) =>
 	key
 		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
 		.replace(/[_-]+/g, " ")
