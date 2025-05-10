@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -24,14 +24,14 @@ Specifically:
 
 ## Acceptance criteria
 
-- [ ] `sandboxRunJobWaitTimeoutMs` is deleted and has no remaining references.
-- [ ] The old `ApiFunction` type (pre-convention) is deleted if it was kept as a transitional alias.
-- [ ] `QueueEvents` has no imports or references anywhere in `src/lib/queue/`.
-- [ ] `bridge.ts` `userIds` Map is removed if it serves no purpose after the refactor.
-- [ ] No `TODO` or `FIXME` comments remain in any sandbox or queue file.
-- [ ] `README.md` accurately describes only the new design with no references to removed APIs.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `tests/`.
+- [x] `sandboxRunJobWaitTimeoutMs` is deleted and has no remaining references.
+- [x] The old `ApiFunction` type (pre-convention) is deleted if it was kept as a transitional alias.
+- [x] `QueueEvents` has no imports or references anywhere in `src/lib/queue/`.
+- [x] `bridge.ts` `userIds` Map is removed if it serves no purpose after the refactor.
+- [x] No `TODO` or `FIXME` comments remain in any sandbox or queue file.
+- [x] `README.md` accurately describes only the new design with no references to removed APIs.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `tests/`.
 
 ## Blocked by
 
