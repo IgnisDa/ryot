@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { generateId } from "better-auth";
 import { getQueues } from "../queue";
 import { BridgeServer } from "./bridge";
@@ -125,8 +123,8 @@ export class SandboxService {
 			...(options.apiFunctions ?? {}),
 		};
 
+		const token = generateId();
 		const executionId = generateId();
-		const token = randomBytes(32).toString("hex");
 
 		await this.bridgeServer.addSession(executionId, {
 			token,
@@ -153,10 +151,18 @@ export class SandboxService {
 				runnerPath,
 			];
 
-			const proc = spawn("deno", denoArgs, {
-				stdio: ["pipe", "pipe", "pipe"],
+			const proc = Bun.spawn(["deno", ...denoArgs], {
+				stdin: "pipe",
+				stderr: "pipe",
+				stdout: "pipe",
 				env: { PATH: process.env.PATH },
 			});
+
+			if (!proc.stdin)
+				return {
+					success: false,
+					error: "Sandbox stdin is unavailable",
+				};
 
 			const clearTimeoutGuard = attachTimeoutGuard(proc, timeoutMs, () => {
 				timedOut = true;
@@ -176,6 +182,7 @@ export class SandboxService {
 				proc.stdin.end();
 			} catch {
 				clearTimeoutGuard();
+				proc.kill("SIGKILL");
 				return {
 					success: false,
 					error: "Failed to send payload to sandbox",

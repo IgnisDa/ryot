@@ -1,6 +1,4 @@
-import { rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { tmpdir } from "os";
 import sandboxRunnerSource from "./scripts/runner-source.txt";
 
 export class RunnerFileManager {
@@ -8,13 +6,25 @@ export class RunnerFileManager {
 
 	async create() {
 		const fileName = `ryot-sandbox-runner-${Date.now()}-${process.pid}.mjs`;
-		this.runnerPath = join(tmpdir(), fileName);
-		await writeFile(this.runnerPath, sandboxRunnerSource, "utf8");
+		this.runnerPath = `${tmpdir()}/${fileName}`;
+
+		try {
+			await Bun.write(this.runnerPath, sandboxRunnerSource);
+		} catch (error) {
+			this.runnerPath = null;
+			throw new Error(
+				error instanceof Error
+					? `Failed to create sandbox runner: ${error.message}`
+					: "Failed to create sandbox runner",
+			);
+		}
 	}
 
 	async remove() {
 		if (!this.runnerPath) return;
-		await rm(this.runnerPath, { force: true });
+		try {
+			await Bun.file(this.runnerPath).delete();
+		} catch {}
 		this.runnerPath = null;
 	}
 
