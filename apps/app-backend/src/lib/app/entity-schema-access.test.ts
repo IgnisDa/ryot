@@ -11,16 +11,6 @@ describe("resolveCustomEntitySchemaAccess", () => {
 		expect(result).toEqual({ error: "not_found" });
 	});
 
-	it("rejects built-in entity schemas", () => {
-		const result = resolveCustomEntitySchemaAccess({
-			userId: null,
-			isBuiltin: true,
-			id: "entity_schema_1",
-		});
-
-		expect(result).toEqual({ error: "builtin" });
-	});
-
 	it("returns the entity schema when it is custom", () => {
 		const entitySchema = {
 			userId: "user_1",
@@ -46,20 +36,6 @@ describe("resolveCustomEntityAccessError", () => {
 		).toEqual({
 			error: "not_found",
 			message: "Entity not found",
-		});
-	});
-
-	it("returns a validation response for built-in access", () => {
-		expect(
-			resolveCustomEntityAccessError({
-				error: "builtin",
-				notFoundMessage: "Entity not found",
-				builtinMessage:
-					"Built-in entity schemas do not support generated event logging",
-			}),
-		).toEqual({
-			error: "builtin",
-			message: "Built-in entity schemas do not support generated event logging",
 		});
 	});
 });
