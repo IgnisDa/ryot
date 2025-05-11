@@ -10,16 +10,10 @@ import {
 import {
 	createEntityBody,
 	createEntityResponseSchema,
-	createEntityWithCollectionBody,
-	createEntityWithCollectionResponseSchema,
 	entityParams,
 	getEntityResponseSchema,
 } from "./schemas";
-import {
-	createEntity,
-	createEntityWithCollection,
-	getEntityDetail,
-} from "./service";
+import { createEntity, getEntityDetail } from "./service";
 
 const createEntityRoute = createAuthRoute(
 	createRoute({
@@ -51,23 +45,6 @@ const getEntityRoute = createAuthRoute(
 	}),
 );
 
-const createEntityWithCollectionRoute = createAuthRoute(
-	createRoute({
-		path: "/with-collection",
-		method: "post",
-		tags: ["entities"],
-		request: { body: jsonBody(createEntityWithCollectionBody) },
-		summary: "Create an entity and add it to a collection atomically",
-		description:
-			"Creates an entity and adds it to a collection in a single transaction. If either operation fails, both are rolled back.",
-		responses: createStandardResponses({
-			successDescription: "Entity was created and added to collection",
-			successSchema: createEntityWithCollectionResponseSchema,
-			notFoundDescription: "Entity schema does not exist for this user",
-		}),
-	}),
-);
-
 export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(getEntityRoute, async (c) => {
 		const user = c.get("user");
@@ -90,19 +67,6 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const body = c.req.valid("json");
 
 		const result = await createEntity({ body, userId: user.id });
-		if ("error" in result) {
-			const response = createServiceErrorResult(result);
-			return c.json(response.body, response.status);
-		}
-
-		const response = createSuccessResult(result.data);
-		return c.json(response.body, response.status);
-	})
-	.openapi(createEntityWithCollectionRoute, async (c) => {
-		const user = c.get("user");
-		const body = c.req.valid("json");
-
-		const result = await createEntityWithCollection({ body, userId: user.id });
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
