@@ -42,13 +42,7 @@ function EventSchemaList(props: {
 				const propertyCount = Object.keys(eventSchema.propertiesSchema).length;
 
 				return (
-					<Paper
-						p="sm"
-						withBorder
-						radius="md"
-						key={eventSchema.id}
-						style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-					>
+					<Paper p="sm" withBorder radius="md" key={eventSchema.id}>
 						<Group justify="space-between" align="flex-start">
 							<Stack gap={2}>
 								<Text fw={500}>{eventSchema.name}</Text>
@@ -66,7 +60,7 @@ function EventSchemaList(props: {
 	);
 }
 
-function CreateEventSchemaModal(props: {
+export function CreateEventSchemaModal(props: {
 	opened: boolean;
 	isLoading: boolean;
 	onClose: () => void;
@@ -239,12 +233,7 @@ export function EventSchemasSection(props: { entitySchema: AppEntitySchema }) {
 			{!eventSchemasQuery.isLoading &&
 				!eventSchemasQuery.isError &&
 				(viewState.type === "empty" ? (
-					<Paper
-						p="sm"
-						withBorder
-						radius="md"
-						style={{ backgroundColor: "var(--mantine-color-gray-0)" }}
-					>
+					<Paper p="sm" withBorder radius="md">
 						<Stack gap={2}>
 							<Text fw={500} size="sm">
 								No event schemas yet
