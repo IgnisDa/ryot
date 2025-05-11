@@ -212,6 +212,7 @@ export function SearchResultCollectionPanel(props: {
 	textMuted: string;
 	accentColor: string;
 	isEnsuringEntity: boolean;
+	onRetryCollectionDiscovery: () => void;
 	collectionState: CollectionDiscoveryState;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 	collectionsDestination: { type: "view"; viewId: string } | { type: "none" };
@@ -242,6 +243,34 @@ export function SearchResultCollectionPanel(props: {
 						Loading collections...
 					</Text>
 				</Group>
+			</Box>
+		);
+	}
+
+	if (props.collectionState.type === "error") {
+		return (
+			<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
+				<Stack gap="xs">
+					<Text fz="xs" c="red">
+						Could not load collections.
+					</Text>
+					<Group gap="xs">
+						<Button
+							variant="subtle"
+							size="compact-xs"
+							onClick={props.onRetryCollectionDiscovery}
+						>
+							Retry
+						</Button>
+						<Button
+							variant="subtle"
+							size="compact-xs"
+							onClick={() => props.onPatchActionState({ openPanel: null })}
+						>
+							Close
+						</Button>
+					</Group>
+				</Stack>
 			</Box>
 		);
 	}
