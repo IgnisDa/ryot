@@ -9,7 +9,6 @@ export interface AppFacet {
 	isBuiltin?: boolean;
 	accentColor: string;
 	description?: string | null;
-	mode?: "curated" | "generated";
 }
 
 export function sortFacetsByOrder(facets: AppFacet[]): AppFacet[] {
