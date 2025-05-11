@@ -26,9 +26,7 @@ const toCollectionResponse = (row: CollectionRow): CollectionResponse => ({
 	properties: row.properties as Record<string, unknown>,
 });
 
-export const getBuiltinCollectionSchemaForUser = async (_input: {
-	userId: string;
-}) => {
+export const getBuiltinCollectionSchema = async () => {
 	const [foundEntitySchema] = await db
 		.select({
 			id: entitySchema.id,
