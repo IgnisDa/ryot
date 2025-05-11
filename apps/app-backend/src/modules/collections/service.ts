@@ -17,12 +17,15 @@ import {
 	getBuiltinCollectionSchema,
 	getCollectionById,
 	getEntityById,
+	removeEntityFromCollection,
 } from "./repository";
 import type {
 	AddToCollectionBody,
 	AddToCollectionData,
 	CollectionResponse,
 	CreateCollectionBody,
+	RemoveFromCollectionBody,
+	RemoveFromCollectionData,
 } from "./schemas";
 
 const collectionSchemaNotFoundError = "Collection entity schema not found";
@@ -45,6 +48,12 @@ export type AddToCollectionServiceDeps = {
 	addEntityToCollection: typeof addEntityToCollection;
 	getCollectionById: typeof getCollectionById;
 	getEntityById: typeof getEntityById;
+};
+
+export type RemoveFromCollectionServiceDeps = {
+	getCollectionById: typeof getCollectionById;
+	getEntityById: typeof getEntityById;
+	removeEntityFromCollection: typeof removeEntityFromCollection;
 };
 
 export type CollectionServiceResult<T> = ServiceResult<
@@ -166,6 +175,45 @@ export const addToCollection = async (
 		userId: input.userId,
 		properties: validatedProperties,
 	});
+
+	return serviceData(relationships);
+};
+
+const removeFromCollectionServiceDeps: RemoveFromCollectionServiceDeps = {
+	getCollectionById,
+	getEntityById,
+	removeEntityFromCollection,
+};
+
+export const removeFromCollection = async (
+	input: { body: RemoveFromCollectionBody; userId: string },
+	deps: RemoveFromCollectionServiceDeps = removeFromCollectionServiceDeps,
+): Promise<CollectionServiceResult<RemoveFromCollectionData>> => {
+	// Verify the collection exists and belongs to the user
+	const collection = await deps.getCollectionById(
+		input.body.collectionId,
+		input.userId,
+	);
+	if (!collection) {
+		return serviceError("not_found", collectionNotFoundError);
+	}
+
+	// Verify the entity exists and belongs to the user
+	const entity = await deps.getEntityById(input.body.entityId, input.userId);
+	if (!entity) {
+		return serviceError("not_found", entityNotFoundError);
+	}
+
+	// Remove the relationships
+	const relationships = await deps.removeEntityFromCollection({
+		collectionId: input.body.collectionId,
+		entityId: input.body.entityId,
+		userId: input.userId,
+	});
+
+	if (!relationships) {
+		return serviceError("not_found", "Entity is not in collection");
+	}
 
 	return serviceData(relationships);
 };
