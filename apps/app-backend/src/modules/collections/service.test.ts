@@ -551,6 +551,323 @@ describe("createCollection", () => {
 			}
 		});
 
+		it("validates properties against collection membershipPropertiesSchema", async () => {
+			const collectionWithSchema = {
+				...mockCollection,
+				properties: {
+					membershipPropertiesSchema: {
+						fields: {
+							recommendedBy: { type: "string" },
+							rating: { type: "integer" },
+						},
+					},
+				},
+			};
+
+			let receivedProperties: Record<string, unknown> | undefined;
+
+			const depsWithSchema = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => collectionWithSchema,
+				addEntityToCollection: async (input: {
+					collectionId: string;
+					entityId: string;
+					userId: string;
+					properties: Record<string, unknown>;
+				}) => {
+					receivedProperties = input.properties;
+					return {
+						collection: {
+							...mockRelationship,
+							properties: input.properties,
+						},
+						memberOf: {
+							...mockMemberOfRelationship,
+							properties: input.properties,
+						},
+					};
+				},
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: {
+							recommendedBy: "John",
+							rating: 5,
+						},
+					},
+					userId: "user-1",
+				},
+				depsWithSchema,
+			);
+
+			expect("data" in result).toBe(true);
+			expect(receivedProperties).toEqual({
+				recommendedBy: "John",
+				rating: 5,
+			});
+			if ("data" in result) {
+				expect(result.data.collection.properties).toEqual({
+					recommendedBy: "John",
+					rating: 5,
+				});
+			}
+		});
+
+		it("returns validation error when properties don't match schema type", async () => {
+			const collectionWithSchema = {
+				...mockCollection,
+				properties: {
+					membershipPropertiesSchema: {
+						fields: {
+							rating: { type: "integer" },
+						},
+					},
+				},
+			};
+
+			const depsWithSchema = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => collectionWithSchema,
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: {
+							rating: "not a number",
+						},
+					},
+					userId: "user-1",
+				},
+				depsWithSchema,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("validation");
+				expect(result.message).toContain(
+					"Membership properties validation failed",
+				);
+			}
+		});
+
+		it("returns validation error when required property is missing", async () => {
+			const collectionWithRequired = {
+				...mockCollection,
+				properties: {
+					membershipPropertiesSchema: {
+						fields: {
+							recommendedBy: {
+								type: "string",
+								validation: { required: true },
+							},
+						},
+					},
+				},
+			};
+
+			const depsWithRequired = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => collectionWithRequired,
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: {},
+					},
+					userId: "user-1",
+				},
+				depsWithRequired,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("validation");
+				expect(result.message).toContain(
+					"Membership properties validation failed",
+				);
+			}
+		});
+
+		it("allows any properties when collection has no membershipPropertiesSchema", async () => {
+			const collectionWithoutSchema = {
+				...mockCollection,
+				properties: {},
+			};
+
+			let receivedProperties: Record<string, unknown> | undefined;
+
+			const depsWithoutSchema = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => collectionWithoutSchema,
+				addEntityToCollection: async (input: {
+					collectionId: string;
+					entityId: string;
+					userId: string;
+					properties: Record<string, unknown>;
+				}) => {
+					receivedProperties = input.properties;
+					return {
+						collection: mockRelationship,
+						memberOf: mockMemberOfRelationship,
+					};
+				},
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: { anyCustomField: "any value", another: 123 },
+					},
+					userId: "user-1",
+				},
+				depsWithoutSchema,
+			);
+
+			expect("data" in result).toBe(true);
+			expect(receivedProperties).toEqual({
+				anyCustomField: "any value",
+				another: 123,
+			});
+		});
+
+		it("validates nested object properties against schema", async () => {
+			const collectionWithNestedSchema = {
+				...mockCollection,
+				properties: {
+					membershipPropertiesSchema: {
+						fields: {
+							recommendationDetails: {
+								type: "object",
+								properties: {
+									friend: { type: "string" },
+									context: { type: "string" },
+								},
+							},
+						},
+					},
+				},
+			};
+
+			let receivedProperties: Record<string, unknown> | undefined;
+
+			const depsWithNestedSchema = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => collectionWithNestedSchema,
+				addEntityToCollection: async (input: {
+					collectionId: string;
+					entityId: string;
+					userId: string;
+					properties: Record<string, unknown>;
+				}) => {
+					receivedProperties = input.properties;
+					return {
+						collection: {
+							...mockRelationship,
+							properties: input.properties,
+						},
+						memberOf: {
+							...mockMemberOfRelationship,
+							properties: input.properties,
+						},
+					};
+				},
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: {
+							recommendationDetails: {
+								friend: "Alice",
+								context: "Work lunch",
+							},
+						},
+					},
+					userId: "user-1",
+				},
+				depsWithNestedSchema,
+			);
+
+			expect("data" in result).toBe(true);
+			expect(receivedProperties).toEqual({
+				recommendationDetails: {
+					friend: "Alice",
+					context: "Work lunch",
+				},
+			});
+			if ("data" in result) {
+				expect(result.data.collection.properties).toEqual({
+					recommendationDetails: {
+						friend: "Alice",
+						context: "Work lunch",
+					},
+				});
+			}
+		});
+
+		it("returns validation error for invalid nested object properties", async () => {
+			const collectionWithNestedSchema = {
+				...mockCollection,
+				properties: {
+					membershipPropertiesSchema: {
+						fields: {
+							recommendationDetails: {
+								type: "object",
+								properties: {
+									friend: { type: "string" },
+									score: { type: "integer" },
+								},
+							},
+						},
+					},
+				},
+			};
+
+			const depsWithNestedSchema = {
+				...mockAddToCollectionDeps,
+				getCollectionById: async () => collectionWithNestedSchema,
+			};
+
+			const result = await addToCollection(
+				{
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-1",
+						properties: {
+							recommendationDetails: {
+								friend: "Alice",
+								score: "not a number",
+							},
+						},
+					},
+					userId: "user-1",
+				},
+				depsWithNestedSchema,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("validation");
+				expect(result.message).toContain(
+					"Membership properties validation failed",
+				);
+			}
+		});
+
 		it("returns not_found error when collection does not exist", async () => {
 			const depsWithMissingCollection = {
 				...mockAddToCollectionDeps,
