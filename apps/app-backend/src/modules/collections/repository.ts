@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, relationship } from "~/lib/db/schema";
 import type { AddToCollectionData, CollectionResponse } from "./schemas";
@@ -96,12 +96,90 @@ const toMembershipResponse = (
 	properties: row.properties as Record<string, unknown>,
 });
 
+export const getExistingMembership = async (input: {
+	collectionId: string;
+	entityId: string;
+	userId: string;
+}): Promise<AddToCollectionData | undefined> => {
+	const [collectionRel, memberOfRel] = await db
+		.select(membershipSelection)
+		.from(relationship)
+		.where(
+			and(
+				eq(relationship.userId, input.userId),
+				or(
+					and(
+						eq(relationship.relType, "collection"),
+						eq(relationship.sourceEntityId, input.collectionId),
+						eq(relationship.targetEntityId, input.entityId),
+					),
+					and(
+						eq(relationship.relType, "member_of"),
+						eq(relationship.sourceEntityId, input.entityId),
+						eq(relationship.targetEntityId, input.collectionId),
+					),
+				),
+			),
+		)
+		.orderBy(relationship.relType);
+
+	if (!collectionRel || !memberOfRel) {
+		return undefined;
+	}
+
+	return {
+		collection: toMembershipResponse(collectionRel as MembershipRow),
+		memberOf: toMembershipResponse(memberOfRel as MembershipRow),
+	};
+};
+
 export const addEntityToCollection = async (input: {
 	collectionId: string;
 	entityId: string;
 	userId: string;
 	properties: Record<string, unknown>;
 }): Promise<AddToCollectionData> => {
+	// Check if relationship already exists
+	const existing = await getExistingMembership(input);
+	if (existing) {
+		// Update existing relationships with new properties
+		const [updatedCollectionRel] = await db
+			.update(relationship)
+			.set({ properties: input.properties })
+			.where(
+				and(
+					eq(relationship.userId, input.userId),
+					eq(relationship.relType, "collection"),
+					eq(relationship.sourceEntityId, input.collectionId),
+					eq(relationship.targetEntityId, input.entityId),
+				),
+			)
+			.returning(membershipSelection);
+
+		const [updatedMemberOfRel] = await db
+			.update(relationship)
+			.set({ properties: input.properties })
+			.where(
+				and(
+					eq(relationship.userId, input.userId),
+					eq(relationship.relType, "member_of"),
+					eq(relationship.sourceEntityId, input.entityId),
+					eq(relationship.targetEntityId, input.collectionId),
+				),
+			)
+			.returning(membershipSelection);
+
+		if (!updatedCollectionRel || !updatedMemberOfRel) {
+			throw new Error("Could not update collection membership");
+		}
+
+		return {
+			collection: toMembershipResponse(updatedCollectionRel as MembershipRow),
+			memberOf: toMembershipResponse(updatedMemberOfRel as MembershipRow),
+		};
+	}
+
+	// Create new relationships
 	const [collectionRel, memberOfRel] = await db
 		.insert(relationship)
 		.values([
