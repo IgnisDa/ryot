@@ -92,7 +92,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		name: "Collection",
 		trackerSlug: "media",
 		accentColor: "#F59E0B",
-		propertiesSchema: { fields: {} },
+		propertiesSchema: {
+			fields: {
+				membershipPropertiesSchema: {
+					properties: {},
+					type: "object" as const,
+					unknownKeys: "strip" as const,
+				},
+			},
+		},
 	},
 	{
 		slug: "book",
