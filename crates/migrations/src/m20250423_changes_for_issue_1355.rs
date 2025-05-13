@@ -74,7 +74,7 @@ impl MigrationTrait for Migration {
                     user_id
             )
             -- Update the user preferences table for users found in UserStatisticsArray
-            UPDATE public.user u
+            UPDATE "user" u
             SET preferences = jsonb_set(
                 u.preferences,
                 '{fitness,measurements,statistics}', -- Path to update/create
@@ -89,7 +89,7 @@ impl MigrationTrait for Migration {
 
             // 2b. Set default statistics array in preferences for users WITHOUT any measurements.
             db.execute_unprepared(r#"
-            UPDATE public.user u
+            UPDATE "user" u
             SET preferences = jsonb_set(
                 u.preferences,
                 '{fitness,measurements,statistics}',
