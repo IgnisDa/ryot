@@ -620,7 +620,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        let start_date = Utc::now().date_naive();
+        let start_date = get_current_date(&self.0.timezone);
         let (media_limit, end_date) = match input {
             UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
             UserUpcomingCalendarEventInput::NextDays(d) => {
