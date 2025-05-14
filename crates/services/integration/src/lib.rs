@@ -116,7 +116,6 @@ impl IntegrationService {
     ) -> Result<()> {
         let mut import = updates;
         import.completed.iter_mut().for_each(|item| {
-            ryot_log!(debug, "Import completed item: {:?}", item);
             if let ImportCompletedItem::Metadata(metadata) = item {
                 metadata
                     .seen_history
