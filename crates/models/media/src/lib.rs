@@ -365,7 +365,7 @@ pub struct CreateOrUpdateReviewInput {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateCommonInput {
+pub struct MetadataProgressUpdateCommonInput {
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
     pub manga_volume_number: Option<i32>,
@@ -376,34 +376,34 @@ pub struct ProgressUpdateCommonInput {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateFinishedOnDateInput {
+pub struct MetadataProgressUpdateFinishedOnDateInput {
     pub finished_on: NaiveDate,
     #[graphql(flatten)]
-    pub common: ProgressUpdateCommonInput,
+    pub common: MetadataProgressUpdateCommonInput,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateStartedAndFinishedOnDateInput {
+pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
     pub started_on: NaiveDate,
     #[graphql(flatten)]
-    pub data: ProgressUpdateFinishedOnDateInput,
+    pub data: MetadataProgressUpdateFinishedOnDateInput,
 }
 
 #[derive(OneofObject)]
-pub enum MetadataProgressUpdateStateChange {
-    Update(Decimal),
-    StateChange(SeenState),
-    StartedNow(ProgressUpdateCommonInput),
-    FinishedNow(ProgressUpdateCommonInput),
-    WithoutDates(ProgressUpdateCommonInput),
-    FinishedOnDate(ProgressUpdateFinishedOnDateInput),
-    StartedAndFinishedOnDate(ProgressUpdateStartedAndFinishedOnDateInput),
+pub enum MetadataProgressUpdateChange {
+    State(SeenState),
+    Progress(Decimal),
+    StartedNow(MetadataProgressUpdateCommonInput),
+    FinishedNow(MetadataProgressUpdateCommonInput),
+    WithoutDates(MetadataProgressUpdateCommonInput),
+    FinishedOnDate(MetadataProgressUpdateFinishedOnDateInput),
+    StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
 }
 
 #[derive(InputObject)]
 pub struct MetadataProgressUpdateInput {
     pub metadata_id: String,
-    pub state_change: MetadataProgressUpdateStateChange,
+    pub change: MetadataProgressUpdateChange,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
