@@ -1679,7 +1679,7 @@ pub async fn progress_update(
                     .await?;
                     (
                         input.progress.unwrap_or(dec!(0)),
-                        Some(Utc::now().date_naive()),
+                        Some(get_current_date(&ss.timezone)),
                     )
                 }
                 _ => (dec!(100), None),
