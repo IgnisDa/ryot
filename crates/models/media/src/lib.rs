@@ -365,6 +365,48 @@ pub struct CreateOrUpdateReviewInput {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
+pub struct ProgressUpdateCommonInput {
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub manga_volume_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
+    pub manga_chapter_number: Option<Decimal>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
+pub struct ProgressUpdateFinishedOnDateInput {
+    pub finished_on: NaiveDate,
+    #[graphql(flatten)]
+    pub common: ProgressUpdateCommonInput,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
+pub struct ProgressUpdateStartedAndFinishedOnDateInput {
+    pub started_on: NaiveDate,
+    #[graphql(flatten)]
+    pub data: ProgressUpdateFinishedOnDateInput,
+}
+
+#[derive(OneofObject)]
+pub enum MetadataProgressUpdateStateChange {
+    Update(Decimal),
+    StateChange(SeenState),
+    StartedNow(ProgressUpdateCommonInput),
+    FinishedNow(ProgressUpdateCommonInput),
+    WithoutDates(ProgressUpdateCommonInput),
+    FinishedOnDate(ProgressUpdateFinishedOnDateInput),
+    StartedAndFinishedOnDate(ProgressUpdateStartedAndFinishedOnDateInput),
+}
+
+#[derive(InputObject)]
+pub struct MetadataProgressUpdateInput {
+    pub metadata_id: String,
+    pub state_change: MetadataProgressUpdateStateChange,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {
     pub metadata_id: String,
     pub date: Option<NaiveDate>,
