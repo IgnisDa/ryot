@@ -895,8 +895,6 @@ const MetadataProgressUpdateForm = ({
 }: {
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
-	const submit = useConfirmSubmit();
-	const events = useApplicationEvents();
 	const [metadataToUpdate] = useMetadataProgressUpdate();
 
 	const { data: metadataDetails } = useMetadataDetails(
@@ -913,22 +911,16 @@ const MetadataProgressUpdateForm = ({
 			</Center>
 		);
 
-	const onSubmit = (e: FormEvent<HTMLFormElement>) => {
-		submit(e);
-		const metadataId = metadataToUpdate.metadataId;
-		events.updateProgress(metadataDetails.title);
-		refreshEntityDetails(metadataId);
+	const onSubmit = () => {
 		closeMetadataProgressUpdateModal();
 	};
 
 	return userMetadataDetails.inProgress ? (
 		<MetadataInProgressUpdateForm
+			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
 			inProgress={userMetadataDetails.inProgress}
-			onSubmit={() => {
-				closeMetadataProgressUpdateModal();
-			}}
 		/>
 	) : (
 		<MetadataNewProgressUpdateForm
@@ -1060,7 +1052,7 @@ const MetadataNewProgressUpdateForm = ({
 	metadataDetails,
 	metadataToUpdate,
 }: {
-	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+	onSubmit: () => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
@@ -1302,8 +1294,11 @@ const MetadataNewProgressUpdateForm = ({
 			<Button
 				variant="outline"
 				disabled={selectedDate === undefined}
-				onClick={() => advanceOnboardingTourStep()}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
+				onClick={async () => {
+					advanceOnboardingTourStep();
+					onSubmit();
+				}}
 			>
 				Submit
 			</Button>
