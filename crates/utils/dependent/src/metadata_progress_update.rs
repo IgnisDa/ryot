@@ -7,7 +7,7 @@ use common_utils::ryot_log;
 use database_models::{metadata::Model, prelude::Metadata, seen};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
-    MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewInput,
+    MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
@@ -105,25 +105,24 @@ pub async fn metadata_progress_update(
         .ok_or_else(|| Error::new("Metadata not found"))?;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     match input.change {
-        MetadataProgressUpdateChange::CreateNew(create_new_input) => {
+        MetadataProgressUpdateChange::CreateNewCompleted(create_new_input) => {
             let (started_on, finished_on, input) = match create_new_input {
-                MetadataProgressUpdateChangeCreateNewInput::WithoutDates(inner_input) => {
+                MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(inner_input) => {
                     (None, None, inner_input)
                 }
-                MetadataProgressUpdateChangeCreateNewInput::FinishedNow(inner_input) => {
+                MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedNow(inner_input) => {
                     (None, Some(get_current_date(&ss.timezone)), inner_input)
                 }
-                MetadataProgressUpdateChangeCreateNewInput::FinishedOnDate(inner_input) => {
-                    (None, Some(inner_input.finished_on), inner_input.common)
-                }
-                MetadataProgressUpdateChangeCreateNewInput::StartedAndFinishedOnDate(
+                MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
+                    inner_input,
+                ) => (None, Some(inner_input.finished_on), inner_input.common),
+                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
                     inner_input,
                 ) => (
                     Some(inner_input.started_on),
                     Some(inner_input.data.finished_on),
                     inner_input.data.common,
                 ),
-                _ => todo!(),
             };
             create_new(CreateNewInput {
                 ss,

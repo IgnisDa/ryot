@@ -396,8 +396,7 @@ pub enum MetadataProgressUpdateChangeExistingInput {
 }
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
-pub enum MetadataProgressUpdateChangeCreateNewInput {
-    StartedNow(MetadataProgressUpdateCommonInput),
+pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
     FinishedNow(MetadataProgressUpdateCommonInput),
     WithoutDates(MetadataProgressUpdateCommonInput),
     FinishedOnDate(MetadataProgressUpdateFinishedOnDateInput),
@@ -406,8 +405,9 @@ pub enum MetadataProgressUpdateChangeCreateNewInput {
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChange {
-    CreateNew(MetadataProgressUpdateChangeCreateNewInput),
+    CreateNewInProgress(MetadataProgressUpdateCommonInput),
     ChangeExisting(MetadataProgressUpdateChangeExistingInput),
+    CreateNewCompleted(MetadataProgressUpdateChangeCreateNewCompletedInput),
 }
 
 #[derive(InputObject, Debug, Deserialize, Serialize, Clone)]
