@@ -935,7 +935,6 @@ const MetadataProgressUpdateForm = ({
 			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
-			history={userMetadataDetails.history}
 		/>
 	);
 };
@@ -1057,7 +1056,6 @@ const MetadataInProgressUpdateForm = ({
 };
 
 const MetadataNewProgressUpdateForm = ({
-	history,
 	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
@@ -1065,7 +1063,6 @@ const MetadataNewProgressUpdateForm = ({
 	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
-	history: History;
 }) => {
 	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -1077,8 +1074,6 @@ const MetadataNewProgressUpdateForm = ({
 	);
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	const lastProviderWatchedOn = history[0]?.providerWatchedOn;
 
 	return (
 		<Form
@@ -1320,8 +1315,14 @@ const MetadataNewProgressUpdateForm = ({
 					<Select
 						data={watchProviders}
 						name="providerWatchedOn"
-						defaultValue={lastProviderWatchedOn}
 						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+						onChange={(v) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.providerWatchedOn = v;
+								}),
+							);
+						}}
 					/>
 				) : null}
 				<Button

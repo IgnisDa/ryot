@@ -15,6 +15,7 @@ import {
 
 export type UpdateProgressData = {
 	metadataId: string;
+	providerWatchedOn?: string | null;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
