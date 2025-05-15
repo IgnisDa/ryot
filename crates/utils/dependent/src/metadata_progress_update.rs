@@ -63,7 +63,7 @@ fn extra_information_from_metadata(
 }
 
 struct CreateNewInput<'a> {
-    meta: &'a Model,
+    meta: Model,
     user_id: &'a String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
@@ -73,7 +73,7 @@ struct CreateNewInput<'a> {
 
 async fn create_new<'a>(input: CreateNewInput<'a>) -> Result<()> {
     let (show_ei, anime_ei, manga_ei, podcast_ei) =
-        extra_information_from_metadata(input.meta, &input.input)?;
+        extra_information_from_metadata(&input.meta, &input.input)?;
     let seen_insert = seen::ActiveModel {
         progress: ActiveValue::Set(dec!(100)),
         state: ActiveValue::Set(SeenState::Completed),
@@ -108,8 +108,8 @@ pub async fn metadata_progress_update(
             MetadataProgressUpdateChangeCreateNewInput::WithoutDates(inner_input) => {
                 create_new(CreateNewInput {
                     ss,
+                    meta,
                     user_id,
-                    meta: &meta,
                     started_on: None,
                     finished_on: None,
                     input: inner_input,
@@ -119,8 +119,8 @@ pub async fn metadata_progress_update(
             MetadataProgressUpdateChangeCreateNewInput::FinishedOnDate(inner_input) => {
                 create_new(CreateNewInput {
                     ss,
+                    meta,
                     user_id,
-                    meta: &meta,
                     started_on: None,
                     input: inner_input.common,
                     finished_on: Some(inner_input.finished_on),
