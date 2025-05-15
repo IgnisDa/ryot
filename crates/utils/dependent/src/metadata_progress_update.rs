@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use async_graphql::{Error, Result};
+use chrono::NaiveDate;
+use common_utils::ryot_log;
 use database_models::{metadata::Model, prelude::Metadata, seen};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
@@ -63,6 +65,8 @@ fn extra_information_from_metadata(
 struct CreateNewInput<'a> {
     meta: &'a Model,
     user_id: &'a String,
+    started_on: Option<NaiveDate>,
+    finished_on: Option<NaiveDate>,
     ss: &'a Arc<SupportingService>,
     input: MetadataProgressUpdateCommonInput,
 }
@@ -73,6 +77,8 @@ async fn create_new<'a>(input: CreateNewInput<'a>) -> Result<()> {
     let seen_insert = seen::ActiveModel {
         progress: ActiveValue::Set(dec!(100)),
         state: ActiveValue::Set(SeenState::Completed),
+        started_on: ActiveValue::Set(input.started_on),
+        finished_on: ActiveValue::Set(input.finished_on),
         show_extra_information: ActiveValue::Set(show_ei),
         anime_extra_information: ActiveValue::Set(anime_ei),
         manga_extra_information: ActiveValue::Set(manga_ei),
@@ -82,7 +88,8 @@ async fn create_new<'a>(input: CreateNewInput<'a>) -> Result<()> {
         provider_watched_on: ActiveValue::Set(input.input.provider_watched_on),
         ..Default::default()
     };
-    seen_insert.insert(&input.ss.db).await?;
+    let resp = seen_insert.insert(&input.ss.db).await?;
+    ryot_log!(debug, "Created new seen: {:?}", resp);
     Ok(())
 }
 
@@ -95,13 +102,16 @@ pub async fn metadata_progress_update(
         .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Metadata not found"))?;
+    ryot_log!(debug, "Metadata progress update: {:?}", input);
     match input.change {
         MetadataProgressUpdateChange::CreateNew(create_new_input) => match create_new_input {
             MetadataProgressUpdateChangeCreateNewInput::WithoutDates(inner_input) => {
                 create_new(CreateNewInput {
-                    ss: ss,
+                    ss,
+                    user_id,
                     meta: &meta,
-                    user_id: user_id,
+                    started_on: None,
+                    finished_on: None,
                     input: inner_input,
                 })
                 .await?;
