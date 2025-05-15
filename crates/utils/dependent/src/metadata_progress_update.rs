@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::{Error, Result};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use common_utils::ryot_log;
 use database_models::{
     metadata::Model,
@@ -11,8 +11,9 @@ use database_models::{
 use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
     MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewCompletedInput,
-    MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
+    MetadataProgressUpdateInput, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -108,7 +109,34 @@ pub async fn metadata_progress_update(
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .one(&ss.db)
                 .await?;
-            dbg!(&change_latest_in_progress, &previous_seen);
+            let Some(previous_seen) = previous_seen else {
+                return Err(Error::new("No in progress seen found"));
+            };
+            let mut state;
+            let mut progress = previous_seen.progress;
+            let mut updated_at = previous_seen.updated_at.clone();
+            match change_latest_in_progress {
+                MetadataProgressUpdateChangeLatestInProgressInput::State(new_state) => {
+                    state = new_state;
+                }
+                MetadataProgressUpdateChangeLatestInProgressInput::Progress(new_progress) => {
+                    if new_progress == progress {
+                        return Err(Error::new("No progress update required"));
+                    }
+                    progress = new_progress;
+                    state = SeenState::InProgress;
+                    if new_progress >= dec!(100) {
+                        progress = dec!(100);
+                        state = SeenState::Completed;
+                    }
+                }
+            }
+            updated_at.push(Utc::now());
+            let mut last_seen: seen::ActiveModel = previous_seen.into();
+            last_seen.state = ActiveValue::Set(state);
+            last_seen.progress = ActiveValue::Set(progress);
+            last_seen.updated_at = ActiveValue::Set(updated_at);
+            last_seen.insert(&ss.db).await?;
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             commit(CommitInput {
