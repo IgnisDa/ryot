@@ -3,12 +3,14 @@ use std::sync::Arc;
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use chrono::{NaiveDate, Utc};
+use common_models::{ProgressUpdateCacheInput, UserLevelCacheKey};
 use common_utils::ryot_log;
 use database_models::{
     metadata::Model,
     prelude::{Metadata, Seen},
     seen,
 };
+use dependent_models::ApplicationCacheKey;
 use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
     MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewCompletedInput,
@@ -132,6 +134,39 @@ pub async fn metadata_progress_update(
                         progress = dec!(100);
                         state = SeenState::Completed;
                         finished_on = Some(get_current_date(&ss.timezone));
+
+                        let cache_and_lock_key =
+                            ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
+                                user_id: user_id.to_owned(),
+                                input: ProgressUpdateCacheInput {
+                                    metadata_id: input.metadata_id.clone(),
+                                    provider_watched_on: previous_seen.provider_watched_on.clone(),
+                                    show_season_number: previous_seen
+                                        .show_extra_information
+                                        .as_ref()
+                                        .map(|ei| ei.season),
+                                    show_episode_number: previous_seen
+                                        .show_extra_information
+                                        .as_ref()
+                                        .map(|ei| ei.episode),
+                                    manga_volume_number: previous_seen
+                                        .manga_extra_information
+                                        .as_ref()
+                                        .and_then(|ei| ei.volume),
+                                    manga_chapter_number: previous_seen
+                                        .manga_extra_information
+                                        .as_ref()
+                                        .and_then(|ei| ei.chapter),
+                                    anime_episode_number: previous_seen
+                                        .anime_extra_information
+                                        .as_ref()
+                                        .and_then(|ei| ei.episode),
+                                    podcast_episode_number: previous_seen
+                                        .podcast_extra_information
+                                        .as_ref()
+                                        .map(|ei| ei.episode),
+                                },
+                            });
                     }
                 }
             }
