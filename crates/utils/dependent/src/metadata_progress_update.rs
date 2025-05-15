@@ -144,7 +144,7 @@ pub async fn metadata_progress_update(
             last_seen.update(&ss.db).await?
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
-            let Some(previous_seen) = previous_seen else {
+            if previous_seen.is_some() {
                 return Err(Error::new("Can't create new in progress seen"));
             };
             commit(CommitInput {
