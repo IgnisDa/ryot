@@ -390,9 +390,13 @@ pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
 }
 
 #[derive(OneofObject)]
-pub enum MetadataProgressUpdateChange {
+pub enum MetadataProgressUpdateChangeExisting {
     State(SeenState),
     Progress(Decimal),
+}
+
+#[derive(OneofObject)]
+pub enum MetadataProgressUpdateChangeCreateNew {
     StartedNow(MetadataProgressUpdateCommonInput),
     FinishedNow(MetadataProgressUpdateCommonInput),
     WithoutDates(MetadataProgressUpdateCommonInput),
@@ -400,9 +404,16 @@ pub enum MetadataProgressUpdateChange {
     StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
 }
 
+#[derive(OneofObject)]
+pub enum MetadataProgressUpdateChange {
+    CreateNew(MetadataProgressUpdateChangeCreateNew),
+    ChangeExisting(MetadataProgressUpdateChangeExisting),
+}
+
 #[derive(InputObject)]
 pub struct MetadataProgressUpdateInput {
     pub metadata_id: String,
+    pub ignore_completion_cache: bool,
     pub change: MetadataProgressUpdateChange,
 }
 
