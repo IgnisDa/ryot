@@ -116,6 +116,17 @@ pub async fn metadata_progress_update(
                 })
                 .await?;
             }
+            MetadataProgressUpdateChangeCreateNewInput::FinishedOnDate(inner_input) => {
+                create_new(CreateNewInput {
+                    ss,
+                    user_id,
+                    meta: &meta,
+                    started_on: None,
+                    input: inner_input.common,
+                    finished_on: Some(inner_input.finished_on),
+                })
+                .await?;
+            }
             _ => todo!(),
         },
         _ => todo!(),
