@@ -267,6 +267,8 @@ export const useIsOnboardingTourCompleted = () => {
 };
 
 export const useDeployBulkMetadataProgressUpdate = () => {
+	const revalidator = useRevalidator();
+
 	const mutation = useMutation({
 		mutationFn: async (input: MetadataProgressUpdateInput[]) => {
 			const resp = await clientGqlService.request(
@@ -279,6 +281,7 @@ export const useDeployBulkMetadataProgressUpdate = () => {
 			for (const id of data[1]) {
 				refreshEntityDetails(id);
 			}
+			revalidator.revalidate();
 		},
 	});
 
