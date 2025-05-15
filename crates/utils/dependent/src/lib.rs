@@ -65,12 +65,13 @@ use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating, ImportOrExportMetadataItem,
     MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
+    MetadataCreatorGroupedByRole, MetadataDetails, MetadataProgressUpdateInput, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
+    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
+    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
+    UpdateMediaEntityResult,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -1462,6 +1463,14 @@ pub async fn get_entity_recently_consumed(
         ))
         .await
         .is_some())
+}
+
+pub async fn metadata_progress_update(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    input: MetadataProgressUpdateInput,
+) -> Result<()> {
+    Ok(())
 }
 
 pub async fn progress_update(
