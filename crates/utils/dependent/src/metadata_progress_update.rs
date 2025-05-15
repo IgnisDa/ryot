@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use chrono::NaiveDate;
 use common_utils::ryot_log;
@@ -105,8 +104,8 @@ pub async fn metadata_progress_update(
                 progress: dec!(0),
                 finished_on: None,
                 state: SeenState::InProgress,
-                input: create_new_in_progress,
-                started_on: Some(get_current_date(&ss.timezone)),
+                input: create_new_in_progress.data,
+                started_on: Some(create_new_in_progress.started_on),
             })
             .await?;
         }
@@ -114,9 +113,6 @@ pub async fn metadata_progress_update(
             let (started_on, finished_on, input) = match create_new_completed {
                 MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(inner_input) => {
                     (None, None, inner_input)
-                }
-                MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedNow(inner_input) => {
-                    (None, Some(get_current_date(&ss.timezone)), inner_input)
                 }
                 MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
                     inner_input,

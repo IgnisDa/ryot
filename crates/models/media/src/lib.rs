@@ -397,15 +397,21 @@ pub enum MetadataProgressUpdateChangeLatestInProgressInput {
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
-    FinishedNow(MetadataProgressUpdateCommonInput),
     WithoutDates(MetadataProgressUpdateCommonInput),
     FinishedOnDate(MetadataProgressUpdateFinishedOnDateInput),
     StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
 }
 
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateNewInProgressInput {
+    pub started_on: NaiveDate,
+    #[graphql(flatten)]
+    pub data: MetadataProgressUpdateCommonInput,
+}
+
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChange {
-    CreateNewInProgress(MetadataProgressUpdateCommonInput),
+    CreateNewInProgress(MetadataProgressUpdateNewInProgressInput),
     CreateNewCompleted(MetadataProgressUpdateChangeCreateNewCompletedInput),
     ChangeLatestInProgress(MetadataProgressUpdateChangeLatestInProgressInput),
 }
