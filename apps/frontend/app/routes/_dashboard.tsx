@@ -127,6 +127,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
+	useDeployBulkMetadataProgressUpdate,
 	useGetWatchProviders,
 	useIsFitnessActionActive,
 	useMetadataDetails,
@@ -922,10 +923,12 @@ const MetadataProgressUpdateForm = ({
 
 	return userMetadataDetails.inProgress ? (
 		<MetadataInProgressUpdateForm
-			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
 			inProgress={userMetadataDetails.inProgress}
+			onSubmit={() => {
+				closeMetadataProgressUpdateModal();
+			}}
 		/>
 	) : (
 		<MetadataNewProgressUpdateForm
@@ -946,11 +949,15 @@ const MetadataInProgressUpdateForm = ({
 	metadataDetails,
 	metadataToUpdate,
 }: {
-	onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+	onSubmit: () => void;
 	inProgress: NonNullable<InProgress>;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }) => {
+	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
+		metadataDetails.title,
+	);
+
 	const total =
 		metadataDetails.audioBookSpecifics?.runtime ||
 		metadataDetails.bookSpecifics?.pages ||
@@ -978,79 +985,74 @@ const MetadataInProgressUpdateForm = ({
 		.otherwise(() => [null, null]);
 
 	return (
-		<Form
-			method="POST"
-			onSubmit={onSubmit}
-			action={withQuery($path("/actions"), {
-				intent: "individualProgressUpdate",
-			})}
-		>
-			<input
-				hidden
-				name="metadataId"
-				defaultValue={metadataToUpdate.metadataId}
-			/>
-			<input hidden name="progress" value={value} readOnly />
-			<input
-				hidden
-				name="date"
-				defaultValue={formatDateToNaiveDate(new Date())}
-			/>
-			<Stack mt="sm">
-				<Group>
-					<Slider
-						min={0}
-						step={1}
-						max={100}
-						value={value}
-						onChange={setValue}
-						style={{ flexGrow: 1 }}
-						showLabelOnHover={false}
-					/>
-					<NumberInput
-						w="20%"
-						min={0}
-						step={1}
-						max={100}
-						hideControls
-						value={value}
-						onFocus={(e) => e.target.select()}
-						rightSection={<IconPercentage size={16} />}
-						onChange={(v) => {
-							if (v) setValue(Number(v));
-							else setValue(undefined);
-						}}
-					/>
-				</Group>
-				{total ? (
-					<>
-						<Text ta="center" fw="bold">
-							OR
-						</Text>
-						<Flex align="center" gap="xs">
-							<NumberInput
-								min={0}
-								step={1}
-								flex={1}
-								hideControls
-								leftSection={updateIcon}
-								max={Number(total)}
-								onFocus={(e) => e.target.select()}
-								defaultValue={((Number(total) || 1) * (value || 1)) / 100}
-								onChange={(v) => {
-									const value = (Number(v) / (Number(total) || 1)) * 100;
-									setValue(value);
-								}}
-							/>
-							<Text>{text}</Text>
-						</Flex>
-					</>
-				) : null}
-				<Button variant="outline" type="submit">
-					Update
-				</Button>
-			</Stack>
-		</Form>
+		<Stack mt="sm">
+			<Group>
+				<Slider
+					min={0}
+					step={1}
+					max={100}
+					value={value}
+					onChange={setValue}
+					style={{ flexGrow: 1 }}
+					showLabelOnHover={false}
+				/>
+				<NumberInput
+					w="20%"
+					min={0}
+					step={1}
+					max={100}
+					hideControls
+					value={value}
+					onFocus={(e) => e.target.select()}
+					rightSection={<IconPercentage size={16} />}
+					onChange={(v) => {
+						if (v) setValue(Number(v));
+						else setValue(undefined);
+					}}
+				/>
+			</Group>
+			{total ? (
+				<>
+					<Text ta="center" fw="bold">
+						OR
+					</Text>
+					<Flex align="center" gap="xs">
+						<NumberInput
+							min={0}
+							step={1}
+							flex={1}
+							hideControls
+							leftSection={updateIcon}
+							max={Number(total)}
+							onFocus={(e) => e.target.select()}
+							defaultValue={((Number(total) || 1) * (value || 1)) / 100}
+							onChange={(v) => {
+								const value = (Number(v) / (Number(total) || 1)) * 100;
+								setValue(value);
+							}}
+						/>
+						<Text>{text}</Text>
+					</Flex>
+				</>
+			) : null}
+			<Button
+				variant="outline"
+				type="submit"
+				onClick={async () => {
+					await deployBulkMetadataProgressUpdate.mutateAsync([
+						{
+							metadataId: metadataToUpdate.metadataId,
+							change: {
+								changeLatestInProgress: { progress: value?.toString() },
+							},
+						},
+					]);
+					onSubmit();
+				}}
+			>
+				Update
+			</Button>
+		</Stack>
 	);
 };
 
