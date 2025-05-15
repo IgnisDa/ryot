@@ -1470,6 +1470,7 @@ pub async fn metadata_progress_update(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateInput,
 ) -> Result<()> {
+    dbg!(&input);
     Ok(())
 }
 

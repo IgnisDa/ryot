@@ -74,6 +74,12 @@ pub async fn perform_hp_application_job(
                 .bulk_progress_update(user_id, input)
                 .await
         }
+        HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
+            app_services
+                .miscellaneous_service
+                .bulk_metadata_progress_update(user_id, input)
+                .await
+        }
     };
     status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }

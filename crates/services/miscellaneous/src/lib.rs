@@ -54,10 +54,11 @@ use dependent_utils::{
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
     generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
     get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
-    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
-    update_metadata_group_and_notify_users, update_person_and_notify_users,
-    user_metadata_groups_list, user_metadata_list, user_people_list,
+    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_progress_update,
+    post_review, progress_update, remove_entity_from_collection, send_notification_for_user,
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
+    user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -73,12 +74,12 @@ use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
     GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator,
-    PartialMetadataWithoutId, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter,
-    PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier,
-    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    MetadataProgressUpdateInput, PartialMetadataWithoutId, PersonDetailsGroupedByRole,
+    PersonDetailsItemWithCharacter, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -666,6 +667,19 @@ impl MiscellaneousService {
         Ok(true)
     }
 
+    pub async fn deploy_bulk_metadata_progress_update(
+        &self,
+        user_id: String,
+        input: Vec<MetadataProgressUpdateInput>,
+    ) -> Result<bool> {
+        self.0
+            .perform_application_job(ApplicationJob::Hp(
+                HpApplicationJob::BulkMetadataProgressUpdate(user_id, input),
+            ))
+            .await?;
+        Ok(true)
+    }
+
     pub async fn bulk_progress_update(
         &self,
         user_id: String,
@@ -673,6 +687,19 @@ impl MiscellaneousService {
     ) -> Result<()> {
         for seen in input {
             progress_update(&user_id, false, seen, &self.0)
+                .await
+                .trace_ok();
+        }
+        Ok(())
+    }
+
+    pub async fn bulk_metadata_progress_update(
+        &self,
+        user_id: String,
+        input: Vec<MetadataProgressUpdateInput>,
+    ) -> Result<()> {
+        for seen in input {
+            metadata_progress_update(&user_id, &self.0, seen)
                 .await
                 .trace_ok();
         }

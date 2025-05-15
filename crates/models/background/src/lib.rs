@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use database_models::seen;
-use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
+use media_models::{
+    DeployImportJobInput, MetadataProgressUpdateInput, ProgressUpdateInput, ReviewPostedEvent,
+};
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -11,6 +13,7 @@ pub enum HpApplicationJob {
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
     BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
+    BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
