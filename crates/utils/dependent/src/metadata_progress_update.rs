@@ -113,11 +113,11 @@ pub async fn metadata_progress_update(
                 ss,
                 meta,
                 user_id,
-                started_on: None,
                 progress: dec!(0),
                 finished_on: None,
                 state: SeenState::InProgress,
                 input: create_new_in_progress,
+                started_on: Some(get_current_date(&ss.timezone)),
             })
             .await?;
         }
