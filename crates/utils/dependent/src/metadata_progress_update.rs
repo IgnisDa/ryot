@@ -96,6 +96,9 @@ pub async fn metadata_progress_update(
         .ok_or_else(|| Error::new("Metadata not found"))?;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     match input.change {
+        MetadataProgressUpdateChange::ChangeLatestInProgress(change_latest_in_progress) => {
+            dbg!(&change_latest_in_progress);
+        }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             commit(CommitInput {
                 ss,
@@ -137,7 +140,6 @@ pub async fn metadata_progress_update(
             })
             .await?;
         }
-        _ => todo!(),
     }
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     Ok(())
