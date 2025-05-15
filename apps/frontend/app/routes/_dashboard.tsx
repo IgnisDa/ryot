@@ -1303,9 +1303,9 @@ const MetadataNewProgressUpdateForm = ({
 				disabled={selectedDate === undefined}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
-					advanceOnboardingTourStep();
 					const updates = new Array<MetadataProgressUpdateInput>();
 					await deployBulkMetadataProgressUpdate.mutateAsync(updates);
+					advanceOnboardingTourStep();
 					onSubmit();
 				}}
 			>
