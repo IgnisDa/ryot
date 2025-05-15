@@ -248,3 +248,9 @@ mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
 mutation ExpireCacheKey($cacheId: UUID!) {
 	expireCacheKey(cacheId: $cacheId)
 }
+
+mutation DeployBulkMetadataProgressUpdate(
+  $input: [MetadataProgressUpdateInput!]!
+) {
+  deployBulkMetadataProgressUpdate(input: $input)
+}
