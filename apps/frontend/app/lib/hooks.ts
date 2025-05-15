@@ -266,7 +266,7 @@ export const useIsOnboardingTourCompleted = () => {
 	return dashboardData.isOnboardingTourCompleted;
 };
 
-export const deployBulkMetadataProgressUpdate = () => {
+export const useDeployBulkMetadataProgressUpdate = () => {
 	const mutation = useMutation({
 		mutationFn: async (input: MetadataProgressUpdateInput[]) => {
 			const resp = await clientGqlService.request(
