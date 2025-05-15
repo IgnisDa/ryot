@@ -420,8 +420,6 @@ pub enum MetadataProgressUpdateChange {
 pub struct MetadataProgressUpdateInput {
     pub metadata_id: String,
     pub change: MetadataProgressUpdateChange,
-    #[graphql(skip_input)]
-    pub respect_completion_cache: Option<bool>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
