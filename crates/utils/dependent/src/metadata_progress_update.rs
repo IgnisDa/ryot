@@ -29,7 +29,7 @@ struct CommitInput<'a> {
     input: MetadataProgressUpdateCommonInput,
 }
 
-async fn commit<'a>(input: CommitInput<'a>) -> Result<()> {
+async fn commit(input: CommitInput<'_>) -> Result<()> {
     let show_ei = if matches!(input.meta.lot, MediaLot::Show) {
         let season = input
             .input
