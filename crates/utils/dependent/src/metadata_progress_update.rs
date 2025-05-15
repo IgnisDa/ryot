@@ -105,53 +105,36 @@ pub async fn metadata_progress_update(
         .ok_or_else(|| Error::new("Metadata not found"))?;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     match input.change {
-        MetadataProgressUpdateChange::CreateNew(create_new_input) => match create_new_input {
-            MetadataProgressUpdateChangeCreateNewInput::WithoutDates(inner_input) => {
-                create_new(CreateNewInput {
-                    ss,
-                    meta,
-                    user_id,
-                    started_on: None,
-                    finished_on: None,
-                    input: inner_input,
-                })
-                .await?;
-            }
-            MetadataProgressUpdateChangeCreateNewInput::FinishedNow(inner_input) => {
-                create_new(CreateNewInput {
-                    ss,
-                    meta,
-                    user_id,
-                    started_on: None,
-                    input: inner_input,
-                    finished_on: Some(get_current_date(&ss.timezone)),
-                })
-                .await?;
-            }
-            MetadataProgressUpdateChangeCreateNewInput::FinishedOnDate(inner_input) => {
-                create_new(CreateNewInput {
-                    ss,
-                    meta,
-                    user_id,
-                    started_on: None,
-                    input: inner_input.common,
-                    finished_on: Some(inner_input.finished_on),
-                })
-                .await?;
-            }
-            MetadataProgressUpdateChangeCreateNewInput::StartedAndFinishedOnDate(inner_input) => {
-                create_new(CreateNewInput {
-                    ss,
-                    meta,
-                    user_id,
-                    input: inner_input.data.common,
-                    started_on: Some(inner_input.started_on),
-                    finished_on: Some(inner_input.data.finished_on),
-                })
-                .await?;
-            }
-            _ => todo!(),
-        },
+        MetadataProgressUpdateChange::CreateNew(create_new_input) => {
+            let (started_on, finished_on, input) = match create_new_input {
+                MetadataProgressUpdateChangeCreateNewInput::WithoutDates(inner_input) => {
+                    (None, None, inner_input)
+                }
+                MetadataProgressUpdateChangeCreateNewInput::FinishedNow(inner_input) => {
+                    (None, Some(get_current_date(&ss.timezone)), inner_input)
+                }
+                MetadataProgressUpdateChangeCreateNewInput::FinishedOnDate(inner_input) => {
+                    (None, Some(inner_input.finished_on), inner_input.common)
+                }
+                MetadataProgressUpdateChangeCreateNewInput::StartedAndFinishedOnDate(
+                    inner_input,
+                ) => (
+                    Some(inner_input.started_on),
+                    Some(inner_input.data.finished_on),
+                    inner_input.data.common,
+                ),
+                _ => todo!(),
+            };
+            create_new(CreateNewInput {
+                ss,
+                meta,
+                input,
+                user_id,
+                started_on,
+                finished_on,
+            })
+            .await?;
+        }
         _ => todo!(),
     }
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
