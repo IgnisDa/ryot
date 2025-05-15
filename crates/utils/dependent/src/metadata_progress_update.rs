@@ -33,7 +33,7 @@ struct CommitInput<'a> {
     input: MetadataProgressUpdateCommonInput,
 }
 
-async fn commit(input: CommitInput<'_>) -> Result<()> {
+async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
     let show_ei = if matches!(input.meta.lot, MediaLot::Show) {
         let season = input
             .input
@@ -87,7 +87,7 @@ async fn commit(input: CommitInput<'_>) -> Result<()> {
     };
     let resp = seen_insert.insert(&input.ss.db).await?;
     ryot_log!(debug, "Created new seen: {:?}", resp);
-    Ok(())
+    Ok(resp)
 }
 
 pub async fn metadata_progress_update(
@@ -100,7 +100,7 @@ pub async fn metadata_progress_update(
         .await?
         .ok_or_else(|| Error::new("Metadata not found"))?;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
-    match input.change {
+    let seen = match input.change {
         MetadataProgressUpdateChange::ChangeLatestInProgress(change_latest_in_progress) => {
             let previous_seen = Seen::find()
                 .filter(seen::Column::UserId.eq(user_id))
@@ -136,7 +136,7 @@ pub async fn metadata_progress_update(
             last_seen.state = ActiveValue::Set(state);
             last_seen.progress = ActiveValue::Set(progress);
             last_seen.updated_at = ActiveValue::Set(updated_at);
-            last_seen.insert(&ss.db).await?;
+            last_seen.insert(&ss.db).await?
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             commit(CommitInput {
@@ -149,7 +149,7 @@ pub async fn metadata_progress_update(
                 input: create_new_in_progress.data,
                 started_on: Some(create_new_in_progress.started_on),
             })
-            .await?;
+            .await?
         }
         MetadataProgressUpdateChange::CreateNewCompleted(create_new_completed) => {
             let (started_on, finished_on, input) = match create_new_completed {
@@ -177,9 +177,9 @@ pub async fn metadata_progress_update(
                 progress: dec!(100),
                 state: SeenState::Completed,
             })
-            .await?;
+            .await?
         }
-    }
+    };
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     Ok(())
 }
