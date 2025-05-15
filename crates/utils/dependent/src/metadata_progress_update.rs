@@ -11,6 +11,7 @@ use media_models::{
     MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
@@ -63,8 +64,10 @@ fn extra_information_from_metadata(
     Ok((show_ei, anime_ei, manga_ei, podcast_ei))
 }
 
-struct CreateNewInput<'a> {
+struct CommitInput<'a> {
     meta: Model,
+    state: SeenState,
+    progress: Decimal,
     user_id: &'a String,
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
@@ -72,12 +75,12 @@ struct CreateNewInput<'a> {
     input: MetadataProgressUpdateCommonInput,
 }
 
-async fn create_new<'a>(input: CreateNewInput<'a>) -> Result<()> {
+async fn commit<'a>(input: CommitInput<'a>) -> Result<()> {
     let (show_ei, anime_ei, manga_ei, podcast_ei) =
         extra_information_from_metadata(&input.meta, &input.input)?;
     let seen_insert = seen::ActiveModel {
-        progress: ActiveValue::Set(dec!(100)),
-        state: ActiveValue::Set(SeenState::Completed),
+        state: ActiveValue::Set(input.state),
+        progress: ActiveValue::Set(input.progress),
         started_on: ActiveValue::Set(input.started_on),
         finished_on: ActiveValue::Set(input.finished_on),
         show_extra_information: ActiveValue::Set(show_ei),
@@ -124,13 +127,15 @@ pub async fn metadata_progress_update(
                     inner_input.data.common,
                 ),
             };
-            create_new(CreateNewInput {
+            commit(CommitInput {
                 ss,
                 meta,
                 input,
                 user_id,
                 started_on,
                 finished_on,
+                progress: dec!(100),
+                state: SeenState::Completed,
             })
             .await?;
         }
