@@ -49,6 +49,7 @@ import {
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
+	type MetadataProgressUpdateInput,
 	type UserCollectionsListQuery,
 	UserLot,
 	type UserMeasurementInput,
@@ -1069,6 +1070,9 @@ const MetadataNewProgressUpdateForm = ({
 	);
 	const watchProviders = useGetWatchProviders(metadataDetails.lot);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
+		metadataDetails.title,
+	);
 
 	return (
 		<Stack ref={parent}>
@@ -1300,7 +1304,8 @@ const MetadataNewProgressUpdateForm = ({
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
 					advanceOnboardingTourStep();
-					const updates = [];
+					const updates = new Array<MetadataProgressUpdateInput>();
+					await deployBulkMetadataProgressUpdate.mutateAsync(updates);
 					onSubmit();
 				}}
 			>
