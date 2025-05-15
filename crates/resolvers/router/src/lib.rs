@@ -1,7 +1,7 @@
 use std::{fs::write, path::PathBuf, sync::Arc};
 
 use anyhow::Result;
-use async_graphql::http::graphiql_source;
+use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use axum::{
     Extension, Json,
     extract::{Multipart, Path},
@@ -14,7 +14,9 @@ use nanoid::nanoid;
 use serde_json::json;
 
 pub async fn graphql_playground() -> impl IntoResponse {
-    Html(graphiql_source("/backend/graphql", None))
+    Html(playground_source(GraphQLPlaygroundConfig::new(
+        "/backend/graphql",
+    )))
 }
 
 pub async fn config_handler(
