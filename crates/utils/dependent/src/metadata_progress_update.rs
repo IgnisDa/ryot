@@ -2,12 +2,60 @@ use std::sync::Arc;
 
 use async_graphql::{Error, Result};
 use database_models::{metadata::Model, prelude::Metadata};
+use enum_models::MediaLot;
 use media_models::{
     MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewInput,
-    MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput,
+    MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use sea_orm::EntityTrait;
 use supporting_service::SupportingService;
+
+fn extra_information_from_metadata(
+    meta: &Model,
+    input: &MetadataProgressUpdateCommonInput,
+) -> Result<(
+    Option<SeenShowExtraInformation>,
+    Option<SeenAnimeExtraInformation>,
+    Option<SeenMangaExtraInformation>,
+    Option<SeenPodcastExtraInformation>,
+)> {
+    let show_ei = if matches!(meta.lot, MediaLot::Show) {
+        let season = input
+            .show_season_number
+            .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
+        let episode = input
+            .show_episode_number
+            .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
+        Some(SeenShowExtraInformation { season, episode })
+    } else {
+        None
+    };
+    let podcast_ei = if matches!(meta.lot, MediaLot::Podcast) {
+        let episode = input
+            .podcast_episode_number
+            .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
+        Some(SeenPodcastExtraInformation { episode })
+    } else {
+        None
+    };
+    let anime_ei = if matches!(meta.lot, MediaLot::Anime) {
+        Some(SeenAnimeExtraInformation {
+            episode: input.anime_episode_number,
+        })
+    } else {
+        None
+    };
+    let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
+        Some(SeenMangaExtraInformation {
+            chapter: input.manga_chapter_number,
+            volume: input.manga_volume_number,
+        })
+    } else {
+        None
+    };
+    Ok((show_ei, anime_ei, manga_ei, podcast_ei))
+}
 
 async fn create_new_without_dates(
     meta: &Model,
@@ -15,7 +63,8 @@ async fn create_new_without_dates(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateCommonInput,
 ) -> Result<()> {
-    dbg!(meta, user_id, input);
+    let (show_ei, anime_ei, manga_ei, podcast_ei) = extra_information_from_metadata(meta, &input)?;
+    dbg!(&show_ei, &anime_ei, &manga_ei, &podcast_ei);
     Ok(())
 }
 
