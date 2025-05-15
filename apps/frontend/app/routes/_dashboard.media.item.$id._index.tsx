@@ -80,7 +80,6 @@ import {
 } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import {
-	type FormEvent,
 	Fragment,
 	type ReactNode,
 	type RefObject,
@@ -116,11 +115,9 @@ import {
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
-	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
-	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useDeployBulkMetadataProgressUpdate,
@@ -270,7 +267,6 @@ const METADATA_LOTS_WITH_GRANULAR_UPDATES = [
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
-	const events = useApplicationEvents();
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
 	const canCurrentUserUpdate =
@@ -290,8 +286,9 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdate();
+	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
+		loaderData.metadataDetails.title,
+	);
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
@@ -369,42 +366,40 @@ export default function Page() {
 			"Various Artists",
 	].filter(Boolean);
 
-	const onSubmitProgressUpdate = (e: FormEvent<HTMLFormElement>) => {
-		submit(e);
-		events.updateProgress(loaderData.metadataDetails.title);
-		refreshEntityDetails(loaderData.metadataId);
-	};
-
 	const PutOnHoldMenuItem = () => {
 		return (
-			<Form
-				action={withQuery($path("/actions"), {
-					intent: "individualProgressUpdate",
-				})}
-				method="POST"
-				replace
-				onSubmit={(e) => onSubmitProgressUpdate(e)}
+			<Menu.Item
+				onClick={() => {
+					deployBulkMetadataProgressUpdate.mutate([
+						{
+							metadataId: loaderData.metadataId,
+							change: {
+								changeLatestInProgress: { state: SeenState.OnAHold },
+							},
+						},
+					]);
+				}}
 			>
-				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
-				<input hidden name="changeState" defaultValue={SeenState.OnAHold} />
-				<Menu.Item type="submit">Put on hold</Menu.Item>
-			</Form>
+				Put on hold
+			</Menu.Item>
 		);
 	};
 	const DropMenuItem = () => {
 		return (
-			<Form
-				action={withQuery($path("/actions"), {
-					intent: "individualProgressUpdate",
-				})}
-				method="POST"
-				replace
-				onSubmit={(e) => onSubmitProgressUpdate(e)}
+			<Menu.Item
+				onClick={() => {
+					deployBulkMetadataProgressUpdate.mutate([
+						{
+							metadataId: loaderData.metadataId,
+							change: {
+								changeLatestInProgress: { state: SeenState.Dropped },
+							},
+						},
+					]);
+				}}
 			>
-				<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
-				<input hidden name="changeState" defaultValue={SeenState.Dropped} />
-				<Menu.Item type="submit">Mark as dropped</Menu.Item>
-			</Form>
+				Mark as dropped
+			</Menu.Item>
 		);
 	};
 	const StateChangeButtons = () => {

@@ -266,8 +266,9 @@ export const useIsOnboardingTourCompleted = () => {
 	return dashboardData.isOnboardingTourCompleted;
 };
 
-export const useDeployBulkMetadataProgressUpdate = () => {
+export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 	const revalidator = useRevalidator();
+	const events = useApplicationEvents();
 
 	const mutation = useMutation({
 		mutationFn: async (input: MetadataProgressUpdateInput[]) => {
@@ -281,6 +282,7 @@ export const useDeployBulkMetadataProgressUpdate = () => {
 			for (const id of data[1]) {
 				refreshEntityDetails(id);
 			}
+			events.updateProgress(title);
 			revalidator.revalidate();
 		},
 	});
