@@ -898,7 +898,6 @@ export default function Page() {
 														loaderData.metadataDetails.lot,
 													) ? (
 														<Menu.Item
-															type="submit"
 															onClick={() => {
 																deployBulkMetadataProgressUpdate.mutate([
 																	{
