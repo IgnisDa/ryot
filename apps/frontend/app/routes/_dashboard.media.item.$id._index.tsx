@@ -123,6 +123,7 @@ import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
+	useDeployBulkMetadataProgressUpdate,
 	useGetRandomMantineColor,
 	useGetWatchProviders,
 	useUserDetails,
@@ -289,6 +290,8 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const deployBulkMetadataProgressUpdate =
+		useDeployBulkMetadataProgressUpdate();
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
@@ -891,33 +894,34 @@ export default function Page() {
 												) ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
-													<Form
-														replace
-														method="POST"
-														onSubmit={(e) => onSubmitProgressUpdate(e)}
-														action={withQuery($path("/actions"), {
-															intent: "individualProgressUpdate",
-														})}
-													>
-														<input hidden name="progress" defaultValue={0} />
-														<input
-															hidden
-															name="metadataId"
-															defaultValue={loaderData.metadataId}
-														/>
-														{![MediaLot.Anime, MediaLot.Manga].includes(
-															loaderData.metadataDetails.lot,
-														) ? (
-															<Menu.Item type="submit">
-																I'm{" "}
-																{getVerb(
-																	Verb.Read,
-																	loaderData.metadataDetails.lot,
-																)}
-																ing it
-															</Menu.Item>
-														) : null}
-													</Form>
+													{![MediaLot.Anime, MediaLot.Manga].includes(
+														loaderData.metadataDetails.lot,
+													) ? (
+														<Menu.Item
+															type="submit"
+															onClick={() => {
+																deployBulkMetadataProgressUpdate.mutate([
+																	{
+																		metadataId: loaderData.metadataId,
+																		change: {
+																			createNewInProgress: {
+																				startedOn: formatDateToNaiveDate(
+																					new Date(),
+																				),
+																			},
+																		},
+																	},
+																]);
+															}}
+														>
+															I'm{" "}
+															{getVerb(
+																Verb.Read,
+																loaderData.metadataDetails.lot,
+															)}
+															ing it
+														</Menu.Item>
+													) : null}
 													<Menu.Item
 														onClick={() => {
 															setMetadataToUpdate({
