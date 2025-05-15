@@ -1124,8 +1124,15 @@ const MetadataNewProgressUpdateForm = ({
 							}}
 						/>
 						<Checkbox
-							name="animeAllEpisodesBefore"
 							label="Mark all unseen episodes before this as watched"
+							defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.animeAllEpisodesBefore = e.target.checked;
+									}),
+								);
+							}}
 						/>
 					</>
 				) : null}
@@ -1168,8 +1175,15 @@ const MetadataNewProgressUpdateForm = ({
 							</Group>
 						</Input.Wrapper>
 						<Checkbox
-							name="mangaAllChaptersOrVolumesBefore"
 							label="Mark all unread volumes/chapters before this as watched"
+							defaultChecked={metadataToUpdate.mangaAllChaptersOrVolumesBefore}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.mangaAllChaptersOrVolumesBefore = e.target.checked;
+									}),
+								);
+							}}
 						/>
 					</>
 				) : null}
@@ -1235,8 +1249,8 @@ const MetadataNewProgressUpdateForm = ({
 						<Text fw="bold">Select episode</Text>
 						<Select
 							required
-							searchable
 							limit={50}
+							searchable
 							label="Episode"
 							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
 							data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
@@ -1253,7 +1267,14 @@ const MetadataNewProgressUpdateForm = ({
 						/>
 						<Checkbox
 							label="Mark all unseen episodes before this as seen"
-							name="podcastAllEpisodesBefore"
+							defaultChecked={metadataToUpdate.podcastAllEpisodesBefore}
+							onChange={(e) => {
+								setMetadataToUpdate(
+									produce(metadataToUpdate, (draft) => {
+										draft.podcastAllEpisodesBefore = e.target.checked;
+									}),
+								);
+							}}
 						/>
 					</>
 				) : null}

@@ -15,13 +15,16 @@ import {
 
 export type UpdateProgressData = {
 	metadataId: string;
-	showAllEpisodesBefore?: boolean;
 	showSeasonNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	podcastEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
 	mangaChapterNumber?: string | null;
 	mangaVolumeNumber?: number | null;
+	showAllEpisodesBefore?: boolean;
+	animeAllEpisodesBefore?: boolean;
+	podcastAllEpisodesBefore?: boolean;
+	mangaAllChaptersOrVolumesBefore?: boolean;
 };
 
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
