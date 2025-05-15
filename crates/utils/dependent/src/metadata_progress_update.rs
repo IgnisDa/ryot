@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Error, Result};
 use database_models::{metadata::Model, prelude::Metadata};
-use enum_models::MediaLot;
+use enum_models::{EntityLot, MediaLot};
 use media_models::{
     MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewInput,
     MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput, SeenAnimeExtraInformation,
@@ -10,6 +10,8 @@ use media_models::{
 };
 use sea_orm::EntityTrait;
 use supporting_service::SupportingService;
+
+use crate::mark_entity_as_recently_consumed;
 
 fn extra_information_from_metadata(
     meta: &Model,
@@ -86,5 +88,6 @@ pub async fn metadata_progress_update(
         },
         _ => todo!(),
     }
+    mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     Ok(())
 }
