@@ -390,7 +390,7 @@ pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
 }
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
-pub enum MetadataProgressUpdateChangeExistingInput {
+pub enum MetadataProgressUpdateChangeLatestInProgressInput {
     State(SeenState),
     Progress(Decimal),
 }
@@ -406,8 +406,8 @@ pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChange {
     CreateNewInProgress(MetadataProgressUpdateCommonInput),
-    ChangeExisting(MetadataProgressUpdateChangeExistingInput),
     CreateNewCompleted(MetadataProgressUpdateChangeCreateNewCompletedInput),
+    ChangeLatestInProgress(MetadataProgressUpdateChangeLatestInProgressInput),
 }
 
 #[derive(InputObject, Debug, Deserialize, Serialize, Clone)]
