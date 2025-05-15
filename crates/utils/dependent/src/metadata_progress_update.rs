@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use application_utils::get_current_date;
 use async_graphql::{Error, Result};
+use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::{NaiveDate, Utc};
 use common_utils::ryot_log;
 use database_models::{
@@ -21,7 +22,10 @@ use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
-use crate::mark_entity_as_recently_consumed;
+use crate::{
+    deploy_after_handle_media_seen_tasks, expire_user_collections_list_cache,
+    mark_entity_as_recently_consumed,
+};
 
 struct CommitInput<'a> {
     meta: Model,
@@ -141,7 +145,14 @@ pub async fn metadata_progress_update(
             last_seen.progress = ActiveValue::Set(progress);
             last_seen.updated_at = ActiveValue::Set(updated_at);
             last_seen.finished_on = ActiveValue::Set(finished_on);
-            last_seen.update(&ss.db).await?
+            let resp = last_seen.update(&ss.db).await?;
+            if resp.state == SeenState::Completed {
+                ss.perform_application_job(ApplicationJob::Lp(
+                    LpApplicationJob::HandleOnSeenComplete(resp.id.clone()),
+                ))
+                .await?;
+            }
+            resp
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             if previous_seen.is_some() {
@@ -189,5 +200,7 @@ pub async fn metadata_progress_update(
         }
     };
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
+    expire_user_collections_list_cache(user_id, ss).await?;
+    deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(())
 }
