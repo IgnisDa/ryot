@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use async_graphql::{Error, Result};
-use database_models::{metadata::Model, prelude::Metadata};
-use enum_models::{EntityLot, MediaLot};
+use database_models::{metadata::Model, prelude::Metadata, seen};
+use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
     MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewInput,
     MetadataProgressUpdateCommonInput, MetadataProgressUpdateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
-use sea_orm::EntityTrait;
+use rust_decimal_macros::dec;
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use supporting_service::SupportingService;
 
 use crate::mark_entity_as_recently_consumed;
@@ -66,7 +67,19 @@ async fn create_new_without_dates(
     input: MetadataProgressUpdateCommonInput,
 ) -> Result<()> {
     let (show_ei, anime_ei, manga_ei, podcast_ei) = extra_information_from_metadata(meta, &input)?;
-    dbg!(&show_ei, &anime_ei, &manga_ei, &podcast_ei);
+    let seen_insert = seen::ActiveModel {
+        progress: ActiveValue::Set(dec!(100)),
+        user_id: ActiveValue::Set(user_id.to_owned()),
+        state: ActiveValue::Set(SeenState::Completed),
+        metadata_id: ActiveValue::Set(meta.id.clone()),
+        show_extra_information: ActiveValue::Set(show_ei),
+        anime_extra_information: ActiveValue::Set(anime_ei),
+        manga_extra_information: ActiveValue::Set(manga_ei),
+        podcast_extra_information: ActiveValue::Set(podcast_ei),
+        provider_watched_on: ActiveValue::Set(input.provider_watched_on),
+        ..Default::default()
+    };
+    seen_insert.insert(&ss.db).await?;
     Ok(())
 }
 
