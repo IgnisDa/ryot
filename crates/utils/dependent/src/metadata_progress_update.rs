@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use chrono::NaiveDate;
 use common_utils::ryot_log;
@@ -113,6 +114,17 @@ pub async fn metadata_progress_update(
                     started_on: None,
                     finished_on: None,
                     input: inner_input,
+                })
+                .await?;
+            }
+            MetadataProgressUpdateChangeCreateNewInput::FinishedNow(inner_input) => {
+                create_new(CreateNewInput {
+                    ss,
+                    meta,
+                    user_id,
+                    started_on: None,
+                    input: inner_input,
+                    finished_on: Some(get_current_date(&ss.timezone)),
                 })
                 .await?;
             }
