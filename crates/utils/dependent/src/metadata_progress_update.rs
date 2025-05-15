@@ -3,7 +3,11 @@ use std::sync::Arc;
 use async_graphql::{Error, Result};
 use chrono::NaiveDate;
 use common_utils::ryot_log;
-use database_models::{metadata::Model, prelude::Metadata, seen};
+use database_models::{
+    metadata::Model,
+    prelude::{Metadata, Seen},
+    seen,
+};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
     MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewCompletedInput,
@@ -12,7 +16,7 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
 use crate::mark_entity_as_recently_consumed;
@@ -97,7 +101,14 @@ pub async fn metadata_progress_update(
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     match input.change {
         MetadataProgressUpdateChange::ChangeLatestInProgress(change_latest_in_progress) => {
-            dbg!(&change_latest_in_progress);
+            let previous_seen = Seen::find()
+                .filter(seen::Column::UserId.eq(user_id))
+                .filter(seen::Column::State.eq(SeenState::InProgress))
+                .filter(seen::Column::MetadataId.eq(&input.metadata_id))
+                .order_by_desc(seen::Column::LastUpdatedOn)
+                .one(&ss.db)
+                .await?;
+            dbg!(&change_latest_in_progress, &previous_seen);
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             commit(CommitInput {
