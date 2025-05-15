@@ -515,16 +515,19 @@ export const getTimeOfDay = (hours: number) => {
 };
 
 export const refreshEntityDetails = (entityId: string) =>
-	setTimeout(() => {
-		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userMetadataDetails(entityId).queryKey,
-		});
-		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
-		});
-		queryClient.invalidateQueries({
-			queryKey: queryFactory.media.userPersonDetails(entityId).queryKey,
-		});
+	setTimeout(async () => {
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.media.userMetadataDetails(entityId).queryKey,
+			}),
+			queryClient.invalidateQueries({
+				queryKey:
+					queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
+			}),
+			queryClient.invalidateQueries({
+				queryKey: queryFactory.media.userPersonDetails(entityId).queryKey,
+			}),
+		]);
 	}, 1500);
 
 export const convertUtcHourToLocalHour = (
