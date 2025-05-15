@@ -108,21 +108,21 @@ pub async fn metadata_progress_update(
         .ok_or_else(|| Error::new("Metadata not found"))?;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     match input.change {
-        MetadataProgressUpdateChange::CreateNewInProgress(input) => {
+        MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             commit(CommitInput {
                 ss,
                 meta,
-                input,
                 user_id,
                 started_on: None,
                 progress: dec!(0),
                 finished_on: None,
                 state: SeenState::InProgress,
+                input: create_new_in_progress,
             })
             .await?;
         }
-        MetadataProgressUpdateChange::CreateNewCompleted(create_new_input) => {
-            let (started_on, finished_on, input) = match create_new_input {
+        MetadataProgressUpdateChange::CreateNewCompleted(create_new_completed) => {
+            let (started_on, finished_on, input) = match create_new_completed {
                 MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(inner_input) => {
                     (None, None, inner_input)
                 }
