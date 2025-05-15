@@ -1076,266 +1076,238 @@ const MetadataNewProgressUpdateForm = ({
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	return (
-		<Form
-			method="POST"
-			onSubmit={onSubmit}
-			action={withQuery($path("/actions"), {
-				intent:
-					watchTime === WatchTimes.JustStartedIt
-						? "individualProgressUpdate"
-						: "progressUpdate",
-			})}
-		>
-			{[
-				...Object.entries(metadataToUpdate),
-				watchTime !== WatchTimes.JustStartedIt
-					? ["metadataLot", metadataDetails.lot]
-					: undefined,
-				watchTime === WatchTimes.JustStartedIt ? ["progress", "0"] : undefined,
-				selectedDate ? ["date", selectedDate] : undefined,
-			]
-				.filter((v) => typeof v !== "undefined")
-				.map(([k, v]) => (
-					<Fragment key={k}>
-						{typeof v !== "undefined" ? (
-							<input hidden readOnly name={k} value={v?.toString()} />
-						) : null}
-					</Fragment>
-				))}
-			<Stack ref={parent}>
-				{metadataDetails.lot === MediaLot.Anime ? (
-					<>
-						<NumberInput
-							required
-							hideControls
-							label="Episode"
-							value={metadataToUpdate.animeEpisodeNumber?.toString()}
-							onChange={(e) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.animeEpisodeNumber = Number(e);
-									}),
-								);
-							}}
-						/>
-						<Checkbox
-							label="Mark all unseen episodes before this as watched"
-							defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
-							onChange={(e) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.animeAllEpisodesBefore = e.target.checked;
-									}),
-								);
-							}}
-						/>
-					</>
-				) : null}
-				{metadataDetails.lot === MediaLot.Manga ? (
-					<>
-						<Input.Wrapper
-							required
-							label="Enter either the chapter number or the volume number"
-						>
-							<Group wrap="nowrap">
-								<NumberInput
-									hideControls
-									description="Chapter"
-									value={metadataToUpdate.mangaChapterNumber?.toString()}
-									onChange={(e) => {
-										setMetadataToUpdate(
-											produce(metadataToUpdate, (draft) => {
-												draft.mangaChapterNumber =
-													e === "" ? undefined : Number(e).toString();
-											}),
-										);
-									}}
-								/>
-								<Text ta="center" fw="bold" mt="sm">
-									OR
-								</Text>
-								<NumberInput
-									hideControls
-									description="Volume"
-									value={metadataToUpdate.mangaVolumeNumber?.toString()}
-									onChange={(e) => {
-										setMetadataToUpdate(
-											produce(metadataToUpdate, (draft) => {
-												draft.mangaVolumeNumber =
-													e === "" ? undefined : Number(e);
-											}),
-										);
-									}}
-								/>
-							</Group>
-						</Input.Wrapper>
-						<Checkbox
-							label="Mark all unread volumes/chapters before this as watched"
-							defaultChecked={metadataToUpdate.mangaAllChaptersOrVolumesBefore}
-							onChange={(e) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.mangaAllChaptersOrVolumesBefore = e.target.checked;
-									}),
-								);
-							}}
-						/>
-					</>
-				) : null}
-				{metadataDetails.lot === MediaLot.Show ? (
-					<>
-						<Select
-							required
-							searchable
-							limit={50}
-							label="Season"
-							value={metadataToUpdate.showSeasonNumber?.toString()}
-							data={metadataDetails.showSpecifics?.seasons.map((s) => ({
-								label: `${s.seasonNumber}. ${s.name.toString()}`,
-								value: s.seasonNumber.toString(),
-							}))}
-							onChange={(v) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.showSeasonNumber = Number(v);
-									}),
-								);
-							}}
-						/>
-						<Select
-							searchable
-							limit={50}
-							required
-							label="Episode"
-							value={metadataToUpdate.showEpisodeNumber?.toString()}
-							onChange={(v) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.showEpisodeNumber = Number(v);
-									}),
-								);
-							}}
-							data={
-								metadataDetails.showSpecifics?.seasons
-									.find(
-										(s) => s.seasonNumber === metadataToUpdate.showSeasonNumber,
-									)
-									?.episodes.map((e) => ({
-										label: `${e.episodeNumber}. ${e.name.toString()}`,
-										value: e.episodeNumber.toString(),
-									})) || []
-							}
-						/>
-						<Checkbox
-							label="Mark all unseen episodes before this as seen"
-							defaultChecked={metadataToUpdate.showAllEpisodesBefore}
-							onChange={(e) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.showAllEpisodesBefore = e.target.checked;
-									}),
-								);
-							}}
-						/>
-					</>
-				) : null}
-				{metadataDetails.lot === MediaLot.Podcast ? (
-					<>
-						<Text fw="bold">Select episode</Text>
-						<Select
-							required
-							limit={50}
-							searchable
-							label="Episode"
-							value={metadataToUpdate.podcastEpisodeNumber?.toString()}
-							data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
-								label: se.title.toString(),
-								value: se.number.toString(),
-							}))}
-							onChange={(v) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.podcastEpisodeNumber = Number(v);
-									}),
-								);
-							}}
-						/>
-						<Checkbox
-							label="Mark all unseen episodes before this as seen"
-							defaultChecked={metadataToUpdate.podcastAllEpisodesBefore}
-							onChange={(e) => {
-								setMetadataToUpdate(
-									produce(metadataToUpdate, (draft) => {
-										draft.podcastAllEpisodesBefore = e.target.checked;
-									}),
-								);
-							}}
-						/>
-					</>
-				) : null}
-				<Select
-					value={watchTime}
-					data={Object.values(WatchTimes).filter((v) =>
-						[
-							MediaLot.Show,
-							MediaLot.Podcast,
-							MediaLot.Anime,
-							MediaLot.Manga,
-						].includes(metadataDetails.lot)
-							? v !== WatchTimes.JustStartedIt
-							: true,
-					)}
-					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-					onChange={(v) => {
-						setWatchTime(v as typeof watchTime);
-						match(v)
-							.with(WatchTimes.JustCompletedNow, () =>
-								setSelectedDate(formatDateToNaiveDate(new Date())),
-							)
-							.with(
-								WatchTimes.IDontRemember,
-								WatchTimes.CustomDate,
-								WatchTimes.JustStartedIt,
-								() => setSelectedDate(null),
-							)
-							.run();
-					}}
-				/>
-				{watchTime === WatchTimes.CustomDate ? (
-					<DatePickerInput
+		<Stack ref={parent}>
+			{metadataDetails.lot === MediaLot.Anime ? (
+				<>
+					<NumberInput
 						required
-						clearable
-						dropdownType="modal"
-						maxDate={new Date()}
-						label="Enter exact date"
-						onChange={setSelectedDate}
-					/>
-				) : null}
-				{watchTime !== WatchTimes.JustStartedIt ? (
-					<Select
-						data={watchProviders}
-						name="providerWatchedOn"
-						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
-						onChange={(v) => {
+						hideControls
+						label="Episode"
+						value={metadataToUpdate.animeEpisodeNumber?.toString()}
+						onChange={(e) => {
 							setMetadataToUpdate(
 								produce(metadataToUpdate, (draft) => {
-									draft.providerWatchedOn = v;
+									draft.animeEpisodeNumber = Number(e);
 								}),
 							);
 						}}
 					/>
-				) : null}
-				<Button
-					type="submit"
-					variant="outline"
-					disabled={selectedDate === undefined}
-					onClick={() => advanceOnboardingTourStep()}
-					className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
-				>
-					Submit
-				</Button>
-			</Stack>
-		</Form>
+					<Checkbox
+						label="Mark all unseen episodes before this as watched"
+						defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
+						onChange={(e) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.animeAllEpisodesBefore = e.target.checked;
+								}),
+							);
+						}}
+					/>
+				</>
+			) : null}
+			{metadataDetails.lot === MediaLot.Manga ? (
+				<>
+					<Input.Wrapper
+						required
+						label="Enter either the chapter number or the volume number"
+					>
+						<Group wrap="nowrap">
+							<NumberInput
+								hideControls
+								description="Chapter"
+								value={metadataToUpdate.mangaChapterNumber?.toString()}
+								onChange={(e) => {
+									setMetadataToUpdate(
+										produce(metadataToUpdate, (draft) => {
+											draft.mangaChapterNumber =
+												e === "" ? undefined : Number(e).toString();
+										}),
+									);
+								}}
+							/>
+							<Text ta="center" fw="bold" mt="sm">
+								OR
+							</Text>
+							<NumberInput
+								hideControls
+								description="Volume"
+								value={metadataToUpdate.mangaVolumeNumber?.toString()}
+								onChange={(e) => {
+									setMetadataToUpdate(
+										produce(metadataToUpdate, (draft) => {
+											draft.mangaVolumeNumber =
+												e === "" ? undefined : Number(e);
+										}),
+									);
+								}}
+							/>
+						</Group>
+					</Input.Wrapper>
+					<Checkbox
+						label="Mark all unread volumes/chapters before this as watched"
+						defaultChecked={metadataToUpdate.mangaAllChaptersOrVolumesBefore}
+						onChange={(e) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.mangaAllChaptersOrVolumesBefore = e.target.checked;
+								}),
+							);
+						}}
+					/>
+				</>
+			) : null}
+			{metadataDetails.lot === MediaLot.Show ? (
+				<>
+					<Select
+						required
+						searchable
+						limit={50}
+						label="Season"
+						value={metadataToUpdate.showSeasonNumber?.toString()}
+						data={metadataDetails.showSpecifics?.seasons.map((s) => ({
+							label: `${s.seasonNumber}. ${s.name.toString()}`,
+							value: s.seasonNumber.toString(),
+						}))}
+						onChange={(v) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.showSeasonNumber = Number(v);
+								}),
+							);
+						}}
+					/>
+					<Select
+						searchable
+						limit={50}
+						required
+						label="Episode"
+						value={metadataToUpdate.showEpisodeNumber?.toString()}
+						onChange={(v) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.showEpisodeNumber = Number(v);
+								}),
+							);
+						}}
+						data={
+							metadataDetails.showSpecifics?.seasons
+								.find(
+									(s) => s.seasonNumber === metadataToUpdate.showSeasonNumber,
+								)
+								?.episodes.map((e) => ({
+									label: `${e.episodeNumber}. ${e.name.toString()}`,
+									value: e.episodeNumber.toString(),
+								})) || []
+						}
+					/>
+					<Checkbox
+						label="Mark all unseen episodes before this as seen"
+						defaultChecked={metadataToUpdate.showAllEpisodesBefore}
+						onChange={(e) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.showAllEpisodesBefore = e.target.checked;
+								}),
+							);
+						}}
+					/>
+				</>
+			) : null}
+			{metadataDetails.lot === MediaLot.Podcast ? (
+				<>
+					<Text fw="bold">Select episode</Text>
+					<Select
+						required
+						limit={50}
+						searchable
+						label="Episode"
+						value={metadataToUpdate.podcastEpisodeNumber?.toString()}
+						data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
+							label: se.title.toString(),
+							value: se.number.toString(),
+						}))}
+						onChange={(v) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.podcastEpisodeNumber = Number(v);
+								}),
+							);
+						}}
+					/>
+					<Checkbox
+						label="Mark all unseen episodes before this as seen"
+						defaultChecked={metadataToUpdate.podcastAllEpisodesBefore}
+						onChange={(e) => {
+							setMetadataToUpdate(
+								produce(metadataToUpdate, (draft) => {
+									draft.podcastAllEpisodesBefore = e.target.checked;
+								}),
+							);
+						}}
+					/>
+				</>
+			) : null}
+			<Select
+				value={watchTime}
+				data={Object.values(WatchTimes).filter((v) =>
+					[
+						MediaLot.Show,
+						MediaLot.Podcast,
+						MediaLot.Anime,
+						MediaLot.Manga,
+					].includes(metadataDetails.lot)
+						? v !== WatchTimes.JustStartedIt
+						: true,
+				)}
+				label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+				onChange={(v) => {
+					setWatchTime(v as typeof watchTime);
+					match(v)
+						.with(WatchTimes.JustCompletedNow, () =>
+							setSelectedDate(formatDateToNaiveDate(new Date())),
+						)
+						.with(
+							WatchTimes.IDontRemember,
+							WatchTimes.CustomDate,
+							WatchTimes.JustStartedIt,
+							() => setSelectedDate(null),
+						)
+						.run();
+				}}
+			/>
+			{watchTime === WatchTimes.CustomDate ? (
+				<DatePickerInput
+					required
+					clearable
+					dropdownType="modal"
+					maxDate={new Date()}
+					label="Enter exact date"
+					onChange={setSelectedDate}
+				/>
+			) : null}
+			{watchTime !== WatchTimes.JustStartedIt ? (
+				<Select
+					data={watchProviders}
+					name="providerWatchedOn"
+					label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
+					onChange={(v) => {
+						setMetadataToUpdate(
+							produce(metadataToUpdate, (draft) => {
+								draft.providerWatchedOn = v;
+							}),
+						);
+					}}
+				/>
+			) : null}
+			<Button
+				variant="outline"
+				disabled={selectedDate === undefined}
+				onClick={() => advanceOnboardingTourStep()}
+				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
+			>
+				Submit
+			</Button>
+		</Stack>
 	);
 };
 
