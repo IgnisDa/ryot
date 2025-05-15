@@ -60,26 +60,29 @@ fn extra_information_from_metadata(
     Ok((show_ei, anime_ei, manga_ei, podcast_ei))
 }
 
-async fn create_new_without_dates(
-    meta: &Model,
-    user_id: &String,
-    ss: &Arc<SupportingService>,
+struct CreateNewInput<'a> {
+    meta: &'a Model,
+    user_id: &'a String,
+    ss: &'a Arc<SupportingService>,
     input: MetadataProgressUpdateCommonInput,
-) -> Result<()> {
-    let (show_ei, anime_ei, manga_ei, podcast_ei) = extra_information_from_metadata(meta, &input)?;
+}
+
+async fn create_new<'a>(input: CreateNewInput<'a>) -> Result<()> {
+    let (show_ei, anime_ei, manga_ei, podcast_ei) =
+        extra_information_from_metadata(input.meta, &input.input)?;
     let seen_insert = seen::ActiveModel {
         progress: ActiveValue::Set(dec!(100)),
-        user_id: ActiveValue::Set(user_id.to_owned()),
         state: ActiveValue::Set(SeenState::Completed),
-        metadata_id: ActiveValue::Set(meta.id.clone()),
         show_extra_information: ActiveValue::Set(show_ei),
         anime_extra_information: ActiveValue::Set(anime_ei),
         manga_extra_information: ActiveValue::Set(manga_ei),
+        user_id: ActiveValue::Set(input.user_id.to_owned()),
+        metadata_id: ActiveValue::Set(input.meta.id.clone()),
         podcast_extra_information: ActiveValue::Set(podcast_ei),
-        provider_watched_on: ActiveValue::Set(input.provider_watched_on),
+        provider_watched_on: ActiveValue::Set(input.input.provider_watched_on),
         ..Default::default()
     };
-    seen_insert.insert(&ss.db).await?;
+    seen_insert.insert(&input.ss.db).await?;
     Ok(())
 }
 
@@ -95,7 +98,13 @@ pub async fn metadata_progress_update(
     match input.change {
         MetadataProgressUpdateChange::CreateNew(create_new_input) => match create_new_input {
             MetadataProgressUpdateChangeCreateNewInput::WithoutDates(inner_input) => {
-                create_new_without_dates(&meta, user_id, ss, inner_input).await?;
+                create_new(CreateNewInput {
+                    ss: ss,
+                    meta: &meta,
+                    user_id: user_id,
+                    input: inner_input,
+                })
+                .await?;
             }
             _ => todo!(),
         },
