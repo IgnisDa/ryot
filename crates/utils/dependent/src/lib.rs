@@ -65,13 +65,12 @@ use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating, ImportOrExportMetadataItem,
     MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, MetadataProgressUpdateInput, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
-    SeenShowExtraInformation, SeenShowExtraOptionalInformation, UniqueMediaIdentifier,
-    UpdateMediaEntityResult,
+    MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
+    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use migrations::{AliasedExercise, AliasedReview};
 use nanoid::nanoid;
@@ -112,6 +111,10 @@ use supporting_service::SupportingService;
 use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
 use uuid::Uuid;
+
+mod metadata_progress_update;
+
+pub use metadata_progress_update::metadata_progress_update;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
@@ -1463,15 +1466,6 @@ pub async fn get_entity_recently_consumed(
         ))
         .await
         .is_some())
-}
-
-pub async fn metadata_progress_update(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-    input: MetadataProgressUpdateInput,
-) -> Result<()> {
-    dbg!(&input);
-    Ok(())
 }
 
 pub async fn progress_update(
