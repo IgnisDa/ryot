@@ -390,13 +390,13 @@ pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
 }
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
-pub enum MetadataProgressUpdateChangeExisting {
+pub enum MetadataProgressUpdateChangeExistingInput {
     State(SeenState),
     Progress(Decimal),
 }
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
-pub enum MetadataProgressUpdateChangeCreateNew {
+pub enum MetadataProgressUpdateChangeCreateNewInput {
     StartedNow(MetadataProgressUpdateCommonInput),
     FinishedNow(MetadataProgressUpdateCommonInput),
     WithoutDates(MetadataProgressUpdateCommonInput),
@@ -406,15 +406,16 @@ pub enum MetadataProgressUpdateChangeCreateNew {
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChange {
-    CreateNew(MetadataProgressUpdateChangeCreateNew),
-    ChangeExisting(MetadataProgressUpdateChangeExisting),
+    CreateNew(MetadataProgressUpdateChangeCreateNewInput),
+    ChangeExisting(MetadataProgressUpdateChangeExistingInput),
 }
 
 #[derive(InputObject, Debug, Deserialize, Serialize, Clone)]
 pub struct MetadataProgressUpdateInput {
     pub metadata_id: String,
-    pub ignore_completion_cache: bool,
     pub change: MetadataProgressUpdateChange,
+    #[graphql(skip_input)]
+    pub respect_completion_cache: Option<bool>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
