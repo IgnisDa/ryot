@@ -2,7 +2,7 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use chrono::{NaiveDate, Utc};
+use chrono::NaiveDate;
 use educe::Educe;
 use enum_models::{EntityLot, SeenState};
 use media_models::{
@@ -11,7 +11,6 @@ use media_models::{
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 
@@ -98,16 +97,6 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        let state = self.state.clone().unwrap();
-        let progress = self.progress.clone().unwrap();
-        let finished_on = self.finished_on.clone().unwrap();
-        let started_on = self.started_on.clone().unwrap();
-        if progress == dec!(100) && state == SeenState::InProgress {
-            self.state = ActiveValue::Set(SeenState::Completed);
-            if finished_on.is_none() && started_on.is_some() {
-                self.finished_on = ActiveValue::Set(Some(Utc::now().date_naive()));
-            }
-        }
         if insert {
             self.id = ActiveValue::Set(format!("see_{}", nanoid!(12)));
         }
