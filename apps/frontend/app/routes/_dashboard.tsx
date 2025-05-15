@@ -927,6 +927,7 @@ const MetadataProgressUpdateForm = ({
 			onSubmit={onSubmit}
 			metadataDetails={metadataDetails}
 			metadataToUpdate={metadataToUpdate}
+			history={userMetadataDetails.history}
 		/>
 	);
 };
@@ -1048,10 +1049,12 @@ const MetadataInProgressUpdateForm = ({
 };
 
 const MetadataNewProgressUpdateForm = ({
+	history,
 	onSubmit,
 	metadataDetails,
 	metadataToUpdate,
 }: {
+	history: History;
 	onSubmit: () => void;
 	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
@@ -1297,6 +1300,7 @@ const MetadataNewProgressUpdateForm = ({
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
 					advanceOnboardingTourStep();
+					const updates = [];
 					onSubmit();
 				}}
 			>
