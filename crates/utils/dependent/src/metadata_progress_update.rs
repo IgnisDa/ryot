@@ -18,52 +18,6 @@ use supporting_service::SupportingService;
 
 use crate::mark_entity_as_recently_consumed;
 
-fn extra_information_from_metadata(
-    meta: &Model,
-    input: &MetadataProgressUpdateCommonInput,
-) -> Result<(
-    Option<SeenShowExtraInformation>,
-    Option<SeenAnimeExtraInformation>,
-    Option<SeenMangaExtraInformation>,
-    Option<SeenPodcastExtraInformation>,
-)> {
-    let show_ei = if matches!(meta.lot, MediaLot::Show) {
-        let season = input
-            .show_season_number
-            .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
-        let episode = input
-            .show_episode_number
-            .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
-        Some(SeenShowExtraInformation { season, episode })
-    } else {
-        None
-    };
-    let podcast_ei = if matches!(meta.lot, MediaLot::Podcast) {
-        let episode = input
-            .podcast_episode_number
-            .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
-        Some(SeenPodcastExtraInformation { episode })
-    } else {
-        None
-    };
-    let anime_ei = if matches!(meta.lot, MediaLot::Anime) {
-        Some(SeenAnimeExtraInformation {
-            episode: input.anime_episode_number,
-        })
-    } else {
-        None
-    };
-    let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
-        Some(SeenMangaExtraInformation {
-            chapter: input.manga_chapter_number,
-            volume: input.manga_volume_number,
-        })
-    } else {
-        None
-    };
-    Ok((show_ei, anime_ei, manga_ei, podcast_ei))
-}
-
 struct CommitInput<'a> {
     meta: Model,
     state: SeenState,
@@ -76,8 +30,43 @@ struct CommitInput<'a> {
 }
 
 async fn commit<'a>(input: CommitInput<'a>) -> Result<()> {
-    let (show_ei, anime_ei, manga_ei, podcast_ei) =
-        extra_information_from_metadata(&input.meta, &input.input)?;
+    let show_ei = if matches!(input.meta.lot, MediaLot::Show) {
+        let season = input
+            .input
+            .show_season_number
+            .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
+        let episode = input
+            .input
+            .show_episode_number
+            .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
+        Some(SeenShowExtraInformation { season, episode })
+    } else {
+        None
+    };
+    let podcast_ei = if matches!(input.meta.lot, MediaLot::Podcast) {
+        let episode = input
+            .input
+            .podcast_episode_number
+            .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
+        Some(SeenPodcastExtraInformation { episode })
+    } else {
+        None
+    };
+    let anime_ei = if matches!(input.meta.lot, MediaLot::Anime) {
+        Some(SeenAnimeExtraInformation {
+            episode: input.input.anime_episode_number,
+        })
+    } else {
+        None
+    };
+    let manga_ei = if matches!(input.meta.lot, MediaLot::Manga) {
+        Some(SeenMangaExtraInformation {
+            chapter: input.input.manga_chapter_number,
+            volume: input.input.manga_volume_number,
+        })
+    } else {
+        None
+    };
     let seen_insert = seen::ActiveModel {
         state: ActiveValue::Set(input.state),
         progress: ActiveValue::Set(input.progress),
