@@ -867,27 +867,22 @@ export default function Page() {
 													) ? (
 														<StateChangeButtons />
 													) : null}
-													<Form
-														replace
-														method="POST"
-														onSubmit={(e) => onSubmitProgressUpdate(e)}
-														action={withQuery($path("/actions"), {
-															intent: "individualProgressUpdate",
-														})}
+													<Menu.Item
+														onClick={() => {
+															deployBulkMetadataProgressUpdate.mutate([
+																{
+																	metadataId: loaderData.metadataId,
+																	change: {
+																		changeLatestInProgress: {
+																			progress: "100",
+																		},
+																	},
+																},
+															]);
+														}}
 													>
-														<input hidden name="progress" defaultValue={100} />
-														<input
-															hidden
-															name="date"
-															defaultValue={formatDateToNaiveDate(new Date())}
-														/>
-														<input
-															hidden
-															name="metadataId"
-															defaultValue={loaderData.metadataId}
-														/>
-														<Menu.Item type="submit">I finished it</Menu.Item>
-													</Form>
+														I finished it
+													</Menu.Item>
 												</>
 											) : !METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
 													loaderData.metadataDetails.lot,
