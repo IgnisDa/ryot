@@ -1,5 +1,6 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	DeployBulkMetadataProgressUpdateDocument,
 	type EntityLot,
@@ -282,6 +283,11 @@ export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 			for (const id of data[1]) {
 				refreshEntityDetails(id);
 			}
+			notifications.show({
+				color: "green",
+				title: "Progress Updated",
+				message: "Progress will be updated shortly",
+			});
 			events.updateProgress(title);
 			revalidator.revalidate();
 		},
