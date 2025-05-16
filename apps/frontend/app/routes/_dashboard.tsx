@@ -49,6 +49,7 @@ import {
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
+	type MetadataProgressUpdateChange,
 	type MetadataProgressUpdateCommonInput,
 	type MetadataProgressUpdateInput,
 	type UserCollectionsListQuery,
@@ -1314,37 +1315,37 @@ const MetadataNewProgressUpdateForm = ({
 						podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
 					};
 					const updates = new Array<MetadataProgressUpdateInput>();
-					updates.push({
-						metadataId: metadataToUpdate.metadataId,
-						change: match(watchTime)
-							.with(WatchTimes.JustStartedIt, () => ({
-								createNewInProgress: {
+					const change: MetadataProgressUpdateChange = match(watchTime)
+						.with(WatchTimes.JustStartedIt, () => ({
+							createNewInProgress: {
+								...common,
+								startedOn: formatDateToNaiveDate(new Date()),
+							},
+						}))
+						.with(WatchTimes.JustCompletedNow, () => ({
+							createNewCompleted: {
+								finishedOnDate: {
 									...common,
-									startedOn: formatDateToNaiveDate(new Date()),
+									finishedOn: formatDateToNaiveDate(new Date()),
 								},
-							}))
-							.with(WatchTimes.JustCompletedNow, () => ({
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										finishedOn: formatDateToNaiveDate(new Date()),
-									},
-								},
-							}))
-							.with(WatchTimes.CustomDate, () => {
-								if (!selectedDate)
-									throw new Error("Selected date is undefined");
+							},
+						}))
+						.with(WatchTimes.CustomDate, () => {
+							if (!selectedDate) throw new Error("Selected date is undefined");
 
-								return {
-									createNewCompleted: {
-										finishedOnDate: { ...common, finishedOn: selectedDate },
-									},
-								};
-							})
-							.with(WatchTimes.IDontRemember, () => ({
-								createNewCompleted: { withoutDates: common },
-							}))
-							.exhaustive(),
+							return {
+								createNewCompleted: {
+									finishedOnDate: { ...common, finishedOn: selectedDate },
+								},
+							};
+						})
+						.with(WatchTimes.IDontRemember, () => ({
+							createNewCompleted: { withoutDates: common },
+						}))
+						.exhaustive();
+					updates.push({
+						change,
+						metadataId: metadataToUpdate.metadataId,
 					});
 					await deployBulkMetadataProgressUpdate.mutateAsync(updates);
 					advanceOnboardingTourStep();
