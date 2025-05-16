@@ -49,6 +49,7 @@ import {
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
+	type MetadataProgressUpdateCommonInput,
 	type MetadataProgressUpdateInput,
 	type UserCollectionsListQuery,
 	UserLot,
@@ -1303,7 +1304,48 @@ const MetadataNewProgressUpdateForm = ({
 				disabled={selectedDate === undefined}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
+					const common: MetadataProgressUpdateCommonInput = {
+						showSeasonNumber: metadataToUpdate.showSeasonNumber,
+						mangaVolumeNumber: metadataToUpdate.mangaVolumeNumber,
+						showEpisodeNumber: metadataToUpdate.showEpisodeNumber,
+						providerWatchedOn: metadataToUpdate.providerWatchedOn,
+						mangaChapterNumber: metadataToUpdate.mangaChapterNumber,
+						animeEpisodeNumber: metadataToUpdate.animeEpisodeNumber,
+						podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
+					};
 					const updates = new Array<MetadataProgressUpdateInput>();
+					updates.push({
+						metadataId: metadataToUpdate.metadataId,
+						change: match(watchTime)
+							.with(WatchTimes.JustStartedIt, () => ({
+								createNewInProgress: {
+									...common,
+									startedOn: formatDateToNaiveDate(new Date()),
+								},
+							}))
+							.with(WatchTimes.JustCompletedNow, () => ({
+								createNewCompleted: {
+									finishedOnDate: {
+										...common,
+										finishedOn: formatDateToNaiveDate(new Date()),
+									},
+								},
+							}))
+							.with(WatchTimes.CustomDate, () => {
+								if (!selectedDate)
+									throw new Error("Selected date is undefined");
+
+								return {
+									createNewCompleted: {
+										finishedOnDate: { ...common, finishedOn: selectedDate },
+									},
+								};
+							})
+							.with(WatchTimes.IDontRemember, () => ({
+								createNewCompleted: { withoutDates: common },
+							}))
+							.exhaustive(),
+					});
 					await deployBulkMetadataProgressUpdate.mutateAsync(updates);
 					advanceOnboardingTourStep();
 					onSubmit();
