@@ -115,6 +115,7 @@ import {
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
+	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
@@ -1677,7 +1678,10 @@ const HistoryItem = (props: {
 								e.preventDefault();
 								openConfirmationModal(
 									"Are you sure you want to delete this record from history?",
-									() => submit(form),
+									() => {
+										submit(form);
+										refreshEntityDetails(loaderData.metadataId);
+									},
 								);
 							}}
 						>
