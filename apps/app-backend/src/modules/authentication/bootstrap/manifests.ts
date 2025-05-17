@@ -1,6 +1,10 @@
+import { match } from "ts-pattern";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
-import { builtinMediaEntitySchemaSlugs } from "~/lib/media/constants";
+import {
+	type BuiltinMediaEntitySchemaSlug,
+	builtinMediaEntitySchemaSlugs,
+} from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
@@ -136,21 +140,24 @@ export const authenticationBuiltinEntitySchemas = () => [
 	},
 ];
 
+const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
+	return match(slug)
+		.with("book", () => "All Books")
+		.with("anime", () => "All Anime")
+		.with("manga", () => "All Manga")
+		.exhaustive();
+};
+
 export const authenticationBuiltinSavedViews = () => [
-	...builtinMediaEntitySchemaSlugs.map((slug) => ({
-		trackerSlug: "media",
-		displayConfiguration: createDefaultDisplayConfiguration(slug),
-		entitySchemaSlug: slug,
-		name:
-			slug === "book"
-				? "All Books"
-				: slug === "anime"
-					? "All Anime"
-					: "All Manga",
-	})),
 	{
 		name: "Collections",
 		entitySchemaSlug: "collection",
 		displayConfiguration: createDefaultDisplayConfiguration("collection"),
 	},
+	...builtinMediaEntitySchemaSlugs.map((slug) => ({
+		trackerSlug: "media",
+		entitySchemaSlug: slug,
+		name: getBuiltInSavedViewName(slug),
+		displayConfiguration: createDefaultDisplayConfiguration(slug),
+	})),
 ];
