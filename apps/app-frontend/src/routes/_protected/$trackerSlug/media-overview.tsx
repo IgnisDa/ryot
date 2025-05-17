@@ -1299,7 +1299,7 @@ function StatChip(props: {
 	);
 }
 
-export function BuiltinTrackerOverview() {
+export function BuiltinMediaTrackerOverview() {
 	const t = useThemeTokens();
 
 	const dateGroups = RECENT_EVENTS.reduce<Record<string, ActivityEvent[]>>(
