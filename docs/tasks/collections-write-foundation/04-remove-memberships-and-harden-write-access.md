@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,19 +20,19 @@ and cycles**, **Ownership and access control**, and **Delete semantics**.
 
 ## Acceptance criteria
 
-- [ ] The backend exposes an authenticated remove-from-collection write contract keyed by
+- [x] The backend exposes an authenticated remove-from-collection write contract keyed by
       `collectionId`.
-- [ ] Removing an entity from a collection deletes the matching `member_of` relationship.
-- [ ] Users cannot add to or remove from collections they do not own.
-- [ ] Membership writes require the acting user to have visibility to the member entity being
+- [x] Removing an entity from a collection deletes the matching `member_of` relationship.
+- [x] Users cannot add to or remove from collections they do not own.
+- [x] Membership writes require the acting user to have visibility to the member entity being
       linked.
-- [ ] The write surface allows a collection entity to be added to another collection entity.
-- [ ] The write surface allows cycle creation in this slice and does not introduce recursive
+- [x] The write surface allows a collection entity to be added to another collection entity.
+- [x] The write surface allows cycle creation in this slice and does not introduce recursive
       traversal logic.
-- [ ] Backend tests cover ownership checks and removal behavior.
-- [ ] `tests/src` includes end-to-end coverage for removal, cross-user access rejection,
+- [x] Backend tests cover ownership checks and removal behavior.
+- [x] `tests/src` includes end-to-end coverage for removal, cross-user access rejection,
       collection-to-collection membership, and cycle acceptance.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
