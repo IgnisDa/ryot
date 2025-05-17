@@ -178,6 +178,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("edit", async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
+			submission.startTime = dayjsLib(submission.startTime).toISOString();
+			submission.endTime = dayjsLib(submission.endTime).toISOString();
 			await serverGqlService.authenticatedRequest(
 				request,
 				UpdateUserWorkoutAttributesDocument,
@@ -220,9 +222,9 @@ const deleteSchema = z.object({
 });
 
 const editWorkoutSchema = z.object({
-	startTime: z.string(),
-	endTime: z.string(),
 	id: z.string(),
+	endTime: z.string(),
+	startTime: z.string(),
 });
 
 export default function Page() {
