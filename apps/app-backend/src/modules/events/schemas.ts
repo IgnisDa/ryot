@@ -29,3 +29,6 @@ export const createEventBody = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
 	eventSchemaId: nonEmptyTrimmedStringSchema,
 });
+
+export type CreateEventBody = z.infer<typeof createEventBody>;
+export type ListedEvent = z.infer<typeof listedEventSchema>;

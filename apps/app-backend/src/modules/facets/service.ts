@@ -1,4 +1,5 @@
 import { resolveRequiredSlug } from "@ryot/ts-utils";
+import type { CreateFacetBody, UpdateFacetBody } from "./schemas";
 
 type FacetState = {
 	slug: string;
@@ -8,15 +9,9 @@ type FacetState = {
 	description: string | null;
 };
 
-type FacetPatchInput = {
-	slug?: string;
-	name?: string;
-	icon?: string;
-	accentColor?: string;
-	description?: string | null;
-};
-
-export const resolveFacetSlug = (input: { name: string; slug?: string }) => {
+export const resolveFacetSlug = (
+	input: Pick<CreateFacetBody, "name" | "slug">,
+) => {
 	return resolveRequiredSlug({
 		name: input.name,
 		label: "Facet",
@@ -26,7 +21,7 @@ export const resolveFacetSlug = (input: { name: string; slug?: string }) => {
 
 export const resolveFacetPatch = (input: {
 	current: FacetState;
-	input: FacetPatchInput;
+	input: UpdateFacetBody;
 }) => {
 	const name = input.input.name ?? input.current.name;
 	const slug =

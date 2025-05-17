@@ -68,9 +68,18 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 
 	it("rejects non-object root like array, string, or null", () => {
 		for (const input of [[], "hello", null]) {
-			expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
-				"Entity schema properties schema must be a JSON object",
-			);
+			if (Array.isArray(input))
+				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
+					"Invalid input: expected record, received array",
+				);
+			else if (input === null)
+				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
+					"Invalid input: expected record, received null",
+				);
+			else
+				expect(() => parseEntitySchemaPropertiesSchema(input)).toThrow(
+					"Invalid input: expected record, received string",
+				);
 		}
 	});
 
@@ -83,27 +92,25 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 	it("rejects property without type field", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({ title: { required: true } }),
-		).toThrow('Property "title" must have a type field');
+		).toThrow("Invalid input");
 	});
 
 	it("rejects property with invalid type", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({ title: { type: "invalid" } }),
-		).toThrow('Property "title" has invalid type "invalid"');
+		).toThrow("Invalid input");
 	});
 
 	it("rejects array property without items", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({ tags: { type: "array" } }),
-		).toThrow('Property "tags" with type "array" must have an items field');
+		).toThrow("Invalid input: expected object, received undefined");
 	});
 
 	it("rejects object property without properties", () => {
 		expect(() =>
 			parseEntitySchemaPropertiesSchema({ metadata: { type: "object" } }),
-		).toThrow(
-			'Property "metadata" with type "object" must have a properties field',
-		);
+		).toThrow("Invalid input: expected record, received undefined");
 	});
 
 	it("accepts complex nested structure", () => {

@@ -2,7 +2,17 @@ import type { AppSchema } from "@ryot/ts-utils";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, event, eventSchema } from "~/lib/db/schema";
+import type { ListedEvent } from "./schemas";
 import type { EventPropertiesShape } from "./service";
+
+type EventRow = Omit<ListedEvent, "properties"> & {
+	properties: unknown;
+};
+
+const toListedEvent = (row: EventRow): ListedEvent => ({
+	...row,
+	properties: row.properties as EventPropertiesShape,
+});
 
 const eventSchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(eventSchema.userId), eq(eventSchema.userId, userId));
@@ -85,10 +95,7 @@ export const listEventsByEntityForUser = async (input: {
 		)
 		.orderBy(desc(event.occurredAt), desc(event.createdAt));
 
-	return rows.map((row) => ({
-		...row,
-		properties: row.properties as EventPropertiesShape,
-	}));
+	return rows.map(toListedEvent);
 };
 
 export const createEventForUser = async (input: {
@@ -122,10 +129,9 @@ export const createEventForUser = async (input: {
 
 	if (!createdEvent) throw new Error("Could not persist event");
 
-	return {
+	return toListedEvent({
 		...createdEvent,
 		eventSchemaName: input.eventSchemaName,
 		eventSchemaSlug: input.eventSchemaSlug,
-		properties: createdEvent.properties as EventPropertiesShape,
-	};
+	});
 };
