@@ -6,6 +6,7 @@ const createMockEntity = (overrides: {
 	name: string;
 	createdAt: Date;
 }) => ({
+	image: null,
 	properties: {},
 	externalId: null,
 	id: overrides.id,
@@ -104,10 +105,15 @@ describe("toAppEntity", () => {
 			detailsSandboxScriptId: null,
 			createdAt: "2026-03-08T10:15:00.000Z",
 			updatedAt: "2026-03-08T10:20:00.000Z",
+			image: { kind: "remote", url: "https://example.com/apple.jpg" },
 		});
 
 		expect(entity.createdAt).toBeInstanceOf(Date);
 		expect(entity.updatedAt).toBeInstanceOf(Date);
+		expect(entity.image).toEqual({
+			kind: "remote",
+			url: "https://example.com/apple.jpg",
+		});
 		expect(entity.createdAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
 		expect(entity.updatedAt.toISOString()).toBe("2026-03-08T10:20:00.000Z");
 	});

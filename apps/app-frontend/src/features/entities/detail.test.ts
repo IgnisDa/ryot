@@ -8,6 +8,7 @@ import type { AppEntity } from "./model";
 
 function createEntityFixture(overrides: Partial<AppEntity> = {}): AppEntity {
 	return {
+		image: null,
 		id: "entity-1",
 		properties: {},
 		externalId: null,
