@@ -33,17 +33,6 @@ export const readEventPropertiesSchema = z
 	})
 	.strict();
 
-export const progressEventPropertiesSchema = z
-	.object({
-		platforms: z.array(z.string()).nullish(),
-		progressPercent: z.number().min(0).max(100),
-	})
-	.strict();
-
 export const readEventPropertiesJsonSchema = toAppSchemaProperties(
 	readEventPropertiesSchema,
-);
-
-export const progressEventPropertiesJsonSchema = toAppSchemaProperties(
-	progressEventPropertiesSchema,
 );
