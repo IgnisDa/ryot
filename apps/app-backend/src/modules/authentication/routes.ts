@@ -12,7 +12,7 @@ import {
 	createValidationErrorResult,
 	jsonResponse,
 	payloadErrorResponse,
-	resolveValidationResult,
+	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 import {
@@ -64,12 +64,12 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.openapi(signUpRoute, async (c) => {
 		const body = c.req.valid("json");
 
-		const nameResult = resolveValidationResult(
+		const nameResult = resolveValidationData(
 			() => resolveAuthenticationName(body.name),
 			"Signup name is invalid",
 		);
-		if ("error" in nameResult)
-			return c.json(createValidationErrorResult(nameResult.error).body, 400);
+		if ("status" in nameResult)
+			return c.json(nameResult.body, nameResult.status);
 
 		try {
 			const signUpResult = await auth.api.signUpEmail({

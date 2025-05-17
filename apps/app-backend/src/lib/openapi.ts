@@ -86,7 +86,7 @@ export const createCustomEntityAccessErrorResult = (input: {
 	return createValidationErrorResult(input.message);
 };
 
-export const resolveValidationResult = <T>(
+const resolveValidationResult = <T>(
 	callback: () => T,
 	fallback: string,
 ): { data: T } | { error: string } => {
@@ -96,6 +96,15 @@ export const resolveValidationResult = <T>(
 		const message = error instanceof Error ? error.message : fallback;
 		return { error: message } as const;
 	}
+};
+
+export const resolveValidationData = <T>(
+	callback: () => T,
+	fallback: string,
+): { data: T } | ReturnType<typeof createValidationErrorResult> => {
+	const result = resolveValidationResult(callback, fallback);
+	if ("error" in result) return createValidationErrorResult(result.error);
+	return result;
 };
 
 export const errorResponse = (code: string, message: string) => ({

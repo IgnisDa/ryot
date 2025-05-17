@@ -9,6 +9,34 @@ type EventRow = Omit<ListedEvent, "properties"> & {
 	properties: unknown;
 };
 
+const entityScopeSelection = {
+	entityId: entity.id,
+	isBuiltin: entitySchema.isBuiltin,
+	entitySchemaId: entity.entitySchemaId,
+};
+
+const listedEventSelection = {
+	id: event.id,
+	entityId: event.entityId,
+	createdAt: event.createdAt,
+	updatedAt: event.updatedAt,
+	occurredAt: event.occurredAt,
+	properties: event.properties,
+	eventSchemaName: eventSchema.name,
+	eventSchemaSlug: eventSchema.slug,
+	eventSchemaId: event.eventSchemaId,
+};
+
+const createdEventSelection = {
+	id: event.id,
+	entityId: event.entityId,
+	createdAt: event.createdAt,
+	updatedAt: event.updatedAt,
+	occurredAt: event.occurredAt,
+	properties: event.properties,
+	eventSchemaId: event.eventSchemaId,
+};
+
 const toListedEvent = (row: EventRow): ListedEvent => ({
 	...row,
 	properties: row.properties as EventPropertiesShape,
@@ -23,11 +51,7 @@ export const getEntityScopeForUser = async (input: {
 	entityId: string;
 }) => {
 	const [foundEntity] = await db
-		.select({
-			entityId: entity.id,
-			isBuiltin: entitySchema.isBuiltin,
-			entitySchemaId: entity.entitySchemaId,
-		})
+		.select(entityScopeSelection)
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
@@ -77,17 +101,7 @@ export const listEventsByEntityForUser = async (input: {
 	entityId: string;
 }) => {
 	const rows = await db
-		.select({
-			id: event.id,
-			entityId: event.entityId,
-			createdAt: event.createdAt,
-			updatedAt: event.updatedAt,
-			occurredAt: event.occurredAt,
-			properties: event.properties,
-			eventSchemaName: eventSchema.name,
-			eventSchemaSlug: eventSchema.slug,
-			eventSchemaId: event.eventSchemaId,
-		})
+		.select(listedEventSelection)
 		.from(event)
 		.innerJoin(eventSchema, eq(event.eventSchemaId, eventSchema.id))
 		.where(
@@ -117,15 +131,7 @@ export const createEventForUser = async (input: {
 			properties: input.properties,
 			eventSchemaId: input.eventSchemaId,
 		})
-		.returning({
-			id: event.id,
-			entityId: event.entityId,
-			createdAt: event.createdAt,
-			updatedAt: event.updatedAt,
-			occurredAt: event.occurredAt,
-			properties: event.properties,
-			eventSchemaId: event.eventSchemaId,
-		});
+		.returning(createdEventSelection);
 
 	if (!createdEvent) throw new Error("Could not persist event");
 
