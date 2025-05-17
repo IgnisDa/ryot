@@ -225,12 +225,6 @@ export interface ImportOrExportPersonItem {
 	source_specifics: PersonSourceSpecifics | null;
 }
 
-/** Information about a workout done. */
-export interface WorkoutDuration {
-	from: string;
-	to: string | null;
-}
-
 /** The different types of exercises that can be done. */
 export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration' | 'reps_and_duration_and_distance';
 
@@ -316,7 +310,6 @@ export interface WorkoutSupersetsInformation {
 export interface WorkoutInformation {
 	assets: EntityAssets | null;
 	comment: string | null;
-	durations: WorkoutDuration[] | null;
 	exercises: ProcessedExercise[];
 	supersets: WorkoutSupersetsInformation[];
 }

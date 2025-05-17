@@ -376,7 +376,14 @@ impl FitnessService {
             new_wkt.end_time = ActiveValue::Set(d);
         }
         if new_wkt.is_changed() {
-            new_wkt.update(&self.0.db).await?;
+            let new_workout = new_wkt.update(&self.0.db).await?;
+            let new_duration = new_workout
+                .end_time
+                .signed_duration_since(new_workout.start_time)
+                .num_seconds();
+            let mut new_workout: workout::ActiveModel = new_workout.into();
+            new_workout.duration = ActiveValue::Set(new_duration.try_into().unwrap());
+            new_workout.update(&self.0.db).await?;
             schedule_user_for_workout_revision(&user_id, &self.0).await?;
             Ok(true)
         } else {
