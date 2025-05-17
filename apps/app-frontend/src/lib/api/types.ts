@@ -1,4 +1,4 @@
-import type { components, paths } from "@ryot/generated/openapi/app-backend";
+import type { paths } from "@ryot/generated/openapi/app-backend";
 
 type ApiJsonContent<TValue> = TValue extends {
 	content: { "application/json": infer TContent };
@@ -41,6 +41,3 @@ export type ApiPostRequestBody<TPath extends keyof paths> = ApiRequestBody<
 export type ApiPatchRequestBody<TPath extends keyof paths> = ApiRequestBody<
 	NonNullable<paths[TPath]["patch"]>
 >;
-
-export type ApiSchema<TSchema extends keyof components["schemas"]> =
-	components["schemas"][TSchema];
