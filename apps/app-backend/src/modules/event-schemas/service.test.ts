@@ -89,7 +89,7 @@ describe("parseEventSchemaPropertiesSchema", () => {
 	it("rejects array property without items", () => {
 		expect(() =>
 			parseEventSchemaPropertiesSchema({
-				fields: { checkpoints: { type: "array" } },
+				fields: { checkpoints: { label: "Checkpoints", type: "array" } },
 			}),
 		).toThrow("Invalid input: expected object, received undefined");
 	});
@@ -101,12 +101,16 @@ describe("resolveEventSchemaCreateInput", () => {
 			resolveEventSchemaCreateInput({
 				name: "  Reading Progress  ",
 				slug: "  Reading_Progress  ",
-				propertiesSchema: { fields: { progress: { type: "integer" } } },
+				propertiesSchema: {
+					fields: { progress: { label: "Progress", type: "integer" } },
+				},
 			}),
 		).toEqual({
 			name: "Reading Progress",
 			slug: "reading-progress",
-			propertiesSchema: { fields: { progress: { type: "integer" } } },
+			propertiesSchema: {
+				fields: { progress: { label: "Progress", type: "integer" } },
+			},
 		});
 	});
 });

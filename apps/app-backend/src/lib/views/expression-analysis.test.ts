@@ -29,7 +29,7 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "integer",
-			propertyDefinition: { type: "integer" },
+			propertyDefinition: { label: "Value", type: "integer" },
 		});
 
 		expect(
@@ -47,7 +47,7 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "string",
-			propertyDefinition: { type: "string" },
+			propertyDefinition: { label: "Value", type: "string" },
 		});
 
 		expect(
@@ -61,7 +61,7 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "integer",
-			propertyDefinition: { type: "integer" },
+			propertyDefinition: { label: "Value", type: "integer" },
 		});
 	});
 
@@ -142,7 +142,7 @@ describe("inferViewExpressionType", () => {
 		).toEqual({
 			kind: "property",
 			propertyType: "string",
-			propertyDefinition: { type: "string" },
+			propertyDefinition: { label: "Value", type: "string" },
 		});
 
 		expect(() =>

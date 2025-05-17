@@ -75,7 +75,12 @@ describe("parsePropertySchemaInput", () => {
 			parsePropertySchemaInput(
 				{
 					fields: {
-						tags: { type: "array", properties: {}, items: { type: "string" } },
+						tags: {
+							label: "Tags",
+							type: "array",
+							properties: {},
+							items: { label: "Item", type: "string" },
+						},
 					},
 				},
 				{ propertiesLabel: "Entity schema properties" },
@@ -89,7 +94,8 @@ describe("parsePropertySchemaInput", () => {
 						metadata: {
 							items: {},
 							type: "object",
-							properties: { title: { type: "string" } },
+							label: "Metadata",
+							properties: { title: { label: "Title", type: "string" } },
 						},
 					},
 				},
@@ -105,8 +111,9 @@ describe("parsePropertySchemaInput", () => {
 					fields: {
 						metadata: {
 							type: "object",
+							label: "Metadata",
 							unknownKeys: "strip",
-							properties: { title: { type: "string" } },
+							properties: { title: { label: "Title", type: "string" } },
 						},
 					},
 				},
@@ -116,8 +123,9 @@ describe("parsePropertySchemaInput", () => {
 			fields: {
 				metadata: {
 					type: "object",
+					label: "Metadata",
 					unknownKeys: "strip",
-					properties: { title: { type: "string" } },
+					properties: { title: { label: "Title", type: "string" } },
 				},
 			},
 		});
