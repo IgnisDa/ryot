@@ -388,11 +388,11 @@ query MediaDetailsQuery($id: Int!) {
       publishYear: parsePublishYear(media.startDate),
       genres: collectGenres(media.genres, media.tags),
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
+      description:
+        typeof media?.description === "string" ? media.description : null,
       assets: {
         remoteImages: collectImages(media.coverImage, media.bannerImage),
       },
-      description:
-        typeof media?.description === "string" ? media.description : null,
       airingSchedule: parseAiringSchedule(
         media.airingSchedule,
         media.nextAiringEpisode,
