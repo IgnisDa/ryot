@@ -150,7 +150,6 @@ function ImageField(props: ImageFieldProps) {
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
 	const [uploadError, setUploadError] = useState<string | null>(null);
-
 	const presignedMutation = apiClient.useMutation("post", "/uploads/presigned");
 
 	const handleFileChange = async (selectedFile: File | null) => {
@@ -275,8 +274,8 @@ function ImageField(props: ImageFieldProps) {
 				{uploadMode === "file" && (
 					<Stack gap="xs">
 						<FileButton
-							disabled={props.disabled || presignedMutation.isPending}
 							onChange={handleFileChange}
+							disabled={props.disabled || presignedMutation.isPending}
 							accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
 						>
 							{(fileButtonProps) => (
