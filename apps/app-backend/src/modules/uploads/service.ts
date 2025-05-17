@@ -1,5 +1,6 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
+import { s3, s3BucketName } from "~/lib/s3";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
 
 const uploadUrlExpirySeconds = 15 * 60;
@@ -42,8 +43,6 @@ const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
 
 const signUploadUrl = async (input: SignUploadUrlInput) => {
-	const { s3, s3BucketName } = await import("~/lib/s3");
-
 	if (!s3 || !s3BucketName)
 		throw new Error("S3 uploads are not configured for app-backend");
 
