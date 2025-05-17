@@ -21,8 +21,8 @@ export function toSidebarData(input: {
 		icon: facet.icon,
 		enabled: facet.enabled,
 		sortOrder: facet.sortOrder,
+		isBuiltin: facet.isBuiltin,
 		accentColor: facet.accentColor,
-		isBuiltin: facet.isBuiltin ?? false,
 		views: input.views
 			.filter((view) => view.facetId === facet.id)
 			.map((view) => ({
