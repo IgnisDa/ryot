@@ -6,7 +6,7 @@ import {
 	nullableStringSchema,
 	remoteImagesAssetsSchema,
 	stringArraySchema,
-} from "../base";
+} from "../zod/base";
 
 export const mediaPropertiesSchema = z
 	.object({
