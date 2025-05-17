@@ -1335,6 +1335,11 @@ export function BuiltinMediaTrackerOverview(
 		setSelectedSchema(null);
 	};
 
+	const handleSearchModalBack = () => {
+		setSelectedSchema(null);
+		typePickerHandlers.open();
+	};
+
 	if (entitySchemasQuery.isLoading) {
 		return (
 			<Center h={400}>
@@ -1782,6 +1787,7 @@ export function BuiltinMediaTrackerOverview(
 					opened={true}
 					onEntityAdded={() => {}}
 					entitySchema={selectedSchema}
+					onBack={handleSearchModalBack}
 					onClose={handleSearchModalClose}
 				/>
 			)}
