@@ -123,6 +123,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				formData,
 				createAccessLinkFormSchema,
 			);
+			submission.expiresOn = dayjsLib(submission.expiresOn).toISOString();
 			submission.isMutationAllowed = submission.isMutationAllowed === true;
 			await serverGqlService.authenticatedRequest(
 				request,
@@ -516,8 +517,8 @@ const CreateAccessLinkModal = (props: {
 						clearable
 						name="expiresOn"
 						label="Expires at"
-						description="This link will become invalid after this timestamp"
 						defaultValue={defaultExpiresAtValue}
+						description="This link will become invalid after this timestamp"
 					/>
 					<NumberInput
 						name="maximumUses"

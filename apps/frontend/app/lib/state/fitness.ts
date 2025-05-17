@@ -12,12 +12,11 @@ import {
 	type UserWorkoutDetailsQuery,
 	type UserWorkoutSetRecord,
 	UserWorkoutTemplateDetailsDocument,
-	type WorkoutDuration,
 	type WorkoutInformation,
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, isString, mergeWith } from "@ryot/ts-utils";
+import { isNumber, isString, mergeWith, sum } from "@ryot/ts-utils";
 import { queryOptions } from "@tanstack/react-query";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
@@ -35,6 +34,11 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/common";
+
+export type WorkoutDuration = {
+	from: string;
+	to?: string;
+};
 
 export type ExerciseSet = {
 	lot: SetLot;
@@ -200,6 +204,11 @@ export const currentWorkoutToCreateWorkoutInput = (
 			currentWorkout.exercises.findIndex((ex) => ex.identifier === e),
 		),
 	}));
+	const totalDuration = sum(
+		currentWorkout.durations.map(
+			(d) => dayjsLib(d.to || currentWorkout.endTime).diff(d.from) / 1000,
+		),
+	);
 	const input: CreateOrUpdateUserWorkoutMutationVariables = {
 		input: {
 			supersets,
@@ -207,7 +216,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			endTime: new Date().toISOString(),
-			durations: currentWorkout.durations,
+			duration: Math.trunc(totalDuration),
 			templateId: currentWorkout.templateId,
 			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,

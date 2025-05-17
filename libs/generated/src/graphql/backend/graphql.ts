@@ -2759,7 +2759,7 @@ export type UserWorkoutInput = {
   assets?: InputMaybe<EntityAssetsInput>;
   caloriesBurnt?: InputMaybe<Scalars['Decimal']['input']>;
   comment?: InputMaybe<Scalars['String']['input']>;
-  durations?: InputMaybe<Array<WorkoutDurationInput>>;
+  duration?: InputMaybe<Scalars['Int']['input']>;
   endTime: Scalars['DateTime']['input'];
   exercises: Array<UserExerciseInput>;
   name: Scalars['String']['input'];
@@ -2832,18 +2832,6 @@ export type Workout = {
   templateId?: Maybe<Scalars['String']['output']>;
 };
 
-/** Information about a workout done. */
-export type WorkoutDuration = {
-  from: Scalars['DateTime']['output'];
-  to?: Maybe<Scalars['DateTime']['output']>;
-};
-
-/** Information about a workout done. */
-export type WorkoutDurationInput = {
-  from: Scalars['DateTime']['input'];
-  to?: InputMaybe<Scalars['DateTime']['input']>;
-};
-
 export type WorkoutEquipmentFocusedSummary = {
   equipment: ExerciseEquipment;
   exercises: Array<Scalars['Int']['output']>;
@@ -2866,7 +2854,6 @@ export type WorkoutForceFocusedSummary = {
 export type WorkoutInformation = {
   assets?: Maybe<EntityAssets>;
   comment?: Maybe<Scalars['String']['output']>;
-  durations?: Maybe<Array<WorkoutDuration>>;
   exercises: Array<ProcessedExercise>;
   supersets: Array<WorkoutSupersetsInformation>;
 };
