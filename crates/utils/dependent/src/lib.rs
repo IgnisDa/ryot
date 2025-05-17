@@ -2749,8 +2749,8 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
         repeated_from: user_workout.repeated_from,
         comment: user_workout.information.comment,
         calories_burnt: user_workout.calories_burnt,
+        duration: Some(user_workout.duration.into()),
         supersets: user_workout.information.supersets,
-        duration: Some(user_workout.duration.try_into().unwrap()),
         exercises: user_workout
             .information
             .exercises
