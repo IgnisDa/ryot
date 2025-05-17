@@ -52,7 +52,7 @@ use enum_models::{
 use fitness_models::{
     ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
     UserExercisesListInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord, WorkoutDuration,
+    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
     WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
     WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
     WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
@@ -1961,45 +1961,17 @@ pub async fn create_or_update_user_workout(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let end_time = input.end_time;
-    let (mut duration, mut durations) = match input.durations.clone() {
-        Some(durations) => {
-            if durations.is_empty() {
-                return Err(Error::new("Durations cannot be empty"));
-            }
-            if durations.last().and_then(|d| d.to).is_some() {
-                return Err(Error::new(
-                    "The workout was never resumed after being paused",
-                ));
-            }
-            let total = durations
-                .iter()
-                .map(|d| {
-                    d.to.unwrap_or(end_time)
-                        .signed_duration_since(d.from)
-                        .num_seconds()
-                })
-                .sum();
-            (total, durations)
-        }
-        None => (
-            end_time
-                .signed_duration_since(input.start_time)
-                .num_seconds(),
-            vec![WorkoutDuration {
-                from: input.start_time,
-                ..Default::default()
-            }],
-        ),
+    let duration = match input.duration {
+        Some(d) => d,
+        None => end_time
+            .signed_duration_since(input.start_time)
+            .num_seconds(),
     };
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
         Some(id) => {
             // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
             let model = Workout::find_by_id(id).one(&ss.db).await?.unwrap();
-            duration = model.duration.into();
-            if let Some(d) = model.information.durations.clone() {
-                durations = d;
-            }
             (id.to_owned(), Some(model))
         }
         None => (
@@ -2239,7 +2211,6 @@ pub async fn create_or_update_user_workout(
             assets: input.assets,
             comment: input.comment,
             supersets: input.supersets,
-            durations: Some(durations),
             exercises: processed_exercises,
         },
         summary: WorkoutSummary {
@@ -2779,7 +2750,7 @@ pub fn db_workout_to_workout_input(user_workout: workout::Model) -> UserWorkoutI
         comment: user_workout.information.comment,
         calories_burnt: user_workout.calories_burnt,
         supersets: user_workout.information.supersets,
-        durations: user_workout.information.durations,
+        duration: Some(user_workout.duration.try_into().unwrap()),
         exercises: user_workout
             .information
             .exercises
