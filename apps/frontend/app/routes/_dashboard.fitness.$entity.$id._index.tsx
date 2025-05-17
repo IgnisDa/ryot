@@ -287,21 +287,21 @@ export default function Page() {
 						<Stack>
 							<Title order={3}>Adjust times</Title>
 							<DateTimePicker
-								label="Start time"
 								required
 								name="startTime"
+								label="Start time"
 								defaultValue={new Date(loaderData.startTime)}
 							/>
 							<DateTimePicker
-								label="End time"
 								required
 								name="endTime"
+								label="End time"
 								defaultValue={new Date(loaderData.endTime)}
 							/>
 							<Button
-								variant="outline"
-								type="submit"
 								name="id"
+								type="submit"
+								variant="outline"
 								value={loaderData.entityId}
 							>
 								Submit

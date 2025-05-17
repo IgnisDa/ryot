@@ -516,8 +516,8 @@ const CreateAccessLinkModal = (props: {
 						clearable
 						name="expiresOn"
 						label="Expires at"
-						description="This link will become invalid after this timestamp"
 						defaultValue={defaultExpiresAtValue}
+						description="This link will become invalid after this timestamp"
 					/>
 					<NumberInput
 						name="maximumUses"
