@@ -1,13 +1,18 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	createFileRoute,
 	useCanGoBack,
 	useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
+import { CreateCollectionModal } from "#/features/collections/create-modal";
+import { useCollectionMutations } from "#/features/collections/hooks";
 import { useSavedViewMutations } from "#/features/saved-views/hooks";
 import { SavedViewPage } from "#/features/saved-views/view-page";
+import { useApiClient } from "#/hooks/api";
+import { useModalForm } from "#/hooks/modal-form";
 import { getErrorMessage } from "#/lib/errors";
 
 export const Route = createFileRoute("/_protected/views/$viewId")({
@@ -17,10 +22,23 @@ export const Route = createFileRoute("/_protected/views/$viewId")({
 function RouteComponent() {
 	const router = useRouter();
 	const canGoBack = useCanGoBack();
+	const apiClient = useApiClient();
 	const navigate = Route.useNavigate();
 	const { viewId } = Route.useParams();
+	const queryClient = useQueryClient();
 	const savedViewMutations = useSavedViewMutations();
+	const collectionMutations = useCollectionMutations();
 	const [actionError, setActionError] = useState<string | null>(null);
+
+	const runtimeQueryKey = apiClient.queryOptions(
+		"post",
+		"/query-engine/execute",
+	).queryKey;
+
+	const createCollectionModal = useModalForm(async (name: string) => {
+		await collectionMutations.createCollection(name);
+		await queryClient.invalidateQueries({ queryKey: runtimeQueryKey });
+	});
 
 	const handleClone = async () => {
 		setActionError(null);
@@ -64,13 +82,24 @@ function RouteComponent() {
 	};
 
 	return (
-		<SavedViewPage
-			viewId={viewId}
-			onClone={handleClone}
-			onDelete={handleDelete}
-			actionError={actionError}
-			isCloning={savedViewMutations.clone.isPending}
-			isDeleting={savedViewMutations.remove.isPending}
-		/>
+		<>
+			<SavedViewPage
+				viewId={viewId}
+				onClone={handleClone}
+				onDelete={handleDelete}
+				actionError={actionError}
+				isCloning={savedViewMutations.clone.isPending}
+				isDeleting={savedViewMutations.remove.isPending}
+				onCreateCollection={createCollectionModal.open}
+				isCreatingCollection={collectionMutations.create.isPending}
+			/>
+			<CreateCollectionModal
+				opened={createCollectionModal.opened}
+				onClose={createCollectionModal.close}
+				onSubmit={createCollectionModal.submit}
+				errorMessage={createCollectionModal.errorMessage}
+				isSubmitting={collectionMutations.create.isPending}
+			/>
+		</>
 	);
 }
