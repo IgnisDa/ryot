@@ -55,8 +55,8 @@ describe("GET /entity-schemas", () => {
 				fields: {
 					membershipPropertiesSchema: {
 						type: "object",
-						unknownKeys: "strip",
 						properties: {},
+						unknownKeys: "strip",
 					},
 				},
 			},
