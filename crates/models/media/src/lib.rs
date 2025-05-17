@@ -14,7 +14,7 @@ use enum_models::{
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
-use sea_orm::{FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc};
+use sea_orm::{FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
@@ -362,6 +362,64 @@ pub struct CreateOrUpdateReviewInput {
     pub anime_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
     pub manga_chapter_number: Option<Decimal>,
+}
+
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateCommonInput {
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+    pub manga_volume_number: Option<i32>,
+    pub anime_episode_number: Option<i32>,
+    pub podcast_episode_number: Option<i32>,
+    pub provider_watched_on: Option<String>,
+    pub manga_chapter_number: Option<Decimal>,
+}
+
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateFinishedOnDateInput {
+    pub finished_on: NaiveDate,
+    #[graphql(flatten)]
+    pub common: MetadataProgressUpdateCommonInput,
+}
+
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
+    pub started_on: NaiveDate,
+    #[graphql(flatten)]
+    pub data: MetadataProgressUpdateFinishedOnDateInput,
+}
+
+#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MetadataProgressUpdateChangeLatestInProgressInput {
+    State(SeenState),
+    Progress(Decimal),
+}
+
+#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
+    WithoutDates(MetadataProgressUpdateCommonInput),
+    FinishedOnDate(MetadataProgressUpdateFinishedOnDateInput),
+    StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
+}
+
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateNewInProgressInput {
+    pub started_on: NaiveDate,
+    #[graphql(flatten)]
+    pub data: MetadataProgressUpdateCommonInput,
+}
+
+#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MetadataProgressUpdateChange {
+    CreateNewInProgress(MetadataProgressUpdateNewInProgressInput),
+    CreateNewCompleted(MetadataProgressUpdateChangeCreateNewCompletedInput),
+    ChangeLatestInProgress(MetadataProgressUpdateChangeLatestInProgressInput),
+}
+
+#[derive(InputObject, Debug, Deserialize, Serialize, Clone)]
+pub struct MetadataProgressUpdateInput {
+    pub metadata_id: String,
+    pub change: MetadataProgressUpdateChange,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]

@@ -12,7 +12,6 @@ import {
 	MediaLot,
 	MetadataDetailsDocument,
 	RemoveEntityFromCollectionDocument,
-	SeenState,
 	UserMetadataDetailsDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -349,22 +348,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				}),
 			);
 		})
-		.with("individualProgressUpdate", async () => {
-			const submission = processSubmission(formData, bulkUpdateSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeployBulkProgressUpdateDocument,
-				{ input: submission },
-			);
-			await sleepForHalfSecond(request);
-			extendResponseHeaders(
-				headers,
-				await createToastHeaders({
-					message: "Progress updated successfully",
-					type: "success",
-				}),
-			);
-		})
 		.with("bulkCollectionAction", async () => {
 			const submission = processSubmission(formData, bulkCollectionAction);
 			for (const item of submission.items) {
@@ -462,15 +445,6 @@ const progressUpdateSchema = z
 	})
 	.merge(MetadataIdSchema)
 	.merge(MetadataSpecificsSchema);
-
-const bulkUpdateSchema = z
-	.object({
-		progress: z.string().optional(),
-		date: z.string().optional(),
-		changeState: z.nativeEnum(SeenState).optional(),
-	})
-	.merge(MetadataSpecificsSchema)
-	.merge(MetadataIdSchema);
 
 const bulkCollectionAction = z.object({
 	action: z.enum(["remove", "add"]),

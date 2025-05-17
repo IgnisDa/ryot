@@ -13,7 +13,6 @@ use media_models::{
     PartialMetadataWithoutId, PeopleSearchItem,
 };
 use reqwest::Client;
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use traits::MediaProvider;
@@ -374,75 +373,11 @@ impl MediaProvider for OpenlibraryService {
             .flat_map(|s| s.split(", ").map(|d| d.to_case(Case::Title)).collect_vec())
             .collect_vec();
 
-        #[derive(Debug, Serialize, Deserialize)]
-        struct OpenlibraryPartialResponse {
-            #[serde(rename = "0")]
-            data: String,
-        }
-
-        ryot_log!(debug, "Getting suggestion details.");
-        // DEV: Reverse engineered the API
-        let html = self
-            .client
-            .get(format!("{}/partials.json", URL))
-            .query(&json!({ "workid": identifier, "_component": "RelatedWorkCarousel" }))
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .json::<OpenlibraryPartialResponse>()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .data;
-
-        let mut suggestions = vec![];
-
-        let fragment = Html::parse_document(&html);
-
-        let carousel_item_selector = Selector::parse(".book.carousel__item").unwrap();
-        let image_selector = Selector::parse("img.bookcover").unwrap();
-        let identifier_selector = Selector::parse("a[href]").unwrap();
-
-        for item in fragment.select(&carousel_item_selector) {
-            let identifier = get_key(
-                &item
-                    .select(&identifier_selector)
-                    .next()
-                    .and_then(|a| a.value().attr("href"))
-                    .map(|href| href.to_string())
-                    .unwrap(),
-            );
-            if let Some(n) = item
-                .select(&image_selector)
-                .next()
-                .and_then(|img| img.value().attr("alt"))
-                .map(|alt| alt.to_string())
-            {
-                let name = n
-                    .split(" by ")
-                    .next()
-                    .map(|name| name.trim().to_string())
-                    .unwrap();
-                let image = item
-                    .select(&image_selector)
-                    .next()
-                    .and_then(|img| img.value().attr("src"))
-                    .map(|src| src.to_string());
-                suggestions.push(PartialMetadataWithoutId {
-                    image,
-                    identifier,
-                    title: name,
-                    lot: MediaLot::Book,
-                    source: MediaSource::Openlibrary,
-                    ..Default::default()
-                });
-            }
-        }
         let identifier = get_key(&data.key);
         Ok(MetadataDetails {
             people,
             genres,
             description,
-            suggestions,
             lot: MediaLot::Book,
             title: data.title.clone(),
             identifier: identifier.clone(),
