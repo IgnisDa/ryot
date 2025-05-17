@@ -122,6 +122,7 @@ import {
 	Verb,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
+	dayjsLib,
 	forcedDashboardPath,
 	getVerb,
 	refreshEntityDetails,
@@ -1868,7 +1869,7 @@ const AddEntityToCollectionsForm = ({
 												handleCustomFieldChange(
 													selectedCollection.id,
 													template.name,
-													v,
+													dayjsLib(v).toISOString(),
 												)
 											}
 										/>

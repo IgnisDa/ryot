@@ -394,28 +394,6 @@ pub struct WorkoutSupersetsInformation {
     Schematic,
     Serialize,
     Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[serde(rename_all = "snake_case")]
-#[graphql(input_name = "WorkoutDurationInput")]
-pub struct WorkoutDuration {
-    pub from: DateTimeUtc,
-    pub to: Option<DateTimeUtc>,
-}
-
-/// Information about a workout done.
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Schematic,
-    Serialize,
-    Deserialize,
     SimpleObject,
     FromJsonQueryResult,
 )]
@@ -424,7 +402,6 @@ pub struct WorkoutInformation {
     pub comment: Option<String>,
     pub assets: Option<EntityAssets>,
     pub exercises: Vec<ProcessedExercise>,
-    pub durations: Option<Vec<WorkoutDuration>>,
     pub supersets: Vec<WorkoutSupersetsInformation>,
 }
 
@@ -608,6 +585,7 @@ pub struct UserExerciseInput {
 pub struct UserWorkoutInput {
     pub name: String,
     pub end_time: DateTimeUtc,
+    pub duration: Option<i64>,
     pub comment: Option<String>,
     pub start_time: DateTimeUtc,
     pub template_id: Option<String>,
@@ -619,7 +597,6 @@ pub struct UserWorkoutInput {
     pub create_workout_id: Option<String>,
     pub exercises: Vec<UserExerciseInput>,
     pub update_workout_id: Option<String>,
-    pub durations: Option<Vec<WorkoutDuration>>,
     pub update_workout_template_id: Option<String>,
     pub supersets: Vec<WorkoutSupersetsInformation>,
 }

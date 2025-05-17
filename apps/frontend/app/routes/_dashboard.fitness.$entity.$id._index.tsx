@@ -178,6 +178,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("edit", async () => {
 			const submission = processSubmission(formData, editWorkoutSchema);
+			submission.startTime = dayjsLib(submission.startTime).toISOString();
+			submission.endTime = dayjsLib(submission.endTime).toISOString();
 			await serverGqlService.authenticatedRequest(
 				request,
 				UpdateUserWorkoutAttributesDocument,
@@ -220,9 +222,9 @@ const deleteSchema = z.object({
 });
 
 const editWorkoutSchema = z.object({
-	startTime: z.string(),
-	endTime: z.string(),
 	id: z.string(),
+	endTime: z.string(),
+	startTime: z.string(),
 });
 
 export default function Page() {
@@ -287,21 +289,21 @@ export default function Page() {
 						<Stack>
 							<Title order={3}>Adjust times</Title>
 							<DateTimePicker
-								label="Start time"
 								required
 								name="startTime"
+								label="Start time"
 								defaultValue={new Date(loaderData.startTime)}
 							/>
 							<DateTimePicker
-								label="End time"
 								required
 								name="endTime"
+								label="End time"
 								defaultValue={new Date(loaderData.endTime)}
 							/>
 							<Button
-								variant="outline"
-								type="submit"
 								name="id"
+								type="submit"
+								variant="outline"
 								value={loaderData.entityId}
 							>
 								Submit
