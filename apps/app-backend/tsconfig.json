@@ -11,8 +11,7 @@
 		"jsxImportSource": "hono/jsx",
 		"noUncheckedIndexedAccess": true,
 		"paths": {
-			"~/*": ["./src/*"],
-			"@ryot/ts-utils/dayjs": ["../../libs/ts-utils/src/dayjs.ts"]
+			"~/*": ["./src/*"]
 		}
 	}
 }

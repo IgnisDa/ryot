@@ -2,10 +2,10 @@ import { Center, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
-import { getNameFromEmail } from "#/features/authentication/model";
-import { useApiClient } from "#/hooks/api";
-import { useAppForm } from "#/hooks/forms";
-import { authClient } from "#/lib/auth";
+import { getNameFromEmail } from "~/features/authentication/model";
+import { useApiClient } from "~/hooks/api";
+import { useAppForm } from "~/hooks/forms";
+import { authClient } from "~/lib/auth";
 
 const searchSchema = z.object({
 	redirect: z.string().optional(),

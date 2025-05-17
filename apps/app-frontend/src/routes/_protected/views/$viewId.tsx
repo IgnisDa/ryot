@@ -10,13 +10,13 @@ import { useState } from "react";
 import {
 	type CreateCollectionFormPayload,
 	CreateCollectionModal,
-} from "#/features/collections/create-modal";
-import { useCollectionMutations } from "#/features/collections/hooks";
-import { useSavedViewMutations } from "#/features/saved-views/hooks";
-import { SavedViewPage } from "#/features/saved-views/view-page";
-import { useApiClient } from "#/hooks/api";
-import { useModalForm } from "#/hooks/modal-form";
-import { getErrorMessage } from "#/lib/errors";
+} from "~/features/collections/create-modal";
+import { useCollectionMutations } from "~/features/collections/hooks";
+import { useSavedViewMutations } from "~/features/saved-views/hooks";
+import { SavedViewPage } from "~/features/saved-views/view-page";
+import { useApiClient } from "~/hooks/api";
+import { useModalForm } from "~/hooks/modal-form";
+import { getErrorMessage } from "~/lib/errors";
 
 export const Route = createFileRoute("/_protected/views/$viewId")({
 	component: RouteComponent,

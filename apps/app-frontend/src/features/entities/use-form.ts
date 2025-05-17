@@ -1,5 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
-import { useAppForm } from "#/hooks/forms";
+import { useAppForm } from "~/hooks/forms";
 import {
 	buildCreateEntityFormSchema,
 	buildDefaultEntityFormValues,

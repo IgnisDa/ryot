@@ -3931,7 +3931,7 @@
 
     "@ryot/ts-utils/@conform-to/zod": ["@conform-to/zod@1.17.1", "", { "dependencies": { "@conform-to/dom": "1.17.1" }, "peerDependencies": { "zod": "^3.21.0 || ^4.0.0" } }, "sha512-oFt2OdCrAhNEKjjyc8QAgiykDI9s+RG9nAuxrqGyp/BFXuRPPiu0e+QIVUAxSnWtZ82swtSaf87DI+jTAyhaLg=="],
 
-    "@ryot/ts-utils/dayjs": ["dayjs@1.11.20", "", {}, "sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ=="],
+    "@ryot/ts-utils": ["dayjs@1.11.20", "", {}, "sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ=="],
 
     "@ryot/ts-utils/react-router": ["react-router@7.13.1", "", { "dependencies": { "cookie": "^1.0.1", "set-cookie-parser": "^2.6.0" }, "peerDependencies": { "react": ">=18", "react-dom": ">=18" }, "optionalPeers": ["react-dom"] }, "sha512-td+xP4X2/6BJvZoX6xw++A2DdEi++YypA69bJUV5oVvqf6/9/9nNlD70YO1e9d3MyamJEBQFEzk6mbfDYbqrSA=="],
 

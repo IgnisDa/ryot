@@ -20,26 +20,26 @@ import {
 import { useDebouncedCallback } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { type Dayjs, dayjs } from "@ryot/ts-utils/dayjs";
+import { type Dayjs, dayjs } from "@ryot/ts-utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Clock, Play, Star } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useResolvedImageUrls } from "#/features/entities/image";
-import { toAppEntityImage } from "#/features/entities/model";
+import { useResolvedImageUrls } from "~/features/entities/image";
+import { toAppEntityImage } from "~/features/entities/model";
 import {
 	SearchEntityModalContent,
 	SearchEntityModalTitle,
-} from "#/features/entities/search-modal";
-import { createReviewEventPayload } from "#/features/entities/search-modal-media-actions";
-import { useEntitySchemasQuery } from "#/features/entity-schemas/hooks";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
-import { TrackerIcon } from "#/features/trackers/icons";
-import type { AppTracker } from "#/features/trackers/model";
-import { getLastActivityLabel } from "#/features/trackers/tracker-overview-data";
-import { useApiClient } from "#/hooks/api";
-import { useThemeTokens } from "#/hooks/theme";
-import type { ApiGetResponseData } from "#/lib/api/types";
+} from "~/features/entities/search-modal";
+import { createReviewEventPayload } from "~/features/entities/search-modal-media-actions";
+import { useEntitySchemasQuery } from "~/features/entity-schemas/hooks";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
+import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
+import { TrackerIcon } from "~/features/trackers/icons";
+import type { AppTracker } from "~/features/trackers/model";
+import { getLastActivityLabel } from "~/features/trackers/tracker-overview-data";
+import { useApiClient } from "~/hooks/api";
+import { useThemeTokens } from "~/hooks/theme";
+import type { ApiGetResponseData } from "~/lib/api/types";
 
 const GOLD = "#C9943A";
 const STONE = "#8C7560";
