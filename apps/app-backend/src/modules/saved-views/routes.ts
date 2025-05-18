@@ -10,11 +10,11 @@ import {
 	createValidationServiceErrorResult,
 	jsonBody,
 } from "~/lib/openapi";
+import { viewDefinitionModule } from "~/lib/views/definition";
 import {
 	ViewRuntimeNotFoundError,
 	ViewRuntimeValidationError,
 } from "~/lib/views/errors";
-import { validateSavedViewBody } from "~/lib/views/validator";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
@@ -210,7 +210,18 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		if (!currentView.isBuiltin) {
 			try {
-				await validateSavedViewBody(body, user.id);
+				(
+					await viewDefinitionModule.prepare({
+						userId: user.id,
+						source: {
+							kind: "saved-view",
+							definition: {
+								queryDefinition: body.queryDefinition,
+								displayConfiguration: body.displayConfiguration,
+							},
+						},
+					})
+				).assertSavable();
 			} catch (error) {
 				const result = resolveSavedViewValidationErrorResult(error);
 				return c.json(result.body, result.status);
@@ -235,7 +246,18 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const body = c.req.valid("json");
 
 		try {
-			await validateSavedViewBody(body, user.id);
+			(
+				await viewDefinitionModule.prepare({
+					userId: user.id,
+					source: {
+						kind: "saved-view",
+						definition: {
+							queryDefinition: body.queryDefinition,
+							displayConfiguration: body.displayConfiguration,
+						},
+					},
+				})
+			).assertSavable();
 		} catch (error) {
 			const result = resolveSavedViewValidationErrorResult(error);
 			return c.json(result.body, result.status);
