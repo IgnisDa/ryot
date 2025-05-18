@@ -44,6 +44,7 @@ const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 	switch (propertyDef.type) {
 		case "string":
 		case "date":
+		case "datetime":
 			return "";
 		case "number":
 		case "integer":
