@@ -1,5 +1,27 @@
 import type { Client } from "./auth";
 
+export async function createEventSchema(
+	client: Client,
+	cookies: string,
+	body: {
+		name: string;
+		slug: string;
+		entitySchemaId: string;
+		propertiesSchema: { fields: Record<string, unknown>; rules?: unknown[] };
+	},
+) {
+	const { data, response } = await client.POST("/event-schemas", {
+		body: body as never,
+		headers: { Cookie: cookies },
+	});
+
+	if (response.status !== 200 || !data?.data?.id) {
+		throw new Error(`Failed to create event schema '${body.slug}'`);
+	}
+
+	return data.data;
+}
+
 export async function listEventSchemas(
 	client: Client,
 	cookies: string,

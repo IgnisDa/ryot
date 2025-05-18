@@ -16,6 +16,10 @@ type ApiResolvedRuntimeEntity = Extract<
 type ApiTableRuntimeEntity = Extract<ApiViewRuntimeEntity, { cells: unknown }>;
 type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
 
+const entityField = (schemaSlug: string, field: string) => {
+	return `entity.${schemaSlug}.${field}`;
+};
+
 export type AppEntityImage =
 	| null
 	| { kind: "s3"; key: string }
@@ -32,24 +36,29 @@ export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 		| ApiEntity["properties"];
 };
 
-const defaultDisplayConfiguration: GridViewRuntimeRequest["displayConfiguration"] =
-	{
-		badgeProperty: null,
-		subtitleProperty: null,
-		titleProperty: ["@name"],
-		imageProperty: ["@image"],
-	};
+const createDefaultDisplayConfiguration = (
+	entitySchemaSlug: string,
+): GridViewRuntimeRequest["displayConfiguration"] => ({
+	badgeProperty: null,
+	subtitleProperty: null,
+	titleProperty: [entityField(entitySchemaSlug, "@name")],
+	imageProperty: [entityField(entitySchemaSlug, "@image")],
+});
 
 export function createEntityRuntimeRequest(
 	entitySchemaSlug: string,
 ): GridViewRuntimeRequest {
 	return {
 		filters: [],
+		eventJoins: [],
 		layout: "grid",
 		pagination: { page: 1, limit: 1000 },
 		entitySchemaSlugs: [entitySchemaSlug],
-		sort: { fields: ["@name"], direction: "asc" },
-		displayConfiguration: defaultDisplayConfiguration,
+		displayConfiguration: createDefaultDisplayConfiguration(entitySchemaSlug),
+		sort: {
+			direction: "asc",
+			fields: [entityField(entitySchemaSlug, "@name")],
+		},
 	};
 }
 
