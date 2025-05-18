@@ -30,7 +30,8 @@ import {
 	createDisabledViewRuntimeRequest,
 	createViewRuntimeRequest,
 	getPageLimit,
-	isRuntimeProperty,
+	getRuntimeField,
+	isRuntimeField,
 	toImageValue,
 	type ViewLayout,
 } from "./view-page-utils";
@@ -83,20 +84,22 @@ export function SavedViewPage(props: {
 		const entries: Array<{ id: string; image: AppEntityImage }> = [];
 		for (const item of items) {
 			if (layout === "table") {
-				for (const cell of item.cells ?? []) {
-					if (cell.kind === "image") {
+				for (const field of item.fields ?? []) {
+					if (field.kind === "image") {
 						entries.push({
-							id: `${item.id}:${cell.key}`,
-							image: toImageValue(cell.value),
+							id: `${item.id}:${field.key}`,
+							image: toImageValue(field.value),
 						});
 					}
 				}
 				continue;
 			}
 
-			const imageSlot = item.resolvedProperties?.imageProperty;
-			if (isRuntimeProperty(imageSlot) && imageSlot.kind === "image") {
-				entries.push({ id: item.id, image: toImageValue(imageSlot.value) });
+			const imageField = item.fields
+				? getRuntimeField(item, "image")
+				: undefined;
+			if (isRuntimeField(imageField) && imageField.kind === "image") {
+				entries.push({ id: item.id, image: toImageValue(imageField.value) });
 			}
 		}
 		return entries;
@@ -273,6 +276,7 @@ export function SavedViewPage(props: {
 						accentColor={accentColor}
 						accentMuted={accentMuted}
 						imageUrlById={imageUrls.imageUrlByEntityId}
+						displayConfiguration={savedView.displayConfiguration}
 					/>
 				)}
 
