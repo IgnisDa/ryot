@@ -6,7 +6,7 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 ## Testing
 
-- Run `bun run typecheck`, `bun test`, and `bun run lint` in `tests` after changes.
+- Run `bun run typecheck`, `bun run test`, and `bun run lint` in `tests` after changes.
 - Prefer shared helpers in `tests/src/fixtures` for repeated auth setup, API setup, and test data builders.
 - Keep test definitions and assertions inline; extract duplicated setup, not test intent.
 - Favor fixture files with clear ownership like `auth`, `trackers`, `entity-schemas`, `saved-views`, and `query-engine` over generic catch-all helpers.
