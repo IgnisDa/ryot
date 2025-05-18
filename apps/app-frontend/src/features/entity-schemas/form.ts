@@ -58,10 +58,10 @@ export type CreateEntitySchemaPayload = ApiPostRequestBody<"/entity-schemas">;
 
 export function toCreateEntitySchemaPayload(
 	input: CreateEntitySchemaFormValues,
-	facetId: string,
+	trackerId: string,
 ) {
 	return {
-		facetId,
+		trackerId,
 		icon: input.icon.trim(),
 		name: input.name.trim(),
 		accentColor: input.accentColor.trim(),

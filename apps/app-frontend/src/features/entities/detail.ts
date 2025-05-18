@@ -6,8 +6,8 @@ export interface EntityDetailProperty {
 	value: string;
 }
 
-export function getEntityDetailPath(facetSlug: string, entityId: string) {
-	return `/tracking/${facetSlug}/entities/${entityId}`;
+export function getEntityDetailPath(trackerSlug: string, entityId: string) {
+	return `/tracking/${trackerSlug}/entities/${entityId}`;
 }
 
 export function formatEntityDetailPropertyValue(

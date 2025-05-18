@@ -35,20 +35,24 @@ import {
 import { useState } from "react";
 import { toSidebarAccount } from "#/components/sidebar/sidebar-account";
 import { toSidebarData } from "#/components/sidebar/sidebar-data";
-import { FacetIcon } from "#/features/facets/icons";
-import {
-	useFacetSidebarActions,
-	useFacetSidebarState,
-} from "#/features/facets/sidebar-context";
 import { useSavedViewsQuery } from "#/features/saved-views/hooks";
+import { TrackerIcon } from "#/features/trackers/icons";
+import {
+	useTrackerSidebarActions,
+	useTrackerSidebarState,
+} from "#/features/trackers/sidebar-context";
 import { useProtectedUser } from "#/hooks/protected-user";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useColorScheme } from "#/hooks/theme";
-import type { SidebarFacet, SidebarProps, SidebarView } from "./Sidebar.types";
+import type {
+	SidebarProps,
+	SidebarTracker,
+	SidebarView,
+} from "./Sidebar.types";
 import { SidebarAccountSection } from "./SidebarAccountSection";
 
-function getFacetColor(facet: SidebarFacet) {
-	return { base: facet.accentColor, muted: rgba(facet.accentColor, 0) };
+function getTrackerColor(tracker: SidebarTracker) {
+	return { base: tracker.accentColor, muted: rgba(tracker.accentColor, 0) };
 }
 
 function ViewIcon(props: { view: SidebarView }) {
@@ -57,25 +61,25 @@ function ViewIcon(props: { view: SidebarView }) {
 			c={props.view.accentColor}
 			style={{ display: "flex", alignItems: "center" }}
 		>
-			<FacetIcon icon={props.view.icon} size={16} />
+			<TrackerIcon icon={props.view.icon} size={16} />
 		</Box>
 	);
 }
 
-function SortableFacet(props: {
+function SortableTracker(props: {
 	isDark: boolean;
-	facet: SidebarFacet;
+	tracker: SidebarTracker;
 	isExpanded: boolean;
 	textPrimary: string;
 	textSecondary: string;
 	isMutationBusy: boolean;
 	isCustomizeMode: boolean;
 	onNavLinkClick: () => void;
-	onEditFacet?: (facetId: string) => void;
-	onToggleFacet: (facetId: string) => void;
-	onToggleFacetEnabled?: (facetId: string) => void;
+	onEditTracker?: (trackerId: string) => void;
+	onToggleTracker: (trackerId: string) => void;
+	onToggleTrackerEnabled?: (trackerId: string) => void;
 }) {
-	const color = getFacetColor(props.facet);
+	const color = getTrackerColor(props.tracker);
 	const {
 		attributes,
 		listeners,
@@ -83,7 +87,7 @@ function SortableFacet(props: {
 		transform,
 		transition,
 		isDragging,
-	} = useSortable({ id: props.facet.id });
+	} = useSortable({ id: props.tracker.id });
 
 	const style = {
 		transition,
@@ -94,10 +98,11 @@ function SortableFacet(props: {
 	return (
 		<Box ref={setNodeRef} style={style}>
 			<NavLink
-				label={props.facet.name}
+				label={props.tracker.name}
 				onClick={() => {
 					if (props.isCustomizeMode) return;
-					if (props.facet.views?.length) props.onToggleFacet(props.facet.id);
+					if (props.tracker.views?.length)
+						props.onToggleTracker(props.tracker.id);
 					props.onNavLinkClick();
 				}}
 				renderRoot={
@@ -106,8 +111,8 @@ function SortableFacet(props: {
 						: (rootProps) => (
 								<Link
 									{...rootProps}
-									to="/$facetSlug"
-									params={{ facetSlug: props.facet.slug }}
+									to="/$trackerSlug"
+									params={{ trackerSlug: props.tracker.slug }}
 								/>
 							)
 				}
@@ -120,7 +125,7 @@ function SortableFacet(props: {
 					root: {
 						padding: "10px 14px",
 						borderLeft: "2px solid transparent",
-						opacity: props.facet.enabled ? 1 : 0.48,
+						opacity: props.tracker.enabled ? 1 : 0.48,
 						"&:hover": {
 							borderLeftColor: color.base,
 							backgroundColor: color.muted,
@@ -155,7 +160,7 @@ function SortableFacet(props: {
 							c={color.base}
 							style={{ display: "flex", alignItems: "center" }}
 						>
-							<FacetIcon icon={props.facet.icon} size={18} />
+							<TrackerIcon icon={props.tracker.icon} size={18} />
 						</Box>
 					</Group>
 				}
@@ -163,16 +168,16 @@ function SortableFacet(props: {
 					<Group gap={4} wrap="nowrap">
 						{props.isCustomizeMode ? (
 							<Group gap={4} wrap="nowrap">
-								{props.facet.isBuiltin ? undefined : (
+								{props.tracker.isBuiltin ? undefined : (
 									<ActionIcon
 										size="sm"
 										variant="subtle"
-										aria-label="Edit facet"
+										aria-label="Edit tracker"
 										disabled={props.isMutationBusy}
 										onClick={(event) => {
 											event.preventDefault();
 											event.stopPropagation();
-											props.onEditFacet?.(props.facet.id);
+											props.onEditTracker?.(props.tracker.id);
 										}}
 									>
 										<Pencil size={14} strokeWidth={1.8} />
@@ -183,15 +188,15 @@ function SortableFacet(props: {
 									variant="subtle"
 									disabled={props.isMutationBusy}
 									aria-label={
-										props.facet.enabled ? "Disable facet" : "Enable facet"
+										props.tracker.enabled ? "Disable tracker" : "Enable tracker"
 									}
 									onClick={(event) => {
 										event.preventDefault();
 										event.stopPropagation();
-										props.onToggleFacetEnabled?.(props.facet.id);
+										props.onToggleTrackerEnabled?.(props.tracker.id);
 									}}
 								>
-									{props.facet.enabled ? (
+									{props.tracker.enabled ? (
 										<ToggleRight size={14} strokeWidth={1.8} />
 									) : (
 										<ToggleLeft size={14} strokeWidth={1.8} />
@@ -199,7 +204,7 @@ function SortableFacet(props: {
 								</ActionIcon>
 							</Group>
 						) : undefined}
-						{props.facet.views?.length ? (
+						{props.tracker.views?.length ? (
 							<Box
 								aria-hidden="true"
 								style={{ display: "flex", alignItems: "center" }}
@@ -215,7 +220,7 @@ function SortableFacet(props: {
 				}
 			/>
 			{props.isExpanded
-				? props.facet.views?.map((view) => (
+				? props.tracker.views?.map((view) => (
 						<NavLink
 							key={view.id}
 							label={view.name}
@@ -227,10 +232,10 @@ function SortableFacet(props: {
 									: (rootProps) => (
 											<Link
 												{...rootProps}
-												to="/$facetSlug/views/$viewId"
+												to="/$trackerSlug/views/$viewId"
 												params={{
 													viewId: view.id,
-													facetSlug: props.facet.slug,
+													trackerSlug: props.tracker.slug,
 												}}
 											/>
 										)
@@ -256,18 +261,18 @@ function SortableFacet(props: {
 export function Sidebar(props: SidebarProps) {
 	const user = useProtectedUser();
 	const isMobile = useIsMobileScreen();
-	const state = useFacetSidebarState();
-	const actions = useFacetSidebarActions();
+	const state = useTrackerSidebarState();
+	const actions = useTrackerSidebarActions();
 	const computedColorScheme = useColorScheme();
 	const savedViewsQuery = useSavedViewsQuery();
 	const { hovered, ref } = useHover<HTMLDivElement>();
 	const [searchQuery, setSearchQuery] = useState("");
-	const [expandedFacets, setExpandedFacets] = useState<Record<string, boolean>>(
-		{},
-	);
+	const [expandedTrackers, setExpandedTrackers] = useState<
+		Record<string, boolean>
+	>({});
 	const sidebarData = toSidebarData({
 		views: savedViewsQuery.savedViews,
-		facets: state.facets,
+		trackers: state.trackers,
 		isCustomizeMode: state.isCustomizeMode,
 	});
 
@@ -291,10 +296,10 @@ export function Sidebar(props: SidebarProps) {
 		setSearchQuery(value);
 	};
 
-	const handleToggleFacet = (facetId: string) => {
-		setExpandedFacets((current) => ({
+	const handleToggleTracker = (trackerId: string) => {
+		setExpandedTrackers((current) => ({
 			...current,
-			[facetId]: !(current[facetId] ?? false),
+			[trackerId]: !(current[trackerId] ?? false),
 		}));
 	};
 
@@ -304,22 +309,22 @@ export function Sidebar(props: SidebarProps) {
 		const { active, over } = event;
 		if (!over || active.id === over.id) return;
 
-		const activeIndex = sidebarData.facets.findIndex(
-			(facet) => facet.id === active.id,
+		const activeIndex = sidebarData.trackers.findIndex(
+			(tracker) => tracker.id === active.id,
 		);
-		const overIndex = sidebarData.facets.findIndex(
-			(facet) => facet.id === over.id,
+		const overIndex = sidebarData.trackers.findIndex(
+			(tracker) => tracker.id === over.id,
 		);
 
 		if (activeIndex === -1 || overIndex === -1) return;
 
-		const nextFacets = Array.from(sidebarData.facets);
-		const movedFacet = nextFacets[activeIndex];
-		if (!movedFacet) return;
+		const nextTrackers = Array.from(sidebarData.trackers);
+		const movedTracker = nextTrackers[activeIndex];
+		if (!movedTracker) return;
 
-		nextFacets.splice(activeIndex, 1);
-		nextFacets.splice(overIndex, 0, movedFacet);
-		void actions.reorderFacetIds(nextFacets.map((facet) => facet.id));
+		nextTrackers.splice(activeIndex, 1);
+		nextTrackers.splice(overIndex, 0, movedTracker);
+		void actions.reorderTrackerIds(nextTrackers.map((tracker) => tracker.id));
 	};
 
 	const handleNavLinkClick = () => {
@@ -447,7 +452,7 @@ export function Sidebar(props: SidebarProps) {
 							ff="var(--mantine-headings-font-family)"
 							style={{ letterSpacing: "1px", textTransform: "uppercase" }}
 						>
-							Facets
+							Trackers
 						</Text>
 					</Box>
 				</Box>
@@ -458,27 +463,27 @@ export function Sidebar(props: SidebarProps) {
 				>
 					<SortableContext
 						strategy={verticalListSortingStrategy}
-						items={sidebarData.facets.map((facet) => facet.id)}
+						items={sidebarData.trackers.map((tracker) => tracker.id)}
 					>
-						{sidebarData.facets.map((facet) => {
+						{sidebarData.trackers.map((tracker) => {
 							const isExpanded =
-								expandedFacets[facet.id] ?? facet.isExpanded ?? false;
+								expandedTrackers[tracker.id] ?? tracker.isExpanded ?? false;
 
 							return (
-								<SortableFacet
-									facet={facet}
-									key={facet.id}
+								<SortableTracker
+									tracker={tracker}
+									key={tracker.id}
 									isDark={isDark}
 									isExpanded={isExpanded}
 									textPrimary={textPrimary}
 									textSecondary={textSecondary}
-									onEditFacet={actions.openEditModal}
-									onToggleFacet={handleToggleFacet}
+									onEditTracker={actions.openEditModal}
+									onToggleTracker={handleToggleTracker}
 									onNavLinkClick={handleNavLinkClick}
 									isCustomizeMode={state.isCustomizeMode}
 									isMutationBusy={state.isMutationBusy}
-									onToggleFacetEnabled={(facetId) =>
-										void actions.toggleFacetById(facetId)
+									onToggleTrackerEnabled={(trackerId) =>
+										void actions.toggleTrackerById(trackerId)
 									}
 								/>
 							);
@@ -528,21 +533,21 @@ export function Sidebar(props: SidebarProps) {
 						key={view.id}
 						label={view.name}
 						leftSection={<ViewIcon view={view} />}
-						disabled={!view.facetSlug || state.isCustomizeMode}
+						disabled={!view.trackerSlug || state.isCustomizeMode}
 						onClick={
-							view.facetSlug && !state.isCustomizeMode
+							view.trackerSlug && !state.isCustomizeMode
 								? handleNavLinkClick
 								: undefined
 						}
 						renderRoot={
-							view.facetSlug && !state.isCustomizeMode
+							view.trackerSlug && !state.isCustomizeMode
 								? (rootProps) => (
 										<Link
 											{...rootProps}
-											to="/$facetSlug/views/$viewId"
+											to="/$trackerSlug/views/$viewId"
 											params={{
 												viewId: view.id,
-												facetSlug: view.facetSlug,
+												trackerSlug: view.trackerSlug,
 											}}
 										/>
 									)
