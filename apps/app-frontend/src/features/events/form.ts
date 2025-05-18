@@ -8,6 +8,7 @@ import {
 	isAppPropertyRequired,
 	trimmedOrUndefined,
 } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import type { ApiPostRequestBody } from "#/lib/api/types";
 import type { AppEventSchema } from "../event-schemas/model";
@@ -189,19 +190,11 @@ export function getEventFormReconciliationState(
 }
 
 const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
-	switch (propertyDef.type) {
-		case "string":
-		case "date":
-		case "datetime":
-			return "";
-		case "number":
-		case "integer":
-			return 0;
-		case "boolean":
-			return false;
-		default:
-			return undefined;
-	}
+	return match(propertyDef.type)
+		.with("string", "date", "datetime", () => "")
+		.with("number", "integer", () => 0)
+		.with("boolean", () => false)
+		.otherwise(() => undefined);
 };
 
 export function getUnsupportedRequiredPropertiesMessage(
@@ -211,37 +204,29 @@ export function getUnsupportedRequiredPropertiesMessage(
 }
 
 function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
-	switch (propertyDef.type) {
-		case "boolean":
-		case "date":
-		case "datetime":
-		case "integer":
-		case "number":
-		case "string":
-			return true;
-		default:
-			return false;
-	}
+	return match(propertyDef.type)
+		.with(
+			"boolean",
+			"date",
+			"datetime",
+			"integer",
+			"number",
+			"string",
+			() => true,
+		)
+		.otherwise(() => false);
 }
 
 function isValidPropertyValue(
 	propertyDef: AppPropertyDefinition,
 	value: unknown,
 ) {
-	switch (propertyDef.type) {
-		case "string":
-		case "date":
-		case "datetime":
-			return typeof value === "string";
-		case "number":
-			return typeof value === "number" && Number.isFinite(value);
-		case "integer":
-			return Number.isInteger(value);
-		case "boolean":
-			return typeof value === "boolean";
-		default:
-			return false;
-	}
+	return match(propertyDef.type)
+		.with("string", "date", "datetime", () => typeof value === "string")
+		.with("number", () => typeof value === "number" && Number.isFinite(value))
+		.with("integer", () => Number.isInteger(value))
+		.with("boolean", () => typeof value === "boolean")
+		.otherwise(() => false);
 }
 
 const buildEventPropertiesSchema = (propertiesSchema: AppSchema) => {
@@ -275,18 +260,15 @@ function isSupportedPrimitiveRuleCondition(
 	condition: AppSchemaRuleCondition,
 	supportedKeys: Set<string>,
 ): boolean {
-	switch (condition.operator) {
-		case "all":
-		case "any":
-			return condition.conditions.every((value) =>
+	return match(condition)
+		.with({ operator: "all" }, { operator: "any" }, (cond) =>
+			cond.conditions.every((value) =>
 				isSupportedPrimitiveRuleCondition(value, supportedKeys),
-			);
-		default:
-			return (
-				condition.path.length === 1 &&
-				supportedKeys.has(condition.path[0] ?? "")
-			);
-	}
+			),
+		)
+		.otherwise(
+			(cond) => cond.path.length === 1 && supportedKeys.has(cond.path[0] ?? ""),
+		);
 }
 
 function findEventSchema(
