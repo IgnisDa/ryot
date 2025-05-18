@@ -32,14 +32,14 @@ export const createNoteAndRatingPropertiesSchema = () => ({
 	},
 });
 
-export const createFlatTitlePagesPropertySchema = () => ({
+export const createTitlePagesPropertiesSchema = () => ({
 	fields: {
 		title: { type: "string" as const },
 		pages: { type: "integer" as const },
 	},
 });
 
-export const createFlatNoteProgressPropertySchema = () => ({
+export const createNoteProgressPropertiesSchema = () => ({
 	fields: {
 		note: { type: "string" as const },
 		progress: { type: "integer" as const },

@@ -2,8 +2,8 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEventSchemaBody,
 	createEventSchemaDeps,
-	createFlatNoteProgressPropertySchema,
 	createListedEventSchema,
+	createNoteProgressPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 import {
@@ -62,14 +62,8 @@ describe("resolveEventSchemaSlug", () => {
 });
 
 describe("parseEventSchemaPropertiesSchema", () => {
-	it("accepts flat properties map", () => {
-		const schema = createFlatNoteProgressPropertySchema();
-
-		expect(parseEventSchemaPropertiesSchema(schema)).toEqual(schema);
-	});
-
-	it("accepts already-parsed properties map", () => {
-		const schema = createFlatNoteProgressPropertySchema();
+	it("accepts a valid properties schema object", () => {
+		const schema = createNoteProgressPropertiesSchema();
 
 		expect(parseEventSchemaPropertiesSchema(schema)).toEqual(schema);
 	});
