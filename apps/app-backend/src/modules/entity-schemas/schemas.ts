@@ -21,6 +21,7 @@ export const entitySchemaPropertiesInputSchema =
 export const providerSchema = z.object({
 	name: z.string(),
 	scriptId: z.string(),
+	searchDriverName: z.string().optional(),
 });
 
 export const listedEntitySchemaSchema = z.object({
