@@ -174,7 +174,7 @@ export function useEntitySearch(props: {
 				: null;
 
 			const properties: Record<string, unknown> = {};
-			for (const key of Object.keys(schema.propertiesSchema)) {
+			for (const key of Object.keys(schema.propertiesSchema.fields)) {
 				if (detailsValue.properties[key] !== undefined) {
 					properties[key] = detailsValue.properties[key];
 				}

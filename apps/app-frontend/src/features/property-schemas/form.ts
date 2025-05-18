@@ -102,20 +102,20 @@ export const defaultCreatePropertySchemaFormValues =
 	buildPropertySchemaFormValues();
 
 export const buildPropertiesSchema = (properties: PropertySchemaInput[]) => {
-	const propertiesMap: AppSchema = {};
+	const fields: AppSchema["fields"] = {};
 
 	for (const property of properties) {
 		const key = property.key.trim();
-		const propertyDef: AppSchema[string] = { type: property.type };
+		const propertyDef: AppSchema["fields"][string] = { type: property.type };
 
 		if (property.required) {
-			propertyDef.required = true;
+			propertyDef.validation = { required: true };
 		}
 
-		propertiesMap[key] = propertyDef;
+		fields[key] = propertyDef;
 	}
 
-	return propertiesMap;
+	return { fields };
 };
 
 export const resolveNextPropertySchemaSlug = resolveNextSlug;

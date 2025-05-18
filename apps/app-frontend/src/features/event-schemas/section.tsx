@@ -24,7 +24,9 @@ function EventSchemaList(props: {
 	return (
 		<Stack gap="xs">
 			{props.eventSchemas.map((eventSchema) => {
-				const propertyCount = Object.keys(eventSchema.propertiesSchema).length;
+				const propertyCount = Object.keys(
+					eventSchema.propertiesSchema.fields,
+				).length;
 
 				return (
 					<Paper p="sm" withBorder radius="md" key={eventSchema.id}>

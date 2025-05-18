@@ -17,12 +17,14 @@ function getAutocompleteProps(
 
 const animeSchema = createEntitySchemaFixture({
 	slug: "anime",
-	propertiesSchema: { year: { type: "integer" }, title: { type: "string" } },
+	propertiesSchema: {
+		fields: { year: { type: "integer" }, title: { type: "string" } },
+	},
 });
 
 const mangaSchema = createEntitySchemaFixture({
 	slug: "manga",
-	propertiesSchema: { chapters: { type: "integer" } },
+	propertiesSchema: { fields: { chapters: { type: "integer" } } },
 });
 
 describe("PropertyPathAutocomplete - disabled state", () => {
@@ -136,7 +138,7 @@ describe("PropertyPathAutocomplete - schema-grouped options", () => {
 	it("omits groups for schemas with no properties", () => {
 		const emptySchema = createEntitySchemaFixture({
 			slug: "empty",
-			propertiesSchema: {},
+			propertiesSchema: { fields: {} },
 		});
 		const element = PropertyPathAutocomplete({
 			excludeImage: true,
