@@ -9,6 +9,7 @@ import {
 	buildSchemaMap,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
+import { validateViewRuntimeReferences } from "~/lib/views/validator";
 import type { EntitySchemaPropertiesShape } from "../entity-schemas/service";
 import {
 	buildResolvedPropertiesExpression,
@@ -219,6 +220,7 @@ export const executeViewRuntimeQuery = async (
 		entitySchemaSlugs: request.entitySchemaSlugs,
 	});
 	const schemaMap = buildSchemaMap(runtimeSchemas);
+	validateViewRuntimeReferences(request, schemaMap);
 	const filterWhereClause = buildFilterWhereClause({
 		schemaMap,
 		alias: "entity",
