@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,20 +22,20 @@ sections of the parent PRD.
 
 ## Acceptance criteria
 
-- [ ] The currently supported built-in media schemas expose a seeded `complete` event schema.
-- [ ] `POST /events` accepts `complete` events for built-in media entities and persists them
+- [x] The currently supported built-in media schemas expose a seeded `complete` event schema.
+- [x] `POST /events` accepts `complete` events for built-in media entities and persists them
       successfully.
-- [ ] Built-in media entities can only write `complete` using the seeded event schema belonging to
+- [x] Built-in media entities can only write `complete` using the seeded event schema belonging to
       their own entity schema.
-- [ ] Repeated `complete` events are allowed.
-- [ ] The event payload for `complete` is an empty object.
-- [ ] Progress writes remain distinct from completion and do not implicitly create `complete`.
-- [ ] Bulk `POST /events` requests can include built-in `complete` events successfully.
-- [ ] Tests cover successful explicit completion writes, repeatability, and the separation from
+- [x] Repeated `complete` events are allowed.
+- [x] The event payload for `complete` is an empty object.
+- [x] Progress writes remain distinct from completion and do not implicitly create `complete`.
+- [x] Bulk `POST /events` requests can include built-in `complete` events successfully.
+- [x] Tests cover successful explicit completion writes, repeatability, and the separation from
       progress semantics.
-- [ ] `tests/src` includes an end-to-end test that posts an explicit built-in `complete` event and
+- [x] `tests/src` includes an end-to-end test that posts an explicit built-in `complete` event and
       verifies it persists without relying on `progress` to create it.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
