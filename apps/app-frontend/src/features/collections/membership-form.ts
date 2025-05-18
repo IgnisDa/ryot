@@ -3,7 +3,11 @@ import type {
 	AppSchema,
 	AppSchemaRuleCondition,
 } from "@ryot/ts-utils";
-import { fromAppSchemaObject, isAppPropertyRequired } from "@ryot/ts-utils";
+import {
+	fromAppSchemaObject,
+	getDefaultPropertyLabel,
+	isAppPropertyRequired,
+} from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import type { AppCollection } from "./model";
@@ -185,7 +189,7 @@ export function getMembershipPropertyEntries(
 		}
 		entries.push({
 			key,
-			label: definition.label,
+			label: definition.label || getDefaultPropertyLabel(key),
 			definition,
 		});
 	}
