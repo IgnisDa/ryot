@@ -12,7 +12,6 @@ export function createEventFixture(
 		eventSchemaSlug: "logged",
 		createdAt: new Date("2026-03-08T10:15:00.000Z"),
 		updatedAt: new Date("2026-03-08T10:20:00.000Z"),
-		occurredAt: new Date("2026-03-08T10:00:00.000Z"),
 		...overrides,
 	};
 }
