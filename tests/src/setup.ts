@@ -1,5 +1,6 @@
 import { afterAll, beforeAll } from "bun:test";
 import { type ChildProcess, spawn } from "node:child_process";
+import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
 	PostgreSqlContainer,
@@ -16,8 +17,14 @@ import {
 
 config({ path: ".env" });
 
+const S3_BUCKET_NAME = "ryot-test";
+const S3_ACCESS_KEY = "rustfsadmin";
+const S3_SECRET_KEY = "rustfsadmin";
+
+let s3Client: S3Client;
 let backendPort: number;
 let backendProcess: ChildProcess;
+let s3Container: StartedTestContainer;
 let redisContainer: StartedTestContainer;
 let pgContainer: StartedPostgreSqlContainer;
 
@@ -47,21 +54,41 @@ async function waitForHealthCheck(
 beforeAll(async () => {
 	console.log("[E2E Setup] Starting containers...");
 
-	pgContainer = await new PostgreSqlContainer("postgres:18-alpine")
-		.withDatabase("test_db")
-		.withUsername("test_user")
-		.withPassword("test_password")
-		.withWaitStrategy(Wait.forLogMessage("database system is ready"))
-		.start();
-
-	redisContainer = await new GenericContainer("redis:alpine")
-		.withExposedPorts(6379)
-		.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
-		.start();
+	[pgContainer, redisContainer, s3Container] = await Promise.all([
+		new PostgreSqlContainer("postgres:18-alpine")
+			.withDatabase("test_db")
+			.withUsername("test_user")
+			.withPassword("test_password")
+			.withWaitStrategy(Wait.forLogMessage("database system is ready"))
+			.start(),
+		new GenericContainer("redis:alpine")
+			.withExposedPorts(6379)
+			.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
+			.start(),
+		new GenericContainer("rustfs/rustfs")
+			.withExposedPorts(9000)
+			.withWaitStrategy(Wait.forHttp("/health", 9000))
+			.start(),
+	]);
 
 	const redisHost = redisContainer.getHost();
 	const dbUrl = pgContainer.getConnectionUri();
 	const redisPort = redisContainer.getMappedPort(6379);
+	const s3Host = s3Container.getHost();
+	const s3MappedPort = s3Container.getMappedPort(9000);
+	const s3Endpoint = `http://${s3Host}:${s3MappedPort}`;
+
+	s3Client = new S3Client({
+		region: "us-east-1",
+		endpoint: s3Endpoint,
+		forcePathStyle: true,
+		credentials: { accessKeyId: S3_ACCESS_KEY, secretAccessKey: S3_SECRET_KEY },
+	});
+
+	await s3Client.send(new CreateBucketCommand({ Bucket: S3_BUCKET_NAME }));
+	console.log(
+		`[E2E Setup] S3 bucket '${S3_BUCKET_NAME}' created at ${s3Endpoint}`,
+	);
 
 	backendPort = await getPort();
 
@@ -70,9 +97,14 @@ beforeAll(async () => {
 		NODE_ENV: "test",
 		DATABASE_URL: dbUrl,
 		PORT: backendPort.toString(),
+		FILE_STORAGE_S3_URL: s3Endpoint,
+		FILE_STORAGE_S3_REGION: "us-east-1",
 		FRONTEND_URL: "http://localhost:3000",
+		FILE_STORAGE_S3_BUCKET_NAME: S3_BUCKET_NAME,
+		FILE_STORAGE_S3_ACCESS_KEY_ID: S3_ACCESS_KEY,
 		SERVER_ADMIN_ACCESS_TOKEN: "test-admin-token",
 		REDIS_URL: `redis://${redisHost}:${redisPort}`,
+		FILE_STORAGE_S3_SECRET_ACCESS_KEY: S3_SECRET_KEY,
 	};
 
 	console.log(`[E2E Setup] Starting backend on port ${backendPort}...`);
@@ -106,11 +138,22 @@ afterAll(async () => {
 		console.log("[E2E Teardown] Backend process stopped");
 	}
 
-	await pgContainer?.stop();
-	await redisContainer?.stop();
+	await Promise.all([
+		pgContainer?.stop(),
+		s3Container?.stop(),
+		redisContainer?.stop(),
+	]);
 
 	console.log("[E2E Teardown] Complete!");
 });
+
+export function getS3Client() {
+	return s3Client;
+}
+
+export function getS3BucketName() {
+	return S3_BUCKET_NAME;
+}
 
 export function getBackendUrl() {
 	return `http://127.0.0.1:${backendPort}/api`;
