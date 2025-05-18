@@ -14,6 +14,10 @@ import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import {
+	useCollectionDiscovery,
+	useCollectionsDestination,
+} from "~/features/collections";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
 import { useApiClient } from "~/hooks/api";
@@ -62,7 +66,13 @@ export function SearchEntityModalContent(props: {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
 	const createEvents = apiClient.useMutation("post", "/events");
+	const addToCollection = apiClient.useMutation(
+		"post",
+		"/collections/memberships",
+	);
 	const eventSchemasQuery = useEventSchemasQuery(props.entitySchema.id, true);
+	const { state: collectionState } = useCollectionDiscovery();
+	const collectionsDestination = useCollectionsDestination();
 	const {
 		page,
 		query,
@@ -373,6 +383,89 @@ export function SearchEntityModalContent(props: {
 		],
 	);
 
+	const handleSaveCollection = useCallback(
+		async (item: SearchResultItem) => {
+			const state = getActionState(item.identifier);
+			if (!state.selectedCollectionId) {
+				return;
+			}
+
+			patchActionState(item.identifier, {
+				actionError: null,
+				pendingAction: "collection",
+			});
+
+			let entityId: string | null = null;
+			try {
+				const entity = await ensureItemEntity(item);
+				entityId = entity.id;
+				await addToCollection.mutateAsync({
+					body: {
+						collectionId: state.selectedCollectionId,
+						entityId: entity.id,
+						properties: state.collectionProperties,
+					},
+				});
+				markDone(item.identifier, ["track", "collection"]);
+				props.onActionCompleted?.();
+				patchActionState(item.identifier, {
+					actionError: null,
+					openPanel: null,
+				});
+				notifications.show({
+					color: "green",
+					title: "Added to collection",
+					message: `${item.titleProperty.value} was added to the collection.`,
+				});
+			} catch (error) {
+				if (isCancelledEntitySearchError(error)) {
+					return;
+				}
+
+				const message = entityId
+					? `${item.titleProperty.value} is in your library, but could not be added to the collection: ${getErrorMessage(error)}`
+					: getErrorMessage(error);
+				if (entityId) {
+					markDone(item.identifier, ["track"]);
+				}
+				patchActionState(item.identifier, {
+					actionError: message,
+					openPanel: entityId
+						? getActionState(item.identifier).openPanel
+						: null,
+				});
+				notifications.show({
+					color: entityId ? "yellow" : "red",
+					title: entityId ? "Partially saved" : "Action failed",
+					message,
+				});
+			} finally {
+				patchActionState(item.identifier, { pendingAction: null });
+			}
+		},
+		[
+			addToCollection,
+			markDone,
+			getActionState,
+			ensureItemEntity,
+			patchActionState,
+		],
+	);
+
+	const collections = useMemo(() => {
+		if (collectionState.type === "collections") {
+			return collectionState.collections.map((c) => ({
+				id: c.id,
+				name: c.name,
+			}));
+		}
+		return [];
+	}, [collectionState]);
+
+	const canUseCollectionAction =
+		collections.length > 0 &&
+		collectionsDestination.destination.type !== "none";
+
 	return (
 		<Stack gap="md">
 			{props.entitySchema.providers.length > 1 ? (
@@ -459,11 +552,14 @@ export function SearchEntityModalContent(props: {
 											providerName={activeProvider?.name ?? ""}
 											onBacklog={() => void handleBacklog(item)}
 											onSaveReview={() => handleSaveReview(item)}
+											onSaveCollection={() => void handleSaveCollection(item)}
 											actionState={getActionState(item.identifier)}
 											lifecycleErrorMessage={lifecycleErrorMessage}
 											addStatus={addStatus[item.identifier] ?? "idle"}
 											isLifecycleLoading={eventSchemasQuery.isLoading}
 											isExpanded={selectedResultId === item.identifier}
+											canUseCollectionAction={canUseCollectionAction}
+											collections={collections}
 											primaryAction={
 												props.initialAction === "backlog" ? "backlog" : "add"
 											}
