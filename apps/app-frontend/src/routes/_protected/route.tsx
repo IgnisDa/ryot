@@ -5,6 +5,7 @@ import { MobileSidebarBurger, Sidebar } from "#/components/sidebar/Sidebar";
 import { FacetModal } from "#/features/facets/components/facet-modal";
 import FacetSidebarProvider from "#/features/facets/sidebar-context";
 import { useIsMobileScreen } from "#/hooks/screen";
+import { useColorScheme } from "#/hooks/theme";
 
 export const Route = createFileRoute("/_protected")({
 	component: RouteComponent,
@@ -22,8 +23,10 @@ export const Route = createFileRoute("/_protected")({
 
 function RouteComponent() {
 	const isMobile = useIsMobileScreen();
+	const colorScheme = useColorScheme();
 	const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
 		useDisclosure(false);
+	const isDark = colorScheme === "dark";
 
 	return (
 		<FacetSidebarProvider>
@@ -32,8 +35,10 @@ function RouteComponent() {
 					<Box
 						p="md"
 						style={{
-							borderBottom: "1px solid var(--mantine-color-dark-6)",
-							backgroundColor: "var(--mantine-color-dark-8)",
+							backgroundColor: isDark ? "var(--mantine-color-dark-8)" : "white",
+							borderBottom: isDark
+								? "1px solid var(--mantine-color-dark-6)"
+								: "1px solid var(--mantine-color-stone-3)",
 						}}
 					>
 						<MobileSidebarBurger opened={drawerOpened} onClick={openDrawer} />
