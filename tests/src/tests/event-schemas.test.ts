@@ -74,6 +74,35 @@ describe("GET /event-schemas", () => {
 					},
 				},
 			});
+			const completeSchema = eventSchemas.find(
+				(schema) => schema.slug === "complete",
+			);
+			expect(completeSchema).toBeDefined();
+			expect(completeSchema?.propertiesSchema).toEqual({
+				fields: {
+					startedOn: { type: "date" },
+					completedOn: { type: "date" },
+					completionMode: {
+						type: "string",
+						validation: {
+							required: true,
+							pattern: "^(just_now|unknown|custom_dates)$",
+						},
+					},
+				},
+				rules: [
+					{
+						kind: "validation",
+						path: ["completedOn"],
+						validation: { required: true },
+						when: {
+							operator: "eq",
+							value: "custom_dates",
+							path: ["completionMode"],
+						},
+					},
+				],
+			});
 			const reviewSchema = eventSchemas.find(
 				(schema) => schema.slug === "review",
 			);
