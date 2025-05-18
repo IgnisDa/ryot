@@ -1,0 +1,39 @@
+import { createEntityRuntimeRequest } from "~/features/entities/model";
+import { useApiClient } from "~/hooks/api";
+import {
+	type AppCollection,
+	type CollectionDiscoveryState,
+	getCollectionDiscoveryState,
+	toAppCollection,
+} from "./model";
+
+const COLLECTION_ENTITY_SCHEMA_SLUG = "collection";
+
+export function useCollectionsQuery(enabled = true) {
+	const apiClient = useApiClient();
+	const query = apiClient.useQuery(
+		"post",
+		"/query-engine/execute",
+		{ body: createEntityRuntimeRequest(COLLECTION_ENTITY_SCHEMA_SLUG) },
+		{ enabled },
+	);
+
+	const collections: AppCollection[] =
+		query.data?.data.items.map(toAppCollection) ?? [];
+
+	return {
+		...query,
+		collections,
+	};
+}
+
+export function useCollectionDiscovery(enabled = true): {
+	state: CollectionDiscoveryState;
+	refetch: () => void;
+} {
+	const { collections, isLoading, refetch } = useCollectionsQuery(enabled);
+
+	const state = getCollectionDiscoveryState(isLoading, collections);
+
+	return { state, refetch };
+}
