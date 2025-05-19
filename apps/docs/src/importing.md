@@ -21,10 +21,10 @@ You can see the reports under "Import History" of the imports page.
 
 You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
 
-!!! info
-
-      This will only import media that are already finished. Setup an
-      [integration](./integrations.md#jellyfin) if you want to import media in progress.
+::: info
+This will only import media that are already finished. Setup an
+[integration](./integrations.md#jellyfin) if you want to import media in progress.
+:::
 
 Enter the correct details in the input. The username you enter should be of the account
 whose data you want to import.
@@ -33,10 +33,10 @@ whose data you want to import.
 
 You can import your watched movies and shows from [Plex](https://plex.tv).
 
-!!! info
-
-      This will only import media that are already finished. Setup an
-      [integration](./integrations.md#plex-sink) if you want to import media in progress.
+::: info
+This will only import media that are already finished. Setup an
+[integration](./integrations.md#plex-sink) if you want to import media in progress.
+:::
 
 1. Obtain a `Plex-Token` as described
    [here](https://www.plexopedia.com/plex-media-server/general/plex-token/#getcurrentusertoken).
@@ -67,16 +67,16 @@ their ratings, history, comments and lists. A few points to note.
 The Audiobookshelf importer supports importing all media that have a valid Audible ID or
 ITunes ID or ISBN.
 
-!!! info
-
-    - This will only import media that are already finished. Setup an
-      [integration](./integrations.md#audiobookshelf) if you want to import media in progress.
-    - If you have enabled the option to auto delete podcast episodes, you'll have to
-      manually mark them as completed.
+::: info
+- This will only import media that are already finished. Setup an
+[integration](./integrations.md#audiobookshelf) if you want to import media in progress.
+- If you have enabled the option to auto delete podcast episodes, you'll have to
+manually mark them as completed.
+:::
 
 1. Obtain an API token as described in the Audiobookshelf
   [authentication](https://api.audiobookshelf.org/#authentication) docs.
-2. Enter the correct details in the input.
+1. Enter the correct details in the input.
 
 ## Goodreads
 
@@ -215,9 +215,9 @@ separately. A few points to note:
 
 ## TV Time
 
-!!! warning
-
-      This is a community maintained integration.
+::: warning
+This is a community maintained integration.
+:::
 
 All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
 tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
