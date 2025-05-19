@@ -6143,6 +6143,12 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ryot/docs@workspace:apps/docs":
+  version: 0.0.0-use.local
+  resolution: "@ryot/docs@workspace:apps/docs"
+  languageName: unknown
+  linkType: soft
+
 "@ryot/frontend@workspace:apps/frontend":
   version: 0.0.0-use.local
   resolution: "@ryot/frontend@workspace:apps/frontend"
