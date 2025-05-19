@@ -29,6 +29,7 @@ export default defineConfig({
 					{ text: "Deployment", link: "/deployment" },
 					{ text: "Importing", link: "/importing" },
 					{ text: "Integrations", link: "/integrations" },
+					{ text: "Contributing", link: "/contributing" },
 				],
 			},
 		],
