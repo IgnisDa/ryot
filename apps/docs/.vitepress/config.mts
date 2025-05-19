@@ -19,6 +19,7 @@ export default defineConfig({
 		],
 	],
 	themeConfig: {
+		outline: "deep",
 		siteTitle: "Ryot",
 		search: { provider: "local" },
 		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
