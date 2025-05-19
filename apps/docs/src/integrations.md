@@ -16,7 +16,8 @@ services about changes. They can be of following types:
   interval.
 - _Push_: Ryot sends data to an external service when an event occurs.
 
-If an integration fails more than 5 times in a row, it will be automatically disabled.
+If an integration fails more than 5 times in a row, it will be automatically paused. This
+behavior can be disabled from the integration settings.
 
 ## Sink integrations
 
