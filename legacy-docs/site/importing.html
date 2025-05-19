@@ -1,0 +1,1296 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Ryot Documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.ryot.io/importing.html">
+      
+      
+        <link rel="prev" href="deployment.html">
+      
+      
+        <link rel="next" href="integrations.html">
+      
+      
+      <link rel="icon" href="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.3.1">
+    
+    
+      
+        <title>Importing - Ryot Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.046329b4.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.85d0ee34.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="https://unpkg.com/iframe-worker/shim"></script>
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#importing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="index.html" title="Ryot Documentation" class="md-header__button md-logo" aria-label="Ryot Documentation" data-md-component="logo">
+      
+  <img src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Ryot Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Importing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7 0-.24-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91 1.61 0 2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08Z"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ignisda/ryot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="index.html" title="Ryot Documentation" class="md-nav__button md-logo" aria-label="Ryot Documentation" data-md-component="logo">
+      
+  <img src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png" alt="logo">
+
+    </a>
+    Ryot Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ignisda/ryot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="migration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="configuration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="deployment.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Importing
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="importing.html" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Importing
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    Notes
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goodreads" class="md-nav__link">
+    Goodreads
+  </a>
+  
+    <nav class="md-nav" aria-label="Goodreads">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mediatracker" class="md-nav__link">
+    MediaTracker
+  </a>
+  
+    <nav class="md-nav" aria-label="MediaTracker">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_1" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#movary" class="md-nav__link">
+    Movary
+  </a>
+  
+    <nav class="md-nav" aria-label="Movary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_2" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#myanimelist" class="md-nav__link">
+    MyAnimeList
+  </a>
+  
+    <nav class="md-nav" aria-label="MyAnimeList">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_3" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storygraph" class="md-nav__link">
+    StoryGraph
+  </a>
+  
+    <nav class="md-nav" aria-label="StoryGraph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_4" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strong-app" class="md-nav__link">
+    Strong App
+  </a>
+  
+    <nav class="md-nav" aria-label="Strong App">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_5" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trakt" class="md-nav__link">
+    Trakt
+  </a>
+  
+    <nav class="md-nav" aria-label="Trakt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_6" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#imdb" class="md-nav__link">
+    IMDb
+  </a>
+  
+    <nav class="md-nav" aria-label="IMDb">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_7" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#igdb" class="md-nav__link">
+    IGDb
+  </a>
+  
+    <nav class="md-nav" aria-label="IGDb">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_8" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audiobookshelf" class="md-nav__link">
+    Audiobookshelf
+  </a>
+  
+    <nav class="md-nav" aria-label="Audiobookshelf">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_9" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tv-time" class="md-nav__link">
+    TV Time
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-scale" class="md-nav__link">
+    Open Scale
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jellyfin" class="md-nav__link">
+    Jellyfin
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generic-json" class="md-nav__link">
+    Generic Json
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="integrations.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="guides/authentication.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="guides/books.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Books
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="guides/exporting.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Exporting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="guides/video-games.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Video games
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="contributing.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    Notes
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goodreads" class="md-nav__link">
+    Goodreads
+  </a>
+  
+    <nav class="md-nav" aria-label="Goodreads">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mediatracker" class="md-nav__link">
+    MediaTracker
+  </a>
+  
+    <nav class="md-nav" aria-label="MediaTracker">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_1" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#movary" class="md-nav__link">
+    Movary
+  </a>
+  
+    <nav class="md-nav" aria-label="Movary">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_2" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#myanimelist" class="md-nav__link">
+    MyAnimeList
+  </a>
+  
+    <nav class="md-nav" aria-label="MyAnimeList">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_3" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storygraph" class="md-nav__link">
+    StoryGraph
+  </a>
+  
+    <nav class="md-nav" aria-label="StoryGraph">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_4" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strong-app" class="md-nav__link">
+    Strong App
+  </a>
+  
+    <nav class="md-nav" aria-label="Strong App">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_5" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trakt" class="md-nav__link">
+    Trakt
+  </a>
+  
+    <nav class="md-nav" aria-label="Trakt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_6" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#imdb" class="md-nav__link">
+    IMDb
+  </a>
+  
+    <nav class="md-nav" aria-label="IMDb">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_7" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#igdb" class="md-nav__link">
+    IGDb
+  </a>
+  
+    <nav class="md-nav" aria-label="IGDb">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_8" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audiobookshelf" class="md-nav__link">
+    Audiobookshelf
+  </a>
+  
+    <nav class="md-nav" aria-label="Audiobookshelf">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_9" class="md-nav__link">
+    Steps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tv-time" class="md-nav__link">
+    TV Time
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-scale" class="md-nav__link">
+    Open Scale
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jellyfin" class="md-nav__link">
+    Jellyfin
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generic-json" class="md-nav__link">
+    Generic Json
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="importing">Importing</h1>
+<p>Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
+the same source twice will create duplicates. I recommend you to make a database backup
+before starting an import.</p>
+<p>An import can fail at various steps. Ryot creates a report when an import completes/fails.
+You can see the reports under "Import History" of the imports page.</p>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Imports are very difficult to have 100% success rate. Though we try our best,
+  you might have to manually import some data from your previous provider.</li>
+<li>I recommend turning on debug logging for the duration of the import using the
+  <code>RUST_LOG=ryot=debug</code> environment variable. This will help you help you see import
+  progress in the docker logs.</li>
+</ul>
+<h2 id="goodreads">Goodreads</h2>
+<p>Ryot translates <a href="https://www.goodreads.com/">Goodreads</a> shelves in the
+following manner:</p>
+<ul>
+<li>Want To Read -&gt; Watchlist</li>
+</ul>
+<h3 id="steps">Steps</h3>
+<ul>
+<li>Login to your Goodreads account and go to the "My Books" section.</li>
+<li>Click on "Import and export" on the left sidebar.</li>
+<li>Click on "Export Library" and download the CSV file.</li>
+<li>Upload this file in the input.</li>
+</ul>
+<h2 id="mediatracker">MediaTracker</h2>
+<p>You can import from <a href="https://github.com/bonukai/MediaTracker">MediaTracker</a>, with
+the following caveats:</p>
+<ul>
+<li>Items that are in progress are always imported with 100% progress. They are
+  added to the "In Progress" collection so you can manually fix their progress
+  if needed.</li>
+</ul>
+<h3 id="steps_1">Steps</h3>
+<ul>
+<li>Login to your MediaTracker account and click on your name on the top right.</li>
+<li>Click on the "Application tokens" section.</li>
+<li>Enter a name and click on "Add token".</li>
+<li>Copy the token that was just generated.</li>
+<li>Enter the details in the inputs.</li>
+</ul>
+<h2 id="movary">Movary</h2>
+<p>The Watchlist and all movies can be imported from <a href="https://movary.org">Movary</a>
+along with ratings, history, and comments.</p>
+<h3 id="steps_2">Steps</h3>
+<ul>
+<li>Login to your Movary account and go to the settings page. Go to "Personal data"
+  under the "Account" section.</li>
+<li>Export "history.csv", "watchlist.csv" and "ratings.csv".</li>
+<li>Upload these files in the input.</li>
+</ul>
+<h2 id="myanimelist">MyAnimeList</h2>
+<p>Manga and Anime can be imported from <a href="https://myanimelist.net">MyAnimeList</a>
+along with ratings, history and progress.</p>
+<h3 id="steps_3">Steps</h3>
+<ul>
+<li>Login to your MyAnimeList account and go to
+  <a href="http://myanimelist.net/panel.php?go=export">exports</a>.</li>
+<li>Export your anime and manga history.</li>
+<li>Upload these files in the input.</li>
+</ul>
+<h2 id="storygraph">StoryGraph</h2>
+<p>Imports from <a href="https://thestorygraph.com">StoryGraph</a> work using ISBN. All books
+in your export that have an ISBN attached to them will be imported. Ryot
+translates "Read Status" in the following manner:</p>
+<ul>
+<li>to-read -&gt; Watchlist</li>
+</ul>
+<h3 id="steps_4">Steps</h3>
+<ul>
+<li>Login to your account and click on your profile and go to the "Manage Account"
+  page.</li>
+<li>Scroll to the bottom and click on "Export StoryGraph Library" and then
+  "Generate export".</li>
+<li>Once the export is done, you will receive an email. refresh the page above and
+  download the CSV file.</li>
+<li>Optionally, you can edit the CSV file and manually add the missing ISBN.</li>
+<li>Upload this file in the input.</li>
+</ul>
+<h2 id="strong-app">Strong App</h2>
+<p>You can import your completed workouts from <a href="https://www.strong.app/">Strong</a> app. Make sure
+you do the import process on a desktop/laptop since the process needs to have multiple tabs
+open at once.</p>
+<p>There is also an automated script that will be able to migrate most of your data. Please
+follow <a href="https://gist.github.com/IgnisDa/c21c28dd83571ca07f1a7a824b5e8139?permalink_comment_id=4725066#gistcomment-4725066">this</a>
+guide.</p>
+<h3 id="steps_5">Steps</h3>
+<ul>
+<li>Login to your Strong account on the app and go to the "Settings" page.</li>
+<li>Scroll down to the "General" section and click on "Export data".</li>
+<li>Send the file to your desktop/laptop and upload it in the input.</li>
+<li>The mapping section is used to map exercises from Strong to Ryot. Each exercise must be
+  mapped, otherwise the import will fail.</li>
+<li>If an exercise does not exist in your instance, you need to create it before mapping it.</li>
+<li>Once you have mapped all the exercises, click on "Import".</li>
+</ul>
+<h2 id="trakt">Trakt</h2>
+<p>All movies and shows can be imported from <a href="https://trakt.tv">Trakt</a> along with
+their ratings, history, comments and lists. A few points to note.</p>
+<ul>
+<li>It is necessary to set your account's privacy to public during the
+  duration of the import. The Trakt authentication flow is pretty complicated
+  and I don't think it would be worth implementing.</li>
+<li>Items that have been "check(ed) in" will not be imported.</li>
+</ul>
+<h3 id="steps_6">Steps</h3>
+<ul>
+<li>Login to your Trakt account and go to the settings page.</li>
+<li>If your account is set to private, uncheck the box next to it. You can revert
+  this change once the import is complete.</li>
+<li>If you have any lists that are private, you need to change them to public.
+  Otherwise they will not be imported.</li>
+<li>Find your profile slug. This is usually your username. You can find it by
+  going to your profile page, and checking the URL.</li>
+<li>Enter this username in the input.</li>
+</ul>
+<h2 id="imdb">IMDb</h2>
+<p>You can import your watchlist from <a href="https://www.imdb.com">IMDb</a>. They will be added to
+the "Watchlist" collection.</p>
+<h3 id="steps_7">Steps</h3>
+<ul>
+<li>Go to your account and select your watchlist.</li>
+<li>Go the bottom and click on the "Export this list" button.</li>
+<li>Upload the csv file in the input.</li>
+</ul>
+<h2 id="igdb">IGDb</h2>
+<p>You can import your lists from <a href="https://www.igdb.com">IGDb</a>. Each list has to be imported
+separately. A few points to note:</p>
+<ul>
+<li>Importing into the "In Progress" collection will set 5% progress for the items.</li>
+<li>Importing into the "Completed" collection will set 100% progress for the items.</li>
+<li>Import into any other collection will just add the items to the collection.</li>
+</ul>
+<h3 id="steps_8">Steps</h3>
+<ul>
+<li>Login to your account and go to your profile. The default activity lists can be exported
+  from  here. Click on the list you want to export and download it as CSV.</li>
+<li>For your custom lists, please visit the "My Lists" page.</li>
+<li>Upload the CSV file and choose the collection you want to import into.</li>
+</ul>
+<h2 id="audiobookshelf">Audiobookshelf</h2>
+<p>The Audiobookshelf importer supports importing all media that have a valid Audible ID or
+ITunes ID or ISBN.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<ul>
+<li>This will only import media that are already finished. Setup an
+  <a href="integrations.html#audiobookshelf">integration</a> if you want to import media in progress.</li>
+<li>If you have enabled the option to auto delete podcast episodes, you'll have to
+  manually mark them as completed.</li>
+</ul>
+</div>
+<h3 id="steps_9">Steps</h3>
+<ul>
+<li>Obtain an API token as described in the Audiobookshelf
+  <a href="https://api.audiobookshelf.org/#authentication">authentication</a> docs.</li>
+<li>Enter the correct details in the input.</li>
+</ul>
+<h2 id="tv-time">TV Time</h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This is a community maintained integration.</p>
+</div>
+<p>All shows can be imported from <a href="https://tvtime.com/">TvTime</a> at the moment using an external
+tool. You can find all the necessary steps <a href="https://github.com/SirMartin/TvTimeToRyot">here</a>.</p>
+<h2 id="open-scale">Open Scale</h2>
+<p>You can import your measurements from <a href="https://github.com/oliexdev/openScale">Open Scale</a>
+app.</p>
+<p>This can be done by clicking on the three dots on the top right corner of the app, and then
+clicking on "Export". This will save a CSV file to your file system. Upload this file in
+the input.</p>
+<h2 id="jellyfin">Jellyfin</h2>
+<p>You can import your watched movies and shows from <a href="https://jellyfin.org">Jellyfin</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This will only import media that are already finished. Setup an
+  <a href="integrations.html#jellyfin">integration</a> if you want to import media in progress.</p>
+</div>
+<p>Enter the correct details in the input. The username you enter should be of the account
+whose data you want to import.</p>
+<h2 id="generic-json">Generic Json</h2>
+<p>The "Generic Json" can be used to import all possible data from a generic JSON file. The
+format of the JSON file should be <code>CompleteExport</code> as described in the
+<a href="guides/exporting.html#type-definitions">exporting</a> documentation.</p>
+<p>You can use this to export all your data from one Ryot instance and import it into another,
+or from a source that is not supported by Ryot.</p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.instant", "navigation.tracking", "content.code.copy", "search.highlight", "search.share"], "search": "assets/javascripts/workers/search.dfff1995.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.dff1b7c8.min.js"></script>
+      
+    
+  </body>
+</html>

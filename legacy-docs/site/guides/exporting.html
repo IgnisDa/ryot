@@ -1,0 +1,1091 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Ryot Documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.ryot.io/guides/exporting.html">
+      
+      
+        <link rel="prev" href="books.html">
+      
+      
+        <link rel="next" href="video-games.html">
+      
+      
+      <link rel="icon" href="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.3.1">
+    
+    
+      
+        <title>Exporting - Ryot Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.046329b4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.85d0ee34.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="https://unpkg.com/iframe-worker/shim"></script>
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#exporting" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../index.html" title="Ryot Documentation" class="md-header__button md-logo" aria-label="Ryot Documentation" data-md-component="logo">
+      
+  <img src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Ryot Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Exporting
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6zm0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4zM7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7 0-.24-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91 1.61 0 2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08Z"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ignisda/ryot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../index.html" title="Ryot Documentation" class="md-nav__button md-logo" aria-label="Ryot Documentation" data-md-component="logo">
+      
+  <img src="https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png" alt="logo">
+
+    </a>
+    Ryot Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ignisda/ryot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../importing.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Importing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="authentication.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="books.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Books
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Exporting
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="exporting.html" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Exporting
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#one-time-file-storage" class="md-nav__link">
+    One time file storage
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-the-entire-database" class="md-nav__link">
+    Exporting the entire database
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-definitions" class="md-nav__link">
+    Type definitions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="video-games.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Video games
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Contributing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#one-time-file-storage" class="md-nav__link">
+    One time file storage
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporting-the-entire-database" class="md-nav__link">
+    Exporting the entire database
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-definitions" class="md-nav__link">
+    Type definitions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="exporting">Exporting</h1>
+<p>You need to have S3 configured in order to export your data. You can find the necessary
+configuration parameters under the
+<a href="../configuration.html#all-parameters"><code>FileStorageConfig</code></a> section. The export will be made
+in JSON format and always follows the schema (<code>CompleteExport</code>) described below.</p>
+<p>You can export your data from the app by going to the "Imports and Exports" settings page
+and then clicking the button under the "Export" tab.</p>
+<p>Once the export is complete, it will appear along with a button to download it.</p>
+<h2 id="one-time-file-storage">One time file storage</h2>
+<p>If you want to use file storage only for exporting, you can configure it to use a public
+S3 instance offered by <a href="https://play.min.io">Minio</a>.</p>
+<div class="admonition failure">
+<p class="admonition-title">Not for production use</p>
+<p>The Minio team resets this instance every 24 hours, hence this method is not suitable
+if you want to store the data for a long time.</p>
+</div>
+<ul>
+<li>Go to the <a href="https://play.min.io">Minio playground</a>. The username is <code>minioadmin</code> and
+  password is <code>minioadmin</code>.</li>
+<li>Click on "Buckets" under the "Administrator" section and then on "Create Bucket".</li>
+<li>Set a name and click on "Create Bucket".</li>
+<li>Click on "Access Keys" under the "User" section and then on "Create access key".</li>
+<li>Leave everything as it is and click on "Create". Copy both the values displayed.</li>
+<li>On your Ryot instance, set the following environment variables:
+    <div class="highlight"><pre><span></span><code><span class="nv">FILE_STORAGE_S3_URL</span><span class="o">=</span>https://play.min.io
+<span class="nv">FILE_STORAGE_S3_BUCKET_NAME</span><span class="o">=</span>ryot-demo
+<span class="nv">FILE_STORAGE_S3_ACCESS_KEY_ID</span><span class="o">=</span>cqXhVseqa4mpqS4RLG3p
+<span class="nv">FILE_STORAGE_S3_SECRET_ACCESS_KEY</span><span class="o">=</span>sJxF4eZkuc4Eo6daGEFhTctzKzGbY6G6qAQTb8Wy
+</code></pre></div></li>
+<li>Restart your Ryot instance and follow the steps described in the previous section.</li>
+</ul>
+<h2 id="exporting-the-entire-database">Exporting the entire database</h2>
+<p>While debugging, I might ask you to send me a database dump. You can do this by exporting
+the entire database and emailing the file.</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-u<span class="w"> </span>postgres<span class="w"> </span>-i<span class="w"> </span>ryot-db<span class="w"> </span>pg_dump<span class="w"> </span>-Fc<span class="w"> </span>--no-acl<span class="w"> </span>--no-owner<span class="w"> </span>&gt;<span class="w"> </span>/tmp/ryot.file.sql
+</code></pre></div>
+<p>To restore the above dump, run the following command:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-u<span class="w"> </span>postgres<span class="w"> </span>-i<span class="w"> </span>ryot-db<span class="w"> </span>pg_restore<span class="w"> </span>-U<span class="w"> </span>postgres<span class="w"> </span>-d<span class="w"> </span>postgres<span class="w"> </span>&lt;<span class="w"> </span>/tmp/ryot.file.sql
+</code></pre></div>
+<h2 id="type-definitions">Type definitions</h2>
+<div class="highlight"><pre><span></span><code><span class="c1">// Automatically generated by schematic. DO NOT MODIFY!</span>
+
+<span class="cm">/* eslint-disable */</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">IdAndNamedObject</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Comments left in replies to posted reviews. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportItemReviewComment</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">created_on</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The user ids of all those who liked it. */</span>
+<span class="w">    </span><span class="nx">liked_by</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">text</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">user</span><span class="o">:</span><span class="w"> </span><span class="kt">IdAndNamedObject</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">Visibility</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;public&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;private&#39;</span><span class="p">;</span>
+
+<span class="cm">/** Review data associated to a rating. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportItemReview</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The date the review was posted. */</span>
+<span class="w">    </span><span class="nx">date</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Whether to mark the review as a spoiler. Defaults to false. */</span>
+<span class="w">    </span><span class="nx">spoiler</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Actual text for the review. */</span>
+<span class="w">    </span><span class="nx">text</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * The visibility set by the user.</span>
+<span class="cm">     *</span>
+<span class="cm">     * @default &#39;public&#39;</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">visibility</span><span class="o">:</span><span class="w"> </span><span class="kt">Visibility</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** A rating given to an entity. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportItemRating</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** If for an anime, the episode for which this review was for. */</span>
+<span class="w">    </span><span class="nx">anime_episode_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The comments attached to this review. */</span>
+<span class="w">    </span><span class="nx">comments</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportItemReviewComment</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a manga, the chapter for which this review was for. */</span>
+<span class="w">    </span><span class="nx">manga_chapter_number</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a podcast, the episode for which this review was for. */</span>
+<span class="w">    </span><span class="nx">podcast_episode_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The score of the review. */</span>
+<span class="w">    </span><span class="nx">rating</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about the review. */</span>
+<span class="w">    </span><span class="nx">review</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportItemReview</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a show, the episode for which this review was for. */</span>
+<span class="w">    </span><span class="nx">show_episode_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a show, the season for which this review was for. */</span>
+<span class="w">    </span><span class="nx">show_season_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Details about a specific exercise item that needs to be exported. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportExerciseItem</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The collections this entity was added to. */</span>
+<span class="w">    </span><span class="nx">collections</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The name of the exercise. */</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The review history for the user. */</span>
+<span class="w">    </span><span class="nx">reviews</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportItemRating</span><span class="p">[];</span>
+<span class="p">}</span>
+
+<span class="cm">/** The actual statistics that were logged in a user measurement. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">UserMeasurementStats</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">abdominal_skinfold</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">basal_metabolic_rate</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">biceps_circumference</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">body_fat</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">body_fat_caliper</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">body_mass_index</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">bone_mass</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">calories</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">chest_circumference</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">chest_skinfold</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">custom</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">hip_circumference</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">lean_body_mass</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">muscle</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">neck_circumference</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">thigh_circumference</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">thigh_skinfold</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">total_body_water</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">total_daily_energy_expenditure</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">visceral_fat</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">waist_circumference</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">waist_to_height_ratio</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">waist_to_hip_ratio</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">weight</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** An export of a measurement taken at a point in time. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">UserMeasurement</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** Any comment associated entered by the user. */</span>
+<span class="w">    </span><span class="nx">comment</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The name given to this measurement by the user. */</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The contents of the actual measurement. */</span>
+<span class="w">    </span><span class="nx">stats</span><span class="o">:</span><span class="w"> </span><span class="kt">UserMeasurementStats</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The date and time this measurement was made. */</span>
+<span class="w">    </span><span class="nx">timestamp</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** The different types of media that can be stored. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">MediaLot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;audio_book&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;anime&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;book&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;podcast&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;manga&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;movie&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;show&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;video_game&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;visual_novel&#39;</span><span class="p">;</span>
+
+<span class="cm">/** A specific instance when an entity was seen. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportMediaItemSeen</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** If for an anime, the episode which was seen. */</span>
+<span class="w">    </span><span class="nx">anime_episode_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The timestamp when finished watching. */</span>
+<span class="w">    </span><span class="nx">ended_on</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a manga, the chapter which was seen. */</span>
+<span class="w">    </span><span class="nx">manga_chapter_number</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a manga, the volume which was seen. */</span>
+<span class="w">    </span><span class="nx">manga_volume_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a podcast, the episode which was seen. */</span>
+<span class="w">    </span><span class="nx">podcast_episode_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The progress of media done. If none, it is considered as done. */</span>
+<span class="w">    </span><span class="nx">progress</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The provider this item was watched on. */</span>
+<span class="w">    </span><span class="nx">provider_watched_on</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a show, the episode which was seen. */</span>
+<span class="w">    </span><span class="nx">show_episode_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** If for a show, the season which was seen. */</span>
+<span class="w">    </span><span class="nx">show_season_number</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The timestamp when started watching. */</span>
+<span class="w">    </span><span class="nx">started_on</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** The different sources (or providers) from which data can be obtained from. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">MediaSource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;anilist&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;audible&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;custom&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;google_books&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;igdb&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;itunes&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;listennotes&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;manga_updates&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;mal&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;openlibrary&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;tmdb&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;vndb&#39;</span><span class="p">;</span>
+
+<span class="cm">/** Details about a specific media item that needs to be imported or exported. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportMediaItem</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The collections this entity was added to. */</span>
+<span class="w">    </span><span class="nx">collections</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */</span>
+<span class="w">    </span><span class="nx">identifier</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * The type of media.</span>
+<span class="cm">     *</span>
+<span class="cm">     * @default &#39;book&#39;</span>
+<span class="cm">     * @type {&#39;audio_book&#39; | &#39;anime&#39; | &#39;book&#39; | &#39;podcast&#39; | &#39;manga&#39; | &#39;movie&#39; | &#39;show&#39; | &#39;video_game&#39; | &#39;visual_novel&#39;}</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">lot</span><span class="o">:</span><span class="w"> </span><span class="kt">MediaLot</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The review history for the user. */</span>
+<span class="w">    </span><span class="nx">reviews</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportItemRating</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The seen history for the user. */</span>
+<span class="w">    </span><span class="nx">seen_history</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportMediaItemSeen</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * The source of media.</span>
+<span class="cm">     *</span>
+<span class="cm">     * @default &#39;audible&#39;</span>
+<span class="cm">     * @type {&#39;anilist&#39; | &#39;audible&#39; | &#39;custom&#39; | &#39;google_books&#39; | &#39;igdb&#39; | &#39;itunes&#39; | &#39;listennotes&#39; | &#39;manga_updates&#39; | &#39;mal&#39; | &#39;openlibrary&#39; | &#39;tmdb&#39; | &#39;vndb&#39;}</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">source</span><span class="o">:</span><span class="w"> </span><span class="kt">MediaSource</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** An string to help identify it in the original source. */</span>
+<span class="w">    </span><span class="nx">source_id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Details about a specific media group item that needs to be imported or exported. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportMediaGroupItem</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The collections this entity was added to. */</span>
+<span class="w">    </span><span class="nx">collections</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */</span>
+<span class="w">    </span><span class="nx">identifier</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * The type of media.</span>
+<span class="cm">     *</span>
+<span class="cm">     * @default &#39;book&#39;</span>
+<span class="cm">     * @type {&#39;audio_book&#39; | &#39;anime&#39; | &#39;book&#39; | &#39;podcast&#39; | &#39;manga&#39; | &#39;movie&#39; | &#39;show&#39; | &#39;video_game&#39; | &#39;visual_novel&#39;}</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">lot</span><span class="o">:</span><span class="w"> </span><span class="kt">MediaLot</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The review history for the user. */</span>
+<span class="w">    </span><span class="nx">reviews</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportItemRating</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * The source of media.</span>
+<span class="cm">     *</span>
+<span class="cm">     * @default &#39;audible&#39;</span>
+<span class="cm">     * @type {&#39;anilist&#39; | &#39;audible&#39; | &#39;custom&#39; | &#39;google_books&#39; | &#39;igdb&#39; | &#39;itunes&#39; | &#39;listennotes&#39; | &#39;manga_updates&#39; | &#39;mal&#39; | &#39;openlibrary&#39; | &#39;tmdb&#39; | &#39;vndb&#39;}</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">source</span><span class="o">:</span><span class="w"> </span><span class="kt">MediaSource</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Name of the group. */</span>
+<span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">PersonSourceSpecifics</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">is_anilist_studio</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">is_tmdb_company</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Details about a specific creator item that needs to be exported. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportPersonItem</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The collections this entity was added to. */</span>
+<span class="w">    </span><span class="nx">collections</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The provider identifier. */</span>
+<span class="w">    </span><span class="nx">identifier</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The name of the creator. */</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The review history for the user. */</span>
+<span class="w">    </span><span class="nx">reviews</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportItemRating</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * The source of data.</span>
+<span class="cm">     *</span>
+<span class="cm">     * @default &#39;audible&#39;</span>
+<span class="cm">     * @type {&#39;anilist&#39; | &#39;audible&#39; | &#39;custom&#39; | &#39;google_books&#39; | &#39;igdb&#39; | &#39;itunes&#39; | &#39;listennotes&#39; | &#39;manga_updates&#39; | &#39;mal&#39; | &#39;openlibrary&#39; | &#39;tmdb&#39; | &#39;vndb&#39;}</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">source</span><span class="o">:</span><span class="w"> </span><span class="kt">MediaSource</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The source specific data. */</span>
+<span class="w">    </span><span class="nx">source_specifics</span><span class="o">:</span><span class="w"> </span><span class="kt">PersonSourceSpecifics</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** The assets that were uploaded for an entity. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">EntityAssets</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The keys of the S3 images. */</span>
+<span class="w">    </span><span class="nx">images</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The keys of the S3 videos. */</span>
+<span class="w">    </span><span class="nx">videos</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="p">}</span>
+
+<span class="cm">/** The different types of exercises that can be done. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">ExerciseLot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;duration&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;distance_and_duration&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;reps&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;reps_and_weight&#39;</span><span class="p">;</span>
+
+<span class="cm">/** The types of set (mostly characterized by exertion level). */</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">SetLot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;normal&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;warm_up&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;drop&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;failure&#39;</span><span class="p">;</span>
+
+<span class="cm">/** The different types of personal bests that can be achieved on a set. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">WorkoutSetPersonalBest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;weight&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;one_rm&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;volume&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;time&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;pace&#39;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">&#39;reps&#39;</span><span class="p">;</span>
+
+<span class="cm">/** Details about the statistics of the set performed. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutSetStatistic</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">distance</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">one_rm</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">pace</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">reps</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">volume</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">weight</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutSetTotals</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">weight</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Details about the set performed. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutSetRecord</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">actual_rest_time</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">confirmed_at</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** @type {&#39;normal&#39; | &#39;warm_up&#39; | &#39;drop&#39; | &#39;failure&#39;} */</span>
+<span class="w">    </span><span class="nx">lot</span><span class="o">:</span><span class="w"> </span><span class="kt">SetLot</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">note</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">personal_bests</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSetPersonalBest</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">rest_time</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">statistic</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSetStatistic</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">totals</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSetTotals</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** The totals of a workout and the different bests achieved. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutOrExerciseTotals</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">distance</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The number of personal bests achieved. */</span>
+<span class="w">    </span><span class="nx">personal_bests_achieved</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">reps</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The total seconds that were logged in the rest timer. */</span>
+<span class="w">    </span><span class="nx">rest_time?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">weight</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** An exercise that has been processed and committed to the database. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ProcessedExercise</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">assets</span><span class="o">:</span><span class="w"> </span><span class="kt">EntityAssets</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** @type {&#39;duration&#39; | &#39;distance_and_duration&#39; | &#39;reps&#39; | &#39;reps_and_weight&#39;} */</span>
+<span class="w">    </span><span class="nx">lot</span><span class="o">:</span><span class="w"> </span><span class="kt">ExerciseLot</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">notes</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">sets</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSetRecord</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">total</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutOrExerciseTotals</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutSupersetsInformation</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** A color that will be displayed on the frontend. */</span>
+<span class="w">    </span><span class="nx">color</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** The identifier of all the exercises which are in the same superset */</span>
+<span class="w">    </span><span class="nx">exercises</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">[];</span>
+<span class="p">}</span>
+
+<span class="cm">/** Information about a workout done. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutInformation</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">assets</span><span class="o">:</span><span class="w"> </span><span class="kt">EntityAssets</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">comment</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">exercises</span><span class="o">:</span><span class="w"> </span><span class="kt">ProcessedExercise</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">supersets</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSupersetsInformation</span><span class="p">[];</span>
+<span class="p">}</span>
+
+<span class="cm">/** The summary about an exercise done in a workout. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutSummaryExercise</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">best_set</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSetRecord</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">lot</span><span class="o">:</span><span class="w"> </span><span class="kt">ExerciseLot</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">num_sets</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutSummary</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">exercises</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSummaryExercise</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">total</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutOrExerciseTotals</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">WorkoutTemplate</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">created_on</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">information</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutInformation</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">summary</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSummary</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/**</span>
+<span class="cm">     * @default &#39;public&#39;</span>
+<span class="cm">     * @type {&#39;public&#39; | &#39;private&#39;}</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="nx">visibility</span><span class="o">:</span><span class="w"> </span><span class="kt">Visibility</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportWorkoutTemplateItem</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">collections</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="nx">details</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutTemplate</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** A workout that was completed by the user. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">Workout</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">duration</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">end_time</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">information</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutInformation</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">start_time</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">summary</span><span class="o">:</span><span class="w"> </span><span class="kt">WorkoutSummary</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">template_id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Details about a specific exercise item that needs to be exported. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">ImportOrExportWorkoutItem</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** The collections this entity was added to. */</span>
+<span class="w">    </span><span class="nx">collections</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">[];</span>
+<span class="w">    </span><span class="cm">/** The details of the workout. */</span>
+<span class="w">    </span><span class="nx">details</span><span class="o">:</span><span class="w"> </span><span class="kt">Workout</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="cm">/** Complete export of the user. */</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">CompleteExport</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s exercises. */</span>
+<span class="w">    </span><span class="nx">exercises</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportExerciseItem</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s measurements. */</span>
+<span class="w">    </span><span class="nx">measurements</span><span class="o">:</span><span class="w"> </span><span class="kt">UserMeasurement</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s media. */</span>
+<span class="w">    </span><span class="nx">media</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportMediaItem</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s media groups. */</span>
+<span class="w">    </span><span class="nx">media_groups</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportMediaGroupItem</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s people. */</span>
+<span class="w">    </span><span class="nx">people</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportPersonItem</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s workout templates. */</span>
+<span class="w">    </span><span class="nx">workout_templates</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportWorkoutTemplateItem</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/** Data about user&#39;s workouts. */</span>
+<span class="w">    </span><span class="nx">workouts</span><span class="o">:</span><span class="w"> </span><span class="kt">ImportOrExportWorkoutItem</span><span class="p">[]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "content.code.copy", "search.highlight", "search.share"], "search": "../assets/javascripts/workers/search.dfff1995.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.dff1b7c8.min.js"></script>
+      
+    
+  </body>
+</html>
