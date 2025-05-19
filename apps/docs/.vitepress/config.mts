@@ -5,23 +5,27 @@ export default defineConfig({
 	srcDir: "src",
 	title: "Ryot Documentation",
 	description: "Documentation for Ryot project and associated applications.",
-	themeConfig: {
-		// https://vitepress.dev/reference/default-theme-config
-		nav: [
-			{ text: "Home", link: "/" },
-			{ text: "Examples", link: "/markdown-examples" },
-		],
-		sidebar: [
+	head: [
+		[
+			"link",
 			{
-				text: "Examples",
-				items: [
-					{ text: "Markdown Examples", link: "/markdown-examples" },
-					{ text: "Runtime API Examples", link: "/api-examples" },
-				],
+				rel: "icon",
+				href: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/favicon-32x32.png",
 			},
 		],
-		socialLinks: [
-			{ icon: "github", link: "https://github.com/vuejs/vitepress" },
+	],
+	themeConfig: {
+		siteTitle: "Ryot",
+		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
+		socialLinks: [{ icon: "github", link: "https://github.com/ignisda/ryot" }],
+		sidebar: [
+			{
+				text: "Getting Started",
+				items: [
+					{ text: "Installation", link: "/installation" },
+					{ text: "Configuration", link: "/configuration" },
+				],
+			},
 		],
 	},
 });
