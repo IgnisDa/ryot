@@ -1,6 +1,7 @@
 $schema: "https://moonrepo.dev/schemas/workspace.json"
 
 projects:
+  docs: "apps/docs"
   frontend: "apps/frontend"
   kodi: "apps/kodi"
   assets: "libs/assets"
