@@ -135,6 +135,7 @@ async fn main() -> Result<()> {
             .unwrap()
             .join("apps")
             .join("docs")
+            .join("src")
             .join("includes");
 
         let mut generator = SchemaGenerator::default();
