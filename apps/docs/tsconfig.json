@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.options.json",
+	"include": ["**/*"],
+	"references": [],
+	"compilerOptions": {
+		"paths": {},
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "../../.moon/cache/types/apps/docs"
+	}
+}

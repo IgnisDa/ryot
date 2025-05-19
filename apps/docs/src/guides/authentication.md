@@ -31,10 +31,10 @@ disabled, users will be redirected to the OIDC provider when they visit the auth
 see the authentication page anyway, you can visit
 `<FRONTEND_URL>/auth?autoOidcLaunch=false`.
 
-!!! warning
-
-      A user can either have a username/password or it can use your OIDC provider to
-      authenticate but not both.
+::: warning
+A user can either have a username/password or it can use your OIDC provider to
+authenticate but not both.
+:::
 
 ### Converting a local user to an OIDC user
 

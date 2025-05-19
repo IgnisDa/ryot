@@ -1,0 +1,8 @@
+{
+	"name": "@ryot/docs",
+	"private": true,
+	"type": "module",
+	"devDependencies": {
+		"vitepress": "2.0.0-alpha.5"
+	}
+}

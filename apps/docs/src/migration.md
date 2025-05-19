@@ -37,10 +37,10 @@ order.
 
 ## From `v5.*` to `v6.*`
 
-!!! warning "Integrations deleted"
-
-    All integrations need to be recreated. Please take a look at the
-    [docs](./integrations.md) for the new webhook format.
+::: warning Integrations deleted
+All integrations will need to be recreated. Please take a look at the [docs](./integrations.md)
+for the new webhook format.
+:::
 
 1. Upgrade the server to `v5.5.6` to make sure all `v5` migrations are applied. For
    example, you can make this change: `image: "ignisda/ryot:v5.5.6"` in your docker-compose
@@ -68,11 +68,11 @@ order.
 
 ## From `v3.*` to `v4.*`
 
-!!! warning "Webhook URL changes"
-
-    If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
-    prefix. Please take a look at the [integration](./integrations.md#sink-integrations) docs for the
-    new format.
+::: warning Webhook URL changes
+If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
+prefix. Please take a look at the [integration](./integrations.md#sink-integrations) docs for the
+new format.
+:::
 
 1. Upgrade the server to `v3.5.4` to make sure all pending migrations are applied. For
    example, you can make this change: `image: "ignisda/ryot:v3.5.4"` in your docker-compose

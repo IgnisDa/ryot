@@ -47,6 +47,8 @@ web-build/
 .nitro
 .cache
 docs/site
+apps/docs/.vitepress/dist
+apps/docs/.vitepress/cache
 .plasmo
 node_modules
 .cache

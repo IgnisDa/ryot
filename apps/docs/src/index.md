@@ -1,3 +1,7 @@
+<script setup>
+import variables from "./variables";
+</script>
+
 # Installation
 
 Use the following docker-compose file:
@@ -33,12 +37,14 @@ volumes:
 ```
 
 If you would like to run the pro version, please check [below](#upgrading-to-pro). To see
-the features of the pro version, check the [features page]({{extra.main_website_url}}).
+the features of the pro version, check the
+<a :href="`${variables.mainWebsiteUrl}/features`" target="_blank">features page</a>.
 
 ## Upgrading to Pro
 
 To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
-You can get a key by purchasing it from the [website]({{extra.main_website_url}}).
+You can get a key by purchasing it from the
+<a :href="variables.mainWebsiteUrl" target="_blank">website</a>.
 
 Once you have the key, you can set it in the `docker-compose.yml` file:
 
