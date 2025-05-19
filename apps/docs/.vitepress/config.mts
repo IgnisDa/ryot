@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
 	srcDir: "src",
+	lastUpdated: true,
 	title: "Ryot Documentation",
 	description: "Documentation for Ryot project and associated applications.",
 	sitemap: {
