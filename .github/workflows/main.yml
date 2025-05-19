@@ -247,23 +247,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55
+      - name: Setup Moon
+        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
         with:
-          python-version: 3.x
-      - name: Install poetry
-        uses: abatilo/actions-poetry@a5643c67b5fcc9ac5eddb395c7f61b1b66d86034
-      - name: Install dependencies
-        run: cd docs && poetry install
-      - name: Build docs
-        run: cd docs && poetry run mkdocs build
+          auto-install: true
+      - name: Build documentation
+        run: moon run docs:build
       - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/site
+          publish_dir: apps/docs/.vitepress/dist
           publish_branch: nf-docs
           force_orphan: true
