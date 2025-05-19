@@ -1,3 +1,7 @@
+---
+outline: deep
+---
+
 <script setup>
 import variables from "./variables";
 </script>
