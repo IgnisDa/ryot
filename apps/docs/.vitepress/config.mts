@@ -27,6 +27,7 @@ export default defineConfig({
 					{ text: "Migration", link: "/migration" },
 					{ text: "Configuration", link: "/configuration" },
 					{ text: "Deployment", link: "/deployment" },
+					{ text: "Importing", link: "/importing" },
 				],
 			},
 		],
