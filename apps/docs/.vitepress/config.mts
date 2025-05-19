@@ -5,6 +5,9 @@ export default defineConfig({
 	srcDir: "src",
 	title: "Ryot Documentation",
 	description: "Documentation for Ryot project and associated applications.",
+	sitemap: {
+		hostname: "https://docs.ryot.io",
+	},
 	head: [
 		[
 			"link",
