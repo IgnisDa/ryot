@@ -1,3 +1,7 @@
+<script setup>
+import variables from "./variables";
+</script>
+
 # Integrations
 
 Integrations can be used to continuously update your media progress or inform external
@@ -96,7 +100,7 @@ TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
    webhook Url.
-2. Download the addon from [github releases]({{ config.repo_url }}/releases).
+2. Download the addon from <a :href="`${variables.repoUrl}/releases`" target="_blank">github releases</a>.
    The file will have a name of `script.ryot.zip`.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
    the zipped addon to your Kodi instance. Once installed, it will be visible under
