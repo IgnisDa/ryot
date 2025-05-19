@@ -3,6 +3,9 @@
 	"files": [],
 	"references": [
 		{
+			"path": "apps/docs"
+		},
+		{
 			"path": "apps/frontend"
 		},
 		{

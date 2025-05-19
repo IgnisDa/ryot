@@ -1,0 +1,24 @@
+type: "library"
+
+tasks:
+  dev:
+    command:
+      - "vitepress"
+      - "dev"
+      - "--port"
+      - "3002"
+    local: true
+
+  build:
+    command:
+      - "vitepress"
+      - "build"
+    outputs:
+      - "dist"
+
+workspace:
+  inheritedTasks:
+    exclude:
+      - "build"
+      - "lint"
+      - "format"

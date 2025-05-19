@@ -1,0 +1,9 @@
+{
+	"extends": "../../tsconfig.options.json",
+	"include": ["**/*"],
+	"references": [],
+	"compilerOptions": {
+		"outDir": "../../.moon/cache/types/apps/docs",
+		"paths": {}
+	}
+}
