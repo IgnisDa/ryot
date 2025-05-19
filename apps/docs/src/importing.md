@@ -45,22 +45,20 @@ This will only import media that are already finished. Setup an
 ## Trakt
 
 All movies and shows can be imported from [Trakt](https://trakt.tv) along with
-their ratings, history, comments and lists. A few points to note.
+their ratings, history, comments and lists. A few points to note:
 
 - It is necessary to set your account's privacy to public during the
   duration of the import.
 - Items that have been "check(ed) in" will not be imported.
 
----
-
 1. Login to your Trakt account and go to the settings page.
 2. If your account is set to private, uncheck the box next to it. You can revert
   this change once the import is complete.
-1. If you have any lists that are private, you need to change them to public.
+3. If you have any lists that are private, you need to change them to public.
   Otherwise they will not be imported.
-1. Find your profile slug. This is usually your username. You can find it by
+4. Find your profile slug. This is usually your username. You can find it by
   going to your profile page, and checking the URL.
-1. Enter this username in the input.
+5. Enter this username in the input.
 
 ## Audiobookshelf
 
@@ -85,8 +83,6 @@ following manner:
 
 - Want To Read -> Watchlist
 
----
-
 1. Login to your Goodreads account and go to the "My Books" section.
 2. Click on "Import and export" on the left sidebar.
 3. Click on "Export Library" and download the CSV file.
@@ -100,8 +96,6 @@ the following caveats:
 - Items that are in progress are always imported with 100% progress. They are
   added to the "In Progress" collection so you can manually fix their progress
   if needed.
-
----
 
 1. Login to your MediaTracker account and click on your name on the top right.
 2. Click on the "Application tokens" section.
@@ -156,8 +150,6 @@ translates "Read Status" in the following manner:
 
 - to-read -> Watchlist
 
----
-
 1. Login to your account and click on your profile and go to the "Manage Account"
   page.
 2. Scroll to the bottom and click on "Export StoryGraph Library" and then
@@ -205,8 +197,6 @@ separately. A few points to note:
 - Importing into the "In Progress" collection will set 5% progress for the items.
 - Importing into the "Completed" collection will set 100% progress for the items.
 - Import into any other collection will just add the items to the collection.
-
----
 
 1. Login to your account and go to your profile. The default activity lists can be exported
   from  here. Click on the list you want to export and download it as CSV.
