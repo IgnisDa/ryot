@@ -29,6 +29,15 @@ export default defineConfig({
 					{ text: "Deployment", link: "/deployment" },
 					{ text: "Importing", link: "/importing" },
 					{ text: "Integrations", link: "/integrations" },
+					{
+						text: "Guides",
+						items: [
+							{ text: "Authentication", link: "/guides/authentication" },
+							{ text: "Books", link: "/guides/books" },
+							{ text: "Exporting", link: "/guides/exporting" },
+							{ text: "Video games", link: "/guides/video-games" },
+						],
+					},
 					{ text: "Contributing", link: "/contributing" },
 				],
 			},
