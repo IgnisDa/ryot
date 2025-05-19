@@ -14,7 +14,7 @@ tasks:
       - "vitepress"
       - "build"
     outputs:
-      - "dist"
+      - ".vitepress/dist"
 
 workspace:
   inheritedTasks:
