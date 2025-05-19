@@ -3,7 +3,9 @@
 	"include": ["**/*"],
 	"references": [],
 	"compilerOptions": {
-		"outDir": "../../.moon/cache/types/apps/docs",
-		"paths": {}
+		"paths": {},
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "../../.moon/cache/types/apps/docs"
 	}
 }
