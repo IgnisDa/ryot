@@ -1,3 +1,7 @@
+<script setup>
+import variables from "./variables";
+</script>
+
 # Integrations
 
 Integrations can be used to continuously update your media progress or inform external
@@ -8,7 +12,8 @@ services about changes. They can be of following types:
   interval.
 - _Push_: Ryot sends data to an external service when an event occurs.
 
-If an integration fails more than 5 times in a row, it will be automatically disabled.
+If an integration fails more than 5 times in a row, it will be automatically paused. This
+behavior can be disabled from the integration's settings.
 
 ## Sink integrations
 
@@ -20,20 +25,20 @@ https://<instance_url>/backend/_i/<slug>
 https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 ```
 
-!!! warning
-
-    Keep your webhook urls private to prevent abuse.
+::: warning
+Keep your webhook urls private to prevent abuse.
+:::
 
 ### Jellyfin
 
 Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
 will work for all the media that have a valid TMDb ID attached to their metadata.
 
-!!! info
-
-    Requires the
-    [unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
-    to be installed and active in Jellyfin.
+::: info
+Requires the
+[unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
+to be installed and active in Jellyfin.
+:::
 
 1. Generate a slug in the integration settings page. Copy the newly generated
    webhook Url.
@@ -59,18 +64,18 @@ will work for all the media that have a valid TMDb ID attached to their metadata
     - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
     - Limit user events to => Choose your user
 
-!!! warning
-
-    Since Emby does not send the expected TMDb ID for shows, progress will only be synced
-    if you already have the show in the Ryot database. To do this, simply add the show to
-    your watchlist.
+::: warning
+Since Emby does not send the expected TMDb ID for shows, progress will only be synced
+if you already have the show in the Ryot database. To do this, simply add the show to
+your watchlist.
+:::
 
 ### Plex Sink
 
-!!! info
-
-      This will only import media that are in progress. Perform an
-      [import](./importing.md#plex) if you want to import media that are finished.
+::: info
+This will only import media that are in progress. Perform an
+[import](./importing.md#plex) if you want to import media that are finished.
+:::
 
 Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
 work for all the media that have a valid TMDb ID attached to their metadata.
@@ -82,11 +87,11 @@ work for all the media that have a valid TMDb ID attached to their metadata.
 2. In your Plex Webhooks settings, add a new webhook using the following settings:
     - Webhook Url => `<paste_url_copied>`
 
-!!! warning
-
-    Since Plex does not send the expected TMDb ID for shows, progress will only be synced
-    if you already have the show in the Ryot database. To do this, simply add the show to
-    your watchlist.
+::: warning
+Since Plex does not send the expected TMDb ID for shows, progress will only be synced
+if you already have the show in the Ryot database. To do this, simply add the show to
+your watchlist.
+:::
 
 ### Kodi
 
@@ -96,7 +101,7 @@ TMDb ID attached to their metadata.
 
 1. Generate a slug in the integration settings page. Copy the newly generated
    webhook Url.
-2. Download the addon from [github releases]({{ config.repo_url }}/releases).
+2. Download the addon from <a :href="`${variables.repoUrl}/releases`" target="_blank">github releases</a>.
    The file will have a name of `script.ryot.zip`.
 3. [Install](https://kodi.wiki/view/Add-on_manager#How_to_install_from_a_ZIP_file)
    the zipped addon to your Kodi instance. Once installed, it will be visible under
@@ -122,10 +127,10 @@ at night to add all media in your instance to your "Owned" collection.
 
 ### Audiobookshelf
 
-!!! info
-
-      This will only import media that are in progress. Perform an
-      [import](./importing.md#audiobookshelf) if you want to import media that are finished.
+::: info
+This will only import media that are in progress. Perform an
+[import](./importing.md#audiobookshelf) if you want to import media that are finished.
+:::
 
 The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
 have a valid provider ID (Audible, ITunes or ISBN).
@@ -166,9 +171,7 @@ want to sync media progress, then take a look at the [Plex Sink](#plex-sink) int
    is sufficient.
 2. Go to your Ryot integration settings and fill in the details.
 
-### Youtube Music
-
-L|Pro Version|https://ryot.io|
+### Youtube Music <Badge type="warning" text="PRO" />
 
 The [Youtube Music](https://music.youtube.com) integration syncs all music that you have
 listened to ["Today"](https://music.youtube.com/history). Since Youtube Music does not have
@@ -201,9 +204,7 @@ Events: `Item added to collection`
 1. Obtain your Sonarr API key by going to the Sonarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
-### Jellyfin
-
-L|Pro Version|https://ryot.io|
+### Jellyfin <Badge type="warning" text="PRO" />
 
 Events: `Item marked as completed`
 
