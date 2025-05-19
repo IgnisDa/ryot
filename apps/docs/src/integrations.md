@@ -172,8 +172,6 @@ want to sync media progress, then take a look at the [Plex Sink](#plex-sink) int
 
 ### Youtube Music
 
-L|Pro Version|https://ryot.io|
-
 The [Youtube Music](https://music.youtube.com) integration syncs all music that you have
 listened to ["Today"](https://music.youtube.com/history). Since Youtube Music does not have
 an official API, this integration is prone to breakage and needs some roundabout steps to
@@ -206,8 +204,6 @@ Events: `Item added to collection`
 2. Fill the inputs in the integration settings page with the correct details.
 
 ### Jellyfin
-
-L|Pro Version|https://ryot.io|
 
 Events: `Item marked as completed`
 
