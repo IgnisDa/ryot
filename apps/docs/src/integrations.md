@@ -174,7 +174,7 @@ want to sync media progress, then take a look at the [Plex Sink](#plex-sink) int
    is sufficient.
 2. Go to your Ryot integration settings and fill in the details.
 
-### Youtube Music
+### Youtube Music <Badge type="warning" text="PRO" />
 
 The [Youtube Music](https://music.youtube.com) integration syncs all music that you have
 listened to ["Today"](https://music.youtube.com/history). Since Youtube Music does not have
@@ -207,7 +207,7 @@ Events: `Item added to collection`
 1. Obtain your Sonarr API key by going to the Sonarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
-### Jellyfin
+### Jellyfin <Badge type="warning" text="PRO" />
 
 Events: `Item marked as completed`
 
