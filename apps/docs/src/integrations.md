@@ -20,20 +20,20 @@ https://<instance_url>/backend/_i/<slug>
 https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 ```
 
-!!! warning
-
-    Keep your webhook urls private to prevent abuse.
+::: warning
+Keep your webhook urls private to prevent abuse.
+:::
 
 ### Jellyfin
 
 Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
 will work for all the media that have a valid TMDb ID attached to their metadata.
 
-!!! info
-
-    Requires the
-    [unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
-    to be installed and active in Jellyfin.
+::: info
+Requires the
+[unofficial webhook plugin](https://github.com/shemanaev/jellyfin-plugin-webhooks)
+to be installed and active in Jellyfin.
+:::
 
 1. Generate a slug in the integration settings page. Copy the newly generated
    webhook Url.
@@ -59,18 +59,18 @@ will work for all the media that have a valid TMDb ID attached to their metadata
     - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
     - Limit user events to => Choose your user
 
-!!! warning
-
-    Since Emby does not send the expected TMDb ID for shows, progress will only be synced
-    if you already have the show in the Ryot database. To do this, simply add the show to
-    your watchlist.
+::: warning
+Since Emby does not send the expected TMDb ID for shows, progress will only be synced
+if you already have the show in the Ryot database. To do this, simply add the show to
+your watchlist.
+:::
 
 ### Plex Sink
 
-!!! info
-
-      This will only import media that are in progress. Perform an
-      [import](./importing.md#plex) if you want to import media that are finished.
+::: info
+This will only import media that are in progress. Perform an
+[import](./importing.md#plex) if you want to import media that are finished.
+:::
 
 Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
 work for all the media that have a valid TMDb ID attached to their metadata.
@@ -82,11 +82,11 @@ work for all the media that have a valid TMDb ID attached to their metadata.
 2. In your Plex Webhooks settings, add a new webhook using the following settings:
     - Webhook Url => `<paste_url_copied>`
 
-!!! warning
-
-    Since Plex does not send the expected TMDb ID for shows, progress will only be synced
-    if you already have the show in the Ryot database. To do this, simply add the show to
-    your watchlist.
+::: warning
+Since Plex does not send the expected TMDb ID for shows, progress will only be synced
+if you already have the show in the Ryot database. To do this, simply add the show to
+your watchlist.
+:::
 
 ### Kodi
 
@@ -122,10 +122,10 @@ at night to add all media in your instance to your "Owned" collection.
 
 ### Audiobookshelf
 
-!!! info
-
-      This will only import media that are in progress. Perform an
-      [import](./importing.md#audiobookshelf) if you want to import media that are finished.
+::: info
+This will only import media that are in progress. Perform an
+[import](./importing.md#audiobookshelf) if you want to import media that are finished.
+:::
 
 The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
 have a valid provider ID (Audible, ITunes or ISBN).
