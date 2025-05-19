@@ -16,10 +16,10 @@ You can import it back using the [Generic JSON Importer](../importing.md#generic
 If you want to use file storage only for exporting, you can configure it to use a public
 S3 instance offered by [Minio](https://play.min.io).
 
-!!! failure "Not for production use"
-
-    The Minio team resets this instance every 24 hours, hence this method is not suitable
-    if you want to store the data for a long time.
+::: danger Not for production use
+The Minio team resets this instance every 24 hours, hence this method is not suitable
+if you want to store the data for a long time.
+:::
 
 - Go to the [Minio playground](https://play.min.io). The login credentials are changed
   everyday and you can find them
@@ -54,6 +54,4 @@ docker exec -u postgres -i ryot-db pg_restore -U postgres -d postgres < /tmp/ryo
 
 ## Type definitions
 
-```ts
-{% include 'export-schema.ts' %}
-```
+<<< @/includes/export-schema.ts
