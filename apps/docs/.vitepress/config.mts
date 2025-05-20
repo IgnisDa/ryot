@@ -4,7 +4,10 @@ import path from "node:path";
 
 const importingSourceFiles = fs
 	.readdirSync(path.resolve(__dirname, "../src/importing"))
-	.filter((file) => file !== "overview.md" && file.endsWith(".md"))
+	.filter(
+		(file) =>
+			file !== "overview.md" && file !== "community.md" && file.endsWith(".md"),
+	)
 	.sort()
 	.map((file) => {
 		const name = file.replace(".md", "");
@@ -54,6 +57,7 @@ export default defineConfig({
 						items: [
 							{ text: "Overview", link: "/importing/overview" },
 							...importingSourceFiles,
+							{ text: "Community", link: "/importing/community" },
 						],
 					},
 					{ text: "Integrations", link: "/integrations" },
