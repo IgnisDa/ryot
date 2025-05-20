@@ -561,18 +561,16 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="export">
 						<Stack>
-							<Flex justify="space-between" align="center">
+							<Group justify="space-between">
 								<Title order={2}>Export data</Title>
-								<Group>
-									<Anchor
-										size="xs"
-										href={`${coreDetails.docsLink}/guides/exporting.html`}
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Group>
-							</Flex>
+								<Anchor
+									size="xs"
+									href={`${coreDetails.docsLink}/guides/exporting.html`}
+									target="_blank"
+								>
+									Docs
+								</Anchor>
+							</Group>
 							<Form
 								method="POST"
 								encType="multipart/form-data"
