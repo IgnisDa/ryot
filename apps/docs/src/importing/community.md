@@ -1,8 +1,7 @@
 # Community
 
-These are community maintained import mechanisms.
+These are community maintained import mechanisms. Ryot does not officially support them.
 
-## TV Time
+- [TV Time](https://github.com/SirMartin/TvTimeToRyot) by [@SirMartin](https://github.com/SirMartin)
 
-All shows can be imported from [TvTime](https://tvtime.com/) at the moment using an external
-tool. You can find all the necessary steps [here](https://github.com/SirMartin/TvTimeToRyot).
+Want to add your own importer? Open a [pull request](../contributing.md)!
