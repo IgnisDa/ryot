@@ -251,7 +251,7 @@ export default function Page() {
 										target="_blank"
 										href={`${coreDetails.docsLink}/importing/${kebabCase(deployImportSource)}.html`}
 									>
-										Docs
+										Click here to see the documentation for this source
 									</Anchor>
 								) : null}
 								{deployImportSource ? (
