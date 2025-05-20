@@ -6422,6 +6422,7 @@ __metadata:
   resolution: "@ryot/docs@workspace:apps/docs"
   dependencies:
     "@ryot/ts-utils": "workspace:*"
+    vite-tsconfig-paths: "npm:5.1.4"
     vitepress: "npm:2.0.0-alpha.5"
   languageName: unknown
   linkType: soft

@@ -2,10 +2,9 @@
 	"name": "@ryot/docs",
 	"private": true,
 	"type": "module",
-	"dependencies": {
-		"@ryot/ts-utils": "workspace:*"
-	},
 	"devDependencies": {
+		"@ryot/ts-utils": "workspace:*",
+		"vite-tsconfig-paths": "5.1.4",
 		"vitepress": "2.0.0-alpha.5"
 	}
 }
