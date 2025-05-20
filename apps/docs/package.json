@@ -3,7 +3,6 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
-		"@ryot/ts-utils": "workspace:*",
 		"vitepress": "2.0.0-alpha.5"
 	}
 }
