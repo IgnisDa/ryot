@@ -48,6 +48,7 @@ export default defineConfig({
 					{ text: "Configuration", link: "/configuration" },
 					{ text: "Deployment", link: "/deployment" },
 					{
+						collapsed: true,
 						text: "Importing",
 						link: "/importing/overview",
 						items: [
