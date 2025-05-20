@@ -1,4 +1,4 @@
-# Importing Overview
+# Importing
 
 Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
 the same source twice will create duplicates. I recommend you to make a database backup

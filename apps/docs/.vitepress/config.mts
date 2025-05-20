@@ -49,6 +49,7 @@ export default defineConfig({
 					{ text: "Deployment", link: "/deployment" },
 					{
 						text: "Importing",
+						link: "/importing/overview",
 						items: [
 							{ text: "Overview", link: "/importing/overview" },
 							...importingSourceFiles,
