@@ -6421,6 +6421,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/docs@workspace:apps/docs"
   dependencies:
+    "@ryot/ts-utils": "workspace:*"
     vitepress: "npm:2.0.0-alpha.5"
   languageName: unknown
   linkType: soft

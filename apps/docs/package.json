@@ -2,6 +2,9 @@
 	"name": "@ryot/docs",
 	"private": true,
 	"type": "module",
+	"dependencies": {
+		"@ryot/ts-utils": "workspace:*"
+	},
 	"devDependencies": {
 		"vitepress": "2.0.0-alpha.5"
 	}
