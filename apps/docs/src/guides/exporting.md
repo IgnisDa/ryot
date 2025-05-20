@@ -9,7 +9,7 @@ You can export your data from the app by going to the "Imports and Exports" sett
 and then clicking the button under the "Export" tab. Once the export is complete, it will
 appear along with a button to download it.
 
-You can import it back using the [Generic JSON Importer](../importing.md#generic-json).
+You can import it back using the [Generic JSON Importer](../importing/generic-json.md).
 
 ## One time file storage
 

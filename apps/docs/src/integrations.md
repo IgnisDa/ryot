@@ -74,7 +74,7 @@ your watchlist.
 
 ::: info
 This will only import media that are in progress. Perform an
-[import](./importing.md#plex) if you want to import media that are finished.
+[import](./importing/plex.md) if you want to import media that are finished.
 :::
 
 Automatically add [Plex](https://www.plex.tv/) show and movie plays to Ryot. It will
@@ -129,7 +129,7 @@ at night to add all media in your instance to your "Owned" collection.
 
 ::: info
 This will only import media that are in progress. Perform an
-[import](./importing.md#audiobookshelf) if you want to import media that are finished.
+[import](./importing/audiobookshelf.md) if you want to import media that are finished.
 :::
 
 The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
