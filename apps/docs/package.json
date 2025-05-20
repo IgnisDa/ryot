@@ -4,7 +4,6 @@
 	"type": "module",
 	"devDependencies": {
 		"@ryot/ts-utils": "workspace:*",
-		"vite-tsconfig-paths": "5.1.4",
 		"vitepress": "2.0.0-alpha.5"
 	}
 }
