@@ -1,11 +1,12 @@
 # Importing
 
 Importing is meant to be a one-time operation. They are irreversible, i.e., importing from
-the same source twice will create duplicates. I recommend you to make a database backup
+the same source twice will create duplicates. I recommend you to make a
+[database backup](../guides/exporting.md#exporting-the-entire-database)
 before starting an import.
 
-An import can fail at various steps. Ryot creates a report when an import completes/fails.
-You can see the reports under "Import History" of the imports page.
+An import can fail at various steps or for a specific item. Ryot creates a report when an
+import completes/fails. You can see them under "Import History" of the imports page.
 
 ## Notes
 
