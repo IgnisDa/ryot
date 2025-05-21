@@ -29,7 +29,7 @@ https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 Keep your webhook urls private to prevent abuse.
 :::
 
-### Jellyfin
+### Jellyfin Sink
 
 Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
 will work for all the media that have a valid TMDb ID attached to their metadata.
@@ -204,7 +204,7 @@ Events: `Item added to collection`
 1. Obtain your Sonarr API key by going to the Sonarr general settings page.
 2. Fill the inputs in the integration settings page with the correct details.
 
-### Jellyfin <Badge type="warning" text="PRO" />
+### Jellyfin Push <Badge type="warning" text="PRO" />
 
 Events: `Item marked as completed`
 
