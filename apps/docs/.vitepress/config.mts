@@ -43,36 +43,31 @@ export default defineConfig({
 		logo: "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png",
 		socialLinks: [{ icon: "github", link: "https://github.com/ignisda/ryot" }],
 		sidebar: [
+			{ text: "Installation", link: "/" },
+			{ text: "Configuration", link: "/configuration" },
+			{ text: "Deployment", link: "/deployment" },
 			{
-				text: "Getting Started",
+				collapsed: true,
+				text: "Importing",
+				link: "/importing/overview",
 				items: [
-					{ text: "Installation", link: "/" },
-					{ text: "Migration", link: "/migration" },
-					{ text: "Configuration", link: "/configuration" },
-					{ text: "Deployment", link: "/deployment" },
-					{
-						collapsed: true,
-						text: "Importing",
-						link: "/importing/overview",
-						items: [
-							{ text: "Overview", link: "/importing/overview" },
-							...importingSourceFiles,
-							{ text: "Community", link: "/importing/community" },
-						],
-					},
-					{ text: "Integrations", link: "/integrations" },
-					{
-						text: "Guides",
-						items: [
-							{ text: "Authentication", link: "/guides/authentication" },
-							{ text: "Books", link: "/guides/books" },
-							{ text: "Exporting", link: "/guides/exporting" },
-							{ text: "Video games", link: "/guides/video-games" },
-						],
-					},
-					{ text: "Contributing", link: "/contributing" },
+					{ text: "Overview", link: "/importing/overview" },
+					...importingSourceFiles,
+					{ text: "Community", link: "/importing/community" },
 				],
 			},
+			{ text: "Integrations", link: "/integrations" },
+			{
+				text: "Guides",
+				items: [
+					{ text: "Authentication", link: "/guides/authentication" },
+					{ text: "Books", link: "/guides/books" },
+					{ text: "Exporting", link: "/guides/exporting" },
+					{ text: "Video games", link: "/guides/video-games" },
+				],
+			},
+			{ text: "Migration", link: "/migration" },
+			{ text: "Contributing", link: "/contributing" },
 		],
 	},
 });
