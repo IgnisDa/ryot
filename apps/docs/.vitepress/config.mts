@@ -2,21 +2,26 @@ import { defineConfig } from "vitepress";
 import fs from "node:fs";
 import path from "node:path";
 
-const importingSourceFiles = fs
-	.readdirSync(path.resolve(__dirname, "../src/importing"))
-	.filter(
-		(file) =>
-			file !== "overview.md" && file !== "community.md" && file.endsWith(".md"),
-	)
-	.sort()
-	.map((file) => {
-		const name = file.replace(".md", "");
-		const text = name
-			.split("-")
-			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-			.join(" ");
-		return { text, link: `/importing/${name}` };
-	});
+const getSourceFiles = (dir: string) =>
+	fs
+		.readdirSync(path.resolve(__dirname, `../src/${dir}`))
+		.filter(
+			(file) =>
+				file !== "overview.md" &&
+				file !== "community.md" &&
+				file.endsWith(".md"),
+		)
+		.sort()
+		.map((file) => {
+			const name = file.replace(".md", "");
+			const text = name
+				.split("-")
+				.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+				.join(" ");
+			return { text, link: `/${dir}/${name}` };
+		});
+
+const importingSourceFiles = getSourceFiles("importing");
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
