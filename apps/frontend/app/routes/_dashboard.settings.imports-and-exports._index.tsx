@@ -44,7 +44,7 @@ import { useState } from "react";
 import { Form, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withFragment, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	clientGqlService,
@@ -231,19 +231,7 @@ export default function Page() {
 						>
 							<input hidden name="source" defaultValue={deployImportSource} />
 							<Stack>
-								<Flex justify="space-between" align="center">
-									<Title order={2}>Import data</Title>
-									<Anchor
-										size="xs"
-										target="_blank"
-										href={withFragment(
-											`${coreDetails.docsLink}/importing.html`,
-											deployImportSource ? kebabCase(deployImportSource) : "",
-										)}
-									>
-										Docs
-									</Anchor>
-								</Flex>
+								<Title order={2}>Import data</Title>
 								<Select
 									required
 									searchable
@@ -257,6 +245,15 @@ export default function Page() {
 										value: is,
 									}))}
 								/>
+								{deployImportSource ? (
+									<Anchor
+										size="xs"
+										target="_blank"
+										href={`${coreDetails.docsLink}/importing/${kebabCase(deployImportSource)}.html`}
+									>
+										Click here to see the documentation for this source
+									</Anchor>
+								) : null}
 								{deployImportSource ? (
 									<>
 										{match(deployImportSource)
@@ -561,18 +558,16 @@ export default function Page() {
 					</Tabs.Panel>
 					<Tabs.Panel value="export">
 						<Stack>
-							<Flex justify="space-between" align="center">
+							<Group justify="space-between">
 								<Title order={2}>Export data</Title>
-								<Group>
-									<Anchor
-										size="xs"
-										href={`${coreDetails.docsLink}/guides/exporting.html`}
-										target="_blank"
-									>
-										Docs
-									</Anchor>
-								</Group>
-							</Flex>
+								<Anchor
+									size="xs"
+									href={`${coreDetails.docsLink}/guides/exporting.html`}
+									target="_blank"
+								>
+									Docs
+								</Anchor>
+							</Group>
 							<Form
 								method="POST"
 								encType="multipart/form-data"
