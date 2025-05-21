@@ -39,6 +39,7 @@ import {
 import {
 	changeCase,
 	getActionIntent,
+	kebabCase,
 	processSubmission,
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
@@ -53,7 +54,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import {
 	PRO_REQUIRED_MESSAGE,
@@ -507,6 +508,18 @@ const CreateOrUpdateModal = (props: {
 								label: changeCase(is),
 							}))}
 						/>
+					) : null}
+					{provider ? (
+						<Anchor
+							size="xs"
+							target="_blank"
+							href={withFragment(
+								`${coreDetails.docsLink}/integrations.html`,
+								kebabCase(provider),
+							)}
+						>
+							Click here to see the documentation for this source
+						</Anchor>
 					) : null}
 					{match(provider)
 						.with(IntegrationProvider.Audiobookshelf, () => (
