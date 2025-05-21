@@ -59,6 +59,7 @@ export default defineConfig({
 			{ text: "Integrations", link: "/integrations" },
 			{
 				text: "Guides",
+				collapsed: true,
 				items: [
 					{ text: "Authentication", link: "/guides/authentication" },
 					{ text: "Books", link: "/guides/books" },
