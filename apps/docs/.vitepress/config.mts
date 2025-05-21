@@ -2,27 +2,21 @@ import { defineConfig } from "vitepress";
 import fs from "node:fs";
 import path from "node:path";
 
-const sourceFiles = (dir: string) =>
-	fs
-		.readdirSync(path.resolve(__dirname, `../src/${dir}`))
-		.filter(
-			(file) =>
-				file !== "overview.md" &&
-				file !== "community.md" &&
-				file.endsWith(".md"),
-		)
-		.sort()
-		.map((file) => {
-			const name = file.replace(".md", "");
-			const text = name
-				.split("-")
-				.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-				.join(" ");
-			return { text, link: `/${dir}/${name}` };
-		});
-
-const importingSourceFiles = sourceFiles("importing");
-const integrationSourceFiles = sourceFiles("integrations");
+const importingSourceFiles = fs
+	.readdirSync(path.resolve(__dirname, "../src/importing"))
+	.filter(
+		(file) =>
+			file !== "overview.md" && file !== "community.md" && file.endsWith(".md"),
+	)
+	.sort()
+	.map((file) => {
+		const name = file.replace(".md", "");
+		const text = name
+			.split("-")
+			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(" ");
+		return { text, link: `/importing/${name}` };
+	});
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -62,15 +56,7 @@ export default defineConfig({
 					{ text: "Community", link: "/importing/community" },
 				],
 			},
-			{
-				collapsed: true,
-				text: "Integrations",
-				link: "/integrations/overview",
-				items: [
-					{ text: "Overview", link: "/integrations/overview" },
-					...integrationSourceFiles,
-				],
-			},
+			{ text: "Integrations", link: "/integrations" },
 			{
 				text: "Guides",
 				items: [
