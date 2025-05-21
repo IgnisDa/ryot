@@ -22,6 +22,7 @@ const getSourceFiles = (dir: string) =>
 		});
 
 const importingSourceFiles = getSourceFiles("importing");
+const guidesSourceFiles = getSourceFiles("guides");
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -65,12 +66,8 @@ export default defineConfig({
 			{
 				text: "Guides",
 				collapsed: true,
-				items: [
-					{ text: "Authentication", link: "/guides/authentication" },
-					{ text: "Books", link: "/guides/books" },
-					{ text: "Exporting", link: "/guides/exporting" },
-					{ text: "Video games", link: "/guides/video-games" },
-				],
+				items: guidesSourceFiles,
+				link: guidesSourceFiles[0].link,
 			},
 			{ text: "Migration", link: "/migration" },
 			{ text: "Contributing", link: "/contributing" },
