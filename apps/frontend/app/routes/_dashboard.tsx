@@ -1316,6 +1316,385 @@ const MetadataNewProgressUpdateForm = ({
 						podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
 					};
 					const updates = new Array<MetadataProgressUpdateInput>();
+
+					// Handle bulk updates for previous media
+					const latestHistoryItem = history[0];
+
+					// For Anime: generate updates for all episodes before the current one
+					if (
+						metadataDetails.lot === MediaLot.Anime &&
+						metadataToUpdate.animeAllEpisodesBefore &&
+						metadataToUpdate.animeEpisodeNumber
+					) {
+						const lastSeenEpisode =
+							latestHistoryItem?.animeExtraInformation?.episode || 0;
+						for (
+							let i = lastSeenEpisode + 1;
+							i < metadataToUpdate.animeEpisodeNumber;
+							i++
+						) {
+							updates.push({
+								metadataId: metadataToUpdate.metadataId,
+								change: match(watchTime)
+									.with(WatchTimes.JustStartedIt, () => ({
+										createNewInProgress: {
+											...common,
+											animeEpisodeNumber: i,
+											startedOn: formatDateToNaiveDate(new Date()),
+										},
+									}))
+									.with(WatchTimes.JustCompletedNow, () => ({
+										createNewCompleted: {
+											finishedOnDate: {
+												...common,
+												animeEpisodeNumber: i,
+												finishedOn: formatDateToNaiveDate(new Date()),
+											},
+										},
+									}))
+									.with(WatchTimes.CustomDate, () => {
+										if (!selectedDate)
+											throw new Error("Selected date is undefined");
+										return {
+											createNewCompleted: {
+												finishedOnDate: {
+													...common,
+													animeEpisodeNumber: i,
+													finishedOn: selectedDate,
+												},
+											},
+										};
+									})
+									.with(WatchTimes.IDontRemember, () => ({
+										createNewCompleted: {
+											withoutDates: {
+												...common,
+												animeEpisodeNumber: i,
+											},
+										},
+									}))
+									.exhaustive(),
+							});
+						}
+					} // For Manga: generate updates for volumes or chapters
+					if (
+						metadataDetails.lot === MediaLot.Manga &&
+						metadataToUpdate.mangaAllChaptersOrVolumesBefore
+					) {
+						const isValidNumber = (value: unknown): boolean => {
+							const num = Number(value);
+							return !Number.isNaN(num) && Number.isFinite(num);
+						};
+
+						// Check if exactly one of volume or chapter is provided
+						const hasValidChapter = isValidNumber(
+							metadataToUpdate.mangaChapterNumber,
+						);
+						const hasValidVolume = isValidNumber(
+							metadataToUpdate.mangaVolumeNumber,
+						);
+
+						if (
+							(hasValidChapter && hasValidVolume) ||
+							(!hasValidChapter && !hasValidVolume)
+						) {
+							notifications.show({
+								color: "red",
+								message:
+									"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
+							});
+						} else {
+							// If volume number is provided
+							if (metadataToUpdate.mangaVolumeNumber) {
+								const lastSeenVolume =
+									latestHistoryItem?.mangaExtraInformation?.volume || 0;
+								for (
+									let i = lastSeenVolume + 1;
+									i < metadataToUpdate.mangaVolumeNumber;
+									i++
+								) {
+									updates.push({
+										metadataId: metadataToUpdate.metadataId,
+										change: match(watchTime)
+											.with(WatchTimes.JustStartedIt, () => ({
+												createNewInProgress: {
+													...common,
+													mangaVolumeNumber: i,
+													startedOn: formatDateToNaiveDate(new Date()),
+												},
+											}))
+											.with(WatchTimes.JustCompletedNow, () => ({
+												createNewCompleted: {
+													finishedOnDate: {
+														...common,
+														mangaVolumeNumber: i,
+														finishedOn: formatDateToNaiveDate(new Date()),
+													},
+												},
+											}))
+											.with(WatchTimes.CustomDate, () => {
+												if (!selectedDate)
+													throw new Error("Selected date is undefined");
+												return {
+													createNewCompleted: {
+														finishedOnDate: {
+															...common,
+															mangaVolumeNumber: i,
+															finishedOn: selectedDate,
+														},
+													},
+												};
+											})
+											.with(WatchTimes.IDontRemember, () => ({
+												createNewCompleted: {
+													withoutDates: {
+														...common,
+														mangaVolumeNumber: i,
+													},
+												},
+											}))
+											.exhaustive(),
+									});
+								}
+							}
+
+							// If chapter number is provided
+							if (metadataToUpdate.mangaChapterNumber) {
+								const targetChapter = Number(
+									metadataToUpdate.mangaChapterNumber,
+								);
+								const markedChapters = new Set();
+
+								// Collect already marked chapters
+								for (const historyItem of history) {
+									const chapter = Number(
+										historyItem?.mangaExtraInformation?.chapter,
+									);
+									if (!Number.isNaN(chapter) && chapter < targetChapter) {
+										markedChapters.add(chapter);
+									}
+								}
+
+								// Add updates for unmarked chapters
+								for (let i = 1; i < targetChapter; i++) {
+									if (!markedChapters.has(i)) {
+										updates.push({
+											metadataId: metadataToUpdate.metadataId,
+											change: match(watchTime)
+												.with(WatchTimes.JustStartedIt, () => ({
+													createNewInProgress: {
+														...common,
+														mangaChapterNumber: i.toString(),
+														startedOn: formatDateToNaiveDate(new Date()),
+													},
+												}))
+												.with(WatchTimes.JustCompletedNow, () => ({
+													createNewCompleted: {
+														finishedOnDate: {
+															...common,
+															mangaChapterNumber: i.toString(),
+															finishedOn: formatDateToNaiveDate(new Date()),
+														},
+													},
+												}))
+												.with(WatchTimes.CustomDate, () => {
+													if (!selectedDate)
+														throw new Error("Selected date is undefined");
+													return {
+														createNewCompleted: {
+															finishedOnDate: {
+																...common,
+																mangaChapterNumber: i.toString(),
+																finishedOn: selectedDate,
+															},
+														},
+													};
+												})
+												.with(WatchTimes.IDontRemember, () => ({
+													createNewCompleted: {
+														withoutDates: {
+															...common,
+															mangaChapterNumber: i.toString(),
+														},
+													},
+												}))
+												.exhaustive(),
+										});
+									}
+								}
+							}
+						}
+					}
+
+					// For Shows: generate updates for all episodes before the current one
+					if (
+						metadataDetails.lot === MediaLot.Show &&
+						metadataToUpdate.showAllEpisodesBefore &&
+						metadataToUpdate.showSeasonNumber &&
+						metadataToUpdate.showEpisodeNumber
+					) {
+						const allEpisodesInShow =
+							metadataDetails.showSpecifics?.seasons.flatMap((s) =>
+								s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
+							) || [];
+
+						const selectedEpisodeIndex = allEpisodesInShow.findIndex(
+							(e) =>
+								e.seasonNumber === metadataToUpdate.showSeasonNumber &&
+								e.episodeNumber === metadataToUpdate.showEpisodeNumber,
+						);
+
+						const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
+						const firstEpisodeOfShow = allEpisodesInShow[0];
+						const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
+							episode: firstEpisodeOfShow?.episodeNumber,
+							season: firstEpisodeOfShow?.seasonNumber,
+						};
+
+						const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
+							(e) =>
+								e.seasonNumber === lastSeenEpisode.season &&
+								e.episodeNumber === lastSeenEpisode.episode,
+						);
+
+						const firstEpisodeIndexToMark =
+							lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
+
+						if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
+							for (
+								let i = firstEpisodeIndexToMark;
+								i < selectedEpisodeIndex;
+								i++
+							) {
+								const currentEpisode = allEpisodesInShow[i];
+								// Skip specials if the selected episode is not a special
+								if (
+									currentEpisode.seasonNumber === 0 &&
+									selectedEpisode.seasonNumber !== 0
+								) {
+									continue;
+								}
+
+								updates.push({
+									metadataId: metadataToUpdate.metadataId,
+									change: match(watchTime)
+										.with(WatchTimes.JustStartedIt, () => ({
+											createNewInProgress: {
+												...common,
+												showSeasonNumber: currentEpisode.seasonNumber,
+												showEpisodeNumber: currentEpisode.episodeNumber,
+												startedOn: formatDateToNaiveDate(new Date()),
+											},
+										}))
+										.with(WatchTimes.JustCompletedNow, () => ({
+											createNewCompleted: {
+												finishedOnDate: {
+													...common,
+													showSeasonNumber: currentEpisode.seasonNumber,
+													showEpisodeNumber: currentEpisode.episodeNumber,
+													finishedOn: formatDateToNaiveDate(new Date()),
+												},
+											},
+										}))
+										.with(WatchTimes.CustomDate, () => {
+											if (!selectedDate)
+												throw new Error("Selected date is undefined");
+											return {
+												createNewCompleted: {
+													finishedOnDate: {
+														...common,
+														showSeasonNumber: currentEpisode.seasonNumber,
+														showEpisodeNumber: currentEpisode.episodeNumber,
+														finishedOn: selectedDate,
+													},
+												},
+											};
+										})
+										.with(WatchTimes.IDontRemember, () => ({
+											createNewCompleted: {
+												withoutDates: {
+													...common,
+													showSeasonNumber: currentEpisode.seasonNumber,
+													showEpisodeNumber: currentEpisode.episodeNumber,
+												},
+											},
+										}))
+										.exhaustive(),
+								});
+							}
+						}
+					}
+
+					// For Podcasts: generate updates for all episodes before the current one
+					if (
+						metadataDetails.lot === MediaLot.Podcast &&
+						metadataToUpdate.podcastAllEpisodesBefore &&
+						metadataToUpdate.podcastEpisodeNumber
+					) {
+						const podcastSpecifics =
+							metadataDetails.podcastSpecifics?.episodes || [];
+						const selectedEpisode = podcastSpecifics.find(
+							(e) => e.number === metadataToUpdate.podcastEpisodeNumber,
+						);
+
+						if (selectedEpisode) {
+							const lastSeenEpisode =
+								latestHistoryItem?.podcastExtraInformation?.episode || 0;
+
+							const allUnseenEpisodesBefore = podcastSpecifics.filter(
+								(e) =>
+									e.number < selectedEpisode.number &&
+									e.number > lastSeenEpisode,
+							);
+
+							for (const episode of allUnseenEpisodesBefore) {
+								updates.push({
+									metadataId: metadataToUpdate.metadataId,
+									change: match(watchTime)
+										.with(WatchTimes.JustStartedIt, () => ({
+											createNewInProgress: {
+												...common,
+												podcastEpisodeNumber: episode.number,
+												startedOn: formatDateToNaiveDate(new Date()),
+											},
+										}))
+										.with(WatchTimes.JustCompletedNow, () => ({
+											createNewCompleted: {
+												finishedOnDate: {
+													...common,
+													podcastEpisodeNumber: episode.number,
+													finishedOn: formatDateToNaiveDate(new Date()),
+												},
+											},
+										}))
+										.with(WatchTimes.CustomDate, () => {
+											if (!selectedDate)
+												throw new Error("Selected date is undefined");
+											return {
+												createNewCompleted: {
+													finishedOnDate: {
+														...common,
+														podcastEpisodeNumber: episode.number,
+														finishedOn: selectedDate,
+													},
+												},
+											};
+										})
+										.with(WatchTimes.IDontRemember, () => ({
+											createNewCompleted: {
+												withoutDates: {
+													...common,
+													podcastEpisodeNumber: episode.number,
+												},
+											},
+										}))
+										.exhaustive(),
+								});
+							}
+						}
+					}
+
+					// Add the current item
 					const change: MetadataProgressUpdateChange = match(watchTime)
 						.with(WatchTimes.JustStartedIt, () => ({
 							createNewInProgress: {
@@ -1344,6 +1723,7 @@ const MetadataNewProgressUpdateForm = ({
 							createNewCompleted: { withoutDates: common },
 						}))
 						.exhaustive();
+
 					updates.push({
 						change,
 						metadataId: metadataToUpdate.metadataId,
