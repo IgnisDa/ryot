@@ -250,7 +250,7 @@ mutation ExpireCacheKey($cacheId: UUID!) {
 }
 
 mutation DeployBulkMetadataProgressUpdate(
-  $input: [MetadataProgressUpdateInput!]!
+	$input: [MetadataProgressUpdateInput!]!
 ) {
-  deployBulkMetadataProgressUpdate(input: $input)
+	deployBulkMetadataProgressUpdate(input: $input)
 }
