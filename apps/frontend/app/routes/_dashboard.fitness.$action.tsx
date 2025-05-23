@@ -2297,8 +2297,8 @@ const SetDisplay = (props: {
 								Adjust RPE
 							</Menu.Item>
 							<Menu.Item
-								color="red"
 								fz="xs"
+								color="red"
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
 									const deleteCurrentSet = () => {
