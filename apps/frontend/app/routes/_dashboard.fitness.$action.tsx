@@ -2311,10 +2311,14 @@ const SetDisplay = (props: {
 											}),
 										);
 									};
-									openConfirmationModal(
-										"Are you sure you want to delete this set?",
-										deleteCurrentSet,
-									);
+									match(set.confirmedAt)
+										.with(null, deleteCurrentSet)
+										.otherwise(() =>
+											openConfirmationModal(
+												"Are you sure you want to delete this set?",
+												deleteCurrentSet,
+											),
+										);
 								}}
 							>
 								Delete set
