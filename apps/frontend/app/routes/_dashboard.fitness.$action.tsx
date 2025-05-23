@@ -2301,18 +2301,19 @@ const SetDisplay = (props: {
 								fz="xs"
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
+									const deleteCurrentSet = () => {
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].sets.splice(
+													props.setIdx,
+													1,
+												);
+											}),
+										);
+									};
 									openConfirmationModal(
 										"Are you sure you want to delete this set?",
-										() => {
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													draft.exercises[props.exerciseIdx].sets.splice(
-														props.setIdx,
-														1,
-													);
-												}),
-											);
-										},
+										deleteCurrentSet,
 									);
 								}}
 							>
