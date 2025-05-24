@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
+import { viewExpressionSchema } from "~/lib/views/expression";
 import { filterExpressionSchema } from "~/lib/views/filtering";
 import { timestampFields } from "~/lib/zod/base";
 import {
@@ -15,7 +16,7 @@ const paginationSchema = z.object({
 
 export const viewRuntimeFieldSchema = z
 	.object({
-		references: z.array(z.string()),
+		expression: viewExpressionSchema,
 		key: z.string().trim().min(1, "Field keys are required"),
 	})
 	.strict();

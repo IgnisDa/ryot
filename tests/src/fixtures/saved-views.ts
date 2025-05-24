@@ -11,6 +11,53 @@ type ReorderSavedViewsBody = NonNullable<
 	paths["/saved-views/reorder"]["post"]["requestBody"]
 >["content"]["application/json"];
 
+type RuntimeRef =
+	| { type: "entity-column"; slug: string; column: string }
+	| { type: "schema-property"; slug: string; property: string }
+	| { type: "event-join-column"; joinKey: string; column: string }
+	| { type: "event-join-property"; joinKey: string; property: string };
+
+type ViewExpression =
+	| { type: "literal"; value: unknown | null }
+	| { type: "reference"; reference: RuntimeRef }
+	| { type: "coalesce"; values: ViewExpression[] };
+
+type ExpressionInput = ViewExpression | string[];
+
+type CreateSavedViewInput = Partial<
+	Omit<CreateSavedViewBody, "displayConfiguration">
+> & {
+	displayConfiguration?: DisplayConfigurationInput;
+};
+
+type UpdateSavedViewInput = Partial<
+	Omit<UpdateSavedViewBody, "displayConfiguration">
+> & {
+	displayConfiguration?: DisplayConfigurationInput;
+};
+
+type DisplayConfigurationInput = {
+	table: {
+		columns: Array<{
+			label: string;
+			property?: string[];
+			expression?: ExpressionInput;
+		}>;
+	};
+	grid: {
+		badgeProperty: ExpressionInput | null;
+		titleProperty: ExpressionInput | null;
+		imageProperty: ExpressionInput | null;
+		subtitleProperty: ExpressionInput | null;
+	};
+	list: {
+		badgeProperty: ExpressionInput | null;
+		titleProperty: ExpressionInput | null;
+		imageProperty: ExpressionInput | null;
+		subtitleProperty: ExpressionInput | null;
+	};
+};
+
 const entityField = (schemaSlug: string, property: string) => {
 	if (
 		property === "name" ||
@@ -25,6 +72,81 @@ const entityField = (schemaSlug: string, property: string) => {
 	return `entity.${schemaSlug}.${property}`;
 };
 
+const literalExpression = (value: unknown | null): ViewExpression => ({
+	type: "literal",
+	value,
+});
+
+const parseReference = (reference: string): RuntimeRef => {
+	const [namespace, segment, tail, ...rest] = reference.split(".");
+	if (namespace === "event") {
+		if (!segment || !tail || rest.length > 0) {
+			throw new Error(`Invalid saved view reference '${reference}'`);
+		}
+
+		return tail.startsWith("@")
+			? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
+			: { type: "event-join-property", joinKey: segment, property: tail };
+	}
+
+	if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
+		throw new Error(`Invalid saved view reference '${reference}'`);
+	}
+
+	return tail.startsWith("@")
+		? { type: "entity-column", slug: segment, column: tail.slice(1) }
+		: { type: "schema-property", slug: segment, property: tail };
+};
+
+const toExpression = (input: ExpressionInput | null): ViewExpression | null => {
+	if (input === null) {
+		return null;
+	}
+
+	if (!Array.isArray(input)) {
+		return input;
+	}
+
+	if (!input.length) {
+		return literalExpression(null);
+	}
+
+	const values = input.map((reference) => ({
+		type: "reference" as const,
+		reference: parseReference(reference),
+	}));
+
+	return values.length === 1
+		? (values[0] ?? literalExpression(null))
+		: { type: "coalesce", values };
+};
+
+const normalizeDisplayConfiguration = (
+	input: DisplayConfigurationInput,
+): CreateSavedViewBody["displayConfiguration"] =>
+	({
+		grid: {
+			badgeProperty: toExpression(input.grid.badgeProperty),
+			titleProperty: toExpression(input.grid.titleProperty),
+			imageProperty: toExpression(input.grid.imageProperty),
+			subtitleProperty: toExpression(input.grid.subtitleProperty),
+		},
+		list: {
+			badgeProperty: toExpression(input.list.badgeProperty),
+			titleProperty: toExpression(input.list.titleProperty),
+			imageProperty: toExpression(input.list.imageProperty),
+			subtitleProperty: toExpression(input.list.subtitleProperty),
+		},
+		table: {
+			columns: input.table.columns.map((column) => ({
+				label: column.label,
+				expression:
+					toExpression(column.expression ?? column.property ?? []) ??
+					literalExpression(null),
+			})),
+		},
+	}) as unknown as CreateSavedViewBody["displayConfiguration"];
+
 const defaultQueryDefinition = {
 	filters: [],
 	eventJoins: [],
@@ -34,7 +156,7 @@ const defaultQueryDefinition = {
 
 const defaultDisplayConfiguration = {
 	table: {
-		columns: [{ label: "Name", property: [entityField("book", "name")] }],
+		columns: [{ label: "Name", expression: [entityField("book", "name")] }],
 	},
 	grid: {
 		badgeProperty: null,
@@ -48,24 +170,51 @@ const defaultDisplayConfiguration = {
 		titleProperty: [entityField("book", "name")],
 		imageProperty: [entityField("book", "image")],
 	},
-} satisfies CreateSavedViewBody["displayConfiguration"];
+} satisfies DisplayConfigurationInput;
 
 export function buildSavedViewBody(
-	overrides: Partial<CreateSavedViewBody> = {},
+	overrides: CreateSavedViewInput = {},
 ): CreateSavedViewBody {
+	const displayConfiguration = overrides.displayConfiguration
+		? normalizeDisplayConfiguration(overrides.displayConfiguration)
+		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
+
 	return {
 		icon: "star",
 		accentColor: "#FF5733",
 		queryDefinition: defaultQueryDefinition,
 		name: `Saved View ${crypto.randomUUID()}`,
-		displayConfiguration: defaultDisplayConfiguration,
 		...overrides,
+		displayConfiguration,
 	};
 }
 
 export function buildUpdatedSavedViewBody(
-	overrides: Partial<UpdateSavedViewBody> = {},
+	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
+	const displayConfiguration = overrides.displayConfiguration
+		? normalizeDisplayConfiguration(overrides.displayConfiguration)
+		: normalizeDisplayConfiguration({
+				table: {
+					columns: [
+						{ label: "Name", expression: [entityField("book", "name")] },
+						{ label: "Year", expression: [entityField("book", "publishYear")] },
+					],
+				},
+				grid: {
+					imageProperty: null,
+					titleProperty: null,
+					badgeProperty: null,
+					subtitleProperty: null,
+				},
+				list: {
+					titleProperty: [entityField("book", "name")],
+					imageProperty: [entityField("book", "image")],
+					subtitleProperty: [entityField("book", "publishYear")],
+					badgeProperty: [entityField("anime", "productionStatus")],
+				},
+			});
+
 	return {
 		icon: "heart",
 		isDisabled: false,
@@ -79,34 +228,15 @@ export function buildUpdatedSavedViewBody(
 				{ op: "gte", field: entityField("book", "publishYear"), value: 2020 },
 			],
 		},
-		displayConfiguration: {
-			table: {
-				columns: [
-					{ label: "Name", property: [entityField("book", "name")] },
-					{ label: "Year", property: [entityField("book", "publishYear")] },
-				],
-			},
-			grid: {
-				imageProperty: null,
-				titleProperty: null,
-				badgeProperty: null,
-				subtitleProperty: null,
-			},
-			list: {
-				titleProperty: [entityField("book", "name")],
-				imageProperty: [entityField("book", "image")],
-				subtitleProperty: [entityField("book", "publishYear")],
-				badgeProperty: [entityField("anime", "productionStatus")],
-			},
-		},
 		...overrides,
+		displayConfiguration,
 	};
 }
 
 export async function createSavedView(
 	client: Client,
 	cookies: string,
-	overrides: Partial<CreateSavedViewBody> = {},
+	overrides: CreateSavedViewInput = {},
 ) {
 	const { data, response } = await client.POST("/saved-views", {
 		headers: { Cookie: cookies },
@@ -170,7 +300,7 @@ export async function updateSavedView(
 	client: Client,
 	cookies: string,
 	viewId: string,
-	overrides: Partial<UpdateSavedViewBody> = {},
+	overrides: UpdateSavedViewInput = {},
 ) {
 	const { data, response } = await client.PUT("/saved-views/{viewId}", {
 		headers: { Cookie: cookies },

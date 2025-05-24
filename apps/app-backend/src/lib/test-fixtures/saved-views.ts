@@ -3,6 +3,7 @@ import {
 	createUpdatedAt,
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
+import type { ViewExpression } from "~/lib/views/expression";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -16,6 +17,18 @@ const entityField = (schemaSlug: string, field: string) => {
 	return `entity.${schemaSlug}.${field}`;
 };
 
+const entityExpression = (
+	schemaSlug: string,
+	field: string,
+): ViewExpression => {
+	return {
+		type: "reference",
+		reference: field.startsWith("@")
+			? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
+			: { type: "schema-property", slug: schemaSlug, property: field },
+	};
+};
+
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filters: [],
 	eventJoins: [],
@@ -26,19 +39,21 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] =
 	{
 		table: {
-			columns: [{ label: "Name", property: [entityField("books", "@name")] }],
+			columns: [
+				{ label: "Name", expression: entityExpression("books", "@name") },
+			],
 		},
 		grid: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: [entityField("books", "@name")],
-			imageProperty: [entityField("books", "@image")],
+			titleProperty: entityExpression("books", "@name"),
+			imageProperty: entityExpression("books", "@image"),
 		},
 		list: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: [entityField("books", "@name")],
-			imageProperty: [entityField("books", "@image")],
+			titleProperty: entityExpression("books", "@name"),
+			imageProperty: entityExpression("books", "@image"),
 		},
 	};
 
