@@ -225,9 +225,6 @@ export default function Page() {
 							method="POST"
 							encType="multipart/form-data"
 							action={withQuery(".", { intent: "deployImport" })}
-							onSubmit={() => {
-								if (deployImportSource) events.deployImport(deployImportSource);
-							}}
 						>
 							<input hidden name="source" defaultValue={deployImportSource} />
 							<Stack>
@@ -410,7 +407,10 @@ export default function Page() {
 												e.preventDefault();
 												openConfirmationModal(
 													"Are you sure you want to deploy an import job? This action is irreversible.",
-													() => submit(form),
+													() => {
+														submit(form);
+														events.deployImport(deployImportSource);
+													},
 												);
 											}}
 										>
