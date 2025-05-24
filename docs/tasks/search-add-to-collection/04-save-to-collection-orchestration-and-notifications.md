@@ -28,9 +28,9 @@ and **Relationship to lifecycle actions**.
 - [x] The submit affordance uses save-oriented copy rather than one-time add copy.
 - [x] A successful save closes the collection panel and shows a success notification that names the
       target collection.
-- [ ] If entity creation succeeds but the membership write fails, the user receives a partial-
+- [x] If entity creation succeeds but the membership write fails, the user receives a partial-
       failure message that clearly explains the item is in the library but not in the collection.
-- [ ] Validation and write failures surface within the current row interaction without redirecting
+- [x] Validation and write failures surface within the current row interaction without redirecting
       the user away.
 - [ ] The action remains single-target: one submit writes to one selected collection.
 - [ ] Component-level tests cover success, validation failure, write failure, and partial-failure
