@@ -42,13 +42,10 @@ export type SearchResultRowActionState = {
 	rateStarsHover: number;
 	logCompletedOn: string;
 	actionError: string | null;
-	openPanel: "log" | "rate" | "collection" | null;
 	logDate: MediaSearchLogDateOption;
 	doneActions: MediaSearchDoneAction[];
-	selectedCollectionId: string | null;
-	collectionProperties: Record<string, unknown>;
+	openPanel: "log" | "rate" | "collection" | null;
 	pendingAction: "add" | "backlog" | "log" | "rate" | "collection" | null;
-	collectionError: string | null;
 };
 
 export const defaultSearchResultRowActionState: SearchResultRowActionState = {
@@ -62,9 +59,6 @@ export const defaultSearchResultRowActionState: SearchResultRowActionState = {
 	actionError: null,
 	logCompletedOn: "",
 	pendingAction: null,
-	selectedCollectionId: null,
-	collectionProperties: {},
-	collectionError: null,
 };
 
 function withAlpha(hex: string, alpha: number) {

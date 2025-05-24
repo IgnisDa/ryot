@@ -169,7 +169,28 @@ function LogEventForm(props: {
 									</Text>
 								)}
 
-								<eventForm.AppField name="eventSchemaId">
+								<eventForm.AppField
+									name="eventSchemaId"
+									listeners={{
+										onChange: ({ value }) => {
+											const nextValues = buildEventSchemaSelectionPatch(
+												props.eventSchemas,
+												eventForm.state.values,
+												value,
+											);
+											eventForm.setFieldValue(
+												"properties",
+												nextValues.properties,
+											);
+											if (nextValues.eventSchemaId !== value) {
+												eventForm.setFieldValue(
+													"eventSchemaId",
+													nextValues.eventSchemaId,
+												);
+											}
+										},
+									}}
+								>
 									{(field) => (
 										<Select
 											required
@@ -178,20 +199,11 @@ function LogEventForm(props: {
 											onBlur={field.handleBlur}
 											disabled={props.isLoading}
 											value={field.state.value || null}
-											onChange={(value) => {
-												const nextValue =
-													value ?? props.eventSchemas[0]?.id ?? "";
-												const nextValues = buildEventSchemaSelectionPatch(
-													props.eventSchemas,
-													eventForm.state.values,
-													nextValue,
-												);
-												field.handleChange(nextValues.eventSchemaId);
-												eventForm.setFieldValue(
-													"properties",
-													nextValues.properties,
-												);
-											}}
+											onChange={(value) =>
+												field.handleChange(
+													value ?? props.eventSchemas[0]?.id ?? "",
+												)
+											}
 										/>
 									)}
 								</eventForm.AppField>
