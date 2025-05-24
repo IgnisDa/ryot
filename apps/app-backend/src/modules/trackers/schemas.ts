@@ -1,5 +1,5 @@
+import { z } from "@hono/zod-openapi";
 import { zodBoolAsString } from "@ryot/ts-utils";
-import { z } from "zod";
 import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createIdParamsSchema,
