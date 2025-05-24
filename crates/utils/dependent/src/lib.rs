@@ -112,6 +112,10 @@ use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
 use uuid::Uuid;
 
+mod metadata_progress_update;
+
+pub use metadata_progress_update::metadata_progress_update;
+
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
@@ -1679,7 +1683,7 @@ pub async fn progress_update(
                     .await?;
                     (
                         input.progress.unwrap_or(dec!(0)),
-                        Some(Utc::now().date_naive()),
+                        Some(get_current_date(&ss.timezone)),
                     )
                 }
                 _ => (dec!(100), None),
@@ -1961,17 +1965,20 @@ pub async fn create_or_update_user_workout(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let end_time = input.end_time;
-    let duration = match input.duration {
-        Some(d) => d,
+    let mut duration: i32 = match input.duration {
+        Some(d) => d.try_into().unwrap(),
         None => end_time
             .signed_duration_since(input.start_time)
-            .num_seconds(),
+            .num_seconds()
+            .try_into()
+            .unwrap(),
     };
     let mut input = input;
     let (new_workout_id, to_update_workout) = match &input.update_workout_id {
         Some(id) => {
             // DEV: Unwrap to make sure we error out early if the workout to edit does not exist
             let model = Workout::find_by_id(id).one(&ss.db).await?.unwrap();
+            duration = model.duration;
             (id.to_owned(), Some(model))
         }
         None => (
@@ -2199,6 +2206,7 @@ pub async fn create_or_update_user_workout(
     let focused = get_focused_workout_summary(&processed_exercises, ss).await;
     let model = workout::Model {
         end_time,
+        duration,
         name: input.name,
         user_id: user_id.clone(),
         id: new_workout_id.clone(),
@@ -2206,7 +2214,6 @@ pub async fn create_or_update_user_workout(
         template_id: input.template_id,
         repeated_from: input.repeated_from,
         calories_burnt: input.calories_burnt,
-        duration: duration.try_into().unwrap(),
         information: WorkoutInformation {
             assets: input.assets,
             comment: input.comment,

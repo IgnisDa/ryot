@@ -27,7 +27,7 @@ import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import {
 	CURRENT_WORKOUT_KEY,
-	type FitnessAction,
+	FitnessAction,
 	clientGqlService,
 	dayjsLib,
 	getTimeOfDay,
@@ -216,13 +216,16 @@ export const currentWorkoutToCreateWorkoutInput = (
 			name: currentWorkout.name,
 			comment: currentWorkout.comment,
 			endTime: new Date().toISOString(),
-			duration: Math.trunc(totalDuration),
 			templateId: currentWorkout.templateId,
 			repeatedFrom: currentWorkout.repeatedFrom,
 			updateWorkoutId: currentWorkout.updateWorkoutId,
 			caloriesBurnt: currentWorkout.caloriesBurnt?.toString(),
-			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
 			startTime: new Date(currentWorkout.startTime).toISOString(),
+			updateWorkoutTemplateId: currentWorkout.updateWorkoutTemplateId,
+			duration:
+				currentWorkout.currentAction === FitnessAction.UpdateWorkout
+					? null
+					: Math.trunc(totalDuration),
 			assets: {
 				remoteImages: [],
 				remoteVideos: [],

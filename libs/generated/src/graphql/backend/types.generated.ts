@@ -1209,6 +1209,72 @@ export type MetadataLotSourceMappings = {
   sources: Array<MediaSource>;
 };
 
+export type MetadataProgressUpdateChange = {
+  changeLatestInProgress?: InputMaybe<MetadataProgressUpdateChangeLatestInProgressInput>;
+  createNewCompleted?: InputMaybe<MetadataProgressUpdateChangeCreateNewCompletedInput>;
+  createNewInProgress?: InputMaybe<MetadataProgressUpdateNewInProgressInput>;
+};
+
+export type MetadataProgressUpdateChangeCreateNewCompletedInput = {
+  finishedOnDate?: InputMaybe<MetadataProgressUpdateFinishedOnDateInput>;
+  startedAndFinishedOnDate?: InputMaybe<MetadataProgressUpdateStartedAndFinishedOnDateInput>;
+  withoutDates?: InputMaybe<MetadataProgressUpdateCommonInput>;
+};
+
+export type MetadataProgressUpdateChangeLatestInProgressInput = {
+  progress?: InputMaybe<Scalars['Decimal']['input']>;
+  state?: InputMaybe<SeenState>;
+};
+
+export type MetadataProgressUpdateCommonInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type MetadataProgressUpdateFinishedOnDateInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  finishedOn: Scalars['NaiveDate']['input'];
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type MetadataProgressUpdateInput = {
+  change: MetadataProgressUpdateChange;
+  metadataId: Scalars['String']['input'];
+};
+
+export type MetadataProgressUpdateNewInProgressInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  startedOn: Scalars['NaiveDate']['input'];
+};
+
+export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  finishedOn: Scalars['NaiveDate']['input'];
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  startedOn: Scalars['NaiveDate']['input'];
+};
+
 export type MetadataSearchInput = {
   lot: MediaLot;
   search: SearchInput;
@@ -1285,6 +1351,11 @@ export type MutationRoot = {
   deleteUserWorkoutTemplate: Scalars['Boolean']['output'];
   /** Start a background job. */
   deployBackgroundJob: Scalars['Boolean']['output'];
+  /**
+   * Deploy job to update progress of media items in bulk. For seen items in progress,
+   * progress is updated only if it has actually changed.
+   */
+  deployBulkMetadataProgressUpdate: Scalars['Boolean']['output'];
   /**
    * Deploy job to update progress of media items in bulk. For seen items in progress,
    * progress is updated only if it has actually changed.
@@ -1471,6 +1542,11 @@ export type MutationRootDeleteUserWorkoutTemplateArgs = {
 
 export type MutationRootDeployBackgroundJobArgs = {
   jobName: BackgroundJob;
+};
+
+
+export type MutationRootDeployBulkMetadataProgressUpdateArgs = {
+  input: Array<MetadataProgressUpdateInput>;
 };
 
 

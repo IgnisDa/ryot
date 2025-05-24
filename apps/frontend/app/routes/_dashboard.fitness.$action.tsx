@@ -2072,6 +2072,7 @@ const SetDisplay = (props: {
 			"previousSetData",
 			`exercise-${props.exerciseIdx}`,
 			`set-${props.setIdx}`,
+			userExerciseDetails?.history,
 		],
 		queryFn: async () => {
 			const globalSetIndex = getGlobalSetIndex(
@@ -2296,23 +2297,28 @@ const SetDisplay = (props: {
 								Adjust RPE
 							</Menu.Item>
 							<Menu.Item
-								color="red"
 								fz="xs"
+								color="red"
 								leftSection={<IconTrash size={14} />}
 								onClick={() => {
-									openConfirmationModal(
-										"Are you sure you want to delete this set?",
-										() => {
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													draft.exercises[props.exerciseIdx].sets.splice(
-														props.setIdx,
-														1,
-													);
-												}),
-											);
-										},
-									);
+									const deleteCurrentSet = () => {
+										setCurrentWorkout(
+											produce(currentWorkout, (draft) => {
+												draft.exercises[props.exerciseIdx].sets.splice(
+													props.setIdx,
+													1,
+												);
+											}),
+										);
+									};
+									match(set.confirmedAt)
+										.with(null, deleteCurrentSet)
+										.otherwise(() =>
+											openConfirmationModal(
+												"Are you sure you want to delete this set?",
+												deleteCurrentSet,
+											),
+										);
 								}}
 							>
 								Delete set
