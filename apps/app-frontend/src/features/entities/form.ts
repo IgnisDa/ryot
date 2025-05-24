@@ -18,12 +18,14 @@ const entityImageSchema = z.union([
 function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
 	return match(propertyDef.type)
 		.with(
-			"boolean",
+			"enum",
 			"date",
-			"datetime",
-			"integer",
-			"number",
+			"boolean",
 			"string",
+			"number",
+			"integer",
+			"datetime",
+			"enum-array",
 			() => true,
 		)
 		.otherwise(() => false);
@@ -124,9 +126,10 @@ export const buildDefaultEntityFormValues = (
 const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 	return match(propertyDef)
 		.with({ type: "string" }, { type: "date" }, { type: "datetime" }, () => "")
+		.with({ type: "enum" }, () => "")
 		.with({ type: "number" }, { type: "integer" }, () => 0)
 		.with({ type: "boolean" }, () => false)
-		.with({ type: "array" }, () => [])
+		.with({ type: "array" }, { type: "enum-array" }, () => [])
 		.with({ type: "object" }, (def) => {
 			const obj: Record<string, unknown> = {};
 			for (const [key, nestedDef] of Object.entries(def.properties)) {

@@ -245,10 +245,31 @@ const objectPropertySchema = z
 	})
 	.openapi("AppObjectProperty");
 
+const enumOptionsSchema = z.array(z.string().trim().min(1)).min(1);
+
+const enumPropertySchema = z
+	.strictObject({
+		options: enumOptionsSchema,
+		label: propertyLabelSchema,
+		type: z.literal("enum"),
+		validation: requiredOnlyValidationSchema.optional(),
+	})
+	.openapi("AppEnumProperty");
+
+const enumArrayPropertySchema = z
+	.strictObject({
+		label: propertyLabelSchema,
+		options: enumOptionsSchema,
+		type: z.literal("enum-array"),
+		validation: arrayValidationSchema.optional(),
+	})
+	.openapi("AppEnumArrayProperty");
+
 propertyDefinitionSchema = z
 	.lazy(() =>
 		z.discriminatedUnion("type", [
 			datePropertySchema,
+			enumPropertySchema,
 			arrayPropertySchema,
 			objectPropertySchema,
 			stringPropertySchema,
@@ -256,6 +277,7 @@ propertyDefinitionSchema = z
 			integerPropertySchema,
 			booleanPropertySchema,
 			datetimePropertySchema,
+			enumArrayPropertySchema,
 		]),
 	)
 	.openapi(

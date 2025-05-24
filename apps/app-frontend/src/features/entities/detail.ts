@@ -31,6 +31,9 @@ function formatEntityDetailPropertyValue(
 		.with("string", () =>
 			typeof value === "string" && value.trim() !== "" ? value : null,
 		)
+		.with("enum", () =>
+			typeof value === "string" && value.trim() !== "" ? value : null,
+		)
 		.with("date", () => {
 			if (typeof value === "string" && value.trim() !== "") {
 				const parsed = dayjs(value);
@@ -51,7 +54,7 @@ function formatEntityDetailPropertyValue(
 			}
 			return null;
 		})
-		.with("array", () => {
+		.with("array", "enum-array", () => {
 			if (Array.isArray(value) && value.length > 0) {
 				const items = value
 					.map((item) => {
