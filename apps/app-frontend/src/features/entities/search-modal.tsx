@@ -157,25 +157,9 @@ export function SearchEntityModalContent(props: {
 				pendingAction: "add",
 			});
 
-			let entityId: string | null = null;
 			try {
-				const entity = await addItem(item);
-				entityId = entity.id;
+				await addItem(item);
 				markDone(item.identifier, ["track"]);
-
-				if (collectionState.type === "collections") {
-					const firstCollection = collectionState.collections[0];
-					if (firstCollection) {
-						await addToCollection.mutateAsync({
-							body: {
-								entityId: entity.id,
-								collectionId: firstCollection.id,
-								properties: {},
-							},
-						});
-						markDone(item.identifier, ["collection"]);
-					}
-				}
 
 				props.onActionCompleted?.();
 				notifications.show({
@@ -188,20 +172,14 @@ export function SearchEntityModalContent(props: {
 					return;
 				}
 
-				const message = entityId
-					? `${item.titleProperty.value} is in your library, but could not be added to the collection: ${getErrorMessage(error)}`
-					: getErrorMessage(error);
-				if (entityId) {
-					markDone(item.identifier, ["track"]);
-				}
 				patchActionState(item.identifier, {
-					actionError: message,
+					actionError: getErrorMessage(error),
 				});
 			} finally {
 				patchActionState(item.identifier, { pendingAction: null });
 			}
 		},
-		[addItem, markDone, patchActionState, addToCollection, collectionState],
+		[addItem, markDone, patchActionState],
 	);
 
 	const runLifecycleAction = useCallback(
