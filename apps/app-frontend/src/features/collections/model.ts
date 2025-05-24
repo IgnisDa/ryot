@@ -20,8 +20,9 @@ export type AppCollection = {
 };
 
 export type CollectionDiscoveryState =
-	| { type: "loading" }
+	| { type: "error" }
 	| { type: "empty" }
+	| { type: "loading" }
 	| { type: "collections"; collections: AppCollection[] };
 
 export function extractMembershipPropertiesSchema(
@@ -58,10 +59,14 @@ export function toAppCollection(
 
 export function getCollectionDiscoveryState(
 	isLoading: boolean,
+	isError: boolean,
 	collections: AppCollection[],
 ): CollectionDiscoveryState {
 	if (isLoading) {
 		return { type: "loading" };
+	}
+	if (isError) {
+		return { type: "error" };
 	}
 	if (collections.length === 0) {
 		return { type: "empty" };
