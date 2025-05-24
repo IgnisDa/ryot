@@ -148,6 +148,7 @@ Supported ops:
 - `lte`
 - `in`
 - `isNull`
+- `isNotNull`
 - `contains`
 
 Examples:
@@ -157,6 +158,7 @@ Examples:
 { "op": "gte", "field": "entity.book.rating", "value": 4 }
 { "op": "in", "field": "entity.book.genre", "value": ["sci-fi", "fantasy"] }
 { "op": "isNull", "field": "event.review.rating" }
+{ "op": "isNotNull", "field": "entity.book.author" }
 { "op": "contains", "field": "entity.book.tags", "value": "classic" }
 ```
 
@@ -505,6 +507,7 @@ Use latest review rating when present, otherwise show publish year.
 - Sorting by an event field sorts by the latest joined event value.
 - If the join is missing for an entity, joined references resolve to `null`.
 - `isNull` is useful for “missing event” queries.
+- `isNotNull` is useful for “has event” queries (e.g. entities that have been reviewed).
 - Event built-ins such as `event.review.@createdAt` are often useful for “most recently reviewed” or “most recently purchased” views.
 
 ## Example Response With Event Fields
