@@ -543,14 +543,23 @@ describe("inline error display for validation and write failures", () => {
 			expect(openPanel).toBe("log");
 		});
 
-		it("closes panel on complete failure", () => {
-			const entityId: string | null = null;
-			const currentOpenPanel = "log" as const;
+		it("keeps panel open on complete failure to allow retry", () => {
+			const currentOpenPanel = "collection" as const;
 
-			// On complete failure, panel closes
-			const openPanel = entityId ? currentOpenPanel : null;
+			// On complete failure, panel stays open (not null) so user can retry
+			const openPanel = currentOpenPanel;
 
-			expect(openPanel).toBeNull();
+			expect(openPanel).toBe("collection");
+		});
+
+		it("keeps collection panel open on validation failure", () => {
+			const actionState: Partial<SearchResultRowActionState> = {
+				openPanel: "collection",
+				actionError: "Collection selection is required",
+			};
+
+			// Panel stays open so user can correct and retry
+			expect(actionState.openPanel).toBe("collection");
 		});
 	});
 });
