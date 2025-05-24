@@ -1,6 +1,9 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
-import { buildComputedFieldMap } from "~/lib/views/computed-fields";
+import {
+	buildComputedFieldMap,
+	getComputedFieldOrThrow,
+} from "~/lib/views/computed-fields";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import type {
 	RuntimeRef,
@@ -37,10 +40,6 @@ const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 const buildEventJoinJsonColumnExpression = (alias: string, joinKey: string) => {
 	return sql`${sql.raw(`${alias}.${getEventJoinColumnName(joinKey)}`)}`;
-};
-
-const toCompilePropertyType = (propertyType: PropertyType) => {
-	return normalizeExpressionPropertyType(propertyType);
 };
 
 const buildLiteralExpression = (
@@ -167,7 +166,10 @@ const buildEntityColumnExpression = <
 	const valueExpression = input.targetType
 		? castExpressionToType(expression, input.targetType)
 		: actualType
-			? castExpressionToType(expression, toCompilePropertyType(actualType))
+			? castExpressionToType(
+					expression,
+					normalizeExpressionPropertyType(actualType),
+				)
 			: expression;
 
 	if (
@@ -203,7 +205,7 @@ const buildSchemaPropertyExpression = <
 	const propertyJson = sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`;
 	const propertyText = sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`;
 	const valueExpression = buildCastedValueExpression(
-		input.targetType ?? toCompilePropertyType(propertyType),
+		input.targetType ?? normalizeExpressionPropertyType(propertyType),
 		{ propertyJson, propertyText },
 	);
 
@@ -234,7 +236,7 @@ const buildEventJoinColumnExpression = (input: {
 		input.reference.joinKey,
 	);
 	return buildCastedValueExpression(
-		input.targetType ?? toCompilePropertyType(propertyType),
+		input.targetType ?? normalizeExpressionPropertyType(propertyType),
 		{
 			propertyJson: sql`${joinColumn} -> ${input.reference.column}`,
 			propertyText: sql`${joinColumn} ->> ${input.reference.column}`,
@@ -267,7 +269,7 @@ const buildEventJoinPropertyExpression = <
 		input.reference.joinKey,
 	);
 	return buildCastedValueExpression(
-		input.targetType ?? toCompilePropertyType(propertyType),
+		input.targetType ?? normalizeExpressionPropertyType(propertyType),
 		{
 			propertyJson: sql`${joinColumn} -> 'properties' -> ${input.reference.property}`,
 			propertyText: sql`${joinColumn} -> 'properties' ->> ${input.reference.property}`,
@@ -401,12 +403,10 @@ export const createScalarExpressionCompiler = <
 				return cached;
 			}
 
-			const computedField = computedFieldMap.get(reference.key);
-			if (!computedField) {
-				throw new ViewRuntimeValidationError(
-					`Computed field '${reference.key}' is not part of this runtime request`,
-				);
-			}
+			const computedField = getComputedFieldOrThrow(
+				computedFieldMap,
+				reference.key,
+			);
 
 			const compiled = compile(computedField.expression, targetType);
 			expressionCache.set(cacheKey, compiled);

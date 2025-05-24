@@ -18,15 +18,13 @@ import {
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
-	createSavedViewResponseSchema,
-	deleteSavedViewParams,
 	listSavedViewsQuery,
 	listSavedViewsResponseSchema,
 	reorderSavedViewsBody,
 	reorderSavedViewsResponseSchema,
 	savedViewParams,
+	savedViewResponseSchema,
 	updateSavedViewBody,
-	updateSavedViewResponseSchema,
 } from "./schemas";
 import {
 	cloneSavedView,
@@ -58,8 +56,8 @@ const createSavedViewRoute = createAuthRoute(
 		summary: "Create a user-defined saved view",
 		request: { body: jsonBody(createSavedViewBody) },
 		responses: createStandardResponses({
+			successSchema: savedViewResponseSchema,
 			successDescription: "Saved view was created",
-			successSchema: createSavedViewResponseSchema,
 		}),
 	}),
 );
@@ -73,8 +71,8 @@ const getSavedViewByIdRoute = createAuthRoute(
 		request: { params: savedViewParams },
 		responses: createStandardResponses({
 			includePayloadError: false,
+			successSchema: savedViewResponseSchema,
 			notFoundDescription: "Saved view not found",
-			successSchema: createSavedViewResponseSchema,
 			successDescription: "Saved view was retrieved",
 		}),
 	}),
@@ -93,9 +91,9 @@ const updateSavedViewRoute = createAuthRoute(
 			body: jsonBody(updateSavedViewBody),
 		},
 		responses: createStandardResponses({
+			successSchema: savedViewResponseSchema,
 			notFoundDescription: "Saved view not found",
 			successDescription: "Saved view was updated",
-			successSchema: updateSavedViewResponseSchema,
 		}),
 	}),
 );
@@ -106,11 +104,11 @@ const deleteSavedViewRoute = createAuthRoute(
 		path: "/{viewId}",
 		tags: ["saved-views"],
 		summary: "Delete a user-defined saved view",
-		request: { params: deleteSavedViewParams },
+		request: { params: savedViewParams },
 		responses: createStandardResponses({
+			successSchema: savedViewResponseSchema,
 			notFoundDescription: "Saved view not found",
 			successDescription: "Saved view was deleted",
-			successSchema: createSavedViewResponseSchema,
 		}),
 	}),
 );
@@ -123,9 +121,9 @@ const cloneSavedViewRoute = createAuthRoute(
 		request: { params: savedViewParams },
 		summary: "Clone an existing saved view",
 		responses: createStandardResponses({
+			successSchema: savedViewResponseSchema,
 			successDescription: "Saved view was cloned",
 			notFoundDescription: "Saved view not found",
-			successSchema: createSavedViewResponseSchema,
 		}),
 	}),
 );

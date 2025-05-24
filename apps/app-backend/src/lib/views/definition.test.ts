@@ -1,11 +1,18 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { AppSchema } from "@ryot/ts-utils";
 import {
+	coalesceExpression,
+	comparisonPredicate,
+	computedExpression,
 	createSavedViewBody,
 	createSmartphoneSchema,
 	createTabletSchema,
+	entityExpression,
+	eventExpression,
+	literalExpression,
+	nullExpression,
+	sortDefinition,
 } from "~/lib/test-fixtures";
-import type { ViewExpression } from "~/lib/views/expression";
 import { createViewDefinitionModule } from "./definition";
 import { ViewRuntimeNotFoundError } from "./errors";
 
@@ -14,51 +21,6 @@ const createRuntimeSchemaRow = (input: {
 	slug: string;
 	propertiesSchema: AppSchema;
 }) => input;
-
-const entityExpression = (
-	schemaSlug: string,
-	field: string,
-): ViewExpression => ({
-	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
-		: { type: "schema-property", slug: schemaSlug, property: field },
-});
-
-const eventExpression = (joinKey: string, field: string): ViewExpression => ({
-	type: "reference",
-	reference: field.startsWith("@")
-		? { type: "event-join-column", joinKey, column: field.slice(1) }
-		: { type: "event-join-property", joinKey, property: field },
-});
-
-const computedExpression = (key: string): ViewExpression => ({
-	type: "reference",
-	reference: { key, type: "computed-field" },
-});
-
-const nullExpression = (): ViewExpression => ({ type: "literal", value: null });
-const literalExpression = (value: unknown): ViewExpression => ({
-	value,
-	type: "literal",
-});
-
-const coalesceExpression = (...values: ViewExpression[]): ViewExpression => ({
-	values,
-	type: "coalesce",
-});
-
-const sortDefinition = (expression: ViewExpression) => ({
-	expression,
-	direction: "asc" as const,
-});
-
-const comparisonPredicate = (left: ViewExpression, right: ViewExpression) => ({
-	left,
-	right,
-	operator: "eq" as const,
-	type: "comparison" as const,
-});
 
 const createSmartphoneDisplayConfiguration = () => ({
 	table: {

@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
 	buildComputedFieldMap,
+	getComputedFieldOrThrow,
 	orderComputedFields,
 } from "~/lib/views/computed-fields";
-import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import {
 	normalizeExpressionPropertyType,
@@ -136,12 +136,10 @@ const createDisplayExpressionResolver = <
 			expression.type === "reference" &&
 			expression.reference.type === "computed-field"
 		) {
-			const computedField = computedFieldMap.get(expression.reference.key);
-			if (!computedField) {
-				throw new ViewRuntimeValidationError(
-					`Computed field '${expression.reference.key}' is not part of this runtime request`,
-				);
-			}
+			const computedField = getComputedFieldOrThrow(
+				computedFieldMap,
+				expression.reference.key,
+			);
 
 			const cached = computedFieldCache.get(expression.reference.key);
 			if (cached) {
