@@ -2,7 +2,6 @@ import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { isAPIError } from "better-auth/api";
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { db } from "~/lib/db";
-import { builtinEntitySchemas, builtinTrackers } from "~/lib/db/seed/manifests";
 import {
 	createAuthRoute,
 	createValidationErrorResult,
@@ -17,6 +16,11 @@ import {
 } from "../entity-schemas/repository";
 import { createSavedViewsForUser } from "../saved-views/repository";
 import { createBuiltinTrackersForUser } from "../trackers/repository";
+import {
+	authenticationBuiltinEntitySchemas,
+	authenticationBuiltinSavedViews,
+	authenticationBuiltinTrackers,
+} from "./bootstrap/manifests";
 import { meResponseSchema, signUpBody, signUpResponseSchema } from "./schemas";
 import {
 	buildAuthenticationSavedViewInputs,
@@ -81,7 +85,7 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					database: tx,
 					userId: signUpResult.user.id,
 					trackers: buildAuthenticationTrackerInputs({
-						trackers: builtinTrackers(),
+						trackers: authenticationBuiltinTrackers(),
 					}),
 				});
 
@@ -94,7 +98,7 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					links: buildAuthenticationTrackerEntitySchemaLinks({
 						trackers: createdTrackers,
 						entitySchemas: builtinEntitySchemaRows,
-						schemaLinks: builtinEntitySchemas().map((schema) => ({
+						schemaLinks: authenticationBuiltinEntitySchemas().map((schema) => ({
 							slug: schema.slug,
 							trackerSlug: schema.trackerSlug,
 						})),
@@ -106,30 +110,8 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					userId: signUpResult.user.id,
 					views: buildAuthenticationSavedViewInputs({
 						trackers: createdTrackers,
-						savedViews: [
-							{
-								name: "All Books",
-								trackerSlug: "media",
-								entitySchemaSlug: "book",
-							},
-							{
-								name: "All Animes",
-								trackerSlug: "media",
-								entitySchemaSlug: "anime",
-							},
-							{
-								name: "All Mangas",
-								trackerSlug: "media",
-								entitySchemaSlug: "manga",
-							},
-							{
-								icon: "folders",
-								name: "Collections",
-								accentColor: "#F59E0B",
-								queryDefinition: { entitySchemaIds: [] },
-							},
-						],
 						entitySchemas: builtinEntitySchemaRows,
+						savedViews: authenticationBuiltinSavedViews(),
 					}),
 				});
 			});
