@@ -3,10 +3,12 @@ import { type DbClient, db } from "~/lib/db";
 import { savedView } from "~/lib/db/schema";
 import type {
 	CreateSavedViewBody,
-	DisplayConfiguration,
 	ListedSavedView,
-	SavedViewQueryDefinition,
 	UpdateSavedViewBody,
+} from "./schemas";
+import {
+	displayConfigurationSchema,
+	storedSavedViewQueryDefinitionSchema,
 } from "./schemas";
 
 type SavedViewCreateInput = CreateSavedViewBody & {
@@ -38,11 +40,15 @@ const savedViewSelection = {
 };
 
 const toSavedView = (row: SavedViewRow): ListedSavedView => {
-	const queryDefinition = row.queryDefinition as SavedViewQueryDefinition;
+	const queryDefinition = storedSavedViewQueryDefinitionSchema.parse(
+		row.queryDefinition,
+	);
 
 	return {
 		...row,
-		displayConfiguration: row.displayConfiguration as DisplayConfiguration,
+		displayConfiguration: displayConfigurationSchema.parse(
+			row.displayConfiguration,
+		),
 		queryDefinition: {
 			...queryDefinition,
 			eventJoins: queryDefinition.eventJoins ?? [],

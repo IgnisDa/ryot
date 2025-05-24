@@ -1,4 +1,3 @@
-import type { AppSchema } from "@ryot/ts-utils";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { db } from "~/lib/db";
@@ -11,6 +10,7 @@ import {
 	type ViewRuntimeEventSchemaLike,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
+import { propertySchemaObjectSchema } from "~/modules/property-schemas/schemas";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
@@ -56,6 +56,10 @@ type ViewDefinitionModuleDeps = {
 type ViewRuntimeEventSchemaRow = ViewRuntimeEventSchemaLike;
 
 type PreparedEventJoin = ViewRuntimeEventJoinLike<ViewRuntimeEventSchemaRow>;
+
+const parseAppSchema = (value: unknown) => {
+	return propertySchemaObjectSchema.parse(value);
+};
 
 type PreparedViewState = {
 	userId: string;
@@ -103,7 +107,7 @@ const loadVisibleSchemas = async (input: {
 
 	const schemas = rows.map((row) => ({
 		...row,
-		propertiesSchema: row.propertiesSchema as AppSchema,
+		propertiesSchema: parseAppSchema(row.propertiesSchema),
 	}));
 	const schemasBySlug = new Map<string, ViewRuntimeSchemaRow[]>();
 	for (const schema of schemas) {
@@ -172,7 +176,7 @@ const loadVisibleEventJoins = async (input: {
 
 	const visibleEventSchemas = rows.map((row) => ({
 		...row,
-		propertiesSchema: row.propertiesSchema as AppSchema,
+		propertiesSchema: parseAppSchema(row.propertiesSchema),
 	}));
 	const eventSchemasByEntitySchemaKey = new Map<
 		string,
@@ -222,53 +226,32 @@ const buildRuntimeFields = (input: {
 	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
 }): ViewRuntimeField[] => {
+	const buildCardRuntimeFields = (
+		configuration: DisplayConfiguration["grid"],
+	) => {
+		return [
+			{
+				key: "image",
+				expression: configuration.imageProperty ?? nullViewExpression,
+			},
+			{
+				key: "title",
+				expression: configuration.titleProperty ?? nullViewExpression,
+			},
+			{
+				key: "subtitle",
+				expression: configuration.subtitleProperty ?? nullViewExpression,
+			},
+			{
+				key: "badge",
+				expression: configuration.badgeProperty ?? nullViewExpression,
+			},
+		];
+	};
+
 	return match(input.layout)
-		.with("grid", () => [
-			{
-				key: "image",
-				expression:
-					input.displayConfiguration.grid.imageProperty ?? nullViewExpression,
-			},
-			{
-				key: "title",
-				expression:
-					input.displayConfiguration.grid.titleProperty ?? nullViewExpression,
-			},
-			{
-				key: "subtitle",
-				expression:
-					input.displayConfiguration.grid.subtitleProperty ??
-					nullViewExpression,
-			},
-			{
-				key: "badge",
-				expression:
-					input.displayConfiguration.grid.badgeProperty ?? nullViewExpression,
-			},
-		])
-		.with("list", () => [
-			{
-				key: "image",
-				expression:
-					input.displayConfiguration.list.imageProperty ?? nullViewExpression,
-			},
-			{
-				key: "title",
-				expression:
-					input.displayConfiguration.list.titleProperty ?? nullViewExpression,
-			},
-			{
-				key: "subtitle",
-				expression:
-					input.displayConfiguration.list.subtitleProperty ??
-					nullViewExpression,
-			},
-			{
-				key: "badge",
-				expression:
-					input.displayConfiguration.list.badgeProperty ?? nullViewExpression,
-			},
-		])
+		.with("grid", () => buildCardRuntimeFields(input.displayConfiguration.grid))
+		.with("list", () => buildCardRuntimeFields(input.displayConfiguration.list))
 		.with("table", () => {
 			return input.displayConfiguration.table.columns.map((column, index) => ({
 				key: `column_${index}`,
