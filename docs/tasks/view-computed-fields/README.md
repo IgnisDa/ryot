@@ -157,9 +157,9 @@ View-runtime execution will validate references and types against the participat
 
 ## Tasks
 
-**Overall Progress:** 5 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 06](./06-validation-hardening-docs-and-tests.md) (todo)
+**Current Task:** None (complete)
 
 ### Task List
 
@@ -170,4 +170,4 @@ View-runtime execution will validate references and types against the participat
 | 03  | [Expression Filtering And Sorting](./03-expression-filtering-and-sorting.md)         | AFK  | done   | Task 02          |
 | 04  | [Rich Derived Expression Support](./04-rich-derived-expression-support.md)           | AFK  | done   | Task 03          |
 | 05  | [Frontend Read-Only View Management](./05-frontend-read-only-view-management.md)     | AFK  | done   | Task 02          |
-| 06  | [Validation Hardening, Docs, And Tests](./06-validation-hardening-docs-and-tests.md) | AFK  | todo   | Task 04, Task 05 |
+| 06  | [Validation Hardening, Docs, And Tests](./06-validation-hardening-docs-and-tests.md) | AFK  | done   | Task 04, Task 05 |
