@@ -23,7 +23,10 @@ For concrete executable examples, also see:
 {
   "sort": {
     "direction": "asc",
-    "fields": ["entity.book.@name"]
+    "expression": {
+      "type": "reference",
+      "reference": { "type": "computed-field", "key": "displayName" }
+    }
   },
   "pagination": {
     "page": 1,
@@ -39,7 +42,15 @@ For concrete executable examples, also see:
       }
     }
   ],
-  "filters": [],
+  "filter": {
+    "type": "comparison",
+    "operator": "eq",
+    "left": {
+      "type": "reference",
+      "reference": { "type": "computed-field", "key": "displayName" }
+    },
+    "right": { "type": "literal", "value": "Dune" }
+  },
   "entitySchemaSlugs": ["book"],
   "fields": [
     {
@@ -62,12 +73,12 @@ For concrete executable examples, also see:
 
 ## Top-Level Keys
 
-- `sort.fields`: one or more explicit references
+- `sort.expression`: a single expression used for ordering
 - `sort.direction`: `asc` or `desc`
 - `pagination.page`: 1-based integer
 - `pagination.limit`: positive integer
 - `entitySchemaSlugs`: one or more schema slugs included in the query
-- `filters`: zero or more filter expressions
+- `filter`: a predicate AST or `null`
 - `eventJoins`: zero or more event join definitions
 - `computedFields`: zero or more named reusable expressions
 - `fields`: ordered list of output fields
@@ -208,12 +219,36 @@ Supported ops:
 Examples:
 
 ```json
-{ "op": "eq", "field": "entity.book.status", "value": "owned" }
-{ "op": "gte", "field": "entity.book.rating", "value": 4 }
-{ "op": "in", "field": "entity.book.genre", "value": ["sci-fi", "fantasy"] }
-{ "op": "isNull", "field": "event.review.rating" }
-{ "op": "isNotNull", "field": "entity.book.author" }
-{ "op": "contains", "field": "entity.book.tags", "value": "classic" }
+{
+  "type": "comparison",
+  "operator": "gte",
+  "left": {
+    "type": "reference",
+    "reference": { "type": "schema-property", "slug": "book", "property": "rating" }
+  },
+  "right": { "type": "literal", "value": 4 }
+}
+
+{
+  "type": "and",
+  "predicates": [
+    {
+      "type": "contains",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "schema-property", "slug": "book", "property": "tags" }
+      },
+      "value": { "type": "literal", "value": "classic" }
+    },
+    {
+      "type": "isNotNull",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "event-join-property", "joinKey": "review", "property": "rating" }
+      }
+    }
+  ]
+}
 ```
 
 ## Response Shape

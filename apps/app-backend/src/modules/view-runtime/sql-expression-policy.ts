@@ -12,7 +12,7 @@ export const buildCastedValueExpression = (
 		.with("integer", () => sql`(${input.propertyText})::integer`)
 		.with("number", () => sql`(${input.propertyText})::numeric`)
 		.with("boolean", () => sql`(${input.propertyText})::boolean`)
-		.with("date", () => sql`(${input.propertyText})::timestamp`)
+		.with("date", "datetime", () => sql`(${input.propertyText})::timestamp`)
 		.with("array", "object", () => input.propertyJson)
 		.otherwise(() => input.propertyText);
 

@@ -213,6 +213,7 @@ const normalizeQueryDefinition = (
 	queryDefinition: SavedViewQueryDefinition,
 ): SavedViewQueryDefinition => ({
 	...queryDefinition,
+	filter: queryDefinition.filter ?? null,
 	eventJoins: queryDefinition.eventJoins ?? [],
 	computedFields: queryDefinition.computedFields ?? [],
 });
@@ -286,7 +287,7 @@ const buildRuntimeRequest = (input: {
 		fields: input.fields,
 		pagination: input.pagination,
 		sort: input.queryDefinition.sort,
-		filters: input.queryDefinition.filters,
+		filter: input.queryDefinition.filter,
 		eventJoins: input.queryDefinition.eventJoins,
 		computedFields: input.queryDefinition.computedFields,
 		entitySchemaSlugs: input.queryDefinition.entitySchemaSlugs,
@@ -394,7 +395,7 @@ export const createViewDefinitionModule = (
 			input.source.kind === "runtime"
 				? normalizeQueryDefinition({
 						sort: input.source.request.sort,
-						filters: input.source.request.filters,
+						filter: input.source.request.filter,
 						eventJoins: input.source.request.eventJoins,
 						entitySchemaSlugs: input.source.request.entitySchemaSlugs,
 					})

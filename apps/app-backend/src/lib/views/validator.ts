@@ -7,7 +7,11 @@ import type {
 	ViewComputedField,
 	ViewExpression,
 } from "./expression";
-import { validateFilterExpressionAgainstSchemas } from "./predicate-validator";
+import {
+	assertSortableExpression,
+	inferViewExpressionType,
+} from "./expression-analysis";
+import { validateViewPredicateAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
 	getEntityColumnPropertyDefinition,
@@ -181,13 +185,26 @@ export const validateViewRuntimeReferences = (
 		computedFields: request.computedFields,
 	});
 
-	for (const field of request.sort.fields) {
-		validateReferenceAgainstSchemas(field, context, sortFilterBuiltins);
-	}
+	validateExpressionAgainstSchemas(
+		request.sort.expression,
+		context,
+		sortFilterBuiltins,
+		computedFieldMap,
+	);
+	assertSortableExpression(
+		inferViewExpressionType({
+			context,
+			computedFieldMap,
+			expression: request.sort.expression,
+		}),
+	);
 
-	for (const filter of request.filters) {
-		validateReferenceAgainstSchemas(filter.field, context, sortFilterBuiltins);
-		validateFilterExpressionAgainstSchemas(filter, context);
+	if (request.filter) {
+		validateViewPredicateAgainstSchemas({
+			context,
+			predicate: request.filter,
+			computedFields: request.computedFields,
+		});
 	}
 
 	for (const field of request.fields) {
