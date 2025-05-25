@@ -72,7 +72,7 @@ async function createMinioBucket(
 async function startFrontendProcess(
 	frontendPort: number,
 ): Promise<ChildProcess> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		console.log(
 			`[Orchestrator] Starting frontend process on port ${frontendPort}...`,
 		);
@@ -87,39 +87,12 @@ async function startFrontendProcess(
 			},
 		);
 
-		frontendProcess.stdout?.on("data", (data: Buffer) => {
-			const output = data.toString();
-			for (const line of output.split("\n")) {
-				if (line.trim()) console.log(`[Frontend STDOUT] ${line.trim()}`);
-			}
-		});
-
 		setTimeout(() => {
 			console.log(
 				"[Orchestrator] Frontend process assumed ready after 5 seconds.",
 			);
 			resolve(frontendProcess);
 		}, 5000);
-
-		frontendProcess.stderr?.on("data", (data: Buffer) => {
-			const errorOutput = data.toString();
-			for (const line of errorOutput.split("\n")) {
-				if (line.trim()) console.error(`[Frontend STDERR] ${line.trim()}`);
-			}
-		});
-
-		frontendProcess.on("error", (err) => {
-			console.error("[Orchestrator] Failed to start frontend process:", err);
-			reject(err);
-		});
-
-		frontendProcess.on("exit", (code, signal) => {
-			if (code !== 0 && signal !== "SIGINT" && signal !== "SIGTERM") {
-				console.error(
-					`[Orchestrator] Frontend process exited unexpectedly with code ${code} and signal ${signal}`,
-				);
-			}
-		});
 	});
 }
 
@@ -172,13 +145,6 @@ async function startCaddyProcess(
 			},
 		);
 
-		caddyProcess.stdout?.on("data", (data: Buffer) => {
-			const output = data.toString();
-			for (const line of output.split("\n")) {
-				if (line.trim()) console.log(`[Caddy STDOUT] ${line.trim()}`);
-			}
-		});
-
 		const healthCheckUrl = `http://127.0.0.1:${caddyPort}/health`;
 
 		setTimeout(async () => {
@@ -193,26 +159,6 @@ async function startCaddyProcess(
 				reject(err);
 			}
 		}, 2000);
-
-		caddyProcess.stderr?.on("data", (data: Buffer) => {
-			const errorOutput = data.toString();
-			for (const line of errorOutput.split("\n")) {
-				if (line.trim()) console.error(`[Caddy STDERR] ${line.trim()}`);
-			}
-		});
-
-		caddyProcess.on("error", (err) => {
-			console.error("[Orchestrator] Failed to start Caddy process:", err);
-			reject(err);
-		});
-
-		caddyProcess.on("exit", (code, signal) => {
-			if (code !== 0 && signal !== "SIGINT" && signal !== "SIGTERM") {
-				console.error(
-					`[Orchestrator] Caddy process exited unexpectedly with code ${code} and signal ${signal}`,
-				);
-			}
-		});
 	});
 }
 
@@ -223,7 +169,7 @@ async function startBackendProcess(
 	minioSecretKey: string,
 	backendPort: number,
 ): Promise<ChildProcess> {
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		console.log(
 			`[Orchestrator] Starting backend process on port ${backendPort}...`,
 		);
@@ -247,39 +193,12 @@ async function startBackendProcess(
 			},
 		);
 
-		backendProcess.stdout?.on("data", (data: Buffer) => {
-			const output = data.toString();
-			for (const line of output.split("\n")) {
-				if (line.trim()) console.log(`[Backend STDOUT] ${line.trim()}`);
-			}
-		});
-
 		setTimeout(() => {
 			console.log(
 				"[Orchestrator] Backend process assumed ready after 5 seconds.",
 			);
 			resolve(backendProcess);
 		}, 5000);
-
-		backendProcess.stderr?.on("data", (data: Buffer) => {
-			const errorOutput = data.toString();
-			for (const line of errorOutput.split("\n")) {
-				if (line.trim()) console.error(`[Backend STDERR] ${line.trim()}`);
-			}
-		});
-
-		backendProcess.on("error", (err) => {
-			console.error("[Orchestrator] Failed to start backend process:", err);
-			reject(err);
-		});
-
-		backendProcess.on("exit", (code, signal) => {
-			if (code !== 0 && signal !== "SIGINT" && signal !== "SIGTERM") {
-				console.error(
-					`[Orchestrator] Backend process exited unexpectedly with code ${code} and signal ${signal}`,
-				);
-			}
-		});
 	});
 }
 
