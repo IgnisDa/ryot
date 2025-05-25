@@ -1,15 +1,17 @@
-import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
+import { config } from "dotenv";
 
-export default defineConfig(({ mode }) => {
+config();
+
+export default defineConfig(() => {
 	return {
 		test: {
 			globals: true,
+			env: process.env,
 			testTimeout: 60000,
 			hookTimeout: 60000,
 			environment: "node",
 			globalSetup: ["./src/setup/globalSetup.ts"],
-			env: loadEnv(mode, process.cwd(), ""),
 		},
 	};
 });

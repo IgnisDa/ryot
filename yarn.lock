@@ -7179,6 +7179,7 @@ __metadata:
   dependencies:
     "@aws-sdk/client-s3": "npm:3.817.0"
     "@testcontainers/postgresql": "npm:10.28.0"
+    dotenv: "npm:16.5.0"
     get-port: "npm:7.1.0"
     graphql: "npm:16.11.0"
     graphql-request: "npm:7.1.2"
