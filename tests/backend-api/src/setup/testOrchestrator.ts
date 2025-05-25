@@ -96,9 +96,9 @@ async function startBackendProcess(
 			"cargo",
 			["run", "--release", "--bin", "backend"],
 			{
-				env: backendEnv,
 				cwd: MONOREPO_ROOT,
 				stdio: ["ignore", "pipe", "pipe"],
+				env: { ...process.env, ...backendEnv },
 			},
 		);
 
