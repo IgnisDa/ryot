@@ -190,11 +190,15 @@ async function startBackendProcess(
 			FILE_STORAGE_S3_SECRET_ACCESS_KEY: MINIO_SECRET_KEY,
 		};
 
-		const backendProcess = spawn("cargo", ["run", "--bin", "backend"], {
-			cwd: MONOREPO_ROOT,
-			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env, ...backendEnv },
-		});
+		const backendProcess = spawn(
+			"cargo",
+			["run", "--release", "--bin", "backend"],
+			{
+				cwd: MONOREPO_ROOT,
+				stdio: ["ignore", "pipe", "pipe"],
+				env: { ...process.env, ...backendEnv },
+			},
+		);
 
 		setupProcessLogging(backendProcess);
 
