@@ -6,7 +6,7 @@
 :{$PORT:8000} {
 	vars {
 		frontend_url "127.0.0.1:3000"
-		backend_url "127.0.0.1:5000"
+		backend_url {$CADDY_BACKEND_TARGET:127.0.0.1:5000}
 	}
 
 	handle_path /_i/* {
