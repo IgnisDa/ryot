@@ -66,8 +66,8 @@ async fn main() -> Result<()> {
         sleep(duration).await;
     }
 
-    let host = config.server.host.clone();
-    let port = config.server.port;
+    let host = config.server.backend_host.clone();
+    let port = config.server.backend_port;
     let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
 

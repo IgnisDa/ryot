@@ -172,7 +172,7 @@ async function startBackendProcess(
 		const backendEnv = {
 			DATABASE_URL: dbUrl,
 			FILE_STORAGE_S3_URL: minioEndpoint,
-			BACKEND_PORT: backendPort.toString(),
+			SERVER_BACKEND_PORT: backendPort.toString(),
 			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
 			FILE_STORAGE_S3_ACCESS_KEY_ID: MINIO_ACCESS_KEY,
 			USERS_JWT_SECRET: "test-jwt-secret-for-e2e-tests",
