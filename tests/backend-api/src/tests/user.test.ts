@@ -114,6 +114,6 @@ describe("User related tests", () => {
 		);
 
 		expect(userMetadataList).toBeDefined();
-		expect(userMetadataList).toHaveLength(0);
+		expect(userMetadataList.response.items).toHaveLength(0);
 	});
 });
