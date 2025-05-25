@@ -1,26 +1,20 @@
-import { execa, type ExecaMethod as ExecaMethodInt } from "execa";
+import type { ExecaChildProcess } from "execa";
+import { execa } from "execa";
 import path from "node:path";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import getPort from "get-port";
-import {
-	GenericContainer,
-	Network,
-	Wait,
-	type StartedNetwork,
-	type StartedTestContainer,
-} from "testcontainers";
+import type { StartedNetwork, StartedTestContainer } from "testcontainers";
+import { GenericContainer, Network, Wait } from "testcontainers";
 import { TEST_ADMIN_ACCESS_TOKEN } from "../utils";
-
-type ExecaMethod = ReturnType<ExecaMethodInt>;
 
 export interface StartedServices {
 	caddyBaseUrl: string;
 	network: StartedNetwork;
-	caddyProcess: ExecaMethod;
-	backendProcess: ExecaMethod;
-	frontendProcess: ExecaMethod;
+	caddyProcess: ExecaChildProcess;
+	backendProcess: ExecaChildProcess;
+	frontendProcess: ExecaChildProcess;
 	minioContainer: StartedTestContainer;
 	pgContainer: StartedPostgreSqlContainer;
 }
@@ -68,7 +62,7 @@ async function createMinioBucket(endpoint: string): Promise<void> {
 
 async function startFrontendProcess(
 	frontendPort: number,
-): Promise<ExecaMethod> {
+): Promise<ExecaChildProcess> {
 	console.log(
 		`[Orchestrator] Starting frontend process on port ${frontendPort}...`,
 	);
@@ -117,7 +111,7 @@ async function startCaddyProcess(
 	caddyPort: number,
 	backendPort: number,
 	frontendPort: number,
-): Promise<ExecaMethod> {
+): Promise<ExecaChildProcess> {
 	console.log(`[Orchestrator] Starting Caddy process on port ${caddyPort}...`);
 
 	const caddyEnv = {
@@ -156,7 +150,7 @@ async function startBackendProcess(
 	dbUrl: string,
 	backendPort: number,
 	minioEndpoint: string,
-): Promise<ExecaMethod> {
+): Promise<ExecaChildProcess> {
 	console.log(
 		`[Orchestrator] Starting backend process on port ${backendPort}...`,
 	);
