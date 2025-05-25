@@ -5,6 +5,3 @@ tasks:
   test-watch:
     command: "vitest"
     local: true
-
-  typecheck:
-    command: "tsc --noEmit"
