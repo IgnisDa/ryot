@@ -1,4 +1,10 @@
-import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	UserDetailsDocument,
+	UserCollectionsListDocument,
+	UserImportReportsDocument,
+	UserIntegrationsDocument,
+	UserNotificationPlatformsDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { getGraphqlClient } from "src/utils";
 import { describe, expect, it } from "vitest";
 
@@ -41,5 +47,61 @@ describe("User related tests", () => {
 
 		expect(userDetails).toBeDefined();
 		expect(userDetails.__typename).toBe("UserDetailsError");
+	});
+
+	it("should have 7 system-created collections", async () => {
+		const client = getGraphqlClient(url);
+		const { userCollectionsList } = await client.request(
+			UserCollectionsListDocument,
+			{},
+			{
+				Authorization: `Bearer ${process.env.USER_API_KEY}`,
+			},
+		);
+
+		expect(userCollectionsList).toBeDefined();
+		expect(userCollectionsList.response).toHaveLength(7);
+	});
+
+	it("should have 0 imports", async () => {
+		const client = getGraphqlClient(url);
+		const { userImportReports } = await client.request(
+			UserImportReportsDocument,
+			{},
+			{
+				Authorization: `Bearer ${process.env.USER_API_KEY}`,
+			},
+		);
+
+		expect(userImportReports).toBeDefined();
+		expect(userImportReports).toHaveLength(0);
+	});
+
+	it("should have 0 integrations", async () => {
+		const client = getGraphqlClient(url);
+		const { userIntegrations } = await client.request(
+			UserIntegrationsDocument,
+			{},
+			{
+				Authorization: `Bearer ${process.env.USER_API_KEY}`,
+			},
+		);
+
+		expect(userIntegrations).toBeDefined();
+		expect(userIntegrations).toHaveLength(0);
+	});
+
+	it("should have 0 notification platforms", async () => {
+		const client = getGraphqlClient(url);
+		const { userNotificationPlatforms } = await client.request(
+			UserNotificationPlatformsDocument,
+			{},
+			{
+				Authorization: `Bearer ${process.env.USER_API_KEY}`,
+			},
+		);
+
+		expect(userNotificationPlatforms).toBeDefined();
+		expect(userNotificationPlatforms).toHaveLength(0);
 	});
 });
