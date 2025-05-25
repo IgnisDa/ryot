@@ -196,7 +196,7 @@ export async function startAllServices(): Promise<StartedServices> {
 	);
 
 	console.log("[Orchestrator] Starting Caddy container...");
-	const caddyContainer = await new GenericContainer("caddy:2-alpine")
+	const caddyContainer = await new GenericContainer("caddy:2.9.1")
 		.withNetwork(network)
 		.withCopyFilesToContainer([
 			{
