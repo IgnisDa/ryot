@@ -14,6 +14,9 @@ export const getGraphqlClient = (baseUrl: string) => {
 export async function registerTestUser(baseUrl: string): Promise<string> {
 	const username = faker.internet.username();
 	const password = faker.internet.password();
+	console.log(
+		`[Test Utils] Registering user with username: ${username}, password: ${password}`,
+	);
 	const client = getGraphqlClient(baseUrl);
 
 	try {
