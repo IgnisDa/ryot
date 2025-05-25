@@ -345,10 +345,10 @@ pub struct OidcConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
-    /// The host address to bind the server to.
+    /// The host address to bind the backend server to.
     #[setting(default = "0.0.0.0")]
     pub backend_host: String,
-    /// The port number to bind the server to.
+    /// The port number to bind the backend server to.
     #[setting(default = 5000)]
     pub backend_port: usize,
     /// Whether this is a demo instance.

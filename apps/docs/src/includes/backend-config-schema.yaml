@@ -158,11 +158,11 @@ server:
   # @envvar SERVER_ADMIN_ACCESS_TOKEN
   admin_access_token: ""
 
-  # The host address to bind the server to.
+  # The host address to bind the backend server to.
   # @envvar SERVER_BACKEND_HOST
   backend_host: "0.0.0.0"
 
-  # The port number to bind the server to.
+  # The port number to bind the backend server to.
   # @envvar SERVER_BACKEND_PORT
   backend_port: 5000
 
