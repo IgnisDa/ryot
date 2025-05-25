@@ -80,20 +80,22 @@ try {
 
 	const factory = new Function(wrapperCode);
 	const userFunction = factory(driver);
-	const value = await userFunction(stubs, context);
+	await userFunction(stubs, context);
 
-	if (driverName) {
-		const driverFn = driverRegistry[driverName];
-		if (!driverFn) {
-			writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script` });
-			Deno.exit(0);
-		}
-		const meta = scriptId ? { sandboxScriptId: scriptId } : undefined;
-		const driverResult = await driverFn(context, meta);
-		writeResult({ success: true, value: driverResult ?? null });
-	} else {
-		writeResult({ success: true, value: value ?? null });
+	if (!driverName) {
+		writeResult({ success: false, error: "driverName is required" });
+		Deno.exit(0);
 	}
+
+	const driverFn = driverRegistry[driverName];
+	if (!driverFn) {
+		writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script` });
+		Deno.exit(0);
+	}
+
+	const meta = scriptId ? { sandboxScriptId: scriptId } : undefined;
+	const driverResult = await driverFn(context, meta);
+	writeResult({ success: true, value: driverResult ?? null });
 } catch (error) {
 	writeResult({
 		success: false,

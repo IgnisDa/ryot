@@ -7,8 +7,8 @@ import {
 } from "~/lib/zod/base";
 
 const enqueueSandboxCodeBody = z.object({
+	driverName: nonEmptyStringSchema,
 	kind: z.literal("code").optional(),
-	driverName: nonEmptyStringSchema.optional(),
 	context: stringUnknownRecordSchema.optional(),
 	code: nonEmptyStringSchema.max(20_000),
 });
@@ -16,7 +16,7 @@ const enqueueSandboxCodeBody = z.object({
 const enqueueSandboxScriptBody = z.object({
 	scriptId: nonEmptyStringSchema,
 	kind: z.literal("script"),
-	driverName: nonEmptyStringSchema.optional(),
+	driverName: nonEmptyStringSchema,
 	context: stringUnknownRecordSchema.optional(),
 });
 
@@ -45,10 +45,10 @@ export const sandboxFailedResultSchema = z.object({
 });
 
 const sandboxResultValueSchema = z.union([
+	z.null(),
 	z.string(),
 	z.number(),
 	z.boolean(),
-	z.null(),
 	z.array(z.unknown()),
 	z.record(z.string(), z.unknown()),
 ]);
@@ -62,8 +62,8 @@ export const sandboxCompletedResultSchema = z.object({
 
 export const pollSandboxResultResponseSchema = dataSchema(
 	z.discriminatedUnion("status", [
-		sandboxPendingResultSchema,
 		sandboxFailedResultSchema,
+		sandboxPendingResultSchema,
 		sandboxCompletedResultSchema,
 	]),
 );
