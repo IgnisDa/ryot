@@ -1,12 +1,12 @@
-import path from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
-import type { StartedNetwork, StartedTestContainer } from "testcontainers";
-import { GenericContainer, Network, Wait } from "testcontainers";
+import path from "node:path";
+import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { S3Client, CreateBucketCommand } from "@aws-sdk/client-s3";
 import getPort from "get-port";
+import type { StartedNetwork, StartedTestContainer } from "testcontainers";
+import { GenericContainer, Network, Wait } from "testcontainers";
 
 export interface StartedServices {
 	pgContainer: StartedPostgreSqlContainer;
@@ -96,8 +96,8 @@ async function startBackendProcess(
 			"cargo",
 			["run", "--release", "--bin", "backend"],
 			{
-				cwd: path.join(MONOREPO_ROOT, "apps", "backend"),
 				env: backendEnv,
+				cwd: MONOREPO_ROOT,
 				stdio: ["ignore", "pipe", "pipe"],
 			},
 		);

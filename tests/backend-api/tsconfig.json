@@ -2,10 +2,7 @@
 	"compilerOptions": {
 		"target": "ES2021",
 		"module": "ESNext",
-		"lib": [
-			"ES2021",
-			"DOM"
-		],
+		"lib": ["ES2021", "DOM"],
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
 		"strict": true,
@@ -14,24 +11,11 @@
 		"outDir": "../../.moon/cache/types/tests/backend-api",
 		"baseUrl": ".",
 		"paths": {
-			"@ryot/graphql/*": [
-				"../../libs/graphql/src/*"
-			],
-			"@ryot/graphql": [
-				"../../libs/graphql/src/index.ts"
-			]
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/graphql": ["../../libs/graphql/src/index.ts"]
 		},
-		"types": [
-			"vitest/globals",
-			"node"
-		]
+		"types": ["vitest/globals", "node"]
 	},
-	"include": [
-		"src/**/*.ts",
-		"vitest.config.ts"
-	],
-	"exclude": [
-		"node_modules",
-		"dist"
-	]
+	"include": ["src/**/*.ts", "vitest.config.ts"],
+	"exclude": ["node_modules", "dist"]
 }
