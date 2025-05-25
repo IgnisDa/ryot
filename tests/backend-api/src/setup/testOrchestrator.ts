@@ -376,81 +376,104 @@ export async function stopAllServices(
 	if (!services) {
 		return;
 	}
-	try {
-		console.log("[Orchestrator] Stopping Caddy process...");
-		if (services.caddyProcess && !services.caddyProcess.killed) {
-			const killed = services.caddyProcess.kill("SIGINT");
-			if (killed) {
-				await new Promise((resolve) =>
-					services.caddyProcess.on("exit", resolve),
-				);
-				console.log("[Orchestrator] Caddy process terminated.");
-			} else {
-				console.warn("[Orchestrator] Failed to send SIGINT to Caddy process.");
+
+	console.log("[Orchestrator] Stopping all services in parallel...");
+
+	const stopCaddy = async () => {
+		try {
+			if (services.caddyProcess && !services.caddyProcess.killed) {
+				const killed = services.caddyProcess.kill("SIGINT");
+				if (killed) {
+					await new Promise((resolve) =>
+						services.caddyProcess.on("exit", resolve),
+					);
+					console.log("[Orchestrator] Caddy process terminated.");
+				} else {
+					console.warn(
+						"[Orchestrator] Failed to send SIGINT to Caddy process.",
+					);
+				}
 			}
+		} catch (e) {
+			console.error("Error stopping Caddy process:", e);
 		}
-	} catch (e) {
-		console.error("Error stopping Caddy process:", e);
-	}
+	};
 
-	try {
-		console.log("[Orchestrator] Stopping frontend process...");
-		if (services.frontendProcess && !services.frontendProcess.killed) {
-			const killed = services.frontendProcess.kill("SIGINT");
-			if (killed) {
-				await new Promise((resolve) =>
-					services.frontendProcess.on("exit", resolve),
-				);
-				console.log("[Orchestrator] Frontend process terminated.");
-			} else {
-				console.warn(
-					"[Orchestrator] Failed to send SIGINT to frontend process.",
-				);
+	const stopFrontend = async () => {
+		try {
+			if (services.frontendProcess && !services.frontendProcess.killed) {
+				const killed = services.frontendProcess.kill("SIGINT");
+				if (killed) {
+					await new Promise((resolve) =>
+						services.frontendProcess.on("exit", resolve),
+					);
+					console.log("[Orchestrator] Frontend process terminated.");
+				} else {
+					console.warn(
+						"[Orchestrator] Failed to send SIGINT to frontend process.",
+					);
+				}
 			}
+		} catch (e) {
+			console.error("Error stopping frontend process:", e);
 		}
-	} catch (e) {
-		console.error("Error stopping frontend process:", e);
-	}
+	};
 
-	try {
-		console.log("[Orchestrator] Stopping backend process...");
-		if (services.backendProcess && !services.backendProcess.killed) {
-			const killed = services.backendProcess.kill("SIGINT");
-			if (killed) {
-				await new Promise((resolve) =>
-					services.backendProcess.on("exit", resolve),
-				);
-				console.log("[Orchestrator] Backend process terminated.");
-			} else {
-				console.warn(
-					"[Orchestrator] Failed to send SIGINT to backend process.",
-				);
+	const stopBackend = async () => {
+		try {
+			if (services.backendProcess && !services.backendProcess.killed) {
+				const killed = services.backendProcess.kill("SIGINT");
+				if (killed) {
+					await new Promise((resolve) =>
+						services.backendProcess.on("exit", resolve),
+					);
+					console.log("[Orchestrator] Backend process terminated.");
+				} else {
+					console.warn(
+						"[Orchestrator] Failed to send SIGINT to backend process.",
+					);
+				}
 			}
+		} catch (e) {
+			console.error("Error stopping backend process:", e);
 		}
-	} catch (e) {
-		console.error("Error stopping backend process:", e);
-	}
+	};
 
-	try {
-		console.log("[Orchestrator] Stopping MinIO container...");
-		await services.minioContainer.stop();
-	} catch (e) {
-		console.error("Error stopping MinIO container:", e);
-	}
+	const stopMinio = async () => {
+		try {
+			await services.minioContainer.stop();
+			console.log("[Orchestrator] MinIO container stopped.");
+		} catch (e) {
+			console.error("Error stopping MinIO container:", e);
+		}
+	};
 
-	try {
-		console.log("[Orchestrator] Stopping PostgreSQL container...");
-		await services.pgContainer.stop();
-	} catch (e) {
-		console.error("Error stopping PostgreSQL container:", e);
-	}
+	const stopPostgres = async () => {
+		try {
+			await services.pgContainer.stop();
+			console.log("[Orchestrator] PostgreSQL container stopped.");
+		} catch (e) {
+			console.error("Error stopping PostgreSQL container:", e);
+		}
+	};
 
-	try {
-		console.log("[Orchestrator] Stopping network...");
-		await services.network.stop();
-	} catch (e) {
-		console.error("Error stopping network:", e);
-	}
+	const stopNetwork = async () => {
+		try {
+			await services.network.stop();
+			console.log("[Orchestrator] Network stopped.");
+		} catch (e) {
+			console.error("Error stopping network:", e);
+		}
+	};
+
+	await Promise.all([
+		stopCaddy(),
+		stopFrontend(),
+		stopBackend(),
+		stopMinio(),
+		stopPostgres(),
+		stopNetwork(),
+	]);
 
 	console.log("[Orchestrator] All services stopped.");
 }
