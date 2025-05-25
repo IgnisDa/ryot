@@ -14,6 +14,7 @@ export async function setup(): Promise<() => Promise<void>> {
 		services = await startAllServices();
 		if (services.caddyBaseUrl) {
 			process.env.API_BASE_URL = services.caddyBaseUrl;
+			process.env.USER_API_KEY = services.userApiKey;
 			console.log(
 				`[GlobalSetup] Services started. API_BASE_URL set to: ${services.caddyBaseUrl}`,
 			);
