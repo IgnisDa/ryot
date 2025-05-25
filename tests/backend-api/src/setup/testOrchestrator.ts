@@ -14,23 +14,14 @@ import {
 import { getGraphqlClient } from "src/utils";
 
 export interface StartedServices {
-	pgContainer: StartedPostgreSqlContainer;
-	minioContainer: StartedTestContainer;
+	userApiKey: string;
+	caddyBaseUrl: string;
+	network: StartedNetwork;
 	caddyProcess: ChildProcess;
 	backendProcess: ChildProcess;
 	frontendProcess: ChildProcess;
-	network: StartedNetwork;
-	caddyBaseUrl: string;
-	minioHost: string;
-	minioPort: number;
-	minioAccessKey: string;
-	minioSecretKey: string;
-	dbHost: string;
-	dbPort: number;
-	dbUser: string;
-	dbPassword: string;
-	dbName: string;
-	userApiKey: string;
+	minioContainer: StartedTestContainer;
+	pgContainer: StartedPostgreSqlContainer;
 }
 
 const MONOREPO_ROOT = path.resolve(__dirname, "../../../../");
@@ -403,23 +394,14 @@ export async function startAllServices(): Promise<StartedServices> {
 	const userApiKey = await registerTestUser(caddyBaseUrl);
 
 	return {
+		network,
+		userApiKey,
 		pgContainer,
-		minioContainer,
 		caddyProcess,
+		caddyBaseUrl,
+		minioContainer,
 		backendProcess,
 		frontendProcess,
-		network,
-		caddyBaseUrl,
-		minioHost,
-		minioPort,
-		minioAccessKey: MINIO_ACCESS_KEY,
-		minioSecretKey: MINIO_SECRET_KEY,
-		dbHost,
-		dbPort,
-		dbUser: DB_USER,
-		dbPassword: DB_PASSWORD,
-		dbName: DB_NAME,
-		userApiKey,
 	};
 }
 
