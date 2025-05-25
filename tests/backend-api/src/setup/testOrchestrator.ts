@@ -2,16 +2,16 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
-import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import getPort from "get-port";
-import type { StartedNetwork, StartedTestContainer } from "testcontainers";
-import { GenericContainer, Network, Wait } from "testcontainers";
 import {
 	LoginUserDocument,
 	RegisterUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import getPort from "get-port";
 import { getGraphqlClient } from "src/utils";
+import type { StartedNetwork, StartedTestContainer } from "testcontainers";
+import { GenericContainer, Network, Wait } from "testcontainers";
 
 export interface StartedServices {
 	userApiKey: string;
