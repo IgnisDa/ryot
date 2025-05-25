@@ -11,7 +11,7 @@ import { GenericContainer, Network, Wait } from "testcontainers";
 export interface StartedServices {
 	pgContainer: StartedPostgreSqlContainer;
 	minioContainer: StartedTestContainer;
-	caddyContainer: StartedTestContainer;
+	caddyProcess: ChildProcess;
 	backendProcess: ChildProcess;
 	frontendProcess: ChildProcess;
 	network: StartedNetwork;
@@ -118,6 +118,99 @@ async function startFrontendProcess(
 			if (code !== 0 && signal !== "SIGINT" && signal !== "SIGTERM") {
 				console.error(
 					`[Orchestrator] Frontend process exited unexpectedly with code ${code} and signal ${signal}`,
+				);
+			}
+		});
+	});
+}
+
+async function waitForHealthCheck(
+	url: string,
+	maxRetries = 10,
+	retryDelay = 500,
+): Promise<void> {
+	for (let i = 0; i < maxRetries; i++) {
+		try {
+			const response = await fetch(url);
+			if (response.ok) {
+				console.log(`[Orchestrator] Health check passed for ${url}`);
+				return;
+			}
+		} catch {
+			// Ignore fetch errors and retry
+		}
+
+		if (i < maxRetries - 1) {
+			await new Promise((resolve) => setTimeout(resolve, retryDelay));
+		}
+	}
+	throw new Error(`Health check failed for ${url} after ${maxRetries} retries`);
+}
+
+async function startCaddyProcess(
+	caddyPort: number,
+	backendPort: number,
+	frontendPort: number,
+): Promise<ChildProcess> {
+	return new Promise((resolve, reject) => {
+		console.log(
+			`[Orchestrator] Starting Caddy process on port ${caddyPort}...`,
+		);
+
+		const caddyEnv = {
+			PORT: caddyPort.toString(),
+			CADDY_BACKEND_TARGET: `127.0.0.1:${backendPort}`,
+			CADDY_FRONTEND_TARGET: `127.0.0.1:${frontendPort}`,
+		};
+
+		const caddyProcess = spawn(
+			"caddy",
+			["run", "--config", path.join(MONOREPO_ROOT, "ci", "Caddyfile")],
+			{
+				cwd: MONOREPO_ROOT,
+				stdio: ["ignore", "pipe", "pipe"],
+				env: { ...process.env, ...caddyEnv },
+			},
+		);
+
+		caddyProcess.stdout?.on("data", (data: Buffer) => {
+			const output = data.toString();
+			for (const line of output.split("\n")) {
+				if (line.trim()) console.log(`[Caddy STDOUT] ${line.trim()}`);
+			}
+		});
+
+		const healthCheckUrl = `http://127.0.0.1:${caddyPort}/health`;
+
+		setTimeout(async () => {
+			try {
+				await waitForHealthCheck(healthCheckUrl);
+				console.log(
+					"[Orchestrator] Caddy process ready and health check passed.",
+				);
+				resolve(caddyProcess);
+			} catch (err) {
+				console.error("[Orchestrator] Caddy health check failed:", err);
+				reject(err);
+			}
+		}, 2000);
+
+		caddyProcess.stderr?.on("data", (data: Buffer) => {
+			const errorOutput = data.toString();
+			for (const line of errorOutput.split("\n")) {
+				if (line.trim()) console.error(`[Caddy STDERR] ${line.trim()}`);
+			}
+		});
+
+		caddyProcess.on("error", (err) => {
+			console.error("[Orchestrator] Failed to start Caddy process:", err);
+			reject(err);
+		});
+
+		caddyProcess.on("exit", (code, signal) => {
+			if (code !== 0 && signal !== "SIGINT" && signal !== "SIGTERM") {
+				console.error(
+					`[Orchestrator] Caddy process exited unexpectedly with code ${code} and signal ${signal}`,
 				);
 			}
 		});
@@ -233,16 +326,17 @@ export async function startAllServices(): Promise<StartedServices> {
 		TEST_BUCKET_NAME,
 	);
 
-	const [freeBackendPort, freeFrontendPort] = await Promise.all([
+	const [freeBackendPort, freeFrontendPort, freeCaddyPort] = await Promise.all([
+		getPort(),
 		getPort(),
 		getPort(),
 	]);
 	const backendDbUrl = `postgres://${DB_USER}:${DB_PASSWORD}@${dbHost}:${dbPort}/${DB_NAME}`;
 
 	console.log(
-		"[Orchestrator] Starting backend and frontend processes in parallel...",
+		"[Orchestrator] Starting backend, frontend, and Caddy processes in parallel...",
 	);
-	const [backendProcess, frontendProcess] = await Promise.all([
+	const [backendProcess, frontendProcess, caddyProcess] = await Promise.all([
 		startBackendProcess(
 			backendDbUrl,
 			minioExternalEndpoint,
@@ -251,33 +345,15 @@ export async function startAllServices(): Promise<StartedServices> {
 			freeBackendPort,
 		),
 		startFrontendProcess(freeFrontendPort),
+		startCaddyProcess(freeCaddyPort, freeBackendPort, freeFrontendPort),
 	]);
 
-	console.log("[Orchestrator] Starting Caddy container...");
-	const caddyContainer = await new GenericContainer("caddy:2.9.1")
-		.withNetwork(network)
-		.withCopyFilesToContainer([
-			{
-				source: path.join(MONOREPO_ROOT, "ci", "Caddyfile"),
-				target: "/etc/caddy/Caddyfile",
-			},
-		])
-		.withEnvironment({
-			CADDY_BACKEND_TARGET: `http://host.docker.internal:${freeBackendPort}`,
-			CADDY_FRONTEND_TARGET: `http://host.docker.internal:${freeFrontendPort}`,
-		})
-		.withWaitStrategy(Wait.forHttp("/health", 8000).forStatusCode(200))
-		.start();
-	console.log("[Orchestrator] Caddy container started.");
-
-	const caddyHost = caddyContainer.getHost();
-	const caddyPort = caddyContainer.getMappedPort(8000);
-	const caddyBaseUrl = `http://${caddyHost}:${caddyPort}`;
+	const caddyBaseUrl = `http://127.0.0.1:${freeCaddyPort}`;
 
 	return {
 		pgContainer,
 		minioContainer,
-		caddyContainer,
+		caddyProcess,
 		backendProcess,
 		frontendProcess,
 		network,
@@ -301,10 +377,20 @@ export async function stopAllServices(
 		return;
 	}
 	try {
-		console.log("[Orchestrator] Stopping Caddy container...");
-		await services.caddyContainer.stop();
+		console.log("[Orchestrator] Stopping Caddy process...");
+		if (services.caddyProcess && !services.caddyProcess.killed) {
+			const killed = services.caddyProcess.kill("SIGINT");
+			if (killed) {
+				await new Promise((resolve) =>
+					services.caddyProcess.on("exit", resolve),
+				);
+				console.log("[Orchestrator] Caddy process terminated.");
+			} else {
+				console.warn("[Orchestrator] Failed to send SIGINT to Caddy process.");
+			}
+		}
 	} catch (e) {
-		console.error("Error stopping Caddy container:", e);
+		console.error("Error stopping Caddy process:", e);
 	}
 
 	try {
