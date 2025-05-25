@@ -6,6 +6,6 @@ export default defineConfig({
 		testTimeout: 60000,
 		hookTimeout: 60000,
 		environment: "node",
-		globalSetup: ["./src/setup/globalSetup.ts"],
+		globalSetup: ["dotenv/config", "./src/setup/globalSetup.ts"],
 	},
 });
