@@ -402,7 +402,7 @@ export async function stopAllServices(
 	const stopFrontend = async () => {
 		try {
 			if (services.frontendProcess && !services.frontendProcess.killed) {
-				const killed = services.frontendProcess.kill("SIGINT");
+				const killed = services.frontendProcess.kill();
 				if (killed) {
 					await new Promise((resolve) =>
 						services.frontendProcess.on("exit", resolve),
