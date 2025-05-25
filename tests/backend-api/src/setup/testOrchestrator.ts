@@ -97,10 +97,10 @@ async function startFrontendProcess(
 
 		setTimeout(() => {
 			console.log(
-				"[Orchestrator] Frontend process assumed ready after 10 seconds.",
+				"[Orchestrator] Frontend process assumed ready after 5 seconds.",
 			);
 			resolve(frontendProcess);
-		}, 10000);
+		}, 5000);
 
 		frontendProcess.stderr?.on("data", (data: Buffer) => {
 			const errorOutput = data.toString();
@@ -194,36 +194,34 @@ async function startBackendProcess(
 export async function startAllServices(): Promise<StartedServices> {
 	const network = await new Network().start();
 
-	console.log("[Orchestrator] Starting PostgreSQL container...");
-	const pgContainer = await new PostgreSqlContainer("postgres:16-alpine")
-		.withDatabase(DB_NAME)
-		.withUsername(DB_USER)
-		.withPassword(DB_PASSWORD)
-		.withNetwork(network)
-		.withNetworkAliases("postgres")
-		.withWaitStrategy(
-			Wait.forLogMessage("database system is ready to accept connections", 2),
-		)
-		.start();
-	console.log("[Orchestrator] PostgreSQL container started.");
+	console.log("[Orchestrator] Starting containers in parallel...");
+	const [pgContainer, minioContainer] = await Promise.all([
+		new PostgreSqlContainer("postgres:16-alpine")
+			.withDatabase(DB_NAME)
+			.withUsername(DB_USER)
+			.withPassword(DB_PASSWORD)
+			.withNetwork(network)
+			.withNetworkAliases("postgres")
+			.withWaitStrategy(
+				Wait.forLogMessage("database system is ready to accept connections", 2),
+			)
+			.start(),
+		new GenericContainer("minio/minio:latest")
+			.withEnvironment({
+				MINIO_ROOT_USER: MINIO_ACCESS_KEY,
+				MINIO_ROOT_PASSWORD: MINIO_SECRET_KEY,
+			})
+			.withCommand(["server", "/data", "--console-address", ":9090"])
+			.withNetwork(network)
+			.withNetworkAliases("minio")
+			.withExposedPorts(9000, 9090)
+			.withWaitStrategy(Wait.forHttp("/minio/health/live", 9000))
+			.start(),
+	]);
+	console.log("[Orchestrator] PostgreSQL and MinIO containers started.");
 
 	const dbHost = pgContainer.getHost();
 	const dbPort = pgContainer.getPort();
-
-	console.log("[Orchestrator] Starting MinIO container...");
-	const minioContainer = await new GenericContainer("minio/minio:latest")
-		.withEnvironment({
-			MINIO_ROOT_USER: MINIO_ACCESS_KEY,
-			MINIO_ROOT_PASSWORD: MINIO_SECRET_KEY,
-		})
-		.withCommand(["server", "/data", "--console-address", ":9090"])
-		.withNetwork(network)
-		.withNetworkAliases("minio")
-		.withExposedPorts(9000, 9090)
-		.withWaitStrategy(Wait.forHttp("/minio/health/live", 9000))
-		.start();
-	console.log("[Orchestrator] MinIO container started.");
-
 	const minioHost = minioContainer.getHost();
 	const minioPort = minioContainer.getMappedPort(9000);
 	const minioExternalEndpoint = `http://${minioHost}:${minioPort}`;
@@ -235,19 +233,25 @@ export async function startAllServices(): Promise<StartedServices> {
 		TEST_BUCKET_NAME,
 	);
 
-	const freeBackendPort = await getPort();
-	const freeFrontendPort = await getPort();
+	const [freeBackendPort, freeFrontendPort] = await Promise.all([
+		getPort(),
+		getPort(),
+	]);
 	const backendDbUrl = `postgres://${DB_USER}:${DB_PASSWORD}@${dbHost}:${dbPort}/${DB_NAME}`;
 
-	const backendProcess = await startBackendProcess(
-		backendDbUrl,
-		minioExternalEndpoint,
-		MINIO_ACCESS_KEY,
-		MINIO_SECRET_KEY,
-		freeBackendPort,
+	console.log(
+		"[Orchestrator] Starting backend and frontend processes in parallel...",
 	);
-
-	const frontendProcess = await startFrontendProcess(freeFrontendPort);
+	const [backendProcess, frontendProcess] = await Promise.all([
+		startBackendProcess(
+			backendDbUrl,
+			minioExternalEndpoint,
+			MINIO_ACCESS_KEY,
+			MINIO_SECRET_KEY,
+			freeBackendPort,
+		),
+		startFrontendProcess(freeFrontendPort),
+	]);
 
 	console.log("[Orchestrator] Starting Caddy container...");
 	const caddyContainer = await new GenericContainer("caddy:2.9.1")
@@ -262,7 +266,6 @@ export async function startAllServices(): Promise<StartedServices> {
 			CADDY_BACKEND_TARGET: `http://host.docker.internal:${freeBackendPort}`,
 			CADDY_FRONTEND_TARGET: `http://host.docker.internal:${freeFrontendPort}`,
 		})
-		.withExposedPorts(8000)
 		.withWaitStrategy(Wait.forHttp("/health", 8000).forStatusCode(200))
 		.start();
 	console.log("[Orchestrator] Caddy container started.");
