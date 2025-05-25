@@ -1,11 +1,11 @@
 import {
-	UserDetailsDocument,
 	UserCollectionsListDocument,
+	UserDetailsDocument,
 	UserImportReportsDocument,
 	UserIntegrationsDocument,
 	UserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getGraphqlClient } from "src/utils";
+import { getGraphqlClient, getGraphqlClientHeaders } from "src/utils";
 import { describe, expect, it } from "vitest";
 
 describe("User related tests", () => {
@@ -16,9 +16,7 @@ describe("User related tests", () => {
 		const { userDetails } = await client.request(
 			UserDetailsDocument,
 			{},
-			{
-				Authorization: `Bearer ${process.env.USER_API_KEY}`,
-			},
+			getGraphqlClientHeaders(),
 		);
 
 		expect(userDetails).toBeDefined();
@@ -54,9 +52,7 @@ describe("User related tests", () => {
 		const { userCollectionsList } = await client.request(
 			UserCollectionsListDocument,
 			{},
-			{
-				Authorization: `Bearer ${process.env.USER_API_KEY}`,
-			},
+			getGraphqlClientHeaders(),
 		);
 
 		expect(userCollectionsList).toBeDefined();
@@ -68,9 +64,7 @@ describe("User related tests", () => {
 		const { userImportReports } = await client.request(
 			UserImportReportsDocument,
 			{},
-			{
-				Authorization: `Bearer ${process.env.USER_API_KEY}`,
-			},
+			getGraphqlClientHeaders(),
 		);
 
 		expect(userImportReports).toBeDefined();
@@ -82,9 +76,7 @@ describe("User related tests", () => {
 		const { userIntegrations } = await client.request(
 			UserIntegrationsDocument,
 			{},
-			{
-				Authorization: `Bearer ${process.env.USER_API_KEY}`,
-			},
+			getGraphqlClientHeaders(),
 		);
 
 		expect(userIntegrations).toBeDefined();
@@ -96,9 +88,7 @@ describe("User related tests", () => {
 		const { userNotificationPlatforms } = await client.request(
 			UserNotificationPlatformsDocument,
 			{},
-			{
-				Authorization: `Bearer ${process.env.USER_API_KEY}`,
-			},
+			getGraphqlClientHeaders(),
 		);
 
 		expect(userNotificationPlatforms).toBeDefined();
