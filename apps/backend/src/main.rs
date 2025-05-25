@@ -66,6 +66,8 @@ async fn main() -> Result<()> {
         sleep(duration).await;
     }
 
+    let host = config.server.host.clone();
+    let port = config.server.port;
     let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
 
@@ -157,11 +159,6 @@ async fn main() -> Result<()> {
             .ok();
     }
 
-    let host = env::var("BACKEND_HOST").unwrap_or_else(|_| "0.0.0.0".to_owned());
-    let port = env::var("BACKEND_PORT")
-        .unwrap_or_else(|_| "5000".to_owned())
-        .parse::<usize>()
-        .unwrap();
     let listener = TcpListener::bind(format!("{host}:{port}")).await.unwrap();
     ryot_log!(info, "Listening on: {}", listener.local_addr()?);
 
