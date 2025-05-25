@@ -19,3 +19,4 @@ export {
 	resolveEventEntityId,
 	resolveEventSchemaId,
 } from "./service";
+export { createEventsWorker } from "./worker";
