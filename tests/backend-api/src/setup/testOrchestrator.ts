@@ -81,7 +81,6 @@ async function startBackendProcess(
 			`[Orchestrator] Starting backend process on port ${backendPort}...`,
 		);
 		const backendEnv = {
-			...process.env,
 			DATABASE_URL: dbUrl,
 			FILE_STORAGE_S3_URL: minioEndpoint,
 			FILE_STORAGE_S3_ACCESS_KEY_ID: minioAccessKey,
@@ -91,7 +90,6 @@ async function startBackendProcess(
 			BACKEND_PORT: backendPort.toString(),
 			SERVER_GRAPHQL_PLAYGROUND_ENABLED: "true",
 			USERS_JWT_SECRET: "test-jwt-secret-for-e2e-tests",
-			USERS_ALLOW_REGISTRATION: "true",
 		};
 
 		const backendProcess = spawn(
