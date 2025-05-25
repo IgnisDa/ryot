@@ -1,10 +1,7 @@
-export type {
-	GetPresignedUploadUrlBody,
-	GetPresignedUploadUrlQuery,
-} from "./schemas";
+export type { GetPresignedUploadUrlBody } from "./schemas";
 
 export {
-	createPresignedDownload,
+	createPresignedDownloads,
 	createPresignedUpload,
 	resolvePresignedUploadInput,
 } from "./service";
