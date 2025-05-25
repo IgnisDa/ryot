@@ -9,6 +9,20 @@ import type { StartedNetwork, StartedTestContainer } from "testcontainers";
 import { GenericContainer, Network, Wait } from "testcontainers";
 import { TEST_ADMIN_ACCESS_TOKEN } from "../utils";
 
+const setupProcessLogging = (process: ChildProcess) => {
+	process.stdout?.on("data", (data) => {
+		console.log(`[Orchestrator] ${data}`);
+	});
+	process.stderr?.on("data", (data) => {
+		console.error(`[Orchestrator] ${data}`);
+	});
+	process.on("close", (code, signal) => {
+		console.log(
+			`[Orchestrator] Process closed with code ${code} and signal ${signal}`,
+		);
+	});
+};
+
 export interface StartedServices {
 	caddyBaseUrl: string;
 	network: StartedNetwork;
@@ -78,6 +92,8 @@ async function startFrontendProcess(
 			},
 		);
 
+		setupProcessLogging(frontendProcess);
+
 		setTimeout(() => {
 			console.log(
 				"[Orchestrator] Frontend process assumed ready after 5 seconds.",
@@ -136,6 +152,8 @@ async function startCaddyProcess(
 			},
 		);
 
+		setupProcessLogging(caddyProcess);
+
 		const healthCheckUrl = `http://127.0.0.1:${caddyPort}/health`;
 
 		setTimeout(async () => {
@@ -177,6 +195,8 @@ async function startBackendProcess(
 			stdio: ["ignore", "pipe", "pipe"],
 			env: { ...process.env, ...backendEnv },
 		});
+
+		setupProcessLogging(backendProcess);
 
 		setTimeout(() => {
 			console.log(
