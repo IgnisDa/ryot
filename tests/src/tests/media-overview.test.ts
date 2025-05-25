@@ -6,6 +6,7 @@ import {
 	findBuiltinTracker,
 	listEntitySchemas,
 	listEventSchemas,
+	waitForEventCount,
 } from "../fixtures";
 
 async function createBuiltInMediaEvent(input: {
@@ -28,6 +29,12 @@ async function createBuiltInMediaEvent(input: {
 		throw new Error(`Missing built-in event schema '${input.eventSchemaSlug}'`);
 	}
 
+	const before = await input.client.GET("/events", {
+		headers: { Cookie: input.cookies },
+		params: { query: { entityId: input.entityId } },
+	});
+	const beforeCount = before.data?.data.length ?? 0;
+
 	const result = await input.client.POST("/events", {
 		headers: { Cookie: input.cookies },
 		body: [
@@ -42,6 +49,13 @@ async function createBuiltInMediaEvent(input: {
 	if (result.response.status !== 200) {
 		throw new Error(`Failed to create '${input.eventSchemaSlug}' event`);
 	}
+
+	await waitForEventCount(
+		input.client,
+		input.cookies,
+		input.entityId,
+		beforeCount + 1,
+	);
 }
 
 describe("GET /media/overview/continue", () => {
