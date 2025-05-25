@@ -2,7 +2,7 @@ import { CoreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { getGraphqlClient } from "src/utils";
 import { describe, expect, it } from "vitest";
 
-describe("Health Endpoint", () => {
+describe("Health related tests", () => {
 	const url = process.env.API_BASE_URL as string;
 
 	it("should return 200 OK for /health endpoint", async () => {
