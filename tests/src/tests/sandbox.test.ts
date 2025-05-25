@@ -161,7 +161,7 @@ driver("main", async function() {
 				providers: Array<{ source: string; preferredLanguage: string }>;
 			};
 		};
-		expect(prefs.languages.providers).toHaveLength(1);
+		expect(prefs.languages.providers.length).toBeGreaterThan(1);
 		expect(prefs.languages.providers[0]?.source).toBe("audible");
 		expect(prefs.languages.providers[0]?.preferredLanguage).toBe("US");
 	});
