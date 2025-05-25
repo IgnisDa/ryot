@@ -9,7 +9,6 @@
 		"@ryot/graphql": "workspace:*",
 		"@testcontainers/postgresql": "10.28.0",
 		"dotenv": "16.5.0",
-		"execa": "9.5.3",
 		"get-port": "7.1.0",
 		"graphql": "16.11.0",
 		"graphql-request": "7.1.2",
