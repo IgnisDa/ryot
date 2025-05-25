@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("Health Endpoint", () => {
 	const url = process.env.API_BASE_URL;
