@@ -95,6 +95,7 @@ The runtime contract should stay generic enough that the frontend can compile bo
 Entities have a hybrid structure with both top-level database columns and schema-defined properties stored in jsonb:
 
 **Top-level columns (infrastructure + universal fields):**
+
 - `id` — entity primary key
 - `name` — required text column, universally present on all entities
 - `image` — optional text column for image URLs
@@ -104,6 +105,7 @@ Entities have a hybrid structure with both top-level database columns and schema
 - `searchVector` — tsvector for full-text search
 
 **PropertyValues (schema-defined properties):**
+
 - All other entity properties defined in the entity schema's AppSchema are stored in the `propertyValues` jsonb column
 
 **Why keep name and image as top-level columns?**
@@ -454,6 +456,7 @@ The following features are intentionally excluded from the initial implementatio
 **Compound filters**: Support for OR logic and nested filter groups. The Phase 1 flat array with implicit AND covers the majority of use cases. More complex boolean logic can be added when the query builder UI actually needs it.
 
 Filter structure for Phase 2 might look like:
+
 ```json
 {
   "and": [
@@ -487,6 +490,128 @@ Runtime validation that ensures:
 - Filter values match the property type
 
 Phase 1 assumes the frontend (query builder) sends valid filters. Phase 2 adds backend validation for robustness and security (protecting against direct API access with malformed filters).
+
+### Relationship Querying
+
+The ability to query entities based on their relationships to other entities. This is critical for collections and people-to-media connections but adds significant complexity to the runtime contract.
+
+**Core use cases:**
+
+1. **Collection browsing**: "Show me all books in my 'Favorites' collection" (entities with a relationship to a specific collection)
+2. **Multiple collections**: "Show me books in BOTH 'Favorites' AND 'To Re-read'" (entities with relationships to multiple collections)
+3. **People + collections**: "Show me movies in 'Favorites' that star Tom Hanks" (entities with relationships in different directions)
+4. **Multiple people**: "Show me movies where BOTH Tom Hanks AND Meg Ryan appear"
+5. **Relationship properties**: "Show me books I bought from Amazon" (filter by properties stored on the relationship itself)
+
+**Why this is complex:**
+
+Per soul.md, collections are entities, and collection membership is modeled as relationships. A book in the "Owned" collection has a relationship: `Book (source) --member_of--> Collection (target)`. The relationship can have properties like `{ bought_where: "Amazon", bought_when: "2024-03-15" }`.
+
+Similarly, "Tom Hanks acted in Forrest Gump as Forrest" is a relationship: `Tom Hanks (source) --acted_in--> Forrest Gump (target)` with properties `{ role: "Forrest" }`.
+
+**Relationship directionality matters:**
+
+- From the **book's perspective**: outgoing relationship to collection (book is source)
+- From the **movie's perspective**: incoming relationship from Tom Hanks (movie is target)
+- Queries need to specify direction to construct correct SQL joins
+
+**Phase 2 runtime contract should add:**
+
+```json
+{
+  "entitySchemaIds": ["movie-schema-id"],
+  "filters": [ /* entity property filters */ ],
+  "relationships": [
+    {
+      "direction": "incoming",
+      "from": "tom-hanks-id",
+      "type": "acted_in"
+    },
+    {
+      "direction": "outgoing",
+      "to": "favorites-collection-id",
+      "type": "member_of",
+      "propertyFilters": [
+        { "field": "bought_where", "op": "eq", "value": "Amazon" }
+      ]
+    }
+  ],
+  "sort": {
+    "source": "relationship",
+    "relationshipIndex": 1,
+    "field": "bought_when",
+    "direction": "desc"
+  },
+  "include": {
+    "relationships": true
+  }
+}
+```
+
+**Response shape additions:**
+
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "name": "Forrest Gump",
+      "propertyValues": { /* entity properties */ },
+      "relationships": [
+        {
+          "id": "rel-123",
+          "direction": "incoming",
+          "sourceEntityId": "tom-hanks-id",
+          "targetEntityId": "movie-id",
+          "type": "acted_in",
+          "properties": { "role": "Forrest" }
+        },
+        {
+          "id": "rel-456",
+          "direction": "outgoing",
+          "sourceEntityId": "movie-id",
+          "targetEntityId": "favorites-collection-id",
+          "type": "member_of",
+          "properties": {}
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Implementation requirements:**
+
+- Support for multiple relationships (array) with implicit AND logic
+- Direction awareness: `incoming` (entity is target) vs `outgoing` (entity is source)
+- Optional `from` (for incoming) and `to` (for outgoing) to specify the related entity
+- Optional `propertyFilters` on relationships (same filter grammar as entity filters)
+- Ability to sort by relationship properties
+- Ability to include relationship data in responses
+- OR logic for relationships (aligned with compound filter OR logic)
+
+**SQL translation example** ("Nolan movies in 'To Watch'"):
+
+```sql
+SELECT e.*
+FROM entities e
+JOIN relationships r1 ON r1.target_entity_id = e.id  -- incoming
+JOIN relationships r2 ON r2.source_entity_id = e.id  -- outgoing
+WHERE e.entity_schema_id = 'movie-schema-id'
+  AND r1.source_entity_id = 'christopher-nolan-id'
+  AND r1.relationship_type = 'directed'
+  AND r2.target_entity_id = 'to-watch-collection-id'
+  AND r2.relationship_type = 'member_of'
+```
+
+**Why defer to Phase 2:**
+
+- Collections can be listed without relationship queries (just query collection schema entities)
+- Individual collection detail pages can use separate endpoints initially
+- Phase 1 focuses on entity property filtering, which covers the majority of simple saved views
+- Relationship querying adds significant contract complexity and requires careful query builder UI design
+
+However, relationship querying is essential for the saved view to become the true universal browsing primitive. Without it, collection browsing, people-to-media connections, and cross-entity queries remain special-cased outside the unified view-runtime system.
 
 ## Recommended First Step
 
