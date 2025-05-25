@@ -4,6 +4,7 @@
 	"type": "module",
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.817.0",
+		"@faker-js/faker": "9.8.0",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
 		"@testcontainers/postgresql": "10.28.0",

@@ -1,3 +1,4 @@
+import { faker } from "@faker-js/faker";
 import {
 	LoginUserDocument,
 	RegisterUserDocument,
@@ -11,8 +12,8 @@ export const getGraphqlClient = (baseUrl: string) => {
 };
 
 export async function registerTestUser(baseUrl: string): Promise<string> {
-	const username = "testuser";
-	const password = "testpassword123";
+	const username = faker.internet.username();
+	const password = faker.internet.password();
 	const client = getGraphqlClient(baseUrl);
 
 	try {

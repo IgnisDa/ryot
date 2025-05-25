@@ -3893,6 +3893,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@faker-js/faker@npm:9.8.0":
+  version: 9.8.0
+  resolution: "@faker-js/faker@npm:9.8.0"
+  checksum: 10/d7d7940ba7f2bd0d266d507bb7a33ec5099654da624dc8647d7cfd2e908b75ba06ed7dd0ec3b771a18600a734f420370b3cecd1ee5d4799993b1ee3505f866d8
+  languageName: node
+  linkType: hard
+
 "@fastify/busboy@npm:^2.0.0":
   version: 2.1.1
   resolution: "@fastify/busboy@npm:2.1.1"
@@ -7178,6 +7185,7 @@ __metadata:
   resolution: "@ryot/backend-api-tests@workspace:tests/backend-api"
   dependencies:
     "@aws-sdk/client-s3": "npm:3.817.0"
+    "@faker-js/faker": "npm:9.8.0"
     "@ryot/generated": "workspace:*"
     "@ryot/graphql": "workspace:*"
     "@testcontainers/postgresql": "npm:10.28.0"
