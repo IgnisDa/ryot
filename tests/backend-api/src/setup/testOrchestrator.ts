@@ -472,8 +472,8 @@ export async function stopAllServices(
 		stopBackend(),
 		stopMinio(),
 		stopPostgres(),
-		stopNetwork(),
 	]);
+	await stopNetwork();
 
 	console.log("[Orchestrator] All services stopped.");
 }
