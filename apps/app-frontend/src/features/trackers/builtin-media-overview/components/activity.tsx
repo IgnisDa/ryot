@@ -1,5 +1,6 @@
 import { Badge, Box, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import { colorMix, GOLD, STONE, type WeekDayView } from "../shared";
+import { Artwork } from "./artwork";
 
 interface WeekStripProps {
 	border: string;
@@ -111,14 +112,14 @@ export function EventRow(props: EventRowProps) {
 				borderBottom: props.isLast ? "none" : `1px solid ${props.border}`,
 			}}
 		>
-			<Box
-				w={36}
-				h={48}
-				style={{
-					overflow: "hidden",
-					borderRadius: 6,
-					background: `linear-gradient(160deg, ${colorMix(color, 0.2)} 0%, ${colorMix(STONE, 0.08)} 100%)`,
-				}}
+			<Artwork
+				width={36}
+				radius={6}
+				height={48}
+				color={color}
+				title={props.event.title}
+				url={props.event.imageUrl}
+				icon={schema?.icon ?? "circle"}
 			/>
 			<Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
 				<Text
