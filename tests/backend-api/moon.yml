@@ -7,4 +7,4 @@ tasks:
     local: true
 
   typecheck:
-    command: "tsc --noEmit -p tsconfig.json"
+    command: "tsc --noEmit"
