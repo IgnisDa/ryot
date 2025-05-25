@@ -83,12 +83,10 @@ async function startBackendProcess(
 		const backendEnv = {
 			DATABASE_URL: dbUrl,
 			FILE_STORAGE_S3_URL: minioEndpoint,
-			FILE_STORAGE_S3_ACCESS_KEY_ID: minioAccessKey,
-			FILE_STORAGE_S3_SECRET_ACCESS_KEY: minioSecretKey,
-			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
-			FILE_STORAGE_S3_REGION: "us-east-1",
 			BACKEND_PORT: backendPort.toString(),
-			SERVER_GRAPHQL_PLAYGROUND_ENABLED: "true",
+			FILE_STORAGE_S3_ACCESS_KEY_ID: minioAccessKey,
+			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
+			FILE_STORAGE_S3_SECRET_ACCESS_KEY: minioSecretKey,
 			USERS_JWT_SECRET: "test-jwt-secret-for-e2e-tests",
 		};
 
