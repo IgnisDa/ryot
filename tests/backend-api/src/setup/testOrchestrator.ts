@@ -1,5 +1,5 @@
-import type { ChildProcess } from "node:child_process";
-import { spawn } from "node:child_process";
+import type { ExecaChildProcess } from "execa";
+import { execa } from "execa";
 import path from "node:path";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -12,9 +12,9 @@ import { TEST_ADMIN_ACCESS_TOKEN } from "../utils";
 export interface StartedServices {
 	caddyBaseUrl: string;
 	network: StartedNetwork;
-	caddyProcess: ChildProcess;
-	backendProcess: ChildProcess;
-	frontendProcess: ChildProcess;
+	caddyProcess: ExecaChildProcess;
+	backendProcess: ExecaChildProcess;
+	frontendProcess: ExecaChildProcess;
 	minioContainer: StartedTestContainer;
 	pgContainer: StartedPostgreSqlContainer;
 }
@@ -62,29 +62,26 @@ async function createMinioBucket(endpoint: string): Promise<void> {
 
 async function startFrontendProcess(
 	frontendPort: number,
-): Promise<ChildProcess> {
-	return new Promise((resolve) => {
-		console.log(
-			`[Orchestrator] Starting frontend process on port ${frontendPort}...`,
-		);
+): Promise<ExecaChildProcess> {
+	console.log(
+		`[Orchestrator] Starting frontend process on port ${frontendPort}...`,
+	);
 
-		const frontendProcess = spawn(
-			"yarn",
-			["react-router-serve", "./build/server/index.js"],
-			{
-				stdio: ["ignore", "pipe", "pipe"],
-				cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
-				env: { ...process.env, PORT: frontendPort.toString() },
-			},
-		);
+	const frontendProcess = execa(
+		"yarn",
+		["react-router-serve", "./build/server/index.js"],
+		{
+			cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
+			env: { ...process.env, PORT: frontendPort.toString() },
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
 
-		setTimeout(() => {
-			console.log(
-				"[Orchestrator] Frontend process assumed ready after 5 seconds.",
-			);
-			resolve(frontendProcess);
-		}, 5000);
-	});
+	await new Promise((resolve) => setTimeout(resolve, 5000));
+	console.log("[Orchestrator] Frontend process assumed ready after 5 seconds.");
+
+	return frontendProcess;
 }
 
 async function waitForHealthCheck(
@@ -114,77 +111,71 @@ async function startCaddyProcess(
 	caddyPort: number,
 	backendPort: number,
 	frontendPort: number,
-): Promise<ChildProcess> {
-	return new Promise((resolve, reject) => {
-		console.log(
-			`[Orchestrator] Starting Caddy process on port ${caddyPort}...`,
-		);
+): Promise<ExecaChildProcess> {
+	console.log(`[Orchestrator] Starting Caddy process on port ${caddyPort}...`);
 
-		const caddyEnv = {
-			PORT: caddyPort.toString(),
-			CADDY_BACKEND_TARGET: `127.0.0.1:${backendPort}`,
-			CADDY_FRONTEND_TARGET: `127.0.0.1:${frontendPort}`,
-		};
+	const caddyEnv = {
+		PORT: caddyPort.toString(),
+		CADDY_BACKEND_TARGET: `127.0.0.1:${backendPort}`,
+		CADDY_FRONTEND_TARGET: `127.0.0.1:${frontendPort}`,
+	};
 
-		const caddyProcess = spawn(
-			"caddy",
-			["run", "--config", path.join(MONOREPO_ROOT, "ci", "Caddyfile")],
-			{
-				cwd: MONOREPO_ROOT,
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env, ...caddyEnv },
-			},
-		);
+	const caddyProcess = execa(
+		"caddy",
+		["run", "--config", path.join(MONOREPO_ROOT, "ci", "Caddyfile")],
+		{
+			cwd: MONOREPO_ROOT,
+			env: { ...process.env, ...caddyEnv },
+			stdout: "pipe",
+			stderr: "pipe",
+		},
+	);
 
-		const healthCheckUrl = `http://127.0.0.1:${caddyPort}/health`;
+	const healthCheckUrl = `http://127.0.0.1:${caddyPort}/health`;
 
-		setTimeout(async () => {
-			try {
-				await waitForHealthCheck(healthCheckUrl);
-				console.log(
-					"[Orchestrator] Caddy process ready and health check passed.",
-				);
-				resolve(caddyProcess);
-			} catch (err) {
-				console.error("[Orchestrator] Caddy health check failed:", err);
-				reject(err);
-			}
-		}, 2000);
-	});
+	await new Promise((resolve) => setTimeout(resolve, 2000));
+
+	try {
+		await waitForHealthCheck(healthCheckUrl);
+		console.log("[Orchestrator] Caddy process ready and health check passed.");
+	} catch (err) {
+		console.error("[Orchestrator] Caddy health check failed:", err);
+		throw err;
+	}
+
+	return caddyProcess;
 }
 
 async function startBackendProcess(
 	dbUrl: string,
 	backendPort: number,
 	minioEndpoint: string,
-): Promise<ChildProcess> {
-	return new Promise((resolve) => {
-		console.log(
-			`[Orchestrator] Starting backend process on port ${backendPort}...`,
-		);
-		const backendEnv = {
-			DATABASE_URL: dbUrl,
-			FILE_STORAGE_S3_URL: minioEndpoint,
-			SERVER_BACKEND_PORT: backendPort.toString(),
-			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
-			FILE_STORAGE_S3_ACCESS_KEY_ID: MINIO_ACCESS_KEY,
-			SERVER_ADMIN_ACCESS_TOKEN: TEST_ADMIN_ACCESS_TOKEN,
-			FILE_STORAGE_S3_SECRET_ACCESS_KEY: MINIO_SECRET_KEY,
-		};
+): Promise<ExecaChildProcess> {
+	console.log(
+		`[Orchestrator] Starting backend process on port ${backendPort}...`,
+	);
 
-		const backendProcess = spawn("cargo", ["run", "--bin", "backend"], {
-			cwd: MONOREPO_ROOT,
-			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env, ...backendEnv },
-		});
+	const backendEnv = {
+		DATABASE_URL: dbUrl,
+		FILE_STORAGE_S3_URL: minioEndpoint,
+		SERVER_BACKEND_PORT: backendPort.toString(),
+		FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
+		FILE_STORAGE_S3_ACCESS_KEY_ID: MINIO_ACCESS_KEY,
+		SERVER_ADMIN_ACCESS_TOKEN: TEST_ADMIN_ACCESS_TOKEN,
+		FILE_STORAGE_S3_SECRET_ACCESS_KEY: MINIO_SECRET_KEY,
+	};
 
-		setTimeout(() => {
-			console.log(
-				"[Orchestrator] Backend process assumed ready after 5 seconds.",
-			);
-			resolve(backendProcess);
-		}, 5000);
+	const backendProcess = execa("cargo", ["run", "--bin", "backend"], {
+		cwd: MONOREPO_ROOT,
+		env: { ...process.env, ...backendEnv },
+		stdout: "pipe",
+		stderr: "pipe",
 	});
+
+	await new Promise((resolve) => setTimeout(resolve, 5000));
+	console.log("[Orchestrator] Backend process assumed ready after 5 seconds.");
+
+	return backendProcess;
 }
 
 export async function startAllServices(): Promise<StartedServices> {
@@ -265,17 +256,9 @@ export async function stopAllServices(
 	const stopCaddy = async () => {
 		try {
 			if (services.caddyProcess && !services.caddyProcess.killed) {
-				const killed = services.caddyProcess.kill("SIGINT");
-				if (killed) {
-					await new Promise((resolve) =>
-						services.caddyProcess.on("exit", resolve),
-					);
-					console.log("[Orchestrator] Caddy process terminated.");
-				} else {
-					console.warn(
-						"[Orchestrator] Failed to send SIGINT to Caddy process.",
-					);
-				}
+				services.caddyProcess.kill("SIGINT");
+				await services.caddyProcess;
+				console.log("[Orchestrator] Caddy process terminated.");
 			}
 		} catch (e) {
 			console.error("Error stopping Caddy process:", e);
@@ -285,17 +268,9 @@ export async function stopAllServices(
 	const stopFrontend = async () => {
 		try {
 			if (services.frontendProcess && !services.frontendProcess.killed) {
-				const killed = services.frontendProcess.kill();
-				if (killed) {
-					await new Promise((resolve) =>
-						services.frontendProcess.on("exit", resolve),
-					);
-					console.log("[Orchestrator] Frontend process terminated.");
-				} else {
-					console.warn(
-						"[Orchestrator] Failed to send SIGINT to frontend process.",
-					);
-				}
+				services.frontendProcess.kill();
+				await services.frontendProcess;
+				console.log("[Orchestrator] Frontend process terminated.");
 			}
 		} catch (e) {
 			console.error("Error stopping frontend process:", e);
@@ -305,17 +280,9 @@ export async function stopAllServices(
 	const stopBackend = async () => {
 		try {
 			if (services.backendProcess && !services.backendProcess.killed) {
-				const killed = services.backendProcess.kill("SIGINT");
-				if (killed) {
-					await new Promise((resolve) =>
-						services.backendProcess.on("exit", resolve),
-					);
-					console.log("[Orchestrator] Backend process terminated.");
-				} else {
-					console.warn(
-						"[Orchestrator] Failed to send SIGINT to backend process.",
-					);
-				}
+				services.backendProcess.kill("SIGINT");
+				await services.backendProcess;
+				console.log("[Orchestrator] Backend process terminated.");
 			}
 		} catch (e) {
 			console.error("Error stopping backend process:", e);
