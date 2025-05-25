@@ -38,8 +38,8 @@ const GOLD = "#C9943A";
 const STONE = "#8C7560";
 
 const SECTION_ACCENTS = {
-	continue: GOLD,
 	library: STONE,
+	continue: GOLD,
 	queue: "#8E6A4D",
 	review: "#D38D5A",
 	activity: "#6F8B75",
@@ -221,8 +221,8 @@ const RECENT_EVENTS: ActivityEvent[] = [
 const LIBRARY_STATS = {
 	total: 29,
 	onHold: 5,
-	dropped: 1,
 	active: 11,
+	dropped: 1,
 	completed: 15,
 	avgRating: 4.6,
 	thisWeekHours: 18,
@@ -330,8 +330,8 @@ function SectionFrame(props: {
 
 function Artwork(props: {
 	url?: string;
-	note?: string;
 	icon: string;
+	note?: string;
 	color: string;
 	title: string;
 	height: number;
@@ -388,8 +388,8 @@ function Artwork(props: {
 						fw={600}
 						ta="center"
 						lineClamp={3}
-						c={colorMix("#2D241D", 0.84)}
 						ff="var(--mantine-headings-font-family)"
+						c={colorMix("#2D241D", 0.84)}
 					>
 						{props.title}
 					</Text>
@@ -398,10 +398,10 @@ function Artwork(props: {
 
 			<Box
 				style={{
-					background:
-						"linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.6) 100%)",
 					inset: 0,
 					position: "absolute",
+					background:
+						"linear-gradient(180deg, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.6) 100%)",
 				}}
 			/>
 			{props.note ? (
@@ -409,11 +409,11 @@ function Artwork(props: {
 					size="xs"
 					variant="filled"
 					style={{
-						backgroundColor: colorMix("#201812", 0.72),
+						left: 8,
 						bottom: 8,
 						color: "white",
-						left: 8,
 						position: "absolute",
+						backgroundColor: colorMix("#201812", 0.72),
 					}}
 				>
 					{props.note}
@@ -434,10 +434,10 @@ function ContinueCard(props: {
 	schemaBySlug: Map<string, AppEntitySchema>;
 }) {
 	const schema = props.schemaBySlug.get(props.item.entitySchemaSlug);
-	const color = schema?.accentColor ?? STONE;
 	const icon = schema?.icon ?? "circle";
-	const pct = props.item.progress.progressPercent ?? null;
+	const color = schema?.accentColor ?? STONE;
 	const progressLabel = props.item.labels.progress;
+	const pct = props.item.progress.progressPercent ?? null;
 	const lastActivity = getLastActivityLabel(new Date(props.item.progressAt));
 
 	return (
@@ -463,8 +463,8 @@ function ContinueCard(props: {
 				<Artwork
 					width={84}
 					radius={0}
-					height={132}
 					icon={icon}
+					height={132}
 					color={color}
 					url={props.imageUrl}
 					title={props.item.title}
@@ -977,8 +977,8 @@ function StatChip(props: {
 	border: string;
 	surface: string;
 	textMuted: string;
-	value: string | number;
 	textPrimary: string;
+	value: string | number;
 }) {
 	return (
 		<Paper
@@ -1204,104 +1204,108 @@ export function BuiltinMediaTrackerOverview(
 				</Stack>
 				<Button
 					size="sm"
-					leftSection={<Plus size={14} />}
 					onClick={openTypePickerModal}
+					leftSection={<Plus size={14} />}
 					style={{ backgroundColor: GOLD, color: "white" }}
 				>
 					Add media
 				</Button>
 			</Group>
 
-			<SectionFrame
-				border={t.border}
-				isDark={t.isDark}
-				surface={t.surface}
-				accentColor={SECTION_ACCENTS.continue}
-			>
-				<SectionHeader
-					title="Continue"
-					eyebrow="In motion"
-					textMuted={t.textMuted}
-					textPrimary={t.textPrimary}
+			{continueItems.length > 0 && (
+				<SectionFrame
+					border={t.border}
+					isDark={t.isDark}
+					surface={t.surface}
 					accentColor={SECTION_ACCENTS.continue}
-					right={
-						<Group gap={4}>
-							<Clock size={12} color={t.textMuted} />
-							<Text fz="xs" c={t.textMuted}>
-								{continueItems.length} in progress
-							</Text>
-						</Group>
-					}
-				/>
-				<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
-					{continueItems.slice(0, 6).map((item) => (
-						<ContinueCard
-							item={item}
-							key={item.id}
-							border={t.border}
-							surface={t.surface}
-							textMuted={t.textMuted}
-							textPrimary={t.textPrimary}
-							surfaceHover={t.surfaceHover}
-							schemaBySlug={schemaBySlug}
-							imageUrl={imageUrlByEntityId.get(item.id)}
-						/>
-					))}
-				</SimpleGrid>
-				{continueItems.length > 6 ? (
-					<UnstyledButton
-						mt="sm"
-						onClick={() =>
-							console.log("[builtin-tracker] View all in-progress")
+				>
+					<SectionHeader
+						title="Continue"
+						eyebrow="In motion"
+						textMuted={t.textMuted}
+						textPrimary={t.textPrimary}
+						accentColor={SECTION_ACCENTS.continue}
+						right={
+							<Group gap={4}>
+								<Clock size={12} color={t.textMuted} />
+								<Text fz="xs" c={t.textMuted}>
+									{continueItems.length} in progress
+								</Text>
+							</Group>
 						}
-					>
-						<Group gap={4}>
-							<Text fz="xs" fw={500} c={GOLD}>
-								View all {continueItems.length} in progress
-							</Text>
-							<ChevronRight size={12} color={GOLD} />
-						</Group>
-					</UnstyledButton>
-				) : null}
-			</SectionFrame>
-
-			<SectionFrame
-				border={t.border}
-				isDark={t.isDark}
-				surface={t.surface}
-				accentColor={SECTION_ACCENTS.queue}
-			>
-				<SectionHeader
-					title="Up Next"
-					textMuted={t.textMuted}
-					textPrimary={t.textPrimary}
-					eyebrow="Queued with intent"
-					accentColor={SECTION_ACCENTS.queue}
-					right={
-						<Text fz="xs" c={t.textMuted}>
-							{upNextItems.length} queued
-						</Text>
-					}
-				/>
-				<ScrollArea scrollbarSize={4} type="hover">
-					<Group gap="sm" wrap="nowrap" pb={4}>
-						{upNextItems.map((item, index) => (
-							<BacklogCard
+					/>
+					<SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+						{continueItems.slice(0, 6).map((item) => (
+							<ContinueCard
 								item={item}
-								rank={index}
 								key={item.id}
 								border={t.border}
 								surface={t.surface}
 								textMuted={t.textMuted}
 								textPrimary={t.textPrimary}
-								surfaceHover={t.surfaceHover}
 								schemaBySlug={schemaBySlug}
+								surfaceHover={t.surfaceHover}
 								imageUrl={imageUrlByEntityId.get(item.id)}
 							/>
 						))}
-					</Group>
-				</ScrollArea>
-			</SectionFrame>
+					</SimpleGrid>
+					{continueItems.length > 6 ? (
+						<UnstyledButton
+							mt="sm"
+							onClick={() =>
+								console.log("[builtin-tracker] View all in-progress")
+							}
+						>
+							<Group gap={4}>
+								<Text fz="xs" fw={500} c={GOLD}>
+									View all {continueItems.length} in progress
+								</Text>
+								<ChevronRight size={12} color={GOLD} />
+							</Group>
+						</UnstyledButton>
+					) : null}
+				</SectionFrame>
+			)}
+
+			{upNextItems.length > 0 && (
+				<SectionFrame
+					border={t.border}
+					isDark={t.isDark}
+					surface={t.surface}
+					accentColor={SECTION_ACCENTS.queue}
+				>
+					<SectionHeader
+						title="Up Next"
+						textMuted={t.textMuted}
+						textPrimary={t.textPrimary}
+						eyebrow="Queued with intent"
+						accentColor={SECTION_ACCENTS.queue}
+						right={
+							<Text fz="xs" c={t.textMuted}>
+								{upNextItems.length} queued
+							</Text>
+						}
+					/>
+					<ScrollArea scrollbarSize={4} type="hover">
+						<Group gap="sm" wrap="nowrap" pb={4}>
+							{upNextItems.map((item, index) => (
+								<BacklogCard
+									item={item}
+									rank={index}
+									key={item.id}
+									border={t.border}
+									surface={t.surface}
+									textMuted={t.textMuted}
+									textPrimary={t.textPrimary}
+									schemaBySlug={schemaBySlug}
+									surfaceHover={t.surfaceHover}
+									imageUrl={imageUrlByEntityId.get(item.id)}
+								/>
+							))}
+						</Group>
+					</ScrollArea>
+				</SectionFrame>
+			)}
 
 			{rateTheseItems.length > 0 && (
 				<SectionFrame
@@ -1331,8 +1335,8 @@ export function BuiltinMediaTrackerOverview(
 								surface={t.surface}
 								textMuted={t.textMuted}
 								textPrimary={t.textPrimary}
-								surfaceHover={t.surfaceHover}
 								schemaBySlug={schemaBySlug}
+								surfaceHover={t.surfaceHover}
 								imageUrl={imageUrlByEntityId.get(item.id)}
 							/>
 						))}
@@ -1473,8 +1477,8 @@ export function BuiltinMediaTrackerOverview(
 						/>
 						<StatChip
 							color={GOLD}
-							label="Avg Rating"
 							border={t.border}
+							label="Avg Rating"
 							surface={t.surface}
 							textMuted={t.textMuted}
 							textPrimary={t.textPrimary}
