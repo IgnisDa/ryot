@@ -7,6 +7,7 @@ import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import getPort from "get-port";
 import type { StartedNetwork, StartedTestContainer } from "testcontainers";
 import { GenericContainer, Network, Wait } from "testcontainers";
+import { TEST_ADMIN_ACCESS_TOKEN } from "../utils";
 
 export interface StartedServices {
 	caddyBaseUrl: string;
@@ -167,19 +168,15 @@ async function startBackendProcess(
 			SERVER_BACKEND_PORT: backendPort.toString(),
 			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
 			FILE_STORAGE_S3_ACCESS_KEY_ID: MINIO_ACCESS_KEY,
-			USERS_JWT_SECRET: "test-jwt-secret-for-e2e-tests",
+			SERVER_ADMIN_ACCESS_TOKEN: TEST_ADMIN_ACCESS_TOKEN,
 			FILE_STORAGE_S3_SECRET_ACCESS_KEY: MINIO_SECRET_KEY,
 		};
 
-		const backendProcess = spawn(
-			"cargo",
-			["run", "--release", "--bin", "backend"],
-			{
-				cwd: MONOREPO_ROOT,
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env, ...backendEnv },
-			},
-		);
+		const backendProcess = spawn("cargo", ["run", "--bin", "backend"], {
+			cwd: MONOREPO_ROOT,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: { ...process.env, ...backendEnv },
+		});
 
 		setTimeout(() => {
 			console.log(

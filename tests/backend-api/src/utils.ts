@@ -6,6 +6,7 @@ import { GraphQLClient } from "graphql-request";
 
 export const TEST_USERNAME = "testuser";
 export const TEST_PASSWORD = "testpassword123";
+export const TEST_ADMIN_ACCESS_TOKEN = "test-admin-access-token-for-e2e-tests";
 
 export const getGraphqlClient = (baseUrl: string) => {
 	return new GraphQLClient(`${baseUrl}/backend/graphql`);
