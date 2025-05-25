@@ -34,22 +34,20 @@ const DB_NAME = "testdb";
 const TEST_USERNAME = "testuser";
 const TEST_PASSWORD = "testpassword123";
 
-async function createMinioBucket(
-	endpoint: string,
-	accessKeyId: string,
-	secretAccessKey: string,
-	bucketName: string,
-): Promise<void> {
+async function createMinioBucket(endpoint: string): Promise<void> {
 	const s3Client = new S3Client({
 		endpoint,
-		credentials: { accessKeyId, secretAccessKey },
 		region: "us-east-1",
 		forcePathStyle: true,
+		credentials: {
+			accessKeyId: MINIO_ACCESS_KEY,
+			secretAccessKey: MINIO_SECRET_KEY,
+		},
 	});
 	try {
-		await s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
+		await s3Client.send(new CreateBucketCommand({ Bucket: TEST_BUCKET_NAME }));
 		console.log(
-			`[Orchestrator] MinIO bucket '${bucketName}' created successfully.`,
+			`[Orchestrator] MinIO bucket '${TEST_BUCKET_NAME}' created successfully.`,
 		);
 	} catch (err) {
 		if (
@@ -57,11 +55,11 @@ async function createMinioBucket(
 			(err as { name?: string }).name === "BucketAlreadyExists"
 		) {
 			console.log(
-				`[Orchestrator] MinIO bucket '${bucketName}' already exists.`,
+				`[Orchestrator] MinIO bucket '${TEST_BUCKET_NAME}' already exists.`,
 			);
 		} else {
 			console.error(
-				`[Orchestrator] Error creating MinIO bucket '${bucketName}':`,
+				`[Orchestrator] Error creating MinIO bucket '${TEST_BUCKET_NAME}':`,
 				err,
 			);
 			throw err;
@@ -164,10 +162,8 @@ async function startCaddyProcess(
 
 async function startBackendProcess(
 	dbUrl: string,
-	minioEndpoint: string,
-	minioAccessKey: string,
-	minioSecretKey: string,
 	backendPort: number,
+	minioEndpoint: string,
 ): Promise<ChildProcess> {
 	return new Promise((resolve) => {
 		console.log(
@@ -177,10 +173,10 @@ async function startBackendProcess(
 			DATABASE_URL: dbUrl,
 			FILE_STORAGE_S3_URL: minioEndpoint,
 			BACKEND_PORT: backendPort.toString(),
-			FILE_STORAGE_S3_ACCESS_KEY_ID: minioAccessKey,
 			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
-			FILE_STORAGE_S3_SECRET_ACCESS_KEY: minioSecretKey,
+			FILE_STORAGE_S3_ACCESS_KEY_ID: MINIO_ACCESS_KEY,
 			USERS_JWT_SECRET: "test-jwt-secret-for-e2e-tests",
+			FILE_STORAGE_S3_SECRET_ACCESS_KEY: MINIO_SECRET_KEY,
 		};
 
 		const backendProcess = spawn(
@@ -278,12 +274,7 @@ export async function startAllServices(): Promise<StartedServices> {
 	const minioPort = minioContainer.getMappedPort(9000);
 	const minioExternalEndpoint = `http://${minioHost}:${minioPort}`;
 
-	await createMinioBucket(
-		minioExternalEndpoint,
-		MINIO_ACCESS_KEY,
-		MINIO_SECRET_KEY,
-		TEST_BUCKET_NAME,
-	);
+	await createMinioBucket(minioExternalEndpoint);
 
 	const [freeBackendPort, freeFrontendPort, freeCaddyPort] = await Promise.all([
 		getPort(),
@@ -296,13 +287,7 @@ export async function startAllServices(): Promise<StartedServices> {
 		"[Orchestrator] Starting backend, frontend, and Caddy processes in parallel...",
 	);
 	const [backendProcess, frontendProcess, caddyProcess] = await Promise.all([
-		startBackendProcess(
-			backendDbUrl,
-			minioExternalEndpoint,
-			MINIO_ACCESS_KEY,
-			MINIO_SECRET_KEY,
-			freeBackendPort,
-		),
+		startBackendProcess(backendDbUrl, freeBackendPort, minioExternalEndpoint),
 		startFrontendProcess(freeFrontendPort),
 		startCaddyProcess(freeCaddyPort, freeBackendPort, freeFrontendPort),
 	]);
