@@ -6,6 +6,7 @@ import {
 	createCollectionResponse,
 	createRemoveFromCollectionDeps,
 } from "~/lib/test-fixtures";
+import { expectDataResult, expectErrorResult } from "~/lib/test-helpers";
 import {
 	addToCollection,
 	createCollection,
@@ -33,17 +34,16 @@ describe("resolveCollectionName", () => {
 
 describe("createCollection", () => {
 	it("creates a collection with valid input", async () => {
-		const result = await createCollection(
-			{ body: { name: "Test Collection" }, userId: "user-1" },
-			createCollectionDeps(),
+		const data = expectDataResult(
+			await createCollection(
+				{ body: { name: "Test Collection" }, userId: "user-1" },
+				createCollectionDeps(),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.name).toBe("Test Collection");
-			expect(result.data.entitySchemaId).toBe("schema_collection");
-			expect(result.data.properties).toEqual({});
-		}
+		expect(data.name).toBe("Test Collection");
+		expect(data.entitySchemaId).toBe("schema_collection");
+		expect(data.properties).toEqual({});
 	});
 
 	it("creates a collection with membershipPropertiesSchema", async () => {
@@ -56,134 +56,127 @@ describe("createCollection", () => {
 			},
 		};
 
-		const result = await createCollection(
-			{
-				body: {
-					name: "Recommended to me",
-					description: "Movies recommended by friends",
-					membershipPropertiesSchema: membershipSchema,
+		const data = expectDataResult(
+			await createCollection(
+				{
+					userId: "user-1",
+					body: {
+						name: "Recommended to me",
+						description: "Movies recommended by friends",
+						membershipPropertiesSchema: membershipSchema,
+					},
 				},
-				userId: "user-1",
-			},
-			createCollectionDeps(),
+				createCollectionDeps(),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.name).toBe("Recommended to me");
-			expect(result.data.properties).toMatchObject({
-				description: "Movies recommended by friends",
-				membershipPropertiesSchema: membershipSchema,
-			});
-		}
+		expect(data.name).toBe("Recommended to me");
+		expect(data.properties).toMatchObject({
+			description: "Movies recommended by friends",
+			membershipPropertiesSchema: membershipSchema,
+		});
 	});
 
 	it("creates a collection with description only", async () => {
-		const result = await createCollection(
-			{
-				body: { name: "Test Collection", description: "A description" },
-				userId: "user-1",
-			},
-			createCollectionDeps(),
+		const data = expectDataResult(
+			await createCollection(
+				{
+					userId: "user-1",
+					body: { name: "Test Collection", description: "A description" },
+				},
+				createCollectionDeps(),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.properties).toEqual({ description: "A description" });
-		}
+		expect(data.properties).toEqual({ description: "A description" });
 	});
 
 	it("returns validation error for empty name", async () => {
-		const result = await createCollection(
-			{ body: { name: "" }, userId: "user-1" },
-			createCollectionDeps(),
+		const err = expectErrorResult(
+			await createCollection(
+				{ body: { name: "" }, userId: "user-1" },
+				createCollectionDeps(),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain("Collection name");
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain("Collection name");
 	});
 
 	it("returns not_found error when collection schema is missing", async () => {
-		const result = await createCollection(
-			{ body: { name: "Test Collection" }, userId: "user-1" },
-			createCollectionDeps({
-				getBuiltinCollectionSchema: async () => undefined,
-			}),
+		const err = expectErrorResult(
+			await createCollection(
+				{ body: { name: "Test Collection" }, userId: "user-1" },
+				createCollectionDeps({
+					getBuiltinCollectionSchema: async () => undefined,
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toContain("Collection entity schema not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toContain("Collection entity schema not found");
 	});
 
 	it("returns validation error for invalid membershipPropertiesSchema type", async () => {
-		const result = await createCollection(
-			{
-				body: {
-					name: "Test Collection",
-					membershipPropertiesSchema: "not an object",
-				} as unknown as { name: string },
-				userId: "user-1",
-			},
-			createCollectionDeps(),
+		const err = expectErrorResult(
+			await createCollection(
+				{
+					userId: "user-1",
+					body: {
+						name: "Test Collection",
+						membershipPropertiesSchema: "not an object",
+					},
+				},
+				createCollectionDeps(),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
-			);
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain(
+			"membershipPropertiesSchema must be a valid AppSchema",
+		);
 	});
 
 	it("returns validation error for membershipPropertiesSchema without fields", async () => {
-		const result = await createCollection(
-			{
-				body: {
-					name: "Test Collection",
-					membershipPropertiesSchema: { rules: [] },
-				} as unknown as { name: string },
-				userId: "user-1",
-			},
-			createCollectionDeps(),
+		const err = expectErrorResult(
+			await createCollection(
+				{
+					userId: "user-1",
+					body: {
+						name: "Test Collection",
+						membershipPropertiesSchema: { rules: [] },
+					},
+				},
+				createCollectionDeps(),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
-			);
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain(
+			"membershipPropertiesSchema must be a valid AppSchema",
+		);
 	});
 
 	it("returns validation error for membershipPropertiesSchema with invalid property type", async () => {
-		const result = await createCollection(
-			{
-				body: {
-					name: "Test Collection",
-					membershipPropertiesSchema: {
-						fields: { invalidField: { type: "invalid_type" } },
+		const err = expectErrorResult(
+			await createCollection(
+				{
+					userId: "user-1",
+					body: {
+						name: "Test Collection",
+						membershipPropertiesSchema: {
+							fields: { invalidField: { type: "invalid_type" } },
+						},
 					},
-				} as unknown as { name: string },
-				userId: "user-1",
-			},
-			createCollectionDeps(),
+				},
+				createCollectionDeps(),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain(
-				"membershipPropertiesSchema must be a valid AppSchema",
-			);
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain(
+			"membershipPropertiesSchema must be a valid AppSchema",
+		);
 	});
 
 	it("propagates repository errors", async () => {
@@ -219,23 +212,20 @@ describe("createCollection", () => {
 				},
 			};
 
-			const result = await createCollection(
-				{
-					body: {
-						name: "Nested Schema Collection",
-						membershipPropertiesSchema: nestedSchema,
+			const data = expectDataResult(
+				await createCollection(
+					{
+						userId: "user-1",
+						body: {
+							name: "Nested Schema Collection",
+							membershipPropertiesSchema: nestedSchema,
+						},
 					},
-					userId: "user-1",
-				},
-				createCollectionDeps(),
+					createCollectionDeps(),
+				),
 			);
 
-			expect("data" in result).toBe(true);
-			if ("data" in result) {
-				expect(result.data.properties.membershipPropertiesSchema).toEqual(
-					nestedSchema,
-				);
-			}
+			expect(data.properties.membershipPropertiesSchema).toEqual(nestedSchema);
 		});
 
 		it("accepts valid nested array with item schema", async () => {
@@ -249,74 +239,72 @@ describe("createCollection", () => {
 				},
 			};
 
-			const result = await createCollection(
-				{
-					body: {
-						name: "Array Schema Collection",
-						membershipPropertiesSchema: arraySchema,
+			expectDataResult(
+				await createCollection(
+					{
+						userId: "user-1",
+						body: {
+							name: "Array Schema Collection",
+							membershipPropertiesSchema: arraySchema,
+						},
 					},
-					userId: "user-1",
-				},
-				createCollectionDeps(),
+					createCollectionDeps(),
+				),
 			);
-
-			expect("data" in result).toBe(true);
 		});
 
 		it("returns validation error for invalid nested property type", async () => {
-			const result = await createCollection(
-				{
-					body: {
-						name: "Invalid Nested Collection",
-						membershipPropertiesSchema: {
-							fields: {
-								nested: {
-									type: "object" as const,
-									properties: { invalidField: { type: "unknown_type" } },
+			const err = expectErrorResult(
+				await createCollection(
+					{
+						userId: "user-1",
+						body: {
+							name: "Invalid Nested Collection",
+							membershipPropertiesSchema: {
+								fields: {
+									nested: {
+										type: "object" as const,
+										properties: { invalidField: { type: "unknown_type" } },
+									},
 								},
 							},
 						},
-					} as unknown as { name: string },
-					userId: "user-1",
-				},
-				createCollectionDeps(),
+					},
+					createCollectionDeps(),
+				),
 			);
 
-			expect("error" in result).toBe(true);
-			if ("error" in result) {
-				expect(result.error).toBe("validation");
-				expect(result.message).toContain(
-					"membershipPropertiesSchema must be a valid AppSchema",
-				);
-			}
+			expect(err.error).toBe("validation");
+			expect(err.message).toContain(
+				"membershipPropertiesSchema must be a valid AppSchema",
+			);
 		});
 
 		it("returns validation error for invalid array item type", async () => {
-			const result = await createCollection(
-				{
-					body: {
-						name: "Invalid Array Collection",
-						membershipPropertiesSchema: {
-							fields: {
-								tags: {
-									type: "array" as const,
-									items: { type: "unknown_type" },
+			const err = expectErrorResult(
+				await createCollection(
+					{
+						userId: "user-1",
+						body: {
+							name: "Invalid Array Collection",
+							membershipPropertiesSchema: {
+								fields: {
+									tags: {
+										type: "array" as const,
+										items: { type: "unknown_type" },
+									},
 								},
 							},
 						},
-					} as unknown as { name: string },
-					userId: "user-1",
-				},
-				createCollectionDeps(),
+					},
+					createCollectionDeps(),
+				),
 			);
 
-			expect("error" in result).toBe(true);
-			if ("error" in result) {
-				expect(result.error).toBe("validation");
-				expect(result.message).toContain(
-					"membershipPropertiesSchema must be a valid AppSchema",
-				);
-			}
+			expect(err.error).toBe("validation");
+			expect(err.message).toContain(
+				"membershipPropertiesSchema must be a valid AppSchema",
+			);
 		});
 
 		it("accepts complex deeply nested schema with multiple levels", async () => {
@@ -352,23 +340,20 @@ describe("createCollection", () => {
 				},
 			};
 
-			const result = await createCollection(
-				{
-					body: {
-						name: "Complex Nested Collection",
-						membershipPropertiesSchema: complexSchema,
+			const data = expectDataResult(
+				await createCollection(
+					{
+						userId: "user-1",
+						body: {
+							name: "Complex Nested Collection",
+							membershipPropertiesSchema: complexSchema,
+						},
 					},
-					userId: "user-1",
-				},
-				createCollectionDeps(),
+					createCollectionDeps(),
+				),
 			);
 
-			expect("data" in result).toBe(true);
-			if ("data" in result) {
-				expect(result.data.properties.membershipPropertiesSchema).toEqual(
-					complexSchema,
-				);
-			}
+			expect(data.properties.membershipPropertiesSchema).toEqual(complexSchema);
 		});
 
 		it("does not create entity when nested template validation fails", async () => {
@@ -376,6 +361,7 @@ describe("createCollection", () => {
 
 			const result = await createCollection(
 				{
+					userId: "user-1",
 					body: {
 						name: "Should Not Create",
 						membershipPropertiesSchema: {
@@ -386,8 +372,7 @@ describe("createCollection", () => {
 								},
 							},
 						},
-					} as unknown as { name: string },
-					userId: "user-1",
+					},
 				},
 				createCollectionDeps({
 					createCollectionForUser: async (input) => {
@@ -401,7 +386,7 @@ describe("createCollection", () => {
 				}),
 			);
 
-			expect("error" in result).toBe(true);
+			expectErrorResult(result);
 			expect(wasCreateCalled).toBe(false);
 		});
 	});
@@ -409,73 +394,68 @@ describe("createCollection", () => {
 
 describe("addToCollection", () => {
 	it("returns validation error when trying to add collection to itself", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "same-id", entityId: "same-id" },
-			},
-			createAddToCollectionDeps(),
+		const err = expectErrorResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "same-id", entityId: "same-id" },
+				},
+				createAddToCollectionDeps(),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toBe("Cannot add a collection to itself");
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toBe("Cannot add a collection to itself");
 	});
 
 	it("adds an entity to a collection and returns the membership", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createAddToCollectionDeps(),
+		const data = expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+				},
+				createAddToCollectionDeps(),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.memberOf.id).toBe("rel_1");
-			expect(result.data.memberOf.relationshipSchemaId).toBe(
-				"rel_schema_member_of",
-			);
-			expect(result.data.memberOf.sourceEntityId).toBe("entity-1");
-			expect(result.data.memberOf.targetEntityId).toBe("collection-1");
-		}
+		expect(data.memberOf.id).toBe("rel_1");
+		expect(data.memberOf.relationshipSchemaId).toBe("rel_schema_member_of");
+		expect(data.memberOf.sourceEntityId).toBe("entity-1");
+		expect(data.memberOf.targetEntityId).toBe("collection-1");
 	});
 
 	it("adds an entity with custom properties", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: { priority: "high", notes: "Important item" },
+		const data = expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { priority: "high", notes: "Important item" },
+					},
 				},
-			},
-			createAddToCollectionDeps({
-				addEntityToCollection: async (input) =>
-					createAddToCollectionData({
-						memberOf: {
-							id: "rel_1",
-							properties: input.properties,
-							sourceEntityId: input.entityId,
-							targetEntityId: input.collectionId,
-							createdAt: "2024-01-01T00:00:00.000Z",
-							relationshipSchemaId: "rel_schema_member_of",
-						},
-					}),
-			}),
+				createAddToCollectionDeps({
+					addEntityToCollection: async (input) =>
+						createAddToCollectionData({
+							memberOf: {
+								id: "rel_1",
+								properties: input.properties,
+								sourceEntityId: input.entityId,
+								targetEntityId: input.collectionId,
+								createdAt: "2024-01-01T00:00:00.000Z",
+								relationshipSchemaId: "rel_schema_member_of",
+							},
+						}),
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.memberOf.properties).toEqual({
-				priority: "high",
-				notes: "Important item",
-			});
-		}
+		expect(data.memberOf.properties).toEqual({
+			priority: "high",
+			notes: "Important item",
+		});
 	});
 
 	it("upserts in-library when adding a global entity to a collection", async () => {
@@ -485,21 +465,22 @@ describe("addToCollection", () => {
 			libraryEntityId: string;
 		}> = [];
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createAddToCollectionDeps({
-				getEntityById: async () => ({ id: "entity-1", userId: null }),
-				getUserLibraryEntityId: async () => "library-123",
-				upsertInLibraryRelationship: async (input) => {
-					calls.push(input);
+		expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
-			}),
+				createAddToCollectionDeps({
+					getUserLibraryEntityId: async () => "library-123",
+					getEntityById: async () => ({ id: "entity-1", userId: null }),
+					upsertInLibraryRelationship: async (input) => {
+						calls.push(input);
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(calls).toEqual([
 			{
 				userId: "user-1",
@@ -512,39 +493,41 @@ describe("addToCollection", () => {
 	it("still succeeds when a global entity is already in the library", async () => {
 		let upsertCalls = 0;
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createAddToCollectionDeps({
-				getEntityById: async () => ({ id: "entity-1", userId: null }),
-				upsertInLibraryRelationship: async () => {
-					upsertCalls++;
+		expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
-			}),
+				createAddToCollectionDeps({
+					getEntityById: async () => ({ id: "entity-1", userId: null }),
+					upsertInLibraryRelationship: async () => {
+						upsertCalls++;
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(upsertCalls).toBe(1);
 	});
 
 	it("does not upsert in-library for a user-owned entity", async () => {
 		let upsertCalls = 0;
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createAddToCollectionDeps({
-				upsertInLibraryRelationship: async () => {
-					upsertCalls++;
+		expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
-			}),
+				createAddToCollectionDeps({
+					upsertInLibraryRelationship: async () => {
+						upsertCalls++;
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(upsertCalls).toBe(0);
 	});
 
@@ -555,8 +538,8 @@ describe("addToCollection", () => {
 				body: { collectionId: "collection-1", entityId: "entity-1" },
 			},
 			createAddToCollectionDeps({
-				getEntityById: async () => ({ id: "entity-1", userId: null }),
 				getUserLibraryEntityId: async () => undefined,
+				getEntityById: async () => ({ id: "entity-1", userId: null }),
 			}),
 		);
 
@@ -606,124 +589,83 @@ describe("addToCollection", () => {
 	it("validates properties against collection membershipPropertiesSchema", async () => {
 		let receivedProperties: Record<string, unknown> | undefined;
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					collectionId: "collection-1",
-					entityId: "entity-1",
-					properties: { recommendedBy: "John", rating: 5 },
+		const data = expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { recommendedBy: "John", rating: 5 },
+					},
 				},
-			},
-			createAddToCollectionDeps({
-				getCollectionById: async () =>
-					createCollectionResponse({
-						properties: {
-							membershipPropertiesSchema: {
-								fields: {
-									recommendedBy: { type: "string" },
-									rating: { type: "integer" },
+				createAddToCollectionDeps({
+					getCollectionById: async () =>
+						createCollectionResponse({
+							properties: {
+								membershipPropertiesSchema: {
+									fields: {
+										rating: { type: "integer" },
+										recommendedBy: { type: "string" },
+									},
 								},
 							},
-						},
-					}),
-				addEntityToCollection: async (input) => {
-					receivedProperties = input.properties;
-					return createAddToCollectionData({
-						memberOf: {
-							id: "rel_1",
-							properties: input.properties,
-							sourceEntityId: input.entityId,
-							targetEntityId: input.collectionId,
-							createdAt: "2024-01-01T00:00:00.000Z",
-							relationshipSchemaId: "rel_schema_member_of",
-						},
-					});
-				},
-			}),
+						}),
+					addEntityToCollection: async (input) => {
+						receivedProperties = input.properties;
+						return createAddToCollectionData({
+							memberOf: {
+								id: "rel_1",
+								properties: input.properties,
+								sourceEntityId: input.entityId,
+								targetEntityId: input.collectionId,
+								createdAt: "2024-01-01T00:00:00.000Z",
+								relationshipSchemaId: "rel_schema_member_of",
+							},
+						});
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(receivedProperties).toEqual({ recommendedBy: "John", rating: 5 });
-		if ("data" in result) {
-			expect(result.data.memberOf.properties).toEqual({
-				rating: 5,
-				recommendedBy: "John",
-			});
-		}
+		expect(data.memberOf.properties).toEqual({
+			rating: 5,
+			recommendedBy: "John",
+		});
 	});
 
 	it("returns validation error when properties don't match schema type", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: { rating: "not a number" },
+		const err = expectErrorResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { rating: "not a number" },
+					},
 				},
-			},
-			createAddToCollectionDeps({
-				getCollectionById: async () =>
-					createCollectionResponse({
-						properties: {
-							membershipPropertiesSchema: {
-								fields: { rating: { type: "integer" } },
+				createAddToCollectionDeps({
+					getCollectionById: async () =>
+						createCollectionResponse({
+							properties: {
+								membershipPropertiesSchema: {
+									fields: { rating: { type: "integer" } },
+								},
 							},
-						},
-					}),
-			}),
+						}),
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain(
-				"Membership properties validation failed",
-			);
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain("Membership properties validation failed");
 	});
 
 	it("returns validation error when required property is missing", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					properties: {},
-					entityId: "entity-1",
-					collectionId: "collection-1",
-				},
-			},
-			createAddToCollectionDeps({
-				getCollectionById: async () =>
-					createCollectionResponse({
-						properties: {
-							membershipPropertiesSchema: {
-								fields: {
-									recommendedBy: {
-										type: "string",
-										validation: { required: true },
-									},
-								},
-							},
-						},
-					}),
-			}),
-		);
-
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain(
-				"Membership properties validation failed",
-			);
-			expect(result.message).toContain("recommendedBy");
-		}
-	});
-
-	describe("stable validation error format", () => {
-		it("includes field path in validation error for missing required field", async () => {
-			const result = await addToCollection(
+		const err = expectErrorResult(
+			await addToCollection(
 				{
 					userId: "user-1",
 					body: {
@@ -738,67 +680,8 @@ describe("addToCollection", () => {
 							properties: {
 								membershipPropertiesSchema: {
 									fields: {
-										rating: { type: "integer", validation: { required: true } },
-									},
-								},
-							},
-						}),
-				}),
-			);
-
-			expect("error" in result).toBe(true);
-			if ("error" in result) {
-				expect(result.message).toContain("rating");
-			}
-		});
-
-		it("includes field path in validation error for invalid type", async () => {
-			const result = await addToCollection(
-				{
-					userId: "user-1",
-					body: {
-						entityId: "entity-1",
-						collectionId: "collection-1",
-						properties: { score: "not a number" },
-					},
-				},
-				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: { score: { type: "integer" } },
-								},
-							},
-						}),
-				}),
-			);
-
-			expect("error" in result).toBe(true);
-			if ("error" in result) {
-				expect(result.message).toContain("score");
-			}
-		});
-
-		it("reports multiple validation errors with stable format", async () => {
-			const result = await addToCollection(
-				{
-					userId: "user-1",
-					body: {
-						properties: {},
-						entityId: "entity-1",
-						collectionId: "collection-1",
-					},
-				},
-				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										name: { type: "string", validation: { required: true } },
-										priority: {
-											type: "integer",
+										recommendedBy: {
+											type: "string",
 											validation: { required: true },
 										},
 									},
@@ -806,70 +689,163 @@ describe("addToCollection", () => {
 							},
 						}),
 				}),
-			);
+			),
+		);
 
-			expect("error" in result).toBe(true);
-			if ("error" in result) {
-				expect(result.message).toContain("name");
-				expect(result.message).toContain("priority");
-			}
-		});
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain("Membership properties validation failed");
+		expect(err.message).toContain("recommendedBy");
+	});
 
-		it("includes nested field path in validation error", async () => {
-			const result = await addToCollection(
-				{
-					userId: "user-1",
-					body: {
-						entityId: "entity-1",
-						collectionId: "collection-1",
-						properties: { details: { score: "invalid" } },
+	describe("stable validation error format", () => {
+		it("includes field path in validation error for missing required field", async () => {
+			const err = expectErrorResult(
+				await addToCollection(
+					{
+						userId: "user-1",
+						body: {
+							properties: {},
+							entityId: "entity-1",
+							collectionId: "collection-1",
+						},
 					},
-				},
-				createAddToCollectionDeps({
-					getCollectionById: async () =>
-						createCollectionResponse({
-							properties: {
-								membershipPropertiesSchema: {
-									fields: {
-										details: {
-											type: "object",
-											properties: { score: { type: "integer" } },
+					createAddToCollectionDeps({
+						getCollectionById: async () =>
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											rating: {
+												type: "integer",
+												validation: { required: true },
+											},
 										},
 									},
 								},
-							},
-						}),
-				}),
+							}),
+					}),
+				),
 			);
 
-			expect("error" in result).toBe(true);
-			if ("error" in result) {
-				expect(result.message).toContain("details.score");
-			}
+			expect(err.message).toContain("rating");
+		});
+
+		it("includes field path in validation error for invalid type", async () => {
+			const err = expectErrorResult(
+				await addToCollection(
+					{
+						userId: "user-1",
+						body: {
+							entityId: "entity-1",
+							collectionId: "collection-1",
+							properties: { score: "not a number" },
+						},
+					},
+					createAddToCollectionDeps({
+						getCollectionById: async () =>
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: { score: { type: "integer" } },
+									},
+								},
+							}),
+					}),
+				),
+			);
+
+			expect(err.message).toContain("score");
+		});
+
+		it("reports multiple validation errors with stable format", async () => {
+			const err = expectErrorResult(
+				await addToCollection(
+					{
+						userId: "user-1",
+						body: {
+							properties: {},
+							entityId: "entity-1",
+							collectionId: "collection-1",
+						},
+					},
+					createAddToCollectionDeps({
+						getCollectionById: async () =>
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											name: { type: "string", validation: { required: true } },
+											priority: {
+												type: "integer",
+												validation: { required: true },
+											},
+										},
+									},
+								},
+							}),
+					}),
+				),
+			);
+
+			expect(err.message).toContain("name");
+			expect(err.message).toContain("priority");
+		});
+
+		it("includes nested field path in validation error", async () => {
+			const err = expectErrorResult(
+				await addToCollection(
+					{
+						userId: "user-1",
+						body: {
+							entityId: "entity-1",
+							collectionId: "collection-1",
+							properties: { details: { score: "invalid" } },
+						},
+					},
+					createAddToCollectionDeps({
+						getCollectionById: async () =>
+							createCollectionResponse({
+								properties: {
+									membershipPropertiesSchema: {
+										fields: {
+											details: {
+												type: "object",
+												properties: { score: { type: "integer" } },
+											},
+										},
+									},
+								},
+							}),
+					}),
+				),
+			);
+
+			expect(err.message).toContain("details.score");
 		});
 	});
 
 	it("allows any properties when collection has no membershipPropertiesSchema", async () => {
 		let receivedProperties: Record<string, unknown> | undefined;
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: { anyCustomField: "any value", another: 123 },
+		expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { anyCustomField: "any value", another: 123 },
+					},
 				},
-			},
-			createAddToCollectionDeps({
-				addEntityToCollection: async (input) => {
-					receivedProperties = input.properties;
-					return createAddToCollectionData();
-				},
-			}),
+				createAddToCollectionDeps({
+					addEntityToCollection: async (input) => {
+						receivedProperties = input.properties;
+						return createAddToCollectionData();
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(receivedProperties).toEqual({
 			anyCustomField: "any value",
 			another: 123,
@@ -879,205 +855,198 @@ describe("addToCollection", () => {
 	it("validates nested object properties against schema", async () => {
 		let receivedProperties: Record<string, unknown> | undefined;
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: {
-						recommendationDetails: { friend: "Alice", context: "Work lunch" },
+		const data = expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: {
+							recommendationDetails: { friend: "Alice", context: "Work lunch" },
+						},
 					},
 				},
-			},
-			createAddToCollectionDeps({
-				getCollectionById: async () =>
-					createCollectionResponse({
-						properties: {
-							membershipPropertiesSchema: {
-								fields: {
-									recommendationDetails: {
-										type: "object",
-										properties: {
-											friend: { type: "string" },
-											context: { type: "string" },
+				createAddToCollectionDeps({
+					getCollectionById: async () =>
+						createCollectionResponse({
+							properties: {
+								membershipPropertiesSchema: {
+									fields: {
+										recommendationDetails: {
+											type: "object",
+											properties: {
+												friend: { type: "string" },
+												context: { type: "string" },
+											},
 										},
 									},
 								},
 							},
-						},
-					}),
-				addEntityToCollection: async (input) => {
-					receivedProperties = input.properties;
-					return createAddToCollectionData({
-						memberOf: {
-							id: "rel_1",
-							properties: input.properties,
-							sourceEntityId: input.entityId,
-							targetEntityId: input.collectionId,
-							createdAt: "2024-01-01T00:00:00.000Z",
-							relationshipSchemaId: "rel_schema_member_of",
-						},
-					});
-				},
-			}),
+						}),
+					addEntityToCollection: async (input) => {
+						receivedProperties = input.properties;
+						return createAddToCollectionData({
+							memberOf: {
+								id: "rel_1",
+								properties: input.properties,
+								sourceEntityId: input.entityId,
+								targetEntityId: input.collectionId,
+								createdAt: "2024-01-01T00:00:00.000Z",
+								relationshipSchemaId: "rel_schema_member_of",
+							},
+						});
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(receivedProperties).toEqual({
 			recommendationDetails: { friend: "Alice", context: "Work lunch" },
 		});
-		if ("data" in result) {
-			expect(result.data.memberOf.properties).toEqual({
-				recommendationDetails: { friend: "Alice", context: "Work lunch" },
-			});
-		}
+		expect(data.memberOf.properties).toEqual({
+			recommendationDetails: { friend: "Alice", context: "Work lunch" },
+		});
 	});
 
 	it("returns validation error for invalid nested object properties", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: {
-						recommendationDetails: { friend: "Alice", score: "not a number" },
+		const err = expectErrorResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: {
+							recommendationDetails: { friend: "Alice", score: "not a number" },
+						},
 					},
 				},
-			},
-			createAddToCollectionDeps({
-				getCollectionById: async () =>
-					createCollectionResponse({
-						properties: {
-							membershipPropertiesSchema: {
-								fields: {
-									recommendationDetails: {
-										type: "object",
-										properties: {
-											friend: { type: "string" },
-											score: { type: "integer" },
+				createAddToCollectionDeps({
+					getCollectionById: async () =>
+						createCollectionResponse({
+							properties: {
+								membershipPropertiesSchema: {
+									fields: {
+										recommendationDetails: {
+											type: "object",
+											properties: {
+												friend: { type: "string" },
+												score: { type: "integer" },
+											},
 										},
 									},
 								},
 							},
-						},
-					}),
-			}),
+						}),
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("validation");
-			expect(result.message).toContain(
-				"Membership properties validation failed",
-			);
-		}
+		expect(err.error).toBe("validation");
+		expect(err.message).toContain("Membership properties validation failed");
 	});
 
 	it("returns not_found error when entity schema is not visible to user", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					collectionId: "collection-1",
-					entityId: "entity-with-invisible-schema",
+		const err = expectErrorResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-with-invisible-schema",
+					},
 				},
-			},
-			createAddToCollectionDeps({ getEntityById: async () => undefined }),
+				createAddToCollectionDeps({ getEntityById: async () => undefined }),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Entity not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Entity not found");
 	});
 
 	it("returns not_found error when collection does not exist", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "nonexistent", entityId: "entity-1" },
-			},
-			createAddToCollectionDeps({ getCollectionById: async () => undefined }),
+		const err = expectErrorResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "nonexistent", entityId: "entity-1" },
+				},
+				createAddToCollectionDeps({ getCollectionById: async () => undefined }),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Collection not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Collection not found");
 	});
 
 	it("returns not_found error when entity does not exist", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "nonexistent" },
-			},
-			createAddToCollectionDeps({ getEntityById: async () => undefined }),
+		const err = expectErrorResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "nonexistent" },
+				},
+				createAddToCollectionDeps({ getEntityById: async () => undefined }),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Entity not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Entity not found");
 	});
 
 	it("uses empty properties when not provided", async () => {
 		let receivedProperties: Record<string, unknown> | undefined;
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createAddToCollectionDeps({
-				addEntityToCollection: async (input) => {
-					receivedProperties = input.properties;
-					return createAddToCollectionData();
+		expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
-			}),
+				createAddToCollectionDeps({
+					addEntityToCollection: async (input) => {
+						receivedProperties = input.properties;
+						return createAddToCollectionData();
+					},
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
 		expect(receivedProperties).toEqual({});
 	});
 
 	it("updates existing membership when re-adding same entity to collection", async () => {
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: { updated: true, newProp: "value" },
+		const data = expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { updated: true, newProp: "value" },
+					},
 				},
-			},
-			createAddToCollectionDeps({
-				addEntityToCollection: async (input) =>
-					createAddToCollectionData({
-						memberOf: {
-							id: "existing-rel-1",
-							properties: input.properties,
-							sourceEntityId: input.entityId,
-							targetEntityId: input.collectionId,
-							createdAt: "2024-01-01T00:00:00.000Z",
-							relationshipSchemaId: "rel_schema_member_of",
-						},
-					}),
-			}),
+				createAddToCollectionDeps({
+					addEntityToCollection: async (input) =>
+						createAddToCollectionData({
+							memberOf: {
+								id: "existing-rel-1",
+								properties: input.properties,
+								sourceEntityId: input.entityId,
+								targetEntityId: input.collectionId,
+								createdAt: "2024-01-01T00:00:00.000Z",
+								relationshipSchemaId: "rel_schema_member_of",
+							},
+						}),
+				}),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.memberOf.properties).toEqual({
-				updated: true,
-				newProp: "value",
-			});
-		}
+		expect(data.memberOf.properties).toEqual({
+			updated: true,
+			newProp: "value",
+		});
 	});
 
 	it("prevents duplicate relationships by upserting", async () => {
@@ -1110,20 +1079,21 @@ describe("addToCollection", () => {
 			createAddToCollectionDeps({ addEntityToCollection }),
 		);
 
-		const result = await addToCollection(
-			{
-				userId: "user-1",
-				body: {
-					entityId: "entity-1",
-					collectionId: "collection-1",
-					properties: { updated: true },
+		expectDataResult(
+			await addToCollection(
+				{
+					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { updated: true },
+					},
 				},
-			},
-			createAddToCollectionDeps({ addEntityToCollection }),
+				createAddToCollectionDeps({ addEntityToCollection }),
+			),
 		);
 
 		expect(callCount).toBe(2);
-		expect("data" in result).toBe(true);
 	});
 
 	it("propagates repository errors", async () => {
@@ -1145,92 +1115,89 @@ describe("addToCollection", () => {
 
 describe("removeFromCollection", () => {
 	it("removes an entity from a collection and returns the deleted membership", async () => {
-		const result = await removeFromCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createRemoveFromCollectionDeps(),
+		const data = expectDataResult(
+			await removeFromCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+				},
+				createRemoveFromCollectionDeps(),
+			),
 		);
 
-		expect("data" in result).toBe(true);
-		if ("data" in result) {
-			expect(result.data.memberOf.id).toBe("rel_1");
-			expect(result.data.memberOf.relationshipSchemaId).toBe(
-				"rel_schema_member_of",
-			);
-		}
+		expect(data.memberOf.id).toBe("rel_1");
+		expect(data.memberOf.relationshipSchemaId).toBe("rel_schema_member_of");
 	});
 
 	it("returns not_found error when collection does not exist", async () => {
-		const result = await removeFromCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "nonexistent", entityId: "entity-1" },
-			},
-			createRemoveFromCollectionDeps({
-				getCollectionById: async () => undefined,
-			}),
+		const err = expectErrorResult(
+			await removeFromCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "nonexistent", entityId: "entity-1" },
+				},
+				createRemoveFromCollectionDeps({
+					getCollectionById: async () => undefined,
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Collection not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Collection not found");
 	});
 
 	it("returns not_found error when entity does not exist", async () => {
-		const result = await removeFromCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "nonexistent" },
-			},
-			createRemoveFromCollectionDeps({ getEntityById: async () => undefined }),
+		const err = expectErrorResult(
+			await removeFromCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "nonexistent" },
+				},
+				createRemoveFromCollectionDeps({
+					getEntityById: async () => undefined,
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Entity not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Entity not found");
 	});
 
 	it("returns not_found error when entity schema is not visible to user", async () => {
-		const result = await removeFromCollection(
-			{
-				userId: "user-1",
-				body: {
-					collectionId: "collection-1",
-					entityId: "entity-with-invisible-schema",
+		const err = expectErrorResult(
+			await removeFromCollection(
+				{
+					userId: "user-1",
+					body: {
+						collectionId: "collection-1",
+						entityId: "entity-with-invisible-schema",
+					},
 				},
-			},
-			createRemoveFromCollectionDeps({ getEntityById: async () => undefined }),
+				createRemoveFromCollectionDeps({
+					getEntityById: async () => undefined,
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Entity not found");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Entity not found");
 	});
 
 	it("returns not_found error when entity is not in collection", async () => {
-		const result = await removeFromCollection(
-			{
-				userId: "user-1",
-				body: { collectionId: "collection-1", entityId: "entity-1" },
-			},
-			createRemoveFromCollectionDeps({
-				removeEntityFromCollection: async () => undefined,
-			}),
+		const err = expectErrorResult(
+			await removeFromCollection(
+				{
+					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
+				},
+				createRemoveFromCollectionDeps({
+					removeEntityFromCollection: async () => undefined,
+				}),
+			),
 		);
 
-		expect("error" in result).toBe(true);
-		if ("error" in result) {
-			expect(result.error).toBe("not_found");
-			expect(result.message).toBe("Entity is not in collection");
-		}
+		expect(err.error).toBe("not_found");
+		expect(err.message).toBe("Entity is not in collection");
 	});
 
 	it("propagates repository errors", async () => {
