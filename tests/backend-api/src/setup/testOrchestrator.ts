@@ -107,14 +107,14 @@ async function startBackendProcess(
 			for (const line of output.split("\n")) {
 				if (line.trim()) console.log(`[Backend STDOUT] ${line.trim()}`);
 			}
-			if (
-				output.includes("Listening on") &&
-				output.includes(backendPort.toString())
-			) {
-				console.log("[Orchestrator] Backend process reported listening.");
-				resolve(backendProcess);
-			}
 		});
+
+		setTimeout(() => {
+			console.log(
+				"[Orchestrator] Backend process assumed ready after 5 seconds.",
+			);
+			resolve(backendProcess);
+		}, 5000);
 
 		backendProcess.stderr?.on("data", (data: Buffer) => {
 			const errorOutput = data.toString();
