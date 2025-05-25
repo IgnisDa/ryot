@@ -84,6 +84,10 @@ type SavedViewRuntimeRef = Extract<
 	SavedViewExpression,
 	{ type: "reference" }
 >["reference"];
+type ComputedFieldDef = NonNullable<
+	SavedViewQueryDefinition["computedFields"]
+>[number];
+type EventJoinDef = NonNullable<SavedViewQueryDefinition["eventJoins"]>[number];
 type SavedViewSortInput = Extract<
 	SavedViewQueryInput["sort"],
 	{ fields: string[] }
@@ -561,6 +565,126 @@ async function createSavedView(
 
 	return data.data;
 }
+
+// ─── Expression builders ────────────────────────────────────────────────────
+
+function ref(reference: SavedViewRuntimeRef): SavedViewExpression {
+	return { type: "reference", reference };
+}
+
+function literal(value: unknown): SavedViewExpression {
+	return { type: "literal", value };
+}
+
+function schemaProp(slug: string, property: string): SavedViewExpression {
+	return ref({ type: "schema-property", slug, property });
+}
+
+function computedRef(key: string): SavedViewExpression {
+	return ref({ type: "computed-field", key });
+}
+
+function eventProp(joinKey: string, property: string): SavedViewExpression {
+	return ref({ type: "event-join-property", joinKey, property });
+}
+
+function eventCol(joinKey: string, column: string): SavedViewExpression {
+	return ref({ type: "event-join-column", joinKey, column });
+}
+
+function arithmetic(
+	operator: "add" | "subtract" | "multiply" | "divide",
+	left: SavedViewExpression,
+	right: SavedViewExpression,
+): SavedViewExpression {
+	return { type: "arithmetic", operator, left, right };
+}
+
+function concat(...values: SavedViewExpression[]): SavedViewExpression {
+	return { type: "concat", values };
+}
+
+function conditional(
+	condition: SavedViewPredicate,
+	whenTrue: SavedViewExpression,
+	whenFalse: SavedViewExpression,
+): SavedViewExpression {
+	return { type: "conditional", condition, whenTrue, whenFalse };
+}
+
+function roundExpr(expression: SavedViewExpression): SavedViewExpression {
+	return { type: "round", expression };
+}
+
+function coalesceExpr(...values: SavedViewExpression[]): SavedViewExpression {
+	return { type: "coalesce", values };
+}
+
+// ─── Predicate builders ─────────────────────────────────────────────────────
+
+function compare(
+	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
+	left: SavedViewExpression,
+	right: SavedViewExpression,
+): SavedViewPredicate {
+	return { type: "comparison", operator, left, right };
+}
+
+function inPred(
+	expression: SavedViewExpression,
+	values: SavedViewExpression[],
+): SavedViewPredicate {
+	return { type: "in", expression, values };
+}
+
+function isNullPred(expression: SavedViewExpression): SavedViewPredicate {
+	return { type: "isNull", expression };
+}
+
+function isNotNullPred(expression: SavedViewExpression): SavedViewPredicate {
+	return { type: "isNotNull", expression };
+}
+
+function containsPred(
+	expression: SavedViewExpression,
+	value: SavedViewExpression,
+): SavedViewPredicate {
+	return { type: "contains", expression, value };
+}
+
+function andPred(...predicates: SavedViewPredicate[]): SavedViewPredicate {
+	return { type: "and", predicates };
+}
+
+function orPred(...predicates: SavedViewPredicate[]): SavedViewPredicate {
+	return { type: "or", predicates };
+}
+
+function notPred(predicate: SavedViewPredicate): SavedViewPredicate {
+	return { type: "not", predicate };
+}
+
+// ─── Query definition builders ───────────────────────────────────────────────
+
+function computedField(
+	key: string,
+	expression: SavedViewExpression,
+): ComputedFieldDef {
+	return { key, expression };
+}
+
+function eventJoin(key: string, eventSchemaSlug: string): EventJoinDef {
+	return { key, kind: "latestEvent", eventSchemaSlug };
+}
+
+function sortByExpr(
+	direction: "asc" | "desc",
+	expression: SavedViewExpression,
+): SavedViewQueryDefinition["sort"] {
+	return { direction, expression };
+}
+
+// ─── Display helpers ─────────────────────────────────────────────────────────
 
 function propertyReference(...fields: string[]) {
 	return fields;
@@ -2063,11 +2187,499 @@ async function seedSavedViews(
 		},
 	];
 
+	// ── Demo views: exercises every view-runtime capability ─────────────────
+	const demoViews: SavedViewSpec[] = [
+		// ── Event joins ────────────────────────────────────────────────────────
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Latest Tasting",
+			icon: "star",
+			accentColor: "#F59E0B",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				eventJoins: [eventJoin("tasting", "tasting")],
+				sort: sortByExpr("desc", eventCol("tasting", "createdAt")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("event.tasting.rating"),
+					propertyReference(schemaField("whiskey", "distillery")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Rating", "event.tasting.rating"),
+					tableColumn("Notes", "event.tasting.notes"),
+					tableColumn("Location", "event.tasting.location"),
+					tableColumn("Tasted At", "event.tasting.@createdAt"),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Highly Rated",
+			icon: "trophy",
+			accentColor: "#D97706",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				eventJoins: [eventJoin("tasting", "tasting")],
+				filter: compare("gte", eventProp("tasting", "rating"), literal(8)),
+				sort: sortByExpr("desc", eventProp("tasting", "rating")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("event.tasting.rating"),
+					propertyReference(schemaField("whiskey", "type")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Rating", "event.tasting.rating"),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
+					tableColumn("Age", schemaField("whiskey", "age")),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Latest Purchase",
+			icon: "shopping-cart",
+			accentColor: "#059669",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				eventJoins: [eventJoin("purchase", "purchase")],
+				filter: isNotNullPred(eventProp("purchase", "price")),
+				sort: sortByExpr("desc", eventProp("purchase", "price")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("event.purchase.price"),
+					propertyReference("event.purchase.store"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Price", "event.purchase.price"),
+					tableColumn("Store", "event.purchase.store"),
+					tableColumn("Bottle Size", "event.purchase.bottle_size"),
+					tableColumn("Purchased At", "event.purchase.@createdAt"),
+				],
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Demo: Places – Last Visited",
+			icon: "calendar",
+			accentColor: "#3B82F6",
+			queryDefinition: {
+				entitySchemaSlugs: ["place"],
+				eventJoins: [eventJoin("visit", "visit")],
+				filter: isNotNullPred(eventProp("visit", "date")),
+				sort: sortByExpr("desc", eventCol("visit", "createdAt")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("event.visit.date"),
+					propertyReference(schemaField("place", "city")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Visit Date", "event.visit.date"),
+					tableColumn("City", schemaField("place", "city")),
+					tableColumn("Duration (h)", "event.visit.duration_hours"),
+					tableColumn("Companions", "event.visit.companions"),
+				],
+			),
+		},
+		// ── Computed fields ────────────────────────────────────────────────────
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – ABV Reference",
+			icon: "percent",
+			accentColor: "#7C3AED",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				computedFields: [
+					computedField(
+						"abv",
+						roundExpr(
+							arithmetic("divide", schemaProp("whiskey", "proof"), literal(2)),
+						),
+					),
+				],
+				sort: sortByExpr("desc", computedRef("abv")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("computed.abv"),
+					propertyReference(schemaField("whiskey", "distillery")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+					tableColumn("ABV (%)", "computed.abv"),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
+					tableColumn("Age", schemaField("whiskey", "age")),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Quality Tiers",
+			icon: "layers",
+			accentColor: "#BE185D",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				computedFields: [
+					computedField(
+						"tier",
+						conditional(
+							compare("gte", schemaProp("whiskey", "age"), literal(18)),
+							literal("Rare"),
+							conditional(
+								compare("gte", schemaProp("whiskey", "age"), literal(12)),
+								literal("Premium"),
+								conditional(
+									compare("gte", schemaProp("whiskey", "age"), literal(8)),
+									literal("Standard"),
+									literal("Young"),
+								),
+							),
+						),
+					),
+				],
+				sort: sortByExpr("desc", schemaProp("whiskey", "age")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("computed.tier"),
+					propertyReference(schemaField("whiskey", "type")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Age", schemaField("whiskey", "age")),
+					tableColumn("Tier", "computed.tier"),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Region", schemaField("whiskey", "region")),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Full Description",
+			icon: "file-text",
+			accentColor: "#0284C7",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				computedFields: [
+					computedField(
+						"description",
+						concat(
+							coalesceExpr(schemaProp("whiskey", "type"), literal("Unknown")),
+							literal(" from "),
+							coalesceExpr(
+								schemaProp("whiskey", "region"),
+								literal("Unknown Region"),
+							),
+							literal(" ("),
+							coalesceExpr(
+								schemaProp("whiskey", "distillery"),
+								literal("Unknown Distillery"),
+							),
+							literal(")"),
+						),
+					),
+				],
+				sort: sortDefinition("asc", "@name"),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("whiskey", "type")),
+					propertyReference("computed.description"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Description", "computed.description"),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Rating with ABV",
+			icon: "activity",
+			accentColor: "#C026D3",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				eventJoins: [eventJoin("tasting", "tasting")],
+				computedFields: [
+					computedField(
+						"abv",
+						roundExpr(
+							arithmetic("divide", schemaProp("whiskey", "proof"), literal(2)),
+						),
+					),
+					computedField(
+						"value_score",
+						conditional(
+							andPred(
+								compare("gte", eventProp("tasting", "rating"), literal(7)),
+								compare("lte", computedRef("abv"), literal(50)),
+							),
+							literal("Great Value"),
+							literal("Standard"),
+						),
+					),
+				],
+				filter: isNotNullPred(eventProp("tasting", "rating")),
+				sort: sortByExpr("desc", eventProp("tasting", "rating")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("computed.value_score"),
+					propertyReference("computed.abv"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Rating", "event.tasting.rating"),
+					tableColumn("ABV (%)", "computed.abv"),
+					tableColumn("Value Score", "computed.value_score"),
+				],
+			),
+		},
+		// ── Complex filters ────────────────────────────────────────────────────
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Rare Bourbons",
+			icon: "award",
+			accentColor: "#92400E",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				filter: andPred(
+					compare("eq", schemaProp("whiskey", "type"), literal("Bourbon")),
+					compare("gte", schemaProp("whiskey", "age"), literal(15)),
+					compare("gte", schemaProp("whiskey", "proof"), literal(100)),
+				),
+				sort: sortDefinition("desc", schemaField("whiskey", "age")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("whiskey", "age")),
+					propertyReference(schemaField("whiskey", "distillery")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Age", schemaField("whiskey", "age")),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Not Rye",
+			icon: "x-circle",
+			accentColor: "#6B7280",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				filter: notPred(
+					compare("eq", schemaProp("whiskey", "type"), literal("Rye")),
+				),
+				sort: sortDefinition("asc", "@name"),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("whiskey", "type")),
+					propertyReference(schemaField("whiskey", "region")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Region", schemaField("whiskey", "region")),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+				],
+			),
+		},
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
+			icon: "zap",
+			accentColor: "#B45309",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				filter: andPred(
+					inPred(schemaProp("whiskey", "type"), [
+						literal("Bourbon"),
+						literal("Scotch"),
+					]),
+					compare("gte", schemaProp("whiskey", "proof"), literal(100)),
+				),
+				sort: sortByExpr(
+					"desc",
+					coalesceExpr(schemaProp("whiskey", "age"), literal(0)),
+				),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("whiskey", "type")),
+					propertyReference(schemaField("whiskey", "proof")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+					tableColumn("Age", schemaField("whiskey", "age")),
+				],
+			),
+		},
+		// ── isNull / isNotNull ─────────────────────────────────────────────────
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Unknown Region",
+			icon: "help-circle",
+			accentColor: "#9CA3AF",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				filter: isNullPred(schemaProp("whiskey", "region")),
+				sort: sortDefinition("asc", "@name"),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("whiskey", "type")),
+					propertyReference(schemaField("whiskey", "distillery")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Type", schemaField("whiskey", "type")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
+					tableColumn("Proof", schemaField("whiskey", "proof")),
+				],
+			),
+		},
+		{
+			trackerId: placesTrackerId,
+			name: "Demo: Places – Has Full Address",
+			icon: "map-pin",
+			accentColor: "#0F766E",
+			queryDefinition: {
+				entitySchemaSlugs: ["place"],
+				filter: andPred(
+					isNotNullPred(schemaProp("place", "address")),
+					isNotNullPred(schemaProp("place", "city")),
+				),
+				sort: sortDefinition("asc", schemaField("place", "city")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("place", "city")),
+					propertyReference(schemaField("place", "address")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("City", schemaField("place", "city")),
+					tableColumn("Address", schemaField("place", "address")),
+					tableColumn("Country", schemaField("place", "country")),
+				],
+			),
+		},
+		// ── contains / neq ─────────────────────────────────────────────────────
+		{
+			trackerId: whiskeyTrackerId,
+			name: "Demo: Whiskeys – Speyside",
+			icon: "map",
+			accentColor: "#064E3B",
+			queryDefinition: {
+				entitySchemaSlugs: ["whiskey"],
+				filter: containsPred(schemaProp("whiskey", "region"), literal("side")),
+				sort: sortDefinition("asc", schemaField("whiskey", "distillery")),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference(schemaField("whiskey", "region")),
+					propertyReference(schemaField("whiskey", "distillery")),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn("Region", schemaField("whiskey", "region")),
+					tableColumn("Distillery", schemaField("whiskey", "distillery")),
+					tableColumn("Age", schemaField("whiskey", "age")),
+				],
+			),
+		},
+		{
+			trackerId: phonesTrackerId,
+			name: "Demo: Phones – Non-Apple",
+			icon: "smartphone",
+			accentColor: "#1E40AF",
+			queryDefinition: {
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				filter: orPred(
+					compare(
+						"neq",
+						schemaProp("smartphone", "manufacturer"),
+						literal("Apple"),
+					),
+					compare(
+						"neq",
+						schemaProp("tablet", "manufacturer"),
+						literal("Apple"),
+					),
+				),
+				sort: sortDefinition("asc", "@name"),
+			},
+			displayConfiguration: displayConfiguration(
+				cardConfig(
+					propertyReference("@image"),
+					propertyReference("@name"),
+					propertyReference("smartphone.manufacturer", "tablet.manufacturer"),
+					propertyReference("smartphone.os", "tablet.os"),
+				),
+				[
+					tableColumn("Name", "@name"),
+					tableColumn(
+						"Manufacturer",
+						"smartphone.manufacturer",
+						"tablet.manufacturer",
+					),
+					tableColumn("OS", "smartphone.os", "tablet.os"),
+					tableColumn("Year", "smartphone.year", "tablet.year"),
+				],
+			),
+		},
+	];
+
 	const sections = [
 		["whiskey-related", whiskeyViews],
 		["place-related", placeViews],
 		["phone-related", phoneViews],
 		["cross-tracker", crossTrackerViews],
+		["demo", demoViews],
 	] as const;
 
 	for (const [label, views] of sections) {
