@@ -1,11 +1,7 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("Health Endpoint", () => {
-	let url: string | undefined;
-
-	beforeAll(async () => {
-		url = process.env.API_BASE_URL;
-	});
+	const url = process.env.API_BASE_URL;
 
 	it("should return 200 OK for /health endpoint", async () => {
 		const response = await fetch(`${url}/health`);
