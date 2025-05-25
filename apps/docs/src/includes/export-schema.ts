@@ -17,7 +17,7 @@ export interface ImportOrExportItemReviewComment {
 	user: IdAndNamedObject;
 }
 
-export type Visibility = "public" | "private";
+export type Visibility = 'public' | 'private';
 
 /** Review data associated to a rating. */
 export interface ImportOrExportItemReview {
@@ -67,7 +67,7 @@ export interface ImportOrExportExerciseItem {
 	reviews: ImportOrExportItemRating[];
 }
 
-export type EntityRemoteVideoSource = "youtube" | "dailymotion";
+export type EntityRemoteVideoSource = 'youtube' | 'dailymotion';
 
 /** The data that a remote video can have. */
 export interface EntityRemoteVideo {
@@ -115,17 +115,7 @@ export interface UserMeasurement {
 }
 
 /** The different types of media that can be stored. */
-export type MediaLot =
-	| "book"
-	| "show"
-	| "movie"
-	| "anime"
-	| "manga"
-	| "music"
-	| "podcast"
-	| "audio_book"
-	| "video_game"
-	| "visual_novel";
+export type MediaLot = 'book' | 'show' | 'movie' | 'anime' | 'manga' | 'music' | 'podcast' | 'audio_book' | 'video_game' | 'visual_novel';
 
 /** A specific instance when an entity was seen. */
 export interface ImportOrExportMetadataItemSeen {
@@ -152,21 +142,7 @@ export interface ImportOrExportMetadataItemSeen {
 }
 
 /** The different sources (or providers) from which data can be obtained from. */
-export type MediaSource =
-	| "mal"
-	| "igdb"
-	| "tmdb"
-	| "vndb"
-	| "custom"
-	| "itunes"
-	| "anilist"
-	| "audible"
-	| "hardcover"
-	| "listennotes"
-	| "google_books"
-	| "openlibrary"
-	| "manga_updates"
-	| "youtube_music";
+export type MediaSource = 'mal' | 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anilist' | 'audible' | 'hardcover' | 'listennotes' | 'google_books' | 'openlibrary' | 'manga_updates' | 'youtube_music';
 
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
@@ -250,26 +226,13 @@ export interface ImportOrExportPersonItem {
 }
 
 /** The different types of exercises that can be done. */
-export type ExerciseLot =
-	| "reps"
-	| "duration"
-	| "reps_and_weight"
-	| "reps_and_duration"
-	| "distance_and_duration"
-	| "reps_and_duration_and_distance";
+export type ExerciseLot = 'reps' | 'duration' | 'reps_and_weight' | 'reps_and_duration' | 'distance_and_duration' | 'reps_and_duration_and_distance';
 
 /** The types of set (mostly characterized by exertion level). */
-export type SetLot = "normal" | "warm_up" | "drop" | "failure";
+export type SetLot = 'normal' | 'warm_up' | 'drop' | 'failure';
 
 /** The different types of personal bests that can be achieved on a set. */
-export type WorkoutSetPersonalBest =
-	| "time"
-	| "pace"
-	| "reps"
-	| "one_rm"
-	| "volume"
-	| "weight"
-	| "distance";
+export type WorkoutSetPersonalBest = 'time' | 'pace' | 'reps' | 'one_rm' | 'volume' | 'weight' | 'distance';
 
 /** Details about the statistics of the set performed. */
 export interface WorkoutSetStatistic {
@@ -315,7 +278,7 @@ export interface WorkoutOrExerciseTotals {
 	weight: string;
 }
 
-export type UserUnitSystem = "metric" | "imperial";
+export type UserUnitSystem = 'metric' | 'imperial';
 
 /** An exercise that has been processed and committed to the database. */
 export interface ProcessedExercise {
@@ -365,19 +328,7 @@ export interface WorkoutSummaryExercise {
 	unit_system: UserUnitSystem;
 }
 
-export type ExerciseEquipment =
-	| "bands"
-	| "cable"
-	| "other"
-	| "barbell"
-	| "machine"
-	| "body_only"
-	| "dumbbell"
-	| "foam_roll"
-	| "ez_curl_bar"
-	| "kettlebells"
-	| "exercise_ball"
-	| "medicine_ball";
+export type ExerciseEquipment = 'bands' | 'cable' | 'other' | 'barbell' | 'machine' | 'body_only' | 'dumbbell' | 'foam_roll' | 'ez_curl_bar' | 'kettlebells' | 'exercise_ball' | 'medicine_ball';
 
 export interface WorkoutEquipmentFocusedSummary {
 	/**
@@ -388,7 +339,7 @@ export interface WorkoutEquipmentFocusedSummary {
 	exercises: number[];
 }
 
-export type ExerciseForce = "pull" | "push" | "static";
+export type ExerciseForce = 'pull' | 'push' | 'static';
 
 export interface WorkoutForceFocusedSummary {
 	exercises: number[];
@@ -399,7 +350,7 @@ export interface WorkoutForceFocusedSummary {
 	force: ExerciseForce;
 }
 
-export type ExerciseLevel = "beginner" | "expert" | "intermediate";
+export type ExerciseLevel = 'beginner' | 'expert' | 'intermediate';
 
 export interface WorkoutLevelFocusedSummary {
 	exercises: number[];
@@ -419,24 +370,7 @@ export interface WorkoutLotFocusedSummary {
 	lot: ExerciseLot;
 }
 
-export type ExerciseMuscle =
-	| "lats"
-	| "neck"
-	| "traps"
-	| "chest"
-	| "biceps"
-	| "calves"
-	| "glutes"
-	| "triceps"
-	| "forearms"
-	| "abductors"
-	| "adductors"
-	| "lower_back"
-	| "shoulders"
-	| "abdominals"
-	| "hamstrings"
-	| "middle_back"
-	| "quadriceps";
+export type ExerciseMuscle = 'lats' | 'neck' | 'traps' | 'chest' | 'biceps' | 'calves' | 'glutes' | 'triceps' | 'forearms' | 'abductors' | 'adductors' | 'lower_back' | 'shoulders' | 'abdominals' | 'hamstrings' | 'middle_back' | 'quadriceps';
 
 export interface WorkoutMuscleFocusedSummary {
 	exercises: number[];
