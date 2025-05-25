@@ -4,30 +4,18 @@ import {
 	createEntity,
 	createEntitySchema,
 	createTracker,
+	createTrackerWithSchema,
 	enqueueEntityImport,
 	findBuiltinSchemaWithProviders,
 	getEntitySchema,
+	getFirstProviderScriptId,
 	pollEntityImportResult,
 } from "../fixtures";
-
-async function createCustomSchemaFixture(
-	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
-	cookies: string,
-) {
-	const { trackerId } = await createTracker(client, cookies, {
-		name: "Entity Provenance Tracker",
-	});
-	const { schemaId } = await createEntitySchema(client, cookies, {
-		trackerId,
-		name: "Entity Provenance Schema",
-	});
-	return { schemaId };
-}
 
 describe("POST /entities", () => {
 	it("creates entity normally when no provenance fields are provided", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createCustomSchemaFixture(client, cookies);
+		const { schemaId } = await createTrackerWithSchema(client, cookies);
 
 		const entity = await createEntity(client, cookies, {
 			image: null,
@@ -44,12 +32,9 @@ describe("POST /entities", () => {
 
 	it("creates entity with externalId and sandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createCustomSchemaFixture(client, cookies);
+		const { schemaId } = await createTrackerWithSchema(client, cookies);
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const sandboxScriptId = schema.providers[0]?.scriptId;
-		if (!sandboxScriptId) {
-			throw new Error("No provider found");
-		}
+		const sandboxScriptId = getFirstProviderScriptId(schema);
 
 		const entity = await createEntity(client, cookies, {
 			image: null,
@@ -67,12 +52,9 @@ describe("POST /entities", () => {
 
 	it("returns the existing entity on duplicate externalId + sandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createCustomSchemaFixture(client, cookies);
+		const { schemaId } = await createTrackerWithSchema(client, cookies);
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const sandboxScriptId = schema.providers[0]?.scriptId;
-		if (!sandboxScriptId) {
-			throw new Error("No provider found");
-		}
+		const sandboxScriptId = getFirstProviderScriptId(schema);
 
 		const first = await createEntity(client, cookies, {
 			image: null,
@@ -98,10 +80,7 @@ describe("POST /entities", () => {
 	it("returns 400 for a built-in schema even when provenance fields are provided", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const provider = schema.providers[0];
-		if (!provider) {
-			throw new Error("No provider found");
-		}
+		const providerScriptId = getFirstProviderScriptId(schema);
 
 		const { response, error } = await client.POST("/entities", {
 			headers: { Cookie: cookies },
@@ -111,7 +90,7 @@ describe("POST /entities", () => {
 				name: "Built-in Book",
 				entitySchemaId: schema.id,
 				externalId: "ext-builtin-test",
-				sandboxScriptId: provider.scriptId,
+				sandboxScriptId: providerScriptId,
 			},
 		});
 
@@ -123,7 +102,7 @@ describe("POST /entities", () => {
 
 	it("returns 400 when only externalId is provided without sandboxScriptId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createCustomSchemaFixture(client, cookies);
+		const { schemaId } = await createTrackerWithSchema(client, cookies);
 
 		const { response, error } = await client.POST("/entities", {
 			headers: { Cookie: cookies },
@@ -144,12 +123,9 @@ describe("POST /entities", () => {
 
 	it("returns 400 when only sandboxScriptId is provided without externalId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createCustomSchemaFixture(client, cookies);
+		const { schemaId } = await createTrackerWithSchema(client, cookies);
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const sandboxScriptId = schema.providers[0]?.scriptId;
-		if (!sandboxScriptId) {
-			throw new Error("No provider found");
-		}
+		const sandboxScriptId = getFirstProviderScriptId(schema);
 
 		const { response, error } = await client.POST("/entities", {
 			headers: { Cookie: cookies },
