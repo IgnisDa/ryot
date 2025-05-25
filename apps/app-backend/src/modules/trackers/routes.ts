@@ -172,7 +172,6 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const hasEnabledUpdate = enabled !== undefined;
 		const hasTrackerConfigUpdate =
 			body.icon !== undefined ||
-			body.slug !== undefined ||
 			body.name !== undefined ||
 			body.description !== undefined ||
 			body.accentColor !== undefined;
@@ -223,22 +222,11 @@ export const trackersApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		const patch = patchResult.data;
 
-		const conflictingTracker = await getTrackerBySlugForUser({
-			slug: patch.slug,
-			userId: user.id,
-			excludeTrackerId: params.trackerId,
-		});
-		if (conflictingTracker)
-			return c.json(
-				trackerSlugExistsResult.body,
-				trackerSlugExistsResult.status,
-			);
-
 		const updatedTracker = await updateTrackerForUser({
+			userId: user.id,
 			name: patch.name,
 			slug: patch.slug,
 			icon: patch.icon,
-			userId: user.id,
 			trackerId: params.trackerId,
 			description: patch.description,
 			accentColor: patch.accentColor,

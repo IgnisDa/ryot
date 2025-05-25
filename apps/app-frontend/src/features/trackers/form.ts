@@ -62,7 +62,6 @@ export function toUpdateTrackerPayload(
 	return {
 		icon: input.icon.trim(),
 		name: input.name.trim(),
-		slug: input.slug.trim(),
 		accentColor: input.accentColor.trim(),
 		description:
 			input.description !== undefined
