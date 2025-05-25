@@ -5,18 +5,27 @@ import {
 	UserIntegrationsDocument,
 	UserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getGraphqlClient, getGraphqlClientHeaders } from "src/utils";
-import { describe, expect, it } from "vitest";
+import { getGraphqlClient, registerTestUser } from "src/utils";
+import { beforeAll, describe, expect, it } from "vitest";
 
 describe("User related tests", () => {
 	const url = process.env.API_BASE_URL as string;
+	let userApiKey: string;
+
+	beforeAll(async () => {
+		userApiKey = await registerTestUser(url);
+	});
+
+	const getAuthHeaders = () => ({
+		Authorization: `Bearer ${userApiKey}`,
+	});
 
 	it("should return defined UserPreferences", async () => {
 		const client = getGraphqlClient(url);
 		const { userDetails } = await client.request(
 			UserDetailsDocument,
 			{},
-			getGraphqlClientHeaders(),
+			getAuthHeaders(),
 		);
 
 		expect(userDetails).toBeDefined();
@@ -52,7 +61,7 @@ describe("User related tests", () => {
 		const { userCollectionsList } = await client.request(
 			UserCollectionsListDocument,
 			{},
-			getGraphqlClientHeaders(),
+			getAuthHeaders(),
 		);
 
 		expect(userCollectionsList).toBeDefined();
@@ -64,7 +73,7 @@ describe("User related tests", () => {
 		const { userImportReports } = await client.request(
 			UserImportReportsDocument,
 			{},
-			getGraphqlClientHeaders(),
+			getAuthHeaders(),
 		);
 
 		expect(userImportReports).toBeDefined();
@@ -76,7 +85,7 @@ describe("User related tests", () => {
 		const { userIntegrations } = await client.request(
 			UserIntegrationsDocument,
 			{},
-			getGraphqlClientHeaders(),
+			getAuthHeaders(),
 		);
 
 		expect(userIntegrations).toBeDefined();
@@ -88,7 +97,7 @@ describe("User related tests", () => {
 		const { userNotificationPlatforms } = await client.request(
 			UserNotificationPlatformsDocument,
 			{},
-			getGraphqlClientHeaders(),
+			getAuthHeaders(),
 		);
 
 		expect(userNotificationPlatforms).toBeDefined();

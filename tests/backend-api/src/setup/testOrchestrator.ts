@@ -2,19 +2,13 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
-import {
-	LoginUserDocument,
-	RegisterUserDocument,
-} from "@ryot/generated/graphql/backend/graphql";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import getPort from "get-port";
-import { getGraphqlClient } from "src/utils";
 import type { StartedNetwork, StartedTestContainer } from "testcontainers";
 import { GenericContainer, Network, Wait } from "testcontainers";
 
 export interface StartedServices {
-	userApiKey: string;
 	caddyBaseUrl: string;
 	network: StartedNetwork;
 	caddyProcess: ChildProcess;
@@ -31,8 +25,6 @@ const TEST_BUCKET_NAME = "test-bucket";
 const DB_USER = "testuser";
 const DB_PASSWORD = "testpassword";
 const DB_NAME = "testdb";
-const TEST_USERNAME = "testuser";
-const TEST_PASSWORD = "testpassword123";
 
 async function createMinioBucket(endpoint: string): Promise<void> {
 	const s3Client = new S3Client({
@@ -198,47 +190,6 @@ async function startBackendProcess(
 	});
 }
 
-async function registerTestUser(caddyBaseUrl: string) {
-	const client = getGraphqlClient(caddyBaseUrl);
-
-	try {
-		const { registerUser } = await client.request(RegisterUserDocument, {
-			input: {
-				data: {
-					password: { username: TEST_USERNAME, password: TEST_PASSWORD },
-				},
-			},
-		});
-
-		if (registerUser.__typename === "RegisterError") {
-			throw new Error(`Failed to register test user: ${registerUser.error}`);
-		}
-
-		console.log(
-			`[Orchestrator] Test user '${TEST_USERNAME}' registered successfully with ID: ${registerUser.id}`,
-		);
-
-		const { loginUser } = await client.request(LoginUserDocument, {
-			input: {
-				password: { username: TEST_USERNAME, password: TEST_PASSWORD },
-			},
-		});
-
-		if (loginUser.__typename === "LoginError") {
-			throw new Error(`Failed to login test user: ${loginUser.error}`);
-		}
-
-		console.log(
-			`[Orchestrator] Test user '${TEST_USERNAME}' logged in successfully with API key: ${loginUser.apiKey}`,
-		);
-
-		return loginUser.apiKey;
-	} catch (err) {
-		console.error("[Orchestrator] Error registering test user:", err);
-		throw err;
-	}
-}
-
 export async function startAllServices(): Promise<StartedServices> {
 	const network = await new Network().start();
 
@@ -294,12 +245,8 @@ export async function startAllServices(): Promise<StartedServices> {
 
 	const caddyBaseUrl = `http://127.0.0.1:${freeCaddyPort}`;
 
-	console.log("[Orchestrator] Registering test user...");
-	const userApiKey = await registerTestUser(caddyBaseUrl);
-
 	return {
 		network,
-		userApiKey,
 		pgContainer,
 		caddyProcess,
 		caddyBaseUrl,
