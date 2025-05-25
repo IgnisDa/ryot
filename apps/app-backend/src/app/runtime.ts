@@ -12,7 +12,7 @@ import {
 	initializeSandboxService,
 	shutdownSandboxService,
 } from "~/lib/sandbox";
-import { initializeMetrics, shutdownMetrics } from "~/modules/system/service";
+import { initializeMetrics } from "~/modules/system/service";
 import { app } from "./server";
 
 export const startServer = async () => {
@@ -48,7 +48,6 @@ export const startServer = async () => {
 			await shutdownQueues();
 			await shutdownSandboxService();
 			await shutdownRedis();
-			shutdownMetrics();
 			server.close(() => {
 				console.info("Server closed");
 				clearTimeout(forceExitTimeout);
