@@ -1,0 +1,10 @@
+tasks:
+  test:
+    command: "vitest run"
+
+  test-watch:
+    command: "vitest"
+    local: true
+
+  typecheck:
+    command: "tsc --noEmit -p tsconfig.json"

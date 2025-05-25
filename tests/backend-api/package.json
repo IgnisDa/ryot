@@ -1,0 +1,10 @@
+{
+	"name": "@ryot/backend-api-tests",
+	"version": "0.1.0",
+	"private": true,
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"devDependencies": {
+		"vitest": "3.1.4"
+	}
+}

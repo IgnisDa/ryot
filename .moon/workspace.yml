@@ -10,6 +10,7 @@ projects:
   transactional: "libs/transactional"
   ts-utils: "libs/ts-utils"
   website: "apps/website"
+  backend-api-tests: "tests/backend-api"
 
 vcs:
   manager: "git"
