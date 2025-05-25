@@ -3,6 +3,7 @@ import {
 	UserDetailsDocument,
 	UserImportReportsDocument,
 	UserIntegrationsDocument,
+	UserMetadataListDocument,
 	UserNotificationPlatformsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getGraphqlClient, registerTestUser } from "src/utils";
@@ -102,5 +103,17 @@ describe("User related tests", () => {
 
 		expect(userNotificationPlatforms).toBeDefined();
 		expect(userNotificationPlatforms).toHaveLength(0);
+	});
+
+	it("should have 0 associated metadata", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{ input: {} },
+			getAuthHeaders(),
+		);
+
+		expect(userMetadataList).toBeDefined();
+		expect(userMetadataList).toHaveLength(0);
 	});
 });
