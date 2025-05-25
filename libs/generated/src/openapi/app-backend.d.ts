@@ -205,6 +205,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sandbox/scripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a sandbox script */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        slug?: string;
+                        code: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Sandbox script created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                id: string;
+                                name: string;
+                                slug: string;
+                                code: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Request payload validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sandbox/enqueue": {
         parameters: {
             query?: never;
@@ -225,18 +298,8 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        /** @enum {string} */
-                        kind?: "code";
-                        driverName?: string;
-                        context?: {
-                            [key: string]: unknown;
-                        };
-                        code: string;
-                    } | {
                         scriptId: string;
-                        /** @enum {string} */
-                        kind: "script";
-                        driverName?: string;
+                        driverName: string;
                         context?: {
                             [key: string]: unknown;
                         };
@@ -325,16 +388,16 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                /** @enum {string} */
-                                status: "pending";
-                            } | {
                                 error: string;
                                 /** @enum {string} */
                                 status: "failed";
                             } | {
+                                /** @enum {string} */
+                                status: "pending";
+                            } | {
                                 logs: string | null;
                                 error: string | null;
-                                value: string | number | boolean | unknown | unknown[] | {
+                                value: unknown | string | number | boolean | unknown[] | {
                                     [key: string]: unknown;
                                 };
                                 /** @enum {string} */
@@ -428,7 +491,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "anime" | "manga";
+                                    entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
                                     /** Format: date-time */
                                     backlogAt: string;
                                     labels: {
@@ -526,7 +589,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "anime" | "manga";
+                                    entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
                                     /** Format: date-time */
                                     progressAt: string;
                                     labels: {
@@ -629,7 +692,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "anime" | "manga";
+                                    entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
                                     /** Format: date-time */
                                     completedAt: string;
                                     /** Format: date-time */
@@ -729,7 +792,7 @@ export interface paths {
                                             kind: "remote";
                                         } | unknown;
                                         /** @enum {string} */
-                                        entitySchemaSlug: "book" | "anime" | "manga";
+                                        entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
                                     };
                                 }[];
                                 count: number;
@@ -847,6 +910,8 @@ export interface paths {
                                     book?: number;
                                     anime?: number;
                                     manga?: number;
+                                    audiobook?: number;
+                                    "video-game"?: number;
                                 };
                             };
                         };
@@ -1676,7 +1741,7 @@ export interface paths {
                             } | {
                                 logs: string | null;
                                 error: string | null;
-                                value: string | number | boolean | unknown | unknown[] | {
+                                value: unknown | string | number | boolean | unknown[] | {
                                     [key: string]: unknown;
                                 };
                                 /** @enum {string} */

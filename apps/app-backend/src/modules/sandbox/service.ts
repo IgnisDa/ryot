@@ -1,4 +1,5 @@
-import { resolveRequiredString } from "@ryot/ts-utils";
+import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { resolveJobPollState } from "~/lib/queue/utils";
 import {
 	type ServiceResult,
@@ -12,11 +13,17 @@ import type {
 	ApiFunctionDescriptor,
 	SandboxEnqueueOptions,
 } from "~/lib/sandbox/types";
-import { getSandboxScriptForUser } from "./repository";
+import {
+	createSandboxScriptForUser,
+	getSandboxScriptBySlugForUser,
+	getSandboxScriptForUser,
+} from "./repository";
 import type {
+	CreateSandboxScriptBody,
 	EnqueueSandboxBody,
 	PollSandboxResult,
 	SandboxEnqueueResult,
+	SandboxScript,
 } from "./schemas";
 
 type SandboxMutationError = "not_found" | "validation";
@@ -31,12 +38,20 @@ export type SandboxServiceDeps = {
 	getSandboxJobByIdForUser: typeof getSandboxJobByIdForUser;
 };
 
+export type SandboxScriptServiceDeps = {
+	createSandboxScriptForUser: typeof createSandboxScriptForUser;
+	getSandboxScriptBySlugForUser: typeof getSandboxScriptBySlugForUser;
+};
+
 export type SandboxServiceResult<T> = ServiceResult<T, SandboxMutationError>;
 
 const sandboxJobFailedMessage = "Sandbox job failed";
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
+const sandboxScriptUniqueConstraint = "sandbox_script_user_slug_unique";
 const sandboxJobResultUnavailableMessage = "Sandbox job result unavailable";
+const sandboxScriptSlugExistsError =
+	"A sandbox script with this slug already exists";
 
 const enqueueSandboxJob = async (input: SandboxEnqueueOptions) =>
 	getSandboxService().enqueue(input);
@@ -50,6 +65,11 @@ const sandboxServiceDeps: SandboxServiceDeps = {
 	enqueueSandboxJob,
 	getSandboxScriptForUser,
 	getSandboxJobByIdForUser,
+};
+
+const sandboxScriptServiceDeps: SandboxScriptServiceDeps = {
+	createSandboxScriptForUser,
+	getSandboxScriptBySlugForUser,
 };
 
 const resolveSandboxJobIdResult = (jobId: string) =>
@@ -94,31 +114,64 @@ const createCompletedSandboxResult = (
 	};
 };
 
+export const createSandboxScript = async (
+	input: { body: CreateSandboxScriptBody; userId: string },
+	deps: SandboxScriptServiceDeps = sandboxScriptServiceDeps,
+): Promise<SandboxServiceResult<SandboxScript>> => {
+	const slugResult = wrapServiceValidator(
+		() =>
+			resolveRequiredSlug({
+				name: input.body.name,
+				slug: input.body.slug,
+				label: "Sandbox script",
+			}),
+		"Sandbox script slug is required",
+	);
+	if ("error" in slugResult) {
+		return slugResult;
+	}
+
+	const existingScript = await deps.getSandboxScriptBySlugForUser({
+		slug: slugResult.data,
+		userId: input.userId,
+	});
+	if (existingScript) {
+		return serviceError("validation", sandboxScriptSlugExistsError);
+	}
+
+	try {
+		const created = await deps.createSandboxScriptForUser({
+			userId: input.userId,
+			name: input.body.name,
+			slug: slugResult.data,
+			code: input.body.code,
+		});
+		return serviceData(created);
+	} catch (error) {
+		if (isUniqueConstraintError(error, sandboxScriptUniqueConstraint)) {
+			return serviceError("validation", sandboxScriptSlugExistsError);
+		}
+		throw error;
+	}
+};
+
 export const enqueueSandbox = async (
 	input: { body: EnqueueSandboxBody; userId: string },
 	deps: SandboxServiceDeps = sandboxServiceDeps,
 ): Promise<SandboxServiceResult<SandboxEnqueueResult>> => {
-	let code = "";
-	let scriptId: string | undefined;
-	if (input.body.kind === "code" || input.body.kind === undefined) {
-		code = input.body.code;
-	} else if (input.body.kind === "script") {
-		const foundSandboxScript = await deps.getSandboxScriptForUser({
-			userId: input.userId,
-			scriptId: input.body.scriptId,
-		});
-		if (!foundSandboxScript) {
-			return serviceError("not_found", sandboxScriptNotFoundError);
-		}
-		code = foundSandboxScript.code;
-		scriptId = input.body.scriptId;
+	const foundSandboxScript = await deps.getSandboxScriptForUser({
+		userId: input.userId,
+		scriptId: input.body.scriptId,
+	});
+	if (!foundSandboxScript) {
+		return serviceError("not_found", sandboxScriptNotFoundError);
 	}
 
 	const job = await deps.enqueueSandboxJob({
-		code,
-		scriptId,
 		userId: input.userId,
 		context: input.body.context,
+		code: foundSandboxScript.code,
+		scriptId: input.body.scriptId,
 		driverName: input.body.driverName,
 		apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
 	});
