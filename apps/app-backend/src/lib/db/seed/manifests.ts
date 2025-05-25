@@ -4,6 +4,7 @@ import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/au
 import googleBooksBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/google-books.txt";
 import hardcoverBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/hardcover.txt";
 import openLibraryBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/openlibrary.txt";
+import metronComicBookScriptCode from "~/lib/sandbox/scripts/providers/media/comic-book/metron.txt";
 import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/anilist.txt";
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
@@ -14,6 +15,7 @@ import igdbVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
 import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audible.txt";
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
+import metronPersonScriptCode from "~/lib/sandbox/scripts/providers/person/metron.txt";
 
 export const builtinSandboxScripts = () => [
 	{
@@ -30,6 +32,11 @@ export const builtinSandboxScripts = () => [
 		name: "Google Books",
 		slug: "book.google-book",
 		code: googleBooksBookScriptCode,
+	},
+	{
+		name: "Metron",
+		slug: "comic-book.metron",
+		code: metronComicBookScriptCode,
 	},
 	{
 		name: "Anilist",
@@ -96,6 +103,11 @@ export const builtinSandboxScripts = () => [
 		slug: "person.audible",
 		code: audiblePersonScriptCode,
 	},
+	{
+		name: "Metron",
+		slug: "person.metron",
+		code: metronPersonScriptCode,
+	},
 ];
 
 export const entitySchemaScriptLinks = () =>
@@ -111,6 +123,10 @@ export const entitySchemaScriptLinks = () =>
 		{
 			schemaSlug: "book",
 			scriptSlug: "book.hardcover",
+		},
+		{
+			schemaSlug: "comic-book",
+			scriptSlug: "comic-book.metron",
 		},
 		{
 			schemaSlug: "anime",
@@ -159,4 +175,5 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.anilist" },
 		{ schemaSlug: "person", scriptSlug: "person.audible" },
 		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
+		{ schemaSlug: "person", scriptSlug: "person.metron" },
 	] as const;
