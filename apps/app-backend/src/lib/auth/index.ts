@@ -26,6 +26,11 @@ export const auth = betterAuth({
 		autoSignIn: false,
 		disableSignUp: !config.USERS_ALLOW_REGISTRATION,
 	},
+	user: {
+		additionalFields: {
+			preferences: { type: "json", required: true, defaultValue: null },
+		},
+	},
 	plugins: [
 		apiKey({
 			fallbackToDatabase: true,
