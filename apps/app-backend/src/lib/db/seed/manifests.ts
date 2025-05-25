@@ -7,6 +7,7 @@ import openLibraryBookScriptCode from "~/lib/sandbox/scripts/providers/media/boo
 import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/anilist.txt";
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
+import itunesPodcastScriptCode from "~/lib/sandbox/scripts/providers/media/podcast/itunes.txt";
 import giantBombVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/giant-bomb.txt";
 import igdbVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/igdb.txt";
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
@@ -58,6 +59,11 @@ export const builtinSandboxScripts = () => [
 		name: "Audible",
 		slug: "audiobook.audible",
 		code: audibleAudiobookScriptCode,
+	},
+	{
+		name: "iTunes",
+		slug: "podcast.itunes",
+		code: itunesPodcastScriptCode,
 	},
 	{
 		name: "GiantBomb",
@@ -123,6 +129,10 @@ export const entitySchemaScriptLinks = () =>
 		{
 			schemaSlug: "audiobook",
 			scriptSlug: "audiobook.audible",
+		},
+		{
+			schemaSlug: "podcast",
+			scriptSlug: "podcast.itunes",
 		},
 		{
 			schemaSlug: "video-game",
