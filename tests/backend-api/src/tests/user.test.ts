@@ -23,23 +23,23 @@ describe("User related tests", () => {
 		}
 	});
 
-	it("should fail without authentication", async () => {
+	it("should throw without authentication", async () => {
 		const client = getGraphqlClient(url);
 
 		await expect(client.request(UserDetailsDocument)).rejects.toThrow();
 	});
 
-	it("should fail with invalid token", async () => {
+	it("should return UserDetailsError with invalid token", async () => {
 		const client = getGraphqlClient(url);
+		const { userDetails } = await client.request(
+			UserDetailsDocument,
+			{},
+			{
+				Authorization: "Bearer invalid-token",
+			},
+		);
 
-		await expect(
-			client.request(
-				UserDetailsDocument,
-				{},
-				{
-					Authorization: "Bearer invalid-token",
-				},
-			),
-		).rejects.toThrow();
+		expect(userDetails).toBeDefined();
+		expect(userDetails.__typename).toBe("UserDetailsError");
 	});
 });
