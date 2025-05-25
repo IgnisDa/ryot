@@ -13,6 +13,7 @@ export interface StartedServices {
 	minioContainer: StartedTestContainer;
 	caddyContainer: StartedTestContainer;
 	backendProcess: ChildProcess;
+	frontendProcess: ChildProcess;
 	network: StartedNetwork;
 	caddyBaseUrl: string;
 	minioHost: string;
@@ -67,6 +68,60 @@ async function createMinioBucket(
 			throw err;
 		}
 	}
+}
+
+async function startFrontendProcess(
+	frontendPort: number,
+): Promise<ChildProcess> {
+	return new Promise((resolve, reject) => {
+		console.log(
+			`[Orchestrator] Starting frontend process on port ${frontendPort}...`,
+		);
+
+		const frontendProcess = spawn(
+			"moon",
+			["run", "frontend:dev", "--", "--port", frontendPort.toString()],
+			{
+				env: process.env,
+				cwd: MONOREPO_ROOT,
+				stdio: ["ignore", "pipe", "pipe"],
+			},
+		);
+
+		frontendProcess.stdout?.on("data", (data: Buffer) => {
+			const output = data.toString();
+			for (const line of output.split("\n")) {
+				if (line.trim()) console.log(`[Frontend STDOUT] ${line.trim()}`);
+			}
+		});
+
+		setTimeout(() => {
+			console.log(
+				"[Orchestrator] Frontend process assumed ready after 10 seconds.",
+			);
+			resolve(frontendProcess);
+		}, 10000);
+
+		frontendProcess.stderr?.on("data", (data: Buffer) => {
+			const errorOutput = data.toString();
+			for (const line of errorOutput.split("\n")) {
+				if (line.trim()) console.error(`[Frontend STDERR] ${line.trim()}`);
+			}
+		});
+
+		frontendProcess.on("error", (err) => {
+			console.error("[Orchestrator] Failed to start frontend process:", err);
+			reject(err);
+		});
+
+		frontendProcess.on("exit", (code, signal) => {
+			if (code !== 0 && signal !== "SIGINT" && signal !== "SIGTERM") {
+				console.error(
+					`[Orchestrator] Frontend process exited unexpectedly with code ${code} and signal ${signal}`,
+				);
+			}
+		});
+	});
 }
 
 async function startBackendProcess(
@@ -181,6 +236,7 @@ export async function startAllServices(): Promise<StartedServices> {
 	);
 
 	const freeBackendPort = await getPort();
+	const freeFrontendPort = await getPort();
 	const backendDbUrl = `postgres://${DB_USER}:${DB_PASSWORD}@${dbHost}:${dbPort}/${DB_NAME}`;
 
 	const backendProcess = await startBackendProcess(
@@ -190,6 +246,8 @@ export async function startAllServices(): Promise<StartedServices> {
 		MINIO_SECRET_KEY,
 		freeBackendPort,
 	);
+
+	const frontendProcess = await startFrontendProcess(freeFrontendPort);
 
 	console.log("[Orchestrator] Starting Caddy container...");
 	const caddyContainer = await new GenericContainer("caddy:2.9.1")
@@ -202,6 +260,7 @@ export async function startAllServices(): Promise<StartedServices> {
 		])
 		.withEnvironment({
 			CADDY_BACKEND_TARGET: `http://host.docker.internal:${freeBackendPort}`,
+			CADDY_FRONTEND_TARGET: `http://host.docker.internal:${freeFrontendPort}`,
 		})
 		.withExposedPorts(8000)
 		.withWaitStrategy(Wait.forHttp("/health", 8000).forStatusCode(200))
@@ -217,6 +276,7 @@ export async function startAllServices(): Promise<StartedServices> {
 		minioContainer,
 		caddyContainer,
 		backendProcess,
+		frontendProcess,
 		network,
 		caddyBaseUrl,
 		minioHost,
@@ -242,6 +302,25 @@ export async function stopAllServices(
 		await services.caddyContainer.stop();
 	} catch (e) {
 		console.error("Error stopping Caddy container:", e);
+	}
+
+	try {
+		console.log("[Orchestrator] Stopping frontend process...");
+		if (services.frontendProcess && !services.frontendProcess.killed) {
+			const killed = services.frontendProcess.kill("SIGINT");
+			if (killed) {
+				await new Promise((resolve) =>
+					services.frontendProcess.on("exit", resolve),
+				);
+				console.log("[Orchestrator] Frontend process terminated.");
+			} else {
+				console.warn(
+					"[Orchestrator] Failed to send SIGINT to frontend process.",
+				);
+			}
+		}
+	} catch (e) {
+		console.error("Error stopping frontend process:", e);
 	}
 
 	try {
