@@ -79,12 +79,12 @@ async function startFrontendProcess(
 		);
 
 		const frontendProcess = spawn(
-			"moon",
-			["run", "frontend:dev", "--", "--port", frontendPort.toString()],
+			"yarn",
+			["react-router-serve", "./build/server/index.js"],
 			{
-				env: process.env,
-				cwd: MONOREPO_ROOT,
 				stdio: ["ignore", "pipe", "pipe"],
+				cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
+				env: { ...process.env, PORT: frontendPort.toString() },
 			},
 		);
 
