@@ -3,8 +3,11 @@ import {
 	UserDetailsDocument,
 	UserImportReportsDocument,
 	UserIntegrationsDocument,
+	UserMeasurementsListDocument,
 	UserMetadataListDocument,
 	UserNotificationPlatformsDocument,
+	UserWorkoutsListDocument,
+	UserWorkoutTemplatesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getGraphqlClient, registerTestUser } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -115,5 +118,41 @@ describe("User related tests", () => {
 
 		expect(userMetadataList).toBeDefined();
 		expect(userMetadataList.response.items).toHaveLength(0);
+	});
+
+	it("should have 0 workouts", async () => {
+		const client = getGraphqlClient(url);
+		const { userWorkoutsList } = await client.request(
+			UserWorkoutsListDocument,
+			{ input: { search: {} } },
+			getAuthHeaders(),
+		);
+
+		expect(userWorkoutsList).toBeDefined();
+		expect(userWorkoutsList.response.items).toHaveLength(0);
+	});
+
+	it("should have 0 workout templates", async () => {
+		const client = getGraphqlClient(url);
+		const { userWorkoutTemplatesList } = await client.request(
+			UserWorkoutTemplatesListDocument,
+			{ input: { search: {} } },
+			getAuthHeaders(),
+		);
+
+		expect(userWorkoutTemplatesList).toBeDefined();
+		expect(userWorkoutTemplatesList.response.items).toHaveLength(0);
+	});
+
+	it("should have 0 measurements", async () => {
+		const client = getGraphqlClient(url);
+		const { userMeasurementsList } = await client.request(
+			UserMeasurementsListDocument,
+			{ input: {} },
+			getAuthHeaders(),
+		);
+
+		expect(userMeasurementsList).toBeDefined();
+		expect(userMeasurementsList).toHaveLength(0);
 	});
 });
