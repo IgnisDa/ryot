@@ -27,8 +27,8 @@ use database_models::{
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup,
         MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserToEntity,
-        Workout, WorkoutTemplate,
+        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserMeasurement,
+        UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
@@ -37,10 +37,11 @@ use database_utils::{
     schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
-    ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData, SearchResults,
-    UserExercisesListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
+    EmptyCacheValue, ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData,
+    SearchResults, UserExercisesListResponse, UserMeasurementsListResponse,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
@@ -51,12 +52,13 @@ use enum_models::{
 };
 use fitness_models::{
     ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
-    UserExercisesListInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
-    WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
-    WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
-    WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
-    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
+    UserExercisesListInput, UserMeasurementsListInput, UserToExerciseBestSetExtraInformation,
+    UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+    UserWorkoutSetRecord, WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary,
+    WorkoutForceFocusedSummary, WorkoutInformation, WorkoutLevelFocusedSummary,
+    WorkoutLotFocusedSummary, WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals,
+    WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
+    WorkoutSummaryExercise,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
@@ -1760,6 +1762,18 @@ fn convert_review_into_input(
     })
 }
 
+pub async fn expire_user_measurements_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
+        })
+        .await?;
+    Ok(())
+}
 pub async fn create_user_measurement(
     user_id: &String,
     mut input: user_measurement::Model,
@@ -1799,6 +1813,7 @@ pub async fn create_user_measurement(
 
     let um: user_measurement::ActiveModel = input.into();
     let um = um.insert(&ss.db).await?;
+    expire_user_measurements_list_cache(user_id, ss).await?;
     Ok(um.timestamp)
 }
 
@@ -3622,6 +3637,44 @@ pub async fn user_exercises_list(
         )
         .await?;
     Ok(CachedResponse { cache_id, response })
+}
+
+pub async fn user_measurements_list(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    input: UserMeasurementsListInput,
+) -> Result<CachedResponse<UserMeasurementsListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserMeasurementsList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
+
+    let resp = UserMeasurement::find()
+        .apply_if(input.start_time, |query, v| {
+            query.filter(user_measurement::Column::Timestamp.gte(v))
+        })
+        .apply_if(input.end_time, |query, v| {
+            query.filter(user_measurement::Column::Timestamp.lte(v))
+        })
+        .filter(user_measurement::Column::UserId.eq(user_id))
+        .order_by_asc(user_measurement::Column::Timestamp)
+        .all(&ss.db)
+        .await?;
+
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserMeasurementsList(resp.clone()),
+        )
+        .await?;
+    Ok(CachedResponse {
+        cache_id,
+        response: resp,
+    })
 }
 
 pub async fn generic_metadata(

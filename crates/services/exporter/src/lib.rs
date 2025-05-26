@@ -10,16 +10,15 @@ use database_models::{
     seen,
 };
 use database_utils::{
-    entity_in_collections, item_reviews, user_measurements_list, user_workout_details,
-    user_workout_template_details,
+    entity_in_collections, item_reviews, user_workout_details, user_workout_template_details,
 };
 use dependent_models::{
     ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem, UserMetadataGroupsListInput,
     UserMetadataListInput, UserPeopleListInput, UserTemplatesOrWorkoutsListInput,
 };
 use dependent_utils::{
-    user_exercises_list, user_metadata_groups_list, user_metadata_list, user_people_list,
-    user_workout_templates_list, user_workouts_list,
+    user_exercises_list, user_measurements_list, user_metadata_groups_list, user_metadata_list,
+    user_people_list, user_workout_templates_list, user_workouts_list,
 };
 use enum_models::EntityLot;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
@@ -423,9 +422,8 @@ impl ExporterService {
         writer: &mut JsonStreamWriter<StdFile>,
     ) -> Result<()> {
         let measurements =
-            user_measurements_list(&self.0.db, user_id, UserMeasurementsListInput::default())
-                .await?;
-        for measurement in measurements {
+            user_measurements_list(user_id, &self.0, UserMeasurementsListInput::default()).await?;
+        for measurement in measurements.response {
             writer.serialize_value(&measurement).unwrap();
         }
         Ok(())

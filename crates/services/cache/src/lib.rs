@@ -43,6 +43,7 @@ impl CacheService {
             | ApplicationCacheKey::UserMetadataGroupsList { .. }
             | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::UserWorkoutTemplatesList { .. }
+            | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 

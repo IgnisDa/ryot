@@ -11,18 +11,18 @@ use database_models::{
 };
 use database_utils::{
     entity_in_collections, get_user_query, item_reviews, schedule_user_for_workout_revision,
-    server_key_validation_guard, transform_entity_assets, user_measurements_list,
-    user_workout_details, user_workout_template_details,
+    server_key_validation_guard, transform_entity_assets, user_workout_details,
+    user_workout_template_details,
 };
 use dependent_models::{
     CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
-    UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutTemplateDetails,
-    UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
+    UserMeasurementsListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails,
+    UserWorkoutTemplateDetails, UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, get_focused_workout_summary, user_exercises_list,
-    user_workout_templates_list, user_workouts_list,
+    db_workout_to_workout_input, expire_user_measurements_list_cache, get_focused_workout_summary,
+    user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
@@ -322,8 +322,8 @@ impl FitnessService {
         &self,
         user_id: &String,
         input: UserMeasurementsListInput,
-    ) -> Result<Vec<user_measurement::Model>> {
-        user_measurements_list(&self.0.db, user_id, input).await
+    ) -> Result<CachedResponse<UserMeasurementsListResponse>> {
+        user_measurements_list(user_id, &self.0, input).await
     }
 
     pub async fn create_user_measurement(
@@ -339,11 +339,12 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let m = UserMeasurement::find_by_id((user_id, timestamp))
+        let m = UserMeasurement::find_by_id((user_id.to_owned(), timestamp))
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Measurement does not exist"))?;
         m.delete(&self.0.db).await?;
+        expire_user_measurements_list_cache(&user_id, &self.0).await?;
         Ok(true)
     }
 

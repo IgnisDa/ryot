@@ -20,7 +20,8 @@ use enum_models::{
     MediaLot, MediaSource, UserToMediaReason, WorkoutSetPersonalBest,
 };
 use fitness_models::{
-    UserExercisesListInput, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+    UserExercisesListInput, UserMeasurementsListInput, UserToExerciseHistoryExtraInformation,
+    UserWorkoutInput,
 };
 use importer_models::ImportFailedItem;
 use media_models::{
@@ -79,6 +80,10 @@ pub struct SortInput<T: InputType + Default> {
 #[graphql(concrete(
     name = "CachedUserMetadataRecommendationsResponse",
     params(UserMetadataRecommendationsResponse)
+))]
+#[graphql(concrete(
+    name = "CachedUserMeasurementsListResponse",
+    params(UserMeasurementsListResponse)
 ))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
@@ -571,6 +576,7 @@ pub enum ApplicationCacheKey {
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
     ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
+    UserMeasurementsList(UserLevelCacheKey<UserMeasurementsListInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
     UserWorkoutsList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
@@ -596,6 +602,7 @@ pub type UserMetadataRecommendationsResponse = Vec<String>;
 pub type MetadataGroupSearchResponse = SearchResults<String>;
 pub type UserMetadataGroupsListResponse = SearchResults<String>;
 pub type UserWorkoutsTemplatesListResponse = SearchResults<String>;
+pub type UserMeasurementsListResponse = Vec<user_measurement::Model>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -616,6 +623,7 @@ pub enum ApplicationCacheValue {
     TrendingMetadataIds(TrendingMetadataIdsResponse),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
+    UserMeasurementsList(UserMeasurementsListResponse),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
