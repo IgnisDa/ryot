@@ -638,6 +638,7 @@ pub struct GetCacheKeyResponse {
     pub value: ApplicationCacheValue,
 }
 
+#[derive(Debug)]
 pub enum ExpireCacheKeyInput {
     ById(Uuid),
     ByKey(ApplicationCacheKey),

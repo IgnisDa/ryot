@@ -178,6 +178,7 @@ impl CacheService {
     }
 
     pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<()> {
+        ryot_log!(debug, "Expiring cache key: {by:?}");
         let deleted = ApplicationCache::update_many()
             .filter(match by {
                 ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
