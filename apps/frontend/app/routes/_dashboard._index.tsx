@@ -203,12 +203,7 @@ export default function Page() {
 						)
 						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
 							<Section key={v} lot={v}>
-								<SectionTitleWithRefreshIcon
-									text="In Progress"
-									action={{
-										cacheId: loaderData.inProgressCollectionContents.cacheId,
-									}}
-								/>
+								<SectionTitle text="In Progress" />
 								{loaderData.inProgressCollectionContents.response.results.items
 									.length > 0 ? (
 									<ApplicationGrid>
@@ -396,18 +391,6 @@ const TrendingSection = () => {
 				<Skeleton height={100} />
 			)}
 		</>
-	);
-};
-
-const SectionTitleWithRefreshIcon = (props: {
-	text: string;
-	action: ExpireCacheKeyButtonProps["action"];
-}) => {
-	return (
-		<Group justify="space-between">
-			<SectionTitle text={props.text} />
-			<ExpireCacheKeyButton action={props.action} />
-		</Group>
 	);
 };
 
