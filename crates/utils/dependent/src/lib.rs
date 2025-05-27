@@ -1420,6 +1420,12 @@ pub async fn handle_after_metadata_seen_tasks(
             };
         }
     };
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(seen.user_id),
+            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
+        })
+        .await?;
     Ok(())
 }
 
