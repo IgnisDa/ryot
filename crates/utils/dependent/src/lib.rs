@@ -2268,6 +2268,7 @@ pub async fn create_or_update_user_workout(
             }
         }
     };
+    expire_user_workouts_list_cache(user_id, ss).await?;
     Ok(data.id)
 }
 
@@ -2894,6 +2895,19 @@ pub async fn expire_user_collections_list_cache(
     });
     ss.cache_service
         .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_workouts_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserWorkoutsList,
+        })
         .await?;
     Ok(())
 }

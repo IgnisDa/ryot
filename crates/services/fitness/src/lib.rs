@@ -21,8 +21,9 @@ use dependent_models::{
 };
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, expire_user_measurements_list_cache, get_focused_workout_summary,
-    user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
+    db_workout_to_workout_input, expire_user_measurements_list_cache,
+    expire_user_workouts_list_cache, get_focused_workout_summary, user_exercises_list,
+    user_measurements_list, user_workout_templates_list, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
@@ -433,6 +434,7 @@ impl FitnessService {
             association.update(&self.0.db).await?;
         }
         wkt.delete(&self.0.db).await?;
+        expire_user_workouts_list_cache(&user_id, &self.0).await?;
         schedule_user_for_workout_revision(&user_id, &self.0).await?;
         Ok(true)
     }
