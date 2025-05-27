@@ -1762,18 +1762,6 @@ fn convert_review_into_input(
     })
 }
 
-pub async fn expire_user_measurements_list_cache(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
-            user_id: Some(user_id.to_owned()),
-            key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
-        })
-        .await?;
-    Ok(())
-}
 pub async fn create_user_measurement(
     user_id: &String,
     mut input: user_measurement::Model,
@@ -2907,6 +2895,32 @@ pub async fn expire_user_workouts_list_cache(
         .expire_key(ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserWorkoutsList,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_measurements_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_workout_templates_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserWorkoutTemplatesList,
         })
         .await?;
     Ok(())

@@ -22,8 +22,9 @@ use dependent_models::{
 use dependent_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, expire_user_measurements_list_cache,
-    expire_user_workouts_list_cache, get_focused_workout_summary, user_exercises_list,
-    user_measurements_list, user_workout_templates_list, user_workouts_list,
+    expire_user_workout_templates_list_cache, expire_user_workouts_list_cache,
+    get_focused_workout_summary, user_exercises_list, user_measurements_list,
+    user_workout_templates_list, user_workouts_list,
 };
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
@@ -108,8 +109,8 @@ impl FitnessService {
         summary.focused = get_focused_workout_summary(&processed_exercises, &self.0).await;
         let template = workout_template::ActiveModel {
             name: ActiveValue::Set(input.name),
-            user_id: ActiveValue::Set(user_id),
             summary: ActiveValue::Set(summary),
+            user_id: ActiveValue::Set(user_id.clone()),
             information: ActiveValue::Set(information),
             id: match input.update_workout_template_id {
                 Some(id) => ActiveValue::Set(id),
@@ -129,6 +130,7 @@ impl FitnessService {
             )
             .exec_with_returning(&self.0.db)
             .await?;
+        expire_user_workout_templates_list_cache(&user_id, &self.0).await?;
         Ok(template.id)
     }
 
@@ -146,6 +148,7 @@ impl FitnessService {
             return Err(Error::new("Workout template does not exist for user"));
         };
         wkt.delete(&self.0.db).await?;
+        expire_user_workout_templates_list_cache(&user_id, &self.0).await?;
         Ok(true)
     }
 
