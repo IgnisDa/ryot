@@ -1255,10 +1255,10 @@ impl MiscellaneousService {
             Some(r) => {
                 if r.user_id == user_id {
                     enqueue_associate_user_with_entity_job(
-                        &self.0,
                         &user_id,
                         &r.entity_id,
                         r.entity_lot,
+                        &self.0,
                     )
                     .await?;
                     r.delete(&self.0.db).await?;
@@ -1319,7 +1319,7 @@ impl MiscellaneousService {
         }
         si.delete(&self.0.db).await.trace_ok();
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
-        enqueue_associate_user_with_entity_job(&self.0, user_id, &metadata_id, EntityLot::Metadata)
+        enqueue_associate_user_with_entity_job(user_id, &metadata_id, EntityLot::Metadata, &self.0)
             .await?;
         Ok(StringIdObject { id: seen_id })
     }
