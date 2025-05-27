@@ -2,6 +2,11 @@ import { faker } from "@faker-js/faker";
 import {
 	LoginUserDocument,
 	RegisterUserDocument,
+	UserCollectionsListDocument,
+	UserExercisesListDocument,
+	UserMeasurementsListDocument,
+	UserMetadataListDocument,
+	UserWorkoutsListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 
@@ -49,4 +54,74 @@ export async function registerTestUser(baseUrl: string): Promise<string> {
 		console.error("[Test Utils] Error registering test user:", err);
 		throw err;
 	}
+}
+
+export async function getUserCollectionsList(
+	baseUrl: string,
+	userApiKey: string,
+) {
+	const client = getGraphqlClient(baseUrl);
+	const { userCollectionsList } = await client.request(
+		UserCollectionsListDocument,
+		{},
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return userCollectionsList.response;
+}
+
+export async function getUserWorkoutsList(baseUrl: string, userApiKey: string) {
+	const client = getGraphqlClient(baseUrl);
+	const { userWorkoutsList } = await client.request(
+		UserWorkoutsListDocument,
+		{ input: { search: {} } },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return userWorkoutsList.response.items;
+}
+
+export async function getUserMeasurementsList(
+	baseUrl: string,
+	userApiKey: string,
+) {
+	const client = getGraphqlClient(baseUrl);
+	const { userMeasurementsList } = await client.request(
+		UserMeasurementsListDocument,
+		{ input: {} },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return userMeasurementsList.response;
+}
+
+export async function getFirstExerciseId(
+	baseUrl: string,
+	userApiKey: string,
+): Promise<string> {
+	const client = getGraphqlClient(baseUrl);
+	const { userExercisesList } = await client.request(
+		UserExercisesListDocument,
+		{
+			input: {
+				search: { query: "" },
+			},
+		},
+		{
+			Authorization: `Bearer ${userApiKey}`,
+		},
+	);
+
+	if (userExercisesList.response.items.length === 0) {
+		throw new Error("No exercises found in the database");
+	}
+
+	return userExercisesList.response.items[0];
+}
+
+export async function getUserMetadataList(baseUrl: string, userApiKey: string) {
+	const client = getGraphqlClient(baseUrl);
+	const { userMetadataList } = await client.request(
+		UserMetadataListDocument,
+		{ input: {} },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return userMetadataList.response.items;
 }

@@ -1,15 +1,18 @@
 import {
-	UserCollectionsListDocument,
 	UserDetailsDocument,
 	UserImportReportsDocument,
 	UserIntegrationsDocument,
-	UserMeasurementsListDocument,
-	UserMetadataListDocument,
 	UserNotificationPlatformsDocument,
-	UserWorkoutsListDocument,
 	UserWorkoutTemplatesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { getGraphqlClient, registerTestUser } from "src/utils";
+import {
+	getGraphqlClient,
+	getUserCollectionsList,
+	getUserMeasurementsList,
+	getUserMetadataList,
+	getUserWorkoutsList,
+	registerTestUser,
+} from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 
 describe("User related tests", () => {
@@ -61,15 +64,8 @@ describe("User related tests", () => {
 	});
 
 	it("should have 7 system-created collections", async () => {
-		const client = getGraphqlClient(url);
-		const { userCollectionsList } = await client.request(
-			UserCollectionsListDocument,
-			{},
-			getAuthHeaders(),
-		);
-
-		expect(userCollectionsList).toBeDefined();
-		expect(userCollectionsList.response).toHaveLength(7);
+		const collections = await getUserCollectionsList(url, userApiKey);
+		expect(collections).toHaveLength(7);
 	});
 
 	it("should have 0 imports", async () => {
@@ -109,27 +105,13 @@ describe("User related tests", () => {
 	});
 
 	it("should have 0 associated metadata", async () => {
-		const client = getGraphqlClient(url);
-		const { userMetadataList } = await client.request(
-			UserMetadataListDocument,
-			{ input: {} },
-			getAuthHeaders(),
-		);
-
-		expect(userMetadataList).toBeDefined();
-		expect(userMetadataList.response.items).toHaveLength(0);
+		const metadata = await getUserMetadataList(url, userApiKey);
+		expect(metadata).toHaveLength(0);
 	});
 
 	it("should have 0 workouts", async () => {
-		const client = getGraphqlClient(url);
-		const { userWorkoutsList } = await client.request(
-			UserWorkoutsListDocument,
-			{ input: { search: {} } },
-			getAuthHeaders(),
-		);
-
-		expect(userWorkoutsList).toBeDefined();
-		expect(userWorkoutsList.response.items).toHaveLength(0);
+		const workouts = await getUserWorkoutsList(url, userApiKey);
+		expect(workouts).toHaveLength(0);
 	});
 
 	it("should have 0 workout templates", async () => {
@@ -145,14 +127,7 @@ describe("User related tests", () => {
 	});
 
 	it("should have 0 measurements", async () => {
-		const client = getGraphqlClient(url);
-		const { userMeasurementsList } = await client.request(
-			UserMeasurementsListDocument,
-			{ input: {} },
-			getAuthHeaders(),
-		);
-
-		expect(userMeasurementsList).toBeDefined();
-		expect(userMeasurementsList.response).toHaveLength(0);
+		const measurements = await getUserMeasurementsList(url, userApiKey);
+		expect(measurements).toHaveLength(0);
 	});
 });
