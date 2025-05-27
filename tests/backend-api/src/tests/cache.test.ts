@@ -13,6 +13,10 @@ import {
 	MetadataSearchDocument,
 	SetLot,
 	UserUnitSystem,
+	DeployBulkProgressUpdateDocument,
+	CollectionContentsDocument,
+	CollectionContentsSortBy,
+	GraphqlSortOrder,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getFirstExerciseId,
@@ -210,5 +214,161 @@ describe("Cache related tests", () => {
 
 		const afterDisassociate = await getUserMetadataList(url, userApiKey);
 		expect(afterDisassociate).toHaveLength(0);
+	});
+
+	it("should update collection ordering when movie progress is updated", async () => {
+		const client = getGraphqlClient(url);
+
+		const searchResult = await client.request(
+			MetadataSearchDocument,
+			{
+				input: {
+					lot: MediaLot.Movie,
+					source: MediaSource.Tmdb,
+					search: { query: "star wars" },
+				},
+			},
+			getAuthHeaders(),
+		);
+		expect(searchResult.metadataSearch.items.length).toBeGreaterThan(1);
+
+		const firstMovieId = searchResult.metadataSearch.items[0];
+		const secondMovieId = searchResult.metadataSearch.items[1];
+
+		await client.request(
+			DeployBulkProgressUpdateDocument,
+			{
+				input: [
+					{
+						metadataId: firstMovieId,
+						progress: "0",
+					},
+				],
+			},
+			getAuthHeaders(),
+		);
+
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
+		await client.request(
+			DeployBulkProgressUpdateDocument,
+			{
+				input: [
+					{
+						metadataId: secondMovieId,
+						progress: "0",
+					},
+				],
+			},
+			getAuthHeaders(),
+		);
+
+		const collectionsResponse = await getUserCollectionsList(url, userApiKey);
+		const inProgressCollection = collectionsResponse.find(
+			(c) => c.name === "In Progress",
+		);
+		expect(inProgressCollection).toBeDefined();
+
+		if (!inProgressCollection) {
+			throw new Error("In Progress collection not found");
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+
+		const initialContentsResult = await client.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: inProgressCollection.id,
+					sort: {
+						order: GraphqlSortOrder.Desc,
+						by: CollectionContentsSortBy.LastUpdatedOn,
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const initialContents =
+			initialContentsResult.collectionContents.response.results.items;
+		expect(initialContents).toHaveLength(2);
+
+		const initialFirstMovie = initialContents[0].entityId;
+		const initialSecondMovie = initialContents[1].entityId;
+		expect(initialFirstMovie).toBe(secondMovieId);
+		expect(initialSecondMovie).toBe(firstMovieId);
+
+		await client.request(
+			DeployBulkProgressUpdateDocument,
+			{
+				input: [
+					{
+						metadataId: firstMovieId,
+						progress: "25",
+					},
+				],
+			},
+			getAuthHeaders(),
+		);
+
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+
+		const updatedContentsResult = await client.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: inProgressCollection.id,
+					sort: {
+						order: GraphqlSortOrder.Desc,
+						by: CollectionContentsSortBy.LastUpdatedOn,
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const updatedContents =
+			updatedContentsResult.collectionContents.response.results.items;
+		expect(updatedContents).toHaveLength(2);
+
+		const updatedFirstMovie = updatedContents[0].entityId;
+		const updatedSecondMovie = updatedContents[1].entityId;
+		expect(updatedFirstMovie).toBe(firstMovieId);
+		expect(updatedSecondMovie).toBe(secondMovieId);
+
+		await client.request(
+			DeployBulkProgressUpdateDocument,
+			{
+				input: [
+					{
+						metadataId: firstMovieId,
+						progress: "100",
+					},
+					{
+						metadataId: secondMovieId,
+						progress: "100",
+					},
+				],
+			},
+			getAuthHeaders(),
+		);
+
+		const finalContentsResult = await client.request(
+			CollectionContentsDocument,
+			{
+				input: {
+					collectionId: inProgressCollection.id,
+					sort: {
+						order: GraphqlSortOrder.Desc,
+						by: CollectionContentsSortBy.LastUpdatedOn,
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const finalContents =
+			finalContentsResult.collectionContents.response.results.items;
+		expect(finalContents).toHaveLength(0);
 	});
 });
