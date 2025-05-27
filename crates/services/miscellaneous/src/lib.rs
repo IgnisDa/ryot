@@ -856,6 +856,7 @@ impl MiscellaneousService {
                     ute.update(&self.0.db).await.unwrap();
                 }
             }
+            expire_user_metadata_list_cache(&user_id, &self.0).await?;
         }
         Ok(())
     }
