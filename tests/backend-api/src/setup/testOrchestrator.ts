@@ -96,10 +96,10 @@ async function startFrontendProcess(
 
 		setTimeout(() => {
 			console.log(
-				"[Orchestrator] Frontend process assumed ready after 5 seconds.",
+				"[Orchestrator] Frontend process assumed ready after 10 seconds.",
 			);
 			resolve(frontendProcess);
-		}, 5000);
+		}, 10_000);
 	});
 }
 
@@ -204,10 +204,10 @@ async function startBackendProcess(
 
 		setTimeout(() => {
 			console.log(
-				"[Orchestrator] Backend process assumed ready after 5 seconds.",
+				"[Orchestrator] Backend process assumed ready after 10 seconds.",
 			);
 			resolve(backendProcess);
-		}, 5000);
+		}, 10_000);
 	});
 }
 
@@ -256,13 +256,19 @@ export async function startAllServices(): Promise<StartedServices> {
 	const backendDbUrl = `postgres://${DB_USER}:${DB_PASSWORD}@${dbHost}:${dbPort}/${DB_NAME}`;
 
 	console.log(
-		"[Orchestrator] Starting backend, frontend, and Caddy processes in parallel...",
+		"[Orchestrator] Starting backend and frontend processes in parallel...",
 	);
-	const [backendProcess, frontendProcess, caddyProcess] = await Promise.all([
+	const [backendProcess, frontendProcess] = await Promise.all([
 		startBackendProcess(backendDbUrl, freeBackendPort, minioExternalEndpoint),
 		startFrontendProcess(freeFrontendPort),
-		startCaddyProcess(freeCaddyPort, freeBackendPort, freeFrontendPort),
 	]);
+
+	console.log("[Orchestrator] Starting Caddy process...");
+	const caddyProcess = await startCaddyProcess(
+		freeCaddyPort,
+		freeBackendPort,
+		freeFrontendPort,
+	);
 
 	const caddyBaseUrl = `http://127.0.0.1:${freeCaddyPort}`;
 
