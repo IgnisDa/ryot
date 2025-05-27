@@ -2,11 +2,13 @@ import { faker } from "@faker-js/faker";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	DeployBulkProgressUpdateDocument,
 	GraphqlSortOrder,
 	LoginUserDocument,
 	MediaLot,
 	MediaSource,
 	MetadataSearchDocument,
+	type ProgressUpdateInput,
 	RegisterUserDocument,
 	UserCollectionsListDocument,
 	UserExercisesListDocument,
@@ -176,4 +178,18 @@ export async function getCollectionContents(
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
 	return collectionContents.response.results.items;
+}
+
+export async function progressUpdate(
+	baseUrl: string,
+	userApiKey: string,
+	input: ProgressUpdateInput[],
+) {
+	const client = getGraphqlClient(baseUrl);
+	const { deployBulkProgressUpdate } = await client.request(
+		DeployBulkProgressUpdateDocument,
+		{ input },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return deployBulkProgressUpdate;
 }
