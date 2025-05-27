@@ -196,6 +196,7 @@ describe("Cache related tests", () => {
 			getAuthHeaders(),
 		);
 		expect(addToCollectionResult.addEntityToCollection).toBe(true);
+		await new Promise((resolve) => setTimeout(resolve, 4000));
 
 		const afterAdd = await getUserMetadataList(url, userApiKey);
 		expect(afterAdd).toHaveLength(1);
@@ -206,6 +207,7 @@ describe("Cache related tests", () => {
 			getAuthHeaders(),
 		);
 		expect(disassociateResult.disassociateMetadata).toBe(true);
+		await new Promise((resolve) => setTimeout(resolve, 4000));
 
 		const afterDisassociate = await getUserMetadataList(url, userApiKey);
 		expect(afterDisassociate).toHaveLength(0);
