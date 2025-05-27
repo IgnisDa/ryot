@@ -13,7 +13,6 @@ common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
-fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
 itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }
