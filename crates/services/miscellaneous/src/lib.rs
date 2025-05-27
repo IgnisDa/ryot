@@ -52,12 +52,13 @@ use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
-    generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
-    get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
-    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
-    update_metadata_group_and_notify_users, update_person_and_notify_users,
-    user_metadata_groups_list, user_metadata_list, user_people_list,
+    expire_user_metadata_list_cache, generic_metadata, get_entity_recently_consumed,
+    get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
+    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
+    post_review, progress_update, remove_entity_from_collection, send_notification_for_user,
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
+    user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -1254,6 +1255,7 @@ impl MiscellaneousService {
                     associate_user_with_entity(&self.0.db, &user_id, &r.entity_id, r.entity_lot)
                         .await?;
                     r.delete(&self.0.db).await?;
+                    expire_user_metadata_list_cache(&user_id, &self.0).await?;
                     Ok(true)
                 } else {
                     Err(Error::new("This review does not belong to you".to_owned()))
@@ -1311,6 +1313,7 @@ impl MiscellaneousService {
         }
         si.delete(&self.0.db).await.trace_ok();
         associate_user_with_entity(&self.0.db, user_id, &metadata_id, EntityLot::Metadata).await?;
+        expire_user_metadata_list_cache(user_id, &self.0).await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }

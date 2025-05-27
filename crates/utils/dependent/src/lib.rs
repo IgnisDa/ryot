@@ -2842,6 +2842,7 @@ pub async fn add_entity_to_collection(
                 associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot)
                     .await
                     .ok();
+                expire_user_metadata_list_cache(user_id, ss).await?;
             }
         }
         created
@@ -2921,6 +2922,19 @@ pub async fn expire_user_workout_templates_list_cache(
         .expire_key(ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserWorkoutTemplatesList,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_metadata_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMetadataList,
         })
         .await?;
     Ok(())
@@ -3039,6 +3053,7 @@ pub async fn remove_entity_from_collection(
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
         associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot).await?;
+        expire_user_metadata_list_cache(user_id, ss).await?;
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
