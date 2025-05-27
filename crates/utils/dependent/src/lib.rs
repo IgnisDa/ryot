@@ -3053,7 +3053,6 @@ pub async fn remove_entity_from_collection(
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
         associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot).await?;
-        expire_user_metadata_list_cache(user_id, ss).await?;
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })

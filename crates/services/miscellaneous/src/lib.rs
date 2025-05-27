@@ -1067,9 +1067,10 @@ impl MiscellaneousService {
         );
         UserToEntity::delete_many()
             .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
             .exec(&self.0.db)
             .await?;
+        expire_user_metadata_list_cache(&user_id, &self.0).await?;
         Ok(true)
     }
 
@@ -1255,7 +1256,6 @@ impl MiscellaneousService {
                     associate_user_with_entity(&self.0.db, &user_id, &r.entity_id, r.entity_lot)
                         .await?;
                     r.delete(&self.0.db).await?;
-                    expire_user_metadata_list_cache(&user_id, &self.0).await?;
                     Ok(true)
                 } else {
                     Err(Error::new("This review does not belong to you".to_owned()))
@@ -1313,7 +1313,6 @@ impl MiscellaneousService {
         }
         si.delete(&self.0.db).await.trace_ok();
         associate_user_with_entity(&self.0.db, user_id, &metadata_id, EntityLot::Metadata).await?;
-        expire_user_metadata_list_cache(user_id, &self.0).await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }
