@@ -54,7 +54,7 @@ use dependent_utils::{
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
     enqueue_associate_user_with_entity_job, expire_user_metadata_list_cache, generic_metadata,
     get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
-    get_non_metadata_provider, get_users_monitoring_entity, handle_after_media_seen_tasks,
+    get_non_metadata_provider, get_users_monitoring_entity, handle_after_metadata_seen_tasks,
     is_metadata_finished_by_user, post_review, progress_update, remove_entity_from_collection,
     send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
@@ -1278,7 +1278,7 @@ impl MiscellaneousService {
     }
 
     pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
-        handle_after_media_seen_tasks(*seen, &self.0).await
+        handle_after_metadata_seen_tasks(*seen, &self.0).await
     }
 
     pub async fn delete_seen_item(
