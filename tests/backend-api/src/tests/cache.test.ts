@@ -261,7 +261,6 @@ describe("Cache related tests", () => {
 			{ progress: "100", metadataId: firstMovieId },
 			{ progress: "100", metadataId: secondMovieId },
 		]);
-		await waitFor(2000);
 
 		const finalContents = await getCollectionContents(
 			url,
