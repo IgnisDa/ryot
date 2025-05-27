@@ -846,6 +846,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "database-models",
+ "enum-models",
  "media-models",
  "serde",
  "strum",

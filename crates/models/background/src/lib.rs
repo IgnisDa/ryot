@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use database_models::seen;
+use enum_models::EntityLot;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -34,6 +35,11 @@ pub enum LpApplicationJob {
     HandleEntityAddedToCollectionEvent(Uuid),
     HandleAfterMediaSeenTasks(Box<seen::Model>),
     UpdateUserLastActivityPerformed(String, DateTime<Utc>),
+    AssociateUserWithEntity {
+        user_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

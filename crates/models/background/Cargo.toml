@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 chrono = { workspace = true }
 database-models = { path = "../database" }
+enum-models = { path = "../enum" }
 media-models = { path = "../media" }
 serde = { workspace = true }
 strum = { workspace = true }

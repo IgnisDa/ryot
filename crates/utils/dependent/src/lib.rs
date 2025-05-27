@@ -1230,6 +1230,14 @@ pub async fn post_review(
         }
     }
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    ss.perform_application_job(ApplicationJob::Lp(
+        LpApplicationJob::AssociateUserWithEntity {
+            user_id: user_id.to_owned(),
+            entity_id: input.entity_id.to_owned(),
+            entity_lot: input.entity_lot,
+        },
+    ))
+    .await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -1587,6 +1595,14 @@ pub async fn progress_update(
             let ls = last_seen.update(&ss.db).await.unwrap();
             mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss)
                 .await?;
+            ss.perform_application_job(ApplicationJob::Lp(
+                LpApplicationJob::AssociateUserWithEntity {
+                    user_id: user_id.to_owned(),
+                    entity_id: input.metadata_id.to_owned(),
+                    entity_lot: EntityLot::Metadata,
+                },
+            ))
+            .await?;
             ls
         }
         ProgressUpdateAction::ChangeState => {
@@ -2839,9 +2855,15 @@ pub async fn add_entity_to_collection(
             | EntityLot::Review
             | EntityLot::UserMeasurement => {}
             _ => {
-                associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot)
-                    .await
-                    .ok();
+                ss.perform_application_job(ApplicationJob::Lp(
+                    LpApplicationJob::AssociateUserWithEntity {
+                        user_id: user_id.to_owned(),
+                        entity_lot: input.entity_lot,
+                        entity_id: input.entity_id.clone(),
+                    },
+                ))
+                .await
+                .ok();
                 expire_user_metadata_list_cache(user_id, ss).await?;
             }
         }

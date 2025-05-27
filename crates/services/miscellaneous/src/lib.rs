@@ -9,7 +9,7 @@ use application_utils::{
     get_show_episode_by_numbers,
 };
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
@@ -1313,7 +1313,15 @@ impl MiscellaneousService {
             ));
         }
         si.delete(&self.0.db).await.trace_ok();
-        associate_user_with_entity(&self.0.db, user_id, &metadata_id, EntityLot::Metadata).await?;
+        self.0
+            .perform_application_job(ApplicationJob::Lp(
+                LpApplicationJob::AssociateUserWithEntity {
+                    user_id: user_id.to_owned(),
+                    entity_lot: EntityLot::Metadata,
+                    entity_id: metadata_id.to_owned(),
+                },
+            ))
+            .await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }
@@ -2003,6 +2011,60 @@ impl MiscellaneousService {
                 send_notification_for_user(&user, &self.0, &notification).await?;
             }
         }
+        Ok(())
+    }
+
+    pub async fn perform_user_entity_association(
+        &self,
+        user_id: &String,
+        entity_id: &String,
+        entity_lot: EntityLot,
+    ) -> Result<()> {
+        let user_to_entity_model =
+            get_user_to_entity_association(&self.0.db, user_id, entity_id, entity_lot).await;
+
+        let entity_id_owned = entity_id.to_owned();
+
+        match user_to_entity_model {
+            Some(u) => {
+                let mut to_update: user_to_entity::ActiveModel = u.into();
+                to_update.last_updated_on = ActiveValue::Set(Utc::now());
+                to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
+                to_update.update(&self.0.db).await.unwrap();
+            }
+            None => {
+                let mut new_user_to_entity = user_to_entity::ActiveModel {
+                    user_id: ActiveValue::Set(user_id.to_owned()),
+                    last_updated_on: ActiveValue::Set(Utc::now()),
+                    needs_to_be_updated: ActiveValue::Set(Some(true)),
+                    ..Default::default()
+                };
+
+                match entity_lot {
+                    EntityLot::Metadata => {
+                        new_user_to_entity.metadata_id = ActiveValue::Set(Some(entity_id_owned))
+                    }
+                    EntityLot::Person => {
+                        new_user_to_entity.person_id = ActiveValue::Set(Some(entity_id_owned))
+                    }
+                    EntityLot::Exercise => {
+                        new_user_to_entity.exercise_id = ActiveValue::Set(Some(entity_id_owned))
+                    }
+                    EntityLot::MetadataGroup => {
+                        new_user_to_entity.metadata_group_id =
+                            ActiveValue::Set(Some(entity_id_owned))
+                    }
+                    EntityLot::Collection
+                    | EntityLot::Workout
+                    | EntityLot::WorkoutTemplate
+                    | EntityLot::Review
+                    | EntityLot::UserMeasurement => {
+                        unreachable!()
+                    }
+                }
+                new_user_to_entity.insert(&self.0.db).await.unwrap();
+            }
+        };
         Ok(())
     }
 
