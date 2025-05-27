@@ -125,7 +125,7 @@ export default function Page() {
 			value: v.name,
 			label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
 		}));
-	const formattedData = loaderData.userMeasurementsList.map((m) => {
+	const formattedData = loaderData.userMeasurementsList.response.map((m) => {
 		const local: Record<string, string> = {
 			timestamp: m.timestamp,
 			formattedTimestamp: tickFormatter(m.timestamp),
@@ -252,7 +252,7 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 				<Text ta="right" mt="xl" fw="bold">
-					{loaderData.userMeasurementsList.length} data points
+					{loaderData.userMeasurementsList.response.length} data points
 				</Text>
 			</Stack>
 		</Container>
