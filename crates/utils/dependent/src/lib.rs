@@ -1592,20 +1592,13 @@ pub async fn progress_update(
             let ls = last_seen.update(&ss.db).await.unwrap();
             mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss)
                 .await?;
-            enqueue_associate_user_with_entity_job(
-                user_id,
-                &input.metadata_id,
-                EntityLot::Metadata,
-                ss,
-            )
-            .await?;
             ls
         }
         ProgressUpdateAction::ChangeState => {
             let new_state = input.change_state.unwrap_or(SeenState::Dropped);
             let last_seen = Seen::find()
                 .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(input.metadata_id))
+                .filter(seen::Column::MetadataId.eq(input.metadata_id.clone()))
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .one(&ss.db)
                 .await
@@ -1708,11 +1701,11 @@ pub async fn progress_update(
                 finished_on: ActiveValue::Set(finished_on),
                 user_id: ActiveValue::Set(user_id.to_owned()),
                 state: ActiveValue::Set(SeenState::InProgress),
-                metadata_id: ActiveValue::Set(input.metadata_id),
                 show_extra_information: ActiveValue::Set(show_ei),
                 anime_extra_information: ActiveValue::Set(anime_ei),
                 manga_extra_information: ActiveValue::Set(manga_ei),
                 podcast_extra_information: ActiveValue::Set(podcast_ei),
+                metadata_id: ActiveValue::Set(input.metadata_id.clone()),
                 provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                 ..Default::default()
             };
@@ -1735,6 +1728,8 @@ pub async fn progress_update(
         )))
         .await?;
     }
+    enqueue_associate_user_with_entity_job(user_id, &input.metadata_id, EntityLot::Metadata, ss)
+        .await?;
     expire_user_collections_list_cache(user_id, ss).await?;
     deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
