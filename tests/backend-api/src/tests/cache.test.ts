@@ -26,6 +26,7 @@ import {
 	getUserMetadataList,
 	getUserWorkoutsList,
 	registerTestUser,
+	waitFor,
 } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -200,7 +201,7 @@ describe("Cache related tests", () => {
 			getAuthHeaders(),
 		);
 		expect(addToCollectionResult.addEntityToCollection).toBe(true);
-		await new Promise((resolve) => setTimeout(resolve, 4000));
+		await waitFor(4000);
 
 		const afterAdd = await getUserMetadataList(url, userApiKey);
 		expect(afterAdd).toHaveLength(1);
@@ -248,7 +249,7 @@ describe("Cache related tests", () => {
 			getAuthHeaders(),
 		);
 
-		await new Promise((resolve) => setTimeout(resolve, 500));
+		await waitFor(500);
 
 		await client.request(
 			DeployBulkProgressUpdateDocument,
@@ -273,7 +274,7 @@ describe("Cache related tests", () => {
 			throw new Error("In Progress collection not found");
 		}
 
-		await new Promise((resolve) => setTimeout(resolve, 2000));
+		await waitFor(2000);
 
 		const initialContentsResult = await client.request(
 			CollectionContentsDocument,
@@ -311,7 +312,7 @@ describe("Cache related tests", () => {
 			getAuthHeaders(),
 		);
 
-		await new Promise((resolve) => setTimeout(resolve, 2000));
+		await waitFor(2000);
 
 		const updatedContentsResult = await client.request(
 			CollectionContentsDocument,
@@ -352,7 +353,7 @@ describe("Cache related tests", () => {
 			},
 			getAuthHeaders(),
 		);
-		await new Promise((resolve) => setTimeout(resolve, 4000));
+		await waitFor(4000);
 
 		const finalContentsResult = await client.request(
 			CollectionContentsDocument,
