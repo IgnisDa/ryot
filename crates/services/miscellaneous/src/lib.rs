@@ -9,7 +9,7 @@ use application_utils::{
     get_show_episode_by_numbers,
 };
 use async_graphql::{Error, Result};
-use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{Days, Duration, NaiveDate, Utc};
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
@@ -23,7 +23,7 @@ use common_utils::{
 use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
-    functions::{associate_user_with_entity, get_user_to_entity_association},
+    functions::get_user_to_entity_association,
     genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
     metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
@@ -52,13 +52,13 @@ use dependent_utils::{
     add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
     commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
     deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
-    expire_user_metadata_list_cache, generic_metadata, get_entity_recently_consumed,
-    get_entity_title_from_id_and_lot, get_metadata_provider, get_non_metadata_provider,
-    get_users_monitoring_entity, handle_after_media_seen_tasks, is_metadata_finished_by_user,
-    post_review, progress_update, remove_entity_from_collection, send_notification_for_user,
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
-    user_people_list,
+    enqueue_associate_user_with_entity_job, expire_user_metadata_list_cache, generic_metadata,
+    get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
+    get_non_metadata_provider, get_users_monitoring_entity, handle_after_media_seen_tasks,
+    is_metadata_finished_by_user, post_review, progress_update, remove_entity_from_collection,
+    send_notification_for_user, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -1254,8 +1254,13 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 if r.user_id == user_id {
-                    associate_user_with_entity(&self.0.db, &user_id, &r.entity_id, r.entity_lot)
-                        .await?;
+                    enqueue_associate_user_with_entity_job(
+                        &self.0,
+                        &user_id,
+                        &r.entity_id,
+                        r.entity_lot,
+                    )
+                    .await?;
                     r.delete(&self.0.db).await?;
                     Ok(true)
                 } else {
@@ -1313,16 +1318,9 @@ impl MiscellaneousService {
             ));
         }
         si.delete(&self.0.db).await.trace_ok();
-        self.0
-            .perform_application_job(ApplicationJob::Lp(
-                LpApplicationJob::AssociateUserWithEntity {
-                    user_id: user_id.to_owned(),
-                    entity_lot: EntityLot::Metadata,
-                    entity_id: metadata_id.to_owned(),
-                },
-            ))
-            .await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
+        enqueue_associate_user_with_entity_job(&self.0, user_id, &metadata_id, EntityLot::Metadata)
+            .await?;
         Ok(StringIdObject { id: seen_id })
     }
 

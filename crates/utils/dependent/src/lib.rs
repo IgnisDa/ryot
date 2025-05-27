@@ -1228,14 +1228,7 @@ pub async fn post_review(
         }
     }
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
-    ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::AssociateUserWithEntity {
-            user_id: user_id.to_owned(),
-            entity_id: input.entity_id.to_owned(),
-            entity_lot: input.entity_lot,
-        },
-    ))
-    .await?;
+    enqueue_associate_user_with_entity_job(ss, user_id, &input.entity_id, input.entity_lot).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -2853,13 +2846,12 @@ pub async fn add_entity_to_collection(
             | EntityLot::Review
             | EntityLot::UserMeasurement => {}
             _ => {
-                ss.perform_application_job(ApplicationJob::Lp(
-                    LpApplicationJob::AssociateUserWithEntity {
-                        user_id: user_id.to_owned(),
-                        entity_lot: input.entity_lot,
-                        entity_id: input.entity_id.clone(),
-                    },
-                ))
+                enqueue_associate_user_with_entity_job(
+                    ss,
+                    user_id,
+                    &input.entity_id,
+                    input.entity_lot,
+                )
                 .await
                 .ok();
                 expire_user_metadata_list_cache(user_id, ss).await?;
@@ -3850,4 +3842,20 @@ pub async fn generic_metadata(
         model: meta,
         suggestions,
     })
+}
+
+pub async fn enqueue_associate_user_with_entity_job(
+    ss: &Arc<SupportingService>,
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+) -> Result<()> {
+    ss.perform_application_job(ApplicationJob::Lp(
+        LpApplicationJob::AssociateUserWithEntity {
+            user_id: user_id.to_owned(),
+            entity_id: entity_id.to_owned(),
+            entity_lot,
+        },
+    ))
+    .await
 }
