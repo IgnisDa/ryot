@@ -227,9 +227,6 @@ describe("Cache related tests", () => {
 			);
 			expect(addToCollectionResult.addEntityToCollection).toBe(true);
 
-			// Sleep for a couple of seconds to allow cache to be updated
-			await new Promise((resolve) => setTimeout(resolve, 2000));
-
 			// Verify associated metadata count increased to 1
 			const afterAdd = await getUserMetadataList(url, userApiKey);
 			expect(afterAdd).toHaveLength(1);
