@@ -2853,7 +2853,6 @@ pub async fn add_entity_to_collection(
                 )
                 .await
                 .ok();
-                expire_user_metadata_list_cache(user_id, ss).await?;
             }
         }
         created

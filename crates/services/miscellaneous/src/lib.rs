@@ -1067,11 +1067,17 @@ impl MiscellaneousService {
             delete_collections.rows_affected
         );
         UserToEntity::delete_many()
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
+            .filter(user_to_entity::Column::MetadataId.eq(metadata_id.clone()))
             .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
             .exec(&self.0.db)
             .await?;
-        expire_user_metadata_list_cache(&user_id, &self.0).await?;
+        enqueue_associate_user_with_entity_job(
+            &user_id,
+            &metadata_id,
+            EntityLot::Metadata,
+            &self.0,
+        )
+        .await?;
         Ok(true)
     }
 
