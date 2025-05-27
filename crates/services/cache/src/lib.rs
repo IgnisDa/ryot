@@ -31,7 +31,7 @@ impl CacheService {
 impl CacheService {
     fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> i64 {
         match key {
-            ApplicationCacheKey::CoreDetails { .. }
+            ApplicationCacheKey::CoreDetails
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::UserAnalytics { .. }
             | ApplicationCacheKey::UserPeopleList { .. }
@@ -54,14 +54,14 @@ impl CacheService {
             ApplicationCacheKey::UserCollectionsList { .. }
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 
-            ApplicationCacheKey::TrendingMetadataIds { .. }
+            ApplicationCacheKey::TrendingMetadataIds
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::UserMetadataRecommendationsSet { .. }
             | ApplicationCacheKey::CollectionRecommendations { .. } => 24,
 
-            ApplicationCacheKey::IgdbSettings { .. }
-            | ApplicationCacheKey::TmdbSettings { .. }
-            | ApplicationCacheKey::ListennotesSettings { .. } => 120,
+            ApplicationCacheKey::IgdbSettings
+            | ApplicationCacheKey::TmdbSettings
+            | ApplicationCacheKey::ListennotesSettings => 120,
         }
     }
 
