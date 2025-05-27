@@ -219,6 +219,15 @@ describe("Cache related tests", () => {
 
 	it("should update collection ordering when movie progress is updated", async () => {
 		const client = getGraphqlClient(url);
+		const collectionsResponse = await getUserCollectionsList(url, userApiKey);
+		const inProgressCollection = collectionsResponse.find(
+			(c) => c.name === "In Progress",
+		);
+		expect(inProgressCollection).toBeDefined();
+
+		if (!inProgressCollection) {
+			throw new Error("In Progress collection not found");
+		}
 
 		const searchResult = await client.request(
 			MetadataSearchDocument,
@@ -239,12 +248,7 @@ describe("Cache related tests", () => {
 		await client.request(
 			DeployBulkProgressUpdateDocument,
 			{
-				input: [
-					{
-						metadataId: firstMovieId,
-						progress: "0",
-					},
-				],
+				input: [{ progress: "0", metadataId: firstMovieId }],
 			},
 			getAuthHeaders(),
 		);
@@ -254,25 +258,10 @@ describe("Cache related tests", () => {
 		await client.request(
 			DeployBulkProgressUpdateDocument,
 			{
-				input: [
-					{
-						metadataId: secondMovieId,
-						progress: "0",
-					},
-				],
+				input: [{ progress: "0", metadataId: secondMovieId }],
 			},
 			getAuthHeaders(),
 		);
-
-		const collectionsResponse = await getUserCollectionsList(url, userApiKey);
-		const inProgressCollection = collectionsResponse.find(
-			(c) => c.name === "In Progress",
-		);
-		expect(inProgressCollection).toBeDefined();
-
-		if (!inProgressCollection) {
-			throw new Error("In Progress collection not found");
-		}
 
 		await waitFor(2000);
 
@@ -302,12 +291,7 @@ describe("Cache related tests", () => {
 		await client.request(
 			DeployBulkProgressUpdateDocument,
 			{
-				input: [
-					{
-						metadataId: firstMovieId,
-						progress: "25",
-					},
-				],
+				input: [{ progress: "25", metadataId: firstMovieId }],
 			},
 			getAuthHeaders(),
 		);
@@ -341,14 +325,8 @@ describe("Cache related tests", () => {
 			DeployBulkProgressUpdateDocument,
 			{
 				input: [
-					{
-						metadataId: firstMovieId,
-						progress: "100",
-					},
-					{
-						metadataId: secondMovieId,
-						progress: "100",
-					},
+					{ progress: "100", metadataId: firstMovieId },
+					{ progress: "100", metadataId: secondMovieId },
 				],
 			},
 			getAuthHeaders(),
