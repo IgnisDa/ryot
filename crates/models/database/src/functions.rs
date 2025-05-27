@@ -47,7 +47,7 @@ where
 {
     let entity_id = entity_id.to_owned();
     let user_to_meta = get_user_to_entity_association(db, user_id, &entity_id, entity_lot).await;
-    Ok(match user_to_meta {
+    let resp = match user_to_meta {
         None => {
             let mut user_to_meta = user_to_entity::ActiveModel {
                 user_id: ActiveValue::Set(user_id.to_owned()),
@@ -78,5 +78,6 @@ where
             to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
             to_update.update(db).await.unwrap()
         }
-    })
+    };
+    Ok(resp)
 }
