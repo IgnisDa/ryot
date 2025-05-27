@@ -4,6 +4,9 @@ import {
 	CollectionContentsSortBy,
 	GraphqlSortOrder,
 	LoginUserDocument,
+	MediaLot,
+	MediaSource,
+	MetadataSearchDocument,
 	RegisterUserDocument,
 	UserCollectionsListDocument,
 	UserExercisesListDocument,
@@ -127,6 +130,26 @@ export async function getUserMetadataList(baseUrl: string, userApiKey: string) {
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
 	return userMetadataList.response.items;
+}
+
+export async function searchTmdbMovie(
+	baseUrl: string,
+	userApiKey: string,
+	query: string,
+) {
+	const client = getGraphqlClient(baseUrl);
+	const { metadataSearch } = await client.request(
+		MetadataSearchDocument,
+		{
+			input: {
+				search: { query },
+				lot: MediaLot.Movie,
+				source: MediaSource.Tmdb,
+			},
+		},
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return metadataSearch.items;
 }
 
 export async function waitFor(ms: number) {

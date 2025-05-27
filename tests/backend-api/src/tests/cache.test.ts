@@ -1,22 +1,22 @@
 import {
 	AddEntityToCollectionDocument,
+	CollectionContentsDocument,
+	CollectionContentsSortBy,
 	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
+	DeployBulkProgressUpdateDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
+	GraphqlSortOrder,
 	MediaLot,
 	MediaSource,
 	MetadataSearchDocument,
 	SetLot,
 	UserUnitSystem,
-	DeployBulkProgressUpdateDocument,
-	CollectionContentsDocument,
-	CollectionContentsSortBy,
-	GraphqlSortOrder,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getCollectionContents,
@@ -27,6 +27,7 @@ import {
 	getUserMetadataList,
 	getUserWorkoutsList,
 	registerTestUser,
+	searchTmdbMovie,
 	waitFor,
 } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -175,20 +176,10 @@ describe("Cache related tests", () => {
 		const initial = await getUserMetadataList(url, userApiKey);
 		expect(initial).toHaveLength(0);
 
-		const searchResult = await client.request(
-			MetadataSearchDocument,
-			{
-				input: {
-					lot: MediaLot.Movie,
-					source: MediaSource.Tmdb,
-					search: { query: "avengers" },
-				},
-			},
-			getAuthHeaders(),
-		);
-		expect(searchResult.metadataSearch.items.length).toBeGreaterThan(0);
+		const searchResult = await searchTmdbMovie(url, userApiKey, "avengers");
+		expect(searchResult.length).toBeGreaterThan(0);
 
-		const firstMetadataId = searchResult.metadataSearch.items[0];
+		const firstMetadataId = searchResult[0];
 		const addToCollectionResult = await client.request(
 			AddEntityToCollectionDocument,
 			{
@@ -230,21 +221,11 @@ describe("Cache related tests", () => {
 			throw new Error("In Progress collection not found");
 		}
 
-		const searchResult = await client.request(
-			MetadataSearchDocument,
-			{
-				input: {
-					lot: MediaLot.Movie,
-					source: MediaSource.Tmdb,
-					search: { query: "star wars" },
-				},
-			},
-			getAuthHeaders(),
-		);
-		expect(searchResult.metadataSearch.items.length).toBeGreaterThan(1);
+		const searchResult = await searchTmdbMovie(url, userApiKey, "star wars");
+		expect(searchResult.length).toBeGreaterThan(1);
 
-		const firstMovieId = searchResult.metadataSearch.items[0];
-		const secondMovieId = searchResult.metadataSearch.items[1];
+		const firstMovieId = searchResult[0];
+		const secondMovieId = searchResult[1];
 
 		await client.request(
 			DeployBulkProgressUpdateDocument,
