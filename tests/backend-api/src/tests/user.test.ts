@@ -153,6 +153,6 @@ describe("User related tests", () => {
 		);
 
 		expect(userMeasurementsList).toBeDefined();
-		expect(userMeasurementsList).toHaveLength(0);
+		expect(userMeasurementsList.response).toHaveLength(0);
 	});
 });
