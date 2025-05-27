@@ -1586,13 +1586,12 @@ pub async fn progress_update(
             let ls = last_seen.update(&ss.db).await.unwrap();
             mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss)
                 .await?;
-            ss.perform_application_job(ApplicationJob::Lp(
-                LpApplicationJob::AssociateUserWithEntity {
-                    user_id: user_id.to_owned(),
-                    entity_id: input.metadata_id.to_owned(),
-                    entity_lot: EntityLot::Metadata,
-                },
-            ))
+            enqueue_associate_user_with_entity_job(
+                ss,
+                user_id,
+                &input.metadata_id,
+                EntityLot::Metadata,
+            )
             .await?;
             ls
         }
@@ -3064,15 +3063,9 @@ pub async fn remove_entity_from_collection(
         .exec(&ss.db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        ss.perform_application_job(ApplicationJob::Lp(
-            LpApplicationJob::AssociateUserWithEntity {
-                user_id: user_id.to_owned(),
-                entity_lot: input.entity_lot,
-                entity_id: input.entity_id.clone(),
-            },
-        ))
-        .await
-        .ok();
+        enqueue_associate_user_with_entity_job(ss, user_id, &input.entity_id, input.entity_lot)
+            .await
+            .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
