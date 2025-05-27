@@ -2069,6 +2069,7 @@ impl MiscellaneousService {
                 new_user_to_entity.insert(&self.0.db).await.unwrap();
             }
         };
+        expire_user_metadata_list_cache(user_id, &self.0).await?;
         Ok(())
     }
 
