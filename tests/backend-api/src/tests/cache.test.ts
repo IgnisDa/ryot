@@ -20,6 +20,7 @@ import {
 	getUserMeasurementsList,
 	getUserMetadataList,
 	getUserWorkoutsList,
+	progressUpdate,
 	registerTestUser,
 	searchTmdbMovie,
 	waitFor,
@@ -204,7 +205,6 @@ describe("Cache related tests", () => {
 	});
 
 	it("should update collection ordering when movie progress is updated", async () => {
-		const client = getGraphqlClient(url);
 		const collectionsResponse = await getUserCollectionsList(url, userApiKey);
 		const inProgressCollection = collectionsResponse.find(
 			(c) => c.name === "In Progress",
@@ -221,25 +221,12 @@ describe("Cache related tests", () => {
 		const firstMovieId = searchResult[0];
 		const secondMovieId = searchResult[1];
 
-		await client.request(
-			DeployBulkProgressUpdateDocument,
-			{
-				input: [{ progress: "0", metadataId: firstMovieId }],
-			},
-			getAuthHeaders(),
-		);
-
-		await waitFor(500);
-
-		await client.request(
-			DeployBulkProgressUpdateDocument,
-			{
-				input: [{ progress: "0", metadataId: secondMovieId }],
-			},
-			getAuthHeaders(),
-		);
-
-		await waitFor(2000);
+		await progressUpdate(url, userApiKey, [
+			{ progress: "0", metadataId: firstMovieId },
+		]);
+		await progressUpdate(url, userApiKey, [
+			{ progress: "0", metadataId: secondMovieId },
+		]);
 
 		const initialContents = await getCollectionContents(
 			url,
@@ -254,15 +241,9 @@ describe("Cache related tests", () => {
 		expect(initialFirstMovie).toBe(secondMovieId);
 		expect(initialSecondMovie).toBe(firstMovieId);
 
-		await client.request(
-			DeployBulkProgressUpdateDocument,
-			{
-				input: [{ progress: "25", metadataId: firstMovieId }],
-			},
-			getAuthHeaders(),
-		);
-
-		await waitFor(2000);
+		await progressUpdate(url, userApiKey, [
+			{ progress: "25", metadataId: firstMovieId },
+		]);
 
 		const updatedContents = await getCollectionContents(
 			url,
@@ -276,17 +257,11 @@ describe("Cache related tests", () => {
 		expect(updatedFirstMovie).toBe(firstMovieId);
 		expect(updatedSecondMovie).toBe(secondMovieId);
 
-		await client.request(
-			DeployBulkProgressUpdateDocument,
-			{
-				input: [
-					{ progress: "100", metadataId: firstMovieId },
-					{ progress: "100", metadataId: secondMovieId },
-				],
-			},
-			getAuthHeaders(),
-		);
-		await waitFor(4000);
+		await progressUpdate(url, userApiKey, [
+			{ progress: "100", metadataId: firstMovieId },
+			{ progress: "100", metadataId: secondMovieId },
+		]);
+		await waitFor(2000);
 
 		const finalContents = await getCollectionContents(
 			url,
