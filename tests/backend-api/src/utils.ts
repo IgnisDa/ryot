@@ -125,3 +125,7 @@ export async function getUserMetadataList(baseUrl: string, userApiKey: string) {
 	);
 	return userMetadataList.response.items;
 }
+
+export async function waitFor(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}

@@ -352,6 +352,7 @@ describe("Cache related tests", () => {
 			},
 			getAuthHeaders(),
 		);
+		await new Promise((resolve) => setTimeout(resolve, 4000));
 
 		const finalContentsResult = await client.request(
 			CollectionContentsDocument,
