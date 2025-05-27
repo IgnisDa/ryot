@@ -19,6 +19,7 @@ import {
 	GraphqlSortOrder,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	getCollectionContents,
 	getFirstExerciseId,
 	getGraphqlClient,
 	getUserCollectionsList,
@@ -265,22 +266,12 @@ describe("Cache related tests", () => {
 
 		await waitFor(2000);
 
-		const initialContentsResult = await client.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId: inProgressCollection.id,
-					sort: {
-						order: GraphqlSortOrder.Desc,
-						by: CollectionContentsSortBy.LastUpdatedOn,
-					},
-				},
-			},
-			getAuthHeaders(),
+		const initialContents = await getCollectionContents(
+			url,
+			userApiKey,
+			inProgressCollection.id,
 		);
 
-		const initialContents =
-			initialContentsResult.collectionContents.response.results.items;
 		expect(initialContents).toHaveLength(2);
 
 		const initialFirstMovie = initialContents[0].entityId;
@@ -298,22 +289,11 @@ describe("Cache related tests", () => {
 
 		await waitFor(2000);
 
-		const updatedContentsResult = await client.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId: inProgressCollection.id,
-					sort: {
-						order: GraphqlSortOrder.Desc,
-						by: CollectionContentsSortBy.LastUpdatedOn,
-					},
-				},
-			},
-			getAuthHeaders(),
+		const updatedContents = await getCollectionContents(
+			url,
+			userApiKey,
+			inProgressCollection.id,
 		);
-
-		const updatedContents =
-			updatedContentsResult.collectionContents.response.results.items;
 		expect(updatedContents).toHaveLength(2);
 
 		const updatedFirstMovie = updatedContents[0].entityId;
@@ -333,22 +313,11 @@ describe("Cache related tests", () => {
 		);
 		await waitFor(4000);
 
-		const finalContentsResult = await client.request(
-			CollectionContentsDocument,
-			{
-				input: {
-					collectionId: inProgressCollection.id,
-					sort: {
-						order: GraphqlSortOrder.Desc,
-						by: CollectionContentsSortBy.LastUpdatedOn,
-					},
-				},
-			},
-			getAuthHeaders(),
+		const finalContents = await getCollectionContents(
+			url,
+			userApiKey,
+			inProgressCollection.id,
 		);
-
-		const finalContents =
-			finalContentsResult.collectionContents.response.results.items;
 		expect(finalContents).toHaveLength(0);
 	});
 });

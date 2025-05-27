@@ -1,5 +1,8 @@
 import { faker } from "@faker-js/faker";
 import {
+	CollectionContentsDocument,
+	CollectionContentsSortBy,
+	GraphqlSortOrder,
 	LoginUserDocument,
 	RegisterUserDocument,
 	UserCollectionsListDocument,
@@ -128,4 +131,26 @@ export async function getUserMetadataList(baseUrl: string, userApiKey: string) {
 
 export async function waitFor(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function getCollectionContents(
+	baseUrl: string,
+	userApiKey: string,
+	collectionId: string,
+) {
+	const client = getGraphqlClient(baseUrl);
+	const { collectionContents } = await client.request(
+		CollectionContentsDocument,
+		{
+			input: {
+				collectionId,
+				sort: {
+					order: GraphqlSortOrder.Desc,
+					by: CollectionContentsSortBy.LastUpdatedOn,
+				},
+			},
+		},
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return collectionContents.response.results.items;
 }
