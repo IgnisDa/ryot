@@ -191,6 +191,5 @@ export async function progressUpdate(
 		{ input },
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
-	await waitFor(2000);
 	return deployBulkProgressUpdate;
 }
