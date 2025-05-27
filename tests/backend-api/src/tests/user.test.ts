@@ -20,7 +20,7 @@ describe("User related tests", () => {
 	let userApiKey: string;
 
 	beforeAll(async () => {
-		userApiKey = await registerTestUser(url);
+		[userApiKey] = await registerTestUser(url);
 	});
 
 	const getAuthHeaders = () => ({

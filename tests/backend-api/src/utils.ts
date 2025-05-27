@@ -16,7 +16,7 @@ export const getGraphqlClient = (baseUrl: string) => {
 	return new GraphQLClient(`${baseUrl}/backend/graphql`);
 };
 
-export async function registerTestUser(baseUrl: string): Promise<string> {
+export async function registerTestUser(baseUrl: string) {
 	const client = getGraphqlClient(baseUrl);
 	const username = faker.internet.username();
 	const password = faker.internet.password();
@@ -49,7 +49,7 @@ export async function registerTestUser(baseUrl: string): Promise<string> {
 			`[Test Utils] Test user '${username}' logged in successfully with API key: ${loginUser.apiKey}`,
 		);
 
-		return loginUser.apiKey;
+		return [loginUser.apiKey, registerUser.id] as const;
 	} catch (err) {
 		console.error("[Test Utils] Error registering test user:", err);
 		throw err;

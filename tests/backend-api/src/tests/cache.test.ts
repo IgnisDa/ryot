@@ -27,10 +27,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 describe("Cache related tests", () => {
 	const url = process.env.API_BASE_URL as string;
+	let userId: string;
 	let userApiKey: string;
 
 	beforeAll(async () => {
-		userApiKey = await registerTestUser(url);
+		[userApiKey, userId] = await registerTestUser(url);
 	});
 
 	const getAuthHeaders = () => ({
@@ -181,27 +182,24 @@ describe("Cache related tests", () => {
 		);
 		expect(searchResult.metadataSearch.items.length).toBeGreaterThan(0);
 
-		// Take the first result and add it to a collection
 		const firstMetadataId = searchResult.metadataSearch.items[0];
 		const addToCollectionResult = await client.request(
 			AddEntityToCollectionDocument,
 			{
 				input: {
-					collectionName: "Watchlist", // Default collection
+					creatorUserId: userId,
 					entityId: firstMetadataId,
+					collectionName: "Watchlist",
 					entityLot: EntityLot.Metadata,
-					creatorUserId: "", // Will be filled by the backend
 				},
 			},
 			getAuthHeaders(),
 		);
 		expect(addToCollectionResult.addEntityToCollection).toBe(true);
 
-		// Verify associated metadata count increased to 1
 		const afterAdd = await getUserMetadataList(url, userApiKey);
 		expect(afterAdd).toHaveLength(1);
 
-		// Disassociate the metadata
 		const disassociateResult = await client.request(
 			DisassociateMetadataDocument,
 			{ metadataId: firstMetadataId },
@@ -209,7 +207,6 @@ describe("Cache related tests", () => {
 		);
 		expect(disassociateResult.disassociateMetadata).toBe(true);
 
-		// Verify associated metadata count returned to 0
 		const afterDisassociate = await getUserMetadataList(url, userApiKey);
 		expect(afterDisassociate).toHaveLength(0);
 	});
