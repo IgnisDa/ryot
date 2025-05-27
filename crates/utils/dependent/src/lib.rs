@@ -19,11 +19,9 @@ use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
-    collection, collection_to_entity, exercise,
-    functions::associate_user_with_entity,
-    genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
-    notification_platform, person,
+    collection, collection_to_entity, exercise, genre, metadata, metadata_group,
+    metadata_group_to_person, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
+    metadata_to_person, monitored_entity, notification_platform, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup,
         MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
@@ -3074,7 +3072,15 @@ pub async fn remove_entity_from_collection(
         .exec(&ss.db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot).await?;
+        ss.perform_application_job(ApplicationJob::Lp(
+            LpApplicationJob::AssociateUserWithEntity {
+                user_id: user_id.to_owned(),
+                entity_lot: input.entity_lot,
+                entity_id: input.entity_id.clone(),
+            },
+        ))
+        .await
+        .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
