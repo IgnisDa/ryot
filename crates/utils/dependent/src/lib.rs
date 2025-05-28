@@ -3883,6 +3883,6 @@ pub async fn associate_user_with_entity(
             new_user_to_entity.insert(&ss.db).await.unwrap();
         }
     };
-    expire_user_metadata_list_cache(user_id, &ss).await?;
+    expire_user_metadata_list_cache(user_id, ss).await?;
     Ok(())
 }
