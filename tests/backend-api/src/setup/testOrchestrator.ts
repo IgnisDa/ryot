@@ -96,10 +96,10 @@ async function startFrontendProcess(
 
 		setTimeout(() => {
 			console.log(
-				"[Orchestrator] Frontend process assumed ready after 10 seconds.",
+				"[Orchestrator] Frontend process assumed ready after 5 seconds.",
 			);
 			resolve(frontendProcess);
-		}, 10_000);
+		}, 5000);
 	});
 }
 
@@ -204,10 +204,10 @@ async function startBackendProcess(
 
 		setTimeout(() => {
 			console.log(
-				"[Orchestrator] Backend process assumed ready after 10 seconds.",
+				"[Orchestrator] Backend process assumed ready after 5 seconds.",
 			);
 			resolve(backendProcess);
-		}, 10_000);
+		}, 15000);
 	});
 }
 
