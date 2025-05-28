@@ -1377,6 +1377,8 @@ pub async fn handle_after_metadata_seen_tasks(
     remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
         .await
         .ok();
+    associate_user_with_entity(&seen.user_id, &seen.metadata_id, EntityLot::Metadata, ss).await?;
+    expire_user_collections_list_cache(&seen.user_id, ss).await?;
     match seen.state {
         SeenState::InProgress => {
             for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
@@ -1730,8 +1732,6 @@ pub async fn progress_update(
         )))
         .await?;
     }
-    associate_user_with_entity(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
     deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
