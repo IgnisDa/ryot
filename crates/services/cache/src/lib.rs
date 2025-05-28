@@ -196,10 +196,7 @@ impl CacheService {
             })
             .exec(&self.db)
             .await?;
-        ryot_log!(
-            debug,
-            "Expired application cache: {by:?}, response: {deleted:?}"
-        );
+        ryot_log!(debug, "Expired cache: {by:?}, response: {deleted:?}");
         Ok(())
     }
 }
