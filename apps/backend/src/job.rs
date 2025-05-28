@@ -183,16 +183,6 @@ pub async fn perform_lp_application_job(
                 .update_user_last_activity_performed(user_id, timestamp)
                 .await
         }
-        LpApplicationJob::AssociateUserWithEntity {
-            user_id,
-            entity_id,
-            entity_lot,
-        } => {
-            app_services
-                .miscellaneous_service
-                .perform_user_entity_association(&user_id, &entity_id, entity_lot)
-                .await
-        }
     };
     status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }
