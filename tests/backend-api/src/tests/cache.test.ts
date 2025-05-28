@@ -6,7 +6,6 @@ import {
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
-	DeployBulkProgressUpdateDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	SetLot,
