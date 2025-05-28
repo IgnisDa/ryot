@@ -222,12 +222,9 @@ describe("Cache related tests", () => {
 
 		await progressUpdate(url, userApiKey, [
 			{ progress: "0", metadataId: firstMovieId },
-		]);
-		await waitFor(2000);
-		await progressUpdate(url, userApiKey, [
 			{ progress: "0", metadataId: secondMovieId },
 		]);
-		await waitFor(4000);
+		await waitFor(2000);
 
 		const initialContents = await getCollectionContents(
 			url,
@@ -263,7 +260,7 @@ describe("Cache related tests", () => {
 			{ progress: "100", metadataId: firstMovieId },
 			{ progress: "100", metadataId: secondMovieId },
 		]);
-		await waitFor(4000);
+		await waitFor(2000);
 
 		const finalContents = await getCollectionContents(
 			url,

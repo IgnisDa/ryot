@@ -207,7 +207,7 @@ async function startBackendProcess(
 				"[Orchestrator] Backend process assumed ready after 5 seconds.",
 			);
 			resolve(backendProcess);
-		}, 15000);
+		}, 5000);
 	});
 }
 
