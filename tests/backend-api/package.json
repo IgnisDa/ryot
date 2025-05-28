@@ -7,12 +7,12 @@
 		"@faker-js/faker": "9.8.0",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
-		"@testcontainers/postgresql": "10.28.0",
+		"@testcontainers/postgresql": "11.0.0",
 		"dotenv": "16.5.0",
 		"get-port": "7.1.0",
 		"graphql": "16.11.0",
-		"graphql-request": "7.1.2",
-		"testcontainers": "10.28.0",
+		"graphql-request": "7.2.0",
+		"testcontainers": "11.0.0",
 		"vite-tsconfig-paths": "5.1.4",
 		"vitest": "3.2.0-beta.2"
 	}
