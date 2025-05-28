@@ -49,10 +49,10 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
-    enqueue_associate_user_with_entity_job, expire_user_metadata_list_cache, generic_metadata,
+    add_entity_to_collection, associate_user_with_entity, change_metadata_associations,
+    commit_metadata, commit_metadata_group, commit_person, deploy_after_handle_media_seen_tasks,
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job, expire_user_metadata_list_cache, generic_metadata,
     get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
     get_non_metadata_provider, get_users_monitoring_entity, handle_after_metadata_seen_tasks,
     is_metadata_finished_by_user, post_review, progress_update, remove_entity_from_collection,
@@ -1254,13 +1254,8 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 if r.user_id == user_id {
-                    enqueue_associate_user_with_entity_job(
-                        &user_id,
-                        &r.entity_id,
-                        r.entity_lot,
-                        &self.0,
-                    )
-                    .await?;
+                    associate_user_with_entity(&user_id, &r.entity_id, r.entity_lot, &self.0)
+                        .await?;
                     r.delete(&self.0.db).await?;
                     Ok(true)
                 } else {
@@ -1319,8 +1314,7 @@ impl MiscellaneousService {
         }
         si.delete(&self.0.db).await.trace_ok();
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
-        enqueue_associate_user_with_entity_job(user_id, &metadata_id, EntityLot::Metadata, &self.0)
-            .await?;
+        associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }
 

@@ -19,9 +19,11 @@ use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
-    collection, collection_to_entity, exercise, genre, metadata, metadata_group,
-    metadata_group_to_person, metadata_to_genre, metadata_to_metadata, metadata_to_metadata_group,
-    metadata_to_person, monitored_entity, notification_platform, person,
+    collection, collection_to_entity, exercise,
+    functions::get_user_to_entity_association,
+    genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
+    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
+    notification_platform, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup,
         MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
@@ -1228,7 +1230,7 @@ pub async fn post_review(
         }
     }
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
-    enqueue_associate_user_with_entity_job(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -1728,8 +1730,7 @@ pub async fn progress_update(
         )))
         .await?;
     }
-    enqueue_associate_user_with_entity_job(user_id, &input.metadata_id, EntityLot::Metadata, ss)
-        .await?;
+    associate_user_with_entity(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     expire_user_collections_list_cache(user_id, ss).await?;
     deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
@@ -2846,14 +2847,9 @@ pub async fn add_entity_to_collection(
             | EntityLot::Review
             | EntityLot::UserMeasurement => {}
             _ => {
-                enqueue_associate_user_with_entity_job(
-                    user_id,
-                    &input.entity_id,
-                    input.entity_lot,
-                    ss,
-                )
-                .await
-                .ok();
+                associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
+                    .await
+                    .ok();
             }
         }
         created
@@ -3063,7 +3059,7 @@ pub async fn remove_entity_from_collection(
         .exec(&ss.db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        enqueue_associate_user_with_entity_job(user_id, &input.entity_id, input.entity_lot, ss)
+        associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
             .await
             .ok();
     }
@@ -3837,18 +3833,56 @@ pub async fn generic_metadata(
     })
 }
 
-pub async fn enqueue_associate_user_with_entity_job(
+pub async fn associate_user_with_entity(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::AssociateUserWithEntity {
-            entity_lot,
-            user_id: user_id.to_owned(),
-            entity_id: entity_id.to_owned(),
-        },
-    ))
-    .await
+    let user_to_entity_model =
+        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await;
+
+    let entity_id_owned = entity_id.to_owned();
+
+    match user_to_entity_model {
+        Some(u) => {
+            let mut to_update: user_to_entity::ActiveModel = u.into();
+            to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
+            to_update.update(&ss.db).await.unwrap();
+        }
+        None => {
+            let mut new_user_to_entity = user_to_entity::ActiveModel {
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                needs_to_be_updated: ActiveValue::Set(Some(true)),
+                ..Default::default()
+            };
+
+            match entity_lot {
+                EntityLot::Metadata => {
+                    new_user_to_entity.metadata_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::Person => {
+                    new_user_to_entity.person_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::Exercise => {
+                    new_user_to_entity.exercise_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::MetadataGroup => {
+                    new_user_to_entity.metadata_group_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::Collection
+                | EntityLot::Workout
+                | EntityLot::WorkoutTemplate
+                | EntityLot::Review
+                | EntityLot::UserMeasurement => {
+                    unreachable!()
+                }
+            }
+            new_user_to_entity.insert(&ss.db).await.unwrap();
+        }
+    };
+    expire_user_metadata_list_cache(user_id, &ss).await?;
+    Ok(())
 }
