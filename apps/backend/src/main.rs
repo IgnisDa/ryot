@@ -32,7 +32,7 @@ use crate::{
     common::create_app_services,
     job::{
         perform_hp_application_job, perform_lp_application_job, perform_mp_application_job,
-        run_background_jobs, run_frequent_jobs,
+        run_frequent_cron_jobs, run_infrequent_cron_jobs,
     },
 };
 
@@ -164,7 +164,7 @@ async fn main() -> Result<()> {
 
     let monitor = Monitor::new()
         .register(
-            WorkerBuilder::new("daily_background_jobs")
+            WorkerBuilder::new("infrequent_cron_jobs")
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
@@ -172,10 +172,10 @@ async fn main() -> Result<()> {
                     // every day
                     CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
                 )
-                .build_fn(run_background_jobs),
+                .build_fn(run_infrequent_cron_jobs),
         )
         .register(
-            WorkerBuilder::new("frequent_jobs")
+            WorkerBuilder::new("frequent_cron_jobs")
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
@@ -183,7 +183,7 @@ async fn main() -> Result<()> {
                     Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
                     tz,
                 ))
-                .build_fn(run_frequent_jobs),
+                .build_fn(run_frequent_cron_jobs),
         )
         // application jobs
         .register(
