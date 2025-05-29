@@ -37,7 +37,6 @@ import {
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	changeCase,
 	getActionIntent,
 	processSubmission,
 	truncate,
@@ -66,6 +65,7 @@ import {
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	convertEnumToSelectData,
 	getMetadataDetailsQuery,
 	openConfirmationModal,
 	queryClient,
@@ -649,8 +649,8 @@ const CreateOrUpdateModal = (props: {
 										label="Input type"
 										defaultValue={field.lot}
 										name={`informationTemplate[${index}].lot`}
-										data={Object.values(CollectionExtraInformationLot).map(
-											(lot) => ({ value: lot, label: changeCase(lot) }),
+										data={convertEnumToSelectData(
+											CollectionExtraInformationLot,
 										)}
 										onChange={(v) => {
 											setInformationTemplate.setItem(index, {

@@ -37,6 +37,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	TimeSpan,
+	convertEnumToSelectData,
 	dayjsLib,
 	generateColor,
 	getDateFromTimeSpan,
@@ -156,8 +157,8 @@ export default function Page() {
 				<SimpleGrid cols={{ base: 1, md: 2 }}>
 					<Select
 						label="Time span"
+						data={convertEnumToSelectData(TimeSpan)}
 						defaultValue={loaderData.query.timeSpan || defaultTimeSpan}
-						data={Object.values(TimeSpan)}
 						onChange={(v) => {
 							if (v) setP("timeSpan", v);
 						}}

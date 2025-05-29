@@ -69,6 +69,7 @@ import {
 	ApplicationTimeRange,
 	Verb,
 	clientGqlService,
+	convertEnumToSelectData,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
@@ -641,10 +642,7 @@ const FiltersModalForm = () => {
 				onChange={(v) => {
 					if (v) setP("generalFilter", v);
 				}}
-				data={Object.values(MediaGeneralFilter).map((o) => ({
-					value: o.toString(),
-					label: startCase(o.toLowerCase()),
-				}))}
+				data={convertEnumToSelectData(MediaGeneralFilter)}
 			/>
 			<Flex gap="xs" align="center">
 				<Select
@@ -652,10 +650,7 @@ const FiltersModalForm = () => {
 					data={[
 						{
 							group: "Sort by",
-							items: Object.values(MediaSortBy).map((o) => ({
-								value: o.toString(),
-								label: startCase(o.toLowerCase()),
-							})),
+							items: convertEnumToSelectData(MediaSortBy),
 						},
 					]}
 					defaultValue={loaderData.mediaList.url.sortBy}

@@ -23,7 +23,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	camelCase,
-	changeCase,
 	parseParameters,
 	parseSearchQuery,
 	processSubmission,
@@ -34,6 +33,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { convertEnumToSelectData } from "~/lib/common";
 import { useCoreDetails } from "~/lib/hooks";
 import { createS3FileUploader, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.update.$action";
@@ -89,8 +89,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	input.assets = {
 		remoteImages: [],
 		remoteVideos: [],
-		s3Images: input.images,
-		s3Videos: input.videos,
+		s3Images: input.images || [],
+		s3Videos: input.videos || [],
 	};
 	input.id = undefined;
 	input.action = undefined;
@@ -171,11 +171,8 @@ export default function Page() {
 							required
 							name="lot"
 							label="Type"
+							data={convertEnumToSelectData(MediaLot)}
 							defaultValue={loaderData.details?.lot || loaderData.query.lot}
-							data={Object.values(MediaLot).map((v) => ({
-								value: v,
-								label: changeCase(v),
-							}))}
 						/>
 						<Switch
 							mt="md"

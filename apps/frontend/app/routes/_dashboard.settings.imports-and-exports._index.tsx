@@ -47,6 +47,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	clientGqlService,
+	convertEnumToSelectData,
 	dayjsLib,
 	openConfirmationModal,
 } from "~/lib/common";
@@ -233,13 +234,10 @@ export default function Page() {
 									searchable
 									id="import-source"
 									label="Select a source"
+									data={convertEnumToSelectData(ImportSource)}
 									onChange={(v) => {
 										if (v) setDeployImportSource(v as ImportSource);
 									}}
-									data={Object.values(ImportSource).map((is) => ({
-										label: changeCase(is),
-										value: is,
-									}))}
 								/>
 								{deployImportSource ? (
 									<Anchor

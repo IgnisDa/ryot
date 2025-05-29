@@ -39,7 +39,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { getExerciseDetailsPath } from "~/lib/common";
+import { convertEnumToSelectData, getExerciseDetailsPath } from "~/lib/common";
 import { useCoreDetails } from "~/lib/hooks";
 import {
 	createS3FileUploader,
@@ -200,10 +200,7 @@ export default function Page() {
 						label="Type"
 						defaultValue={loaderData.details?.lot}
 						readOnly={loaderData.action === Action.Update}
-						data={Object.values(ExerciseLot).map((l) => ({
-							value: l,
-							label: startCase(l.toLowerCase()),
-						}))}
+						data={convertEnumToSelectData(ExerciseLot)}
 					/>
 					<Group wrap="nowrap">
 						<Select
@@ -211,15 +208,15 @@ export default function Page() {
 							name="level"
 							label="Level"
 							w={{ base: "100%", md: "50%" }}
-							data={Object.values(ExerciseLevel)}
 							defaultValue={loaderData.details?.level}
+							data={convertEnumToSelectData(ExerciseLevel)}
 						/>
 						<Select
 							name="force"
 							label="Force"
 							w={{ base: "100%", md: "50%" }}
-							data={Object.values(ExerciseForce)}
 							defaultValue={loaderData.details?.force}
+							data={convertEnumToSelectData(ExerciseForce)}
 						/>
 					</Group>
 					<Group wrap="nowrap">
@@ -227,31 +224,31 @@ export default function Page() {
 							name="equipment"
 							label="Equipment"
 							w={{ base: "100%", md: "50%" }}
-							data={Object.values(ExerciseEquipment)}
 							defaultValue={loaderData.details?.equipment}
+							data={convertEnumToSelectData(ExerciseEquipment)}
 						/>
 						<Select
 							name="mechanic"
 							label="Mechanic"
 							w={{ base: "100%", md: "50%" }}
-							data={Object.values(ExerciseMechanic)}
 							defaultValue={loaderData.details?.mechanic}
+							data={convertEnumToSelectData(ExerciseMechanic)}
 						/>
 					</Group>
 					<MultiSelect
 						name="muscles"
 						label="Muscles"
-						data={Object.values(ExerciseMuscle)}
 						defaultValue={loaderData.details?.muscles}
+						data={convertEnumToSelectData(ExerciseMuscle)}
 					/>
 					<Textarea
+						autosize
 						name="instructions"
 						label="Instructions"
 						description="Separate each instruction with a newline"
 						defaultValue={loaderData.details?.attributes.instructions.join(
 							"\n",
 						)}
-						autosize
 					/>
 					{!fileUploadNotAllowed ? (
 						<FileInput

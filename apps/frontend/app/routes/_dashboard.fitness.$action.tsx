@@ -116,6 +116,7 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	clientSideFileUpload,
+	convertEnumToSelectData,
 	dayjsLib,
 	getExerciseDetailsPath,
 	getSetColor,
@@ -1608,10 +1609,7 @@ const ExerciseDisplay = (props: {
 						label="Unit system"
 						allowDeselect={false}
 						value={selectedUnitSystem}
-						data={Object.values(UserUnitSystem).map((c) => ({
-							value: c,
-							label: startCase(c.toLowerCase()),
-						}))}
+						data={convertEnumToSelectData(UserUnitSystem)}
 						onChange={(v) => {
 							setCurrentWorkout(
 								produce(currentWorkout, (draft) => {

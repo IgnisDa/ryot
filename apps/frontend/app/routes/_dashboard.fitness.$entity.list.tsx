@@ -33,7 +33,6 @@ import {
 	humanizeDuration,
 	parseParameters,
 	parseSearchQuery,
-	startCase,
 	truncate,
 	zodIntAsString,
 } from "@ryot/ts-utils";
@@ -72,6 +71,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	convertEnumToSelectData,
 	dayjsLib,
 	pageQueryParam,
 } from "~/lib/common";
@@ -476,10 +476,7 @@ const FiltersModalForm = () => {
 					w="100%"
 					defaultValue={loaderData.query.sortBy}
 					onChange={(v) => setP("sortBy", v)}
-					data={Object.values(UserTemplatesOrWorkoutsListSortBy).map((o) => ({
-						value: o.toString(),
-						label: startCase(o.toLowerCase()),
-					}))}
+					data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
 				/>
 				<ActionIcon
 					onClick={() => {

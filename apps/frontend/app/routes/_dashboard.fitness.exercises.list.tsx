@@ -65,6 +65,7 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
+	convertEnumToSelectData,
 	dayjsLib,
 	getExerciseDetailsPath,
 	openConfirmationModal,
@@ -369,13 +370,10 @@ const FiltersModalForm = () => {
 		>
 			<Stack gap={4}>
 				<Select
-					data={Object.values(ExerciseSortBy).map((v) => ({
-						label: startCase(snakeCase(v)),
-						value: v,
-					}))}
 					label="Sort by"
-					defaultValue={loaderData.query.sortBy}
 					onChange={(v) => setP("sortBy", v)}
+					defaultValue={loaderData.query.sortBy}
+					data={convertEnumToSelectData(ExerciseSortBy)}
 				/>
 				{Object.keys(defaultFiltersValue)
 					.filter((f) => !["sortBy", "order", "collection"].includes(f))

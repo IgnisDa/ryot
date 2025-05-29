@@ -30,7 +30,6 @@ import {
 	cloneDeep,
 	parseParameters,
 	parseSearchQuery,
-	startCase,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
@@ -61,6 +60,7 @@ import {
 import { MetadataDisplayItem } from "~/components/media";
 import {
 	clientGqlService,
+	convertEnumToSelectData,
 	dayjsLib,
 	pageQueryParam,
 	queryFactory,
@@ -368,10 +368,7 @@ const FiltersModalForm = () => {
 					data={[
 						{
 							group: "Sort by",
-							items: Object.values(CollectionContentsSortBy).map((o) => ({
-								value: o.toString(),
-								label: startCase(o.toLowerCase()),
-							})),
+							items: convertEnumToSelectData(CollectionContentsSortBy),
 						},
 					]}
 					defaultValue={loaderData.query.sortBy}
@@ -392,35 +389,29 @@ const FiltersModalForm = () => {
 				</ActionIcon>
 			</Flex>
 			<Select
+				clearable
 				placeholder="Select an entity type"
 				defaultValue={loaderData.query.entityLot}
-				data={Object.values(EntityLot)
-					.filter(
+				onChange={(v) => setP("entityLot", v)}
+				data={convertEnumToSelectData(
+					Object.values(EntityLot).filter(
 						(o) =>
 							![
 								EntityLot.Collection,
 								EntityLot.Review,
 								EntityLot.UserMeasurement,
 							].includes(o),
-					)
-					.map((o) => ({
-						value: o.toString(),
-						label: startCase(o.toLowerCase()),
-					}))}
-				onChange={(v) => setP("entityLot", v)}
-				clearable
+					),
+				)}
 			/>
 			{loaderData.query.entityLot === EntityLot.Metadata ||
 			loaderData.query.entityLot === EntityLot.MetadataGroup ? (
 				<Select
+					clearable
 					placeholder="Select a media type"
 					defaultValue={loaderData.query.metadataLot}
-					data={Object.values(MediaLot).map((o) => ({
-						value: o.toString(),
-						label: startCase(o.toLowerCase()),
-					}))}
 					onChange={(v) => setP("metadataLot", v)}
-					clearable
+					data={convertEnumToSelectData(MediaLot)}
 				/>
 			) : null}
 		</>
