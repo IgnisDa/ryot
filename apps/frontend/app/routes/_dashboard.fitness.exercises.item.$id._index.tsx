@@ -76,6 +76,7 @@ import {
 	FitnessEntity,
 	TimeSpan,
 	clientGqlService,
+	convertEnumToSelectData,
 	dayjsLib,
 	getDateFromTimeSpan,
 } from "~/lib/common";
@@ -506,9 +507,9 @@ export default function Page() {
 									<Stack>
 										<Select
 											label="Time span"
-											defaultValue={timeSpanForCharts}
 											labelProps={{ c: "dimmed" }}
-											data={Object.values(TimeSpan)}
+											defaultValue={timeSpanForCharts}
+											data={convertEnumToSelectData(TimeSpan)}
 											onChange={(v) => {
 												if (v) setTimeSpanForCharts(v as TimeSpan);
 											}}

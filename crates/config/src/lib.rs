@@ -307,11 +307,14 @@ pub struct FrontendConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "INTEGRATION_")]
-pub struct IntegrationConfig {
-    /// Sync data from push and yank based integrations every `n` minutes.
+#[config(rename_all = "snake_case", env_prefix = "SCHEDULER_")]
+pub struct SchedulerConfig {
+    /// Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
     #[setting(default = 5)]
-    pub sync_every_minutes: i32,
+    pub frequent_cron_jobs_every_minutes: i32,
+    /// Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
+    #[setting(default = "*")]
+    pub infrequent_cron_jobs_hours_format: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -434,9 +437,6 @@ pub struct AppConfig {
     /// Settings related to frontend storage.
     #[setting(nested)]
     pub frontend: FrontendConfig,
-    /// Settings related to external integrations.
-    #[setting(nested)]
-    pub integration: IntegrationConfig,
     /// Settings related to media.
     #[setting(nested)]
     pub media: MediaConfig,
@@ -446,6 +446,9 @@ pub struct AppConfig {
     /// Settings related to podcasts.
     #[setting(nested)]
     pub podcasts: PodcastConfig,
+    /// Settings related to scheduler.
+    #[setting(nested)]
+    pub scheduler: SchedulerConfig,
     /// Settings related to server.
     #[setting(nested)]
     pub server: ServerConfig,

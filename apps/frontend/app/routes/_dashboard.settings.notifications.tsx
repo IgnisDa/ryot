@@ -42,6 +42,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import {
+	convertEnumToSelectData,
 	dayjsLib,
 	openConfirmationModal,
 	zodCommaDelimitedString,
@@ -182,10 +183,7 @@ export default function Page() {
 							required
 							searchable
 							label="Select a platform"
-							data={Object.values(NotificationPlatformLot).map((v) => ({
-								label: changeCase(v),
-								value: v,
-							}))}
+							data={convertEnumToSelectData(NotificationPlatformLot)}
 							onChange={(v) => {
 								if (v)
 									setCreateUserNotificationPlatformLot(

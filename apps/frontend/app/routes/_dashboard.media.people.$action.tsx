@@ -57,6 +57,7 @@ import {
 import { PersonDisplayItem } from "~/components/media";
 import {
 	clientGqlService,
+	convertEnumToSelectData,
 	pageQueryParam,
 	zodCollectionFilter,
 } from "~/lib/common";
@@ -414,10 +415,7 @@ const FiltersModalForm = () => {
 					w="100%"
 					onChange={(v) => setP("sortBy", v)}
 					defaultValue={loaderData.list.url.sortBy}
-					data={Object.values(PersonAndMetadataGroupsSortBy).map((o) => ({
-						value: o.toString(),
-						label: startCase(o.toLowerCase()),
-					}))}
+					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
 				/>
 				<ActionIcon
 					onClick={() => {

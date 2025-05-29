@@ -56,6 +56,7 @@ import {
 import { MetadataGroupDisplayItem } from "~/components/media";
 import {
 	clientGqlService,
+	convertEnumToSelectData,
 	pageQueryParam,
 	zodCollectionFilter,
 } from "~/lib/common";
@@ -382,12 +383,9 @@ const FiltersModalForm = () => {
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
-					data={Object.values(PersonAndMetadataGroupsSortBy).map((o) => ({
-						value: o.toString(),
-						label: startCase(o.toLowerCase()),
-					}))}
 					defaultValue={loaderData.list.url.sortBy}
 					onChange={(v) => setP("sortBy", v)}
+					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
 				/>
 				<ActionIcon
 					onClick={() => {

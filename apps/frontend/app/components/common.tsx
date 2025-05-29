@@ -62,7 +62,6 @@ import {
 	isNumber,
 	isString,
 	snakeCase,
-	startCase,
 } from "@ryot/ts-utils";
 import {
 	IconArrowBigUp,
@@ -110,6 +109,7 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	ThreePointSmileyRating,
 	convertDecimalToThreePointSmiley,
+	convertEnumToSelectData,
 	dayjsLib,
 	getMetadataIcon,
 	getSurroundingElements,
@@ -606,10 +606,7 @@ export const CollectionsFilter = (props: {
 								size="xs"
 								value={f.presence}
 								allowDeselect={false}
-								data={Object.values(MediaCollectionPresenceFilter).map((o) => ({
-									value: o,
-									label: startCase(o.toLowerCase()),
-								}))}
+								data={convertEnumToSelectData(MediaCollectionPresenceFilter)}
 								onChange={(v) =>
 									filtersHandlers.setItem(
 										idx,

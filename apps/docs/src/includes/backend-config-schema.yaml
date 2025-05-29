@@ -111,12 +111,6 @@ frontend:
   # @envvar FRONTEND_URL
   url: "https://app.ryot.io"
 
-# Settings related to external integrations.
-integration:
-  # Sync data from push and yank based integrations every `n` minutes.
-  # @envvar INTEGRATION_SYNC_EVERY_MINUTES
-  sync_every_minutes: 5
-
 # Settings related to media.
 media:
   # Number of days after which a media should be removed from the Monitoring collection.
@@ -151,6 +145,16 @@ podcasts:
     # The access token for the Listennotes API.
     # @envvar PODCASTS_LISTENNOTES_API_TOKEN
     api_token: ""
+
+# Settings related to scheduler.
+scheduler:
+  # Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
+  # @envvar SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES
+  frequent_cron_jobs_every_minutes: 5
+
+  # Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
+  # @envvar SCHEDULER_INFREQUENT_CRON_JOBS_HOURS_FORMAT
+  infrequent_cron_jobs_hours_format: "*"
 
 # Settings related to server.
 server:

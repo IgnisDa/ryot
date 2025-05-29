@@ -1258,6 +1258,7 @@ const MetadataNewProgressUpdateForm = ({
 				) : null}
 				<Select
 					value={watchTime}
+					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					data={Object.values(WatchTimes).filter((v) =>
 						[
 							MediaLot.Show,
@@ -1268,7 +1269,6 @@ const MetadataNewProgressUpdateForm = ({
 							? v !== WatchTimes.JustStartedIt
 							: true,
 					)}
-					label={`When did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					onChange={(v) => {
 						setWatchTime(v as typeof watchTime);
 						match(v)
