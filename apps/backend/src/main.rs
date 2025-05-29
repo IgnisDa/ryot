@@ -168,10 +168,10 @@ async fn main() -> Result<()> {
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
-                .backend(
-                    // every day
-                    CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
-                )
+                .backend(CronStream::new_with_timezone(
+                    Schedule::from_str("0 0 */6 * * *").unwrap(),
+                    tz,
+                ))
                 .build_fn(run_infrequent_cron_jobs),
         )
         .register(
