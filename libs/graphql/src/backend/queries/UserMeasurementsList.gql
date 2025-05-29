@@ -1,15 +1,17 @@
 query UserMeasurementsList($input: UserMeasurementsListInput!) {
 	userMeasurementsList(input: $input) {
-		timestamp
-		name
-		comment
-		information {
-			assets {
-				...EntityAssetsPart
-			}
-			statistics {
-				name
-				value
+		response {
+			name
+			comment
+			timestamp
+			information {
+				assets {
+					...EntityAssetsPart
+				}
+				statistics {
+					name
+					value
+				}
 			}
 		}
 	}

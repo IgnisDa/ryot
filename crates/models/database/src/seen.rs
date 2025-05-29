@@ -4,7 +4,7 @@ use async_graphql::SimpleObject;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
 use educe::Educe;
-use enum_models::{EntityLot, SeenState};
+use enum_models::SeenState;
 use media_models::{
     SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
     SeenShowExtraInformation,
@@ -14,8 +14,6 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
-
-use super::functions::associate_user_with_entity;
 
 #[derive(Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Educe)]
 #[graphql(name = "Seen")]
@@ -112,17 +110,5 @@ impl ActiveModelBehavior for ActiveModel {
             self.id = ActiveValue::Set(format!("see_{}", nanoid!(12)));
         }
         Ok(self)
-    }
-
-    async fn after_save<C>(model: Model, db: &C, insert: bool) -> Result<Model, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        if insert {
-            associate_user_with_entity(db, &model.user_id, &model.metadata_id, EntityLot::Metadata)
-                .await
-                .ok();
-        }
-        Ok(model)
     }
 }

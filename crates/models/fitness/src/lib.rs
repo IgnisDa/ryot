@@ -555,7 +555,7 @@ pub struct WorkoutSummary {
     pub exercises: Vec<WorkoutSummaryExercise>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone, PartialEq, Eq, Hash)]
 pub struct UserMeasurementsListInput {
     pub start_time: Option<DateTimeUtc>,
     pub end_time: Option<DateTimeUtc>,

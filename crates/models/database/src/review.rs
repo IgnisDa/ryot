@@ -11,8 +11,6 @@ use rust_decimal::Decimal;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 
-use super::functions::associate_user_with_entity;
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "review")]
 pub struct Model {
@@ -145,17 +143,5 @@ impl ActiveModelBehavior for ActiveModel {
             self.id = ActiveValue::Set(format!("rev_{}", nanoid!(12)));
         }
         Ok(self)
-    }
-
-    async fn after_save<C>(model: Model, db: &C, insert: bool) -> Result<Model, DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        if insert {
-            associate_user_with_entity(db, &model.user_id, &model.entity_id, model.entity_lot)
-                .await
-                .ok();
-        }
-        Ok(model)
     }
 }

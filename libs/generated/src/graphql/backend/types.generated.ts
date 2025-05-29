@@ -129,6 +129,12 @@ export type CachedSearchIdResponse = {
   response: IdResults;
 };
 
+export type CachedUserMeasurementsListResponse = {
+  __typename?: 'CachedUserMeasurementsListResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: Array<UserMeasurement>;
+};
+
 export type CachedUserMetadataRecommendationsResponse = {
   __typename?: 'CachedUserMetadataRecommendationsResponse';
   cacheId: Scalars['UUID']['output'];
@@ -1855,7 +1861,7 @@ export type QueryRoot = {
   /** Get all the integrations for the currently logged in user. */
   userIntegrations: Array<Integration>;
   /** Get all the measurements for a user. */
-  userMeasurementsList: Array<UserMeasurement>;
+  userMeasurementsList: CachedUserMeasurementsListResponse;
   /** Get details that can be displayed to a user for a media. */
   userMetadataDetails: UserMetadataDetails;
   /** Get details that can be displayed to a user for a metadata group. */

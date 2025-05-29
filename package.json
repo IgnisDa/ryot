@@ -8,7 +8,8 @@
 		"libs/generated",
 		"libs/graphql",
 		"libs/transactional",
-		"libs/ts-utils"
+		"libs/ts-utils",
+		"tests/backend-api"
 	],
 	"engines": {
 		"node": "20.10.0"
