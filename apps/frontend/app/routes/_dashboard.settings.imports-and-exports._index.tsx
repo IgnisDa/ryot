@@ -166,7 +166,7 @@ const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
 
 const jellyfinImportFormSchema = usernameImportFormSchema
 	.merge(apiUrlImportFormSchema)
-	.merge(z.object({ password: z.string() }));
+	.merge(z.object({ password: z.string().optional() }));
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -310,21 +310,16 @@ export default function Page() {
 											.with(ImportSource.Jellyfin, () => (
 												<>
 													<TextInput
-														label="Instance Url"
 														required
 														name="apiUrl"
+														label="Instance Url"
 													/>
 													<TextInput
-														label="Username"
 														required
 														name="username"
+														label="Username"
 													/>
-													<TextInput
-														mt="sm"
-														label="Password"
-														required
-														name="password"
-													/>
+													<TextInput mt="sm" name="password" label="Password" />
 												</>
 											))
 											.with(ImportSource.Movary, () => (
