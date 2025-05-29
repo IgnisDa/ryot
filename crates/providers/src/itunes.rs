@@ -1,5 +1,3 @@
-use std::cmp::Reverse;
-
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
@@ -131,7 +129,7 @@ impl MediaProvider for ITunesService {
             .map(|d| d.date_naive());
         let mut episodes = episodes
             .into_iter()
-            .rev()
+            .sorted_by_key(|e| e.release_date)
             .enumerate()
             .map(|(idx, e)| PodcastEpisode {
                 overview: e.description,
@@ -143,7 +141,7 @@ impl MediaProvider for ITunesService {
                 publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
             })
             .collect_vec();
-        episodes.sort_by_key(|e| Reverse(e.number));
+        episodes.reverse();
         Ok(MetadataDetails {
             assets,
             genres,
