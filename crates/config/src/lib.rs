@@ -312,6 +312,9 @@ pub struct SchedulerConfig {
     /// Run frequent cron tasks (syncing integrations, workout revisions) every `n` minutes.
     #[setting(default = 5)]
     pub frequent_cron_jobs_every_minutes: i32,
+    /// Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
+    #[setting(default = "*")]
+    pub infrequent_cron_jobs_hours_format: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
