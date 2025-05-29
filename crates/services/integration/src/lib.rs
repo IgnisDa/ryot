@@ -310,7 +310,7 @@ impl IntegrationService {
                     push::jellyfin::push_progress(
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),
-                        specifics.jellyfin_push_password.unwrap(),
+                        specifics.jellyfin_push_password,
                         &metadata_lot,
                         &metadata_title,
                         &show_extra_information,

@@ -5,14 +5,13 @@ use enum_meta::HashMap;
 use enum_models::{MediaLot, MediaSource};
 use external_utils::jellyfin::{ItemResponse, ItemsResponse, MediaType, get_authenticated_client};
 use media_models::{
-    DeployUrlAndKeyAndUsernameImportInput, ImportOrExportMetadataItem,
-    ImportOrExportMetadataItemSeen,
+    DeployJellyfinImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
 use serde_json::json;
 
 use super::{ImportFailStep, ImportFailedItem};
 
-pub async fn import(input: DeployUrlAndKeyAndUsernameImportInput) -> Result<ImportResult> {
+pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let mut to_handle_media = vec![];
     let mut failed = vec![];
 
