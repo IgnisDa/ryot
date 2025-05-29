@@ -154,7 +154,7 @@ scheduler:
 
   # Hours cron component for infrequent cron jobs (cleaning up data, refreshing calendar).
   # @envvar SCHEDULER_INFREQUENT_CRON_JOBS_HOURS_FORMAT
-  infrequent_cron_jobs_hours_format: "*"
+  infrequent_cron_jobs_hours_format: "0"
 
 # Settings related to server.
 server:
