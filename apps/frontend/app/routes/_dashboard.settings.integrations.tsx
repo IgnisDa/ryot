@@ -677,7 +677,6 @@ const CreateOrUpdateModal = (props: {
 									}
 								/>
 								<TextInput
-									required
 									label="Password"
 									name="providerSpecifics.jellyfinPushPassword"
 									defaultValue={

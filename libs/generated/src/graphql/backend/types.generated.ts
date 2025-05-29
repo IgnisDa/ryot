@@ -446,13 +446,19 @@ export type DeployImportJobInput = {
   genericCsv?: InputMaybe<DeployGenericCsvImportInput>;
   genericJson?: InputMaybe<DeployJsonImportInput>;
   igdb?: InputMaybe<DeployIgdbImportInput>;
-  jellyfin?: InputMaybe<DeployUrlAndKeyAndUsernameImportInput>;
+  jellyfin?: InputMaybe<DeployJellyfinImportInput>;
   mal?: InputMaybe<DeployMalImportInput>;
   movary?: InputMaybe<DeployMovaryImportInput>;
   source: ImportSource;
   strongApp?: InputMaybe<DeployStrongAppImportInput>;
   trakt?: InputMaybe<DeployTraktImportInput>;
   urlAndKey?: InputMaybe<DeployUrlAndKeyImportInput>;
+};
+
+export type DeployJellyfinImportInput = {
+  apiUrl: Scalars['String']['input'];
+  password?: InputMaybe<Scalars['String']['input']>;
+  username: Scalars['String']['input'];
 };
 
 export type DeployJsonImportInput = {
@@ -478,12 +484,6 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
-  username: Scalars['String']['input'];
-};
-
-export type DeployUrlAndKeyAndUsernameImportInput = {
-  apiUrl: Scalars['String']['input'];
-  password: Scalars['String']['input'];
   username: Scalars['String']['input'];
 };
 

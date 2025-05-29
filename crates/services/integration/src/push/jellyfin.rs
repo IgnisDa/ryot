@@ -9,7 +9,7 @@ use traits::TraceOk;
 pub async fn push_progress(
     base_url: String,
     username: String,
-    password: String,
+    password: Option<String>,
     metadata_lot: &MediaLot,
     metadata_title: &String,
     show_extra_information: &Option<SeenShowExtraInformation>,
