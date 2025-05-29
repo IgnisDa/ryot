@@ -68,8 +68,8 @@ async fn main() -> Result<()> {
 
     let host = config.server.backend_host.clone();
     let port = config.server.backend_port;
-    let sync_every_minutes = config.integration.sync_every_minutes;
     let disable_background_jobs = config.server.disable_background_jobs;
+    let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
 
     let config_dump_path = PathBuf::new().join(TEMPORARY_DIRECTORY).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
@@ -180,7 +180,11 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
+                    Schedule::from_str(&format!(
+                        "0 */{} * * * *",
+                        frequent_cron_jobs_every_minutes
+                    ))
+                    .unwrap(),
                     tz,
                 ))
                 .build_fn(run_frequent_cron_jobs),
