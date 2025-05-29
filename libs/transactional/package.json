@@ -9,7 +9,7 @@
 		"react-email": "4.0.15"
 	},
 	"devDependencies": {
-		"@types/react": "19.1.4",
+		"@types/react": "19.1.6",
 		"@types/react-dom": "19.1.5"
 	}
 }

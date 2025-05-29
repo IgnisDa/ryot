@@ -22,7 +22,7 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, MediaLot, SeenState, UserLot, Visibility};
-use fitness_models::UserMeasurementsListInput;
+
 use futures::TryStreamExt;
 use itertools::Itertools;
 use jwt_service::{Claims, verify};
@@ -85,25 +85,6 @@ pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Resul
         ));
     }
     Ok(())
-}
-
-pub async fn user_measurements_list(
-    db: &DatabaseConnection,
-    user_id: &String,
-    input: UserMeasurementsListInput,
-) -> Result<Vec<user_measurement::Model>> {
-    let resp = UserMeasurement::find()
-        .apply_if(input.start_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.gte(v))
-        })
-        .apply_if(input.end_time, |query, v| {
-            query.filter(user_measurement::Column::Timestamp.lte(v))
-        })
-        .filter(user_measurement::Column::UserId.eq(user_id))
-        .order_by_asc(user_measurement::Column::Timestamp)
-        .all(db)
-        .await?;
-    Ok(resp)
 }
 
 type CteColAlias = collection_to_entity::Column;
@@ -255,7 +236,7 @@ where
         .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
         .map(|f| f.collection_id.clone())
         .collect_vec();
-    
+
     if is_in.is_empty() && !is_not_in.is_empty() {
         let items_in_collections = CollectionToEntity::find()
             .select_only()
@@ -268,7 +249,6 @@ where
                 ))
                 .is_in(is_not_in),
             );
-        
         return query.filter(id_column.not_in_subquery(items_in_collections.into_query()));
     }
     let subquery = CollectionToEntity::find()
@@ -282,7 +262,7 @@ where
             ))
             .is_in(is_in),
         );
-        
+
     let subquery = match is_not_in.is_empty() {
         true => subquery,
         false => subquery.filter(
@@ -293,7 +273,7 @@ where
             .is_not_in(is_not_in),
         ),
     };
-    
+
     query.filter(id_column.in_subquery(subquery.into_query()))
 }
 

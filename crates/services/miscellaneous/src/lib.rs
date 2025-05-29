@@ -23,7 +23,7 @@ use common_utils::{
 use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
-    functions::{associate_user_with_entity, get_user_to_entity_association},
+    functions::get_user_to_entity_association,
     genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
     metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
     prelude::{
@@ -49,16 +49,16 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, change_metadata_associations, commit_metadata, commit_metadata_group,
-    commit_person, deploy_after_handle_media_seen_tasks, deploy_background_job,
-    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
-    generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
-    get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
-    handle_after_media_seen_tasks, is_metadata_finished_by_user, metadata_progress_update,
-    post_review, progress_update, remove_entity_from_collection, send_notification_for_user,
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
-    user_people_list,
+    add_entity_to_collection, associate_user_with_entity, change_metadata_associations,
+    commit_metadata, commit_metadata_group, commit_person, deploy_after_handle_media_seen_tasks,
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job, expire_user_metadata_list_cache, generic_metadata,
+    get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
+    get_non_metadata_provider, get_users_monitoring_entity, handle_after_metadata_seen_tasks,
+    is_metadata_finished_by_user, metadata_progress_update, post_review, progress_update,
+    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -882,6 +882,7 @@ impl MiscellaneousService {
                     ute.update(&self.0.db).await.unwrap();
                 }
             }
+            expire_user_metadata_list_cache(&user_id, &self.0).await?;
         }
         Ok(())
     }
@@ -1092,10 +1093,11 @@ impl MiscellaneousService {
             delete_collections.rows_affected
         );
         UserToEntity::delete_many()
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id))
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::MetadataId.eq(metadata_id.clone()))
+            .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
             .exec(&self.0.db)
             .await?;
+        expire_user_metadata_list_cache(&user_id, &self.0).await?;
         Ok(true)
     }
 
@@ -1278,7 +1280,7 @@ impl MiscellaneousService {
         match review {
             Some(r) => {
                 if r.user_id == user_id {
-                    associate_user_with_entity(&self.0.db, &user_id, &r.entity_id, r.entity_lot)
+                    associate_user_with_entity(&user_id, &r.entity_id, r.entity_lot, &self.0)
                         .await?;
                     r.delete(&self.0.db).await?;
                     Ok(true)
@@ -1291,7 +1293,7 @@ impl MiscellaneousService {
     }
 
     pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
-        handle_after_media_seen_tasks(*seen, &self.0).await
+        handle_after_metadata_seen_tasks(*seen, &self.0).await
     }
 
     pub async fn delete_seen_item(
@@ -1337,8 +1339,8 @@ impl MiscellaneousService {
             ));
         }
         si.delete(&self.0.db).await.trace_ok();
-        associate_user_with_entity(&self.0.db, user_id, &metadata_id, EntityLot::Metadata).await?;
         deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
+        associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, &self.0).await?;
         Ok(StringIdObject { id: seen_id })
     }
 

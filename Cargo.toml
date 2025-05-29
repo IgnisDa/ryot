@@ -51,14 +51,14 @@ anyhow = "=1.0.98"
 apalis = { version = "=0.7.1", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.7.1"
 argon2 = "=0.6.0-pre.1"
-async-graphql = { version = "=7.0.16", features = [
+async-graphql = { version = "=7.0.17", features = [
     "chrono",
     "decimal",
     "log",
     "tracing",
     "uuid",
 ] }
-async-graphql-axum = "=7.0.16"
+async-graphql-axum = "=7.0.17"
 async-trait = "=0.1.88"
 aws-sdk-s3 = { version = "=1.76.0", features = ["behavior-version-latest"] }
 axum = { version = "=0.8.4", features = ["macros", "multipart"] }

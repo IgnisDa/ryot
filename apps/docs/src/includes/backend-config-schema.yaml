@@ -158,6 +158,14 @@ server:
   # @envvar SERVER_ADMIN_ACCESS_TOKEN
   admin_access_token: ""
 
+  # The host address to bind the backend server to.
+  # @envvar SERVER_BACKEND_HOST
+  backend_host: "0.0.0.0"
+
+  # The port number to bind the backend server to.
+  # @envvar SERVER_BACKEND_PORT
+  backend_port: 5000
+
   # An array of URLs for CORS.
   # @envvar SERVER_CORS_ORIGINS
   cors_origins: []

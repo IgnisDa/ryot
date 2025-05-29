@@ -190,7 +190,7 @@ type ProcessEventReturn = (UniqueMediaIdentifier, ImportOrExportMetadataItemSeen
 /// # Arguments
 ///
 /// * `sender`: The unbounded sender, lifetime of this sender is the lifetime of this
-///             function so the sender doesn't need global lifetime
+///   function so the sender doesn't need global lifetime
 /// * `base_url`: URL for komga
 /// * `komga_username`: The komga username
 /// * `komga_password`: The komga password
@@ -254,7 +254,7 @@ async fn sse_listener(
 /// * `api_endpoint`: Endpoint which comes after the base_url doesn't require a
 ///   prepended `/`
 /// * `api_id`: The ID of the object you are searching for added to the end of the
-///             api_endpoint doesn't require a prepended `/`
+///   api_endpoint doesn't require a prepended `/`
 ///
 /// returns: This only preforms basic error handling on the json parsing
 async fn fetch_api<T: DeserializeOwned>(
@@ -280,9 +280,9 @@ async fn fetch_api<T: DeserializeOwned>(
 /// # Arguments
 ///
 /// * `series`: The series object from which we want to grab the provider from. There
-///             should be a links section which is populated with urls from which we
-///             can extract the series ID. If not a simple search of the db for a manga
-///             with the same title will be preformed
+///   should be a links section which is populated with urls from which we
+///   can extract the series ID. If not a simple search of the db for a manga
+///   with the same title will be preformed
 ///
 /// returns: This contains the MediaSource and the ID of the series.
 async fn find_provider_and_id(

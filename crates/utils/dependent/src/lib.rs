@@ -20,15 +20,15 @@ use common_utils::{
 };
 use database_models::{
     collection, collection_to_entity, exercise,
-    functions::associate_user_with_entity,
+    functions::get_user_to_entity_association,
     genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
     notification_platform, person,
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup,
         MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserToEntity,
-        Workout, WorkoutTemplate,
+        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserMeasurement,
+        UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
@@ -37,10 +37,11 @@ use database_utils::{
     schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, EmptyCacheValue,
-    ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData, SearchResults,
-    UserExercisesListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
+    EmptyCacheValue, ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData,
+    SearchResults, UserExercisesListResponse, UserMeasurementsListResponse,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
@@ -51,12 +52,13 @@ use enum_models::{
 };
 use fitness_models::{
     ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
-    UserExercisesListInput, UserToExerciseBestSetExtraInformation, UserToExerciseExtraInformation,
-    UserToExerciseHistoryExtraInformation, UserWorkoutInput, UserWorkoutSetRecord,
-    WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary, WorkoutForceFocusedSummary,
-    WorkoutInformation, WorkoutLevelFocusedSummary, WorkoutLotFocusedSummary,
-    WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
-    WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
+    UserExercisesListInput, UserMeasurementsListInput, UserToExerciseBestSetExtraInformation,
+    UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
+    UserWorkoutSetRecord, WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary,
+    WorkoutForceFocusedSummary, WorkoutInformation, WorkoutLevelFocusedSummary,
+    WorkoutLotFocusedSummary, WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals,
+    WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
+    WorkoutSummaryExercise,
 };
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
@@ -1232,6 +1234,7 @@ pub async fn post_review(
         }
     }
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
     })
@@ -1345,7 +1348,7 @@ pub async fn deploy_after_handle_media_seen_tasks(
     .await
 }
 
-pub async fn handle_after_media_seen_tasks(
+pub async fn handle_after_metadata_seen_tasks(
     seen: seen::Model,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -1378,6 +1381,8 @@ pub async fn handle_after_media_seen_tasks(
     remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
         .await
         .ok();
+    associate_user_with_entity(&seen.user_id, &seen.metadata_id, EntityLot::Metadata, ss).await?;
+    expire_user_collections_list_cache(&seen.user_id, ss).await?;
     match seen.state {
         SeenState::InProgress => {
             for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
@@ -1423,6 +1428,12 @@ pub async fn handle_after_media_seen_tasks(
             };
         }
     };
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(seen.user_id),
+            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
+        })
+        .await?;
     Ok(())
 }
 
@@ -1595,7 +1606,7 @@ pub async fn progress_update(
             let new_state = input.change_state.unwrap_or(SeenState::Dropped);
             let last_seen = Seen::find()
                 .filter(seen::Column::UserId.eq(user_id))
-                .filter(seen::Column::MetadataId.eq(input.metadata_id))
+                .filter(seen::Column::MetadataId.eq(input.metadata_id.clone()))
                 .order_by_desc(seen::Column::LastUpdatedOn)
                 .one(&ss.db)
                 .await
@@ -1698,11 +1709,11 @@ pub async fn progress_update(
                 finished_on: ActiveValue::Set(finished_on),
                 user_id: ActiveValue::Set(user_id.to_owned()),
                 state: ActiveValue::Set(SeenState::InProgress),
-                metadata_id: ActiveValue::Set(input.metadata_id),
                 show_extra_information: ActiveValue::Set(show_ei),
                 anime_extra_information: ActiveValue::Set(anime_ei),
                 manga_extra_information: ActiveValue::Set(manga_ei),
                 podcast_extra_information: ActiveValue::Set(podcast_ei),
+                metadata_id: ActiveValue::Set(input.metadata_id.clone()),
                 provider_watched_on: ActiveValue::Set(input.provider_watched_on),
                 ..Default::default()
             };
@@ -1725,7 +1736,6 @@ pub async fn progress_update(
         )))
         .await?;
     }
-    expire_user_collections_list_cache(user_id, ss).await?;
     deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
@@ -1803,6 +1813,7 @@ pub async fn create_user_measurement(
 
     let um: user_measurement::ActiveModel = input.into();
     let um = um.insert(&ss.db).await?;
+    expire_user_measurements_list_cache(user_id, ss).await?;
     Ok(um.timestamp)
 }
 
@@ -2260,6 +2271,7 @@ pub async fn create_or_update_user_workout(
             }
         }
     };
+    expire_user_workouts_list_cache(user_id, ss).await?;
     Ok(data.id)
 }
 
@@ -2842,7 +2854,7 @@ pub async fn add_entity_to_collection(
             | EntityLot::Review
             | EntityLot::UserMeasurement => {}
             _ => {
-                associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot)
+                associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
                     .await
                     .ok();
             }
@@ -2886,6 +2898,58 @@ pub async fn expire_user_collections_list_cache(
     });
     ss.cache_service
         .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_workouts_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserWorkoutsList,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_measurements_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_workout_templates_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserWorkoutTemplatesList,
+        })
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_metadata_list_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserMetadataList,
+        })
         .await?;
     Ok(())
 }
@@ -3002,7 +3066,9 @@ pub async fn remove_entity_from_collection(
         .exec(&ss.db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(&ss.db, user_id, &input.entity_id, input.entity_lot).await?;
+        associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
+            .await
+            .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
@@ -3631,6 +3697,44 @@ pub async fn user_exercises_list(
     Ok(CachedResponse { cache_id, response })
 }
 
+pub async fn user_measurements_list(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    input: UserMeasurementsListInput,
+) -> Result<CachedResponse<UserMeasurementsListResponse>> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::UserMeasurementsList(UserLevelCacheKey {
+        input: input.clone(),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
+
+    let resp = UserMeasurement::find()
+        .apply_if(input.start_time, |query, v| {
+            query.filter(user_measurement::Column::Timestamp.gte(v))
+        })
+        .apply_if(input.end_time, |query, v| {
+            query.filter(user_measurement::Column::Timestamp.lte(v))
+        })
+        .filter(user_measurement::Column::UserId.eq(user_id))
+        .order_by_asc(user_measurement::Column::Timestamp)
+        .all(&ss.db)
+        .await?;
+
+    let cache_id = cc
+        .set_key(
+            key,
+            ApplicationCacheValue::UserMeasurementsList(resp.clone()),
+        )
+        .await?;
+    Ok(CachedResponse {
+        cache_id,
+        response: resp,
+    })
+}
+
 pub async fn generic_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
@@ -3734,4 +3838,58 @@ pub async fn generic_metadata(
         model: meta,
         suggestions,
     })
+}
+
+pub async fn associate_user_with_entity(
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    let user_to_entity_model =
+        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await;
+
+    let entity_id_owned = entity_id.to_owned();
+
+    match user_to_entity_model {
+        Some(u) => {
+            let mut to_update: user_to_entity::ActiveModel = u.into();
+            to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
+            to_update.update(&ss.db).await.unwrap();
+        }
+        None => {
+            let mut new_user_to_entity = user_to_entity::ActiveModel {
+                user_id: ActiveValue::Set(user_id.to_owned()),
+                last_updated_on: ActiveValue::Set(Utc::now()),
+                needs_to_be_updated: ActiveValue::Set(Some(true)),
+                ..Default::default()
+            };
+
+            match entity_lot {
+                EntityLot::Metadata => {
+                    new_user_to_entity.metadata_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::Person => {
+                    new_user_to_entity.person_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::Exercise => {
+                    new_user_to_entity.exercise_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::MetadataGroup => {
+                    new_user_to_entity.metadata_group_id = ActiveValue::Set(Some(entity_id_owned))
+                }
+                EntityLot::Collection
+                | EntityLot::Workout
+                | EntityLot::WorkoutTemplate
+                | EntityLot::Review
+                | EntityLot::UserMeasurement => {
+                    unreachable!()
+                }
+            }
+            new_user_to_entity.insert(&ss.db).await.unwrap();
+        }
+    };
+    expire_user_metadata_list_cache(user_id, ss).await?;
+    Ok(())
 }
