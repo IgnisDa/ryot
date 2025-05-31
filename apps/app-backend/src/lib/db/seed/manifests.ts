@@ -1,100 +1,52 @@
-import anilistAnimeDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/anime/anilist/details.txt";
-import anilistAnimeSearchScriptCode from "~/lib/sandbox/scripts/media-providers/anime/anilist/search.txt";
-import myanimelistAnimeDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/anime/myanimelist/details.txt";
-import myanimelistAnimeSearchScriptCode from "~/lib/sandbox/scripts/media-providers/anime/myanimelist/search.txt";
-import googleBooksBookDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/book/google-books/details.txt";
-import googleBooksBookSearchScriptCode from "~/lib/sandbox/scripts/media-providers/book/google-books/search.txt";
-import hardcoverBookDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/book/hardcover/details.txt";
-import hardcoverBookSearchScriptCode from "~/lib/sandbox/scripts/media-providers/book/hardcover/search.txt";
-import openLibraryBookDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/book/openlibrary/details.txt";
-import openLibraryBookSearchScriptCode from "~/lib/sandbox/scripts/media-providers/book/openlibrary/search.txt";
-import anilistMangaDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/manga/anilist/details.txt";
-import anilistMangaSearchScriptCode from "~/lib/sandbox/scripts/media-providers/manga/anilist/search.txt";
-import mangaUpdatesMangaDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/manga/manga-updates/details.txt";
-import mangaUpdatesMangaSearchScriptCode from "~/lib/sandbox/scripts/media-providers/manga/manga-updates/search.txt";
-import myanimelistMangaDetailsScriptCode from "~/lib/sandbox/scripts/media-providers/manga/myanimelist/details.txt";
-import myanimelistMangaSearchScriptCode from "~/lib/sandbox/scripts/media-providers/manga/myanimelist/search.txt";
+import anilistAnimeScriptCode from "~/lib/sandbox/scripts/media-providers/anime/anilist/index.txt";
+import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/media-providers/anime/myanimelist/index.txt";
+import googleBooksBookScriptCode from "~/lib/sandbox/scripts/media-providers/book/google-books/index.txt";
+import hardcoverBookScriptCode from "~/lib/sandbox/scripts/media-providers/book/hardcover/index.txt";
+import openLibraryBookScriptCode from "~/lib/sandbox/scripts/media-providers/book/openlibrary/index.txt";
+import anilistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/anilist/index.txt";
+import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/manga-updates/index.txt";
+import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/myanimelist/index.txt";
 
 export const builtinSandboxScripts = () => [
 	{
 		name: "Hardcover",
-		slug: "hardcover.book.search",
-		code: hardcoverBookSearchScriptCode,
-	},
-	{
-		name: "Hardcover",
-		slug: "hardcover.book.details",
-		code: hardcoverBookDetailsScriptCode,
+		slug: "hardcover.book",
+		code: hardcoverBookScriptCode,
 	},
 	{
 		name: "OpenLibrary",
-		slug: "openlibrary.book.search",
-		code: openLibraryBookSearchScriptCode,
-	},
-	{
-		name: "OpenLibrary",
-		slug: "openlibrary.book.details",
-		code: openLibraryBookDetailsScriptCode,
+		slug: "openlibrary.book",
+		code: openLibraryBookScriptCode,
 	},
 	{
 		name: "Google Books",
-		slug: "google-books.book.search",
-		code: googleBooksBookSearchScriptCode,
-	},
-	{
-		name: "Google Books",
-		slug: "google-books.book.details",
-		code: googleBooksBookDetailsScriptCode,
+		slug: "google-books.book",
+		code: googleBooksBookScriptCode,
 	},
 	{
 		name: "Anilist",
-		slug: "anilist.anime.search",
-		code: anilistAnimeSearchScriptCode,
+		slug: "anilist.anime",
+		code: anilistAnimeScriptCode,
 	},
 	{
 		name: "Anilist",
-		slug: "anilist.anime.details",
-		code: anilistAnimeDetailsScriptCode,
-	},
-	{
-		name: "Anilist",
-		slug: "anilist.manga.search",
-		code: anilistMangaSearchScriptCode,
-	},
-	{
-		name: "Anilist",
-		slug: "anilist.manga.details",
-		code: anilistMangaDetailsScriptCode,
+		slug: "anilist.manga",
+		code: anilistMangaScriptCode,
 	},
 	{
 		name: "MyAnimeList",
-		slug: "myanimelist.manga.search",
-		code: myanimelistMangaSearchScriptCode,
+		slug: "myanimelist.anime",
+		code: myanimelistAnimeScriptCode,
 	},
 	{
 		name: "MyAnimeList",
-		slug: "myanimelist.anime.search",
-		code: myanimelistAnimeSearchScriptCode,
-	},
-	{
-		name: "MyAnimeList",
-		slug: "myanimelist.anime.details",
-		code: myanimelistAnimeDetailsScriptCode,
-	},
-	{
-		name: "MyAnimeList",
-		slug: "myanimelist.manga.details",
-		code: myanimelistMangaDetailsScriptCode,
+		slug: "myanimelist.manga",
+		code: myanimelistMangaScriptCode,
 	},
 	{
 		name: "MangaUpdates",
-		slug: "manga-updates.manga.search",
-		code: mangaUpdatesMangaSearchScriptCode,
-	},
-	{
-		name: "MangaUpdates",
-		slug: "manga-updates.manga.details",
-		code: mangaUpdatesMangaDetailsScriptCode,
+		slug: "manga-updates.manga",
+		code: mangaUpdatesMangaScriptCode,
 	},
 ];
 
@@ -102,42 +54,34 @@ export const entitySchemaScriptLinks = () =>
 	[
 		{
 			schemaSlug: "book",
-			searchScriptSlug: "openlibrary.book.search",
-			detailsScriptSlug: "openlibrary.book.details",
+			scriptSlug: "openlibrary.book",
 		},
 		{
 			schemaSlug: "book",
-			searchScriptSlug: "google-books.book.search",
-			detailsScriptSlug: "google-books.book.details",
+			scriptSlug: "google-books.book",
 		},
 		{
 			schemaSlug: "book",
-			searchScriptSlug: "hardcover.book.search",
-			detailsScriptSlug: "hardcover.book.details",
+			scriptSlug: "hardcover.book",
 		},
 		{
 			schemaSlug: "anime",
-			searchScriptSlug: "anilist.anime.search",
-			detailsScriptSlug: "anilist.anime.details",
+			scriptSlug: "anilist.anime",
 		},
 		{
 			schemaSlug: "manga",
-			searchScriptSlug: "anilist.manga.search",
-			detailsScriptSlug: "anilist.manga.details",
+			scriptSlug: "anilist.manga",
 		},
 		{
 			schemaSlug: "anime",
-			searchScriptSlug: "myanimelist.anime.search",
-			detailsScriptSlug: "myanimelist.anime.details",
+			scriptSlug: "myanimelist.anime",
 		},
 		{
 			schemaSlug: "manga",
-			searchScriptSlug: "myanimelist.manga.search",
-			detailsScriptSlug: "myanimelist.manga.details",
+			scriptSlug: "myanimelist.manga",
 		},
 		{
 			schemaSlug: "manga",
-			searchScriptSlug: "manga-updates.manga.search",
-			detailsScriptSlug: "manga-updates.manga.details",
+			scriptSlug: "manga-updates.manga",
 		},
 	] as const;
