@@ -1,8 +1,6 @@
 type NullableDate = Date | null;
 
-type LifecycleState = "continue" | "upNext" | null;
-
-export type BuiltInMediaLifecycleSnapshot = {
+type LifecycleSnapshot = {
 	entityId: string;
 	reviewAt: NullableDate;
 	backlogAt: NullableDate;
@@ -33,55 +31,9 @@ const compareNullableDatesDesc = (left: NullableDate, right: NullableDate) => {
 const compareEntityIds = (left: string, right: string) =>
 	left.localeCompare(right);
 
-export const resolveBuiltInMediaLifecycleState = (
-	input: Pick<
-		BuiltInMediaLifecycleSnapshot,
-		"backlogAt" | "progressAt" | "completeAt"
-	>,
-): LifecycleState => {
-	const backlogAt = toMilliseconds(input.backlogAt);
-	const completeAt = toMilliseconds(input.completeAt);
-	const progressAt = toMilliseconds(input.progressAt);
-
-	if (
-		completeAt !== null &&
-		(progressAt === null || completeAt >= progressAt) &&
-		(backlogAt === null || completeAt >= backlogAt)
-	) {
-		return null;
-	}
-
-	if (progressAt !== null && (backlogAt === null || progressAt >= backlogAt)) {
-		return "continue";
-	}
-
-	if (backlogAt !== null) {
-		return "upNext";
-	}
-
-	return null;
-};
-
-export const resolveBuiltInMediaRateTheseMembership = (
-	input: Pick<
-		BuiltInMediaLifecycleSnapshot,
-		"completeAt" | "completedOn" | "reviewAt"
-	>,
-) => {
-	const completionAt = input.completedOn ?? input.completeAt;
-	if (!completionAt) {
-		return false;
-	}
-	if (!input.reviewAt) {
-		return true;
-	}
-
-	return completionAt.getTime() > input.reviewAt.getTime();
-};
-
 export const compareContinueItems = (
-	left: Pick<BuiltInMediaLifecycleSnapshot, "entityId" | "progressAt">,
-	right: Pick<BuiltInMediaLifecycleSnapshot, "entityId" | "progressAt">,
+	left: Pick<LifecycleSnapshot, "entityId" | "progressAt">,
+	right: Pick<LifecycleSnapshot, "entityId" | "progressAt">,
 ) => {
 	const timestampOrder = compareNullableDatesDesc(
 		left.progressAt,
@@ -93,8 +45,8 @@ export const compareContinueItems = (
 };
 
 export const compareUpNextItems = (
-	left: Pick<BuiltInMediaLifecycleSnapshot, "entityId" | "backlogAt">,
-	right: Pick<BuiltInMediaLifecycleSnapshot, "entityId" | "backlogAt">,
+	left: Pick<LifecycleSnapshot, "entityId" | "backlogAt">,
+	right: Pick<LifecycleSnapshot, "entityId" | "backlogAt">,
 ) => {
 	const timestampOrder = compareNullableDatesDesc(
 		left.backlogAt,
@@ -106,14 +58,8 @@ export const compareUpNextItems = (
 };
 
 export const compareRateTheseItems = (
-	left: Pick<
-		BuiltInMediaLifecycleSnapshot,
-		"entityId" | "completeAt" | "completedOn"
-	>,
-	right: Pick<
-		BuiltInMediaLifecycleSnapshot,
-		"entityId" | "completeAt" | "completedOn"
-	>,
+	left: Pick<LifecycleSnapshot, "entityId" | "completeAt" | "completedOn">,
+	right: Pick<LifecycleSnapshot, "entityId" | "completeAt" | "completedOn">,
 ) => {
 	const leftCompletedAt = left.completedOn ?? left.completeAt;
 	const rightCompletedAt = right.completedOn ?? right.completeAt;
