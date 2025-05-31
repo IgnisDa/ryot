@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
+import ContactSubmissionEmail from "@ryot/transactional/emails/ContactSubmission";
 import {
 	cn,
 	getActionIntent,
@@ -50,6 +51,7 @@ import {
 	sendEmail,
 	websiteAuthCookie,
 } from "~/lib/config.server";
+import { contactEmail } from "~/lib/utils";
 import { startUrl } from "~/lib/utils";
 import type { loader as rootLoader } from "../root";
 import type { Route } from "./+types/_index";
@@ -135,7 +137,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = contactSubmissionSchema.parse(
 				Object.fromEntries(formData.entries()),
 			);
-			await db
+			const result = await db
 				.insert(contactSubmissions)
 				.values({
 					isSpam: isSpam,
@@ -143,7 +145,24 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					message: submission.message,
 					ticketNumber: isSpam ? null : sql`nextval('ticket_number_seq')`,
 				})
-				.execute();
+				.returning({
+					email: contactSubmissions.email,
+					message: contactSubmissions.message,
+					ticketNumber: contactSubmissions.ticketNumber,
+				});
+
+			if (!isSpam && result[0]?.ticketNumber) {
+				const insertedSubmission = result[0];
+				await sendEmail(
+					insertedSubmission.email,
+					ContactSubmissionEmail.subject,
+					ContactSubmissionEmail({
+						message: insertedSubmission.message,
+						ticketNumber: Number(insertedSubmission.ticketNumber),
+					}),
+					{ cc: contactEmail },
+				);
+			}
 			return redirect(
 				withQuery(withFragment(".", "contact"), { contactSubmission: true }),
 			);

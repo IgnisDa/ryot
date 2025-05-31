@@ -103,6 +103,7 @@ export const sendEmail = async (
 	recipient: string,
 	subject: string,
 	element: JSX.Element,
+	options?: { cc?: string },
 ) => {
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
@@ -117,15 +118,16 @@ export const sendEmail = async (
 	});
 	const html = await render(element, { pretty: true });
 	const text = await render(element, { plainText: true });
-	console.log("Sending email:", { recipient, subject });
+	console.log("Sending email:", { recipient, subject, options });
 	const resp = await client.sendMail({
 		text,
 		html,
 		subject,
 		to: recipient,
+		cc: options?.cc,
 		from: serverVariables.SERVER_SMTP_MAILBOX,
 	});
-	console.log("Sent email:", { recipient, subject });
+	console.log("Sent email:", { recipient, subject, options });
 	return resp.messageId;
 };
 
