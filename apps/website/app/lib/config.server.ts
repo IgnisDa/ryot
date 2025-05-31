@@ -99,12 +99,12 @@ export const getPaddleServerClient = () =>
 			: undefined,
 	});
 
-export const sendEmail = async (
-	recipient: string,
-	subject: string,
-	element: JSX.Element,
-	options?: { cc?: string },
-) => {
+export const sendEmail = async (input: {
+	recipient: string;
+	subject: string;
+	element: JSX.Element;
+	cc?: string;
+}) => {
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
 		secure: serverVariables.SERVER_SMTP_SECURE,
@@ -116,18 +116,23 @@ export const sendEmail = async (
 			pass: serverVariables.SERVER_SMTP_PASSWORD,
 		},
 	});
-	const html = await render(element, { pretty: true });
-	const text = await render(element, { plainText: true });
-	console.log("Sending email:", { recipient, subject, options });
+	const html = await render(input.element, { pretty: true });
+	const text = await render(input.element, { plainText: true });
+	const log = {
+		cc: input.cc,
+		subject: input.subject,
+		recipient: input.recipient,
+	};
+	console.log("Sending email:", log);
 	const resp = await client.sendMail({
 		text,
 		html,
-		subject,
-		to: recipient,
-		cc: options?.cc,
+		cc: input.cc,
+		to: input.recipient,
+		subject: input.subject,
 		from: serverVariables.SERVER_SMTP_MAILBOX,
 	});
-	console.log("Sent email:", { recipient, subject, options });
+	console.log("Sent email:", log);
 	return resp.messageId;
 };
 

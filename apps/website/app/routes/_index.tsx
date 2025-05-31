@@ -91,11 +91,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const otpCode = generateOtp(6);
 			otpCodesCache.set(email, otpCode);
 			console.log("OTP code generated:", { email, otpCode });
-			await sendEmail(
-				email,
-				LoginCodeEmail.subject,
-				LoginCodeEmail({ code: otpCode }),
-			);
+			await sendEmail({
+				recipient: email,
+				subject: LoginCodeEmail.subject,
+				element: LoginCodeEmail({ code: otpCode }),
+			});
 			return redirect(withQuery(startUrl, { email }));
 		})
 		.with("registerWithEmail", async () => {
@@ -153,15 +153,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 			if (!isSpam && result[0]?.ticketNumber) {
 				const insertedSubmission = result[0];
-				await sendEmail(
-					insertedSubmission.email,
-					ContactSubmissionEmail.subject,
-					ContactSubmissionEmail({
+				await sendEmail({
+					cc: contactEmail,
+					recipient: insertedSubmission.email,
+					subject: ContactSubmissionEmail.subject,
+					element: ContactSubmissionEmail({
 						message: insertedSubmission.message,
 						ticketNumber: Number(insertedSubmission.ticketNumber),
 					}),
-					{ cc: contactEmail },
-				);
+				});
 			}
 			return redirect(
 				withQuery(withFragment(".", "contact"), { contactSubmission: true }),
