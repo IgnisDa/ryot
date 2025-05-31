@@ -13,46 +13,55 @@ export const builtinSandboxScripts = () => [
 		name: "Hardcover",
 		slug: "book.hardcover",
 		code: hardcoverBookScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "OpenLibrary",
 		slug: "book.openlibrary",
 		code: openLibraryBookScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "Google Books",
 		slug: "book.google-book",
 		code: googleBooksBookScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "Anilist",
 		slug: "anime.anilist",
 		code: anilistAnimeScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "Anilist",
 		slug: "manga.anilist",
 		code: anilistMangaScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "MyAnimeList",
 		slug: "anime.myanimelist",
 		code: myanimelistAnimeScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "MyAnimeList",
 		slug: "manga.myanimelist",
 		code: myanimelistMangaScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "MangaUpdates",
 		slug: "manga.manga-updates",
 		code: mangaUpdatesMangaScriptCode,
+		metadata: { searchDriverName: "mediaSearch" },
 	},
 	{
 		name: "Hardcover",
 		slug: "person.hardcover",
 		code: hardcoverPersonScriptCode,
+		metadata: { searchDriverName: "personSearch" },
 	},
 ];
 
