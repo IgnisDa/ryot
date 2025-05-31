@@ -98,7 +98,7 @@ export const enqueueSandbox = async (
 ): Promise<SandboxServiceResult<SandboxEnqueueResult>> => {
 	let code = "";
 	let scriptId: string | undefined;
-	if (input.body.kind === "code") {
+	if (input.body.kind === "code" || input.body.kind === undefined) {
 		code = input.body.code;
 	} else if (input.body.kind === "script") {
 		const foundSandboxScript = await deps.getSandboxScriptForUser({
