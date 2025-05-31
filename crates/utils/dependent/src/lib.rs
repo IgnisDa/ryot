@@ -114,6 +114,10 @@ use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
 use uuid::Uuid;
 
+mod metadata_progress_update;
+
+pub use metadata_progress_update::metadata_progress_update;
+
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
@@ -1690,7 +1694,7 @@ pub async fn progress_update(
                     .await?;
                     (
                         input.progress.unwrap_or(dec!(0)),
-                        Some(Utc::now().date_naive()),
+                        Some(get_current_date(&ss.timezone)),
                     )
                 }
                 _ => (dec!(100), None),
