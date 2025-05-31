@@ -201,14 +201,14 @@ rg 'from "~/modules/saved-views/(service|schemas|constants)"' -l
 
 ## Tasks
 
-**Overall Progress:** 1 of 3 tasks completed
+**Overall Progress:** 2 of 3 tasks completed
 
-**Current Task:** [Task 02](./02-barrel-files-remaining-modules.md) (todo)
+**Current Task:** [Task 03](./03-migrate-callers-to-barrel-imports.md) (in_progress)
 
 ### Task List
 
-| #   | Task                                                                                      | Type | Status    | Blocked By       |
-| --- | ----------------------------------------------------------------------------------------- | ---- | --------- | ---------------- |
-| 01  | [Create barrel files for high-traffic modules](./01-barrel-files-high-traffic-modules.md) | AFK  | completed | None             |
-| 02  | [Create barrel files for remaining modules](./02-barrel-files-remaining-modules.md)       | AFK  | todo      | None             |
-| 03  | [Migrate all callers to barrel imports](./03-migrate-callers-to-barrel-imports.md)        | AFK  | todo      | Task 01, Task 02 |
+| #   | Task                                                                                      | Type | Status      | Blocked By       |
+| --- | ----------------------------------------------------------------------------------------- | ---- | ----------- | ---------------- |
+| 01  | [Create barrel files for high-traffic modules](./01-barrel-files-high-traffic-modules.md) | AFK  | completed   | None             |
+| 02  | [Create barrel files for remaining modules](./02-barrel-files-remaining-modules.md)       | AFK  | completed   | None             |
+| 03  | [Migrate all callers to barrel imports](./03-migrate-callers-to-barrel-imports.md)        | AFK  | in_progress | Task 01, Task 02 |
