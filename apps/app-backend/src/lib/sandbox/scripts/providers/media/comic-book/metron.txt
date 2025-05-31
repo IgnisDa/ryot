@@ -193,7 +193,8 @@ driver("search", async function(context) {
             : { kind: "image", value: { kind: "remote", url: image } },
       };
     })
-    .filter((item) => item !== null);
+    .filter((item) => item !== null)
+    .slice(0, pageSize);
 
   return {
     items,

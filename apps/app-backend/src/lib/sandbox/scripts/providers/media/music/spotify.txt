@@ -47,7 +47,6 @@ function getFirstImage(images) {
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_URL = "https://api.spotify.com/v1";
 const TOKEN_CACHE_KEY = "spotify_access_token";
-const PAGE_SIZE = 20;
 
 async function getCredentials() {
   const [clientIdResp, clientSecretResp] = await Promise.all([
@@ -155,6 +154,12 @@ async function spotifyGet(path, params) {
 }
 
 driver("search", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
   const currentPage = Number.isFinite(Number(context?.page))
     ? Math.max(1, Math.floor(Number(context.page)))
     : 1;
@@ -165,12 +170,12 @@ driver("search", async function(context) {
     throw new Error("query is required");
   }
 
-  const offset = (currentPage - 1) * PAGE_SIZE;
+  const offset = (currentPage - 1) * pageSize;
 
   const data = await spotifyGet("/search", {
     q: query,
     type: "track",
-    limit: String(PAGE_SIZE),
+    limit: String(pageSize),
     offset: String(offset),
   });
 
