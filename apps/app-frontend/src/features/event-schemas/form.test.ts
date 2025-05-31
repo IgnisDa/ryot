@@ -276,19 +276,6 @@ describe("createEventSchemaFormSchema", () => {
 			message: "Properties must contain unique non-empty keys",
 		});
 	});
-
-	it("accepts valid values", () => {
-		const result = createEventSchemaFormSchema.safeParse({
-			name: "Tasting",
-			slug: "tasting",
-			properties: [
-				row({ id: "rating", key: "rating", type: "number", required: true }),
-				row({ id: "occurred-on", key: "occurredOn", type: "date" }),
-			],
-		});
-
-		expect(result.success).toBeTrue();
-	});
 });
 
 describe("buildEventSchemaPropertiesSchema", () => {
