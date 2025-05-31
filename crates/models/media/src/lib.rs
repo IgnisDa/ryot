@@ -983,10 +983,10 @@ pub struct DeployUrlAndKeyImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployUrlAndKeyAndUsernameImportInput {
+pub struct DeployJellyfinImportInput {
     pub api_url: String,
     pub username: String,
-    pub password: String,
+    pub password: Option<String>,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
@@ -997,10 +997,10 @@ pub struct DeployImportJobInput {
     pub trakt: Option<DeployTraktImportInput>,
     pub movary: Option<DeployMovaryImportInput>,
     pub generic_json: Option<DeployJsonImportInput>,
+    pub jellyfin: Option<DeployJellyfinImportInput>,
     pub strong_app: Option<DeployStrongAppImportInput>,
     pub url_and_key: Option<DeployUrlAndKeyImportInput>,
     pub generic_csv: Option<DeployGenericCsvImportInput>,
-    pub jellyfin: Option<DeployUrlAndKeyAndUsernameImportInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

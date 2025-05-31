@@ -20,7 +20,7 @@ import {
 	UserMetadataGroupDetailsDocument,
 	UserPersonDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { inRange, isString } from "@ryot/ts-utils";
+import { inRange, isString, startCase } from "@ryot/ts-utils";
 import {
 	IconBook,
 	IconBook2,
@@ -616,3 +616,11 @@ export const clientSideFileUpload = async (file: File, prefix: string) => {
 	});
 	return presignedPutS3Url.key;
 };
+
+export const convertEnumToSelectData = (value: {
+	[id: number]: string;
+}) =>
+	Object.values(value).map((v) => ({
+		value: v,
+		label: startCase(v.toString().toLowerCase()),
+	}));

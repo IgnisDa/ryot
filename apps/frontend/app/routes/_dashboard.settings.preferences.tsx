@@ -60,6 +60,7 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	convertEnumToSelectData,
 } from "~/lib/common";
 import {
 	useCoreDetails,
@@ -407,11 +408,8 @@ export default function Page() {
 										size="xs"
 										fullWidth
 										disabled={!!isEditDisabled}
+										data={convertEnumToSelectData(UserReviewScale)}
 										defaultValue={userPreferences.general.reviewScale}
-										data={Object.values(UserReviewScale).map((c) => ({
-											value: c,
-											label: startCase(snakeCase(c)),
-										}))}
 										onChange={(val) => {
 											if (val) {
 												updatePreference((draft) => {
@@ -431,10 +429,7 @@ export default function Page() {
 										fullWidth
 										disabled={!!isEditDisabled}
 										defaultValue={userPreferences.general.gridPacking}
-										data={Object.values(GridPacking).map((c) => ({
-											value: c,
-											label: startCase(snakeCase(c)),
-										}))}
+										data={convertEnumToSelectData(GridPacking)}
 										onChange={(val) => {
 											if (val) {
 												updatePreference((draft) => {
@@ -515,11 +510,8 @@ export default function Page() {
 									size="xs"
 									disabled={!!isEditDisabled}
 									label="Unit system to use for measurements"
+									data={convertEnumToSelectData(UserUnitSystem)}
 									defaultValue={userPreferences.fitness.exercises.unitSystem}
-									data={Object.values(UserUnitSystem).map((c) => ({
-										value: c,
-										label: startCase(c.toLowerCase()),
-									}))}
 									onChange={(val) => {
 										if (val) {
 											updatePreference((draft) => {

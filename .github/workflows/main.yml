@@ -135,11 +135,11 @@ jobs:
           restore-keys: |
             cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-
       - name: Install cross
-        uses: taiki-e/cache-cargo-install-action@4d586f211d9b0bca9e7b59e57e2a0febf36c0929
+        uses: taiki-e/cache-cargo-install-action@ad4edd4113c497b54a89ab6ae296cc2ee975cae0
         with:
           tool: cross
           git: https://github.com/cross-rs/cross
-          rev: c7dee4d008475ce1c140773cbcd6078f4b86c2aa
+          rev: 51f46f296253d8122c927c5bb933e3c4f27cc317
           locked: false
       - name: Build
         env:

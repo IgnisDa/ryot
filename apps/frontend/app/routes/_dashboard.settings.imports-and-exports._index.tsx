@@ -47,6 +47,7 @@ import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	clientGqlService,
+	convertEnumToSelectData,
 	dayjsLib,
 	openConfirmationModal,
 } from "~/lib/common";
@@ -165,7 +166,7 @@ const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
 
 const jellyfinImportFormSchema = usernameImportFormSchema
 	.merge(apiUrlImportFormSchema)
-	.merge(z.object({ password: z.string() }));
+	.merge(z.object({ password: z.string().optional() }));
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -233,13 +234,10 @@ export default function Page() {
 									searchable
 									id="import-source"
 									label="Select a source"
+									data={convertEnumToSelectData(ImportSource)}
 									onChange={(v) => {
 										if (v) setDeployImportSource(v as ImportSource);
 									}}
-									data={Object.values(ImportSource).map((is) => ({
-										label: changeCase(is),
-										value: is,
-									}))}
 								/>
 								{deployImportSource ? (
 									<Anchor
@@ -312,21 +310,16 @@ export default function Page() {
 											.with(ImportSource.Jellyfin, () => (
 												<>
 													<TextInput
-														label="Instance Url"
 														required
 														name="apiUrl"
+														label="Instance Url"
 													/>
 													<TextInput
-														label="Username"
 														required
 														name="username"
+														label="Username"
 													/>
-													<TextInput
-														mt="sm"
-														label="Password"
-														required
-														name="password"
-													/>
+													<TextInput mt="sm" name="password" label="Password" />
 												</>
 											))
 											.with(ImportSource.Movary, () => (

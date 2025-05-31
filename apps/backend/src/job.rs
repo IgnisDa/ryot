@@ -8,7 +8,7 @@ use traits::TraceOk;
 
 use crate::common::AppServices;
 
-pub async fn run_background_jobs(
+pub async fn run_infrequent_cron_jobs(
     _information: ScheduledJob,
     ctx: CronContext<chrono_tz::Tz>,
     app_services: Data<Arc<AppServices>>,
@@ -22,7 +22,7 @@ pub async fn run_background_jobs(
     Ok(())
 }
 
-pub async fn run_frequent_jobs(
+pub async fn run_frequent_cron_jobs(
     _information: ScheduledJob,
     ctx: CronContext<chrono_tz::Tz>,
     app_services: Data<Arc<AppServices>>,

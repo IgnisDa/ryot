@@ -129,14 +129,14 @@ impl MediaProvider for ITunesService {
             .map(|d| d.date_naive());
         let mut episodes = episodes
             .into_iter()
+            .sorted_by_key(|e| e.release_date)
             .enumerate()
-            .rev()
             .map(|(idx, e)| PodcastEpisode {
                 overview: e.description,
                 thumbnail: e.artwork_url_60,
                 title: e.track_name.unwrap(),
                 id: e.track_id.unwrap().to_string(),
-                number: i32::try_from(idx).unwrap() + 1,
+                number: (idx + 1).try_into().unwrap(),
                 runtime: e.track_time_millis.map(|t| t / 1000 / 60),
                 publish_date: e.release_date.map(|d| d.date_naive()).unwrap(),
             })

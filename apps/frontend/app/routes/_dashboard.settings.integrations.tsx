@@ -59,6 +59,7 @@ import { z } from "zod";
 import {
 	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
+	convertEnumToSelectData,
 	dayjsLib,
 	openConfirmationModal,
 	zodCommaDelimitedString,
@@ -502,11 +503,8 @@ const CreateOrUpdateModal = (props: {
 							name="provider"
 							label="Select a provider"
 							defaultValue={props.integrationData?.provider}
+							data={convertEnumToSelectData(IntegrationProvider)}
 							onChange={(e) => setProvider(e as IntegrationProvider)}
-							data={Object.values(IntegrationProvider).map((is) => ({
-								value: is,
-								label: changeCase(is),
-							}))}
 						/>
 					) : null}
 					{provider ? (
@@ -679,7 +677,6 @@ const CreateOrUpdateModal = (props: {
 									}
 								/>
 								<TextInput
-									required
 									label="Password"
 									name="providerSpecifics.jellyfinPushPassword"
 									defaultValue={

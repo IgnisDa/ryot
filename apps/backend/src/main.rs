@@ -32,7 +32,7 @@ use crate::{
     common::create_app_services,
     job::{
         perform_hp_application_job, perform_lp_application_job, perform_mp_application_job,
-        run_background_jobs, run_frequent_jobs,
+        run_frequent_cron_jobs, run_infrequent_cron_jobs,
     },
 };
 
@@ -66,10 +66,12 @@ async fn main() -> Result<()> {
         sleep(duration).await;
     }
 
-    let host = config.server.backend_host.clone();
     let port = config.server.backend_port;
-    let sync_every_minutes = config.integration.sync_every_minutes;
+    let host = config.server.backend_host.clone();
     let disable_background_jobs = config.server.disable_background_jobs;
+    let frequent_cron_jobs_every_minutes = config.scheduler.frequent_cron_jobs_every_minutes;
+    let infrequent_cron_jobs_hours_format =
+        config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
     let config_dump_path = PathBuf::new().join(TEMPORARY_DIRECTORY).join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
@@ -164,26 +166,31 @@ async fn main() -> Result<()> {
 
     let monitor = Monitor::new()
         .register(
-            WorkerBuilder::new("daily_background_jobs")
-                .enable_tracing()
-                .catch_panic()
-                .data(app_services.clone())
-                .backend(
-                    // every day
-                    CronStream::new_with_timezone(Schedule::from_str("0 0 0 * * *").unwrap(), tz),
-                )
-                .build_fn(run_background_jobs),
-        )
-        .register(
-            WorkerBuilder::new("frequent_jobs")
+            WorkerBuilder::new("infrequent_cron_jobs")
                 .enable_tracing()
                 .catch_panic()
                 .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 */{} * * * *", sync_every_minutes)).unwrap(),
+                    Schedule::from_str(&format!("0 0 {} * * *", infrequent_cron_jobs_hours_format))
+                        .unwrap(),
                     tz,
                 ))
-                .build_fn(run_frequent_jobs),
+                .build_fn(run_infrequent_cron_jobs),
+        )
+        .register(
+            WorkerBuilder::new("frequent_cron_jobs")
+                .enable_tracing()
+                .catch_panic()
+                .data(app_services.clone())
+                .backend(CronStream::new_with_timezone(
+                    Schedule::from_str(&format!(
+                        "0 */{} * * * *",
+                        frequent_cron_jobs_every_minutes
+                    ))
+                    .unwrap(),
+                    tz,
+                ))
+                .build_fn(run_frequent_cron_jobs),
         )
         // application jobs
         .register(

@@ -120,7 +120,7 @@ natively.
 ## Yank integrations
 
 You can configure the interval at which the data is fetched from the external source using
-the `INTEGRATION_SYNC_EVERY_MINUTES` environment variable. Defaults to `5`.
+the `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES` environment variable. Defaults to `5`.
 
 If you have enabled the `Sync to owned collection` option, the integration will also run
 at night to add all media in your instance to your "Owned" collection.
