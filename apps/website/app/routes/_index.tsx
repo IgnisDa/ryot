@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
+import { sql } from "drizzle-orm";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
 	Form,
@@ -140,6 +141,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					isSpam: isSpam,
 					email: submission.email,
 					message: submission.message,
+					ticketNumber: isSpam ? null : sql`nextval('ticket_number_seq')`,
 				})
 				.execute();
 			return redirect(
