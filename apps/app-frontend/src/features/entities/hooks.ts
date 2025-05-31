@@ -6,7 +6,7 @@ export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
 	const apiClient = useApiClient();
 	const query = apiClient.useQuery(
 		"post",
-		"/view-runtime/execute",
+		"/query-engine/execute",
 		{ body: createEntityRuntimeRequest(entitySchemaSlug) },
 		{ enabled },
 	);
@@ -35,7 +35,7 @@ export function useEntityQuery(entityId: string, enabled = true) {
 export function useEntityMutations(entitySchemaSlug: string) {
 	const apiClient = useApiClient();
 	const queryClient = useQueryClient();
-	const listQueryKey = apiClient.queryOptions("post", "/view-runtime/execute", {
+	const listQueryKey = apiClient.queryOptions("post", "/query-engine/execute", {
 		body: createEntityRuntimeRequest(entitySchemaSlug),
 	}).queryKey;
 

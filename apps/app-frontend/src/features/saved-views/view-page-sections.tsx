@@ -14,9 +14,9 @@ import { DataTable, type DataTableColumn } from "mantine-datatable";
 import type { AppEntity } from "#/features/entities/model";
 import { useThemeTokens } from "#/hooks/theme";
 import type {
+	QueryEngineResponse,
 	SavedView,
 	ViewLayout,
-	ViewRuntimeResponse,
 } from "./view-page-utils";
 import {
 	formatRuntimeValue,
@@ -84,7 +84,7 @@ export function SavedViewResults(props: {
 	accentColor: string;
 	accentMuted: string;
 	displayConfiguration: SavedView["displayConfiguration"];
-	meta: ViewRuntimeResponse["meta"];
+	meta: QueryEngineResponse["meta"];
 	imageUrlById: Map<string, string | undefined>;
 }) {
 	const { isDark, textPrimary, textSecondary } = useThemeTokens();

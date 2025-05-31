@@ -4,7 +4,7 @@ import {
 	buildComputedFieldMap,
 	getComputedFieldOrThrow,
 } from "~/lib/views/computed-fields";
-import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import { QueryEngineValidationError } from "~/lib/views/errors";
 import type {
 	RuntimeRef,
 	ViewComputedField,
@@ -25,9 +25,9 @@ import {
 	getPropertyType,
 	getSchemaForReference,
 	type PropertyType,
-	type ViewRuntimeEventJoinLike,
-	type ViewRuntimeReferenceContext,
-	type ViewRuntimeSchemaLike,
+	type QueryEngineEventJoinLike,
+	type QueryEngineReferenceContext,
+	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { buildPredicateClause } from "./predicate-clause-builder";
 import {
@@ -133,12 +133,12 @@ const buildJsonNullNormalizedExpression = (input: {
 };
 
 const buildEntityColumnExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	targetType?: PropertyType;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 	reference: Extract<RuntimeRef, { type: "entity-column" }>;
 }) => {
 	const expression = match(input.reference.column)
@@ -148,7 +148,7 @@ const buildEntityColumnExpression = <
 		.with("createdAt", () => sql`${sql.raw(input.alias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(input.alias)}.updated_at`)
 		.otherwise(() => {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Unsupported entity column '@${input.reference.column}'`,
 			);
 		});
@@ -158,7 +158,7 @@ const buildEntityColumnExpression = <
 			? undefined
 			: (getEntityColumnPropertyType(input.reference.column) ?? undefined);
 	if (input.reference.column === "image" && input.targetType) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			"Image expressions are display-only and cannot be compiled for sort or filter usage",
 		);
 	}
@@ -183,12 +183,12 @@ const buildEntityColumnExpression = <
 };
 
 const buildSchemaPropertyExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	targetType?: PropertyType;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 	reference: Extract<RuntimeRef, { type: "schema-property" }>;
 }) => {
 	const schema = getSchemaForReference(
@@ -197,7 +197,7 @@ const buildSchemaPropertyExpression = <
 	);
 	const propertyType = getPropertyType(schema, input.reference.property);
 	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Property '${input.reference.property}' not found in schema '${input.reference.slug}'`,
 		);
 	}
@@ -226,7 +226,7 @@ const buildEventJoinColumnExpression = (input: {
 }) => {
 	const propertyType = getEventJoinColumnPropertyType(input.reference.column);
 	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Unsupported event join column 'event.${input.reference.joinKey}.@${input.reference.column}'`,
 		);
 	}
@@ -245,12 +245,12 @@ const buildEventJoinColumnExpression = (input: {
 };
 
 const buildEventJoinPropertyExpression = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	targetType?: PropertyType;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 	reference: Extract<RuntimeRef, { type: "event-join-property" }>;
 }) => {
 	const join = getEventJoinForReference(
@@ -259,7 +259,7 @@ const buildEventJoinPropertyExpression = <
 	);
 	const propertyType = getEventJoinPropertyType(join, input.reference.property);
 	if (!propertyType) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Property '${input.reference.property}' not found for event join '${join.key}'`,
 		);
 	}
@@ -278,12 +278,12 @@ const buildEventJoinPropertyExpression = <
 };
 
 export const createScalarExpressionCompiler = <
-	TSchema extends ViewRuntimeSchemaLike,
-	TJoin extends ViewRuntimeEventJoinLike,
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
 >(input: {
 	alias: string;
 	computedFields?: ViewComputedField[];
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
 }) => {
 	const computedFieldMap = buildComputedFieldMap(input.computedFields);
 	const typeCache = new Map<string, ViewExpressionTypeInfo>();
