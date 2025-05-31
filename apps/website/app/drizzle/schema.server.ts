@@ -1,4 +1,5 @@
 import {
+	bigint,
 	boolean,
 	date,
 	pgEnum,
@@ -7,7 +8,6 @@ import {
 	text,
 	timestamp,
 	uuid,
-	bigint,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
