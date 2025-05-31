@@ -96,33 +96,26 @@ export const enqueueSandbox = async (
 	input: { body: EnqueueSandboxBody; userId: string },
 	deps: SandboxServiceDeps = sandboxServiceDeps,
 ): Promise<SandboxServiceResult<SandboxEnqueueResult>> => {
-	if (input.body.kind === "script") {
+	let code = "";
+	if (input.body.kind === "code") {
+		code = input.body.code;
+	} else if (input.body.kind === "script") {
 		const foundSandboxScript = await deps.getSandboxScriptForUser({
-			scriptId: input.body.scriptId,
 			userId: input.userId,
+			scriptId: input.body.scriptId,
 		});
 		if (!foundSandboxScript) {
 			return serviceError("not_found", sandboxScriptNotFoundError);
 		}
-
-		const job = await deps.enqueueSandboxJob({
-			userId: input.userId,
-			context: input.body.context,
-			code: foundSandboxScript.code,
-			scriptId: input.body.scriptId,
-			apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
-			driverName: input.body.driverName,
-		});
-
-		return serviceData(job);
+		code = foundSandboxScript.code;
 	}
 
 	const job = await deps.enqueueSandboxJob({
+		code,
 		userId: input.userId,
-		code: input.body.code,
 		context: input.body.context,
-		apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
 		driverName: input.body.driverName,
+		apiFunctionDescriptors: createApiFunctionDescriptors(input.userId),
 	});
 
 	return serviceData(job);
