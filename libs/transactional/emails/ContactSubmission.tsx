@@ -6,7 +6,7 @@ type ContactSubmissionEmailProps = {
 	ticketNumber: number;
 };
 
-const subject = "New contact submission";
+const subject = "Query regarding Ryot";
 
 const ContactSubmissionEmail = (props: ContactSubmissionEmailProps) => (
 	<Layout headingText={subject}>
