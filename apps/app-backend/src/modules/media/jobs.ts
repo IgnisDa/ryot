@@ -11,3 +11,14 @@ export const mediaImportJobData = z.object({
 });
 
 export type MediaImportJobData = z.infer<typeof mediaImportJobData>;
+
+export const personPopulateJobName = "person-populate";
+
+export const personPopulateJobData = z.object({
+	userId: nonEmptyStringSchema,
+	scriptSlug: nonEmptyStringSchema,
+	identifier: nonEmptyStringSchema,
+	personEntityId: nonEmptyStringSchema,
+});
+
+export type PersonPopulateJobData = z.infer<typeof personPopulateJobData>;
