@@ -25,6 +25,121 @@ async function getHardcoverApiKey() {
   return apiKey;
 }
 
+driver("personSearch", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const apiKey = await getHardcoverApiKey();
+
+  const graphqlQuery = `
+query {
+  search(
+    page: ${currentPage},
+    per_page: ${pageSize},
+    query: "${query.replace(/"/g, '\\"')}",
+    query_type: "author"
+  ) {
+    results
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover person search request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+
+  const resultsData =
+    payload?.data?.search?.results &&
+    typeof payload.data.search.results === "object"
+      ? payload.data.search.results
+      : null;
+
+  if (!resultsData) {
+    throw new Error("Hardcover returned invalid response structure");
+  }
+
+  const totalItems =
+    typeof resultsData.found === "number" && Number.isFinite(resultsData.found)
+      ? Math.max(0, Math.trunc(resultsData.found))
+      : 0;
+
+  const hits = Array.isArray(resultsData.hits) ? resultsData.hits : [];
+  const items = hits
+    .map((hit) => {
+      const doc = hit?.document;
+      if (!doc || typeof doc !== "object") {
+        return null;
+      }
+
+      const identifier = doc.id;
+      if (!identifier) {
+        return null;
+      }
+
+      const name = typeof doc.name === "string" ? doc.name : "";
+
+      let image = null;
+      if (
+        doc.image &&
+        typeof doc.image === "object" &&
+        typeof doc.image.url === "string"
+      ) {
+        image = doc.image.url;
+      }
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        subtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
 driver("personDetails", async function(context) {
   const apiKey = await getHardcoverApiKey();
 
