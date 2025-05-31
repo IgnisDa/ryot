@@ -1,4 +1,5 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import {
 	type ServiceResult,
@@ -8,12 +9,6 @@ import {
 } from "~/lib/result";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
-import {
-	customTrackerError,
-	resolveCustomTrackerAccess,
-	resolveTrackerReadAccess,
-	trackerNotFoundError,
-} from "../trackers/access";
 import { getTrackerScopeForUser } from "../trackers/repository";
 import {
 	createEntitySchemaForUser,
@@ -44,6 +39,9 @@ export type EntitySchemaServiceResult<T> = ServiceResult<
 const duplicateSlugError = "Entity schema slug already exists";
 const entitySchemaNotFoundError = "Entity schema not found";
 const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
+const trackerNotFoundError = "Tracker not found";
+const customTrackerError =
+	"Built-in trackers do not support entity schema creation";
 
 const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
 	createEntitySchemaForUser,
@@ -135,14 +133,15 @@ export const listEntitySchemas = async (
 			return trackerIdResult;
 		}
 
-		const foundTracker = resolveTrackerReadAccess(
+		const trackerResult = checkReadAccess(
 			await deps.getTrackerScopeForUser({
 				userId: input.userId,
 				trackerId: trackerIdResult.data,
 			}),
+			{ not_found: trackerNotFoundError },
 		);
-		if (foundTracker.error) {
-			return serviceError("not_found", trackerNotFoundError);
+		if ("error" in trackerResult) {
+			return serviceError("not_found", trackerResult.message);
 		}
 
 		const entitySchemas = await deps.listEntitySchemasForUser({
@@ -171,18 +170,20 @@ export const createEntitySchema = async (
 		return trackerIdResult;
 	}
 
-	const foundTracker = resolveCustomTrackerAccess(
+	const trackerResult = checkCustomAccess(
 		await deps.getTrackerScopeForUser({
 			userId: input.userId,
 			trackerId: trackerIdResult.data,
 		}),
+		{
+			not_found: trackerNotFoundError,
+			builtin_resource: customTrackerError,
+		},
 	);
-	if (foundTracker.error) {
+	if ("error" in trackerResult) {
 		return serviceError(
-			foundTracker.error === "not_found" ? "not_found" : "validation",
-			foundTracker.error === "not_found"
-				? trackerNotFoundError
-				: customTrackerError,
+			trackerResult.error === "not_found" ? "not_found" : "validation",
+			trackerResult.message,
 		);
 	}
 
