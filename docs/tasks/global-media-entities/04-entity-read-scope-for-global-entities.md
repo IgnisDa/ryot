@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Backwards compatibility
 
@@ -13,6 +13,7 @@ Backwards compatibility with existing user-scoped media entity rows is not requi
 ## What to build
 
 Broaden every read-path entity scope check so that global entities (`userId = null`) are visible to any authenticated user. Per the agreed access model, global entities are universally readable — no `in_library` check is required for reads.
+Backwards compatibility with existing user-scoped media entity rows is not required.
 
 **`entities/repository.ts`** — Update the following functions to accept global entities alongside user-owned ones:
 
@@ -29,13 +30,13 @@ Broaden every read-path entity scope check so that global entities (`userId = nu
 
 ## Acceptance criteria
 
-- [ ] `GET /entities/:id` returns `200` for a global entity (`userId = null`) for any authenticated user, not just the importer.
-- [ ] `GET /entities/:id` continues to return `200` for user-owned entities (collections, custom schema entities) only for their owner.
-- [ ] `listEntitiesByEntitySchemaForUser` returns global entities of the requested schema alongside user-owned ones.
-- [ ] `findEntityByExternalIdForUser` finds a global entity by external id when `userId = null` matches.
-- [ ] The `getEntityDetail` unit test covers the global-entity path (scope with `userId = null` returns data, not `not_found`).
-- [ ] E2E test confirms a second user can read a global entity they did not import.
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+- [x] `GET /entities/:id` returns `200` for a global entity (`userId = null`) for any authenticated user, not just the importer.
+- [x] `GET /entities/:id` continues to return `200` for user-owned entities (collections, custom schema entities) only for their owner.
+- [x] `listEntitiesByEntitySchemaForUser` returns global entities of the requested schema alongside user-owned ones.
+- [x] `findEntityByExternalIdForUser` finds a global entity by external id when `userId = null` matches.
+- [x] The `getEntityDetail` unit test covers the global-entity path (scope with `userId = null` returns data, not `not_found`).
+- [x] E2E test confirms a second user can read a global entity they did not import.
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
 
 ## Blocked by
 

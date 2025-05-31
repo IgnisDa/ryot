@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
-import { db } from "~/lib/db";
+import { type DbClient, db } from "~/lib/db";
 import {
 	entity,
 	entityAccessScopeWithSchemaJoinSelection,
@@ -67,7 +67,12 @@ export const getEntityScopeForUser = async (input: {
 		.select(entityAccessScopeWithSchemaJoinSelection)
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
-		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
+		.where(
+			and(
+				eq(entity.id, input.entityId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
+			),
+		)
 		.limit(1);
 
 	return foundEntity;
@@ -80,7 +85,12 @@ export const getEntityByIdForUser = async (input: {
 	const [foundEntity] = await db
 		.select(entitySelection)
 		.from(entity)
-		.where(and(eq(entity.id, input.entityId), eq(entity.userId, input.userId)))
+		.where(
+			and(
+				eq(entity.id, input.entityId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
+			),
+		)
 		.limit(1);
 
 	return foundEntity ? toListedEntity(foundEntity) : foundEntity;
@@ -95,7 +105,7 @@ export const listEntitiesByEntitySchemaForUser = async (input: {
 		.from(entity)
 		.where(
 			and(
-				eq(entity.userId, input.userId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
 				eq(entity.entitySchemaId, input.entitySchemaId),
 			),
 		)
@@ -115,7 +125,7 @@ export const findEntityByExternalIdForUser = async (input: {
 		.from(entity)
 		.where(
 			and(
-				eq(entity.userId, input.userId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
 				eq(entity.externalId, input.externalId),
 				eq(entity.entitySchemaId, input.entitySchemaId),
 				eq(entity.sandboxScriptId, input.sandboxScriptId),
@@ -254,4 +264,63 @@ export const upsertPersonRelationship = async (input: {
 				relationship.relType,
 			],
 		});
+};
+
+export const getUserLibraryEntityId = async (
+	input: { userId: string },
+	database: DbClient = db,
+) => {
+	const [found] = await database
+		.select({ id: entity.id })
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(
+			and(
+				eq(entity.userId, input.userId),
+				eq(entitySchema.slug, "library"),
+				isNull(entitySchema.userId),
+			),
+		)
+		.limit(1);
+
+	return found?.id;
+};
+
+type InLibraryRelationshipValues = {
+	userId: string;
+	relType: "in_library";
+	sourceEntityId: string;
+	targetEntityId: string;
+	properties: Record<string, unknown>;
+};
+
+const insertInLibraryRelationship = async (
+	values: InLibraryRelationshipValues,
+) => {
+	await db
+		.insert(relationship)
+		.values(values)
+		.onConflictDoNothing({
+			target: [
+				relationship.userId,
+				relationship.sourceEntityId,
+				relationship.targetEntityId,
+				relationship.relType,
+			],
+		});
+};
+
+export const upsertInLibraryRelationship = async (
+	input: { userId: string; mediaEntityId: string; libraryEntityId: string },
+	insert: (
+		values: InLibraryRelationshipValues,
+	) => Promise<void> = insertInLibraryRelationship,
+) => {
+	await insert({
+		properties: {},
+		userId: input.userId,
+		relType: "in_library",
+		sourceEntityId: input.mediaEntityId,
+		targetEntityId: input.libraryEntityId,
+	});
 };

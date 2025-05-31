@@ -46,6 +46,7 @@ export const createEntityDeps = (
 	getEntityScopeForUser: async (input) => ({
 		isBuiltin: false,
 		entityId: input.entityId,
+		entityUserId: input.userId,
 		entitySchemaId: "schema_1",
 		entitySchemaSlug: "custom",
 	}),

@@ -138,19 +138,19 @@ All existing tests in these modules use dependency injection via a `deps` parame
 
 ## Tasks
 
-**Overall Progress:** 0 of 8 tasks completed
+**Overall Progress:** 8 of 8 tasks completed
 
-**Current Task:** [Task 01](./01-library-schema-and-signup-entity.md) (todo)
+**Current Task:** None (complete)
 
 ### Task List
 
 | #   | Task                                                                                                        | Type | Status | Blocked By               |
 | --- | ----------------------------------------------------------------------------------------------------------- | ---- | ------ | ------------------------ |
-| 01  | [Library Schema and Signup Entity](./01-library-schema-and-signup-entity.md)                                | AFK  | todo   | None                     |
-| 02  | [`in_library` Repository Primitives](./02-in-library-repository-primitives.md)                              | AFK  | todo   | Task 01                  |
-| 03  | [Worker: Global Media Import and HTTP Guard](./03-worker-global-media-import.md)                            | AFK  | todo   | Task 02                  |
-| 04  | [Entity Read Scope for Global Entities](./04-entity-read-scope-for-global-entities.md)                      | AFK  | todo   | Task 01                  |
-| 05  | [Events: Global Entity Support and Implicit `in_library`](./05-events-global-entity-support.md)             | AFK  | todo   | Tasks 02, 04             |
-| 06  | [Collections: Global Entity Support and Implicit `in_library`](./06-collections-global-entity-support.md)  | AFK  | todo   | Tasks 02, 04             |
-| 07  | [Query Engine: User Library Scope](./07-query-engine-user-library-scope.md)                                 | AFK  | todo   | Tasks 02, 04             |
-| 08  | [Cleanup: Dead and Incorrect Code](./08-cleanup-dead-and-incorrect-code.md)                                 | AFK  | todo   | Tasks 03, 04, 05, 06, 07 |
+| 01  | [Library Schema and Signup Entity](./01-library-schema-and-signup-entity.md)                                | AFK  | done   | None                     |
+| 02  | [`in_library` Repository Primitives](./02-in-library-repository-primitives.md)                              | AFK  | done   | Task 01                  |
+| 03  | [Worker: Global Media Import and HTTP Guard](./03-worker-global-media-import.md)                            | AFK  | done   | Task 02                  |
+| 04  | [Entity Read Scope for Global Entities](./04-entity-read-scope-for-global-entities.md)                      | AFK  | done   | Task 01                  |
+| 05  | [Events: Global Entity Support and Implicit `in_library`](./05-events-global-entity-support.md)             | AFK  | done   | Tasks 02, 04             |
+| 06  | [Collections: Global Entity Support and Implicit `in_library`](./06-collections-global-entity-support.md)  | AFK  | done   | Tasks 02, 04             |
+| 07  | [Query Engine: User Library Scope](./07-query-engine-user-library-scope.md)                                 | AFK  | done   | Tasks 02, 04             |
+| 08  | [Cleanup: Dead and Incorrect Code](./08-cleanup-dead-and-incorrect-code.md)                                 | AFK  | done   | Tasks 03, 04, 05, 06, 07 |

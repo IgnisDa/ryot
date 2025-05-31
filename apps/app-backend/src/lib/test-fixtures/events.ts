@@ -44,6 +44,7 @@ export const createEventCreateScope = (
 ): EventCreateScope => ({
 	isBuiltin: false,
 	entityId: "entity_1",
+	entityUserId: "user_1",
 	entitySchemaSlug: "custom",
 	entitySchemaId: "schema_1",
 	eventSchemaSlug: "finished",
@@ -57,12 +58,15 @@ export const createEventCreateScope = (
 export const createEventDeps = (
 	overrides: Partial<EventServiceDeps> = {},
 ): EventServiceDeps => ({
+	upsertInLibraryRelationship: async () => {},
+	getUserLibraryEntityId: async () => "library_1",
 	listEventsByEntityForUser: async () => [createListedEvent()],
 	getEntityScopeForUser: async (input) => ({
 		isBuiltin: false,
 		entityId: input.entityId,
-		entitySchemaSlug: "custom",
+		entityUserId: input.userId,
 		entitySchemaId: "schema_1",
+		entitySchemaSlug: "custom",
 	}),
 	getEventCreateScopeForUser: async (input) =>
 		createEventCreateScope({
