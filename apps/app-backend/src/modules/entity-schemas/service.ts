@@ -44,11 +44,11 @@ const customTrackerError =
 	"Built-in trackers do not support entity schema creation";
 
 const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
+	getTrackerScopeForUser,
+	listEntitySchemasForUser,
 	createEntitySchemaForUser,
 	getEntitySchemaByIdForUser,
 	getEntitySchemaBySlugForUser,
-	listEntitySchemasForUser,
-	getTrackerScopeForUser,
 };
 
 const resolveEntitySchemaTrackerIdResult = (trackerId: string) =>

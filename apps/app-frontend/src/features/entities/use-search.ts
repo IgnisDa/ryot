@@ -238,16 +238,12 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				throw new Error("Search provider is unavailable");
 			}
 
-			if (!provider.searchDriverName) {
-				throw new Error("Search provider does not have a search driver");
-			}
-
 			throwIfAborted(signal);
 			const enqueueResult = await enqueueSearch.mutateAsync({
 				body: {
 					kind: "script",
+					driverName: "search",
 					scriptId: provider.scriptId,
-					driverName: provider.searchDriverName,
 					context: {
 						pageSize: 10,
 						page: currentSearch.page,
