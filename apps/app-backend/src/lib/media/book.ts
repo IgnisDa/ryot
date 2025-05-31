@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableBooleanSchema, nullableIntSchema } from "../zod/base";
+import { nullableBooleanSchema, nullableIntSchema } from "../zod";
 import { freeCreatorSchema, mediaPropertiesSchema } from "./common";
 
 export const personStubSchema = z
