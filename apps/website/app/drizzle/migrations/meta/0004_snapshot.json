@@ -1,0 +1,197 @@
+{
+	"id": "60e58e36-ce0b-46ea-be3d-02b8b9cc5f8d",
+	"prevId": "606551ca-2277-4f7c-a916-7be8a145bc9f",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.contact_submission": {
+			"name": "contact_submission",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"message": {
+					"name": "message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_spam": {
+					"name": "is_spam",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"is_addressed": {
+					"name": "is_addressed",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ticket_number": {
+					"name": "ticket_number",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.customer": {
+			"name": "customer",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "uuid",
+					"primaryKey": true,
+					"notNull": true,
+					"default": "gen_random_uuid()"
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_on": {
+					"name": "created_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"oidc_issuer_id": {
+					"name": "oidc_issuer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"paddle_customer_id": {
+					"name": "paddle_customer_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"product_type": {
+					"name": "product_type",
+					"type": "product_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"plan_type": {
+					"name": "plan_type",
+					"type": "plan_type",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"renew_on": {
+					"name": "renew_on",
+					"type": "date",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"unkey_key_id": {
+					"name": "unkey_key_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ryot_user_id": {
+					"name": "ryot_user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"has_cancelled": {
+					"name": "has_cancelled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"customer_email_unique": {
+					"name": "customer_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				},
+				"customer_oidc_issuer_id_unique": {
+					"name": "customer_oidc_issuer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["oidc_issuer_id"]
+				},
+				"customer_paddle_customer_id_unique": {
+					"name": "customer_paddle_customer_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["paddle_customer_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {
+		"public.plan_type": {
+			"name": "plan_type",
+			"schema": "public",
+			"values": ["free", "monthly", "yearly", "lifetime"]
+		},
+		"public.product_type": {
+			"name": "product_type",
+			"schema": "public",
+			"values": ["cloud", "self_hosted"]
+		}
+	},
+	"schemas": {},
+	"sequences": {
+		"public.ticket_number_seq": {
+			"name": "ticket_number_seq",
+			"schema": "public",
+			"increment": "1",
+			"startWith": "1",
+			"minValue": "1",
+			"maxValue": "9223372036854775807",
+			"cache": "1",
+			"cycle": false
+		}
+	},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
+}

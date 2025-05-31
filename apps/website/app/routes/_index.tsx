@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
 import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
+import ContactSubmissionEmail from "@ryot/transactional/emails/ContactSubmission";
 import {
 	cn,
 	getActionIntent,
@@ -16,6 +17,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
+import { sql } from "drizzle-orm";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
 	Form,
@@ -49,6 +51,7 @@ import {
 	sendEmail,
 	websiteAuthCookie,
 } from "~/lib/config.server";
+import { contactEmail } from "~/lib/utils";
 import { startUrl } from "~/lib/utils";
 import type { loader as rootLoader } from "../root";
 import type { Route } from "./+types/_index";
@@ -88,11 +91,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const otpCode = generateOtp(6);
 			otpCodesCache.set(email, otpCode);
 			console.log("OTP code generated:", { email, otpCode });
-			await sendEmail(
-				email,
-				LoginCodeEmail.subject,
-				LoginCodeEmail({ code: otpCode }),
-			);
+			await sendEmail({
+				recipient: email,
+				subject: LoginCodeEmail.subject,
+				element: LoginCodeEmail({ code: otpCode }),
+			});
 			return redirect(withQuery(startUrl, { email }));
 		})
 		.with("registerWithEmail", async () => {
@@ -134,14 +137,32 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = contactSubmissionSchema.parse(
 				Object.fromEntries(formData.entries()),
 			);
-			await db
+			const result = await db
 				.insert(contactSubmissions)
 				.values({
 					isSpam: isSpam,
 					email: submission.email,
 					message: submission.message,
+					ticketNumber: isSpam ? null : sql`nextval('ticket_number_seq')`,
 				})
-				.execute();
+				.returning({
+					email: contactSubmissions.email,
+					message: contactSubmissions.message,
+					ticketNumber: contactSubmissions.ticketNumber,
+				});
+
+			if (!isSpam && result[0]?.ticketNumber) {
+				const insertedSubmission = result[0];
+				await sendEmail({
+					cc: contactEmail,
+					recipient: insertedSubmission.email,
+					subject: ContactSubmissionEmail.subject,
+					element: ContactSubmissionEmail({
+						message: insertedSubmission.message,
+						ticketNumber: Number(insertedSubmission.ticketNumber),
+					}),
+				});
+			}
 			return redirect(
 				withQuery(withFragment(".", "contact"), { contactSubmission: true }),
 			);

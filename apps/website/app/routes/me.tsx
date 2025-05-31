@@ -66,15 +66,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.set({ unkeyKeyId: created.keyId })
 				.where(eq(customers.id, customer.id));
 			const renewal = renewOn ? formatDateToNaiveDate(renewOn) : undefined;
-			await sendEmail(
-				customer.email,
-				PurchaseCompleteEmail.subject,
-				PurchaseCompleteEmail({
+			await sendEmail({
+				recipient: customer.email,
+				subject: PurchaseCompleteEmail.subject,
+				element: PurchaseCompleteEmail({
 					renewOn: renewal,
 					planType: customer.planType,
 					details: { __typename: "self_hosted", key: created.key },
 				}),
-			);
+			});
 			return Response.json({});
 		})
 		.with("logout", async () => {

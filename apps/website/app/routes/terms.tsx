@@ -1,4 +1,4 @@
-const email = "ignisda2001@gmail.com";
+import { contactEmail } from "~/lib/utils";
 
 export const meta = () => {
 	return [{ title: "Terms and conditions | Ryot" }];
@@ -21,7 +21,7 @@ export default function Index() {
 				<strong>Ryot</strong>, Pocket A-3, Kalkaji Extension, New Delhi 110019,
 				Delhi, India
 				<br />
-				Email: <a href={`mailto:${email}`}>{email}</a>
+				Email: <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
 			</p>
 
 			<h2>3. User Eligibility</h2>
@@ -94,8 +94,9 @@ export default function Index() {
 			<h2>12. Cancellation and Refund Policies</h2>
 			<p>
 				Users may cancel their subscription at any time. To cancel, please
-				contact us at <a href={`mailto:${email}`}>{email}</a>. Refunds will be
-				processed in accordance with Indian laws and regulations.
+				contact us at <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+				Refunds will be processed in accordance with Indian laws and
+				regulations.
 			</p>
 			<p>
 				If you cancel within the first 14 days of a monthly subscription, you

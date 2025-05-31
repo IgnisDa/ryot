@@ -12,7 +12,6 @@ import {
 	Tailwind,
 } from "@react-email/components";
 import type { ReactNode } from "react";
-import tailwindConfig from "../tailwind.config";
 
 type LayoutProps = {
 	headingText: string;
@@ -23,7 +22,18 @@ const Layout = ({ headingText, children }: LayoutProps) => (
 	<Html>
 		<Head />
 		<Preview>Message from Ryot</Preview>
-		<Tailwind config={tailwindConfig}>
+		<Tailwind
+			config={{
+				theme: {
+					extend: {
+						colors: {
+							"paragraph-gray": "#3c4149",
+							"brand-heading-gray": "#484848",
+						},
+					},
+				},
+			}}
+		>
 			<Body style={main} className="bg-white">
 				<Container className="my-0 mx-auto pt-5 px-0 pb-10 max-w-xl">
 					<Img

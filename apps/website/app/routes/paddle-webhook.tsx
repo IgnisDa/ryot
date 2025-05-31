@@ -129,11 +129,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				})
 				.exhaustive();
 			const renewal = renewOn ? formatDateToNaiveDate(renewOn) : undefined;
-			await sendEmail(
-				customer.email,
-				PurchaseCompleteEmail.subject,
-				PurchaseCompleteEmail({ planType, renewOn: renewal, details }),
-			);
+			await sendEmail({
+				recipient: customer.email,
+				subject: PurchaseCompleteEmail.subject,
+				element: PurchaseCompleteEmail({ planType, renewOn: renewal, details }),
+			});
 			await db
 				.update(customers)
 				.set({
