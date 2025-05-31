@@ -45,7 +45,7 @@ export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
 const entityProvenanceUniqueConstraint =
 	"entity_user_schema_script_external_id_unique";
 const partialProvenanceError =
-	"externalId and detailsSandboxScriptId must both be provided or both be omitted";
+	"externalId and sandboxScriptId must both be provided or both be omitted";
 const customEntitySchemaError =
 	"Built-in entity schemas do not support manual entity creation";
 const entitySchemaNotFoundError = "Entity schema not found";
@@ -192,7 +192,7 @@ export const createEntity = async (
 	deps: EntityServiceDeps = entityServiceDeps,
 ): Promise<EntityServiceResult<ListedEntity>> => {
 	const hasExternalId = input.body.externalId !== undefined;
-	const hasScriptId = input.body.detailsSandboxScriptId !== undefined;
+	const hasScriptId = input.body.sandboxScriptId !== undefined;
 	if (hasExternalId !== hasScriptId) {
 		return serviceError("validation", partialProvenanceError);
 	}
@@ -217,10 +217,10 @@ export const createEntity = async (
 
 	const provenance =
 		input.body.externalId !== undefined &&
-		input.body.detailsSandboxScriptId !== undefined
+		input.body.sandboxScriptId !== undefined
 			? {
 					externalId: input.body.externalId,
-					detailsSandboxScriptId: input.body.detailsSandboxScriptId,
+					sandboxScriptId: input.body.sandboxScriptId,
 				}
 			: null;
 
@@ -229,7 +229,7 @@ export const createEntity = async (
 			userId: input.userId,
 			externalId: provenance.externalId,
 			entitySchemaId: entitySchemaIdResult.data,
-			detailsSandboxScriptId: provenance.detailsSandboxScriptId,
+			sandboxScriptId: provenance.sandboxScriptId,
 		});
 		if (existingEntity) {
 			return serviceData(existingEntity);
@@ -254,7 +254,7 @@ export const createEntity = async (
 			externalId: provenance?.externalId,
 			properties: entityInput.data.properties,
 			entitySchemaId: entitySchemaIdResult.data,
-			detailsSandboxScriptId: provenance?.detailsSandboxScriptId,
+			sandboxScriptId: provenance?.sandboxScriptId,
 		});
 
 		return serviceData(createdEntity);
@@ -267,7 +267,7 @@ export const createEntity = async (
 				userId: input.userId,
 				externalId: provenance.externalId,
 				entitySchemaId: entitySchemaIdResult.data,
-				detailsSandboxScriptId: provenance.detailsSandboxScriptId,
+				sandboxScriptId: provenance.sandboxScriptId,
 			});
 			if (existingEntity) {
 				return serviceData(existingEntity);

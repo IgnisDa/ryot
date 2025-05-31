@@ -4,7 +4,7 @@ import {
 	ensureBuiltinEntitySchema,
 	ensureBuiltinEntitySchemaEventSchemas,
 	ensureBuiltinSandboxScript,
-	linkScriptPairToEntitySchema,
+	linkScriptToEntitySchema,
 } from "./helpers";
 import { builtinSandboxScripts, entitySchemaScriptLinks } from "./manifests";
 
@@ -62,11 +62,16 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				);
 			}
 
-			await linkScriptPairToEntitySchema({
+			await linkScriptToEntitySchema({
 				database: tx,
 				entitySchemaId,
-				searchScriptId,
-				detailsScriptId,
+				sandboxScriptId: searchScriptId,
+			});
+
+			await linkScriptToEntitySchema({
+				database: tx,
+				entitySchemaId,
+				sandboxScriptId: detailsScriptId,
 			});
 		}
 	});
