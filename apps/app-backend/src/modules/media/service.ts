@@ -4,14 +4,14 @@ import {
 	builtinMediaEntitySchemaSlugs,
 } from "~/lib/media/constants";
 import { serviceData, serviceError } from "~/lib/result";
-import { viewDefinitionModule } from "~/lib/views/definition";
 import {
 	QueryEngineNotFoundError,
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
-import type {
-	QueryEngineRequest,
-	QueryEngineResponseData,
+import {
+	prepareAndExecute,
+	type QueryEngineRequest,
+	type QueryEngineResponseData,
 } from "~/modules/query-engine";
 import {
 	listRecentActivityEventsForUser,
@@ -237,13 +237,8 @@ type MediaServiceDeps = {
 const defaultDeps: MediaServiceDeps = {
 	listWeekActivityEventsForUser,
 	listRecentActivityEventsForUser,
-	executeSectionQuery: async (userId, request) => {
-		const preparedView = await viewDefinitionModule.prepare({
-			userId,
-			source: { request, kind: "runtime" },
-		});
-		return preparedView.execute();
-	},
+	executeSectionQuery: (userId, request) =>
+		prepareAndExecute({ userId, request }),
 };
 
 const getDateKey = (date: Date) => dayjs.utc(date).format("YYYY-MM-DD");

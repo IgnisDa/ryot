@@ -184,7 +184,30 @@ effects.
 ## Status
 
 - [x] RFC accepted
-- [ ] Implementation started
-- [ ] Implementation complete
-- [ ] Old tests deleted
-- [ ] New boundary tests written
+- [x] Implementation started
+- [x] Implementation complete
+- [x] Old tests deleted
+- [x] New boundary tests written
+
+## Progress Notes
+
+- Added `apps/app-backend/src/modules/query-engine/preparer.ts` with the new additive
+  boundary functions: `prepareAndExecute`, `prepareForValidation`, and `prepareSavedView`.
+- Exposed `getSavedViewByIdForUser` from `~/modules/saved-views` to support
+  `prepareSavedView` without reaching into the repository file directly.
+- Updated `apps/app-backend/src/modules/query-engine/routes.ts` to call
+  `prepareAndExecute(...)` directly instead of routing execution through
+  `viewDefinitionModule.prepare(...).execute()`.
+- Updated `apps/app-backend/src/modules/saved-views/routes.ts` to validate through
+  `prepareForValidation(...)`.
+- Updated remaining execution callers in `modules/media/service.ts` and
+  `lib/sandbox/host-functions/execute-query.ts` to use `prepareAndExecute(...)`.
+- Removed the old boundary implementation and its mocked tests by deleting
+  `apps/app-backend/src/lib/views/definition.ts` and
+  `apps/app-backend/src/lib/views/definition.test.ts`.
+- Removed `lib/views` imports from `modules/` type barrels by making
+  `lib/views/validator.ts` depend on local structural types instead.
+- Added integration coverage in `tests/src/tests/query-engine.test.ts` and
+  `tests/src/tests/sandbox.test.ts` for real boundary behavior after the migration.
+- `tests` package typecheck passes, but full targeted e2e execution was blocked by an
+  unrelated backend startup failure during DB migration/bootstrap in the test harness.
