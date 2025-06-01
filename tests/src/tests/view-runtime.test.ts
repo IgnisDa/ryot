@@ -5,7 +5,10 @@ import { createAuthenticatedClient } from "../helpers";
 
 type Client = ReturnType<typeof createClient<paths>>;
 
-type TestPropertiesSchema = Record<string, { type: "integer" | "string" }>;
+type TestPropertiesSchema = Record<
+	string,
+	{ type: "integer" | "number" | "string" }
+>;
 
 async function createTracker(client: Client, cookies: string, name: string) {
 	const { data } = await client.POST("/trackers", {
@@ -144,15 +147,19 @@ async function createCrossSchemaRuntimeFixture() {
 			propertiesSchema: {
 				year: { type: "integer" },
 				category: { type: "string" },
+				manufacturer: { type: "string" },
 			},
 		},
 	);
 	const tabletSchema = await createEntitySchema(client, cookies, trackerId, {
 		name: "Tablet",
-		slug: `tablets-${crypto.randomUUID()}`,
 		icon: "tablet",
+		slug: `tablets-${crypto.randomUUID()}`,
 		propertiesSchema: {
+			manufacturer: { type: "string" },
+			maker: { type: "string" },
 			category: { type: "string" },
+			releaseLabel: { type: "string" },
 			releaseYear: { type: "integer" },
 		},
 	});
@@ -162,20 +169,20 @@ async function createCrossSchemaRuntimeFixture() {
 		cookies,
 		name: "Alpha Phone",
 		entitySchemaId: smartphoneSchema.schemaId,
-		properties: { year: 2019, category: "phone" },
+		properties: { year: 2019, category: "phone", manufacturer: "Acme" },
 	});
 	await createEntity({
 		client,
 		cookies,
 		name: "Gamma Phone",
 		entitySchemaId: smartphoneSchema.schemaId,
-		properties: { year: 2021, category: "phone" },
+		properties: { year: 2021, category: "phone", manufacturer: "Zenith" },
 	});
 	await createEntity({
 		client,
 		cookies,
 		name: "Omega Phone",
-		properties: { year: 2024 },
+		properties: { year: 2024, manufacturer: "Nova" },
 		entitySchemaId: smartphoneSchema.schemaId,
 	});
 	await createEntity({
@@ -183,19 +190,33 @@ async function createCrossSchemaRuntimeFixture() {
 		cookies,
 		name: "Beta Tablet",
 		entitySchemaId: tabletSchema.schemaId,
-		properties: { releaseYear: 2020, category: "tablet" },
+		properties: {
+			manufacturer: "LegacyCo",
+			maker: "Tabula",
+			releaseYear: 2020,
+			category: "tablet",
+			releaseLabel: "2020",
+		},
 	});
 	await createEntity({
 		client,
 		cookies,
 		name: "Delta Tablet",
 		entitySchemaId: tabletSchema.schemaId,
-		properties: { releaseYear: 2022, category: "tablet" },
+		properties: {
+			manufacturer: "Archive Devices",
+			maker: "Slate",
+			releaseYear: 2022,
+			category: "tablet",
+			releaseLabel: "2022",
+		},
 	});
 
 	return {
 		client,
 		cookies,
+		tabletSchema,
+		smartphoneSchema,
 		tabletSlug: tabletSchema.slug,
 		smartphoneSlug: smartphoneSchema.slug,
 	};
@@ -669,6 +690,232 @@ describe("POST /view-runtime/execute", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items.map((item) => item.name)).toEqual(["Omega Phone"]);
+	});
+
+	it("sorts across schemas when sort fields resolve to different property types", async () => {
+		const { client, cookies, smartphoneSlug, tabletSlug } =
+			await createCrossSchemaRuntimeFixture();
+
+		const { data, response } = await client.POST("/view-runtime/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				filters: [],
+				layout: "grid",
+				page: { limit: 10, offset: 0 },
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				sort: {
+					direction: "asc",
+					field: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseLabel`],
+				},
+				displayConfiguration: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["@name"],
+					imageProperty: ["@image"],
+				},
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Alpha Phone",
+			"Beta Tablet",
+			"Gamma Phone",
+			"Delta Tablet",
+			"Omega Phone",
+		]);
+	});
+
+	it("keeps numeric ordering when cross-schema sort fields mix integers and numbers", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const trackerId = await createTracker(
+			client,
+			cookies,
+			"Numeric Sort Tracker",
+		);
+		const smartphoneSchema = await createEntitySchema(
+			client,
+			cookies,
+			trackerId,
+			{
+				name: "Numeric Phone",
+				slug: `numeric-phones-${crypto.randomUUID()}`,
+				propertiesSchema: { year: { type: "integer" } },
+			},
+		);
+		const tabletSchema = await createEntitySchema(client, cookies, trackerId, {
+			name: "Numeric Tablet",
+			slug: `numeric-tablets-${crypto.randomUUID()}`,
+			propertiesSchema: { score: { type: "number" } },
+		});
+
+		await createEntity({
+			client,
+			cookies,
+			name: "Phone Two",
+			entitySchemaId: smartphoneSchema.schemaId,
+			properties: { year: 2 },
+		});
+		await createEntity({
+			client,
+			cookies,
+			name: "Tablet Three Point Five",
+			entitySchemaId: tabletSchema.schemaId,
+			properties: { score: 3.5 },
+		});
+		await createEntity({
+			client,
+			cookies,
+			name: "Tablet Ten",
+			entitySchemaId: tabletSchema.schemaId,
+			properties: { score: 10 },
+		});
+
+		const { data, response } = await client.POST("/view-runtime/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				filters: [],
+				layout: "grid",
+				page: { limit: 10, offset: 0 },
+				entitySchemaSlugs: [smartphoneSchema.slug, tabletSchema.slug],
+				sort: {
+					direction: "asc",
+					field: [
+						`${smartphoneSchema.slug}.year`,
+						`${tabletSchema.slug}.score`,
+					],
+				},
+				displayConfiguration: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["@name"],
+					imageProperty: ["@image"],
+				},
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.map((item) => item.name)).toEqual([
+			"Phone Two",
+			"Tablet Three Point Five",
+			"Tablet Ten",
+		]);
+	});
+
+	it("coalesces cross-schema display properties for grid layouts", async () => {
+		const { client, cookies, smartphoneSlug, tabletSlug } =
+			await createCrossSchemaRuntimeFixture();
+
+		const { data, response } = await client.POST("/view-runtime/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				filters: [],
+				layout: "grid",
+				page: { limit: 5, offset: 0 },
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				sort: {
+					direction: "asc",
+					field: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseYear`],
+				},
+				displayConfiguration: {
+					titleProperty: ["@name"],
+					imageProperty: ["@image"],
+					subtitleProperty: [
+						`${smartphoneSlug}.manufacturer`,
+						`${tabletSlug}.maker`,
+					],
+					badgeProperty: [
+						`${smartphoneSlug}.year`,
+						`${tabletSlug}.releaseYear`,
+					],
+				},
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.resolvedProperties).toEqual({
+			badgeProperty: 2019,
+			subtitleProperty: "Acme",
+			titleProperty: "Alpha Phone",
+			imageProperty: {
+				kind: "remote",
+				url: "https://example.com/alpha-phone.png",
+			},
+		});
+		expect(data?.data.items[1]?.resolvedProperties).toEqual({
+			badgeProperty: 2020,
+			subtitleProperty: "Tabula",
+			titleProperty: "Beta Tablet",
+			imageProperty: {
+				kind: "remote",
+				url: "https://example.com/beta-tablet.png",
+			},
+		});
+	});
+
+	it("places entities with missing cross-schema sort values last", async () => {
+		const { client, cookies, smartphoneSlug, tabletSchema, tabletSlug } =
+			await createCrossSchemaRuntimeFixture();
+
+		await createEntity({
+			client,
+			cookies,
+			name: "Null Tablet",
+			entitySchemaId: tabletSchema.schemaId,
+			properties: { maker: "Ghost", releaseYear: 2030 },
+		});
+
+		const { data, response } = await client.POST("/view-runtime/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				filters: [],
+				layout: "grid",
+				page: { limit: 10, offset: 0 },
+				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				sort: {
+					direction: "asc",
+					field: [`${smartphoneSlug}.year`, `${tabletSlug}.releaseLabel`],
+				},
+				displayConfiguration: {
+					badgeProperty: null,
+					subtitleProperty: null,
+					titleProperty: ["@name"],
+					imageProperty: ["@image"],
+				},
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items.at(-1)?.name).toBe("Null Tablet");
+	});
+
+	it("returns table columns with index-based keys and nulls for empty references", async () => {
+		const { client, cookies, slug } = await createRuntimeFixture();
+
+		const { data, response } = await client.POST("/view-runtime/execute", {
+			headers: { Cookie: cookies },
+			body: {
+				filters: [],
+				layout: "table",
+				entitySchemaSlugs: [slug],
+				page: { limit: 1, offset: 0 },
+				sort: { direction: "asc", field: ["year"] },
+				displayConfiguration: {
+					columns: [
+						{ property: ["@name"] },
+						{ property: ["year"] },
+						{ property: [] },
+					],
+				},
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.resolvedProperties).toEqual({
+			column_1: 2019,
+			column_2: null,
+			column_0: "Alpha Phone",
+		});
 	});
 
 	it("returns 400 for missing filter properties", async () => {
