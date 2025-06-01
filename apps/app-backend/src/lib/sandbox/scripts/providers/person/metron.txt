@@ -101,9 +101,9 @@ driver("search", async function(context) {
   const creators = Array.isArray(payload?.results) ? payload.results : [];
   const items = creators
     .map((creator) => {
-      const identifier = getIdentifier(creator?.id);
+      const externalId = getIdentifier(creator?.id);
       const name = getString(creator?.name);
-      if (!identifier || !name) {
+      if (!externalId || !name) {
         return null;
       }
 
@@ -111,7 +111,7 @@ driver("search", async function(context) {
       const birthYear = parseYear(creator?.birth, dayjs);
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: name },
         subtitleProperty:
@@ -138,12 +138,12 @@ driver("search", async function(context) {
 driver("details", async function(context) {
   const { z } = await import("npm:zod");
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const payload = await loadMetronJson(
-    `https://metron.cloud/api/creator/${encodeURIComponent(identifier)}/`,
+    `https://metron.cloud/api/creator/${encodeURIComponent(externalId)}/`,
     "Metron creator details",
   );
 
@@ -164,7 +164,7 @@ driver("details", async function(context) {
       description: getString(payload?.desc),
       birthDate: getString(payload?.birth),
       deathDate: getString(payload?.death),
-      sourceUrl: `https://metron.cloud/creator/${identifier}`,
+      sourceUrl: `https://metron.cloud/creator/${externalId}`,
       assets: { remoteImages: image ? [image] : [] },
     },
   };

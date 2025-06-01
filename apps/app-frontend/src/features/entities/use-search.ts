@@ -14,7 +14,7 @@ import { sleep } from "~/lib/sleep";
 import { createEntityRuntimeRequest } from "./model";
 
 export type SearchResultItem = {
-	identifier: string;
+	externalId: string;
 	badgeProperty: { kind: "null"; value: null };
 	titleProperty: { kind: "text"; value: string };
 	subtitleProperty: { kind: "number" | "null"; value: number | null };
@@ -144,13 +144,13 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		) => ({
 			retry: false,
 			staleTime: Number.POSITIVE_INFINITY,
-			queryKey: [...ensuredEntityQueryKey, provider.scriptId, item.identifier],
+			queryKey: [...ensuredEntityQueryKey, provider.scriptId, item.externalId],
 			queryFn: async ({ signal }: { signal: AbortSignal }) => {
 				throwIfAborted(signal);
 				const enqueueResult = await enqueueEntityImport.mutateAsync({
 					body: {
 						scriptId: provider.scriptId,
-						identifier: item.identifier,
+						externalId: item.externalId,
 						entitySchemaId: props.entitySchema.id,
 					},
 				});
@@ -355,7 +355,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 									: "idle",
 				};
 
-				return [item.identifier, state];
+				return [item.externalId, state];
 			}),
 		) as Record<string, AddItemState>;
 	}, [currentResults, ensuredEntityQueries]);
@@ -365,7 +365,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			Object.fromEntries(
 				Object.entries(addStateById)
 					.filter(([, item]) => item.error)
-					.map(([identifier, item]) => [identifier, item.error ?? undefined]),
+					.map(([externalId, item]) => [externalId, item.error ?? undefined]),
 			),
 		[addStateById],
 	);
@@ -373,8 +373,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const addStatus = useMemo(
 		() =>
 			Object.fromEntries(
-				Object.entries(addStateById).map(([identifier, item]) => [
-					identifier,
+				Object.entries(addStateById).map(([externalId, item]) => [
+					externalId,
 					item.status,
 				]),
 			),

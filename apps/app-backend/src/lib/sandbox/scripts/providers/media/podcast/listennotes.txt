@@ -48,9 +48,9 @@ function getIsoDateFromTimestamp(value, dayjs) {
   return d.isValid() ? d.toISOString().slice(0, 10) : null;
 }
 
-function getSourceUrl(title, identifier) {
+function getSourceUrl(title, externalId) {
   const trimmedTitle = getString(title);
-  return `https://www.listennotes.com/podcasts/${trimmedTitle}-${identifier}`;
+  return `https://www.listennotes.com/podcasts/${trimmedTitle}-${externalId}`;
 }
 
 async function getApiKey() {
@@ -101,9 +101,9 @@ function getRemoteImage(value) {
 }
 
 function mapSearchItem(item, dayjs) {
-  const identifier = getString(item?.id);
+  const externalId = getString(item?.id);
   const title = getString(item?.title_original ?? item?.title);
-  if (!identifier || !title) {
+  if (!externalId || !title) {
     return null;
   }
 
@@ -111,7 +111,7 @@ function mapSearchItem(item, dayjs) {
   const imageProperty = getRemoteImage(item?.image);
 
   return {
-    identifier,
+    externalId,
     badgeProperty: { kind: "null", value: null },
     titleProperty: { kind: "text", value: title },
     subtitleProperty:
@@ -123,14 +123,14 @@ function mapSearchItem(item, dayjs) {
 }
 
 function mapRecommendation(item) {
-  const identifier = getString(item?.id);
+  const externalId = getString(item?.id);
   const title = getString(item?.title ?? item?.title_original);
-  if (!identifier || !title) {
+  if (!externalId || !title) {
     return null;
   }
 
   return {
-    identifier,
+    externalId,
     title,
     image: getNullableString(item?.thumbnail),
   };
@@ -210,8 +210,8 @@ function collectGenres(genreIds, genresById) {
   return [...values];
 }
 
-async function fetchPodcastDetails(identifier, nextEpisodePubDate) {
-  return listennotesGet(`/podcasts/${encodeURIComponent(identifier)}`, {
+async function fetchPodcastDetails(externalId, nextEpisodePubDate) {
+  return listennotesGet(`/podcasts/${encodeURIComponent(externalId)}`, {
     sort: "oldest_first",
     next_episode_pub_date:
       nextEpisodePubDate === null || nextEpisodePubDate === undefined
@@ -220,9 +220,9 @@ async function fetchPodcastDetails(identifier, nextEpisodePubDate) {
   });
 }
 
-async function fetchRecommendations(identifier) {
+async function fetchRecommendations(externalId) {
   const payload = await listennotesGet(
-    `/podcasts/${encodeURIComponent(identifier)}/recommendations`,
+    `/podcasts/${encodeURIComponent(externalId)}/recommendations`,
   );
 
   const items = Array.isArray(payload?.recommendations)
@@ -269,12 +269,12 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const genresById = await getGenresById();
-  const podcast = await fetchPodcastDetails(identifier, null);
+  const podcast = await fetchPodcastDetails(externalId, null);
 
   const title = getString(podcast?.title);
   if (!title) {
@@ -325,10 +325,10 @@ driver("details", async function(context) {
     }
 
     previousEpisodePubDate = nextEpisodePubDate;
-    currentPodcast = await fetchPodcastDetails(identifier, nextEpisodePubDate);
+    currentPodcast = await fetchPodcastDetails(externalId, nextEpisodePubDate);
   }
 
-  const recommendations = await fetchRecommendations(identifier);
+  const recommendations = await fetchRecommendations(externalId);
   const publisher = getNullableString(podcast?.publisher);
   const image = getNullableString(podcast?.image);
 
@@ -344,7 +344,7 @@ driver("details", async function(context) {
       publishYear: getPublishYearFromTimestamp(podcast?.earliest_pub_date_ms, dayjs),
       providerRating: getNullableNumber(podcast?.listen_score),
       description: getNullableString(podcast?.description),
-      sourceUrl: getSourceUrl(title, identifier),
+      sourceUrl: getSourceUrl(title, externalId),
       assets: { remoteImages: image ? [image] : [] },
       freeCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
       totalEpisodes: totalEpisodes ?? episodes.length,
