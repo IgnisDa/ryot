@@ -1,3 +1,4 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type { AppEvent } from "#/features/events/model";
 
 export function createEventFixture(
@@ -10,8 +11,8 @@ export function createEventFixture(
 		eventSchemaId: "schema-1",
 		eventSchemaName: "Logged",
 		eventSchemaSlug: "logged",
-		createdAt: new Date("2026-03-08T10:15:00.000Z"),
-		updatedAt: new Date("2026-03-08T10:20:00.000Z"),
+		createdAt: dayjs("2026-03-08T10:15:00.000Z").toDate(),
+		updatedAt: dayjs("2026-03-08T10:20:00.000Z").toDate(),
 		...overrides,
 	};
 }

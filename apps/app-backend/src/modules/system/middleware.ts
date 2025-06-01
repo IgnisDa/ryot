@@ -1,8 +1,9 @@
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type { Context, Next } from "hono";
 import { httpRequestDuration, httpRequestTotal } from "./service";
 
 export const metricsMiddleware = async (c: Context, next: Next) => {
-	const start = Date.now();
+	const start = dayjs();
 	const method = c.req.method;
 	let route = c.req.path;
 
@@ -14,7 +15,7 @@ export const metricsMiddleware = async (c: Context, next: Next) => {
 
 	await next();
 
-	const duration = (Date.now() - start) / 1000;
+	const duration = dayjs().diff(start, "millisecond") / 1000;
 	const status = c.res.status;
 
 	httpRequestDuration.observe(
