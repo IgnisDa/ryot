@@ -12,7 +12,9 @@ function formatEntityDetailPropertyValue(
 	propertyDef: AppPropertyDefinition,
 	value: unknown,
 ): string | null {
-	if (value === null || value === undefined) return null;
+	if (value === null || value === undefined) {
+		return null;
+	}
 
 	switch (propertyDef.type) {
 		case "boolean":
@@ -43,9 +45,15 @@ function formatEntityDetailPropertyValue(
 			if (Array.isArray(value) && value.length > 0) {
 				const items = value
 					.map((item) => {
-						if (typeof item === "string") return item;
-						if (typeof item === "number") return item.toString();
-						if (typeof item === "boolean") return item ? "Yes" : "No";
+						if (typeof item === "string") {
+							return item;
+						}
+						if (typeof item === "number") {
+							return item.toString();
+						}
+						if (typeof item === "boolean") {
+							return item ? "Yes" : "No";
+						}
 						return null;
 					})
 					.filter((item): item is string => item !== null);
@@ -80,7 +88,9 @@ export function getEntityDetailProperties(
 		.map(([key, propertyDef]) => {
 			const rawValue = properties[key];
 			const value = formatEntityDetailPropertyValue(propertyDef, rawValue);
-			if (value === null) return null;
+			if (value === null) {
+				return null;
+			}
 
 			return {
 				key,

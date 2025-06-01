@@ -207,7 +207,9 @@ describe("buildCreateEventFormSchema", () => {
 		});
 
 		expect(result.success).toBeFalse();
-		if (result.success) throw new Error("Expected validation failure");
+		if (result.success) {
+			throw new Error("Expected validation failure");
+		}
 
 		expect(result.error.issues).toContainEqual(
 			expect.objectContaining({

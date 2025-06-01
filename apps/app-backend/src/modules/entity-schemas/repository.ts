@@ -112,7 +112,9 @@ export const createTrackerEntitySchemas = async (input: {
 		isDisabled?: boolean;
 	}>;
 }) => {
-	if (!input.links.length) return;
+	if (!input.links.length) {
+		return;
+	}
 
 	const database = input.database ?? db;
 
@@ -148,8 +150,9 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning(createdEntitySchemaSelection);
 
-		if (!createdEntitySchema)
+		if (!createdEntitySchema) {
 			throw new Error("Could not persist entity schema");
+		}
 
 		const [createdTrackerEntitySchema] = await tx
 			.insert(trackerEntitySchema)
@@ -159,8 +162,9 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning({ trackerId: trackerEntitySchema.trackerId });
 
-		if (!createdTrackerEntitySchema)
+		if (!createdTrackerEntitySchema) {
 			throw new Error("Could not persist tracker entity schema link");
+		}
 
 		const [createdSavedView] = await tx
 			.insert(savedView)
@@ -178,8 +182,9 @@ export const createEntitySchemaForUser = async (input: {
 			})
 			.returning({ id: savedView.id });
 
-		if (!createdSavedView)
+		if (!createdSavedView) {
 			throw new Error("Could not persist built-in saved view");
+		}
 
 		return toListedEntitySchema({
 			...createdEntitySchema,

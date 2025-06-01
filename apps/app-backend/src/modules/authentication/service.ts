@@ -39,15 +39,17 @@ export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
 			(item) => item.slug === schemaLink.slug,
 		);
 
-		if (!tracker)
+		if (!tracker) {
 			throw new Error(
 				`Missing built-in tracker for entity schema ${schemaLink.slug}`,
 			);
+		}
 
-		if (!entitySchema)
+		if (!entitySchema) {
 			throw new Error(
 				`Missing built-in entity schema for tracker link ${schemaLink.slug}`,
 			);
+		}
 
 		return {
 			trackerId: tracker.id,
@@ -84,40 +86,48 @@ export const buildAuthenticationSavedViewInputs = (input: {
 				)
 			: undefined;
 
-		if (savedView.trackerSlug && !tracker)
+		if (savedView.trackerSlug && !tracker) {
 			throw new Error(
 				`Missing built-in tracker for saved view ${savedView.name}`,
 			);
+		}
 
-		if (savedView.entitySchemaSlug && !entitySchema)
+		if (savedView.entitySchemaSlug && !entitySchema) {
 			throw new Error(
 				`Missing built-in entity schema for saved view ${savedView.name}`,
 			);
+		}
 
 		const icon = savedView.icon ?? entitySchema?.icon;
 		const accentColor = savedView.accentColor ?? entitySchema?.accentColor;
 		const trackerId = tracker?.id;
 
-		if (!icon) throw new Error(`Missing icon for saved view ${savedView.name}`);
+		if (!icon) {
+			throw new Error(`Missing icon for saved view ${savedView.name}`);
+		}
 
-		if (!accentColor)
+		if (!accentColor) {
 			throw new Error(`Missing accent color for saved view ${savedView.name}`);
+		}
 
 		const queryDefinition = savedView.queryDefinition;
 
-		if (!queryDefinition && !entitySchema)
+		if (!queryDefinition && !entitySchema) {
 			throw new Error(
 				`Missing query definition for saved view ${savedView.name}`,
 			);
+		}
 
 		let resolvedQueryDefinition: SavedViewQueryDefinition;
 
-		if (queryDefinition) resolvedQueryDefinition = queryDefinition;
-		else {
-			if (!entitySchema)
+		if (queryDefinition) {
+			resolvedQueryDefinition = queryDefinition;
+		} else {
+			if (!entitySchema) {
 				throw new Error(
 					`Missing query definition for saved view ${savedView.name}`,
 				);
+			}
 
 			resolvedQueryDefinition = createDefaultQueryDefinition([
 				entitySchema.slug,

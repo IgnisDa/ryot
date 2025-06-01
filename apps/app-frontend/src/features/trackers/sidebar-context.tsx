@@ -47,10 +47,11 @@ const TrackerSidebarActionsContext = createContext<
 export function useTrackerSidebarState() {
 	const context = useContext(TrackerSidebarStateContext);
 
-	if (!context)
+	if (!context) {
 		throw new Error(
 			"useTrackerSidebarState must be used within TrackerSidebarProvider",
 		);
+	}
 
 	return context;
 }
@@ -58,10 +59,11 @@ export function useTrackerSidebarState() {
 export function useTrackerSidebarActions() {
 	const context = useContext(TrackerSidebarActionsContext);
 
-	if (!context)
+	if (!context) {
 		throw new Error(
 			"useTrackerSidebarActions must be used within TrackerSidebarProvider",
 		);
+	}
 
 	return context;
 }
@@ -120,7 +122,9 @@ export default function TrackerSidebarProvider(props: { children: ReactNode }) {
 				(tracker) => tracker.id === trackerId,
 			);
 
-			if (!targetTracker) return;
+			if (!targetTracker) {
+				return;
+			}
 
 			await toggleTracker(targetTracker);
 		},

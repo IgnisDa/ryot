@@ -14,8 +14,9 @@ const ApiClientContext = createContext<typeof api | undefined>(undefined);
 
 export function useApiClient() {
 	const context = useContext(ApiClientContext);
-	if (!context)
+	if (!context) {
 		throw new Error("useApiClient must be used within ApiClientProvider");
+	}
 	return context;
 }
 

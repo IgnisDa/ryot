@@ -42,7 +42,9 @@ async function createSavedView(
 	});
 
 	const viewId = data?.data?.id;
-	if (!viewId) throw new Error("Failed to create saved view");
+	if (!viewId) {
+		throw new Error("Failed to create saved view");
+	}
 
 	return { viewId, data: data.data };
 }
@@ -53,7 +55,9 @@ async function findBuiltinView(client: Client, cookies: string) {
 	});
 
 	const builtinView = listData?.data?.find((view) => view.isBuiltin);
-	if (!builtinView) throw new Error("Built-in view not found");
+	if (!builtinView) {
+		throw new Error("Built-in view not found");
+	}
 
 	return builtinView;
 }
@@ -116,7 +120,9 @@ describe("GET /saved-views/{viewId}", () => {
 
 		const firstView = listData?.data?.[0];
 		expect(firstView).toBeDefined();
-		if (!firstView) throw new Error("First view not found");
+		if (!firstView) {
+			throw new Error("First view not found");
+		}
 
 		const { data } = await client.GET("/saved-views/{viewId}", {
 			params: { path: { viewId: firstView.id } },
