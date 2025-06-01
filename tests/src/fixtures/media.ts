@@ -1,5 +1,4 @@
-import { Client as PgClient } from "pg";
-import { getTestDatabaseUrl } from "../setup";
+import { getPgClient } from "../setup";
 
 export async function seedMediaEntity(input: {
 	name: string;
@@ -11,36 +10,29 @@ export async function seedMediaEntity(input: {
 	image: Record<string, unknown> | null;
 }) {
 	const id = crypto.randomUUID();
-	const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
 
-	await pg.connect();
-
-	try {
-		await pg.query(
-			`insert into entity (
-				id,
-				name,
-				image,
-				user_id,
-				properties,
-				external_id,
-				entity_schema_id,
-				sandbox_script_id
-			) values ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8)`,
-			[
-				id,
-				input.name,
-				JSON.stringify(input.image),
-				input.userId ?? null,
-				JSON.stringify(input.properties),
-				input.externalId,
-				input.entitySchemaId,
-				input.sandboxScriptId,
-			],
-		);
-	} finally {
-		await pg.end();
-	}
+	await getPgClient().query(
+		`insert into entity (
+			id,
+			name,
+			image,
+			user_id,
+			properties,
+			external_id,
+			entity_schema_id,
+			sandbox_script_id
+		) values ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8)`,
+		[
+			id,
+			input.name,
+			JSON.stringify(input.image),
+			input.userId ?? null,
+			JSON.stringify(input.properties),
+			input.externalId,
+			input.entitySchemaId,
+			input.sandboxScriptId,
+		],
+	);
 
 	return {
 		id,

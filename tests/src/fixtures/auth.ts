@@ -1,29 +1,21 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils";
 import type createClient from "openapi-fetch";
-import { Client as PgClient } from "pg";
-import { getBackendClient, getBackendUrl, getTestDatabaseUrl } from "../setup";
+import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
 
 export type Client = ReturnType<typeof createClient<paths>>;
 
 async function getUserIdByEmail(email: string) {
-	const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
-	await pg.connect();
-
-	try {
-		const result = await pg.query<{ id: string }>(
-			`select id from "user" where email = $1 limit 1`,
-			[email],
-		);
-		const row = result.rows[0];
-		if (!row) {
-			throw new Error(`Failed to find user '${email}'`);
-		}
-
-		return row.id;
-	} finally {
-		await pg.end();
+	const result = await getPgClient().query<{ id: string }>(
+		`select id from "user" where email = $1 limit 1`,
+		[email],
+	);
+	const row = result.rows[0];
+	if (!row) {
+		throw new Error(`Failed to find user '${email}'`);
 	}
+
+	return row.id;
 }
 
 export async function createTestUser() {

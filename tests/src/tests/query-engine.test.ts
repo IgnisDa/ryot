@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { Client as PgClient } from "pg";
 import {
 	buildComputedField,
 	buildGridDisplayConfiguration,
@@ -24,44 +23,42 @@ import {
 	schemaPropertyExpression,
 	seedMediaEntity,
 } from "../fixtures";
-import { getTestDatabaseUrl } from "../setup";
+import { getPgClient } from "../setup";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
 async function insertLibraryMembership(input: {
 	userId: string;
 	mediaEntityId: string;
 }) {
-	const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
-	await pg.connect();
+	const pg = getPgClient();
 
-	try {
-		const libraryResult = await pg.query<{ id: string }>(
-			`select e.id
-			 from entity e
-			 inner join entity_schema es on es.id = e.entity_schema_id
-			 where e.user_id = $1
-			   and es.slug = 'library'
-			   and es.user_id is null
-			 limit 1`,
-			[input.userId],
-		);
-		const libraryEntityId = libraryResult.rows[0]?.id;
-		if (!libraryEntityId) {
-			throw new Error(`Missing library entity for user '${input.userId}'`);
-		}
+	const libraryResult = await pg.query<{ id: string }>(
+		`select e.id
+		 from entity e
+		 inner join entity_schema es on es.id = e.entity_schema_id
+		 where e.user_id = $1
+		   and es.slug = 'library'
+		   and es.user_id is null
+		 limit 1`,
+		[input.userId],
+	);
+	const libraryEntityId = libraryResult.rows[0]?.id;
+	if (!libraryEntityId) {
+		throw new Error(`Missing library entity for user '${input.userId}'`);
+	}
 
-		const schemaResult = await pg.query<{ id: string }>(
-			`select id from relationship_schema
-			 where slug = 'in-library' and user_id is null
-			 limit 1`,
-		);
-		const inLibrarySchemaId = schemaResult.rows[0]?.id;
-		if (!inLibrarySchemaId) {
-			throw new Error("Missing in-library relationship schema");
-		}
+	const schemaResult = await pg.query<{ id: string }>(
+		`select id from relationship_schema
+		 where slug = 'in-library' and user_id is null
+		 limit 1`,
+	);
+	const inLibrarySchemaId = schemaResult.rows[0]?.id;
+	if (!inLibrarySchemaId) {
+		throw new Error("Missing in-library relationship schema");
+	}
 
-		await pg.query(
-			`insert into relationship (
+	await pg.query(
+		`insert into relationship (
 				id,
 				user_id,
 				relationship_schema_id,
@@ -70,18 +67,15 @@ async function insertLibraryMembership(input: {
 				target_entity_id
 			) values ($1, $2, $3, $4::jsonb, $5, $6)
 			on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
-			[
-				crypto.randomUUID(),
-				input.userId,
-				inLibrarySchemaId,
-				JSON.stringify({}),
-				input.mediaEntityId,
-				libraryEntityId,
-			],
-		);
-	} finally {
-		await pg.end();
-	}
+		[
+			crypto.randomUUID(),
+			input.userId,
+			inLibrarySchemaId,
+			JSON.stringify({}),
+			input.mediaEntityId,
+			libraryEntityId,
+		],
+	);
 }
 
 describe("Query engine E2E", () => {
