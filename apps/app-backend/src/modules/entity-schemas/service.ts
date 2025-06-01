@@ -1,10 +1,70 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
-import type { CreateEntitySchemaBody } from "./schemas";
+import {
+	customTrackerError,
+	resolveCustomTrackerAccess,
+	resolveTrackerReadAccess,
+	trackerNotFoundError,
+} from "../trackers/access";
+import { getTrackerScopeForUser } from "../trackers/repository";
+import {
+	createEntitySchemaForUser,
+	getEntitySchemaBySlugForUser,
+	listEntitySchemasByTracker,
+} from "./repository";
+import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
 
 export type EntitySchemaPropertiesShape =
 	CreateEntitySchemaBody["propertiesSchema"];
+
+type EntitySchemaMutationError = "not_found" | "validation";
+
+export type EntitySchemaServiceDeps = {
+	getTrackerScopeForUser: typeof getTrackerScopeForUser;
+	createEntitySchemaForUser: typeof createEntitySchemaForUser;
+	listEntitySchemasByTracker: typeof listEntitySchemasByTracker;
+	getEntitySchemaBySlugForUser: typeof getEntitySchemaBySlugForUser;
+};
+
+export type EntitySchemaServiceResult<T> =
+	| { data: T }
+	| { error: EntitySchemaMutationError; message: string };
+
+const duplicateSlugError = "Entity schema slug already exists";
+const entitySchemaUniqueConstraint = "entity_schema_user_slug_unique";
+
+const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
+	createEntitySchemaForUser,
+	getEntitySchemaBySlugForUser,
+	getTrackerScopeForUser,
+	listEntitySchemasByTracker,
+};
+
+const createDataResult = <T>(data: T): EntitySchemaServiceResult<T> => ({
+	data,
+});
+
+const createErrorResult = <T>(input: {
+	error: EntitySchemaMutationError;
+	message: string;
+}): EntitySchemaServiceResult<T> => ({
+	error: input.error,
+	message: input.message,
+});
+
+const resolveEntitySchemaTrackerIdResult = (
+	trackerId: string,
+): EntitySchemaServiceResult<string> => {
+	try {
+		return createDataResult(resolveEntitySchemaTrackerId(trackerId));
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : "Tracker id is required";
+		return createErrorResult({ error: "validation", message });
+	}
+};
 
 export const resolveEntitySchemaName = (name: string) =>
 	resolveRequiredString(name, "Entity schema name");
@@ -62,4 +122,121 @@ export const resolveEntitySchemaCreateInput = (
 	validateSlugNotReserved(slug);
 
 	return { icon, name, slug, accentColor, propertiesSchema };
+};
+
+const resolveEntitySchemaCreateInputResult = (
+	input: Omit<CreateEntitySchemaBody, "trackerId">,
+): EntitySchemaServiceResult<
+	ReturnType<typeof resolveEntitySchemaCreateInput>
+> => {
+	try {
+		return createDataResult(resolveEntitySchemaCreateInput(input));
+	} catch (error) {
+		const message =
+			error instanceof Error
+				? error.message
+				: "Entity schema payload is invalid";
+		return createErrorResult({ error: "validation", message });
+	}
+};
+
+export const listEntitySchemas = async (
+	input: { trackerId: string; userId: string },
+	deps: EntitySchemaServiceDeps = entitySchemaServiceDeps,
+): Promise<EntitySchemaServiceResult<ListedEntitySchema[]>> => {
+	const trackerIdResult = resolveEntitySchemaTrackerIdResult(input.trackerId);
+	if ("error" in trackerIdResult) {
+		return trackerIdResult;
+	}
+
+	const foundTracker = resolveTrackerReadAccess(
+		await deps.getTrackerScopeForUser({
+			userId: input.userId,
+			trackerId: trackerIdResult.data,
+		}),
+	);
+	if (foundTracker.error) {
+		return createErrorResult({
+			error: "not_found",
+			message: trackerNotFoundError,
+		});
+	}
+
+	const entitySchemas = await deps.listEntitySchemasByTracker({
+		trackerId: trackerIdResult.data,
+	});
+	return createDataResult(entitySchemas);
+};
+
+export const createEntitySchema = async (
+	input: { body: CreateEntitySchemaBody; userId: string },
+	deps: EntitySchemaServiceDeps = entitySchemaServiceDeps,
+): Promise<EntitySchemaServiceResult<ListedEntitySchema>> => {
+	const trackerIdResult = resolveEntitySchemaTrackerIdResult(
+		input.body.trackerId,
+	);
+	if ("error" in trackerIdResult) {
+		return trackerIdResult;
+	}
+
+	const foundTracker = resolveCustomTrackerAccess(
+		await deps.getTrackerScopeForUser({
+			userId: input.userId,
+			trackerId: trackerIdResult.data,
+		}),
+	);
+	if (foundTracker.error) {
+		return createErrorResult({
+			error: foundTracker.error === "not_found" ? "not_found" : "validation",
+			message:
+				foundTracker.error === "not_found"
+					? trackerNotFoundError
+					: customTrackerError,
+		});
+	}
+
+	const entitySchemaInput = resolveEntitySchemaCreateInputResult({
+		icon: input.body.icon,
+		name: input.body.name,
+		slug: input.body.slug,
+		accentColor: input.body.accentColor,
+		propertiesSchema: input.body.propertiesSchema,
+	});
+	if ("error" in entitySchemaInput) {
+		return entitySchemaInput;
+	}
+
+	const existingEntitySchema = await deps.getEntitySchemaBySlugForUser({
+		userId: input.userId,
+		slug: entitySchemaInput.data.slug,
+	});
+	if (existingEntitySchema) {
+		return createErrorResult({
+			error: "validation",
+			message: duplicateSlugError,
+		});
+	}
+
+	try {
+		const createdEntitySchema = await deps.createEntitySchemaForUser({
+			userId: input.userId,
+			trackerId: trackerIdResult.data,
+			icon: entitySchemaInput.data.icon,
+			name: entitySchemaInput.data.name,
+			slug: entitySchemaInput.data.slug,
+			accentColor: entitySchemaInput.data.accentColor,
+			propertiesSchema: entitySchemaInput.data.propertiesSchema,
+		});
+
+		return createDataResult(createdEntitySchema);
+	} catch (error) {
+		if (isUniqueConstraintError(error, entitySchemaUniqueConstraint)) {
+			return createErrorResult({
+				error: "validation",
+				message: duplicateSlugError,
+			});
+		}
+
+		throw error;
+	}
 };
