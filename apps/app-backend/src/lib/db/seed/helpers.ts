@@ -116,6 +116,7 @@ export const ensureBuiltinSandboxScript = async (input: {
 	code: string;
 	name: string;
 	slug: string;
+	metadata: unknown;
 	database: DbClient;
 }) => {
 	const [existingScript] = await input.database
@@ -132,22 +133,20 @@ export const ensureBuiltinSandboxScript = async (input: {
 		.limit(1);
 
 	const scriptId = existingScript?.id ?? generateId();
-	const values = { isBuiltin: true, name: input.name, code: input.code };
+	const values = {
+		isBuiltin: true,
+		name: input.name,
+		code: input.code,
+		metadata: input.metadata,
+	};
 
 	if (existingScript) {
-		const shouldUpdateScript =
-			existingScript.code !== input.code ||
-			existingScript.name !== input.name ||
-			!existingScript.isBuiltin;
-
-		if (shouldUpdateScript) {
-			// Builtin sandbox scripts intentionally refresh on every startup so the
-			// database always serves the latest bundled code.
-			await input.database
-				.update(sandboxScript)
-				.set(values)
-				.where(eq(sandboxScript.id, scriptId));
-		}
+		// Builtin sandbox scripts intentionally refresh on every startup so the
+		// database always serves the latest bundled code and metadata.
+		await input.database
+			.update(sandboxScript)
+			.set(values)
+			.where(eq(sandboxScript.id, scriptId));
 	} else {
 		await input.database
 			.insert(sandboxScript)

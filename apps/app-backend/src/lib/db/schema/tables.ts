@@ -179,6 +179,7 @@ export const eventSchema = pgTable(
 export const sandboxScript = pgTable(
 	"sandbox_script",
 	{
+		metadata: jsonb(),
 		slug: text().notNull(),
 		name: text().notNull(),
 		code: text().notNull(),

@@ -2,6 +2,8 @@ import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
+import type { AppConfig } from "~/lib/config";
+import { appConfig } from "~/lib/config";
 import { getQueues } from "~/lib/queue";
 import { resolveJobPollState } from "~/lib/queue/utils";
 import {
@@ -10,6 +12,7 @@ import {
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import { sandboxScriptMetadataSchema } from "~/lib/sandbox/types";
 import type { ListedEntity } from "~/modules/entities";
 import {
 	type MediaImportJobData,
@@ -31,6 +34,7 @@ import {
 	createEntitySchemaForUser,
 	getEntitySchemaByIdForUser,
 	getEntitySchemaBySlugForUser,
+	type ListedEntitySchemaWithMetadata,
 	listEntitySchemasForUser,
 } from "./repository";
 import type {
@@ -53,6 +57,23 @@ export type EntitySchemaServiceDeps = {
 	getEntitySchemaByIdForUser: typeof getEntitySchemaByIdForUser;
 	getEntitySchemaBySlugForUser: typeof getEntitySchemaBySlugForUser;
 };
+
+const isProviderUsable = (provider: { scriptMetadata?: unknown }): boolean => {
+	const parsed = sandboxScriptMetadataSchema.safeParse(provider.scriptMetadata);
+	const requiredKeys = parsed.success
+		? (parsed.data.requiredAppConfigKeys ?? [])
+		: [];
+	return requiredKeys.every((key) => appConfig[key as keyof AppConfig] != null);
+};
+
+const stripProviderMetadata = (
+	schema: ListedEntitySchemaWithMetadata,
+): ListedEntitySchema => ({
+	...schema,
+	providers: schema.providers
+		.filter(isProviderUsable)
+		.map(({ scriptMetadata: _m, ...provider }) => provider),
+});
 
 export type EntitySchemaServiceResult<T> = ServiceResult<
 	T,
@@ -172,14 +193,14 @@ export const listEntitySchemas = async (
 			userId: input.userId,
 			trackerId: trackerIdResult.data,
 		});
-		return serviceData(entitySchemas);
+		return serviceData(entitySchemas.map(stripProviderMetadata));
 	}
 
 	const entitySchemas = await deps.listEntitySchemasForUser({
 		slugs: input.slugs,
 		userId: input.userId,
 	});
-	return serviceData(entitySchemas);
+	return serviceData(entitySchemas.map(stripProviderMetadata));
 };
 
 export const createEntitySchema = async (
@@ -262,7 +283,7 @@ export const getEntitySchemaById = async (
 		return serviceError("not_found", entitySchemaNotFoundError);
 	}
 
-	return serviceData(foundEntitySchema);
+	return serviceData(stripProviderMetadata(foundEntitySchema));
 };
 
 export type EntitySearchDeps = {
