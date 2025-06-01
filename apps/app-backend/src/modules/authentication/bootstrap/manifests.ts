@@ -1,3 +1,4 @@
+import { normalizeSlug } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
@@ -8,21 +9,6 @@ import {
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
 import { personPropertiesJsonSchema } from "~/lib/media/person";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
-
-export const builtinPersonRelationshipSlugs = [
-	"staff",
-	"author",
-	"artist",
-	"editor",
-	"director",
-	"publisher",
-	"character",
-	"illustrator",
-	"voice_actor",
-] as const;
-
-export type BuiltinPersonRelationshipSlug =
-	(typeof builtinPersonRelationshipSlugs)[number];
 
 export const authenticationBuiltinTrackers = () => [
 	{
@@ -205,27 +191,24 @@ export const authenticationBuiltinSavedViews = () => [
 
 export const authenticationBuiltinRelationshipSchemas = () => [
 	{
-		slug: "in_library",
+		slug: "in-library",
 		name: "In Library",
 		sourceEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "library",
 	},
 	{
-		slug: "member_of",
+		slug: "member-of",
 		name: "Member Of",
 		sourceEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
 		targetEntitySchemaSlug: "collection",
 	},
-	...builtinPersonRelationshipSlugs.map((slug) => ({
-		slug,
-		targetEntitySchemaSlug: null,
+	...builtinMediaEntitySchemaSlugs.map((mediaSlug) => ({
 		propertiesSchema: { fields: {} },
 		sourceEntitySchemaSlug: "person",
-		name: slug
-			.split("_")
-			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-			.join(" "),
+		targetEntitySchemaSlug: mediaSlug,
+		slug: normalizeSlug(`person to ${mediaSlug}`),
+		name: `Person to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
 	})),
 ];
