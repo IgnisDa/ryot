@@ -1,6 +1,9 @@
 import { match } from "ts-pattern";
 import type { ImageSchemaType } from "~/lib/db/schema";
-import type { BuiltinMediaEntitySchemaSlug } from "~/lib/media/constants";
+import type {
+	BuiltinMediaEntitySchemaSlug,
+	BuiltinMediaEventSchemaSlug,
+} from "~/lib/media/constants";
 import {
 	compareContinueItems,
 	compareRateTheseItems,
@@ -9,8 +12,10 @@ import {
 import type {
 	BuiltInMediaOverviewContinueResponse,
 	BuiltInMediaOverviewRateTheseResponse,
+	BuiltInMediaOverviewRecentActivityResponse,
 	BuiltInMediaOverviewResponse,
 	BuiltInMediaOverviewUpNextResponse,
+	BuiltInMediaOverviewWeekActivityResponse,
 } from "./schemas";
 
 export type BuiltInMediaOverviewSourceItem = {
@@ -37,6 +42,23 @@ export type UpNextSourceItem = BuiltInMediaOverviewSourceItem & {
 };
 export type RateTheseSourceItem = BuiltInMediaOverviewSourceItem & {
 	completeAt: Date;
+};
+
+export type RecentActivitySourceItem = {
+	id: string;
+	occurredAt: Date;
+	rating: number | null;
+	eventSchemaSlug: BuiltinMediaEventSchemaSlug;
+	entity: {
+		name: string;
+		image: ImageSchemaType | null;
+		entitySchemaSlug: BuiltinMediaEntitySchemaSlug;
+	};
+};
+
+export type WeekActivitySourceItem = {
+	date: Date;
+	count: number;
 };
 
 const resolveContinueProgressAt = (item: ContinueSourceItem) => item.progressAt;
@@ -229,4 +251,45 @@ export const buildRateTheseSectionResponse = (
 		}));
 
 	return { items: rateTheseItems, count: rateTheseItems.length };
+};
+
+export const buildRecentActivitySectionResponse = (
+	items: RecentActivitySourceItem[],
+): BuiltInMediaOverviewRecentActivityResponse => {
+	const activityItems = [...items]
+		.sort((left, right) => {
+			const occurredAtDiff =
+				right.occurredAt.getTime() - left.occurredAt.getTime();
+			if (occurredAtDiff !== 0) {
+				return occurredAtDiff;
+			}
+
+			return right.id.localeCompare(left.id);
+		})
+		.map((item) => ({
+			id: item.id,
+			entity: item.entity,
+			rating: item.rating,
+			occurredAt: item.occurredAt,
+			eventSchemaSlug: item.eventSchemaSlug,
+		}));
+
+	return { items: activityItems, count: activityItems.length };
+};
+
+export const buildWeekActivitySectionResponse = (input: {
+	items: WeekActivitySourceItem[];
+}): BuiltInMediaOverviewWeekActivityResponse => {
+	const formatter = new Intl.DateTimeFormat("en-US", {
+		timeZone: "UTC",
+		weekday: "short",
+	});
+	const weekItems = [...input.items]
+		.sort((left, right) => left.date.getTime() - right.date.getTime())
+		.map((item) => ({
+			count: item.count,
+			dayLabel: formatter.format(item.date),
+		}));
+
+	return { items: weekItems, count: weekItems.length };
 };
