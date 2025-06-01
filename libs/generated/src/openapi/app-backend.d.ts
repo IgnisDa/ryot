@@ -715,7 +715,7 @@ export interface paths {
                                     occurredAt: string;
                                     rating: number | null;
                                     /** @enum {string} */
-                                    eventSchemaSlug: "backlog" | "progress" | "complete" | "review";
+                                    eventSchemaSlug: "review" | "backlog" | "progress" | "complete";
                                     entity: {
                                         name: string;
                                         image: {
@@ -783,10 +783,68 @@ export interface paths {
                         "application/json": {
                             data: {
                                 items: {
-                                    count: number;
                                     dayLabel: string;
+                                    count: number;
                                 }[];
                                 count: number;
+                            };
+                        };
+                    };
+                };
+                /** @description Request is unauthenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["UnauthenticatedError"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/overview/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the library statistics overview */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Library statistics overview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: {
+                                total: number;
+                                inBacklog: number;
+                                inProgress: number;
+                                completed: number;
+                                avgRating: number | null;
+                                entityTypeCounts: {
+                                    [key: string]: number;
+                                };
                             };
                         };
                     };
