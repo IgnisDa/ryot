@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntitySchemaBody,
 	createEntitySchemaDeps,
+	createEntitySearchDeps,
 	createListedEntitySchema,
 	createNestedMatrixPropertySchema,
 	createNestedPeoplePropertySchema,
@@ -12,7 +13,9 @@ import { expectDataResult } from "~/lib/test-helpers";
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import {
 	createEntitySchema,
+	enqueueEntitySearch,
 	getEntitySchemaById,
+	getEntitySearchResult,
 	listEntitySchemas,
 	parseEntitySchemaPropertiesSchema,
 	resolveEntitySchemaAccentColor,
@@ -401,6 +404,106 @@ describe("getEntitySchemaById", () => {
 		expect(result).toEqual({
 			error: "not_found",
 			message: "Entity schema not found",
+		});
+	});
+});
+
+describe("enqueueEntitySearch", () => {
+	it("forwards kind, driverName, scriptId, and context to the sandbox", async () => {
+		let capturedBody: Record<string, unknown> | undefined;
+		let capturedUserId: string | undefined;
+		const deps = createEntitySearchDeps({
+			enqueueSandboxJob: async (input) => {
+				capturedBody = input.body as Record<string, unknown>;
+				capturedUserId = input.userId;
+				return { data: { jobId: "job_search_1" } };
+			},
+		});
+
+		await enqueueEntitySearch(
+			{
+				userId: "user_1",
+				body: { scriptId: "script_1", context: { page: 1, query: "test" } },
+			},
+			deps,
+		);
+
+		expect(capturedUserId).toBe("user_1");
+		expect(capturedBody).toMatchObject({
+			kind: "script",
+			driverName: "search",
+			scriptId: "script_1",
+			context: { page: 1, query: "test" },
+		});
+	});
+
+	it("returns the jobId returned by the sandbox", async () => {
+		const deps = createEntitySearchDeps({
+			enqueueSandboxJob: async () => ({ data: { jobId: "job_abc" } }),
+		});
+
+		const result = await enqueueEntitySearch(
+			{ userId: "user_1", body: { scriptId: "script_1" } },
+			deps,
+		);
+
+		expect(result).toEqual({ data: { jobId: "job_abc" } });
+	});
+
+	it("propagates not_found when the script does not exist", async () => {
+		const deps = createEntitySearchDeps({
+			enqueueSandboxJob: async () => ({
+				error: "not_found" as const,
+				message: "Sandbox script not found",
+			}),
+		});
+
+		const result = await enqueueEntitySearch(
+			{ userId: "user_1", body: { scriptId: "nonexistent" } },
+			deps,
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Sandbox script not found",
+		});
+	});
+});
+
+describe("getEntitySearchResult", () => {
+	it("forwards jobId and userId to the sandbox result lookup", async () => {
+		let capturedJobId: string | undefined;
+		let capturedUserId: string | undefined;
+		const deps = createEntitySearchDeps({
+			getSandboxJobResult: async (input) => {
+				capturedJobId = input.jobId;
+				capturedUserId = input.userId;
+				return { data: { status: "pending" as const } };
+			},
+		});
+
+		await getEntitySearchResult({ jobId: "job_1", userId: "user_1" }, deps);
+
+		expect(capturedJobId).toBe("job_1");
+		expect(capturedUserId).toBe("user_1");
+	});
+
+	it("propagates not_found when the job does not exist", async () => {
+		const deps = createEntitySearchDeps({
+			getSandboxJobResult: async () => ({
+				error: "not_found" as const,
+				message: "Sandbox job not found",
+			}),
+		});
+
+		const result = await getEntitySearchResult(
+			{ jobId: "nonexistent", userId: "user_1" },
+			deps,
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Sandbox job not found",
 		});
 	});
 });
