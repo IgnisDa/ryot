@@ -283,7 +283,7 @@ describe("POST /collections", () => {
 
 			expect(response.status).toBe(200);
 			expect(data?.data?.memberOf?.id).toBeDefined();
-			expect(data?.data?.memberOf?.relType).toBe("member_of");
+			expect(data?.data?.memberOf?.relationshipSchemaId).toBeDefined();
 			expect(data?.data?.memberOf?.sourceEntityId).toBe(childCollection.id);
 			expect(data?.data?.memberOf?.targetEntityId).toBe(parentCollection.id);
 		});
@@ -353,7 +353,7 @@ describe("POST /collections", () => {
 
 			expect(response.status).toBe(200);
 			expect(data?.data?.memberOf?.id).toBeDefined();
-			expect(data?.data?.memberOf?.relType).toBe("member_of");
+			expect(data?.data?.memberOf?.relationshipSchemaId).toBeDefined();
 			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
 			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
 		});
@@ -397,10 +397,11 @@ describe("POST /collections", () => {
 				const membership = await pg.query(
 					`select r.id
 					 from relationship r
+					 inner join relationship_schema rs on rs.id = r.relationship_schema_id
 					 inner join entity library_entity on library_entity.id = r.target_entity_id
 					 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
 					 inner join "user" u on u.id = library_entity.user_id
-					 where r.rel_type = 'in_library'
+					 where rs.slug = 'in_library'
 					   and r.user_id = u.id
 					   and r.source_entity_id = $1
 					   and u.email = $2
@@ -707,7 +708,7 @@ describe("POST /collections", () => {
 		);
 
 		expect(addResponse.status).toBe(200);
-		expect(addData?.data?.memberOf?.relType).toBe("member_of");
+		expect(addData?.data?.memberOf?.relationshipSchemaId).toBeDefined();
 
 		// Now remove the entity from the collection
 		const { data: removeData, response: removeResponse } = await client.DELETE(
@@ -719,7 +720,7 @@ describe("POST /collections", () => {
 		);
 
 		expect(removeResponse.status).toBe(200);
-		expect(removeData?.data?.memberOf?.relType).toBe("member_of");
+		expect(removeData?.data?.memberOf?.relationshipSchemaId).toBeDefined();
 		expect(removeData?.data?.memberOf?.sourceEntityId).toBe(entity.id);
 		expect(removeData?.data?.memberOf?.targetEntityId).toBe(collection.id);
 	});

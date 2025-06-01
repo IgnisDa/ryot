@@ -436,7 +436,9 @@ describe("addToCollection", () => {
 		expect("data" in result).toBe(true);
 		if ("data" in result) {
 			expect(result.data.memberOf.id).toBe("rel_1");
-			expect(result.data.memberOf.relType).toBe("member_of");
+			expect(result.data.memberOf.relationshipSchemaId).toBe(
+				"rel_schema_member_of",
+			);
 			expect(result.data.memberOf.sourceEntityId).toBe("entity-1");
 			expect(result.data.memberOf.targetEntityId).toBe("collection-1");
 		}
@@ -457,11 +459,11 @@ describe("addToCollection", () => {
 					createAddToCollectionData({
 						memberOf: {
 							id: "rel_1",
-							relType: "member_of",
 							properties: input.properties,
-							createdAt: "2024-01-01T00:00:00.000Z",
 							sourceEntityId: input.entityId,
 							targetEntityId: input.collectionId,
+							createdAt: "2024-01-01T00:00:00.000Z",
+							relationshipSchemaId: "rel_schema_member_of",
 						},
 					}),
 			}),
@@ -630,11 +632,11 @@ describe("addToCollection", () => {
 					return createAddToCollectionData({
 						memberOf: {
 							id: "rel_1",
-							relType: "member_of",
 							properties: input.properties,
-							createdAt: "2024-01-01T00:00:00.000Z",
 							sourceEntityId: input.entityId,
 							targetEntityId: input.collectionId,
+							createdAt: "2024-01-01T00:00:00.000Z",
+							relationshipSchemaId: "rel_schema_member_of",
 						},
 					});
 				},
@@ -645,8 +647,8 @@ describe("addToCollection", () => {
 		expect(receivedProperties).toEqual({ recommendedBy: "John", rating: 5 });
 		if ("data" in result) {
 			expect(result.data.memberOf.properties).toEqual({
-				recommendedBy: "John",
 				rating: 5,
+				recommendedBy: "John",
 			});
 		}
 	});
@@ -910,11 +912,11 @@ describe("addToCollection", () => {
 					return createAddToCollectionData({
 						memberOf: {
 							id: "rel_1",
-							relType: "member_of",
 							properties: input.properties,
-							createdAt: "2024-01-01T00:00:00.000Z",
 							sourceEntityId: input.entityId,
 							targetEntityId: input.collectionId,
+							createdAt: "2024-01-01T00:00:00.000Z",
+							relationshipSchemaId: "rel_schema_member_of",
 						},
 					});
 				},
@@ -1059,11 +1061,11 @@ describe("addToCollection", () => {
 					createAddToCollectionData({
 						memberOf: {
 							id: "existing-rel-1",
-							relType: "member_of",
 							properties: input.properties,
-							createdAt: "2024-01-01T00:00:00.000Z",
 							sourceEntityId: input.entityId,
 							targetEntityId: input.collectionId,
+							createdAt: "2024-01-01T00:00:00.000Z",
+							relationshipSchemaId: "rel_schema_member_of",
 						},
 					}),
 			}),
@@ -1091,11 +1093,11 @@ describe("addToCollection", () => {
 			return createAddToCollectionData({
 				memberOf: {
 					id: `rel_${callCount}`,
-					relType: "member_of",
 					properties: input.properties,
-					createdAt: "2024-01-01T00:00:00.000Z",
 					sourceEntityId: input.entityId,
 					targetEntityId: input.collectionId,
+					createdAt: "2024-01-01T00:00:00.000Z",
+					relationshipSchemaId: "rel_schema_member_of",
 				},
 			});
 		};
@@ -1154,7 +1156,9 @@ describe("removeFromCollection", () => {
 		expect("data" in result).toBe(true);
 		if ("data" in result) {
 			expect(result.data.memberOf.id).toBe("rel_1");
-			expect(result.data.memberOf.relType).toBe("member_of");
+			expect(result.data.memberOf.relationshipSchemaId).toBe(
+				"rel_schema_member_of",
+			);
 		}
 	});
 

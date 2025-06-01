@@ -5,6 +5,7 @@ import {
 	entitySchema,
 	entitySchemaScript,
 	eventSchema,
+	relationshipSchema,
 	sandboxScript,
 } from "~/lib/db/schema";
 
@@ -154,6 +155,54 @@ export const ensureBuiltinSandboxScript = async (input: {
 	}
 
 	return scriptId;
+};
+
+export const ensureBuiltinRelationshipSchema = async (input: {
+	slug: string;
+	name: string;
+	database: DbClient;
+	propertiesSchema: unknown;
+	sourceEntitySchemaId?: string;
+	targetEntitySchemaId?: string;
+}) => {
+	const [existing] = await input.database
+		.select({ id: relationshipSchema.id })
+		.from(relationshipSchema)
+		.where(
+			and(
+				eq(relationshipSchema.slug, input.slug),
+				isNull(relationshipSchema.userId),
+			),
+		)
+		.limit(1);
+
+	if (existing) {
+		await input.database
+			.update(relationshipSchema)
+			.set({
+				isBuiltin: true,
+				name: input.name,
+				propertiesSchema: input.propertiesSchema,
+				sourceEntitySchemaId: input.sourceEntitySchemaId ?? null,
+				targetEntitySchemaId: input.targetEntitySchemaId ?? null,
+			})
+			.where(eq(relationshipSchema.id, existing.id));
+
+		return existing.id;
+	}
+
+	const schemaId = generateId();
+	await input.database.insert(relationshipSchema).values({
+		id: schemaId,
+		isBuiltin: true,
+		name: input.name,
+		slug: input.slug,
+		propertiesSchema: input.propertiesSchema,
+		sourceEntitySchemaId: input.sourceEntitySchemaId ?? null,
+		targetEntitySchemaId: input.targetEntitySchemaId ?? null,
+	});
+
+	return schemaId;
 };
 
 export const linkScriptToEntitySchema = async (input: {
