@@ -2,7 +2,7 @@ import {
 	builtinMediaEntitySchemaSlugSet,
 	builtinMediaEntitySchemaSlugs,
 } from "~/lib/media/constants";
-import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
+import { serviceData, serviceError } from "~/lib/result";
 import { viewDefinitionModule } from "~/lib/views/definition";
 import {
 	QueryEngineNotFoundError,
@@ -14,14 +14,13 @@ import type {
 } from "~/modules/query-engine";
 import {
 	type BuiltInMediaOverviewSourceItem,
-	buildBuiltInMediaOverviewResponse,
+	buildContinueSectionResponse,
+	buildRateTheseSectionResponse,
+	buildUpNextSectionResponse,
 	type ContinueSourceItem,
 	type RateTheseSourceItem,
 	type UpNextSourceItem,
 } from "./response-builder";
-import type { BuiltInMediaOverviewResponse } from "./schemas";
-
-type MediaOverviewError = "not_found" | "validation";
 
 const mediaOverviewMisconfiguredError =
 	"Built-in media overview configuration is invalid";
@@ -220,10 +219,10 @@ const defaultDeps: MediaServiceDeps = {
 	},
 };
 
-const getContinueItems = async (
+export const getContinueItems = async (
 	userId: string,
 	deps: MediaServiceDeps = defaultDeps,
-): Promise<ContinueSourceItem[]> => {
+) => {
 	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
 	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
 
@@ -259,20 +258,31 @@ const getContinueItems = async (
 		pagination: { page: 1, limit: SECTION_LIMITS.continue },
 	};
 
-	const result = await deps.executeSectionQuery(userId, request);
-	return result.items.flatMap((item) => {
-		const mapped = toBuiltinMediaSourceItem(item);
-		if (mapped?.progressAt) {
-			return [mapped as ContinueSourceItem];
+	try {
+		const result = await deps.executeSectionQuery(userId, request);
+		const items = result.items.flatMap((item) => {
+			const mapped = toBuiltinMediaSourceItem(item);
+			if (mapped?.progressAt) {
+				return [mapped as ContinueSourceItem];
+			}
+			return [];
+		});
+		return serviceData(buildContinueSectionResponse(items));
+	} catch (error) {
+		if (error instanceof QueryEngineNotFoundError) {
+			return serviceError("not_found", mediaOverviewMisconfiguredError);
 		}
-		return [];
-	});
+		if (error instanceof QueryEngineValidationError) {
+			return serviceError("validation", mediaOverviewMisconfiguredError);
+		}
+		throw error;
+	}
 };
 
-const getUpNextItems = async (
+export const getUpNextItems = async (
 	userId: string,
 	deps: MediaServiceDeps = defaultDeps,
-): Promise<UpNextSourceItem[]> => {
+) => {
 	const backlogAtRef = eventJoinColumnExpression("backlog", "createdAt");
 	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
 
@@ -291,20 +301,31 @@ const getUpNextItems = async (
 		pagination: { page: 1, limit: SECTION_LIMITS.upNext },
 	};
 
-	const result = await deps.executeSectionQuery(userId, request);
-	return result.items.flatMap((item) => {
-		const mapped = toBuiltinMediaSourceItem(item);
-		if (mapped?.backlogAt) {
-			return [mapped as UpNextSourceItem];
+	try {
+		const result = await deps.executeSectionQuery(userId, request);
+		const items = result.items.flatMap((item) => {
+			const mapped = toBuiltinMediaSourceItem(item);
+			if (mapped?.backlogAt) {
+				return [mapped as UpNextSourceItem];
+			}
+			return [];
+		});
+		return serviceData(buildUpNextSectionResponse(items));
+	} catch (error) {
+		if (error instanceof QueryEngineNotFoundError) {
+			return serviceError("not_found", mediaOverviewMisconfiguredError);
 		}
-		return [];
-	});
+		if (error instanceof QueryEngineValidationError) {
+			return serviceError("validation", mediaOverviewMisconfiguredError);
+		}
+		throw error;
+	}
 };
 
-const getRateTheseItems = async (
+export const getRateTheseItems = async (
 	userId: string,
 	deps: MediaServiceDeps = defaultDeps,
-): Promise<RateTheseSourceItem[]> => {
+) => {
 	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
 	const reviewAtRef = eventJoinColumnExpression("review", "createdAt");
 	const completedOnRef = eventJoinPropertyExpression("complete", "completedOn");
@@ -340,34 +361,16 @@ const getRateTheseItems = async (
 		sort: { direction: "desc", expression: completedOnOrCompleteAt },
 	};
 
-	const result = await deps.executeSectionQuery(userId, request);
-	return result.items.flatMap((item) => {
-		const mapped = toBuiltinMediaSourceItem(item);
-		if (mapped?.completeAt) {
-			return [mapped as RateTheseSourceItem];
-		}
-		return [];
-	});
-};
-
-export const getBuiltInMediaOverview = async (
-	input: { userId: string },
-	deps: MediaServiceDeps = defaultDeps,
-): Promise<ServiceResult<BuiltInMediaOverviewResponse, MediaOverviewError>> => {
 	try {
-		const [continueItems, upNextItems, rateTheseItems] = await Promise.all([
-			getContinueItems(input.userId, deps),
-			getUpNextItems(input.userId, deps),
-			getRateTheseItems(input.userId, deps),
-		]);
-
-		return serviceData(
-			buildBuiltInMediaOverviewResponse({
-				upNextItems,
-				continueItems,
-				rateTheseItems,
-			}),
-		);
+		const result = await deps.executeSectionQuery(userId, request);
+		const items = result.items.flatMap((item) => {
+			const mapped = toBuiltinMediaSourceItem(item);
+			if (mapped?.completeAt) {
+				return [mapped as RateTheseSourceItem];
+			}
+			return [];
+		});
+		return serviceData(buildRateTheseSectionResponse(items));
 	} catch (error) {
 		if (error instanceof QueryEngineNotFoundError) {
 			return serviceError("not_found", mediaOverviewMisconfiguredError);
@@ -375,7 +378,6 @@ export const getBuiltInMediaOverview = async (
 		if (error instanceof QueryEngineValidationError) {
 			return serviceError("validation", mediaOverviewMisconfiguredError);
 		}
-
 		throw error;
 	}
 };
