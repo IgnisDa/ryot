@@ -114,6 +114,10 @@ use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
 use uuid::Uuid;
 
+mod metadata_progress_update;
+
+pub use metadata_progress_update::metadata_progress_update;
+
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
@@ -1424,12 +1428,7 @@ pub async fn handle_after_metadata_seen_tasks(
             };
         }
     };
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
-            user_id: Some(seen.user_id),
-            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
-        })
-        .await?;
+    expire_user_collection_contents_cache(&seen.user_id, ss).await?;
     Ok(())
 }
 
@@ -1690,7 +1689,7 @@ pub async fn progress_update(
                     .await?;
                     (
                         input.progress.unwrap_or(dec!(0)),
-                        Some(Utc::now().date_naive()),
+                        Some(get_current_date(&ss.timezone)),
                     )
                 }
                 _ => (dec!(100), None),
@@ -2888,12 +2887,26 @@ pub async fn expire_user_collections_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
-        input: (),
-        user_id: user_id.to_owned(),
-    });
     ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .expire_key(ExpireCacheKeyInput::ByKey(
+            ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            }),
+        ))
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_collection_contents_cache(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
+        })
         .await?;
     Ok(())
 }
@@ -3067,6 +3080,7 @@ pub async fn remove_entity_from_collection(
             .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
+    expire_user_collection_contents_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
 }
 

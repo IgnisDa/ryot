@@ -1,11 +1,6 @@
 # MediaTracker
 
-You can import from [MediaTracker](https://github.com/bonukai/MediaTracker), with
-the following caveats:
-
-- Items that are in progress are always imported with 100% progress. They are
-  added to the "In Progress" collection so you can manually fix their progress
-  if needed.
+You can import from [MediaTracker](https://github.com/bonukai/MediaTracker).
 
 1. Login to your MediaTracker account and click on your name on the top right.
 2. Click on the "Application tokens" section.
