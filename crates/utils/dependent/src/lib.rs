@@ -2887,12 +2887,13 @@ pub async fn expire_user_collections_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
-        input: (),
-        user_id: user_id.to_owned(),
-    });
     ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .expire_key(ExpireCacheKeyInput::ByKey(
+            ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+                input: (),
+                user_id: user_id.to_owned(),
+            }),
+        ))
         .await?;
     Ok(())
 }
