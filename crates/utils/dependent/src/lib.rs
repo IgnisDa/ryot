@@ -1428,7 +1428,7 @@ pub async fn handle_after_metadata_seen_tasks(
             };
         }
     };
-    expire_user_collection_contents(&seen.user_id, ss).await?;
+    expire_user_collection_contents_cache(&seen.user_id, ss).await?;
     Ok(())
 }
 
@@ -2897,7 +2897,7 @@ pub async fn expire_user_collections_list_cache(
     Ok(())
 }
 
-pub async fn expire_user_collection_contents(
+pub async fn expire_user_collection_contents_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
@@ -3079,7 +3079,7 @@ pub async fn remove_entity_from_collection(
             .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
-    expire_user_collection_contents(user_id, ss).await?;
+    expire_user_collection_contents_cache(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
 }
 
