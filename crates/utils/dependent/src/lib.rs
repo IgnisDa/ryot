@@ -1428,12 +1428,7 @@ pub async fn handle_after_metadata_seen_tasks(
             };
         }
     };
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
-            user_id: Some(seen.user_id),
-            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
-        })
-        .await?;
+    expire_user_collection_contents(&seen.user_id, ss).await?;
     Ok(())
 }
 
@@ -2898,6 +2893,19 @@ pub async fn expire_user_collections_list_cache(
     });
     ss.cache_service
         .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_collection_contents(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
+        })
         .await?;
     Ok(())
 }
