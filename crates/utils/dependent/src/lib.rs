@@ -3079,6 +3079,7 @@ pub async fn remove_entity_from_collection(
             .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
+    expire_user_collection_contents(user_id, ss).await?;
     Ok(StringIdObject { id: collect.id })
 }
 
