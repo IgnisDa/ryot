@@ -3008,6 +3008,9 @@ pub async fn create_or_update_collection(
                 collaborators.extend(input_collaborators);
             }
             ryot_log!(debug, "Collaborators: {:?}", collaborators);
+            for c in &collaborators {
+                expire_user_collections_list_cache(c, ss).await?;
+            }
             for c in collaborators {
                 UserToEntity::insert(user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c.clone()),
@@ -3038,7 +3041,6 @@ pub async fn create_or_update_collection(
         }
     };
     txn.commit().await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: created })
 }
 
