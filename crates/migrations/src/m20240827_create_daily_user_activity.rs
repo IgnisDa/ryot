@@ -20,7 +20,9 @@ pub enum DailyUserActivity {
     EntityIds,
     MetadataReviewCount,
     CollectionReviewCount,
+    MetadataGroupCount,
     MetadataGroupReviewCount,
+    PersonCount,
     PersonReviewCount,
     ExerciseReviewCount,
     MeasurementCount,
@@ -121,6 +123,8 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::TotalCount))
                     .col(integer_not_null(DailyUserActivity::TotalDuration))
                     .col(integer_not_null(DailyUserActivity::WorkoutCaloriesBurnt))
+                    .col(integer_not_null(DailyUserActivity::PersonCount))
+                    .col(integer_not_null(DailyUserActivity::MetadataGroupCount))
                     .col(
                         ColumnDef::new(DailyUserActivity::HourRecords)
                             .json_binary()
