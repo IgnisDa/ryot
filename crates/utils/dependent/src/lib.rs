@@ -2811,51 +2811,51 @@ pub async fn add_entity_to_collection(
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(&ss.db).await.unwrap();
     let column = get_cte_column_from_lot(input.entity_lot);
-    let resp = if let Some(etc) = CollectionToEntity::find()
+
+    let resp = match CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
         .filter(column.eq(input.entity_id.clone()))
         .one(&ss.db)
         .await?
     {
-        let mut to_update: collection_to_entity::ActiveModel = etc.into();
-        to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(&ss.db).await?
-    } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
-            information: ActiveValue::Set(input.information),
-            ..Default::default()
-        };
-        let id = input.entity_id.clone();
-        match input.entity_lot {
-            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-            EntityLot::MetadataGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+        Some(etc) => etc,
+        None => {
+            let mut created_collection = collection_to_entity::ActiveModel {
+                collection_id: ActiveValue::Set(collection.id),
+                information: ActiveValue::Set(input.information),
+                ..Default::default()
+            };
+            let id = input.entity_id.clone();
+            match input.entity_lot {
+                EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
+                EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
+                EntityLot::MetadataGroup => {
+                    created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+                }
+                EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
+                EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+                EntityLot::WorkoutTemplate => {
+                    created_collection.workout_template_id = ActiveValue::Set(Some(id))
+                }
+                EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                    unreachable!()
+                }
             }
-            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-            EntityLot::WorkoutTemplate => {
-                created_collection.workout_template_id = ActiveValue::Set(Some(id))
+            let created = created_collection.insert(&ss.db).await?;
+            ryot_log!(debug, "Created collection to entity: {:?}", created);
+            match input.entity_lot {
+                EntityLot::Workout
+                | EntityLot::WorkoutTemplate
+                | EntityLot::Review
+                | EntityLot::UserMeasurement => {}
+                _ => {
+                    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
+                        .await
+                        .ok();
+                }
             }
-            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                unreachable!()
-            }
+            created
         }
-        let created = created_collection.insert(&ss.db).await?;
-        ryot_log!(debug, "Created collection to entity: {:?}", created);
-        match input.entity_lot {
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => {}
-            _ => {
-                associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
-                    .await
-                    .ok();
-            }
-        }
-        created
     };
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     ss.perform_application_job(ApplicationJob::Lp(
