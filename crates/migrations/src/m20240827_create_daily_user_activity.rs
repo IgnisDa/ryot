@@ -20,9 +20,9 @@ pub enum DailyUserActivity {
     EntityIds,
     MetadataReviewCount,
     CollectionReviewCount,
-    MetadataGroupCount,
     MetadataGroupReviewCount,
-    PersonCount,
+    TotalMetadataGroupCount,
+    TotalPersonCount,
     PersonReviewCount,
     PersonCollectionCount,
     MetadataCollectionCount,
@@ -94,6 +94,8 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(
                         DailyUserActivity::MetadataGroupReviewCount,
                     ))
+                    .col(integer_not_null(DailyUserActivity::TotalMetadataGroupCount))
+                    .col(integer_not_null(DailyUserActivity::TotalPersonCount))
                     .col(integer_not_null(DailyUserActivity::PersonReviewCount))
                     .col(integer_not_null(DailyUserActivity::ExerciseReviewCount))
                     .col(integer_not_null(DailyUserActivity::WorkoutCount))
@@ -127,8 +129,6 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::TotalCount))
                     .col(integer_not_null(DailyUserActivity::TotalDuration))
                     .col(integer_not_null(DailyUserActivity::WorkoutCaloriesBurnt))
-                    .col(integer_not_null(DailyUserActivity::PersonCount))
-                    .col(integer_not_null(DailyUserActivity::MetadataGroupCount))
                     .col(integer_not_null(DailyUserActivity::PersonCollectionCount))
                     .col(integer_not_null(DailyUserActivity::MetadataCollectionCount))
                     .col(integer_not_null(
