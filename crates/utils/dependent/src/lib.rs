@@ -27,8 +27,8 @@ use database_models::{
     prelude::{
         Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup,
         MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserMeasurement,
-        UserToEntity, Workout, WorkoutTemplate,
+        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, User,
+        UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
@@ -39,9 +39,9 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
     EmptyCacheValue, ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData,
-    SearchResults, UserExercisesListResponse, UserMeasurementsListResponse,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    SearchResults, UserCollectionsListResponse, UserExercisesListResponse,
+    UserMeasurementsListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
@@ -64,7 +64,7 @@ use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportRes
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
-    CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
+    CollectionItem, CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating, ImportOrExportMetadataItem,
     MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
     MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadata, PartialMetadataPerson,
@@ -74,7 +74,10 @@ use media_models::{
     SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
     SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
-use migrations::{AliasedExercise, AliasedReview};
+use migrations::{
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
+    AliasedUserToEntity,
+};
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
@@ -103,9 +106,10 @@ use sea_orm::{
     FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
     prelude::{DateTimeUtc, Expr},
-    sea_query::{
-        Alias, Asterisk, Func, NullOrdering, OnConflict, PgFunc, extension::postgres::PgExpr,
-    },
+};
+use sea_query::{
+    Alias, Asterisk, Func, NullOrdering, OnConflict, PgFunc, Query, SimpleExpr,
+    extension::postgres::PgExpr,
 };
 use serde::{Deserialize, Serialize};
 use slug::slugify;
@@ -3890,4 +3894,114 @@ pub async fn associate_user_with_entity(
     };
     expire_user_metadata_list_cache(user_id, ss).await?;
     Ok(())
+}
+
+pub async fn user_collections_list(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<CachedResponse<UserCollectionsListResponse>> {
+    let cc = &ss.cache_service;
+    let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+        input: (),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(cache_key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
+    let user_jsonb_build_object = PgFunc::json_build_object(vec![
+        (
+            Expr::val("id"),
+            Expr::col((AliasedUser::Table, AliasedUser::Id)),
+        ),
+        (
+            Expr::val("name"),
+            Expr::col((AliasedUser::Table, AliasedUser::Name)),
+        ),
+    ]);
+    let outer_collaborator = PgFunc::json_build_object(vec![
+        (
+            Expr::val("collaborator"),
+            Expr::expr(user_jsonb_build_object.clone()),
+        ),
+        (
+            Expr::val("extra_information"),
+            Expr::col((
+                AliasedUserToEntity::Table,
+                AliasedUserToEntity::CollectionExtraInformation,
+            )),
+        ),
+    ]);
+    let collaborators_subquery = Query::select()
+        .from(UserToEntity)
+        .expr(PgFunc::json_agg(outer_collaborator.clone()))
+        .join(
+            JoinType::InnerJoin,
+            AliasedUser::Table,
+            Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                .equals((AliasedUser::Table, AliasedUser::Id)),
+        )
+        .and_where(
+            Expr::col((
+                AliasedUserToEntity::Table,
+                AliasedUserToEntity::CollectionId,
+            ))
+            .equals((AliasedCollection::Table, AliasedCollection::Id)),
+        )
+        .to_owned();
+    let count_subquery = Query::select()
+        .expr(collection_to_entity::Column::Id.count())
+        .from(CollectionToEntity)
+        .and_where(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                AliasedCollectionToEntity::CollectionId,
+            ))
+            .equals((
+                AliasedUserToEntity::Table,
+                AliasedUserToEntity::CollectionId,
+            )),
+        )
+        .to_owned();
+    let response = Collection::find()
+        .select_only()
+        .column(collection::Column::Id)
+        .column(collection::Column::Name)
+        .column_as(
+            collection::Column::Name
+                .is_in(DefaultCollection::iter().map(|s| s.to_string()))
+                .and(collection::Column::UserId.eq(user_id)),
+            "is_default",
+        )
+        .column(collection::Column::InformationTemplate)
+        .expr_as(
+            SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
+            "count",
+        )
+        .expr_as(
+            Func::coalesce([
+                SimpleExpr::SubQuery(
+                    None,
+                    Box::new(collaborators_subquery.into_sub_query_statement()),
+                ),
+                SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
+            ]),
+            "collaborators",
+        )
+        .column(collection::Column::Description)
+        .column_as(Expr::expr(user_jsonb_build_object), "creator")
+        .order_by_desc(collection::Column::LastUpdatedOn)
+        .left_join(User)
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .into_model::<CollectionItem>()
+        .all(&ss.db)
+        .await
+        .unwrap();
+    let cache_id = cc
+        .set_key(
+            cache_key,
+            ApplicationCacheValue::UserCollectionsList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
 }
