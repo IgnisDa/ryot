@@ -12,10 +12,10 @@ export const sandboxRunJobName = "execute";
 export const sandboxRunJobData = z.object({
 	code: nonEmptyStringSchema,
 	userId: nonEmptyStringSchema,
+	scriptId: nonEmptyStringSchema,
 	driverName: nonEmptyStringSchema,
 	timeoutMs: positiveIntSchema.optional(),
 	maxHeapMB: positiveIntSchema.optional(),
-	scriptId: nonEmptyStringSchema.optional(),
 	context: stringUnknownRecordSchema.optional(),
 	apiFunctionDescriptors: z.array(apiFunctionDescriptorSchema).optional(),
 });
