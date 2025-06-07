@@ -1,5 +1,5 @@
 {
-	"id": "e8916f14-48eb-47b1-a59f-b3e33612148b",
+	"id": "3de58f74-c851-41f2-9fb2-9f9705254dac",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1273,6 +1273,13 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
@@ -1297,13 +1304,6 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
-				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
 				},
 				"id": {
 					"name": "id",
@@ -1398,7 +1398,7 @@
 					"tableTo": "entity_schema",
 					"columnsFrom": ["source_entity_schema_id"],
 					"columnsTo": ["id"],
-					"onDelete": "set null",
+					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
 				"relationship_schema_target_entity_schema_id_entity_schema_id_fk": {
@@ -1407,7 +1407,7 @@
 					"tableTo": "entity_schema",
 					"columnsFrom": ["target_entity_schema_id"],
 					"columnsTo": ["id"],
-					"onDelete": "set null",
+					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
 			},
@@ -2009,6 +2009,12 @@
 					"name": "id",
 					"type": "text",
 					"primaryKey": true,
+					"notNull": true
+				},
+				"preferences": {
+					"name": "preferences",
+					"type": "jsonb",
+					"primaryKey": false,
 					"notNull": true
 				},
 				"email": {
