@@ -4310,6 +4310,42 @@ pub async fn calculate_user_activities_and_summary(
         }
     }
 
+    expire_user_collections_list_cache(user_id, ss).await?;
+    let collections_response = user_collections_list(user_id, ss).await?;
+
+    let user_owned_collection_ids: Vec<String> = collections_response
+        .response
+        .iter()
+        .filter(|collection| collection.creator.id == *user_id)
+        .map(|collection| collection.id.clone())
+        .collect();
+
+    let mut collection_stream = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.is_in(user_owned_collection_ids))
+        .filter(collection_to_entity::Column::LastUpdatedOn.gt(start_from))
+        .stream(&ss.db)
+        .await?;
+
+    while let Some(cte) = collection_stream.try_next().await? {
+        let date = cte.last_updated_on.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            Some(date),
+            cte.id.to_string(),
+            cte.entity_lot,
+            None,
+            cte.last_updated_on,
+        );
+
+        match cte.entity_lot {
+            EntityLot::Metadata => activity.metadata_collection_count += 1,
+            EntityLot::Person => activity.person_collection_count += 1,
+            EntityLot::MetadataGroup => activity.metadata_group_collection_count += 1,
+            _ => {}
+        }
+    }
+
     for (_, activity) in activities.iter_mut() {
         DailyUserActivity::delete_many()
             .filter(daily_user_activity::Column::UserId.eq(user_id))
@@ -4320,6 +4356,15 @@ pub async fn calculate_user_activities_and_summary(
             .exec(&ss.db)
             .await?;
         ryot_log!(debug, "Inserting activity = {:?}", activity.date);
+        let total_collection_count = activity.person_collection_count
+            + activity.metadata_collection_count
+            + activity.metadata_group_collection_count;
+
+        activity.total_person_count =
+            activity.person_review_count + activity.person_collection_count;
+        activity.total_metadata_group_count =
+            activity.metadata_group_review_count + activity.metadata_group_collection_count;
+
         let total_review_count = activity.metadata_review_count
             + activity.collection_review_count
             + activity.metadata_group_review_count
@@ -4334,11 +4379,13 @@ pub async fn calculate_user_activities_and_summary(
             + activity.audio_book_count
             + activity.book_count
             + activity.video_game_count
-            + activity.visual_novel_count;
+            + activity.visual_novel_count
+            + activity.metadata_collection_count;
         let total_count = total_metadata_count
             + activity.measurement_count
             + activity.workout_count
-            + total_review_count;
+            + total_review_count
+            + total_collection_count;
         let total_duration = activity.workout_duration
             + activity.audio_book_duration
             + activity.podcast_duration
@@ -4350,10 +4397,11 @@ pub async fn calculate_user_activities_and_summary(
         activity.hour_records.sort_by_key(|hr| hr.hour);
         let mut model: daily_user_activity::ActiveModel = activity.clone().into();
         model.id = ActiveValue::NotSet;
-        model.total_review_count = ActiveValue::Set(total_review_count);
-        model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_count = ActiveValue::Set(total_count);
         model.total_duration = ActiveValue::Set(total_duration);
+        model.total_review_count = ActiveValue::Set(total_review_count);
+        model.total_metadata_count = ActiveValue::Set(total_metadata_count);
+        model.total_collection_count = ActiveValue::Set(total_collection_count);
         model.insert(&ss.db).await.unwrap();
     }
 
