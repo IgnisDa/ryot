@@ -1,48 +1,18 @@
 # Ryot Agent Guidelines
 
-This file contains coding conventions, workflows, and best practices for AI agents working on the Ryot project. Follow these guidelines to maintain code quality and consistency.
-
 ## Project Architecture & Tools
 
-### Monorepo Management
-
-The project uses `turbo` for monorepo management. All frontend-related commands (type checking, running tests, etc.) must use `turbo` commands.
-
-### Package Installation
-
-Always install dependencies using `cd <whatever-app-needs-dependency> && bun add -E` to add them as exact versions (no version range prefixes).
-
-### Command Line Usage
-
-When running bash commands (`git`, `sed`, etc.), always quote paths using single quotes since they often contain special characters.
-
-Example: `git add 'path/with-special-chars/file.ts'`
-
-### GitHub Data Access
-
-Use the `gh` CLI for GitHub operations. Only make raw API requests when the `gh` CLI does not support the required functionality.
+- **Monorepo**: Uses `turbo`. All frontend commands must use `turbo`.
+- **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
+- **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
+- **GitHub**: Use `gh` CLI; raw API only when `gh` doesn't support it.
 
 ## Coding Standards
 
-### Pattern Discovery Before Writing New Code
-
-Before writing new code for any feature or module, always launch a subagent (using the `explore` agent type) to explore related modules and features in the codebase. The goal is to identify existing patterns — naming conventions, component structure, data fetching approaches, state management, error handling, tests, etc. — and replicate them in the new code.
-
-This ensures consistency across the codebase and avoids introducing divergent patterns.
-
-### Code Comments
-
-Do not add code comments unless strictly necessary. Prefer self-documenting code with clear variable names, function names, and structure.
-
-### File Size
-
-Keep code files below 500 lines. If a file exceeds this limit, split it into smaller files using functions, components, or modules to improve readability and maintainability.
-
-### React Component Props
-
-React components must use a single `props` parameter instead of destructured props in function arguments.
-
-**Correct:**
+- **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns and replicate them.
+- **Comments**: Avoid unless strictly necessary. Prefer self-documenting code.
+- **File size**: Keep files below 500 lines. Split if exceeded.
+- **React props**: Use a single `props` parameter, not destructured arguments.
 
 ```typescript
 function MyComponent(props: MyComponentProps) {
@@ -50,31 +20,8 @@ function MyComponent(props: MyComponentProps) {
 }
 ```
 
-**Incorrect:**
-
-```typescript
-function MyComponent({ title }: MyComponentProps) {
-  return <div>{title}</div>;
-}
-```
-
-### TypeScript Return Types
-
-Do not add explicit return types to functions unless required. TypeScript's type inference is sufficient in most cases.
-
-Explicit return types may be necessary when:
-
-- The inferred return type is too complex or unclear
-- Enforcing a specific return type contract is desired
-
-### Field Ordering by Line Length
-
-When initializing object literals (TypeScript), order fields by ascending line length - shorter lines first, longer lines last. This applies to:
-
-- TypeScript/JavaScript object literals
-- JSX component props
-
-**Example:**
+- **Return types**: Omit explicit return types unless inference is insufficient.
+- **Field/variable ordering**: Order by ascending line length (shorter first). Exceptions for semantic grouping. Does not apply to imports or function parameters.
 
 ```typescript
 const notification = {
@@ -84,53 +31,10 @@ const notification = {
 };
 ```
 
-**Exceptions (correctness takes precedence):**
-
-- Semantic grouping may override length ordering when it improves readability
-- Shorthand fields (just the field name) typically come before assignment expressions of similar length
-
-### Variable Declaration Ordering by Line Length
-
-When declaring multiple variables in sequence (particularly React hooks), order them by ascending line length:
-
-```typescript
-const navigate = useNavigate();
-const isMobile = useIsMobile();
-const { startOnboardingTour } = useOnboardingTour();
-const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
-const markUserOnboardingStatus = useMarkUserOnboardingTourStatus();
-```
-
-This pattern applies to:
-
-- React hook calls at the start of components
-- Sequential `const`/`let` declarations
-
-**Return Object Example:**
-
-```typescript
-return {
-    userDetails,
-    coreDetails,
-    isDemoInstance,
-    shouldHaveUmami,
-    currentColorScheme,
-    desktopSidebarCollapsed,
-    userPreferences: userDetails.preferences,
-};
-```
-
-**Note:** This pattern does NOT apply to import statements (which follow alphabetical ordering enforced by tooling) or function parameters (which follow semantic ordering).
-
 ## Git Workflow
 
-### Creating Commits
+When creating commits:
 
-When asked to create a git commit:
-
-1. Read all dirty changes in the repository
-2. Create logical commits, grouping related changes together
-3. Create multiple commits as needed for different logical units of work
-4. Write verbose commit messages that explain the reasoning behind the changes, not just what was changed
-
-Focus on the "why" rather than the "what" in commit messages.
+1. Read all dirty changes
+2. Group related changes into logical commits
+3. Write verbose messages focused on *why*, not *what*
