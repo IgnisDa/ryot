@@ -1,0 +1,241 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Metron returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function getIdentifier(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+function parsePublishYear(value) {
+  const date = getString(value);
+  if (!date) {
+    return null;
+  }
+
+  const yearToken = date.slice(0, 4);
+  if (!/^\d{4}$/.test(yearToken)) {
+    return null;
+  }
+
+  const year = Number(yearToken);
+  return Number.isFinite(year) ? year : null;
+}
+
+function formatIssueTitle(seriesName, number) {
+  const resolvedSeriesName = getString(seriesName) ?? "Unknown Series";
+  const resolvedNumber = getString(number);
+  return resolvedNumber
+    ? `${resolvedSeriesName} #${resolvedNumber}`
+    : resolvedSeriesName;
+}
+
+async function getMetronCredentials() {
+  const usernameResponse = await getAppConfigValue("COMIC_BOOK_METRON_USERNAME");
+  if (!usernameResponse?.success) {
+    throw new Error(
+      usernameResponse?.error ?? "Could not load Metron username",
+    );
+  }
+
+  const passwordResponse = await getAppConfigValue("COMIC_BOOK_METRON_PASSWORD");
+  if (!passwordResponse?.success) {
+    throw new Error(
+      passwordResponse?.error ?? "Could not load Metron password",
+    );
+  }
+
+  const username = getString(usernameResponse.data);
+  const password = getString(passwordResponse.data);
+  if (!username || !password) {
+    throw new Error("Metron credentials are not configured");
+  }
+
+  return { username, password };
+}
+
+async function loadMetronJson(url, errorPrefix) {
+  const credentials = await getMetronCredentials();
+  const response = await httpCall("GET", url, {
+    headers: {
+      Authorization: `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`,
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `${errorPrefix} request failed`);
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+function buildPeople(credits) {
+  if (!Array.isArray(credits)) {
+    return [];
+  }
+
+  const people = [];
+  const seen = new Set();
+
+  for (const credit of credits) {
+    if (!credit || typeof credit !== "object") {
+      continue;
+    }
+
+    const identifier = getIdentifier(credit.id);
+    const name = getString(credit.creator);
+    if (!identifier || !name) {
+      continue;
+    }
+
+    const roleNames = Array.isArray(credit.role)
+      ? credit.role
+          .map((role) =>
+            role && typeof role === "object" ? getString(role.name) : null,
+          )
+          .filter((roleName) => roleName !== null)
+      : [];
+    const roles = roleNames.length > 0 ? roleNames : ["Contributor"];
+
+    for (const role of roles) {
+      const key = `${identifier}:${role}`;
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      people.push({
+        role,
+        name,
+        identifier,
+        scriptSlug: "person.metron",
+      });
+    }
+  }
+
+  return people;
+}
+
+driver("search", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const params = new URLSearchParams({
+    page: String(currentPage),
+    page_size: String(pageSize),
+    series_name: query,
+  });
+
+  const payload = await loadMetronJson(
+    `https://metron.cloud/api/issue/?${params.toString()}`,
+    "Metron issue search",
+  );
+
+  const totalItems =
+    typeof payload?.count === "number" && Number.isFinite(payload.count)
+      ? Math.max(0, Math.trunc(payload.count))
+      : 0;
+
+  const issues = Array.isArray(payload?.results) ? payload.results : [];
+  const items = issues
+    .map((issue) => {
+      const identifier = getIdentifier(issue?.id);
+      if (!identifier) {
+        return null;
+      }
+
+      const image = getString(issue?.image);
+      const title = formatIssueTitle(issue?.series?.name, issue?.number);
+      const publishYear = parsePublishYear(issue?.cover_date);
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier = typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const payload = await loadMetronJson(
+    `https://metron.cloud/api/issue/${encodeURIComponent(identifier)}/`,
+    "Metron issue details",
+  );
+
+  const title = formatIssueTitle(payload?.series?.name, payload?.number);
+  const pageCount =
+    typeof payload?.page_count === "number" && Number.isFinite(payload.page_count)
+      ? Math.trunc(payload.page_count)
+      : null;
+  const image = getString(payload?.image);
+
+  return {
+    name: title,
+    externalId: getIdentifier(payload?.id) ?? identifier,
+    properties: {
+      pages: pageCount,
+      people: buildPeople(payload?.credits),
+      genres: [],
+      isNsfw: null,
+      description: getString(payload?.desc),
+      sourceUrl: `https://metron.cloud/issue/${identifier}`,
+      publishYear: parsePublishYear(payload?.cover_date),
+      providerRating: null,
+      productionStatus: null,
+      assets: { remoteImages: image ? [image] : [] },
+    },
+  };
+});

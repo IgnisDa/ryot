@@ -3,6 +3,7 @@ import { match } from "ts-pattern";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
+import { comicBookPropertiesJsonSchema } from "~/lib/media/comic-book";
 import {
 	type BuiltinMediaEntitySchemaSlug,
 	builtinMediaEntitySchemaSlugs,
@@ -20,7 +21,7 @@ export const authenticationBuiltinTrackers = () => [
 		name: "Media",
 		accentColor: "#5B7FFF",
 		description:
-			"Track media across books, anime, manga, audiobooks, and podcasts.",
+			"Track media across books, comic books, anime, manga, audiobooks, podcasts, and video games.",
 	},
 	{
 		slug: "fitness",
@@ -127,6 +128,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: bookPropertiesJsonSchema,
 	},
 	{
+		icon: "book-image",
+		slug: "comic-book",
+		name: "Comic Book",
+		trackerSlug: "media",
+		accentColor: "#FF6B35",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: comicBookPropertiesJsonSchema,
+	},
+	{
 		icon: "tv",
 		slug: "anime",
 		name: "Anime",
@@ -195,6 +205,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 	return match(slug)
 		.with("book", () => "All Books")
+		.with("comic-book", () => "All Comic Books")
 		.with("anime", () => "All Anime")
 		.with("manga", () => "All Manga")
 		.with("podcast", () => "All Podcasts")
