@@ -4,8 +4,7 @@ use std::{
 };
 
 use application_utils::{
-    calculate_average_rating, get_current_date, get_podcast_episode_by_number,
-    get_show_episode_by_numbers,
+    get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
@@ -17,22 +16,20 @@ use common_models::{
 };
 use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
 use database_models::{
-    access_link, calendar_event, collection,
-    functions::get_user_to_entity_association,
-    genre, metadata, metadata_group, metadata_to_metadata_group, monitored_entity, person,
+    access_link, calendar_event, collection, genre, metadata, metadata_group, monitored_entity,
+    person,
     prelude::{
         AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, Metadata, MetadataGroup,
-        MetadataToMetadataGroup, MonitoredEntity, Person, Review, Seen, User, UserToEntity,
+        MonitoredEntity, Person, Review, Seen, User, UserToEntity,
     },
     review, seen, user, user_to_entity,
 };
 use database_utils::{
-    entity_in_collections, get_user_query, ilike_sql, item_reviews, revoke_access_link,
-    transform_entity_assets, user_by_id,
+    entity_in_collections, get_user_query, ilike_sql, revoke_access_link, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheKey, CachedResponse, CoreDetails, ExpireCacheKeyInput, GenreDetails,
-    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
+    GraphqlPersonDetails, MetadataGroupDetails, MetadataGroupSearchResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults, TrendingMetadataIdsResponse,
     UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
     UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
@@ -42,35 +39,30 @@ use dependent_utils::{
     associate_user_with_entity, calculate_user_activities_and_summary,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, expire_user_metadata_list_cache,
-    generic_metadata, get_entity_recently_consumed, handle_after_metadata_seen_tasks,
-    is_metadata_finished_by_user, post_review, progress_update, remove_entity_from_collection,
-    send_notification_for_user, update_metadata_and_notify_users,
+    handle_after_metadata_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
+    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
-use enum_models::{
-    EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, UserToMediaReason,
-};
+use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent, UserToMediaReason};
 use futures::future::join_all;
 use itertools::Itertools;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GraphqlMetadataGroup, GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataFreeCreator,
-    PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
-    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataFreeCreator, PodcastSpecifics,
+    ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use migrations::{
-    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
+    AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedUserToEntity,
 };
-use rust_decimal_macros::dec;
+
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, EntityTrait,
-    FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, prelude::DateTimeUtc,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait, RelationTrait, Statement, prelude::DateTimeUtc,
 };
 use sea_query::{
     Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
@@ -90,6 +82,7 @@ mod metadata_operations;
 mod review_operations;
 mod search_operations;
 mod trending_and_events;
+mod user_details;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -124,67 +117,7 @@ impl MiscellaneousService {
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
-        let MetadataBaseData {
-            mut model,
-            genres,
-            creators,
-            suggestions,
-        } = generic_metadata(metadata_id, &self.0).await?;
-
-        let mut group = vec![];
-        let associations = MetadataToMetadataGroup::find()
-            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-            .find_also_related(MetadataGroup)
-            .all(&self.0.db)
-            .await?;
-        for association in associations {
-            let grp = association.1.unwrap();
-            group.push(GraphqlMetadataGroup {
-                id: grp.id,
-                name: grp.title,
-                part: association.0.part,
-            });
-        }
-
-        let watch_providers = model.watch_providers.unwrap_or_default();
-
-        transform_entity_assets(&mut model.assets, &self.0).await;
-
-        let resp = GraphqlMetadataDetails {
-            group,
-            genres,
-            creators,
-            suggestions,
-            id: model.id,
-            lot: model.lot,
-            watch_providers,
-            title: model.title,
-            assets: model.assets,
-            source: model.source,
-            is_nsfw: model.is_nsfw,
-            source_url: model.source_url,
-            is_partial: model.is_partial,
-            identifier: model.identifier,
-            description: model.description,
-            publish_date: model.publish_date,
-            publish_year: model.publish_year,
-            book_specifics: model.book_specifics,
-            show_specifics: model.show_specifics,
-            movie_specifics: model.movie_specifics,
-            music_specifics: model.music_specifics,
-            manga_specifics: model.manga_specifics,
-            anime_specifics: model.anime_specifics,
-            provider_rating: model.provider_rating,
-            production_status: model.production_status,
-            original_language: model.original_language,
-            podcast_specifics: model.podcast_specifics,
-            created_by_user_id: model.created_by_user_id,
-            external_identifiers: model.external_identifiers,
-            video_game_specifics: model.video_game_specifics,
-            audio_book_specifics: model.audio_book_specifics,
-            visual_novel_specifics: model.visual_novel_specifics,
-        };
-        Ok(resp)
+        entity_details::metadata_details(&self.0, metadata_id).await
     }
 
     pub async fn user_metadata_details(
@@ -192,182 +125,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let media_details = generic_metadata(&metadata_id, &self.0).await?;
-        let collections =
-            entity_in_collections(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-        let reviews =
-            item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, &self.0).await?;
-        let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &self.0.db).await?;
-        let in_progress = history
-            .iter()
-            .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
-            .cloned();
-        let next_entry = history.first().and_then(|h| {
-            if let Some(s) = &media_details.model.show_specifics {
-                let all_episodes = s
-                    .seasons
-                    .iter()
-                    .map(|s| (s.season_number, &s.episodes))
-                    .collect_vec()
-                    .into_iter()
-                    .flat_map(|(s, e)| {
-                        e.iter().map(move |e| UserMediaNextEntry {
-                            season: Some(s),
-                            episode: Some(e.episode_number),
-                            ..Default::default()
-                        })
-                    })
-                    .collect_vec();
-                let next = all_episodes.iter().position(|e| {
-                    e.season == Some(h.show_extra_information.as_ref().unwrap().season)
-                        && e.episode == Some(h.show_extra_information.as_ref().unwrap().episode)
-                });
-                Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(p) = &media_details.model.podcast_specifics {
-                let all_episodes = p
-                    .episodes
-                    .iter()
-                    .map(|e| UserMediaNextEntry {
-                        episode: Some(e.number),
-                        ..Default::default()
-                    })
-                    .collect_vec();
-                let next = all_episodes.iter().position(|e| {
-                    e.episode == Some(h.podcast_extra_information.as_ref().unwrap().episode)
-                });
-                Some(all_episodes.get(next? + 1)?.clone())
-            } else if let Some(_anime_spec) = &media_details.model.anime_specifics {
-                h.anime_extra_information.as_ref().and_then(|hist| {
-                    hist.episode.map(|e| UserMediaNextEntry {
-                        episode: Some(e + 1),
-                        ..Default::default()
-                    })
-                })
-            } else if let Some(_manga_spec) = &media_details.model.manga_specifics {
-                h.manga_extra_information.as_ref().and_then(|hist| {
-                    hist.chapter
-                        .map(|e| UserMediaNextEntry {
-                            chapter: Some(e.floor() + dec!(1)),
-                            ..Default::default()
-                        })
-                        .or(hist.volume.map(|e| UserMediaNextEntry {
-                            volume: Some(e + 1),
-                            ..Default::default()
-                        }))
-                })
-            } else {
-                None
-            }
-        });
-        let metadata_alias = Alias::new("m");
-        let seen_alias = Alias::new("s");
-        let seen_select = Query::select()
-            .expr_as(
-                Expr::col((metadata_alias.clone(), AliasedMetadata::Id)),
-                Alias::new("metadata_id"),
-            )
-            .expr_as(
-                Func::count(Expr::col((seen_alias.clone(), AliasedSeen::MetadataId))),
-                Alias::new("num_times_seen"),
-            )
-            .from_as(AliasedMetadata::Table, metadata_alias.clone())
-            .join_as(
-                JoinType::LeftJoin,
-                AliasedSeen::Table,
-                seen_alias.clone(),
-                Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
-                    .equals((seen_alias.clone(), AliasedSeen::MetadataId)),
-            )
-            .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).eq(&metadata_id))
-            .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
-            .to_owned();
-        let stmt = self.get_db_stmt(seen_select);
-        let seen_by = self
-            .0
-            .db
-            .query_one(stmt)
-            .await?
-            .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
-            .unwrap();
-        let seen_by: usize = seen_by.try_into().unwrap();
-        let user_to_meta =
-            get_user_to_entity_association(&self.0.db, &user_id, &metadata_id, EntityLot::Metadata)
-                .await;
-        let average_rating = calculate_average_rating(&reviews);
-        let seen_by_user_count = history.len();
-        let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
-            let mut seasons = vec![];
-            for season in show_specifics.seasons {
-                let mut episodes = vec![];
-                for episode in season.episodes {
-                    let seen = history
-                        .iter()
-                        .filter(|h| {
-                            h.show_extra_information.as_ref().is_some_and(|s| {
-                                s.season == season.season_number
-                                    && s.episode == episode.episode_number
-                            })
-                        })
-                        .collect_vec();
-                    episodes.push(UserMetadataDetailsEpisodeProgress {
-                        episode_number: episode.episode_number,
-                        times_seen: seen.len(),
-                    })
-                }
-                let times_season_seen = episodes
-                    .iter()
-                    .map(|e| e.times_seen)
-                    .min()
-                    .unwrap_or_default();
-                seasons.push(UserMetadataDetailsShowSeasonProgress {
-                    episodes,
-                    times_seen: times_season_seen,
-                    season_number: season.season_number,
-                })
-            }
-            Some(seasons)
-        } else {
-            None
-        };
-        let podcast_progress =
-            if let Some(podcast_specifics) = media_details.model.podcast_specifics {
-                let mut episodes = vec![];
-                for episode in podcast_specifics.episodes {
-                    let seen = history
-                        .iter()
-                        .filter(|h| {
-                            h.podcast_extra_information
-                                .as_ref()
-                                .is_some_and(|s| s.episode == episode.number)
-                        })
-                        .collect_vec();
-                    episodes.push(UserMetadataDetailsEpisodeProgress {
-                        episode_number: episode.number,
-                        times_seen: seen.len(),
-                    })
-                }
-                Some(episodes)
-            } else {
-                None
-            };
-        let is_recently_consumed =
-            get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, &self.0)
-                .await?;
-        Ok(UserMetadataDetails {
-            reviews,
-            history,
-            next_entry,
-            collections,
-            in_progress,
-            show_progress,
-            average_rating,
-            podcast_progress,
-            seen_by_user_count,
-            is_recently_consumed,
-            seen_by_all_count: seen_by,
-            has_interacted: user_to_meta.is_some(),
-            media_reason: user_to_meta.and_then(|n| n.media_reason),
-        })
+        user_details::user_metadata_details(self, &self.0, user_id, metadata_id).await
     }
 
     pub async fn user_person_details(
@@ -375,22 +133,7 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, &self.0).await?;
-        let collections =
-            entity_in_collections(&self.0.db, &user_id, &person_id, EntityLot::Person).await?;
-        let is_recently_consumed =
-            get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, &self.0).await?;
-        let person_meta =
-            get_user_to_entity_association(&self.0.db, &user_id, &person_id, EntityLot::Person)
-                .await;
-        let average_rating = calculate_average_rating(&reviews);
-        Ok(UserPersonDetails {
-            reviews,
-            collections,
-            average_rating,
-            is_recently_consumed,
-            has_interacted: person_meta.is_some(),
-        })
+        user_details::user_person_details(&self.0, user_id, person_id).await
     }
 
     pub async fn user_metadata_group_details(
@@ -398,43 +141,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
-        let collections = entity_in_collections(
-            &self.0.db,
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-        )
-        .await?;
-        let reviews = item_reviews(
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-            true,
-            &self.0,
-        )
-        .await?;
-        let is_recently_consumed = get_entity_recently_consumed(
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-            &self.0,
-        )
-        .await?;
-        let average_rating = calculate_average_rating(&reviews);
-        let metadata_group_meta = get_user_to_entity_association(
-            &self.0.db,
-            &user_id,
-            &metadata_group_id,
-            EntityLot::MetadataGroup,
-        )
-        .await;
-        Ok(UserMetadataGroupDetails {
-            reviews,
-            collections,
-            average_rating,
-            is_recently_consumed,
-            has_interacted: metadata_group_meta.is_some(),
-        })
+        user_details::user_metadata_group_details(&self.0, user_id, metadata_group_id).await
     }
 
     async fn get_calendar_events(
