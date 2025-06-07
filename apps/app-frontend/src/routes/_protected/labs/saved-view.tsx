@@ -36,7 +36,7 @@ import {
 import { useEffect, useState } from "react";
 import { useColorScheme } from "#/hooks/theme";
 
-export const Route = createFileRoute("/_protected/saved-view-lab")({
+export const Route = createFileRoute("/_protected/labs/saved-view")({
 	component: RouteComponent,
 });
 
@@ -1537,7 +1537,7 @@ function SavedViewRenderer(props: {
 											root: {
 												backgroundColor: accentMuted,
 												color: accentColor,
-												border: `1px solid ${accentColor}`,
+												border: "1px solid ${accentColor}",
 												fontWeight: 600,
 												fontFamily: "var(--mantine-headings-font-family)",
 											},
