@@ -233,4 +233,210 @@ describe("createCollection", () => {
 			),
 		).rejects.toThrow("Database connection lost");
 	});
+
+	describe("nested membershipPropertiesSchema validation", () => {
+		it("accepts valid nested object properties", async () => {
+			const nestedSchema = {
+				fields: {
+					friendWhoRecommendedIt: { type: "string" as const },
+					recommendationDetails: {
+						type: "object" as const,
+						properties: {
+							where: { type: "string" as const },
+							when: { type: "date" as const },
+							rating: { type: "integer" as const },
+						},
+					},
+				},
+			};
+
+			const result = await createCollection(
+				{
+					body: {
+						name: "Nested Schema Collection",
+						membershipPropertiesSchema: nestedSchema,
+					},
+					userId: "user-1",
+				},
+				mockDeps,
+			);
+
+			expect("data" in result).toBe(true);
+			if ("data" in result) {
+				expect(result.data.properties.membershipPropertiesSchema).toEqual(
+					nestedSchema,
+				);
+			}
+		});
+
+		it("accepts valid nested array with item schema", async () => {
+			const arraySchema = {
+				fields: {
+					tags: {
+						type: "array" as const,
+						items: { type: "string" as const },
+					},
+				},
+			};
+
+			const result = await createCollection(
+				{
+					body: {
+						name: "Array Schema Collection",
+						membershipPropertiesSchema: arraySchema,
+					},
+					userId: "user-1",
+				},
+				mockDeps,
+			);
+
+			expect("data" in result).toBe(true);
+		});
+
+		it("returns validation error for invalid nested property type", async () => {
+			const result = await createCollection(
+				{
+					body: {
+						name: "Invalid Nested Collection",
+						membershipPropertiesSchema: {
+							fields: {
+								nested: {
+									type: "object" as const,
+									properties: {
+										invalidField: { type: "unknown_type" },
+									},
+								},
+							},
+						},
+					} as unknown as { name: string },
+					userId: "user-1",
+				},
+				mockDeps,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("validation");
+				expect(result.message).toContain(
+					"membershipPropertiesSchema must be a valid AppSchema",
+				);
+			}
+		});
+
+		it("returns validation error for invalid array item type", async () => {
+			const result = await createCollection(
+				{
+					body: {
+						name: "Invalid Array Collection",
+						membershipPropertiesSchema: {
+							fields: {
+								tags: {
+									type: "array" as const,
+									items: { type: "unknown_type" },
+								},
+							},
+						},
+					} as unknown as { name: string },
+					userId: "user-1",
+				},
+				mockDeps,
+			);
+
+			expect("error" in result).toBe(true);
+			if ("error" in result) {
+				expect(result.error).toBe("validation");
+				expect(result.message).toContain(
+					"membershipPropertiesSchema must be a valid AppSchema",
+				);
+			}
+		});
+
+		it("accepts complex deeply nested schema with multiple levels", async () => {
+			const complexSchema = {
+				fields: {
+					metadata: {
+						type: "object" as const,
+						properties: {
+							source: {
+								type: "object" as const,
+								properties: {
+									name: { type: "string" as const },
+									url: { type: "string" as const },
+								},
+							},
+							tags: {
+								type: "array" as const,
+								items: {
+									type: "object" as const,
+									properties: {
+										label: { type: "string" as const },
+										color: { type: "string" as const },
+									},
+								},
+							},
+						},
+					},
+					priority: { type: "integer" as const },
+				},
+			};
+
+			const result = await createCollection(
+				{
+					body: {
+						name: "Complex Nested Collection",
+						membershipPropertiesSchema: complexSchema,
+					},
+					userId: "user-1",
+				},
+				mockDeps,
+			);
+
+			expect("data" in result).toBe(true);
+			if ("data" in result) {
+				expect(result.data.properties.membershipPropertiesSchema).toEqual(
+					complexSchema,
+				);
+			}
+		});
+
+		it("does not create entity when nested template validation fails", async () => {
+			let wasCreateCalled = false;
+
+			const trackingDeps = {
+				...mockDeps,
+				createCollectionForUser: async (input: {
+					name: string;
+					userId: string;
+					entitySchemaId: string;
+					properties: Record<string, unknown>;
+				}) => {
+					wasCreateCalled = true;
+					return mockDeps.createCollectionForUser(input);
+				},
+			};
+
+			const result = await createCollection(
+				{
+					body: {
+						name: "Should Not Create",
+						membershipPropertiesSchema: {
+							fields: {
+								nested: {
+									type: "object" as const,
+									properties: {
+										invalid: { type: "bad_type" },
+									},
+								},
+							},
+						},
+					} as unknown as { name: string },
+					userId: "user-1",
+				},
+				trackingDeps,
+			);
+
+			expect("error" in result).toBe(true);
+			expect(wasCreateCalled).toBe(false);
+		});
+	});
 });
