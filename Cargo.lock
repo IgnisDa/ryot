@@ -1659,7 +1659,6 @@ dependencies = [
 name = "database-utils"
 version = "0.1.0"
 dependencies = [
- "application-utils",
  "async-graphql",
  "background-models",
  "chrono",
@@ -1668,7 +1667,6 @@ dependencies = [
  "database-models",
  "dependent-models",
  "enum-models",
- "futures",
  "itertools 0.14.0",
  "jwt-service",
  "markdown",
@@ -1677,7 +1675,6 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
- "serde",
  "supporting-service",
  "tracing",
  "user-models",
@@ -1724,6 +1721,7 @@ dependencies = [
  "enum-models",
  "enum_meta",
  "fitness-models",
+ "futures",
  "importer-models",
  "itertools 0.14.0",
  "markdown",
@@ -5884,8 +5882,8 @@ dependencies = [
  "async-graphql",
  "common-models",
  "database-models",
- "database-utils",
  "dependent-models",
+ "dependent-utils",
  "enum-models",
  "hashbag",
  "itertools 0.14.0",

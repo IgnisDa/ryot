@@ -17,6 +17,7 @@ dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
+futures = { workspace = true }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 markdown = { workspace = true }

@@ -35,9 +35,8 @@ use database_models::{
     review, seen, user, user_to_entity,
 };
 use database_utils::{
-    calculate_user_activities_and_summary, entity_in_collections,
-    entity_in_collections_with_collection_to_entity_ids, get_user_query, ilike_sql, item_reviews,
-    revoke_access_link, transform_entity_assets, user_by_id,
+    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, get_user_query,
+    ilike_sql, item_reviews, revoke_access_link, transform_entity_assets, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
@@ -49,14 +48,14 @@ use dependent_models::{
     UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, associate_user_with_entity, change_metadata_associations,
-    commit_metadata, commit_metadata_group, commit_person, deploy_after_handle_media_seen_tasks,
-    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, expire_user_metadata_list_cache, generic_metadata,
-    get_entity_recently_consumed, get_entity_title_from_id_and_lot, get_metadata_provider,
-    get_non_metadata_provider, get_users_monitoring_entity, handle_after_metadata_seen_tasks,
-    is_metadata_finished_by_user, post_review, progress_update, remove_entity_from_collection,
-    send_notification_for_user, update_metadata_and_notify_users,
+    add_entity_to_collection, associate_user_with_entity, calculate_user_activities_and_summary,
+    change_metadata_associations, commit_metadata, commit_metadata_group, commit_person,
+    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
+    deploy_update_metadata_job, deploy_update_person_job, expire_user_metadata_list_cache,
+    generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
+    get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
+    handle_after_metadata_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
+    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
