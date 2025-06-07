@@ -1535,10 +1535,10 @@ function SavedViewRenderer(props: {
 										variant="light"
 										styles={{
 											root: {
-												backgroundColor: accentMuted,
-												color: accentColor,
-												border: "1px solid ${accentColor}",
 												fontWeight: 600,
+												color: accentColor,
+												backgroundColor: accentMuted,
+												border: `1px solid ${accentColor}`,
 												fontFamily: "var(--mantine-headings-font-family)",
 											},
 										}}
