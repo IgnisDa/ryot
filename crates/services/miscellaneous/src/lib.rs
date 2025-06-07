@@ -3,20 +3,19 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::{Error, Result};
+use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{NaiveDate, Utc};
 use common_models::{
     BackgroundJob, DefaultCollection, MetadataGroupSearchInput, MetadataSearchInput,
-    PeopleSearchInput, ProgressUpdateCacheInput, SearchDetails, SearchInput, StringIdObject,
-    UserLevelCacheKey,
+    PeopleSearchInput, SearchDetails, SearchInput, StringIdObject,
 };
 use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
 use database_models::{
-    access_link, collection, genre, metadata, metadata_group, monitored_entity, person,
+    access_link, collection, genre, metadata, monitored_entity,
     prelude::{
-        AccessLink, Collection, Genre, Metadata, MetadataGroup, MonitoredEntity, Person, Review,
-        Seen, User, UserToEntity,
+        AccessLink, Collection, Genre, MetadataGroup, MonitoredEntity, Person, Review, User,
+        UserToEntity,
     },
     review, seen, user, user_to_entity,
 };
@@ -24,18 +23,16 @@ use database_utils::{
     entity_in_collections, get_user_query, ilike_sql, revoke_access_link, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, CachedResponse, CoreDetails, ExpireCacheKeyInput, GenreDetails,
-    GraphqlPersonDetails, MetadataGroupDetails, MetadataGroupSearchResponse,
-    MetadataSearchResponse, PeopleSearchResponse, SearchResults, TrendingMetadataIdsResponse,
-    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
-    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
-    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
+    CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    TrendingMetadataIdsResponse, UserMetadataDetails, UserMetadataGroupDetails,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
-    associate_user_with_entity, calculate_user_activities_and_summary,
-    deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
+    calculate_user_activities_and_summary, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, expire_user_metadata_list_cache,
-    handle_after_metadata_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
+    handle_after_metadata_seen_tasks, is_metadata_finished_by_user, post_review,
     update_metadata_and_notify_users, update_metadata_group_and_notify_users,
     update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
     user_people_list,
@@ -62,7 +59,6 @@ use sea_query::{
     extension::postgres::PgExpr,
 };
 use supporting_service::SupportingService;
-use traits::TraceOk;
 use uuid::Uuid;
 
 mod background_operations;
@@ -71,6 +67,7 @@ mod core_operations;
 mod custom_metadata;
 mod entity_details;
 mod metadata_operations;
+mod progress_operations;
 mod review_operations;
 mod search_operations;
 mod trending_and_events;
@@ -200,12 +197,7 @@ impl MiscellaneousService {
         user_id: String,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<()> {
-        for seen in input {
-            progress_update(&user_id, false, seen, &self.0)
-                .await
-                .trace_ok();
-        }
-        Ok(())
+        progress_operations::bulk_progress_update(&self.0, user_id, input).await
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
@@ -222,34 +214,10 @@ impl MiscellaneousService {
 
     pub async fn mark_entity_as_partial(
         &self,
-        _user_id: &str,
+        user_id: &str,
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
-        match input.entity_lot {
-            EntityLot::Metadata => {
-                Metadata::update_many()
-                    .filter(metadata::Column::Id.eq(&input.entity_id))
-                    .col_expr(metadata::Column::IsPartial, Expr::value(true))
-                    .exec(&self.0.db)
-                    .await?;
-            }
-            EntityLot::MetadataGroup => {
-                MetadataGroup::update_many()
-                    .filter(metadata_group::Column::Id.eq(&input.entity_id))
-                    .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
-                    .exec(&self.0.db)
-                    .await?;
-            }
-            EntityLot::Person => {
-                Person::update_many()
-                    .filter(person::Column::Id.eq(&input.entity_id))
-                    .col_expr(person::Column::IsPartial, Expr::value(true))
-                    .exec(&self.0.db)
-                    .await?;
-            }
-            _ => return Err(Error::new("Invalid entity lot".to_owned())),
-        }
-        Ok(true)
+        core_operations::mark_entity_as_partial(&self.0, user_id, input).await
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
@@ -390,52 +358,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
-        let Some(seen) = Seen::find_by_id(input.seen_id)
-            .one(&self.0.db)
-            .await
-            .unwrap()
-        else {
-            return Err(Error::new("No seen found for this user and metadata"));
-        };
-        if seen.user_id != user_id {
-            return Err(Error::new("No seen found for this user and metadata"));
-        }
-        let mut seen: seen::ActiveModel = seen.into();
-        if let Some(started_on) = input.started_on {
-            seen.started_on = ActiveValue::Set(Some(started_on));
-        }
-        if let Some(finished_on) = input.finished_on {
-            seen.finished_on = ActiveValue::Set(Some(finished_on));
-        }
-        if let Some(provider_watched_on) = input.provider_watched_on {
-            seen.provider_watched_on = ActiveValue::Set(Some(provider_watched_on));
-        }
-        if let Some(manual_time_spent) = input.manual_time_spent {
-            seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));
-        }
-        if let Some(review_id) = input.review_id {
-            let (review, to_update_review_id) = match review_id.is_empty() {
-                false => (
-                    Review::find_by_id(&review_id)
-                        .one(&self.0.db)
-                        .await
-                        .unwrap(),
-                    Some(review_id),
-                ),
-                true => (None, None),
-            };
-            if let Some(review_item) = review {
-                if review_item.user_id != user_id {
-                    return Err(Error::new(
-                        "You cannot associate a review with a seen item that is not yours",
-                    ));
-                }
-            }
-            seen.review_id = ActiveValue::Set(to_update_review_id);
-        }
-        let seen = seen.update(&self.0.db).await.unwrap();
-        deploy_after_handle_media_seen_tasks(seen, &self.0).await?;
-        Ok(true)
+        progress_operations::update_seen_item(&self.0, user_id, input).await
     }
 
     pub async fn deploy_update_person_job(&self, person_id: String) -> Result<bool> {
@@ -523,47 +446,7 @@ impl MiscellaneousService {
         user_id: &String,
         seen_id: String,
     ) -> Result<StringIdObject> {
-        let seen_item = Seen::find_by_id(seen_id).one(&self.0.db).await.unwrap();
-        let Some(si) = seen_item else {
-            return Err(Error::new("This seen item does not exist".to_owned()));
-        };
-        let cloned_seen = si.clone();
-        let (ssn, sen) = match &si.show_extra_information {
-            Some(d) => (Some(d.season), Some(d.episode)),
-            None => (None, None),
-        };
-        let pen = si.podcast_extra_information.as_ref().map(|d| d.episode);
-        let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
-        let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
-        let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-        let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
-            user_id: user_id.to_owned(),
-            input: ProgressUpdateCacheInput {
-                show_season_number: ssn,
-                manga_volume_number: mvn,
-                show_episode_number: sen,
-                anime_episode_number: aen,
-                manga_chapter_number: mcn,
-                podcast_episode_number: pen,
-                metadata_id: si.metadata_id.clone(),
-                provider_watched_on: si.provider_watched_on.clone(),
-            },
-        });
-        self.0
-            .cache_service
-            .expire_key(ExpireCacheKeyInput::ByKey(cache))
-            .await?;
-        let seen_id = si.id.clone();
-        let metadata_id = si.metadata_id.clone();
-        if &si.user_id != user_id {
-            return Err(Error::new(
-                "This seen item does not belong to this user".to_owned(),
-            ));
-        }
-        si.delete(&self.0.db).await.trace_ok();
-        deploy_after_handle_media_seen_tasks(cloned_seen, &self.0).await?;
-        associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, &self.0).await?;
-        Ok(StringIdObject { id: seen_id })
+        progress_operations::delete_seen_item(&self.0, user_id, seen_id).await
     }
 
     async fn regenerate_user_summaries(&self) -> Result<()> {
