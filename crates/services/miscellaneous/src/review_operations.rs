@@ -12,26 +12,20 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrai
 use supporting_service::SupportingService;
 
 pub async fn delete_review(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     review_id: String,
 ) -> Result<bool> {
     let review = Review::find()
         .filter(review::Column::Id.eq(review_id))
-        .one(&supporting_service.db)
+        .one(&ss.db)
         .await
         .unwrap();
     match review {
         Some(r) => {
             if r.user_id == user_id {
-                associate_user_with_entity(
-                    &user_id,
-                    &r.entity_id,
-                    r.entity_lot,
-                    supporting_service,
-                )
-                .await?;
-                r.delete(&supporting_service.db).await?;
+                associate_user_with_entity(&user_id, &r.entity_id, r.entity_lot, ss).await?;
+                r.delete(&ss.db).await?;
                 Ok(true)
             } else {
                 Err(Error::new("This review does not belong to you".to_owned()))
@@ -42,12 +36,12 @@ pub async fn delete_review(
 }
 
 pub async fn create_review_comment(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: CreateReviewCommentInput,
 ) -> Result<bool> {
     let review = Review::find_by_id(input.review_id)
-        .one(&supporting_service.db)
+        .one(&ss.db)
         .await?
         .unwrap();
     let mut comments = review.comments.clone();
@@ -70,7 +64,7 @@ pub async fn create_review_comment(
             .unwrap();
         comment.liked_by.remove(&user_id);
     } else {
-        let user = user_by_id(&user_id, supporting_service).await?;
+        let user = user_by_id(&user_id, ss).await?;
         comments.push(ImportOrExportItemReviewComment {
             id: nanoid!(20),
             text: input.text.unwrap(),
@@ -84,6 +78,6 @@ pub async fn create_review_comment(
     }
     let mut review: review::ActiveModel = review.into();
     review.comments = ActiveValue::Set(comments);
-    review.update(&supporting_service.db).await?;
+    review.update(&ss.db).await?;
     Ok(true)
 }

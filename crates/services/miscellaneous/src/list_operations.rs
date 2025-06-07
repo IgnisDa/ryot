@@ -15,12 +15,12 @@ use sea_query::{Alias, Condition, Expr, Func, extension::postgres::PgExpr};
 use supporting_service::SupportingService;
 
 pub async fn genres_list(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: SearchInput,
 ) -> Result<SearchResults<String>> {
     let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
-    let preferences = user_by_id(&user_id, supporting_service).await?.preferences;
+    let preferences = user_by_id(&user_id, ss).await?.preferences;
     let num_items = "num_items";
     let query = Genre::find()
         .column_as(
@@ -42,7 +42,7 @@ pub async fn genres_list(
     let paginator = query
         .clone()
         .into_model::<GenreListItem>()
-        .paginate(&supporting_service.db, preferences.general.list_page_size);
+        .paginate(&ss.db, preferences.general.list_page_size);
     let ItemsAndPagesNumber {
         number_of_items,
         number_of_pages,

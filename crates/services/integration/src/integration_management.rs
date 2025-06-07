@@ -17,7 +17,7 @@ pub struct IntegrationManager;
 
 impl IntegrationManager {
     pub async fn set_trigger_result(
-        supporting_service: &Arc<SupportingService>,
+        ss: &Arc<SupportingService>,
         error: Option<String>,
         integration: &integration::Model,
     ) -> Result<()> {
@@ -44,12 +44,12 @@ impl IntegrationManager {
             integration.is_disabled = ActiveValue::Set(Some(true));
         }
 
-        let integration = integration.update(&supporting_service.db).await?;
+        let integration = integration.update(&ss.db).await?;
 
         if should_disable {
             send_notification_for_user(
                 &integration.user_id,
-                supporting_service,
+                ss,
                 &(
                     format!(
                         "Integration {} has been disabled due to too many errors",
@@ -65,7 +65,7 @@ impl IntegrationManager {
     }
 
     pub async fn select_integrations_to_process(
-        supporting_service: &Arc<SupportingService>,
+        ss: &Arc<SupportingService>,
         user_id: &String,
         lot: IntegrationLot,
         provider: Option<IntegrationProvider>,
@@ -82,7 +82,7 @@ impl IntegrationManager {
                 query.filter(integration::Column::Provider.eq(provider))
             })
             .order_by_asc(integration::Column::CreatedOn)
-            .all(&supporting_service.db)
+            .all(&ss.db)
             .await?;
         Ok(integrations)
     }

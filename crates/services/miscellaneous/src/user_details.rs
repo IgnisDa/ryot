@@ -20,28 +20,15 @@ use supporting_service::SupportingService;
 
 pub async fn user_metadata_details(
     service: &crate::MiscellaneousService,
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     metadata_id: String,
 ) -> Result<UserMetadataDetails> {
-    let media_details = generic_metadata(&metadata_id, supporting_service).await?;
-    let collections = entity_in_collections(
-        &supporting_service.db,
-        &user_id,
-        &metadata_id,
-        EntityLot::Metadata,
-    )
-    .await?;
-    let reviews = item_reviews(
-        &user_id,
-        &metadata_id,
-        EntityLot::Metadata,
-        true,
-        supporting_service,
-    )
-    .await?;
-    let (_, history) =
-        is_metadata_finished_by_user(&user_id, &metadata_id, &supporting_service.db).await?;
+    let media_details = generic_metadata(&metadata_id, ss).await?;
+    let collections =
+        entity_in_collections(&ss.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
+    let reviews = item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss).await?;
+    let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db).await?;
     let in_progress = history
         .iter()
         .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -126,20 +113,15 @@ pub async fn user_metadata_details(
         .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
         .to_owned();
     let stmt = service.get_db_stmt(seen_select);
-    let seen_by = supporting_service
+    let seen_by = ss
         .db
         .query_one(stmt)
         .await?
         .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
         .unwrap();
     let seen_by: usize = seen_by.try_into().unwrap();
-    let user_to_meta = get_user_to_entity_association(
-        &supporting_service.db,
-        &user_id,
-        &metadata_id,
-        EntityLot::Metadata,
-    )
-    .await;
+    let user_to_meta =
+        get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata).await;
     let average_rating = calculate_average_rating(&reviews);
     let seen_by_user_count = history.len();
     let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
@@ -195,13 +177,8 @@ pub async fn user_metadata_details(
     } else {
         None
     };
-    let is_recently_consumed = get_entity_recently_consumed(
-        &user_id,
-        &metadata_id,
-        EntityLot::Metadata,
-        supporting_service,
-    )
-    .await?;
+    let is_recently_consumed =
+        get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss).await?;
     Ok(UserMetadataDetails {
         reviews,
         history,
@@ -220,35 +197,17 @@ pub async fn user_metadata_details(
 }
 
 pub async fn user_person_details(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     person_id: String,
 ) -> Result<UserPersonDetails> {
-    let reviews = item_reviews(
-        &user_id,
-        &person_id,
-        EntityLot::Person,
-        true,
-        supporting_service,
-    )
-    .await?;
-    let collections = entity_in_collections(
-        &supporting_service.db,
-        &user_id,
-        &person_id,
-        EntityLot::Person,
-    )
-    .await?;
+    let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, ss).await?;
+    let collections =
+        entity_in_collections(&ss.db, &user_id, &person_id, EntityLot::Person).await?;
     let is_recently_consumed =
-        get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, supporting_service)
-            .await?;
-    let person_meta = get_user_to_entity_association(
-        &supporting_service.db,
-        &user_id,
-        &person_id,
-        EntityLot::Person,
-    )
-    .await;
+        get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss).await?;
+    let person_meta =
+        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person).await;
     let average_rating = calculate_average_rating(&reviews);
     Ok(UserPersonDetails {
         reviews,
@@ -260,12 +219,12 @@ pub async fn user_person_details(
 }
 
 pub async fn user_metadata_group_details(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     metadata_group_id: String,
 ) -> Result<UserMetadataGroupDetails> {
     let collections = entity_in_collections(
-        &supporting_service.db,
+        &ss.db,
         &user_id,
         &metadata_group_id,
         EntityLot::MetadataGroup,
@@ -276,19 +235,15 @@ pub async fn user_metadata_group_details(
         &metadata_group_id,
         EntityLot::MetadataGroup,
         true,
-        supporting_service,
+        ss,
     )
     .await?;
-    let is_recently_consumed = get_entity_recently_consumed(
-        &user_id,
-        &metadata_group_id,
-        EntityLot::MetadataGroup,
-        supporting_service,
-    )
-    .await?;
+    let is_recently_consumed =
+        get_entity_recently_consumed(&user_id, &metadata_group_id, EntityLot::MetadataGroup, ss)
+            .await?;
     let average_rating = calculate_average_rating(&reviews);
     let metadata_group_meta = get_user_to_entity_association(
-        &supporting_service.db,
+        &ss.db,
         &user_id,
         &metadata_group_id,
         EntityLot::MetadataGroup,

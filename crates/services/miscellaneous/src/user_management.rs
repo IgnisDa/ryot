@@ -18,14 +18,12 @@ use sea_orm::{
 };
 use supporting_service::SupportingService;
 
-pub async fn cleanup_user_and_metadata_association(
-    supporting_service: &Arc<SupportingService>,
-) -> Result<()> {
+pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) -> Result<()> {
     let all_users = get_user_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await
         .unwrap();
     for user_id in all_users {
@@ -34,7 +32,7 @@ pub async fn cleanup_user_and_metadata_association(
             .column(collection::Column::UserId)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .all(&supporting_service.db)
+            .all(&ss.db)
             .await
             .unwrap();
         let monitoring_collection_id = collections
@@ -60,18 +58,14 @@ pub async fn cleanup_user_and_metadata_association(
         let all_user_to_entities = UserToEntity::find()
             .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
             .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .all(&supporting_service.db)
+            .all(&ss.db)
             .await
             .unwrap();
         for ute in all_user_to_entities {
             let mut new_reasons = HashSet::new();
             let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
-                let (is_finished, seen_history) = is_metadata_finished_by_user(
-                    &ute.user_id,
-                    &metadata_id,
-                    &supporting_service.db,
-                )
-                .await?;
+                let (is_finished, seen_history) =
+                    is_metadata_finished_by_user(&ute.user_id, &metadata_id, &ss.db).await?;
                 if !seen_history.is_empty() {
                     new_reasons.insert(UserToMediaReason::Seen);
                 }
@@ -89,7 +83,7 @@ pub async fn cleanup_user_and_metadata_association(
             };
 
             let collections_part_of =
-                entity_in_collections(&supporting_service.db, &user_id, &entity_id, entity_lot)
+                entity_in_collections(&ss.db, &user_id, &entity_id, entity_lot)
                     .await?
                     .into_iter()
                     .map(|c| c.id)
@@ -102,7 +96,7 @@ pub async fn cleanup_user_and_metadata_association(
                         .or(review::Column::MetadataGroupId.eq(ute.metadata_group_id.clone()))
                         .or(review::Column::PersonId.eq(ute.person_id.clone())),
                 )
-                .count(&supporting_service.db)
+                .count(&ss.db)
                 .await
                 .unwrap()
                 > 0
@@ -133,7 +127,7 @@ pub async fn cleanup_user_and_metadata_association(
                 HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
             if new_reasons.is_empty() {
                 ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
-                ute.delete(&supporting_service.db).await.unwrap();
+                ute.delete(&ss.db).await.unwrap();
             } else {
                 let mut ute: user_to_entity::ActiveModel = ute.into();
                 if new_reasons != previous_reasons {
@@ -141,10 +135,10 @@ pub async fn cleanup_user_and_metadata_association(
                     ute.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                 }
                 ute.needs_to_be_updated = ActiveValue::Set(None);
-                ute.update(&supporting_service.db).await.unwrap();
+                ute.update(&ss.db).await.unwrap();
             }
         }
-        expire_user_metadata_list_cache(&user_id, supporting_service).await?;
+        expire_user_metadata_list_cache(&user_id, ss).await?;
     }
     Ok(())
 }

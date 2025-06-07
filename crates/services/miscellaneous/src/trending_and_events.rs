@@ -15,12 +15,10 @@ use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter, QueryOrder, Query
 use sea_query::Expr;
 use supporting_service::SupportingService;
 
-pub async fn trending_metadata(
-    supporting_service: &Arc<SupportingService>,
-) -> Result<TrendingMetadataIdsResponse> {
+pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMetadataIdsResponse> {
     let key = ApplicationCacheKey::TrendingMetadataIds;
     let (_id, cached) = 'calc: {
-        if let Some(x) = supporting_service
+        if let Some(x) = ss
             .cache_service
             .get_value::<TrendingMetadataIdsResponse>(key)
             .await
@@ -32,7 +30,7 @@ pub async fn trending_metadata(
             .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
 
         for (lot, source) in provider_configs {
-            let provider = match get_metadata_provider(lot, source, supporting_service).await {
+            let provider = match get_metadata_provider(lot, source, ss).await {
                 Ok(p) => p,
                 Err(_) => continue,
             };
@@ -41,14 +39,14 @@ pub async fn trending_metadata(
                 Err(_) => continue,
             };
             for item in media {
-                if let Ok(metadata) = commit_metadata(item, supporting_service).await {
+                if let Ok(metadata) = commit_metadata(item, ss).await {
                     trending_ids.insert(metadata.id);
                 }
             }
         }
 
         let vec = trending_ids.into_iter().collect_vec();
-        let id = supporting_service
+        let id = ss
             .cache_service
             .set_key(
                 ApplicationCacheKey::TrendingMetadataIds,
@@ -63,19 +61,17 @@ pub async fn trending_metadata(
         .filter(metadata::Column::Id.is_in(cached))
         .order_by_desc(metadata::Column::LastUpdatedOn)
         .into_tuple::<String>()
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await?;
     Ok(actually_in_db)
 }
 
 pub async fn handle_review_posted_event(
     service: &crate::MiscellaneousService,
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     event: ReviewPostedEvent,
 ) -> Result<()> {
-    let monitored_by =
-        get_users_monitoring_entity(&event.obj_id, event.entity_lot, &supporting_service.db)
-            .await?;
+    let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, &ss.db).await?;
     let users = get_user_query()
         .select_only()
         .column(user::Column::Id)
@@ -85,7 +81,7 @@ pub async fn handle_review_posted_event(
             UserNotificationContent::ReviewPosted
         )))
         .into_tuple::<String>()
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await?;
     for user_id in users {
         let url = service.get_entity_details_frontend_url(
@@ -95,7 +91,7 @@ pub async fn handle_review_posted_event(
         );
         send_notification_for_user(
             &user_id,
-            supporting_service,
+            ss,
             &(
                 format!(
                     "New review posted for {} ({}, {}) by {}.",

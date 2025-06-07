@@ -17,15 +17,11 @@ use supporting_service::SupportingService;
 use traits::TraceOk;
 
 pub async fn update_seen_item(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UpdateSeenItemInput,
 ) -> Result<bool> {
-    let Some(seen) = Seen::find_by_id(input.seen_id)
-        .one(&supporting_service.db)
-        .await
-        .unwrap()
-    else {
+    let Some(seen) = Seen::find_by_id(input.seen_id).one(&ss.db).await.unwrap() else {
         return Err(Error::new("No seen found for this user and metadata"));
     };
     if seen.user_id != user_id {
@@ -47,10 +43,7 @@ pub async fn update_seen_item(
     if let Some(review_id) = input.review_id {
         let (review, to_update_review_id) = match review_id.is_empty() {
             false => (
-                Review::find_by_id(&review_id)
-                    .one(&supporting_service.db)
-                    .await
-                    .unwrap(),
+                Review::find_by_id(&review_id).one(&ss.db).await.unwrap(),
                 Some(review_id),
             ),
             true => (None, None),
@@ -64,20 +57,17 @@ pub async fn update_seen_item(
         }
         seen.review_id = ActiveValue::Set(to_update_review_id);
     }
-    let seen = seen.update(&supporting_service.db).await.unwrap();
-    deploy_after_handle_media_seen_tasks(seen, supporting_service).await?;
+    let seen = seen.update(&ss.db).await.unwrap();
+    deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(true)
 }
 
 pub async fn delete_seen_item(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     seen_id: String,
 ) -> Result<StringIdObject> {
-    let seen_item = Seen::find_by_id(seen_id)
-        .one(&supporting_service.db)
-        .await
-        .unwrap();
+    let seen_item = Seen::find_by_id(seen_id).one(&ss.db).await.unwrap();
     let Some(si) = seen_item else {
         return Err(Error::new("This seen item does not exist".to_owned()));
     };
@@ -103,8 +93,7 @@ pub async fn delete_seen_item(
             provider_watched_on: si.provider_watched_on.clone(),
         },
     });
-    supporting_service
-        .cache_service
+    ss.cache_service
         .expire_key(ExpireCacheKeyInput::ByKey(cache))
         .await?;
     let seen_id = si.id.clone();
@@ -114,27 +103,19 @@ pub async fn delete_seen_item(
             "This seen item does not belong to this user".to_owned(),
         ));
     }
-    si.delete(&supporting_service.db).await.trace_ok();
-    deploy_after_handle_media_seen_tasks(cloned_seen, supporting_service).await?;
-    associate_user_with_entity(
-        user_id,
-        &metadata_id,
-        EntityLot::Metadata,
-        supporting_service,
-    )
-    .await?;
+    si.delete(&ss.db).await.trace_ok();
+    deploy_after_handle_media_seen_tasks(cloned_seen, ss).await?;
+    associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss).await?;
     Ok(StringIdObject { id: seen_id })
 }
 
 pub async fn bulk_progress_update(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: Vec<ProgressUpdateInput>,
 ) -> Result<()> {
     for seen in input {
-        progress_update(&user_id, false, seen, supporting_service)
-            .await
-            .trace_ok();
+        progress_update(&user_id, false, seen, ss).await.trace_ok();
     }
     Ok(())
 }

@@ -11,19 +11,15 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub async fn expire_cache_key(
-    supporting_service: &SupportingService,
-    cache_id: Uuid,
-) -> Result<bool> {
-    supporting_service
-        .cache_service
+pub async fn expire_cache_key(ss: &SupportingService, cache_id: Uuid) -> Result<bool> {
+    ss.cache_service
         .expire_key(ExpireCacheKeyInput::ById(cache_id))
         .await?;
     Ok(true)
 }
 
 pub async fn mark_entity_as_partial(
-    supporting_service: &SupportingService,
+    ss: &SupportingService,
     _user_id: &str,
     input: MarkEntityAsPartialInput,
 ) -> Result<bool> {
@@ -32,21 +28,21 @@ pub async fn mark_entity_as_partial(
             Metadata::update_many()
                 .filter(metadata::Column::Id.eq(&input.entity_id))
                 .col_expr(metadata::Column::IsPartial, Expr::value(true))
-                .exec(&supporting_service.db)
+                .exec(&ss.db)
                 .await?;
         }
         EntityLot::MetadataGroup => {
             MetadataGroup::update_many()
                 .filter(metadata_group::Column::Id.eq(&input.entity_id))
                 .col_expr(metadata_group::Column::IsPartial, Expr::value(true))
-                .exec(&supporting_service.db)
+                .exec(&ss.db)
                 .await?;
         }
         EntityLot::Person => {
             Person::update_many()
                 .filter(person::Column::Id.eq(&input.entity_id))
                 .col_expr(person::Column::IsPartial, Expr::value(true))
-                .exec(&supporting_service.db)
+                .exec(&ss.db)
                 .await?;
         }
         _ => return Err(Error::new("Invalid entity lot".to_owned())),

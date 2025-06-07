@@ -18,12 +18,12 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn merge_metadata(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     merge_from: String,
     merge_into: String,
 ) -> Result<bool> {
-    let txn = supporting_service.db.begin().await?;
+    let txn = ss.db.begin().await?;
     for old_seen in Seen::find()
         .filter(seen::Column::MetadataId.eq(&merge_from))
         .filter(seen::Column::UserId.eq(&user_id))
@@ -112,24 +112,24 @@ pub async fn merge_metadata(
 }
 
 pub async fn disassociate_metadata(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     metadata_id: String,
 ) -> Result<bool> {
     let delete_review = Review::delete_many()
         .filter(review::Column::MetadataId.eq(&metadata_id))
         .filter(review::Column::UserId.eq(&user_id))
-        .exec(&supporting_service.db)
+        .exec(&ss.db)
         .await?;
     ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
     let delete_seen = Seen::delete_many()
         .filter(seen::Column::MetadataId.eq(&metadata_id))
         .filter(seen::Column::UserId.eq(&user_id))
-        .exec(&supporting_service.db)
+        .exec(&ss.db)
         .await?;
     ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
     let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
-        &supporting_service.db,
+        &ss.db,
         &user_id,
         &metadata_id,
         EntityLot::Metadata,
@@ -139,7 +139,7 @@ pub async fn disassociate_metadata(
     .map(|(_, id)| id);
     let delete_collections = CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
-        .exec(&supporting_service.db)
+        .exec(&ss.db)
         .await?;
     ryot_log!(
         debug,
@@ -149,8 +149,8 @@ pub async fn disassociate_metadata(
     UserToEntity::delete_many()
         .filter(user_to_entity::Column::MetadataId.eq(metadata_id.clone()))
         .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
-        .exec(&supporting_service.db)
+        .exec(&ss.db)
         .await?;
-    expire_user_metadata_list_cache(&user_id, supporting_service).await?;
+    expire_user_metadata_list_cache(&user_id, ss).await?;
     Ok(true)
 }

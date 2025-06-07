@@ -60,7 +60,7 @@ pub async fn user_calendar_events(
 
 pub async fn user_upcoming_calendar_events(
     service: &crate::MiscellaneousService,
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UserUpcomingCalendarEventInput,
 ) -> Result<Vec<GraphqlCalendarEvent>> {
@@ -71,10 +71,7 @@ pub async fn user_upcoming_calendar_events(
             (None, start_date.checked_add_days(Days::new(d)))
         }
     };
-    let preferences = user_by_id(&user_id, supporting_service)
-        .await?
-        .preferences
-        .general;
+    let preferences = user_by_id(&user_id, ss).await?.preferences.general;
     let element = preferences
         .dashboard
         .iter()
@@ -278,7 +275,7 @@ pub async fn queue_notifications_for_released_media(
 
 pub async fn get_calendar_events(
     service: &crate::MiscellaneousService,
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     only_monitored: bool,
     start_date: Option<NaiveDate>,
@@ -374,10 +371,10 @@ pub async fn get_calendar_events(
         )
         .order_by(Alias::new("date"), Order::Asc)
         .to_owned();
-    let user_preferences = user_by_id(&user_id, supporting_service).await?.preferences;
+    let user_preferences = user_by_id(&user_id, ss).await?.preferences;
     let show_spoilers_in_calendar = user_preferences.general.show_spoilers_in_calendar;
     let all_events = CalEvent::find_by_statement(service.get_db_stmt(stmt))
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await?;
     let mut events = vec![];
     for evt in all_events {
@@ -424,7 +421,7 @@ pub async fn get_calendar_events(
     Ok(events)
 }
 
-pub async fn queue_pending_reminders(supporting_service: &Arc<SupportingService>) -> Result<()> {
+pub async fn queue_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct UserMediaReminder {
@@ -434,22 +431,19 @@ pub async fn queue_pending_reminders(supporting_service: &Arc<SupportingService>
     for (cte, col) in CollectionToEntity::find()
         .find_also_related(Collection)
         .filter(collection::Column::Name.eq(DefaultCollection::Reminders.to_string()))
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await?
     {
         if let Some(reminder) = cte.information {
             let reminder: UserMediaReminder =
                 serde_json::from_str(&serde_json::to_string(&reminder)?)?;
             let col = col.unwrap();
-            let related_users = col
-                .find_related(UserToEntity)
-                .all(&supporting_service.db)
-                .await?;
-            if get_current_date(&supporting_service.timezone) == reminder.reminder {
+            let related_users = col.find_related(UserToEntity).all(&ss.db).await?;
+            if get_current_date(&ss.timezone) == reminder.reminder {
                 for user in related_users {
                     send_notification_for_user(
                         &user.user_id,
-                        supporting_service,
+                        ss,
                         &(
                             reminder.text.clone(),
                             UserNotificationContent::NotificationFromReminderCollection,
@@ -465,7 +459,7 @@ pub async fn queue_pending_reminders(supporting_service: &Arc<SupportingService>
                             entity_lot: cte.entity_lot,
                             ..Default::default()
                         },
-                        supporting_service,
+                        ss,
                     )
                     .await?;
                 }

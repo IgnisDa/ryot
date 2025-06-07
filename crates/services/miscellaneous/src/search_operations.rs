@@ -21,11 +21,11 @@ use media_models::{
 use supporting_service::SupportingService;
 
 pub async fn metadata_search(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     input: MetadataSearchInput,
 ) -> Result<MetadataSearchResponse> {
-    let cc = &supporting_service.cache_service;
+    let cc = &ss.cache_service;
     let cache_key = ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.to_owned(),
@@ -37,8 +37,8 @@ pub async fn metadata_search(
     if query.is_empty() {
         return Ok(SearchResults::default());
     }
-    let preferences = user_by_id(user_id, supporting_service).await?.preferences;
-    let provider = get_metadata_provider(input.lot, input.source, supporting_service).await?;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
+    let provider = get_metadata_provider(input.lot, input.source, ss).await?;
     let results = provider
         .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
         .await?;
@@ -52,7 +52,7 @@ pub async fn metadata_search(
                 publish_year: i.publish_year,
                 identifier: i.identifier.clone(),
             },
-            supporting_service,
+            ss,
         )
     });
     let metadata_items = try_join_all(promises)
@@ -73,11 +73,11 @@ pub async fn metadata_search(
 }
 
 pub async fn people_search(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     input: PeopleSearchInput,
 ) -> Result<PeopleSearchResponse> {
-    let cc = &supporting_service.cache_service;
+    let cc = &ss.cache_service;
     let cache_key = ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.clone(),
@@ -89,8 +89,8 @@ pub async fn people_search(
     if query.is_empty() {
         return Ok(SearchResults::default());
     }
-    let preferences = user_by_id(user_id, supporting_service).await?.preferences;
-    let provider = get_non_metadata_provider(input.source, supporting_service).await?;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
+    let provider = get_non_metadata_provider(input.source, ss).await?;
     let results = provider
         .people_search(
             &query,
@@ -108,7 +108,7 @@ pub async fn people_search(
                 identifier: i.identifier.clone(),
                 source_specifics: input.source_specifics.clone(),
             },
-            supporting_service,
+            ss,
         )
     });
     let person_items = try_join_all(promises)
@@ -129,11 +129,11 @@ pub async fn people_search(
 }
 
 pub async fn metadata_group_search(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     input: MetadataGroupSearchInput,
 ) -> Result<MetadataGroupSearchResponse> {
-    let cc = &supporting_service.cache_service;
+    let cc = &ss.cache_service;
     let cache_key = ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.clone(),
@@ -145,8 +145,8 @@ pub async fn metadata_group_search(
     if query.is_empty() {
         return Ok(SearchResults::default());
     }
-    let preferences = user_by_id(user_id, supporting_service).await?.preferences;
-    let provider = get_metadata_provider(input.lot, input.source, supporting_service).await?;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
+    let provider = get_metadata_provider(input.lot, input.source, ss).await?;
     let results = provider
         .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
         .await?;
@@ -162,7 +162,7 @@ pub async fn metadata_group_search(
                     identifier: i.identifier.clone(),
                 },
             },
-            supporting_service,
+            ss,
         )
     });
     let metadata_group_items = try_join_all(promises)
