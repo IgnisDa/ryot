@@ -8,6 +8,10 @@ import {
 
 const httpCallTimeoutMs = 8_000;
 
+const DEFAULT_HEADERS: Record<string, string> = {
+	"User-Agent": "Ryot ( https://github.com/ignisda/ryot )",
+};
+
 const parseHttpCallOptions = (options: unknown) => {
 	if (options === undefined || options === null) {
 		return {};
@@ -96,8 +100,8 @@ export const httpCall: HostFunction<Record<string, never>> = async (
 	try {
 		const response = await fetch(requestUrl.toString(), {
 			body: parsedOptions.body,
-			headers: parsedOptions.headers,
 			method: method.trim().toUpperCase(),
+			headers: { ...DEFAULT_HEADERS, ...parsedOptions.headers },
 			signal: AbortSignal.timeout(httpCallTimeoutMs),
 		});
 
