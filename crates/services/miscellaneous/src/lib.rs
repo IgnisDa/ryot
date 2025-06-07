@@ -9,84 +9,68 @@ use application_utils::{
 };
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use chrono::{Days, Duration, NaiveDate, Utc};
+use chrono::{NaiveDate, Utc};
 use common_models::{
     BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
-    IdAndNamedObject, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput,
-    ProgressUpdateCacheInput, SearchDetails, SearchInput, StringIdObject, UserLevelCacheKey,
+    MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput,
+    SearchDetails, SearchInput, StringIdObject, UserLevelCacheKey,
 };
-use common_utils::{
-    BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE,
-    SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log,
-};
-use convert_case::{Case, Casing};
+use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
 use database_models::{
-    access_link, application_cache, calendar_event, collection, collection_to_entity,
+    access_link, calendar_event, collection,
     functions::get_user_to_entity_association,
-    genre, import_report, metadata, metadata_group, metadata_to_genre, metadata_to_metadata_group,
-    monitored_entity, person,
+    genre, metadata, metadata_group, metadata_to_metadata_group, monitored_entity, person,
     prelude::{
-        AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadataGroup,
-        MonitoredEntity, Person, Review, Seen, User, UserToEntity,
+        AccessLink, CalendarEvent, Collection, CollectionToEntity, Genre, Metadata, MetadataGroup,
+        MetadataToMetadataGroup, MonitoredEntity, Person, Review, Seen, User, UserToEntity,
     },
     review, seen, user, user_to_entity,
 };
 use database_utils::{
-    entity_in_collections, entity_in_collections_with_collection_to_entity_ids, get_user_query,
-    ilike_sql, item_reviews, revoke_access_link, transform_entity_assets, user_by_id,
+    entity_in_collections, get_user_query, ilike_sql, item_reviews, revoke_access_link,
+    transform_entity_assets, user_by_id,
 };
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
-    CoreDetails, ExpireCacheKeyInput, GenreDetails, GraphqlPersonDetails, MetadataBaseData,
-    MetadataGroupDetails, MetadataGroupSearchResponse, MetadataSearchResponse,
-    PeopleSearchResponse, SearchResults, TrendingMetadataIdsResponse, UserMetadataDetails,
-    UserMetadataGroupDetails, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
-    UserPersonDetails,
+    ApplicationCacheKey, CachedResponse, CoreDetails, ExpireCacheKeyInput, GenreDetails,
+    GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, MetadataGroupSearchResponse,
+    MetadataSearchResponse, PeopleSearchResponse, SearchResults, TrendingMetadataIdsResponse,
+    UserMetadataDetails, UserMetadataGroupDetails, UserMetadataGroupsListInput,
+    UserMetadataGroupsListResponse, UserMetadataListInput, UserMetadataListResponse,
+    UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
-    add_entity_to_collection, associate_user_with_entity, calculate_user_activities_and_summary,
-    change_metadata_associations, commit_metadata, commit_metadata_group, commit_person,
+    associate_user_with_entity, calculate_user_activities_and_summary,
     deploy_after_handle_media_seen_tasks, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, expire_user_metadata_list_cache,
-    generic_metadata, get_entity_recently_consumed, get_entity_title_from_id_and_lot,
-    get_metadata_provider, get_non_metadata_provider, get_users_monitoring_entity,
-    handle_after_metadata_seen_tasks, is_metadata_finished_by_user, post_review, progress_update,
-    remove_entity_from_collection, send_notification_for_user, update_metadata_and_notify_users,
+    generic_metadata, get_entity_recently_consumed, handle_after_metadata_seen_tasks,
+    is_metadata_finished_by_user, post_review, progress_update, remove_entity_from_collection,
+    send_notification_for_user, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
-use enum_meta::Meta;
 use enum_models::{
     EntityLot, MediaLot, MediaSource, SeenState, UserNotificationContent, UserToMediaReason,
 };
-use futures::{
-    TryStreamExt,
-    future::{join_all, try_join_all},
-};
+use futures::future::join_all;
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, CommitPersonInput, CreateCustomMetadataInput,
-    CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
-    GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
-    ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator,
-    PartialMetadataWithoutId, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
-    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
-    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
-    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
+    CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
+    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails,
+    GraphqlMetadataGroup, GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataFreeCreator,
+    PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
+    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
+    UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
 };
-use nanoid::nanoid;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend,
-    DatabaseConnection, EntityTrait, FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType,
-    ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    RelationTrait, Statement, TransactionTrait, prelude::DateTimeUtc, query::UpdateMany,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DatabaseBackend, EntityTrait,
+    FromQueryResult, ItemsAndPagesNumber, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement, prelude::DateTimeUtc,
 };
 use sea_query::{
     Alias, Asterisk, Condition, Expr, Func, PgFunc, PostgresQueryBuilder, Query, SelectStatement,
@@ -95,7 +79,6 @@ use sea_query::{
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use traits::TraceOk;
-use user_models::DashboardElementLot;
 use uuid::Uuid;
 
 mod background_operations;

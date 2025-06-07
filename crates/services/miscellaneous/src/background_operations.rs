@@ -10,7 +10,7 @@ use database_models::{
     metadata, metadata_group, metadata_to_genre, person,
     prelude::{
         AccessLink, ApplicationCache, Collection, CollectionToEntity, Genre, ImportReport,
-        Metadata, MetadataGroup, MetadataToGenre, Person, Seen, User, UserToEntity,
+        Metadata, MetadataGroup, MetadataToGenre, Person, Seen, UserToEntity,
     },
     seen, user, user_to_entity,
 };
@@ -22,10 +22,9 @@ use dependent_utils::{get_entity_title_from_id_and_lot, send_notification_for_us
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    JoinType, ModelTrait, QueryFilter, QuerySelect, RelationTrait, prelude::DateTimeUtc,
-    query::UpdateMany,
+    ModelTrait, QueryFilter, QuerySelect, prelude::DateTimeUtc, query::UpdateMany,
 };
-use sea_query::{Expr, Query};
+use sea_query::Expr;
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;

@@ -1,12 +1,11 @@
 use application_utils::get_current_date;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
 use async_graphql::Result;
-use chrono::{Days, Timelike, Utc};
+use chrono::{Days, Utc};
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log};
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
     metadata::{self, Entity as Metadata},
-    prelude::CalendarEvent as CalendarEventEntity,
 };
 use database_utils::user_by_id;
 use dependent_utils::get_users_monitoring_entity;
@@ -19,10 +18,7 @@ use media_models::{
     SeenShowExtraInformation,
 };
 use media_models::{GroupedCalendarEvent, UserCalendarEventInput, UserUpcomingCalendarEventInput};
-use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter,
-    RelationTrait, StreamTrait,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use std::sync::Arc;
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
