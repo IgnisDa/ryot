@@ -1,24 +1,38 @@
 use application_utils::get_current_date;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
 use async_graphql::Result;
-use chrono::{Days, Utc};
+use chrono::{Days, NaiveDate, Utc};
+use common_models::EntityAssets;
+use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log};
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
+    collection::{self, Entity as Collection},
+    collection_to_entity::Entity as CollectionToEntity,
     metadata::{self, Entity as Metadata},
+    prelude::UserToEntity,
+    user_to_entity,
 };
 use database_utils::user_by_id;
-use dependent_utils::get_users_monitoring_entity;
-use dependent_utils::send_notification_for_user;
-use enum_models::{EntityLot, UserNotificationContent};
+use dependent_utils::{
+    get_users_monitoring_entity, remove_entity_from_collection, send_notification_for_user,
+};
+use enum_models::{EntityLot, MediaLot, UserNotificationContent, UserToMediaReason};
 use futures::TryStreamExt;
 use itertools::Itertools;
 use media_models::{
-    GraphqlCalendarEvent, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation,
+    GraphqlCalendarEvent, PodcastSpecifics, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics,
 };
 use media_models::{GroupedCalendarEvent, UserCalendarEventInput, UserUpcomingCalendarEventInput};
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use migrations::{AliasedCalendarEvent, AliasedMetadata, AliasedUserToEntity};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, JoinType, ModelTrait,
+    Order, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
+};
+use sea_query::{Alias, Asterisk, Condition, Expr, PgFunc, Query};
+use serde::{Deserialize, Serialize};
+use serde_json;
 use std::sync::Arc;
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
@@ -257,6 +271,205 @@ pub async fn queue_notifications_for_released_media(
             get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &service.db).await?;
         for user in users_to_notify {
             send_notification_for_user(&user, service, &notification).await?;
+        }
+    }
+    Ok(())
+}
+
+pub async fn get_calendar_events(
+    service: &crate::MiscellaneousService,
+    supporting_service: &Arc<SupportingService>,
+    user_id: String,
+    only_monitored: bool,
+    start_date: Option<NaiveDate>,
+    end_date: Option<NaiveDate>,
+    media_limit: Option<u64>,
+    deduplicate: Option<bool>,
+) -> Result<Vec<GraphqlCalendarEvent>> {
+    #[derive(Debug, FromQueryResult, Clone)]
+    struct CalEvent {
+        id: String,
+        date: NaiveDate,
+        m_lot: MediaLot,
+        m_title: String,
+        metadata_id: String,
+        m_assets: EntityAssets,
+        m_show_specifics: Option<ShowSpecifics>,
+        m_podcast_specifics: Option<PodcastSpecifics>,
+        metadata_show_extra_information: Option<SeenShowExtraInformation>,
+        metadata_anime_extra_information: Option<SeenAnimeExtraInformation>,
+        metadata_podcast_extra_information: Option<SeenPodcastExtraInformation>,
+    }
+
+    let stmt = Query::select()
+        .column(Asterisk)
+        .from_subquery(
+            CalendarEvent::find()
+                .apply_if(deduplicate.filter(|&d| d), |query, _v| {
+                    query
+                        .distinct_on([(
+                            AliasedCalendarEvent::Table,
+                            AliasedCalendarEvent::MetadataId,
+                        )])
+                        .order_by_asc(Expr::col((
+                            AliasedCalendarEvent::Table,
+                            AliasedCalendarEvent::MetadataId,
+                        )))
+                })
+                .column_as(
+                    Expr::col((AliasedMetadata::Table, AliasedMetadata::Lot)),
+                    "m_lot",
+                )
+                .column_as(
+                    Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
+                    "m_title",
+                )
+                .column_as(
+                    Expr::col((AliasedMetadata::Table, AliasedMetadata::Assets)),
+                    "m_assets",
+                )
+                .column_as(
+                    Expr::col((AliasedMetadata::Table, AliasedMetadata::ShowSpecifics)),
+                    "m_show_specifics",
+                )
+                .column_as(
+                    Expr::col((AliasedMetadata::Table, AliasedMetadata::PodcastSpecifics)),
+                    "m_podcast_specifics",
+                )
+                .filter(
+                    Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                        .eq(&user_id),
+                )
+                .inner_join(Metadata)
+                .join_rev(
+                    JoinType::Join,
+                    UserToEntity::belongs_to(CalendarEvent)
+                        .from(user_to_entity::Column::MetadataId)
+                        .to(calendar_event::Column::MetadataId)
+                        .on_condition(move |left, _right| {
+                            Condition::all().add_option(match only_monitored {
+                                true => {
+                                    Some(Expr::val(UserToMediaReason::Monitoring.to_string()).eq(
+                                        PgFunc::any(Expr::col((
+                                            left,
+                                            user_to_entity::Column::MediaReason,
+                                        ))),
+                                    ))
+                                }
+                                false => None,
+                            })
+                        })
+                        .into(),
+                )
+                .order_by_asc(calendar_event::Column::Date)
+                .apply_if(start_date, |q, v| {
+                    q.filter(calendar_event::Column::Date.gte(v))
+                })
+                .apply_if(end_date, |q, v| {
+                    q.filter(calendar_event::Column::Date.lte(v))
+                })
+                .limit(media_limit)
+                .into_query(),
+            Alias::new("sub_query"),
+        )
+        .order_by(Alias::new("date"), Order::Asc)
+        .to_owned();
+    let user_preferences = user_by_id(&user_id, supporting_service).await?.preferences;
+    let show_spoilers_in_calendar = user_preferences.general.show_spoilers_in_calendar;
+    let all_events = CalEvent::find_by_statement(service.get_db_stmt(stmt))
+        .all(&supporting_service.db)
+        .await?;
+    let mut events = vec![];
+    for evt in all_events {
+        let mut calc = GraphqlCalendarEvent {
+            date: evt.date,
+            metadata_lot: evt.m_lot,
+            calendar_event_id: evt.id,
+            metadata_text: evt.m_title,
+            metadata_id: evt.metadata_id,
+            ..Default::default()
+        };
+        let mut image = None;
+
+        if let Some(s) = evt.metadata_show_extra_information {
+            if let Some(sh) = evt.m_show_specifics {
+                if let Some((_, ep)) = get_show_episode_by_numbers(&sh, s.season, s.episode) {
+                    image = ep.poster_images.first().cloned();
+                    if show_spoilers_in_calendar {
+                        calc.metadata_text = ep.name.clone();
+                    }
+                }
+            }
+            calc.show_extra_information = Some(s);
+        } else if let Some(p) = evt.metadata_podcast_extra_information {
+            if let Some(po) = evt.m_podcast_specifics {
+                if let Some(ep) = get_podcast_episode_by_number(&po, p.episode) {
+                    image = ep.thumbnail.clone();
+                    if show_spoilers_in_calendar {
+                        calc.metadata_text = ep.title.clone();
+                    }
+                }
+            };
+            calc.podcast_extra_information = Some(p);
+        } else if let Some(a) = evt.metadata_anime_extra_information {
+            calc.anime_extra_information = Some(a);
+        };
+
+        if image.is_none() {
+            image = evt.m_assets.remote_images.first().cloned();
+        }
+        calc.metadata_image = image;
+        events.push(calc);
+    }
+    Ok(events)
+}
+
+pub async fn queue_pending_reminders(supporting_service: &Arc<SupportingService>) -> Result<()> {
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    struct UserMediaReminder {
+        reminder: NaiveDate,
+        text: String,
+    }
+    for (cte, col) in CollectionToEntity::find()
+        .find_also_related(Collection)
+        .filter(collection::Column::Name.eq(DefaultCollection::Reminders.to_string()))
+        .all(&supporting_service.db)
+        .await?
+    {
+        if let Some(reminder) = cte.information {
+            let reminder: UserMediaReminder =
+                serde_json::from_str(&serde_json::to_string(&reminder)?)?;
+            let col = col.unwrap();
+            let related_users = col
+                .find_related(UserToEntity)
+                .all(&supporting_service.db)
+                .await?;
+            if get_current_date(&supporting_service.timezone) == reminder.reminder {
+                for user in related_users {
+                    send_notification_for_user(
+                        &user.user_id,
+                        supporting_service,
+                        &(
+                            reminder.text.clone(),
+                            UserNotificationContent::NotificationFromReminderCollection,
+                        ),
+                    )
+                    .await?;
+                    remove_entity_from_collection(
+                        &user.user_id,
+                        ChangeCollectionToEntityInput {
+                            creator_user_id: col.user_id.clone(),
+                            collection_name: DefaultCollection::Reminders.to_string(),
+                            entity_id: cte.entity_id.clone(),
+                            entity_lot: cte.entity_lot,
+                            ..Default::default()
+                        },
+                        supporting_service,
+                    )
+                    .await?;
+                }
+            }
         }
     }
     Ok(())
