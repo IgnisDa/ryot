@@ -9,6 +9,7 @@ import {
 	findBuiltinSchemaWithProviders,
 	findBuiltinTracker,
 	getEntitySchema,
+	getFirstProviderScriptId,
 	listEntitySchemas,
 	pollEntityImportResult,
 	pollEntitySearchResult,
@@ -577,10 +578,7 @@ describe("POST /entity-schemas/search", () => {
 	it("returns 200 with a jobId when given a valid builtin script", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const scriptId = schema.providers[0]?.scriptId;
-		if (!scriptId) {
-			throw new Error("No search provider found");
-		}
+		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntitySearch(client, cookies, {
 			scriptId,
@@ -626,10 +624,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 			await createAuthenticatedClient();
 
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
-		const scriptId = schema.providers[0]?.scriptId;
-		if (!scriptId) {
-			throw new Error("No search provider found");
-		}
+		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntitySearch(clientA, cookiesA, {
 			scriptId,
@@ -648,10 +643,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	it("reaches a terminal state for a builtin search script", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const scriptId = schema.providers[0]?.scriptId;
-		if (!scriptId) {
-			throw new Error("No search provider found");
-		}
+		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntitySearch(client, cookies, {
 			scriptId,
@@ -660,9 +652,7 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 
 		const result = await pollEntitySearchResult(client, cookies, jobId);
 
-		expect(result.status === "completed" || result.status === "failed").toBe(
-			true,
-		);
+		expect(["completed", "failed"]).toContain(result.status);
 	}, 30_000);
 });
 
@@ -684,10 +674,7 @@ describe("POST /entity-schemas/import", () => {
 	it("returns 200 with a jobId when given valid builtin script and schema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const scriptId = schema.providers[0]?.scriptId;
-		if (!scriptId) {
-			throw new Error("No provider found");
-		}
+		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
 			scriptId,
@@ -734,10 +721,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 			await createAuthenticatedClient();
 
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
-		const scriptId = schema.providers[0]?.scriptId;
-		if (!scriptId) {
-			throw new Error("No provider found");
-		}
+		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
 			scriptId,
@@ -774,8 +758,6 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 			timeoutMs: 30_000,
 		});
 
-		expect(result.status === "completed" || result.status === "failed").toBe(
-			true,
-		);
+		expect(["completed", "failed"]).toContain(result.status);
 	});
 });
