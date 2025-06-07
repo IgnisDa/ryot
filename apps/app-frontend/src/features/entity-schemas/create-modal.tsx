@@ -1,8 +1,10 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button, Group, Modal, Stack } from "@mantine/core";
+import { FormError } from "~/components/PageStates";
 import type { CreateEntitySchemaPayload } from "~/features/entity-schemas/form";
 import { EntitySchemaPropertiesBuilder } from "~/features/entity-schemas/properties-builder";
 import { useCreateEntitySchemaForm } from "~/features/entity-schemas/use-form";
 import { TrackerIcon, trackerIconSelectData } from "~/features/trackers/icons";
+import { createFormSubmitHandler } from "~/hooks/forms";
 
 export interface EntitySchemaCreateModalProps {
 	opened: boolean;
@@ -28,20 +30,10 @@ export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 			onClose={props.onClose}
 			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
 		>
-			<form
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					void entitySchemaForm.handleSubmit();
-				}}
-			>
+			<form onSubmit={createFormSubmitHandler(entitySchemaForm.handleSubmit)}>
 				<entitySchemaForm.AppForm>
 					<Stack gap="md">
-						{props.errorMessage && (
-							<Text c="red" size="sm">
-								{props.errorMessage}
-							</Text>
-						)}
+						<FormError message={props.errorMessage} />
 
 						<entitySchemaForm.AppField
 							name="name"

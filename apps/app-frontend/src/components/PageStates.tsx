@@ -18,6 +18,17 @@ export function LoadingState() {
 	);
 }
 
+export function FormError(props: { message: string | null | undefined }) {
+	if (!props.message) {
+		return null;
+	}
+	return (
+		<Text c="red" size="sm">
+			{props.message}
+		</Text>
+	);
+}
+
 export function ErrorState(props: {
 	title: string;
 	description: string;
