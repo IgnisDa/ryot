@@ -1,5 +1,4 @@
 use std::{
-    cmp::Reverse,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -24,13 +23,12 @@ use convert_case::{Case, Casing};
 use database_models::{
     access_link, application_cache, calendar_event, collection, collection_to_entity,
     functions::get_user_to_entity_association,
-    genre, import_report, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata_group, metadata_to_person, monitored_entity, person,
+    genre, import_report, metadata, metadata_group, metadata_to_genre, metadata_to_metadata_group,
+    monitored_entity, person,
     prelude::{
         AccessLink, ApplicationCache, CalendarEvent, Collection, CollectionToEntity, Genre,
-        ImportReport, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre,
-        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, Person, Review, Seen, User,
-        UserToEntity,
+        ImportReport, Metadata, MetadataGroup, MetadataToGenre, MetadataToMetadataGroup,
+        MonitoredEntity, Person, Review, Seen, User, UserToEntity,
     },
     review, seen, user, user_to_entity,
 };
@@ -73,12 +71,11 @@ use media_models::{
     CreateOrUpdateReviewInput, CreateReviewCommentInput, GenreDetailsInput, GenreListItem,
     GraphqlCalendarEvent, GraphqlMetadataDetails, GraphqlMetadataGroup, GroupedCalendarEvent,
     ImportOrExportItemReviewComment, MarkEntityAsPartialInput, MetadataFreeCreator,
-    PartialMetadataWithoutId, PersonDetailsGroupedByRole, PersonDetailsItemWithCharacter,
-    PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier,
-    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput, UserMediaNextEntry,
-    UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
-    UserUpcomingCalendarEventInput,
+    PartialMetadataWithoutId, PodcastSpecifics, ProgressUpdateInput, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
+    ShowSpecifics, UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput,
+    UserCalendarEventInput, UserMediaNextEntry, UserMetadataDetailsEpisodeProgress,
+    UserMetadataDetailsShowSeasonProgress, UserUpcomingCalendarEventInput,
 };
 use migrations::{
     AliasedCalendarEvent, AliasedMetadata, AliasedMetadataToGenre, AliasedSeen, AliasedUserToEntity,
@@ -100,6 +97,12 @@ use supporting_service::SupportingService;
 use traits::TraceOk;
 use user_models::DashboardElementLot;
 use uuid::Uuid;
+
+mod core_operations;
+mod custom_metadata;
+mod entity_details;
+mod review_operations;
+mod search_operations;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -680,11 +683,7 @@ impl MiscellaneousService {
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
-        self.0
-            .cache_service
-            .expire_key(ExpireCacheKeyInput::ById(cache_id))
-            .await?;
-        Ok(true)
+        core_operations::expire_cache_key(&self.0, cache_id).await
     }
 
     pub async fn deploy_background_job(
@@ -1079,51 +1078,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: MetadataSearchInput,
     ) -> Result<MetadataSearchResponse> {
-        let cc = &self.0.cache_service;
-        let cache_key = ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
-            input: input.clone(),
-            user_id: user_id.to_owned(),
-        });
-        if let Some((_id, cached)) = cc.get_value(cache_key.clone()).await {
-            return Ok(cached);
-        }
-        let query = input.search.query.unwrap_or_default();
-        if query.is_empty() {
-            return Ok(SearchResults::default());
-        }
-        let preferences = user_by_id(user_id, &self.0).await?.preferences;
-        let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
-        let results = provider
-            .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
-            .await?;
-        let promises = results.items.iter().map(|i| {
-            commit_metadata(
-                PartialMetadataWithoutId {
-                    lot: input.lot,
-                    source: input.source,
-                    title: i.title.clone(),
-                    image: i.image.clone(),
-                    publish_year: i.publish_year,
-                    identifier: i.identifier.clone(),
-                },
-                &self.0,
-            )
-        });
-        let metadata_items = try_join_all(promises)
-            .await?
-            .into_iter()
-            .map(|i| i.id)
-            .collect_vec();
-        let response = SearchResults {
-            items: metadata_items,
-            details: results.details,
-        };
-        cc.set_key(
-            cache_key,
-            ApplicationCacheValue::MetadataSearch(response.clone()),
-        )
-        .await?;
-        Ok(response)
+        search_operations::metadata_search(&self.0, user_id, input).await
     }
 
     pub async fn people_search(
@@ -1131,55 +1086,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: PeopleSearchInput,
     ) -> Result<PeopleSearchResponse> {
-        let cc = &self.0.cache_service;
-        let cache_key = ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
-            input: input.clone(),
-            user_id: user_id.clone(),
-        });
-        if let Some((_id, results)) = cc.get_value(cache_key.clone()).await {
-            return Ok(results);
-        }
-        let query = input.search.query.unwrap_or_default();
-        if query.is_empty() {
-            return Ok(SearchResults::default());
-        }
-        let preferences = user_by_id(user_id, &self.0).await?.preferences;
-        let provider = get_non_metadata_provider(input.source, &self.0).await?;
-        let results = provider
-            .people_search(
-                &query,
-                input.search.page,
-                preferences.general.display_nsfw,
-                &input.source_specifics,
-            )
-            .await?;
-        let promises = results.items.iter().map(|i| {
-            commit_person(
-                CommitPersonInput {
-                    name: i.name.clone(),
-                    source: input.source,
-                    image: i.image.clone(),
-                    identifier: i.identifier.clone(),
-                    source_specifics: input.source_specifics.clone(),
-                },
-                &self.0,
-            )
-        });
-        let person_items = try_join_all(promises)
-            .await?
-            .into_iter()
-            .map(|i| i.id)
-            .collect_vec();
-        let response = SearchResults {
-            items: person_items,
-            details: results.details,
-        };
-        cc.set_key(
-            cache_key,
-            ApplicationCacheValue::PeopleSearch(response.clone()),
-        )
-        .await?;
-        Ok(response)
+        search_operations::people_search(&self.0, user_id, input).await
     }
 
     pub async fn metadata_group_search(
@@ -1187,53 +1094,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: MetadataGroupSearchInput,
     ) -> Result<MetadataGroupSearchResponse> {
-        let cc = &self.0.cache_service;
-        let cache_key = ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
-            input: input.clone(),
-            user_id: user_id.clone(),
-        });
-        if let Some((_id, results)) = cc.get_value(cache_key.clone()).await {
-            return Ok(results);
-        }
-        let query = input.search.query.unwrap_or_default();
-        if query.is_empty() {
-            return Ok(SearchResults::default());
-        }
-        let preferences = user_by_id(user_id, &self.0).await?.preferences;
-        let provider = get_metadata_provider(input.lot, input.source, &self.0).await?;
-        let results = provider
-            .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
-            .await?;
-        let promises = results.items.iter().map(|i| {
-            commit_metadata_group(
-                CommitMetadataGroupInput {
-                    parts: i.parts,
-                    name: i.name.clone(),
-                    image: i.image.clone(),
-                    unique: UniqueMediaIdentifier {
-                        lot: input.lot,
-                        source: input.source,
-                        identifier: i.identifier.clone(),
-                    },
-                },
-                &self.0,
-            )
-        });
-        let metadata_group_items = try_join_all(promises)
-            .await?
-            .into_iter()
-            .map(|i| i.id)
-            .collect_vec();
-        let response = SearchResults {
-            details: results.details,
-            items: metadata_group_items,
-        };
-        cc.set_key(
-            cache_key,
-            ApplicationCacheValue::MetadataGroupSearch(response.clone()),
-        )
-        .await?;
-        Ok(response)
+        search_operations::metadata_group_search(&self.0, user_id, input).await
     }
 
     pub async fn create_or_update_review(
@@ -1245,24 +1106,7 @@ impl MiscellaneousService {
     }
 
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
-        let review = Review::find()
-            .filter(review::Column::Id.eq(review_id))
-            .one(&self.0.db)
-            .await
-            .unwrap();
-        match review {
-            Some(r) => {
-                if r.user_id == user_id {
-                    associate_user_with_entity(&user_id, &r.entity_id, r.entity_lot, &self.0)
-                        .await?;
-                    r.delete(&self.0.db).await?;
-                    Ok(true)
-                } else {
-                    Err(Error::new("This review does not belong to you".to_owned()))
-                }
-            }
-            None => Ok(false),
-        }
+        review_operations::delete_review(&self.0, user_id, review_id).await
     }
 
     pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
@@ -1393,31 +1237,15 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateCustomMetadataInput,
     ) -> Result<metadata::Model> {
-        let identifier = nanoid!(10);
-        let metadata = self.get_data_for_custom_metadata(input.clone(), identifier, &user_id);
-        let metadata = metadata.insert(&self.0.db).await?;
-        change_metadata_associations(
-            &metadata.id,
-            input.genres.unwrap_or_default(),
-            vec![],
-            vec![],
-            vec![],
+        custom_metadata::create_custom_metadata(
             &self.0,
-        )
-        .await?;
-        add_entity_to_collection(
-            &user_id,
-            ChangeCollectionToEntityInput {
-                entity_id: metadata.id.clone(),
-                entity_lot: EntityLot::Metadata,
-                creator_user_id: user_id.to_owned(),
-                collection_name: DefaultCollection::Custom.to_string(),
-                ..Default::default()
+            user_id,
+            input,
+            |input, identifier, user_id| {
+                self.get_data_for_custom_metadata(input, identifier, user_id)
             },
-            &self.0,
         )
-        .await?;
-        Ok(metadata)
+        .await
     }
 
     pub async fn update_custom_metadata(
@@ -1425,42 +1253,15 @@ impl MiscellaneousService {
         user_id: &str,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        let metadata = Metadata::find_by_id(&input.existing_metadata_id)
-            .one(&self.0.db)
-            .await?
-            .unwrap();
-        if metadata.source != MediaSource::Custom {
-            return Err(Error::new(
-                "This metadata is not custom and cannot be updated",
-            ));
-        }
-        if metadata.created_by_user_id != Some(user_id.to_owned()) {
-            return Err(Error::new("You are not authorized to update this metadata"));
-        }
-        MetadataToGenre::delete_many()
-            .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
-            .exec(&self.0.db)
-            .await?;
-        for image in metadata.assets.s3_images.clone() {
-            self.0.file_storage_service.delete_object(image).await;
-        }
-        for video in metadata.assets.s3_videos.clone() {
-            self.0.file_storage_service.delete_object(video).await;
-        }
-        let mut new_metadata =
-            self.get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);
-        new_metadata.id = ActiveValue::Unchanged(input.existing_metadata_id);
-        let metadata = new_metadata.update(&self.0.db).await?;
-        change_metadata_associations(
-            &metadata.id,
-            input.update.genres.unwrap_or_default(),
-            vec![],
-            vec![],
-            vec![],
+        custom_metadata::update_custom_metadata(
             &self.0,
+            user_id,
+            input,
+            |input, identifier, user_id| {
+                self.get_data_for_custom_metadata(input, identifier, user_id)
+            },
         )
-        .await?;
-        Ok(true)
+        .await
     }
 
     fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
@@ -1597,66 +1398,7 @@ impl MiscellaneousService {
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
-        let mut details = Person::find_by_id(person_id.clone())
-            .one(&self.0.db)
-            .await?
-            .unwrap();
-        transform_entity_assets(&mut details.assets, &self.0).await;
-        let metadata_associations = MetadataToPerson::find()
-            .filter(metadata_to_person::Column::PersonId.eq(&person_id))
-            .order_by_asc(metadata_to_person::Column::Index)
-            .all(&self.0.db)
-            .await?;
-        let mut metadata_contents: HashMap<_, Vec<_>> = HashMap::new();
-        for assoc in metadata_associations {
-            let to_push = PersonDetailsItemWithCharacter {
-                character: assoc.character,
-                entity_id: assoc.metadata_id,
-            };
-            metadata_contents
-                .entry(assoc.role)
-                .and_modify(|e| e.push(to_push.clone()))
-                .or_insert(vec![to_push]);
-        }
-        let associated_metadata = metadata_contents
-            .into_iter()
-            .map(|(name, items)| PersonDetailsGroupedByRole {
-                count: items.len(),
-                name,
-                items,
-            })
-            .sorted_by_key(|f| Reverse(f.count))
-            .collect_vec();
-        let associated_metadata_groups = MetadataGroupToPerson::find()
-            .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
-            .order_by_asc(metadata_group_to_person::Column::Index)
-            .all(&self.0.db)
-            .await?;
-        let mut metadata_group_contents: HashMap<_, Vec<_>> = HashMap::new();
-        for assoc in associated_metadata_groups {
-            let to_push = PersonDetailsItemWithCharacter {
-                entity_id: assoc.metadata_group_id,
-                ..Default::default()
-            };
-            metadata_group_contents
-                .entry(assoc.role)
-                .and_modify(|e| e.push(to_push.clone()))
-                .or_insert(vec![to_push]);
-        }
-        let associated_metadata_groups = metadata_group_contents
-            .into_iter()
-            .map(|(name, items)| PersonDetailsGroupedByRole {
-                count: items.len(),
-                name,
-                items,
-            })
-            .sorted_by_key(|f| Reverse(f.count))
-            .collect_vec();
-        Ok(GraphqlPersonDetails {
-            details,
-            associated_metadata,
-            associated_metadata_groups,
-        })
+        entity_details::person_details(person_id, &self.0).await
     }
 
     pub async fn genre_details(
@@ -1664,64 +1406,14 @@ impl MiscellaneousService {
         user_id: String,
         input: GenreDetailsInput,
     ) -> Result<GenreDetails> {
-        let page = input.page.unwrap_or(1);
-        let genre = Genre::find_by_id(input.genre_id.clone())
-            .one(&self.0.db)
-            .await?
-            .unwrap();
-        let preferences = user_by_id(&user_id, &self.0).await?.preferences;
-        let paginator = MetadataToGenre::find()
-            .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-            .paginate(&self.0.db, preferences.general.list_page_size);
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let mut contents = vec![];
-        for association_items in paginator.fetch_page(page - 1).await? {
-            contents.push(association_items.metadata_id);
-        }
-        Ok(GenreDetails {
-            details: GenreListItem {
-                id: genre.id,
-                name: genre.name,
-                num_items: Some(number_of_items.try_into().unwrap()),
-            },
-            contents: SearchResults {
-                details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
-                    next_page: if page < number_of_pages {
-                        Some((page + 1).try_into().unwrap())
-                    } else {
-                        None
-                    },
-                },
-                items: contents,
-            },
-        })
+        entity_details::genre_details(&self.0, user_id, input).await
     }
 
     pub async fn metadata_group_details(
         &self,
         metadata_group_id: String,
     ) -> Result<MetadataGroupDetails> {
-        let mut group = MetadataGroup::find_by_id(metadata_group_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Group not found"))?;
-        transform_entity_assets(&mut group.assets, &self.0).await;
-        let contents = MetadataToMetadataGroup::find()
-            .select_only()
-            .column(metadata_to_metadata_group::Column::MetadataId)
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(group.id.clone()))
-            .order_by_asc(metadata_to_metadata_group::Column::Part)
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        Ok(MetadataGroupDetails {
-            contents,
-            details: group,
-        })
+        entity_details::metadata_group_details(&self.0, metadata_group_id).await
     }
 
     async fn queue_pending_reminders(&self) -> Result<()> {
@@ -1777,46 +1469,7 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
-        let review = Review::find_by_id(input.review_id)
-            .one(&self.0.db)
-            .await?
-            .unwrap();
-        let mut comments = review.comments.clone();
-        if input.should_delete.unwrap_or_default() {
-            let position = comments
-                .iter()
-                .position(|r| &r.id == input.comment_id.as_ref().unwrap())
-                .unwrap();
-            comments.remove(position);
-        } else if input.increment_likes.unwrap_or_default() {
-            let comment = comments
-                .iter_mut()
-                .find(|r| &r.id == input.comment_id.as_ref().unwrap())
-                .unwrap();
-            comment.liked_by.insert(user_id.clone());
-        } else if input.decrement_likes.unwrap_or_default() {
-            let comment = comments
-                .iter_mut()
-                .find(|r| &r.id == input.comment_id.as_ref().unwrap())
-                .unwrap();
-            comment.liked_by.remove(&user_id);
-        } else {
-            let user = user_by_id(&user_id, &self.0).await?;
-            comments.push(ImportOrExportItemReviewComment {
-                id: nanoid!(20),
-                text: input.text.unwrap(),
-                user: IdAndNamedObject {
-                    id: user_id,
-                    name: user.name,
-                },
-                liked_by: HashSet::new(),
-                created_on: Utc::now(),
-            });
-        }
-        let mut review: review::ActiveModel = review.into();
-        review.comments = ActiveValue::Set(comments);
-        review.update(&self.0.db).await?;
-        Ok(true)
+        review_operations::create_review_comment(&self.0, user_id, input).await
     }
 
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
