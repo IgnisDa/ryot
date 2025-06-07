@@ -115,7 +115,9 @@ pub struct UserMetadataGroupsListInput {
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
-#[derive(Debug, Hash, Serialize, Deserialize, async_graphql::Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(
+    Debug, Hash, Serialize, Deserialize, async_graphql::Enum, Clone, PartialEq, Eq, Copy, Default,
+)]
 pub enum UserTemplatesOrWorkoutsListSortBy {
     #[default]
     Time,

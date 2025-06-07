@@ -1,5 +1,7 @@
 use async_graphql::{InputObject, SimpleObject};
-use enum_models::{IntegrationProvider, MediaSource, NotificationPlatformLot, UserNotificationContent};
+use enum_models::{
+    IntegrationProvider, MediaSource, NotificationPlatformLot, UserNotificationContent,
+};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;

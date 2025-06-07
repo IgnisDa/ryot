@@ -7,7 +7,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
 // Import structures from other modules that are referenced
-use crate::{SeenShowExtraInformation, SeenAnimeExtraInformation, SeenPodcastExtraInformation};
+use crate::{SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation};
 
 #[derive(Debug, InputObject, Default)]
 pub struct CreateOrUpdateReviewInput {

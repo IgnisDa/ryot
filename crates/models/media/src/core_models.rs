@@ -1,4 +1,4 @@
-use async_graphql::{SimpleObject};
+use async_graphql::SimpleObject;
 use common_models::IdAndNamedObject;
 use enum_models::Visibility;
 use rust_decimal::Decimal;

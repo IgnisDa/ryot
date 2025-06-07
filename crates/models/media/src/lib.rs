@@ -1,23 +1,23 @@
 // Module declarations and re-exports for media models
+mod authentication;
+mod collections;
+mod core_models;
+mod graphql_types;
+mod import_export;
+mod integrations;
 mod media_specifics;
 mod metadata_models;
 mod user_interactions;
-mod import_export;
-mod collections;
-mod integrations;
-mod authentication;
-mod graphql_types;
-mod core_models;
 
+pub use authentication::*;
+pub use collections::*;
+pub use core_models::*;
+pub use graphql_types::*;
+pub use import_export::*;
+pub use integrations::*;
 pub use media_specifics::*;
 pub use metadata_models::*;
 pub use user_interactions::*;
-pub use import_export::*;
-pub use collections::*;
-pub use integrations::*;
-pub use authentication::*;
-pub use graphql_types::*;
-pub use core_models::*;
 
 // EntityWithLot moved to metadata_models.rs
 

@@ -17,11 +17,11 @@ use crate::core_systems::{CoreDetails, TmdbSettings};
 use crate::generic_types::{
     CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
-    UserExercisesListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
-    UserMetadataListInput, UserMetadataListResponse, UserMetadataRecommendationsResponse,
-    UserPeopleListInput, UserPeopleListResponse, UserTemplatesOrWorkoutsListInput,
-    UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse, UserCollectionsListResponse,
-    UserMeasurementsListResponse,
+    UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
+    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+    UserMetadataListResponse, UserMetadataRecommendationsResponse, UserPeopleListInput,
+    UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
+    UserWorkoutsTemplatesListResponse,
 };
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
