@@ -98,11 +98,15 @@ use traits::TraceOk;
 use user_models::DashboardElementLot;
 use uuid::Uuid;
 
+mod background_operations;
+mod calendar_operations;
 mod core_operations;
 mod custom_metadata;
 mod entity_details;
+mod metadata_operations;
 mod review_operations;
 mod search_operations;
+mod trending_and_events;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -602,20 +606,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        let (start_date, end_date) = get_first_and_last_day_of_month(input.year, input.month);
-        let events = self
-            .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None, None)
-            .await?;
-        let grouped_events = events
-            .into_iter()
-            .chunk_by(|event| event.date)
-            .into_iter()
-            .map(|(date, events)| GroupedCalendarEvent {
-                date,
-                events: events.collect(),
-            })
-            .collect();
-        Ok(grouped_events)
+        calendar_operations::user_calendar_events(self, user_id, input).await
     }
 
     pub async fn user_upcoming_calendar_events(
@@ -623,29 +614,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        let start_date = Utc::now().date_naive();
-        let (media_limit, end_date) = match input {
-            UserUpcomingCalendarEventInput::NextMedia(l) => (Some(l), None),
-            UserUpcomingCalendarEventInput::NextDays(d) => {
-                (None, start_date.checked_add_days(Days::new(d)))
-            }
-        };
-        let preferences = user_by_id(&user_id, &self.0).await?.preferences.general;
-        let element = preferences
-            .dashboard
-            .iter()
-            .find(|e| matches!(e.section, DashboardElementLot::Upcoming));
-        let events = self
-            .get_calendar_events(
-                user_id,
-                true,
-                Some(start_date),
-                end_date,
-                media_limit,
-                element.and_then(|e| e.deduplicate_media),
-            )
-            .await?;
-        Ok(events)
+        calendar_operations::user_upcoming_calendar_events(self, &self.0, user_id, input).await
     }
 
     pub async fn user_metadata_list(
@@ -941,92 +910,7 @@ impl MiscellaneousService {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        let txn = self.0.db.begin().await?;
-        for old_seen in Seen::find()
-            .filter(seen::Column::MetadataId.eq(&merge_from))
-            .filter(seen::Column::UserId.eq(&user_id))
-            .all(&txn)
-            .await
-            .unwrap()
-        {
-            let old_seen_active: seen::ActiveModel = old_seen.clone().into();
-            let new_seen = seen::ActiveModel {
-                id: ActiveValue::NotSet,
-                last_updated_on: ActiveValue::NotSet,
-                num_times_updated: ActiveValue::NotSet,
-                metadata_id: ActiveValue::Set(merge_into.clone()),
-                ..old_seen_active
-            };
-            new_seen.insert(&txn).await?;
-            old_seen.delete(&txn).await?;
-        }
-        for old_review in Review::find()
-            .filter(review::Column::MetadataId.eq(&merge_from))
-            .filter(review::Column::UserId.eq(&user_id))
-            .all(&txn)
-            .await
-            .unwrap()
-        {
-            let old_review_active: review::ActiveModel = old_review.clone().into();
-            let new_review = review::ActiveModel {
-                id: ActiveValue::NotSet,
-                metadata_id: ActiveValue::Set(Some(merge_into.clone())),
-                ..old_review_active
-            };
-            new_review.insert(&txn).await?;
-            old_review.delete(&txn).await?;
-        }
-        let collections = Collection::find()
-            .select_only()
-            .column(collection::Column::Id)
-            .left_join(UserToEntity)
-            .filter(user_to_entity::Column::UserId.eq(&user_id))
-            .into_tuple::<String>()
-            .all(&txn)
-            .await
-            .unwrap();
-        for item in CollectionToEntity::find()
-            .filter(collection_to_entity::Column::MetadataId.eq(&merge_from))
-            .filter(collection_to_entity::Column::CollectionId.is_in(collections))
-            .all(&txn)
-            .await?
-            .into_iter()
-        {
-            if CollectionToEntity::find()
-                .filter(collection_to_entity::Column::CollectionId.eq(item.collection_id.clone()))
-                .filter(collection_to_entity::Column::MetadataId.eq(&merge_into))
-                .count(&txn)
-                .await?
-                == 0
-            {
-                let mut item_active: collection_to_entity::ActiveModel = item.into();
-                item_active.metadata_id = ActiveValue::Set(Some(merge_into.clone()));
-                item_active.update(&txn).await?;
-            }
-        }
-        if let Some(_association) =
-            get_user_to_entity_association(&txn, &user_id, &merge_into, EntityLot::Metadata).await
-        {
-            let old_association =
-                get_user_to_entity_association(&txn, &user_id, &merge_from, EntityLot::Metadata)
-                    .await
-                    .unwrap();
-            let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
-            cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
-            cloned.update(&txn).await?;
-        } else {
-            UserToEntity::update_many()
-                .filter(user_to_entity::Column::MetadataId.eq(merge_from))
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .set(user_to_entity::ActiveModel {
-                    metadata_id: ActiveValue::Set(Some(merge_into.clone())),
-                    ..Default::default()
-                })
-                .exec(&txn)
-                .await?;
-        }
-        txn.commit().await?;
-        Ok(true)
+        metadata_operations::merge_metadata(&self.0, user_id, merge_from, merge_into).await
     }
 
     pub async fn disassociate_metadata(
@@ -1034,43 +918,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<bool> {
-        let delete_review = Review::delete_many()
-            .filter(review::Column::MetadataId.eq(&metadata_id))
-            .filter(review::Column::UserId.eq(&user_id))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
-        let delete_seen = Seen::delete_many()
-            .filter(seen::Column::MetadataId.eq(&metadata_id))
-            .filter(seen::Column::UserId.eq(&user_id))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
-        let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
-            &self.0.db,
-            &user_id,
-            &metadata_id,
-            EntityLot::Metadata,
-        )
-        .await?
-        .into_iter()
-        .map(|(_, id)| id);
-        let delete_collections = CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(
-            debug,
-            "Deleted {} collections",
-            delete_collections.rows_affected
-        );
-        UserToEntity::delete_many()
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id.clone()))
-            .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
-            .exec(&self.0.db)
-            .await?;
-        expire_user_metadata_list_cache(&user_id, &self.0).await?;
-        Ok(true)
+        metadata_operations::disassociate_metadata(&self.0, user_id, metadata_id).await
     }
 
     pub async fn metadata_search(
@@ -1473,189 +1321,14 @@ impl MiscellaneousService {
     }
 
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        let date_to_calculate_from = get_current_date(&self.0.timezone).pred_opt().unwrap();
-
-        let selected_metadata = Metadata::find()
-            .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
-            .filter(
-                metadata::Column::IsPartial
-                    .eq(false)
-                    .or(metadata::Column::IsPartial.is_null()),
-            );
-
-        let mut meta_stream = selected_metadata.clone().stream(&self.0.db).await?;
-
-        while let Some(meta) = meta_stream.try_next().await? {
-            ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
-            let calendar_events = meta.find_related(CalendarEvent).all(&self.0.db).await?;
-            for cal_event in calendar_events {
-                let mut need_to_delete = true;
-                if let Some(show) = cal_event.metadata_show_extra_information {
-                    if let Some(show_info) = &meta.show_specifics {
-                        if let Some((season, ep)) =
-                            get_show_episode_by_numbers(show_info, show.season, show.episode)
-                        {
-                            if !SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
-                                if let Some(publish_date) = ep.publish_date {
-                                    if publish_date == cal_event.date {
-                                        need_to_delete = false;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
-                    if let Some(podcast_info) = &meta.podcast_specifics {
-                        if let Some(ep) =
-                            get_podcast_episode_by_number(podcast_info, podcast.episode)
-                        {
-                            if ep.publish_date == cal_event.date {
-                                need_to_delete = false;
-                            }
-                        }
-                    }
-                } else if let Some(anime) = cal_event.metadata_anime_extra_information {
-                    if let Some(anime_info) = &meta.anime_specifics {
-                        if let Some(schedule) = &anime_info.airing_schedule {
-                            schedule.iter().for_each(|s| {
-                                if Some(s.episode) == anime.episode
-                                    && s.airing_at == cal_event.timestamp
-                                {
-                                    need_to_delete = false;
-                                }
-                            });
-                        }
-                    }
-                } else if let Some(date) = meta.publish_date {
-                    if cal_event.date == date {
-                        need_to_delete = false;
-                    }
-                };
-
-                if need_to_delete {
-                    ryot_log!(
-                        debug,
-                        "Need to delete calendar event id = {:#?} since it is outdated",
-                        cal_event.id
-                    );
-                    CalendarEvent::delete_by_id(cal_event.id)
-                        .exec(&self.0.db)
-                        .await?;
-                }
-            }
-        }
-
-        ryot_log!(debug, "Finished deleting invalid calendar events");
-
-        let mut metadata_stream = selected_metadata.stream(&self.0.db).await?;
-
-        let mut calendar_events_inserts = vec![];
-        let mut metadata_updates = vec![];
-        while let Some(meta) = metadata_stream.try_next().await? {
-            let calendar_event_template = calendar_event::ActiveModel {
-                metadata_id: ActiveValue::Set(Some(meta.id.clone())),
-                ..Default::default()
-            };
-            if let Some(ps) = &meta.podcast_specifics {
-                for episode in ps.episodes.iter() {
-                    let mut event = calendar_event_template.clone();
-                    event.timestamp =
-                        ActiveValue::Set(episode.publish_date.and_hms_opt(0, 0, 0).unwrap());
-                    event.metadata_podcast_extra_information =
-                        ActiveValue::Set(Some(SeenPodcastExtraInformation {
-                            episode: episode.number,
-                        }));
-                    calendar_events_inserts.push(event);
-                }
-            } else if let Some(ss) = &meta.show_specifics {
-                for season in ss.seasons.iter() {
-                    if SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
-                        continue;
-                    }
-                    for episode in season.episodes.iter() {
-                        if let Some(date) = episode.publish_date {
-                            let mut event = calendar_event_template.clone();
-                            event.timestamp = ActiveValue::Set(date.and_hms_opt(0, 0, 0).unwrap());
-                            event.metadata_show_extra_information =
-                                ActiveValue::Set(Some(SeenShowExtraInformation {
-                                    season: season.season_number,
-                                    episode: episode.episode_number,
-                                }));
-
-                            calendar_events_inserts.push(event);
-                        }
-                    }
-                }
-            } else if let Some(ans) = &meta.anime_specifics {
-                if let Some(schedule) = &ans.airing_schedule {
-                    for episode in schedule.iter() {
-                        let mut event = calendar_event_template.clone();
-                        event.timestamp = ActiveValue::Set(episode.airing_at);
-                        event.metadata_anime_extra_information =
-                            ActiveValue::Set(Some(SeenAnimeExtraInformation {
-                                episode: Some(episode.episode),
-                            }));
-                        calendar_events_inserts.push(event);
-                    }
-                }
-            } else if let Some(publish_date) = meta.publish_date {
-                let mut event = calendar_event_template.clone();
-                event.timestamp = ActiveValue::Set(publish_date.and_hms_opt(0, 0, 0).unwrap());
-                calendar_events_inserts.push(event);
-            };
-            metadata_updates.push(meta.id.clone());
-        }
-        for cal_insert in calendar_events_inserts {
-            ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
-            cal_insert.insert(&self.0.db).await.ok();
-        }
-        ryot_log!(debug, "Finished updating calendar events");
-        Ok(())
+        calendar_operations::recalculate_calendar_events(&self.0).await
     }
 
     async fn queue_notifications_for_released_media(&self) -> Result<()> {
-        let today = get_current_date(&self.0.timezone);
-        let calendar_events = CalendarEvent::find()
-            .filter(calendar_event::Column::Date.eq(today))
-            .find_also_related(Metadata)
-            .all(&self.0.db)
-            .await?;
-        let notifications = calendar_events
-            .into_iter()
-            .map(|(cal_event, meta)| {
-                let meta = meta.unwrap();
-                let url = self.get_entity_details_frontend_url(
-                    meta.id.to_string(),
-                    EntityLot::Metadata,
-                    None,
-                );
-                let notification = if let Some(show) = cal_event.metadata_show_extra_information {
-                    format!(
-                        "S{}E{} of {} ({}) has been released today.",
-                        show.season, show.episode, meta.title, url
-                    )
-                } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
-                    format!(
-                        "E{} of {} ({}) has been released today.",
-                        podcast.episode, meta.title, url
-                    )
-                } else {
-                    format!("{} ({}) has been released today.", meta.title, url)
-                };
-                (
-                    meta.id.to_string(),
-                    (notification, UserNotificationContent::MetadataPublished),
-                )
-            })
-            .collect_vec();
-        for (metadata_id, notification) in notifications.into_iter() {
-            let users_to_notify =
-                get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &self.0.db).await?;
-            for user in users_to_notify {
-                send_notification_for_user(&user, &self.0, &notification).await?;
-            }
-        }
-        Ok(())
+        calendar_operations::queue_notifications_for_released_media(&self.0, |id, lot, tab| {
+            self.get_entity_details_frontend_url(id, lot, tab)
+        })
+        .await
     }
 
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
@@ -1677,92 +1350,11 @@ impl MiscellaneousService {
     }
 
     pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
-        let key = ApplicationCacheKey::TrendingMetadataIds;
-        let (_id, cached) = 'calc: {
-            if let Some(x) = self
-                .0
-                .cache_service
-                .get_value::<TrendingMetadataIdsResponse>(key)
-                .await
-            {
-                break 'calc x;
-            }
-            let mut trending_ids = HashSet::new();
-            let provider_configs = MediaLot::iter()
-                .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
-
-            for (lot, source) in provider_configs {
-                let provider = match get_metadata_provider(lot, source, &self.0).await {
-                    Ok(p) => p,
-                    Err(_) => continue,
-                };
-                let media = match provider.get_trending_media().await {
-                    Ok(m) => m,
-                    Err(_) => continue,
-                };
-                for item in media {
-                    if let Ok(metadata) = commit_metadata(item, &self.0).await {
-                        trending_ids.insert(metadata.id);
-                    }
-                }
-            }
-
-            let vec = trending_ids.into_iter().collect_vec();
-            let id = self
-                .0
-                .cache_service
-                .set_key(
-                    ApplicationCacheKey::TrendingMetadataIds,
-                    ApplicationCacheValue::TrendingMetadataIds(vec.clone()),
-                )
-                .await?;
-            (id, vec)
-        };
-        let actually_in_db = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .filter(metadata::Column::Id.is_in(cached))
-            .order_by_desc(metadata::Column::LastUpdatedOn)
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        Ok(actually_in_db)
+        trending_and_events::trending_metadata(&self.0).await
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        let monitored_by =
-            get_users_monitoring_entity(&event.obj_id, event.entity_lot, &self.0.db).await?;
-        let users = get_user_query()
-            .select_only()
-            .column(user::Column::Id)
-            .filter(user::Column::Id.is_in(monitored_by))
-            .filter(Expr::cust(format!(
-                "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
-                UserNotificationContent::ReviewPosted
-            )))
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for user_id in users {
-            let url = self.get_entity_details_frontend_url(
-                event.obj_id.clone(),
-                event.entity_lot,
-                Some("reviews"),
-            );
-            send_notification_for_user(
-                &user_id,
-                &self.0,
-                &(
-                    format!(
-                        "New review posted for {} ({}, {}) by {}.",
-                        event.obj_title, event.entity_lot, url, event.username
-                    ),
-                    UserNotificationContent::ReviewPosted,
-                ),
-            )
-            .await?;
-        }
-        Ok(())
+        trending_and_events::handle_review_posted_event(self, &self.0, event).await
     }
 
     fn get_entity_details_frontend_url(
@@ -1788,274 +1380,10 @@ impl MiscellaneousService {
         url
     }
 
-    async fn invalidate_import_jobs(&self) -> Result<()> {
-        let all_jobs = ImportReport::find()
-            .filter(
-                import_report::Column::WasSuccess
-                    .eq(false)
-                    .or(import_report::Column::WasSuccess.is_null()),
-            )
-            .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
-            .all(&self.0.db)
-            .await?;
-        for job in all_jobs {
-            ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
-            let mut job: import_report::ActiveModel = job.into();
-            job.was_success = ActiveValue::Set(Some(false));
-            job.save(&self.0.db).await?;
-        }
-        Ok(())
-    }
-
-    async fn remove_old_entities_from_monitoring_collection(&self) -> Result<()> {
-        #[derive(Debug, FromQueryResult)]
-        struct CustomQueryResponse {
-            id: Uuid,
-            entity_id: String,
-            collection_id: String,
-            entity_lot: EntityLot,
-            created_on: DateTimeUtc,
-            last_updated_on: DateTimeUtc,
-        }
-        let all_cte = CollectionToEntity::find()
-            .select_only()
-            .column(collection_to_entity::Column::Id)
-            .column(collection_to_entity::Column::EntityId)
-            .column_as(collection::Column::Id, "collection_id")
-            .column(collection_to_entity::Column::EntityLot)
-            .column(collection_to_entity::Column::CreatedOn)
-            .column(collection_to_entity::Column::LastUpdatedOn)
-            .inner_join(Collection)
-            .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
-            .into_model::<CustomQueryResponse>()
-            .all(&self.0.db)
-            .await?;
-        let mut to_delete = vec![];
-        for cte in all_cte {
-            let delta = cte.last_updated_on - cte.created_on;
-            if delta.num_days().abs() > self.0.config.media.monitoring_remove_after_days {
-                to_delete.push(cte);
-            }
-        }
-        if to_delete.is_empty() {
-            return Ok(());
-        }
-        for item in to_delete.iter() {
-            let users_in_this_collection = UserToEntity::find()
-                .filter(user_to_entity::Column::CollectionId.eq(&item.collection_id))
-                .all(&self.0.db)
-                .await?;
-            let title =
-                get_entity_title_from_id_and_lot(&item.entity_id, item.entity_lot, &self.0).await?;
-            for user in users_in_this_collection {
-                send_notification_for_user(
-                    &user.user_id,
-                    &self.0,
-                    &(
-                        format!("{} has been removed from the monitoring collection", title),
-                        UserNotificationContent::EntityRemovedFromMonitoringCollection,
-                    ),
-                )
-                .await?;
-            }
-        }
-        let result = CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::Id.is_in(to_delete.into_iter().map(|c| c.id)))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(debug, "Deleted collection to entity: {:#?}", result);
-        Ok(())
-    }
-
-    pub async fn remove_useless_data(&self) -> Result<()> {
-        let metadata_to_delete = Metadata::find()
-            .select_only()
-            .column(metadata::Column::Id)
-            .left_join(UserToEntity)
-            .filter(user_to_entity::Column::MetadataId.is_null())
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for chunk in metadata_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-            ryot_log!(debug, "Deleting {} metadata items", chunk.len());
-            Metadata::delete_many()
-                .filter(metadata::Column::Id.is_in(chunk))
-                .exec(&self.0.db)
-                .await
-                .trace_ok();
-        }
-        let people_to_delete = Person::find()
-            .select_only()
-            .column(person::Column::Id)
-            .left_join(UserToEntity)
-            .filter(user_to_entity::Column::PersonId.is_null())
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for chunk in people_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-            ryot_log!(debug, "Deleting {} people", chunk.len());
-            Person::delete_many()
-                .filter(person::Column::Id.is_in(chunk))
-                .exec(&self.0.db)
-                .await
-                .trace_ok();
-        }
-        let metadata_groups_to_delete = MetadataGroup::find()
-            .select_only()
-            .column(metadata_group::Column::Id)
-            .left_join(UserToEntity)
-            .filter(user_to_entity::Column::MetadataGroupId.is_null())
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for chunk in metadata_groups_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-            ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
-            MetadataGroup::delete_many()
-                .filter(metadata_group::Column::Id.is_in(chunk))
-                .exec(&self.0.db)
-                .await
-                .trace_ok();
-        }
-        let genre_to_delete = Genre::find()
-            .select_only()
-            .column(genre::Column::Id)
-            .left_join(MetadataToGenre)
-            .filter(metadata_to_genre::Column::MetadataId.is_null())
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for chunk in genre_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-            ryot_log!(debug, "Deleting {} genres", chunk.len());
-            Genre::delete_many()
-                .filter(genre::Column::Id.is_in(chunk))
-                .exec(&self.0.db)
-                .await
-                .trace_ok();
-        }
-        ryot_log!(debug, "Deleting revoked access tokens");
-        AccessLink::delete_many()
-            .filter(access_link::Column::IsRevoked.eq(true))
-            .exec(&self.0.db)
-            .await
-            .trace_ok();
-        ryot_log!(debug, "Deleting expired application caches");
-        ApplicationCache::delete_many()
-            .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
-            .exec(&self.0.db)
-            .await
-            .trace_ok();
-        Ok(())
-    }
-
-    async fn put_entities_in_partial_state(&self) -> Result<()> {
-        async fn update_partial_states<Column1, Column2, Column3, T>(
-            ute_filter_column: Column1,
-            updater: UpdateMany<T>,
-            entity_id_column: Column2,
-            entity_update_column: Column3,
-            db: &DatabaseConnection,
-        ) -> Result<()>
-        where
-            Column1: ColumnTrait,
-            Column2: ColumnTrait,
-            Column3: ColumnTrait,
-            T: EntityTrait,
-        {
-            let ids_to_update = UserToEntity::find()
-                .select_only()
-                .column(ute_filter_column)
-                .filter(ute_filter_column.is_not_null())
-                .into_tuple::<String>()
-                .all(db)
-                .await?;
-            for chunk in ids_to_update.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
-                ryot_log!(debug, "Entities to update: {:?}", chunk);
-                updater
-                    .clone()
-                    .col_expr(entity_update_column, Expr::value(true))
-                    .filter(entity_id_column.is_in(chunk))
-                    .exec(db)
-                    .await?;
-            }
-            Ok(())
-        }
-        update_partial_states(
-            user_to_entity::Column::MetadataId,
-            Metadata::update_many(),
-            metadata::Column::Id,
-            metadata::Column::IsPartial,
-            &self.0.db,
-        )
-        .await?;
-        update_partial_states(
-            user_to_entity::Column::MetadataGroupId,
-            MetadataGroup::update_many(),
-            metadata_group::Column::Id,
-            metadata_group::Column::IsPartial,
-            &self.0.db,
-        )
-        .await?;
-        update_partial_states(
-            user_to_entity::Column::PersonId,
-            Person::update_many(),
-            person::Column::Id,
-            person::Column::IsPartial,
-            &self.0.db,
-        )
-        .await?;
-        Ok(())
-    }
-
     pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
         self.0
             .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
             .await?;
-        Ok(())
-    }
-
-    async fn queue_notifications_for_outdated_seen_entries(&self) -> Result<()> {
-        if !self.0.is_server_key_validated().await? {
-            return Ok(());
-        }
-        for state in [SeenState::InProgress, SeenState::OnAHold] {
-            let days = match state {
-                SeenState::InProgress => 7,
-                SeenState::OnAHold => 14,
-                _ => unreachable!(),
-            };
-            let threshold = Utc::now() - Duration::days(days);
-            let seen_items = Seen::find()
-                .filter(seen::Column::State.eq(state))
-                .filter(seen::Column::LastUpdatedOn.lte(threshold))
-                .all(&self.0.db)
-                .await?;
-            for seen_item in seen_items {
-                let Some(metadata) = seen_item.find_related(Metadata).one(&self.0.db).await? else {
-                    continue;
-                };
-                let state = seen_item
-                    .state
-                    .to_string()
-                    .to_case(Case::Title)
-                    .to_case(Case::Lower);
-                send_notification_for_user(
-                    &seen_item.user_id,
-                    &self.0,
-                    &(
-                        format!(
-                            "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
-                            metadata.title,
-                            metadata.lot,
-                            state,
-                            days,
-                            seen_item.last_updated_on.date_naive()
-                        ),
-                        UserNotificationContent::OutdatedSeenEntries,
-                    ),
-                )
-                .await?;
-            }
-        }
         Ok(())
     }
 
@@ -2072,88 +1400,8 @@ impl MiscellaneousService {
         Ok(())
     }
 
-    pub async fn expire_cache_keys(&self) -> Result<()> {
-        let mut all_keys = vec![];
-        let user_ids = get_user_query()
-            .select_only()
-            .column(user::Column::Id)
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for user_id in user_ids {
-            all_keys.push(ExpireCacheKeyInput::BySanitizedKey {
-                user_id: Some(user_id.clone()),
-                key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
-            });
-            all_keys.push(ExpireCacheKeyInput::ByKey(
-                ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
-                    input: (),
-                    user_id: user_id.clone(),
-                }),
-            ));
-        }
-        all_keys.push(ExpireCacheKeyInput::ByKey(
-            ApplicationCacheKey::TrendingMetadataIds,
-        ));
-
-        for key in all_keys {
-            self.0.cache_service.expire_key(key).await?;
-        }
-        Ok(())
-    }
-
     pub async fn perform_background_jobs(&self) -> Result<()> {
-        ryot_log!(debug, "Starting background jobs...");
-
-        ryot_log!(trace, "Invalidating invalid media import jobs");
-        self.invalidate_import_jobs().await.trace_ok();
-        ryot_log!(trace, "Checking for updates for monitored media");
-        self.update_monitored_metadata_and_queue_notifications()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Checking for updates for monitored people");
-        self.update_monitored_people_and_queue_notifications()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Removing stale entities from Monitoring collection");
-        self.remove_old_entities_from_monitoring_collection()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Checking and queuing any pending reminders");
-        self.queue_pending_reminders().await.trace_ok();
-        ryot_log!(trace, "Recalculating calendar events");
-        self.recalculate_calendar_events().await.trace_ok();
-        ryot_log!(trace, "Queuing notifications for released media");
-        self.queue_notifications_for_released_media()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Cleaning up user and metadata association");
-        self.cleanup_user_and_metadata_association()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Removing old user summaries and regenerating them");
-        self.regenerate_user_summaries().await.trace_ok();
-        ryot_log!(trace, "Syncing integrations data to owned collection");
-        self.sync_integrations_data_to_owned_collection()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Queueing notifications for outdated seen entries");
-        self.queue_notifications_for_outdated_seen_entries()
-            .await
-            .trace_ok();
-        ryot_log!(trace, "Removing useless data");
-        self.remove_useless_data().await.trace_ok();
-        ryot_log!(trace, "Putting entities in partial state");
-        self.put_entities_in_partial_state().await.trace_ok();
-        // DEV: Invalid access tokens are revoked before being deleted, so we call this
-        // function after removing useless data.
-        ryot_log!(trace, "Revoking invalid access tokens");
-        self.revoke_invalid_access_tokens().await.trace_ok();
-        ryot_log!(trace, "Expiring cache keys");
-        self.expire_cache_keys().await.trace_ok();
-
-        ryot_log!(debug, "Completed background jobs...");
-        Ok(())
+        background_operations::perform_background_jobs(self).await
     }
 
     #[cfg(debug_assertions)]
