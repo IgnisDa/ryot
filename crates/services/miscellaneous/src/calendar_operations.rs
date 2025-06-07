@@ -46,7 +46,7 @@ pub async fn user_calendar_events(
 
 pub async fn user_upcoming_calendar_events(
     service: &crate::MiscellaneousService,
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     input: UserUpcomingCalendarEventInput,
 ) -> Result<Vec<GraphqlCalendarEvent>> {

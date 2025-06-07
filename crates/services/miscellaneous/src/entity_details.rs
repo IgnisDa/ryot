@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use common_models::SearchDetails;
@@ -26,7 +26,7 @@ use supporting_service::SupportingService;
 
 pub async fn person_details(
     person_id: String,
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
 ) -> Result<GraphqlPersonDetails> {
     let mut details = Person::find_by_id(person_id.clone())
         .one(&supporting_service.db)
@@ -91,7 +91,7 @@ pub async fn person_details(
 }
 
 pub async fn genre_details(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     input: GenreDetailsInput,
 ) -> Result<GenreDetails> {
@@ -133,7 +133,7 @@ pub async fn genre_details(
 }
 
 pub async fn metadata_group_details(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     metadata_group_id: String,
 ) -> Result<MetadataGroupDetails> {
     let mut model = MetadataGroup::find_by_id(metadata_group_id)
@@ -148,7 +148,7 @@ pub async fn metadata_group_details(
 }
 
 pub async fn metadata_details(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     metadata_id: &String,
 ) -> Result<GraphqlMetadataDetails> {
     let MetadataBaseData {

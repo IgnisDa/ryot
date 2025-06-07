@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::Result;
 use common_models::{
     MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, UserLevelCacheKey,
@@ -19,7 +21,7 @@ use media_models::{
 use supporting_service::SupportingService;
 
 pub async fn metadata_search(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: &String,
     input: MetadataSearchInput,
 ) -> Result<MetadataSearchResponse> {
@@ -71,7 +73,7 @@ pub async fn metadata_search(
 }
 
 pub async fn people_search(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: &String,
     input: PeopleSearchInput,
 ) -> Result<PeopleSearchResponse> {
@@ -127,7 +129,7 @@ pub async fn people_search(
 }
 
 pub async fn metadata_group_search(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: &String,
     input: MetadataGroupSearchInput,
 ) -> Result<MetadataGroupSearchResponse> {

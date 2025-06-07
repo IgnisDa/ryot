@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use application_utils::calculate_average_rating;
 use async_graphql::Result;
 use database_models::functions::get_user_to_entity_association;
@@ -18,7 +20,7 @@ use supporting_service::SupportingService;
 
 pub async fn user_metadata_details(
     service: &crate::MiscellaneousService,
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     metadata_id: String,
 ) -> Result<UserMetadataDetails> {
@@ -218,7 +220,7 @@ pub async fn user_metadata_details(
 }
 
 pub async fn user_person_details(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     person_id: String,
 ) -> Result<UserPersonDetails> {
@@ -258,7 +260,7 @@ pub async fn user_person_details(
 }
 
 pub async fn user_metadata_group_details(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     metadata_group_id: String,
 ) -> Result<UserMetadataGroupDetails> {

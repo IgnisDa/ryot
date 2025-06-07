@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -12,7 +12,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrai
 use supporting_service::SupportingService;
 
 pub async fn delete_review(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     review_id: String,
 ) -> Result<bool> {
@@ -42,7 +42,7 @@ pub async fn delete_review(
 }
 
 pub async fn create_review_comment(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     input: CreateReviewCommentInput,
 ) -> Result<bool> {

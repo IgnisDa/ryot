@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::{Error, Result};
 use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
 use database_models::{
@@ -12,7 +14,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilt
 use supporting_service::SupportingService;
 
 pub async fn create_custom_metadata(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     input: CreateCustomMetadataInput,
     get_data_for_custom_metadata: impl Fn(
@@ -49,7 +51,7 @@ pub async fn create_custom_metadata(
 }
 
 pub async fn update_custom_metadata(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: &str,
     input: UpdateCustomMetadataInput,
     get_data_for_custom_metadata: impl Fn(

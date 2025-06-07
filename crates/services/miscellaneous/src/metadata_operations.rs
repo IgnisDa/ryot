@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::Result;
 use common_utils::ryot_log;
 use database_models::{
@@ -16,7 +18,7 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn merge_metadata(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     merge_from: String,
     merge_into: String,
@@ -110,7 +112,7 @@ pub async fn merge_metadata(
 }
 
 pub async fn disassociate_metadata(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     user_id: String,
     metadata_id: String,
 ) -> Result<bool> {

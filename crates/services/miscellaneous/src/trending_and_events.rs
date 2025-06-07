@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::Result;
 use database_models::{metadata, prelude::Metadata, user};
@@ -16,7 +16,7 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 
 pub async fn trending_metadata(
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
 ) -> Result<TrendingMetadataIdsResponse> {
     let key = ApplicationCacheKey::TrendingMetadataIds;
     let (_id, cached) = 'calc: {
@@ -70,7 +70,7 @@ pub async fn trending_metadata(
 
 pub async fn handle_review_posted_event(
     service: &crate::MiscellaneousService,
-    supporting_service: &std::sync::Arc<SupportingService>,
+    supporting_service: &Arc<SupportingService>,
     event: ReviewPostedEvent,
 ) -> Result<()> {
     let monitored_by =
