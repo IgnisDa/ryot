@@ -32,7 +32,7 @@ static URL: &str = "https://listen-api.listennotes.com/api/v2";
 pub struct ListennotesService {
     url: String,
     client: Client,
-    supporting_service: Arc<SupportingService>,
+    ss: Arc<SupportingService>,
 }
 
 impl ListennotesService {
@@ -48,7 +48,7 @@ impl ListennotesService {
         Self {
             url,
             client,
-            supporting_service: ss,
+            ss: ss,
         }
     }
 }
@@ -177,7 +177,7 @@ impl MediaProvider for ListennotesService {
 
 impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
-        let cc = &self.supporting_service.cache_service;
+        let cc = &self.ss.cache_service;
         let maybe_settings = cc
             .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
             .await;

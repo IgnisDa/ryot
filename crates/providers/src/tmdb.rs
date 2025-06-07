@@ -171,7 +171,7 @@ pub struct TmdbService {
     client: Client,
     language: String,
     settings: TmdbSettings,
-    supporting_service: Arc<SupportingService>,
+    ss: Arc<SupportingService>,
 }
 
 impl TmdbService {
@@ -186,7 +186,7 @@ impl TmdbService {
             client,
             settings,
             language: ss.config.movies_and_shows.tmdb.locale.clone(),
-            supporting_service: ss,
+            ss: ss,
         }
     }
 }
@@ -420,13 +420,7 @@ impl MediaProvider for NonMediaTmdbService {
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let language = &self
-            .base
-            .supporting_service
-            .config
-            .movies_and_shows
-            .tmdb
-            .locale;
+        let language = &self.base.ss.config.movies_and_shows.tmdb.locale;
         let type_ = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -1329,11 +1323,8 @@ fn replace_from_end(input_string: String, search_string: &str, replace_string: &
     input_string
 }
 
-async fn get_settings(
-    client: &Client,
-    supporting_service: &Arc<SupportingService>,
-) -> Result<TmdbSettings> {
-    let cc = &supporting_service.cache_service;
+async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<TmdbSettings> {
+    let cc = &ss.cache_service;
     let maybe_settings = cc
         .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
         .await;
