@@ -247,3 +247,38 @@ export const getEntityById = async (
 
 	return foundEntity;
 };
+
+export const removeEntityFromCollection = async (input: {
+	collectionId: string;
+	entityId: string;
+	userId: string;
+}): Promise<AddToCollectionData | undefined> => {
+	// First, get the existing relationships to return them after deletion
+	const existing = await getExistingMembership(input);
+	if (!existing) {
+		return undefined;
+	}
+
+	// Delete both relationships
+	await db
+		.delete(relationship)
+		.where(
+			and(
+				eq(relationship.userId, input.userId),
+				or(
+					and(
+						eq(relationship.relType, "collection"),
+						eq(relationship.sourceEntityId, input.collectionId),
+						eq(relationship.targetEntityId, input.entityId),
+					),
+					and(
+						eq(relationship.relType, "member_of"),
+						eq(relationship.sourceEntityId, input.entityId),
+						eq(relationship.targetEntityId, input.collectionId),
+					),
+				),
+			),
+		);
+
+	return existing;
+};
