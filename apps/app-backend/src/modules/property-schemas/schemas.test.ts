@@ -138,6 +138,51 @@ describe("propertySchemaObjectSchema", () => {
 
 		expect(result.success).toBeFalse();
 	});
+
+	it("accepts object properties with unknownKeys strip policy", () => {
+		const result = propertySchemaObjectSchema.safeParse({
+			fields: {
+				membershipPropertiesSchema: {
+					type: "object",
+					unknownKeys: "strip",
+					properties: {},
+				},
+			},
+		});
+
+		expect(result.success).toBeTrue();
+	});
+
+	it("accepts object properties with unknownKeys strict policy", () => {
+		const result = propertySchemaObjectSchema.safeParse({
+			fields: {
+				config: {
+					type: "object",
+					unknownKeys: "strict",
+					properties: {
+						enabled: { type: "boolean" },
+					},
+				},
+			},
+		});
+
+		expect(result.success).toBeTrue();
+	});
+
+	it("accepts object properties without unknownKeys (defaults to strict)", () => {
+		const result = propertySchemaObjectSchema.safeParse({
+			fields: {
+				config: {
+					type: "object",
+					properties: {
+						name: { type: "string" },
+					},
+				},
+			},
+		});
+
+		expect(result.success).toBeTrue();
+	});
 });
 
 describe("createPropertySchemaObjectSchema", () => {

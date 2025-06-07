@@ -51,7 +51,15 @@ describe("GET /entity-schemas", () => {
 			isBuiltin: true,
 			name: "Collection",
 			accentColor: "#F59E0B",
-			propertiesSchema: { fields: {} },
+			propertiesSchema: {
+				fields: {
+					membershipPropertiesSchema: {
+						type: "object",
+						unknownKeys: "strip",
+						properties: {},
+					},
+				},
+			},
 		});
 	});
 
