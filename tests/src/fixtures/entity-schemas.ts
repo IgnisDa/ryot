@@ -108,10 +108,10 @@ export async function getEntitySchema(
 }
 
 export async function findBuiltinEntitySchema(client: Client, cookies: string) {
-	const builtinTracker = await findBuiltinTracker(client, cookies);
-	const schemas = await listEntitySchemas(client, cookies, {
-		trackerId: builtinTracker.id,
-	});
+	const { schemas, builtinTracker } = await listBuiltinEntitySchemas(
+		client,
+		cookies,
+	);
 	const firstSchema = schemas[0];
 
 	if (!firstSchema) {
@@ -121,22 +121,41 @@ export async function findBuiltinEntitySchema(client: Client, cookies: string) {
 	return { builtinTracker, schema: firstSchema };
 }
 
-export async function findBuiltinSchemaWithProviders(
+export async function findBuiltinSchemaBySlug(
 	client: Client,
 	cookies: string,
+	slug: string,
 ) {
 	const builtinTracker = await findBuiltinTracker(client, cookies);
 	const schemas = await listEntitySchemas(client, cookies, {
-		slugs: ["book"],
+		slugs: [slug],
 		trackerId: builtinTracker.id,
 	});
 	const schema = schemas[0];
 
 	if (!schema) {
-		throw new Error("Built-in book schema not found");
+		throw new Error(`Built-in entity schema '${slug}' not found`);
 	}
 
 	return { schema, builtinTracker };
+}
+
+export async function listBuiltinEntitySchemas(
+	client: Client,
+	cookies: string,
+) {
+	const builtinTracker = await findBuiltinTracker(client, cookies);
+	const schemas = await listEntitySchemas(client, cookies, {
+		trackerId: builtinTracker.id,
+	});
+	return { schemas, builtinTracker };
+}
+
+export async function findBuiltinSchemaWithProviders(
+	client: Client,
+	cookies: string,
+) {
+	return findBuiltinSchemaBySlug(client, cookies, "book");
 }
 
 export async function enqueueEntitySearch(
