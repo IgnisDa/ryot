@@ -2,12 +2,11 @@ use std::collections::HashSet;
 
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
 use boilermates::boilermates;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::NaiveDate;
 use common_models::{
     ApplicationDateRange, CollectionExtraInformation, EntityAssets, IdAndNamedObject,
     PersonSourceSpecifics, StringIdObject, UserToCollectionExtraInformation,
 };
-use common_utils::deserialize_date;
 use enum_models::{
     EntityLot, ImportSource, IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
     SeenState, UserNotificationContent, Visibility,
@@ -17,6 +16,10 @@ use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, FromQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+mod media_specifics;
+
+pub use media_specifics::*;
 
 #[derive(Debug, PartialEq, Eq, Default, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct EntityWithLot {
@@ -44,43 +47,6 @@ pub struct GenreListItem {
 #[skip_serializing_none]
 #[derive(
     Eq,
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Serialize,
-    InputObject,
-    Deserialize,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "AudioBookSpecificsInput")]
-pub struct AudioBookSpecifics {
-    pub runtime: Option<i32>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "BookSpecificsInput")]
-pub struct BookSpecifics {
-    pub pages: Option<i32>,
-    pub is_compilation: Option<bool>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
     Debug,
     Clone,
     Default,
@@ -94,239 +60,6 @@ pub struct BookSpecifics {
 #[graphql(input_name = "MovieSpecificsInput")]
 pub struct MovieSpecifics {
     pub runtime: Option<i32>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "PodcastSpecificsInput")]
-pub struct PodcastSpecifics {
-    pub total_episodes: usize,
-    pub episodes: Vec<PodcastEpisode>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "PodcastEpisodeInput")]
-#[serde(default)]
-pub struct PodcastEpisode {
-    pub id: String,
-    pub number: i32,
-    pub title: String,
-    #[serde(alias = "audio_length_sec")]
-    pub runtime: Option<i32>,
-    #[serde(alias = "description")]
-    pub overview: Option<String>,
-    #[serde(alias = "pub_date_ms", deserialize_with = "deserialize_date")]
-    pub publish_date: NaiveDate,
-    pub thumbnail: Option<String>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "ShowSpecificsInput")]
-pub struct ShowSpecifics {
-    pub runtime: Option<i32>,
-    pub seasons: Vec<ShowSeason>,
-    pub total_seasons: Option<usize>,
-    pub total_episodes: Option<usize>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Hash,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "ShowSeasonSpecificsInput")]
-pub struct ShowSeason {
-    pub id: i32,
-    pub name: String,
-    pub season_number: i32,
-    pub overview: Option<String>,
-    pub episodes: Vec<ShowEpisode>,
-    pub poster_images: Vec<String>,
-    pub backdrop_images: Vec<String>,
-    pub publish_date: Option<NaiveDate>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Hash,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "ShowEpisodeSpecificsInput")]
-pub struct ShowEpisode {
-    pub id: i32,
-    pub name: String,
-    pub episode_number: i32,
-    pub runtime: Option<i32>,
-    pub overview: Option<String>,
-    pub poster_images: Vec<String>,
-    pub publish_date: Option<NaiveDate>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "VideoGameSpecificsInput")]
-pub struct VideoGameSpecifics {
-    pub platforms: Vec<String>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "VisualNovelSpecificsInput")]
-pub struct VisualNovelSpecifics {
-    pub length: Option<i32>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "AnimeAiringScheduleSpecificsInput")]
-pub struct AnimeAiringScheduleSpecifics {
-    pub episode: i32,
-    pub airing_at: NaiveDateTime,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "AnimeSpecificsInput")]
-pub struct AnimeSpecifics {
-    pub episodes: Option<i32>,
-    pub airing_schedule: Option<Vec<AnimeAiringScheduleSpecifics>>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    Serialize,
-    PartialEq,
-    InputObject,
-    Deserialize,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "MusicSpecificsInput")]
-pub struct MusicSpecifics {
-    pub duration: Option<i32>,
-    pub view_count: Option<i32>,
-    pub by_various_artists: Option<bool>,
-}
-
-#[skip_serializing_none]
-#[derive(
-    Eq,
-    Debug,
-    Clone,
-    Default,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    InputObject,
-    SimpleObject,
-    FromJsonQueryResult,
-)]
-#[graphql(input_name = "MangaSpecificsInput")]
-pub struct MangaSpecifics {
-    pub url: Option<String>,
-    pub volumes: Option<i32>,
-    pub chapters: Option<Decimal>,
 }
 
 #[derive(PartialEq, Default, Eq, Debug, Serialize, Deserialize, SimpleObject, Clone)]
