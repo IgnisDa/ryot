@@ -54,7 +54,7 @@ beforeAll(async () => {
 		.withWaitStrategy(Wait.forLogMessage("database system is ready"))
 		.start();
 
-	redisContainer = await new GenericContainer("redis:7-alpine")
+	redisContainer = await new GenericContainer("redis:alpine")
 		.withExposedPorts(6379)
 		.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
 		.start();
