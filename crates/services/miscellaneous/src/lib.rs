@@ -7,21 +7,16 @@ use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use chrono::{NaiveDate, Utc};
 use common_models::{
-    BackgroundJob, DefaultCollection, MetadataGroupSearchInput, MetadataSearchInput,
-    PeopleSearchInput, SearchDetails, SearchInput, StringIdObject,
+    BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
+    StringIdObject,
 };
 use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
 use database_models::{
-    access_link, collection, genre, metadata, monitored_entity,
-    prelude::{
-        AccessLink, Collection, Genre, MetadataGroup, MonitoredEntity, Person, Review, User,
-        UserToEntity,
-    },
-    review, seen, user, user_to_entity,
+    access_link, metadata, monitored_entity,
+    prelude::{AccessLink, MetadataGroup, MonitoredEntity, Person, User},
+    seen, user,
 };
-use database_utils::{
-    entity_in_collections, get_user_query, ilike_sql, revoke_access_link, user_by_id,
-};
+use database_utils::{get_user_query, revoke_access_link};
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
@@ -31,33 +26,27 @@ use dependent_models::{
 };
 use dependent_utils::{
     calculate_user_activities_and_summary, deploy_background_job, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job, expire_user_metadata_list_cache,
-    handle_after_metadata_seen_tasks, is_metadata_finished_by_user, post_review,
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    deploy_update_metadata_job, deploy_update_person_job, handle_after_metadata_seen_tasks,
+    post_review, update_metadata_and_notify_users, update_metadata_group_and_notify_users,
     update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
     user_people_list,
 };
-use enum_models::{EntityLot, MediaLot, MediaSource, UserToMediaReason};
+use enum_models::{EntityLot, MediaLot, MediaSource};
 use futures::future::join_all;
 use itertools::Itertools;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
-    GenreDetailsInput, GenreListItem, GraphqlCalendarEvent, GraphqlMetadataDetails,
-    GroupedCalendarEvent, MarkEntityAsPartialInput, MetadataFreeCreator, ProgressUpdateInput,
-    ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
+    MarkEntityAsPartialInput, MetadataFreeCreator, ProgressUpdateInput, ReviewPostedEvent,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
-use migrations::AliasedMetadataToGenre;
 
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, ItemsAndPagesNumber,
-    JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait,
-    RelationTrait, Statement, prelude::DateTimeUtc,
+    ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, QueryFilter, QuerySelect, Statement,
+    prelude::DateTimeUtc,
 };
-use sea_query::{
-    Alias, Condition, Expr, Func, PostgresQueryBuilder, SelectStatement,
-    extension::postgres::PgExpr,
-};
+use sea_query::{Condition, Expr, PostgresQueryBuilder, SelectStatement};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
@@ -66,12 +55,14 @@ mod calendar_operations;
 mod core_operations;
 mod custom_metadata;
 mod entity_details;
+mod list_operations;
 mod metadata_operations;
 mod progress_operations;
 mod review_operations;
 mod search_operations;
 mod trending_and_events;
 mod user_details;
+mod user_management;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -221,136 +212,7 @@ impl MiscellaneousService {
     }
 
     async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        let all_users = get_user_query()
-            .select_only()
-            .column(user::Column::Id)
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        for user_id in all_users {
-            let collections = Collection::find()
-                .column(collection::Column::Id)
-                .column(collection::Column::UserId)
-                .left_join(UserToEntity)
-                .filter(user_to_entity::Column::UserId.eq(&user_id))
-                .all(&self.0.db)
-                .await
-                .unwrap();
-            let monitoring_collection_id = collections
-                .iter()
-                .find(|c| {
-                    c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id
-                })
-                .map(|c| c.id.clone())
-                .unwrap();
-            let watchlist_collection_id = collections
-                .iter()
-                .find(|c| {
-                    c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id
-                })
-                .map(|c| c.id.clone())
-                .unwrap();
-            let owned_collection_id = collections
-                .iter()
-                .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
-                .map(|c| c.id.clone())
-                .unwrap();
-            let reminder_collection_id = collections
-                .iter()
-                .find(|c| {
-                    c.name == DefaultCollection::Reminders.to_string() && c.user_id == user_id
-                })
-                .map(|c| c.id.clone())
-                .unwrap();
-            let all_user_to_entities = UserToEntity::find()
-                .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
-                .filter(user_to_entity::Column::UserId.eq(&user_id))
-                .all(&self.0.db)
-                .await
-                .unwrap();
-            for ute in all_user_to_entities {
-                let mut new_reasons = HashSet::new();
-                let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
-                    let (is_finished, seen_history) =
-                        is_metadata_finished_by_user(&ute.user_id, &metadata_id, &self.0.db)
-                            .await?;
-                    if !seen_history.is_empty() {
-                        new_reasons.insert(UserToMediaReason::Seen);
-                    }
-                    if !seen_history.is_empty() && is_finished {
-                        new_reasons.insert(UserToMediaReason::Finished);
-                    }
-                    (metadata_id, EntityLot::Metadata)
-                } else if let Some(person_id) = ute.person_id.clone() {
-                    (person_id, EntityLot::Person)
-                } else if let Some(metadata_group_id) = ute.metadata_group_id.clone() {
-                    (metadata_group_id, EntityLot::MetadataGroup)
-                } else {
-                    ryot_log!(debug, "Skipping user_to_entity = {:?}", ute.id);
-                    continue;
-                };
-
-                let collections_part_of =
-                    entity_in_collections(&self.0.db, &user_id, &entity_id, entity_lot)
-                        .await?
-                        .into_iter()
-                        .map(|c| c.id)
-                        .collect_vec();
-                if Review::find()
-                    .filter(review::Column::UserId.eq(&ute.user_id))
-                    .filter(
-                        review::Column::MetadataId
-                            .eq(ute.metadata_id.clone())
-                            .or(review::Column::MetadataGroupId.eq(ute.metadata_group_id.clone()))
-                            .or(review::Column::PersonId.eq(ute.person_id.clone())),
-                    )
-                    .count(&self.0.db)
-                    .await
-                    .unwrap()
-                    > 0
-                {
-                    new_reasons.insert(UserToMediaReason::Reviewed);
-                }
-                let is_in_collection = !collections_part_of.is_empty();
-                let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
-                let is_watchlist = collections_part_of.contains(&watchlist_collection_id);
-                let is_owned = collections_part_of.contains(&owned_collection_id);
-                let has_reminder = collections_part_of.contains(&reminder_collection_id);
-                if is_in_collection {
-                    new_reasons.insert(UserToMediaReason::Collection);
-                }
-                if is_monitoring {
-                    new_reasons.insert(UserToMediaReason::Monitoring);
-                }
-                if is_watchlist {
-                    new_reasons.insert(UserToMediaReason::Watchlist);
-                }
-                if is_owned {
-                    new_reasons.insert(UserToMediaReason::Owned);
-                }
-                if has_reminder {
-                    new_reasons.insert(UserToMediaReason::Reminder);
-                }
-                let previous_reasons =
-                    HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
-                if new_reasons.is_empty() {
-                    ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
-                    ute.delete(&self.0.db).await.unwrap();
-                } else {
-                    let mut ute: user_to_entity::ActiveModel = ute.into();
-                    if new_reasons != previous_reasons {
-                        ryot_log!(debug, "Updating user_to_entity = {id:?}", id = (&ute.id));
-                        ute.media_reason =
-                            ActiveValue::Set(Some(new_reasons.into_iter().collect()));
-                    }
-                    ute.needs_to_be_updated = ActiveValue::Set(None);
-                    ute.update(&self.0.db).await.unwrap();
-                }
-            }
-            expire_user_metadata_list_cache(&user_id, &self.0).await?;
-        }
-        Ok(())
+        user_management::cleanup_user_and_metadata_association(&self.0).await
     }
 
     pub async fn update_seen_item(
@@ -622,51 +484,7 @@ impl MiscellaneousService {
         user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
-        let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
-        let preferences = user_by_id(&user_id, &self.0).await?.preferences;
-        let num_items = "num_items";
-        let query = Genre::find()
-            .column_as(
-                Expr::expr(Func::count(Expr::col((
-                    AliasedMetadataToGenre::Table,
-                    AliasedMetadataToGenre::MetadataId,
-                )))),
-                num_items,
-            )
-            .apply_if(input.query, |query, v| {
-                query.filter(
-                    Condition::all().add(Expr::col(genre::Column::Name).ilike(ilike_sql(&v))),
-                )
-            })
-            .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
-            .group_by(Expr::tuple([
-                Expr::col(genre::Column::Id).into(),
-                Expr::col(genre::Column::Name).into(),
-            ]))
-            .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
-        let paginator = query
-            .clone()
-            .into_model::<GenreListItem>()
-            .paginate(&self.0.db, preferences.general.list_page_size);
-        let ItemsAndPagesNumber {
-            number_of_items,
-            number_of_pages,
-        } = paginator.num_items_and_pages().await?;
-        let mut items = vec![];
-        for c in paginator.fetch_page(page - 1).await? {
-            items.push(c.id);
-        }
-        Ok(SearchResults {
-            details: SearchDetails {
-                total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-            },
-            items,
-        })
+        list_operations::genres_list(&self.0, user_id, input).await
     }
 
     pub async fn user_metadata_groups_list(
