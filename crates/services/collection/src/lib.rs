@@ -25,24 +25,18 @@ use dependent_models::{
 use dependent_utils::{
     add_entity_to_collection, create_or_update_collection, expire_user_collections_list_cache,
     generic_metadata, remove_entity_from_collection, update_metadata_and_notify_users,
+    user_collections_list,
 };
 use enum_models::EntityLot;
 use itertools::Itertools;
-use media_models::{
-    CollectionContentsSortBy, CollectionItem, CreateOrUpdateCollectionInput, EntityWithLot,
-};
-use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedPerson, AliasedUser, AliasedUserToEntity,
-};
+use media_models::{CollectionContentsSortBy, CreateOrUpdateCollectionInput, EntityWithLot};
+use migrations::{AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult,
-    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    ItemsAndPagesNumber, Iterable, ModelTrait, PaginatorTrait, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait, Statement,
 };
-use sea_query::{
-    Alias, Condition, Expr, Func, PgFunc, Query, SimpleExpr, extension::postgres::PgExpr,
-};
+use sea_query::{Condition, Expr, Func, extension::postgres::PgExpr};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
@@ -53,110 +47,7 @@ impl CollectionService {
         &self,
         user_id: &String,
     ) -> Result<CachedResponse<UserCollectionsListResponse>> {
-        let cc = &self.0.cache_service;
-        let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
-            input: (),
-            user_id: user_id.to_owned(),
-        });
-        if let Some((cache_id, response)) = cc.get_value(cache_key.clone()).await {
-            return Ok(CachedResponse { cache_id, response });
-        }
-        let user_jsonb_build_object = PgFunc::json_build_object(vec![
-            (
-                Expr::val("id"),
-                Expr::col((AliasedUser::Table, AliasedUser::Id)),
-            ),
-            (
-                Expr::val("name"),
-                Expr::col((AliasedUser::Table, AliasedUser::Name)),
-            ),
-        ]);
-        let outer_collaborator = PgFunc::json_build_object(vec![
-            (
-                Expr::val("collaborator"),
-                Expr::expr(user_jsonb_build_object.clone()),
-            ),
-            (
-                Expr::val("extra_information"),
-                Expr::col((
-                    AliasedUserToEntity::Table,
-                    AliasedUserToEntity::CollectionExtraInformation,
-                )),
-            ),
-        ]);
-        let collaborators_subquery = Query::select()
-            .from(UserToEntity)
-            .expr(PgFunc::json_agg(outer_collaborator.clone()))
-            .join(
-                JoinType::InnerJoin,
-                AliasedUser::Table,
-                Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
-                    .equals((AliasedUser::Table, AliasedUser::Id)),
-            )
-            .and_where(
-                Expr::col((
-                    AliasedUserToEntity::Table,
-                    AliasedUserToEntity::CollectionId,
-                ))
-                .equals((AliasedCollection::Table, AliasedCollection::Id)),
-            )
-            .to_owned();
-        let count_subquery = Query::select()
-            .expr(collection_to_entity::Column::Id.count())
-            .from(CollectionToEntity)
-            .and_where(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    AliasedCollectionToEntity::CollectionId,
-                ))
-                .equals((
-                    AliasedUserToEntity::Table,
-                    AliasedUserToEntity::CollectionId,
-                )),
-            )
-            .to_owned();
-        let response = Collection::find()
-            .select_only()
-            .column(collection::Column::Id)
-            .column(collection::Column::Name)
-            .column_as(
-                collection::Column::Name
-                    .is_in(DefaultCollection::iter().map(|s| s.to_string()))
-                    .and(collection::Column::UserId.eq(user_id)),
-                "is_default",
-            )
-            .column(collection::Column::InformationTemplate)
-            .expr_as(
-                SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
-                "count",
-            )
-            .expr_as(
-                Func::coalesce([
-                    SimpleExpr::SubQuery(
-                        None,
-                        Box::new(collaborators_subquery.into_sub_query_statement()),
-                    ),
-                    SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
-                ]),
-                "collaborators",
-            )
-            .column(collection::Column::Description)
-            .column_as(Expr::expr(user_jsonb_build_object), "creator")
-            .order_by_desc(collection::Column::LastUpdatedOn)
-            .left_join(User)
-            .left_join(UserToEntity)
-            .filter(user_to_entity::Column::UserId.eq(user_id))
-            .into_model::<CollectionItem>()
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        let cache_id = cc
-            .set_key(
-                cache_key,
-                ApplicationCacheValue::UserCollectionsList(response.clone()),
-            )
-            .await?;
-        Ok(CachedResponse { cache_id, response })
+        user_collections_list(user_id, &self.0).await
     }
 
     pub async fn collection_contents(

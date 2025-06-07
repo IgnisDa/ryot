@@ -6,12 +6,12 @@ use common_models::{
     UserAnalyticsInput, UserLevelCacheKey,
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
-use database_utils::calculate_user_activities_and_summary;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
     FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
     UserFitnessAnalytics,
 };
+use dependent_utils::calculate_user_activities_and_summary;
 use enum_models::{ExerciseEquipment, ExerciseMuscle};
 use hashbag::HashBag;
 use itertools::Itertools;

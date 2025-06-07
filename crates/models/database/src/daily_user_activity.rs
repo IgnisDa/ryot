@@ -13,10 +13,20 @@ pub struct Model {
     pub user_id: String,
     pub date: Option<Date>,
     pub entity_ids: Vec<String>,
-    pub metadata_review_count: i32,
     pub collection_review_count: i32,
+
+    pub total_metadata_count: i32,
+    pub metadata_review_count: i32,
+    pub metadata_collection_count: i32,
+
+    pub total_metadata_group_count: i32,
     pub metadata_group_review_count: i32,
+    pub metadata_group_collection_count: i32,
+
+    pub total_person_count: i32,
     pub person_review_count: i32,
+    pub person_collection_count: i32,
+
     pub exercise_review_count: i32,
     pub measurement_count: i32,
     pub workout_count: i32,
@@ -44,7 +54,7 @@ pub struct Model {
     pub workout_reps: i32,
     pub workout_distance: i32,
     pub workout_rest_time: i32,
-    pub total_metadata_count: i32,
+    pub total_collection_count: i32,
     pub total_review_count: i32,
     pub total_count: i32,
     pub total_duration: i32,

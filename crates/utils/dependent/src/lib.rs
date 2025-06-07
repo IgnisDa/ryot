@@ -6,12 +6,16 @@ use std::{
     sync::Arc,
 };
 
-use application_utils::{get_current_date, graphql_to_db_order};
+use application_utils::{
+    get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
+    graphql_to_db_order,
+};
 use async_graphql::{Enum, Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
-use chrono::Utc;
+use chrono::{Timelike, Utc};
 use common_models::{
-    BackgroundJob, ChangeCollectionToEntityInput, DefaultCollection, EntityAssets,
+    BackgroundJob, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
+    DailyUserActivityHourRecordEntity, DefaultCollection, EntityAssets,
     MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StringIdObject,
     UserLevelCacheKey,
 };
@@ -19,16 +23,16 @@ use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
-    collection, collection_to_entity, exercise,
+    collection, collection_to_entity, daily_user_activity, exercise,
     functions::get_user_to_entity_association,
     genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
     notification_platform, person,
     prelude::{
-        Collection, CollectionToEntity, Exercise, Genre, Metadata, MetadataGroup,
-        MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata, MetadataToMetadataGroup,
-        MetadataToPerson, MonitoredEntity, NotificationPlatform, Person, Seen, UserMeasurement,
-        UserToEntity, Workout, WorkoutTemplate,
+        Collection, CollectionToEntity, DailyUserActivity, Exercise, Genre, Metadata,
+        MetadataGroup, MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata,
+        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
+        Review, Seen, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
@@ -39,9 +43,9 @@ use database_utils::{
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ApplicationCacheValue, CachedResponse,
     EmptyCacheValue, ExpireCacheKeyInput, ImportCompletedItem, ImportResult, MetadataBaseData,
-    SearchResults, UserExercisesListResponse, UserMeasurementsListResponse,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
+    SearchResults, UserCollectionsListResponse, UserExercisesListResponse,
+    UserMeasurementsListResponse, UserMetadataGroupsListInput, UserMetadataGroupsListResponse,
+    UserMetadataListInput, UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse,
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
@@ -60,21 +64,27 @@ use fitness_models::{
     WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
     WorkoutSummaryExercise,
 };
+use futures::TryStreamExt;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
-    CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    CreateOrUpdateReviewInput, GenreListItem, ImportOrExportItemRating, ImportOrExportMetadataItem,
+    AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CollectionItem, CommitMetadataGroupInput,
+    CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput, GenreListItem,
+    ImportOrExportItemRating, ImportOrExportMetadataItem, MangaSpecifics,
     MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion, ReviewPostedEvent,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenPodcastExtraOptionalInformation, SeenShowExtraInformation,
-    SeenShowExtraOptionalInformation, UniqueMediaIdentifier, UpdateMediaEntityResult,
+    MetadataCreatorGroupedByRole, MetadataDetails, MovieSpecifics, MusicSpecifics, PartialMetadata,
+    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
+    PodcastSpecifics, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
+    SeenShowExtraInformation, SeenShowExtraOptionalInformation, ShowSpecifics,
+    UniqueMediaIdentifier, UpdateMediaEntityResult, VideoGameSpecifics, VisualNovelSpecifics,
 };
-use migrations::{AliasedExercise, AliasedReview};
+use migrations::{
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
+    AliasedUserToEntity,
+};
 use nanoid::nanoid;
 use notification_service::send_notification;
 use providers::{
@@ -102,10 +112,11 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
-    prelude::{DateTimeUtc, Expr},
-    sea_query::{
-        Alias, Asterisk, Func, NullOrdering, OnConflict, PgFunc, extension::postgres::PgExpr,
-    },
+    prelude::{Date, DateTimeUtc, Expr},
+};
+use sea_query::{
+    Alias, Asterisk, Func, NullOrdering, OnConflict, PgFunc, Query, SimpleExpr,
+    extension::postgres::PgExpr,
 };
 use serde::{Deserialize, Serialize};
 use slug::slugify;
@@ -2811,51 +2822,51 @@ pub async fn add_entity_to_collection(
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(&ss.db).await.unwrap();
     let column = get_cte_column_from_lot(input.entity_lot);
-    let resp = if let Some(etc) = CollectionToEntity::find()
+
+    let resp = match CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
         .filter(column.eq(input.entity_id.clone()))
         .one(&ss.db)
         .await?
     {
-        let mut to_update: collection_to_entity::ActiveModel = etc.into();
-        to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(&ss.db).await?
-    } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
-            information: ActiveValue::Set(input.information),
-            ..Default::default()
-        };
-        let id = input.entity_id.clone();
-        match input.entity_lot {
-            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-            EntityLot::MetadataGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+        Some(etc) => etc,
+        None => {
+            let mut created_collection = collection_to_entity::ActiveModel {
+                collection_id: ActiveValue::Set(collection.id),
+                information: ActiveValue::Set(input.information),
+                ..Default::default()
+            };
+            let id = input.entity_id.clone();
+            match input.entity_lot {
+                EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
+                EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
+                EntityLot::MetadataGroup => {
+                    created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+                }
+                EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
+                EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+                EntityLot::WorkoutTemplate => {
+                    created_collection.workout_template_id = ActiveValue::Set(Some(id))
+                }
+                EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                    unreachable!()
+                }
             }
-            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-            EntityLot::WorkoutTemplate => {
-                created_collection.workout_template_id = ActiveValue::Set(Some(id))
+            let created = created_collection.insert(&ss.db).await?;
+            ryot_log!(debug, "Created collection to entity: {:?}", created);
+            match input.entity_lot {
+                EntityLot::Workout
+                | EntityLot::WorkoutTemplate
+                | EntityLot::Review
+                | EntityLot::UserMeasurement => {}
+                _ => {
+                    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
+                        .await
+                        .ok();
+                }
             }
-            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                unreachable!()
-            }
+            created
         }
-        let created = created_collection.insert(&ss.db).await?;
-        ryot_log!(debug, "Created collection to entity: {:?}", created);
-        match input.entity_lot {
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => {}
-            _ => {
-                associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
-                    .await
-                    .ok();
-            }
-        }
-        created
     };
     mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
     ss.perform_application_job(ApplicationJob::Lp(
@@ -3008,6 +3019,9 @@ pub async fn create_or_update_collection(
                 collaborators.extend(input_collaborators);
             }
             ryot_log!(debug, "Collaborators: {:?}", collaborators);
+            for c in &collaborators {
+                expire_user_collections_list_cache(c, ss).await?;
+            }
             for c in collaborators {
                 UserToEntity::insert(user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c.clone()),
@@ -3038,7 +3052,6 @@ pub async fn create_or_update_collection(
         }
     };
     txn.commit().await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
     Ok(StringIdObject { id: created })
 }
 
@@ -3887,5 +3900,519 @@ pub async fn associate_user_with_entity(
         }
     };
     expire_user_metadata_list_cache(user_id, ss).await?;
+    Ok(())
+}
+
+pub async fn user_collections_list(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<CachedResponse<UserCollectionsListResponse>> {
+    let cc = &ss.cache_service;
+    let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
+        input: (),
+        user_id: user_id.to_owned(),
+    });
+    if let Some((cache_id, response)) = cc.get_value(cache_key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
+    }
+    let user_jsonb_build_object = PgFunc::json_build_object(vec![
+        (
+            Expr::val("id"),
+            Expr::col((AliasedUser::Table, AliasedUser::Id)),
+        ),
+        (
+            Expr::val("name"),
+            Expr::col((AliasedUser::Table, AliasedUser::Name)),
+        ),
+    ]);
+    let outer_collaborator = PgFunc::json_build_object(vec![
+        (
+            Expr::val("collaborator"),
+            Expr::expr(user_jsonb_build_object.clone()),
+        ),
+        (
+            Expr::val("extra_information"),
+            Expr::col((
+                AliasedUserToEntity::Table,
+                AliasedUserToEntity::CollectionExtraInformation,
+            )),
+        ),
+    ]);
+    let collaborators_subquery = Query::select()
+        .from(UserToEntity)
+        .expr(PgFunc::json_agg(outer_collaborator.clone()))
+        .join(
+            JoinType::InnerJoin,
+            AliasedUser::Table,
+            Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
+                .equals((AliasedUser::Table, AliasedUser::Id)),
+        )
+        .and_where(
+            Expr::col((
+                AliasedUserToEntity::Table,
+                AliasedUserToEntity::CollectionId,
+            ))
+            .equals((AliasedCollection::Table, AliasedCollection::Id)),
+        )
+        .to_owned();
+    let count_subquery = Query::select()
+        .expr(collection_to_entity::Column::Id.count())
+        .from(CollectionToEntity)
+        .and_where(
+            Expr::col((
+                AliasedCollectionToEntity::Table,
+                AliasedCollectionToEntity::CollectionId,
+            ))
+            .equals((
+                AliasedUserToEntity::Table,
+                AliasedUserToEntity::CollectionId,
+            )),
+        )
+        .to_owned();
+    let response = Collection::find()
+        .select_only()
+        .column(collection::Column::Id)
+        .column(collection::Column::Name)
+        .column_as(
+            collection::Column::Name
+                .is_in(DefaultCollection::iter().map(|s| s.to_string()))
+                .and(collection::Column::UserId.eq(user_id)),
+            "is_default",
+        )
+        .column(collection::Column::InformationTemplate)
+        .expr_as(
+            SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
+            "count",
+        )
+        .expr_as(
+            Func::coalesce([
+                SimpleExpr::SubQuery(
+                    None,
+                    Box::new(collaborators_subquery.into_sub_query_statement()),
+                ),
+                SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
+            ]),
+            "collaborators",
+        )
+        .column(collection::Column::Description)
+        .column_as(Expr::expr(user_jsonb_build_object), "creator")
+        .order_by_desc(collection::Column::LastUpdatedOn)
+        .left_join(User)
+        .left_join(UserToEntity)
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .into_model::<CollectionItem>()
+        .all(&ss.db)
+        .await
+        .unwrap();
+    let cache_id = cc
+        .set_key(
+            cache_key,
+            ApplicationCacheValue::UserCollectionsList(response.clone()),
+        )
+        .await?;
+    Ok(CachedResponse { cache_id, response })
+}
+
+pub async fn calculate_user_activities_and_summary(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    calculate_from_beginning: bool,
+) -> Result<()> {
+    #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
+    struct SeenItem {
+        seen_id: String,
+        show_extra_information: Option<SeenShowExtraInformation>,
+        podcast_extra_information: Option<SeenPodcastExtraInformation>,
+        anime_extra_information: Option<SeenAnimeExtraInformation>,
+        manga_extra_information: Option<SeenMangaExtraInformation>,
+        metadata_id: String,
+        finished_on: Option<Date>,
+        last_updated_on: DateTimeUtc,
+        metadata_lot: MediaLot,
+        audio_book_specifics: Option<AudioBookSpecifics>,
+        book_specifics: Option<BookSpecifics>,
+        movie_specifics: Option<MovieSpecifics>,
+        music_specifics: Option<MusicSpecifics>,
+        podcast_specifics: Option<PodcastSpecifics>,
+        show_specifics: Option<ShowSpecifics>,
+        video_game_specifics: Option<VideoGameSpecifics>,
+        manual_time_spent: Option<Decimal>,
+        visual_novel_specifics: Option<VisualNovelSpecifics>,
+        anime_specifics: Option<AnimeSpecifics>,
+        manga_specifics: Option<MangaSpecifics>,
+    }
+
+    let start_from = match calculate_from_beginning {
+        true => {
+            DailyUserActivity::delete_many()
+                .filter(daily_user_activity::Column::UserId.eq(user_id))
+                .exec(&ss.db)
+                .await?;
+            Date::default()
+        }
+        false => DailyUserActivity::find()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .order_by_with_nulls(
+                daily_user_activity::Column::Date,
+                Order::Desc,
+                NullOrdering::Last,
+            )
+            .one(&ss.db)
+            .await?
+            .and_then(|i| i.date)
+            .unwrap_or_default(),
+    };
+    let mut activities = HashMap::new();
+
+    fn get_activity_count<'a>(
+        activities: &'a mut HashMap<Option<Date>, daily_user_activity::Model>,
+        user_id: &'a String,
+        date: Option<Date>,
+        entity_id: String,
+        entity_lot: EntityLot,
+        metadata_lot: Option<MediaLot>,
+        timestamp: DateTimeUtc,
+    ) -> &'a mut daily_user_activity::Model {
+        ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
+        let existing = activities
+            .entry(date)
+            .or_insert(daily_user_activity::Model {
+                date,
+                user_id: user_id.to_owned(),
+                ..Default::default()
+            });
+        existing.entity_ids.push(entity_id.clone());
+        let hour = if timestamp.minute() < 30 {
+            timestamp.hour()
+        } else {
+            timestamp.hour() + 1
+        };
+        let maybe_idx = existing.hour_records.iter().position(|hr| hr.hour == hour);
+        if let Some(idx) = maybe_idx {
+            existing.hour_records.get_mut(idx).unwrap().entities.push(
+                DailyUserActivityHourRecordEntity {
+                    entity_id,
+                    entity_lot,
+                    metadata_lot,
+                },
+            );
+        } else {
+            existing.hour_records.push(DailyUserActivityHourRecord {
+                hour,
+                entities: vec![DailyUserActivityHourRecordEntity {
+                    entity_id,
+                    entity_lot,
+                    metadata_lot,
+                }],
+            });
+        }
+        existing
+    }
+
+    let mut seen_stream = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::State.eq(SeenState::Completed))
+        .filter(seen::Column::LastUpdatedOn.gt(start_from))
+        .left_join(Metadata)
+        .select_only()
+        .column_as(seen::Column::Id, "seen_id")
+        .columns([
+            seen::Column::ShowExtraInformation,
+            seen::Column::PodcastExtraInformation,
+            seen::Column::AnimeExtraInformation,
+            seen::Column::MangaExtraInformation,
+            seen::Column::MetadataId,
+            seen::Column::FinishedOn,
+            seen::Column::LastUpdatedOn,
+            seen::Column::ManualTimeSpent,
+        ])
+        .column_as(metadata::Column::Lot, "metadata_lot")
+        .columns([
+            metadata::Column::AudioBookSpecifics,
+            metadata::Column::BookSpecifics,
+            metadata::Column::MovieSpecifics,
+            metadata::Column::MusicSpecifics,
+            metadata::Column::PodcastSpecifics,
+            metadata::Column::ShowSpecifics,
+            metadata::Column::VideoGameSpecifics,
+            metadata::Column::VisualNovelSpecifics,
+            metadata::Column::AnimeSpecifics,
+            metadata::Column::MangaSpecifics,
+        ])
+        .into_model::<SeenItem>()
+        .stream(&ss.db)
+        .await?;
+
+    while let Some(seen) = seen_stream.try_next().await? {
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            seen.finished_on,
+            seen.seen_id,
+            EntityLot::Metadata,
+            Some(seen.metadata_lot),
+            seen.last_updated_on,
+        );
+        if let (Some(show_seen), Some(show_extra)) =
+            (seen.show_specifics, seen.show_extra_information)
+        {
+            if let Some(runtime) =
+                get_show_episode_by_numbers(&show_seen, show_extra.season, show_extra.episode)
+                    .and_then(|(_, e)| e.runtime)
+            {
+                activity.show_duration += runtime;
+            }
+        } else if let (Some(podcast_seen), Some(podcast_extra)) =
+            (seen.podcast_specifics, seen.podcast_extra_information)
+        {
+            if let Some(runtime) =
+                get_podcast_episode_by_number(&podcast_seen, podcast_extra.episode)
+                    .and_then(|e| e.runtime)
+            {
+                activity.podcast_duration += runtime;
+            }
+        } else if let Some(audio_book_extra) = seen.audio_book_specifics {
+            if let Some(runtime) = audio_book_extra.runtime {
+                activity.audio_book_duration += runtime;
+            }
+        } else if let Some(movie_extra) = seen.movie_specifics {
+            if let Some(runtime) = movie_extra.runtime {
+                activity.movie_duration += runtime;
+            }
+        } else if let Some(music_extra) = seen.music_specifics {
+            if let Some(runtime) = music_extra.duration {
+                activity.music_duration += runtime / 60;
+            }
+        } else if let Some(book_extra) = seen.book_specifics {
+            if let Some(pages) = book_extra.pages {
+                activity.book_pages += pages;
+            }
+        } else if let Some(visual_novel_extra) = seen.visual_novel_specifics {
+            if let Some(runtime) = visual_novel_extra.length {
+                activity.visual_novel_duration += runtime;
+            }
+        } else if let Some(_video_game_extra) = seen.video_game_specifics {
+            if let Some(manual_time_spent) = seen.manual_time_spent {
+                activity.video_game_duration +=
+                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
+            }
+        }
+        match seen.metadata_lot {
+            MediaLot::Book => activity.book_count += 1,
+            MediaLot::Show => activity.show_count += 1,
+            MediaLot::Music => activity.music_count += 1,
+            MediaLot::Anime => activity.anime_count += 1,
+            MediaLot::Movie => activity.movie_count += 1,
+            MediaLot::Manga => activity.manga_count += 1,
+            MediaLot::Podcast => activity.podcast_count += 1,
+            MediaLot::VideoGame => activity.video_game_count += 1,
+            MediaLot::AudioBook => activity.audio_book_count += 1,
+            MediaLot::VisualNovel => activity.visual_novel_count += 1,
+        };
+    }
+
+    let exercises = Exercise::find().all(&ss.db).await.unwrap();
+    let user_exercises = UserToEntity::find()
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(user_to_entity::Column::ExerciseId.is_not_null())
+        .all(&ss.db)
+        .await?;
+    let mut workout_stream = Workout::find()
+        .filter(workout::Column::UserId.eq(user_id))
+        .filter(workout::Column::EndTime.gte(start_from))
+        .stream(&ss.db)
+        .await?;
+    while let Some(workout) = workout_stream.try_next().await? {
+        let date = workout.end_time.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            Some(date),
+            workout.id,
+            EntityLot::Workout,
+            None,
+            workout.start_time,
+        );
+        activity.workout_count += 1;
+        activity.workout_calories_burnt += workout
+            .calories_burnt
+            .unwrap_or_default()
+            .to_i32()
+            .unwrap_or_default();
+        activity.workout_duration += workout.duration / 60;
+        let workout_total = workout.summary.total.unwrap();
+        activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
+        activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
+        activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
+        activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
+        activity.workout_rest_time += (workout_total.rest_time as i32) / 60;
+        for exercise in workout.information.exercises {
+            let db_ex = exercises.iter().find(|e| e.id == exercise.id).unwrap();
+            if user_exercises
+                .iter()
+                .find(|e| e.exercise_id == Some(db_ex.id.clone()))
+                .unwrap()
+                .exercise_extra_information
+                .as_ref()
+                .map(|d| d.settings.exclude_from_analytics)
+                .unwrap_or_default()
+            {
+                continue;
+            }
+            activity.workout_exercises.push(db_ex.name.clone());
+            activity.workout_equipments.extend(db_ex.equipment);
+            activity.workout_muscles.extend(db_ex.muscles.clone());
+        }
+    }
+
+    let mut measurement_stream = UserMeasurement::find()
+        .filter(user_measurement::Column::UserId.eq(user_id))
+        .filter(user_measurement::Column::Timestamp.gte(start_from))
+        .stream(&ss.db)
+        .await?;
+    while let Some(measurement) = measurement_stream.try_next().await? {
+        let date = measurement.timestamp.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            Some(date),
+            measurement.timestamp.to_string(),
+            EntityLot::UserMeasurement,
+            None,
+            measurement.timestamp,
+        );
+        activity.measurement_count += 1;
+    }
+
+    let mut review_stream = Review::find()
+        .filter(review::Column::UserId.eq(user_id))
+        .filter(review::Column::PostedOn.gte(start_from))
+        .stream(&ss.db)
+        .await?;
+    while let Some(review) = review_stream.try_next().await? {
+        let date = review.posted_on.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            Some(date),
+            review.id,
+            EntityLot::Review,
+            None,
+            review.posted_on,
+        );
+        match review.entity_lot {
+            EntityLot::Person => activity.person_review_count += 1,
+            EntityLot::Exercise => activity.exercise_review_count += 1,
+            EntityLot::Metadata => activity.metadata_review_count += 1,
+            EntityLot::Collection => activity.collection_review_count += 1,
+            EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
+            _ => {}
+        }
+    }
+
+    expire_user_collections_list_cache(user_id, ss).await?;
+    let collections_response = user_collections_list(user_id, ss).await?;
+
+    let user_owned_collection_ids: Vec<String> = collections_response
+        .response
+        .iter()
+        .filter(|collection| collection.creator.id == *user_id)
+        .map(|collection| collection.id.clone())
+        .collect();
+
+    let mut collection_stream = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.is_in(user_owned_collection_ids))
+        .filter(collection_to_entity::Column::LastUpdatedOn.gt(start_from))
+        .stream(&ss.db)
+        .await?;
+
+    while let Some(cte) = collection_stream.try_next().await? {
+        let date = cte.last_updated_on.date_naive();
+        let activity = get_activity_count(
+            &mut activities,
+            user_id,
+            Some(date),
+            cte.id.to_string(),
+            cte.entity_lot,
+            None,
+            cte.last_updated_on,
+        );
+
+        match cte.entity_lot {
+            EntityLot::Metadata => activity.metadata_collection_count += 1,
+            EntityLot::Person => activity.person_collection_count += 1,
+            EntityLot::MetadataGroup => activity.metadata_group_collection_count += 1,
+            _ => {}
+        }
+    }
+
+    for (_, activity) in activities.iter_mut() {
+        DailyUserActivity::delete_many()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .filter(match activity.date {
+                None => daily_user_activity::Column::Date.is_null(),
+                Some(date) => daily_user_activity::Column::Date.eq(date),
+            })
+            .exec(&ss.db)
+            .await?;
+        ryot_log!(debug, "Inserting activity = {:?}", activity.date);
+        let total_collection_count = activity.person_collection_count
+            + activity.metadata_collection_count
+            + activity.metadata_group_collection_count;
+
+        activity.total_person_count =
+            activity.person_review_count + activity.person_collection_count;
+        activity.total_metadata_group_count =
+            activity.metadata_group_review_count + activity.metadata_group_collection_count;
+
+        let total_review_count = activity.metadata_review_count
+            + activity.collection_review_count
+            + activity.metadata_group_review_count
+            + activity.person_review_count
+            + activity.exercise_review_count;
+        let total_metadata_count = activity.movie_count
+            + activity.show_count
+            + activity.podcast_count
+            + activity.anime_count
+            + activity.manga_count
+            + activity.music_count
+            + activity.audio_book_count
+            + activity.book_count
+            + activity.video_game_count
+            + activity.visual_novel_count
+            + activity.metadata_collection_count;
+        let total_count = total_metadata_count
+            + activity.measurement_count
+            + activity.workout_count
+            + total_review_count
+            + total_collection_count;
+        let total_duration = activity.workout_duration
+            + activity.audio_book_duration
+            + activity.podcast_duration
+            + activity.movie_duration
+            + activity.show_duration
+            + activity.music_duration
+            + activity.visual_novel_duration
+            + activity.video_game_duration;
+        activity.hour_records.sort_by_key(|hr| hr.hour);
+        let mut model: daily_user_activity::ActiveModel = activity.clone().into();
+        model.id = ActiveValue::NotSet;
+        model.total_count = ActiveValue::Set(total_count);
+        model.total_duration = ActiveValue::Set(total_duration);
+        model.total_review_count = ActiveValue::Set(total_review_count);
+        model.total_metadata_count = ActiveValue::Set(total_metadata_count);
+        model.total_collection_count = ActiveValue::Set(total_collection_count);
+        model.insert(&ss.db).await.unwrap();
+    }
+
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserAnalytics,
+        })
+        .await?;
+
+    ryot_log!(debug, "Expired cache key for user: {:?}", user_id);
+
     Ok(())
 }

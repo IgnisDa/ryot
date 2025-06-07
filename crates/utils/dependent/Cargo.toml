@@ -17,6 +17,7 @@ dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
+futures = { workspace = true }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 markdown = { workspace = true }
@@ -29,6 +30,7 @@ rand = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
+sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 slug = { workspace = true }
