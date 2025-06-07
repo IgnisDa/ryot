@@ -90,6 +90,7 @@ describe("enqueueSandbox", () => {
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
 				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
+				{ context: { userId: "user_1" }, functionKey: "getUserPreferences" },
 			],
 		});
 	});
@@ -121,6 +122,7 @@ describe("enqueueSandbox", () => {
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
 				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
+				{ context: { userId: "user_1" }, functionKey: "getUserPreferences" },
 			],
 		});
 	});
