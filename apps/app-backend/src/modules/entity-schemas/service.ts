@@ -288,7 +288,6 @@ export const enqueueEntitySearch = async (
 	return deps.enqueueSandboxJob({
 		userId: input.userId,
 		body: {
-			kind: "script",
 			driverName: "search",
 			context: input.body.context,
 			scriptId: input.body.scriptId,

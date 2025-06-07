@@ -4,6 +4,7 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
+	createSandboxScript,
 	createTracker,
 	enqueueSandboxScript,
 	findBuiltinSchemaWithProviders,
@@ -33,9 +34,14 @@ afterAll(() => {
 describe("sandbox async flow", () => {
 	it("completes a script that returns a plain value", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "plain-value",
+			slug: `plain-value-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -51,9 +57,14 @@ describe("sandbox async flow", () => {
 
 	it("completes a script that uses httpCall", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "http-call",
+			slug: `http-call-${crypto.randomUUID()}`,
 			code: `driver("main", async function() { return await httpCall("GET", ${JSON.stringify(httpServerUrl)}); });`,
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -93,8 +104,9 @@ describe("sandbox async flow", () => {
 			name: "Test Entity",
 			entitySchemaId: schema.id,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "execute-query",
+			slug: `execute-query-${crypto.randomUUID()}`,
 			code: `
 driver("main", async function() {
   const result = await executeQuery({
@@ -108,6 +120,10 @@ driver("main", async function() {
   return result.data.items;
 });
 `,
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -134,8 +150,9 @@ driver("main", async function() {
 
 	it("completes a script that uses getUserPreferences", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "get-user-prefs",
+			slug: `get-user-prefs-${crypto.randomUUID()}`,
 			code: `
 driver("main", async function() {
   const result = await getUserPreferences();
@@ -145,6 +162,10 @@ driver("main", async function() {
   return result.data;
 });
 `,
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -168,9 +189,14 @@ driver("main", async function() {
 
 	it("returns a completed result when the script throws", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "throws-error",
+			slug: `throws-error-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { throw new Error("intentional"); });',
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -186,8 +212,13 @@ driver("main", async function() {
 
 	it("returns a completed result when the script has a syntax error", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
 			code: "{{{",
+			name: "syntax-error",
+			slug: `syntax-error-${crypto.randomUUID()}`,
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
 			driverName: "main",
 		});
 
@@ -217,14 +248,19 @@ driver("main", async function() {
 			await createAuthenticatedClient();
 		const { client: clientB, cookies: cookiesB } =
 			await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(clientA, cookiesA, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(clientA, cookiesA, {
+			name: "cross-user-job",
+			slug: `cross-user-job-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
+		});
+		const { jobId } = await enqueueSandboxScript(clientA, cookiesA, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const { response, error } = await clientB.GET("/sandbox/result/{jobId}", {
-			headers: { Cookie: cookiesB },
 			params: { path: { jobId } },
+			headers: { Cookie: cookiesB },
 		});
 
 		expect(response.status).toBe(404);
@@ -234,7 +270,7 @@ driver("main", async function() {
 	it("returns 401 for unauthenticated enqueue", async () => {
 		const client = getBackendClient();
 		const { response, error } = await client.POST("/sandbox/enqueue", {
-			body: { code: "return 42;" },
+			body: { scriptId: crypto.randomUUID(), driverName: "main" },
 		});
 
 		expect(response.status).toBe(401);
@@ -243,9 +279,14 @@ driver("main", async function() {
 
 	it("returns 401 for unauthenticated poll", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			driverName: "main",
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "unauth-poll",
+			slug: `unauth-poll-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
 		});
 
 		const unauthenticatedClient = getBackendClient();
@@ -266,7 +307,6 @@ describe("sandbox enqueue by script ID", () => {
 		const { response } = await client.POST("/sandbox/enqueue", {
 			headers: { Cookie: cookies },
 			body: {
-				kind: "script",
 				driverName: "main",
 				scriptId: crypto.randomUUID(),
 			},
@@ -284,7 +324,6 @@ describe("sandbox enqueue by script ID", () => {
 		}
 
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			kind: "script",
 			driverName: "search",
 			scriptId: searchScriptId,
 			context: { page: 1, pageSize: 5, query: "test" },
