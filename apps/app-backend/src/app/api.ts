@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception";
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi";
 import { authenticationApi } from "~/modules/authentication/routes";
+import { collectionsApi } from "~/modules/collections/routes";
 import { entitiesApi } from "~/modules/entities/routes";
 import { entitySchemasApi } from "~/modules/entity-schemas/routes";
 import { eventSchemasApi } from "~/modules/event-schemas/routes";
@@ -66,6 +67,11 @@ const openApiTags = [
 		description: "Saved query configurations for quick access to entity views",
 	},
 	{
+		name: "collections",
+		description:
+			"User-defined collections of entities with custom membership metadata",
+	},
+	{
 		name: "query-engine",
 		description: "Execute dynamic queries",
 	},
@@ -103,6 +109,7 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/events", eventsApi)
 	.route("/uploads", uploadsApi)
 	.route("/saved-views", savedViewsApi)
+	.route("/collections", collectionsApi)
 	.route("/query-engine", queryEngineApi);
 
 export const apiApp = baseApp
