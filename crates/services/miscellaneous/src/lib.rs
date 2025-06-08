@@ -1,22 +1,17 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use async_graphql::Result;
-use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
-use chrono::{NaiveDate, Utc};
+use background_models::{ApplicationJob, HpApplicationJob};
+use chrono::NaiveDate;
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
     StringIdObject,
 };
-use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
 use database_models::{
-    access_link, metadata, monitored_entity,
-    prelude::{AccessLink, MetadataGroup, MonitoredEntity, Person, User},
+    metadata,
+    prelude::{MetadataGroup, Person, User},
     seen, user,
 };
-use database_utils::{get_user_query, revoke_access_link};
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
@@ -25,14 +20,13 @@ use dependent_models::{
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
-    calculate_user_activities_and_summary, deploy_background_job, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job, handle_after_metadata_seen_tasks,
-    post_review, update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job, handle_after_metadata_seen_tasks, post_review,
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
     update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
     user_people_list,
 };
-use enum_models::{EntityLot, MediaLot, MediaSource};
-use futures::future::join_all;
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
@@ -41,12 +35,11 @@ use media_models::{
     UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
-
 use sea_orm::{
-    ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, QueryFilter, QuerySelect, Statement,
+    ActiveValue, ColumnTrait, DatabaseBackend, EntityTrait, QueryFilter, Statement,
     prelude::DateTimeUtc,
 };
-use sea_query::{Condition, Expr, PostgresQueryBuilder, SelectStatement};
+use sea_query::{Expr, PostgresQueryBuilder, SelectStatement};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
@@ -67,27 +60,6 @@ mod user_management;
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
-    pub async fn revoke_invalid_access_tokens(&self) -> Result<()> {
-        let access_links = AccessLink::find()
-            .select_only()
-            .column(access_link::Column::Id)
-            .filter(
-                Condition::any()
-                    .add(
-                        Expr::col(access_link::Column::TimesUsed)
-                            .gte(Expr::col(access_link::Column::MaximumUses)),
-                    )
-                    .add(access_link::Column::ExpiresOn.lte(Utc::now())),
-            )
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await?;
-        for access_link in access_links {
-            revoke_access_link(&self.0.db, access_link).await?;
-        }
-        Ok(())
-    }
-
     pub async fn core_details(&self) -> Result<CoreDetails> {
         self.0.core_details().await
     }
@@ -211,10 +183,6 @@ impl MiscellaneousService {
         core_operations::mark_entity_as_partial(&self.0, user_id, input).await
     }
 
-    async fn cleanup_user_and_metadata_association(&self) -> Result<()> {
-        user_management::cleanup_user_and_metadata_association(&self.0).await
-    }
-
     pub async fn update_seen_item(
         &self,
         user_id: String,
@@ -311,20 +279,6 @@ impl MiscellaneousService {
         progress_operations::delete_seen_item(&self.0, user_id, seen_id).await
     }
 
-    async fn regenerate_user_summaries(&self) -> Result<()> {
-        let all_users = get_user_query()
-            .select_only()
-            .column(user::Column::Id)
-            .into_tuple::<String>()
-            .all(&self.0.db)
-            .await
-            .unwrap();
-        for user_id in all_users {
-            calculate_user_activities_and_summary(&user_id, &self.0, false).await?;
-        }
-        Ok(())
-    }
-
     fn get_data_for_custom_metadata(
         &self,
         input: CreateCustomMetadataInput,
@@ -419,66 +373,6 @@ impl MiscellaneousService {
         Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
     }
 
-    async fn get_monitored_entities(
-        &self,
-        entity_lot: EntityLot,
-    ) -> Result<HashMap<String, HashSet<String>>> {
-        let monitored_entities = MonitoredEntity::find()
-            .filter(monitored_entity::Column::EntityLot.eq(entity_lot))
-            .all(&self.0.db)
-            .await?;
-        let mut monitored_by = HashMap::new();
-        for entity in monitored_entities {
-            let user_ids = monitored_by
-                .entry(entity.entity_id)
-                .or_insert(HashSet::new());
-            user_ids.insert(entity.user_id);
-        }
-        Ok(monitored_by)
-    }
-
-    async fn update_monitored_metadata_and_queue_notifications(&self) -> Result<()> {
-        let m_map = self.get_monitored_entities(EntityLot::Metadata).await?;
-        ryot_log!(
-            debug,
-            "Users to be notified for metadata state changes: {:?}",
-            m_map
-        );
-        let chunks = m_map.keys().chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE);
-        let items = chunks
-            .into_iter()
-            .map(|chunk| chunk.into_iter().collect_vec())
-            .collect_vec();
-        for chunk in items {
-            let promises = chunk
-                .into_iter()
-                .map(|m| self.update_metadata_and_notify_users(m));
-            join_all(promises).await;
-        }
-        Ok(())
-    }
-
-    async fn update_monitored_people_and_queue_notifications(&self) -> Result<()> {
-        let p_map = self.get_monitored_entities(EntityLot::Person).await?;
-        ryot_log!(
-            debug,
-            "Users to be notified for people state changes: {:?}",
-            p_map
-        );
-        let chunks = p_map.keys().chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE);
-        let items = chunks
-            .into_iter()
-            .map(|chunk| chunk.into_iter().collect_vec())
-            .collect_vec();
-        for chunk in items {
-            let promises = chunk
-                .into_iter()
-                .map(|p| self.update_person_and_notify_users(p));
-            join_all(promises).await;
-        }
-        Ok(())
-    }
-
     pub async fn genres_list(
         &self,
         user_id: String,
@@ -522,10 +416,6 @@ impl MiscellaneousService {
         entity_details::metadata_group_details(&self.0, metadata_group_id).await
     }
 
-    async fn queue_pending_reminders(&self) -> Result<()> {
-        calendar_operations::queue_pending_reminders(&self.0).await
-    }
-
     pub async fn create_review_comment(
         &self,
         user_id: String,
@@ -536,13 +426,6 @@ impl MiscellaneousService {
 
     pub async fn recalculate_calendar_events(&self) -> Result<()> {
         calendar_operations::recalculate_calendar_events(&self.0).await
-    }
-
-    async fn queue_notifications_for_released_media(&self) -> Result<()> {
-        calendar_operations::queue_notifications_for_released_media(&self.0, |id, lot, tab| {
-            self.get_entity_details_frontend_url(id, lot, tab)
-        })
-        .await
     }
 
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
@@ -557,9 +440,9 @@ impl MiscellaneousService {
 
     pub async fn update_metadata_group_and_notify_users(
         &self,
-        metadata_group_id: String,
+        metadata_group_id: &String,
     ) -> Result<()> {
-        update_metadata_group_and_notify_users(&metadata_group_id, &self.0).await?;
+        update_metadata_group_and_notify_users(metadata_group_id, &self.0).await?;
         Ok(())
     }
 
@@ -568,37 +451,7 @@ impl MiscellaneousService {
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        trending_and_events::handle_review_posted_event(self, &self.0, event).await
-    }
-
-    fn get_entity_details_frontend_url(
-        &self,
-        id: String,
-        entity_lot: EntityLot,
-        default_tab: Option<&str>,
-    ) -> String {
-        let mut url = match entity_lot {
-            EntityLot::Metadata => format!("media/item/{}", id),
-            EntityLot::Collection => format!("collections/{}", id),
-            EntityLot::Person => format!("media/people/item/{}", id),
-            EntityLot::Workout => format!("fitness/workouts/{}", id),
-            EntityLot::Exercise => format!("fitness/exercises/{}", id),
-            EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
-            EntityLot::WorkoutTemplate => format!("fitness/templates/{}", id),
-            EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
-        };
-        url = format!("{}/{}", self.0.config.frontend.url, url);
-        if let Some(tab) = default_tab {
-            url += format!("?defaultTab={}", tab).as_str()
-        }
-        url
-    }
-
-    pub async fn sync_integrations_data_to_owned_collection(&self) -> Result<()> {
-        self.0
-            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
-            .await?;
-        Ok(())
+        trending_and_events::handle_review_posted_event(&self.0, event).await
     }
 
     pub async fn update_user_last_activity_performed(
@@ -615,7 +468,7 @@ impl MiscellaneousService {
     }
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
-        background_operations::perform_background_jobs(self).await
+        background_operations::perform_background_jobs(&self.0).await
     }
 
     #[cfg(debug_assertions)]

@@ -37,6 +37,8 @@ use std::sync::Arc;
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 
+use crate::trending_and_events::get_entity_details_frontend_url;
+
 pub async fn user_calendar_events(
     service: &crate::MiscellaneousService,
     user_id: String,
@@ -228,22 +230,19 @@ pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<
     Ok(())
 }
 
-pub async fn queue_notifications_for_released_media(
-    service: &Arc<SupportingService>,
-    get_entity_details_frontend_url: impl Fn(String, EntityLot, Option<&str>) -> String,
-) -> Result<()> {
-    let today = get_current_date(&service.timezone);
+pub async fn queue_notifications_for_released_media(ss: &Arc<SupportingService>) -> Result<()> {
+    let today = get_current_date(&ss.timezone);
     let calendar_events = CalendarEvent::find()
         .filter(calendar_event::Column::Date.eq(today))
         .find_also_related(Metadata)
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     let notifications = calendar_events
         .into_iter()
         .map(|(cal_event, meta)| {
             let meta = meta.unwrap();
             let url =
-                get_entity_details_frontend_url(meta.id.to_string(), EntityLot::Metadata, None);
+                get_entity_details_frontend_url(meta.id.to_string(), EntityLot::Metadata, None, ss);
             let notification = if let Some(show) = cal_event.metadata_show_extra_information {
                 format!(
                     "S{}E{} of {} ({}) has been released today.",
@@ -265,9 +264,9 @@ pub async fn queue_notifications_for_released_media(
         .collect_vec();
     for (metadata_id, notification) in notifications.into_iter() {
         let users_to_notify =
-            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &service.db).await?;
+            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &ss.db).await?;
         for user in users_to_notify {
-            send_notification_for_user(&user, service, &notification).await?;
+            send_notification_for_user(&user, ss, &notification).await?;
         }
     }
     Ok(())

@@ -8,7 +8,7 @@ use dependent_utils::{
     commit_metadata, get_metadata_provider, get_users_monitoring_entity, send_notification_for_user,
 };
 use enum_meta::Meta;
-use enum_models::{MediaLot, UserNotificationContent};
+use enum_models::{EntityLot, MediaLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::ReviewPostedEvent;
 use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter, QueryOrder, QuerySelect};
@@ -66,8 +66,30 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
     Ok(actually_in_db)
 }
 
+pub fn get_entity_details_frontend_url(
+    id: String,
+    entity_lot: EntityLot,
+    default_tab: Option<&str>,
+    ss: &Arc<SupportingService>,
+) -> String {
+    let mut url = match entity_lot {
+        EntityLot::Metadata => format!("media/item/{}", id),
+        EntityLot::Collection => format!("collections/{}", id),
+        EntityLot::Person => format!("media/people/item/{}", id),
+        EntityLot::Workout => format!("fitness/workouts/{}", id),
+        EntityLot::Exercise => format!("fitness/exercises/{}", id),
+        EntityLot::MetadataGroup => format!("media/groups/item/{}", id),
+        EntityLot::WorkoutTemplate => format!("fitness/templates/{}", id),
+        EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
+    };
+    url = format!("{}/{}", ss.config.frontend.url, url);
+    if let Some(tab) = default_tab {
+        url += format!("?defaultTab={}", tab).as_str()
+    }
+    url
+}
+
 pub async fn handle_review_posted_event(
-    service: &crate::MiscellaneousService,
     ss: &Arc<SupportingService>,
     event: ReviewPostedEvent,
 ) -> Result<()> {
@@ -84,10 +106,11 @@ pub async fn handle_review_posted_event(
         .all(&ss.db)
         .await?;
     for user_id in users {
-        let url = service.get_entity_details_frontend_url(
+        let url = get_entity_details_frontend_url(
             event.obj_id.clone(),
             event.entity_lot,
             Some("reviews"),
+            ss,
         );
         send_notification_for_user(
             &user_id,
