@@ -293,7 +293,10 @@ driver("details", async function(context) {
     properties: {
       pages,
       publishYear: parsePublishYear(volumeInfo?.publishedDate, dayjs),
-      assets: { remoteImages: collectImages(volumeInfo?.imageLinks) },
+      assets: {
+        images: collectImages(volumeInfo?.imageLinks).map((url) => ({ kind: "remote", url })),
+        videos: [],
+      },
       genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
       sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
       freeCreators: collectFreeCreators(volumeInfo?.authors, volumeInfo?.publisher),

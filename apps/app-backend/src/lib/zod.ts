@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { ImageSchema } from "./db/schema/tables";
 
 export const nullableStringSchema = z.string().nullish();
 export const nullableNumberSchema = z.number().nullish();
@@ -67,5 +68,5 @@ export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
 	});
 
 export const remoteImagesAssetsSchema = z
-	.object({ remoteImages: stringArraySchema })
+	.object({ images: z.array(ImageSchema), videos: z.array(ImageSchema) })
 	.strict();

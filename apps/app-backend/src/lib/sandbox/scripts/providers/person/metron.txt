@@ -161,7 +161,10 @@ driver("details", async function(context) {
       birthDate: getString(payload?.birth),
       deathDate: getString(payload?.death),
       description: getString(payload?.desc),
-      assets: { remoteImages: image ? [image] : [] },
+      assets: {
+        images: image ? [{ kind: "remote", url: image }] : [],
+        videos: [],
+      },
       sourceUrl: `https://metron.cloud/creator/${externalId}`,
     },
   };

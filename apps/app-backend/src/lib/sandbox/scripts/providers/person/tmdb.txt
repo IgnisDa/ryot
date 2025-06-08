@@ -204,7 +204,10 @@ driver("details", async function (context) {
 		properties: {
 			gender,
 			alternateNames,
-			assets: { remoteImages: profileImages },
+			assets: {
+				images: profileImages.map((url) => ({ kind: "remote", url })),
+				videos: [],
+			},
 			sourceUrl: `https://www.themoviedb.org/person/${externalId}`,
 			description:
 				typeof personData?.biography === "string" && personData.biography.trim()

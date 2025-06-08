@@ -1,6 +1,10 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import { nullableIntSchema, nullableStringSchema } from "../zod";
+import {
+	nullableIntSchema,
+	nullableStringSchema,
+	remoteImagesAssetsSchema,
+} from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
 // All fields in minutes. Reserved for providers that expose time-to-beat data
@@ -26,6 +30,7 @@ const videoGamePlatformReleaseSchema = z
 	.strict();
 
 export const videoGamePropertiesSchema = mediaPropertiesSchema.extend({
+	assets: remoteImagesAssetsSchema,
 	timeToBeat: videoGameTimeToBeatSchema,
 	platformReleases: z.array(videoGamePlatformReleaseSchema).nullish(),
 });
