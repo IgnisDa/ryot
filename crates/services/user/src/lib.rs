@@ -1,6 +1,5 @@
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
-use application_utils::create_oidc_client;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -8,11 +7,11 @@ use common_models::{DefaultCollection, StringIdObject, UserLevelCacheKey};
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
     access_link, integration, metadata, metadata_to_metadata, notification_platform,
-    prelude::{AccessLink, Integration, Metadata, MetadataToMetadata, NotificationPlatform, User},
+    prelude::{AccessLink, Metadata, MetadataToMetadata, User},
     user, user_to_entity,
 };
 use database_utils::{
-    admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, get_user_query,
+    deploy_job_to_calculate_user_activities_and_summary, get_user_query,
     server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
@@ -38,10 +37,8 @@ use media_models::{
     RegisterResult, RegisterUserInput, UpdateUserNotificationPlatformInput,
 };
 use nanoid::nanoid;
-use notification_service::send_notification;
-use openidconnect::{
-    AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse, core::CoreAuthenticationFlow,
-};
+
+use openidconnect::Nonce;
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseBackend, EntityTrait,
@@ -55,8 +52,13 @@ use user_models::{
     DashboardElementLot, NotificationPlatformSpecifics, UpdateUserInput, UserPreferences,
 };
 
+mod access_link_operations;
 mod authentication_operations;
+mod integration_operations;
+mod notification_operations;
+mod oidc_operations;
 mod user_data_operations;
+mod user_management_operations;
 mod user_preferences_operations;
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
@@ -249,19 +251,7 @@ ORDER BY RANDOM() LIMIT 10;
         input: CreateAccessLinkInput,
         user_id: String,
     ) -> Result<StringIdObject> {
-        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
-        let new_link = access_link::ActiveModel {
-            user_id: ActiveValue::Set(user_id),
-            name: ActiveValue::Set(input.name),
-            expires_on: ActiveValue::Set(input.expires_on),
-            redirect_to: ActiveValue::Set(input.redirect_to),
-            maximum_uses: ActiveValue::Set(input.maximum_uses),
-            is_account_default: ActiveValue::Set(input.is_account_default),
-            is_mutation_allowed: ActiveValue::Set(input.is_mutation_allowed),
-            ..Default::default()
-        };
-        let link = new_link.insert(&self.0.db).await?;
-        Ok(StringIdObject { id: link.id })
+        access_link_operations::create_access_link(&self.0, input, user_id).await
     }
 
     pub async fn process_access_link(
@@ -351,25 +341,7 @@ ORDER BY RANDOM() LIMIT 10;
         admin_user_id: String,
         to_delete_user_id: String,
     ) -> Result<bool> {
-        admin_account_guard(&admin_user_id, &self.0).await?;
-        let maybe_user = User::find_by_id(to_delete_user_id).one(&self.0.db).await?;
-        let Some(u) = maybe_user else {
-            return Ok(false);
-        };
-        if self
-            .users_list(None)
-            .await?
-            .into_iter()
-            .filter(|u| u.lot == UserLot::Admin)
-            .collect_vec()
-            .len()
-            == 1
-            && u.lot == UserLot::Admin
-        {
-            return Ok(false);
-        }
-        u.delete(&self.0.db).await?;
-        Ok(true)
+        user_management_operations::delete_user(&self.0, admin_user_id, to_delete_user_id).await
     }
 
     pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
@@ -492,32 +464,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: Option<String>,
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
-        if user_id.unwrap_or_default() != input.user_id
-            && input.admin_access_token.unwrap_or_default()
-                != self.0.config.server.admin_access_token
-        {
-            return Err(Error::new("Admin access token mismatch".to_owned()));
-        }
-        let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
-            .one(&self.0.db)
-            .await
-            .unwrap()
-            .unwrap()
-            .into();
-        if let Some(n) = input.username {
-            user_obj.name = ActiveValue::Set(n);
-        }
-        if let Some(p) = input.password {
-            user_obj.password = ActiveValue::Set(Some(p));
-        }
-        if let Some(l) = input.lot {
-            user_obj.lot = ActiveValue::Set(l);
-        }
-        if let Some(d) = input.is_disabled {
-            user_obj.is_disabled = ActiveValue::Set(Some(d));
-        }
-        let user_obj = user_obj.update(&self.0.db).await.unwrap();
-        Ok(StringIdObject { id: user_obj.id })
+        user_management_operations::update_user(&self.0, user_id, input).await
     }
 
     pub async fn update_user_preference(
@@ -587,15 +534,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         integration_id: String,
     ) -> Result<bool> {
-        let integration = Integration::find_by_id(integration_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
-        if integration.user_id != user_id {
-            return Err(Error::new("Integration does not belong to the user"));
-        }
-        integration.delete(&self.0.db).await?;
-        Ok(true)
+        integration_operations::delete_user_integration(&self.0, user_id, integration_id).await
     }
 
     pub async fn create_user_notification_platform(
@@ -680,24 +619,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UpdateUserNotificationPlatformInput,
     ) -> Result<bool> {
-        let db_notification = NotificationPlatform::find_by_id(input.notification_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
-        if db_notification.user_id != user_id {
-            return Err(Error::new(
-                "Notification platform does not belong to the user",
-            ));
-        }
-        let mut db_notification: notification_platform::ActiveModel = db_notification.into();
-        if let Some(s) = input.is_disabled {
-            db_notification.is_disabled = ActiveValue::Set(Some(s));
-        }
-        if let Some(e) = input.configured_events {
-            db_notification.configured_events = ActiveValue::Set(e);
-        }
-        db_notification.update(&self.0.db).await?;
-        Ok(true)
+        notification_operations::update_user_notification_platform(&self.0, user_id, input).await
     }
 
     pub async fn delete_user_notification_platform(
@@ -705,32 +627,16 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         notification_id: String,
     ) -> Result<bool> {
-        let notification = NotificationPlatform::find_by_id(notification_id)
-            .one(&self.0.db)
-            .await?
-            .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
-        if notification.user_id != user_id {
-            return Err(Error::new(
-                "Notification platform does not belong to the user",
-            ));
-        }
-        notification.delete(&self.0.db).await?;
-        Ok(true)
+        notification_operations::delete_user_notification_platform(
+            &self.0,
+            user_id,
+            notification_id,
+        )
+        .await
     }
 
     pub async fn test_user_notification_platforms(&self, user_id: &String) -> Result<bool> {
-        let notifications = NotificationPlatform::find()
-            .filter(notification_platform::Column::UserId.eq(user_id))
-            .all(&self.0.db)
-            .await?;
-        for platform in notifications {
-            if platform.is_disabled.unwrap_or_default() {
-                continue;
-            }
-            let msg = format!("This is a test notification for platform: {}", platform.lot);
-            send_notification(platform.platform_specifics, &msg).await?;
-        }
-        Ok(true)
+        notification_operations::test_user_notification_platforms(&self.0, user_id).await
     }
 
     pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
@@ -749,36 +655,11 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn get_oidc_redirect_url(&self) -> Result<String> {
-        let Some((_http, client)) = create_oidc_client(&self.0.config).await else {
-            return Err(Error::new("OIDC client not configured"));
-        };
-        let (authorize_url, _, _) = client
-            .authorize_url(
-                CoreAuthenticationFlow::AuthorizationCode,
-                CsrfToken::new_random,
-                Nonce::new_random,
-            )
-            .add_scope(Scope::new("email".to_string()))
-            .url();
-        Ok(authorize_url.to_string())
+        oidc_operations::get_oidc_redirect_url(&self.0).await
     }
 
     pub async fn get_oidc_token(&self, code: String) -> Result<OidcTokenOutput> {
-        let Some((http, client)) = create_oidc_client(&self.0.config).await else {
-            return Err(Error::new("OIDC client not configured"));
-        };
-        let token = client
-            .exchange_code(AuthorizationCode::new(code))?
-            .request_async(&http)
-            .await?;
-        let id_token = token.id_token().unwrap();
-        let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
-        let subject = claims.subject().to_string();
-        let email = claims
-            .email()
-            .map(|e| e.to_string())
-            .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
-        Ok(OidcTokenOutput { subject, email })
+        oidc_operations::get_oidc_token(&self.0, code).await
     }
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
