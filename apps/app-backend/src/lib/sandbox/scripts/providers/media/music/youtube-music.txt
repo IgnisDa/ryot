@@ -132,10 +132,17 @@ driver("search", async function (context) {
     throw new Error("query is required");
   }
 
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+
   const data = await ytPost("search", { query, params: SONGS_PARAMS });
   const sections = extractSectionContents(data);
 
-  const items = [];
+  const allItems = [];
   for (const section of sections) {
     const shelf = section?.musicShelfRenderer;
     if (!shelf) {
@@ -163,7 +170,7 @@ driver("search", async function (context) {
       const publishYear = extractPublishYear(r.flexColumns);
       const imageUrl = getLargestThumbnail(thumbnails);
 
-      items.push({
+      allItems.push({
         identifier: videoId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
@@ -179,9 +186,11 @@ driver("search", async function (context) {
     }
   }
 
+  const items = allItems.slice(0, pageSize);
+
   return {
     items,
-    details: { totalItems: 100, nextPage: null },
+    details: { totalItems: items.length, nextPage: null },
   };
 });
 
