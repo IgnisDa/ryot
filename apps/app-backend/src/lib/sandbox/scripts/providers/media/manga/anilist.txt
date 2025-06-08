@@ -388,10 +388,7 @@ query MediaDetailsQuery($id: Int!) {
       isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
       sourceUrl: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
       description,
-      assets: {
-        images: collectImages(media.coverImage, media.bannerImage),
-        videos: [],
-      },
+      images: collectImages(media.coverImage, media.bannerImage),
       providerRating:
         typeof media?.averageScore === "number" &&
         Number.isFinite(media.averageScore)

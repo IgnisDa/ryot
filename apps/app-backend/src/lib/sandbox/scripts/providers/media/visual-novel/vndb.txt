@@ -265,13 +265,13 @@ driver("details", async function (context) {
   return {
     name,
     properties: {
+      images,
       genres,
       people,
       description,
       lengthMinutes,
       providerRating,
       productionStatus,
-      assets: { images, videos: [] },
       sourceUrl: `https://vndb.org/${externalId}`,
       publishYear: extractYear(vn.released, dayjs),
     },

@@ -1,13 +1,9 @@
 import { toAppSchemaProperties } from "@ryot/ts-utils";
-import {
-	nullableIntSchema,
-	nullableNumberSchema,
-	remoteImagesAssetsSchema,
-} from "../zod";
+import { imagesSchema, nullableIntSchema, nullableNumberSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
 export const mangaPropertiesSchema = mediaPropertiesSchema.extend({
-	assets: remoteImagesAssetsSchema,
+	images: imagesSchema,
 	volumes: nullableIntSchema,
 	chapters: nullableNumberSchema,
 });
