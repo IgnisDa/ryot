@@ -66,8 +66,7 @@ pub async fn deploy_background_job(
                 .order_by_asc(metadata::Column::LastUpdatedOn)
                 .into_tuple::<String>()
                 .all(&ss.db)
-                .await
-                .unwrap();
+                .await?;
             for metadata_id in many_metadata {
                 deploy_update_metadata_job(&metadata_id, ss).await?;
             }
