@@ -388,7 +388,7 @@ pub async fn create_or_update_user_workout(
                     )),
                     ..Default::default()
                 };
-                user_to_ex.insert(&ss.db).await.unwrap()
+                user_to_ex.insert(&ss.db).await?
             }
         };
         let last_updated_on = asc.last_updated_on;
