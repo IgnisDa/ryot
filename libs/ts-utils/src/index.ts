@@ -206,6 +206,11 @@ export {
 	resolveRequiredSlug,
 	resolveRequiredString,
 } from "./slug";
+export {
+	entityBuiltinColumns,
+	eventJoinBuiltinColumns,
+	type RuntimeRef,
+} from "./view-language";
 export type { Dayjs };
 export {
 	camelCase,

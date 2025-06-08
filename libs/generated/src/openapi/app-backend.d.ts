@@ -4068,7 +4068,7 @@ export interface components {
             type: "entity-column";
         } | {
             slug: string;
-            property: string;
+            property: string[];
             /** @enum {string} */
             type: "schema-property";
         } | {
@@ -4078,7 +4078,7 @@ export interface components {
             type: "event-join-column";
         } | {
             joinKey: string;
-            property: string;
+            property: string[];
             /** @enum {string} */
             type: "event-join-property";
         } | {
