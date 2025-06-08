@@ -14,9 +14,9 @@ const propertySchemaTypeSchema = z.enum(propertySchemaTypes);
 
 const propertySchemaBaseSchema = z.object({
 	key: z.string(),
-	label: zodNonEmptyTrimmedString("Label is required"),
 	required: z.boolean(),
 	type: propertySchemaTypeSchema,
+	label: zodNonEmptyTrimmedString("Label is required"),
 });
 
 const propertySchemaRowSchema = propertySchemaBaseSchema.extend({
