@@ -11,17 +11,22 @@ use database_models::{
         MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
+use dependent_models::MetadataBaseData;
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
 use itertools::Itertools;
+use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
-    CommitMetadataGroupInput, CommitPersonInput, MediaAssociatedPersonStateChanges,
-    PartialMetadata, PartialMetadataPerson, PartialMetadataWithoutId, UniqueMediaIdentifier,
-    UpdateMediaEntityResult,
+    CommitMetadataGroupInput, CommitPersonInput, GenreListItem, MediaAssociatedPersonStateChanges,
+    MetadataCreator, MetadataCreatorGroupedByRole, PartialMetadata, PartialMetadataPerson,
+    PartialMetadataWithoutId, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use nanoid::nanoid;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
-use sea_query::{Expr, OnConflict};
-use std::{iter::zip, sync::Arc};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, ModelTrait,
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+};
+use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
+use std::{collections::HashMap, iter::zip, sync::Arc};
 use supporting_service::SupportingService;
 
 pub async fn commit_metadata(
@@ -648,4 +653,109 @@ pub async fn commit_person(
             Ok(StringIdObject { id: person.id })
         }
     }
+}
+
+pub async fn generic_metadata(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<MetadataBaseData> {
+    let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
+        return Err(Error::new("The record does not exist".to_owned()));
+    };
+    let genres = meta
+        .find_related(Genre)
+        .order_by_asc(genre::Column::Name)
+        .into_model::<GenreListItem>()
+        .all(&ss.db)
+        .await
+        .unwrap();
+    #[derive(Debug, FromQueryResult)]
+    struct PartialCreator {
+        id: String,
+        name: String,
+        role: String,
+        assets: EntityAssets,
+        character: Option<String>,
+    }
+    let crts = MetadataToPerson::find()
+        .expr(Expr::col(Asterisk))
+        .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
+        .join(
+            JoinType::Join,
+            metadata_to_person::Relation::Person
+                .def()
+                .on_condition(|left, right| {
+                    Condition::all().add(
+                        Expr::col((left, metadata_to_person::Column::PersonId))
+                            .equals((right, person::Column::Id)),
+                    )
+                }),
+        )
+        .order_by_asc(metadata_to_person::Column::Index)
+        .into_model::<PartialCreator>()
+        .all(&ss.db)
+        .await?;
+    let mut creators: HashMap<String, Vec<_>> = HashMap::new();
+    for cr in crts {
+        let creator = MetadataCreator {
+            name: cr.name,
+            id: Some(cr.id),
+            character: cr.character,
+            image: cr.assets.remote_images.first().cloned(),
+        };
+        creators
+            .entry(cr.role)
+            .and_modify(|e| {
+                e.push(creator.clone());
+            })
+            .or_insert(vec![creator.clone()]);
+    }
+    if let Some(free_creators) = &meta.free_creators {
+        for cr in free_creators.clone() {
+            let creator = MetadataCreator {
+                name: cr.name,
+                image: cr.image,
+                ..Default::default()
+            };
+            creators
+                .entry(cr.role)
+                .and_modify(|e| {
+                    e.push(creator.clone());
+                })
+                .or_insert(vec![creator.clone()]);
+        }
+    }
+    if let Some(ref mut d) = meta.description {
+        *d = markdown_to_html_opts(
+            d,
+            &Options {
+                compile: CompileOptions {
+                    allow_dangerous_html: true,
+                    allow_dangerous_protocol: true,
+                    ..CompileOptions::default()
+                },
+                ..Options::default()
+            },
+        )
+        .unwrap();
+    }
+    let creators = creators
+        .into_iter()
+        .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+        .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
+        .collect_vec();
+    let suggestions = MetadataToMetadata::find()
+        .select_only()
+        .column(metadata_to_metadata::Column::ToMetadataId)
+        .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
+        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
+    Ok(MetadataBaseData {
+        genres,
+        creators,
+        model: meta,
+        suggestions,
+    })
 }
