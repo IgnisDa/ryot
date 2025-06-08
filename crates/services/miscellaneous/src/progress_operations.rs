@@ -21,7 +21,7 @@ pub async fn update_seen_item(
     user_id: String,
     input: UpdateSeenItemInput,
 ) -> Result<bool> {
-    let Some(seen) = Seen::find_by_id(input.seen_id).one(&ss.db).await.unwrap() else {
+    let Some(seen) = Seen::find_by_id(input.seen_id).one(&ss.db).await? else {
         return Err(Error::new("No seen found for this user and metadata"));
     };
     if seen.user_id != user_id {
