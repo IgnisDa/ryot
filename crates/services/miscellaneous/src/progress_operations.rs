@@ -43,7 +43,7 @@ pub async fn update_seen_item(
     if let Some(review_id) = input.review_id {
         let (review, to_update_review_id) = match review_id.is_empty() {
             false => (
-                Review::find_by_id(&review_id).one(&ss.db).await.unwrap(),
+                Review::find_by_id(&review_id).one(&ss.db).await?,
                 Some(review_id),
             ),
             true => (None, None),
