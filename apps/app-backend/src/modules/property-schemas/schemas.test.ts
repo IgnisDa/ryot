@@ -92,8 +92,8 @@ describe("propertySchemaObjectSchema", () => {
 					validation: { required: true },
 					when: {
 						operator: "eq",
-						value: "custom_timestamps",
 						path: ["completionMode"],
+						value: "custom_timestamps",
 					},
 				},
 			],
@@ -104,9 +104,7 @@ describe("propertySchemaObjectSchema", () => {
 
 	it("rejects rules that point at missing fields", () => {
 		const result = propertySchemaObjectSchema.safeParse({
-			fields: {
-				status: { type: "string" },
-			},
+			fields: { status: { type: "string" } },
 			rules: [
 				{
 					kind: "validation",
@@ -122,10 +120,7 @@ describe("propertySchemaObjectSchema", () => {
 
 	it("rejects rules whose condition values do not match field types", () => {
 		const result = propertySchemaObjectSchema.safeParse({
-			fields: {
-				rating: { type: "integer" },
-				status: { type: "string" },
-			},
+			fields: { status: { type: "string" }, rating: { type: "integer" } },
 			rules: [
 				{
 					path: ["rating"],
@@ -143,9 +138,9 @@ describe("propertySchemaObjectSchema", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
 				membershipPropertiesSchema: {
+					properties: {},
 					type: "object",
 					unknownKeys: "strip",
-					properties: {},
 				},
 			},
 		});
@@ -159,9 +154,7 @@ describe("propertySchemaObjectSchema", () => {
 				config: {
 					type: "object",
 					unknownKeys: "strict",
-					properties: {
-						enabled: { type: "boolean" },
-					},
+					properties: { enabled: { type: "boolean" } },
 				},
 			},
 		});
@@ -172,12 +165,7 @@ describe("propertySchemaObjectSchema", () => {
 	it("accepts object properties without unknownKeys (defaults to strict)", () => {
 		const result = propertySchemaObjectSchema.safeParse({
 			fields: {
-				config: {
-					type: "object",
-					properties: {
-						name: { type: "string" },
-					},
-				},
+				config: { type: "object", properties: { name: { type: "string" } } },
 			},
 		});
 
