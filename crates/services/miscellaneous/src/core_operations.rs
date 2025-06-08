@@ -20,7 +20,6 @@ pub async fn expire_cache_key(ss: &SupportingService, cache_id: Uuid) -> Result<
 
 pub async fn mark_entity_as_partial(
     ss: &SupportingService,
-    _user_id: &str,
     input: MarkEntityAsPartialInput,
 ) -> Result<bool> {
     match input.entity_lot {

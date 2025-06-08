@@ -146,12 +146,8 @@ impl MiscellaneousService {
         deploy_background_job(user_id, job_name, &self.0).await
     }
 
-    pub async fn mark_entity_as_partial(
-        &self,
-        user_id: &str,
-        input: MarkEntityAsPartialInput,
-    ) -> Result<bool> {
-        core_operations::mark_entity_as_partial(&self.0, user_id, input).await
+    pub async fn mark_entity_as_partial(&self, input: MarkEntityAsPartialInput) -> Result<bool> {
+        core_operations::mark_entity_as_partial(&self.0, input).await
     }
 
     pub async fn update_seen_item(
