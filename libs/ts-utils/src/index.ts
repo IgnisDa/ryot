@@ -6,6 +6,7 @@ import {
 	type HumanizeDurationOptions,
 } from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
+import chunk from "lodash/chunk";
 import cloneDeep from "lodash/cloneDeep";
 import debounce from "lodash/debounce";
 import groupBy from "lodash/groupBy";
@@ -207,6 +208,7 @@ export {
 export type { Dayjs };
 export {
 	camelCase,
+	chunk,
 	cloneDeep,
 	debounce,
 	groupBy,
