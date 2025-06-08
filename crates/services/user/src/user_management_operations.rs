@@ -24,18 +24,17 @@ use user_models::UpdateUserInput;
 use user_models::UserPreferences;
 
 pub async fn update_user(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: Option<String>,
     input: UpdateUserInput,
 ) -> Result<StringIdObject> {
     if user_id.unwrap_or_default() != input.user_id
-        && input.admin_access_token.unwrap_or_default()
-            != supporting_service.config.server.admin_access_token
+        && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
     {
         return Err(Error::new("Admin access token mismatch".to_owned()));
     }
     let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
-        .one(&supporting_service.db)
+        .one(&ss.db)
         .await
         .unwrap()
         .unwrap()
@@ -52,23 +51,21 @@ pub async fn update_user(
     if let Some(d) = input.is_disabled {
         user_obj.is_disabled = ActiveValue::Set(Some(d));
     }
-    let user_obj = user_obj.update(&supporting_service.db).await.unwrap();
+    let user_obj = user_obj.update(&ss.db).await.unwrap();
     Ok(StringIdObject { id: user_obj.id })
 }
 
 pub async fn delete_user(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     admin_user_id: String,
     to_delete_user_id: String,
 ) -> Result<bool> {
-    admin_account_guard(&admin_user_id, supporting_service).await?;
-    let maybe_user = User::find_by_id(to_delete_user_id)
-        .one(&supporting_service.db)
-        .await?;
+    admin_account_guard(&admin_user_id, ss).await?;
+    let maybe_user = User::find_by_id(to_delete_user_id).one(&ss.db).await?;
     let Some(u) = maybe_user else {
         return Ok(false);
     };
-    if crate::user_data_operations::users_list(supporting_service, None)
+    if crate::user_data_operations::users_list(ss, None)
         .await?
         .into_iter()
         .filter(|u| u.lot == UserLot::Admin)
@@ -79,17 +76,16 @@ pub async fn delete_user(
     {
         return Ok(false);
     }
-    u.delete(&supporting_service.db).await?;
+    u.delete(&ss.db).await?;
     Ok(true)
 }
 
 pub async fn register_user(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
-    if !supporting_service.config.users.allow_registration
-        && input.admin_access_token.unwrap_or_default()
-            != supporting_service.config.server.admin_access_token
+    if !ss.config.users.allow_registration
+        && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
     {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::Disabled,
@@ -107,13 +103,7 @@ pub async fn register_user(
             Some(data.password),
         ),
     };
-    if User::find()
-        .filter(filter)
-        .count(&supporting_service.db)
-        .await
-        .unwrap()
-        != 0
-    {
+    if User::find().filter(filter).count(&ss.db).await.unwrap() != 0 {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::IdentifierAlreadyExists,
         }));
@@ -122,7 +112,7 @@ pub async fn register_user(
         AuthUserInput::Oidc(data) => Some(data.issuer_id),
         AuthUserInput::Password(_) => None,
     };
-    let lot = if User::find().count(&supporting_service.db).await.unwrap() == 0 {
+    let lot = if User::find().count(&ss.db).await.unwrap() == 0 {
         UserLot::Admin
     } else {
         UserLot::Normal
@@ -136,7 +126,7 @@ pub async fn register_user(
         preferences: ActiveValue::Set(UserPreferences::default()),
         ..Default::default()
     };
-    let user = user.insert(&supporting_service.db).await.unwrap();
+    let user = user.insert(&ss.db).await.unwrap();
     ryot_log!(
         debug,
         "User {:?} registered with id {:?}",
@@ -147,7 +137,7 @@ pub async fn register_user(
         let meta = col.meta().to_owned();
         create_or_update_collection(
             &user.id,
-            supporting_service,
+            ss,
             CreateOrUpdateCollectionInput {
                 name: col.to_string(),
                 information_template: meta.0,
@@ -158,6 +148,6 @@ pub async fn register_user(
         .await
         .ok();
     }
-    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, supporting_service).await;
+    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, ss).await;
     Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
 }

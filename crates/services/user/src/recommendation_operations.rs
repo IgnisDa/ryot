@@ -28,10 +28,10 @@ use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 
 pub async fn user_metadata_recommendations(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
 ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
-    let cc = &supporting_service.cache_service;
+    let cc = &ss.cache_service;
     let metadata_recommendations_key =
         ApplicationCacheKey::UserMetadataRecommendations(UserLevelCacheKey {
             input: (),
@@ -47,12 +47,12 @@ pub async fn user_metadata_recommendations(
             response: recommendations,
         });
     };
-    let metadata_count = Metadata::find().count(&supporting_service.db).await?;
+    let metadata_count = Metadata::find().count(&ss.db).await?;
     let recommendations = match metadata_count {
         0 => vec![],
         _ => {
             let calculated_recommendations = 'calc: {
-                let cc = &supporting_service.cache_service;
+                let cc = &ss.cache_service;
                 let key = ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
                     input: (),
                     user_id: user_id.to_owned(),
@@ -87,7 +87,7 @@ ORDER BY RANDOM() LIMIT 10;
         "#,
                         args,
                     ))
-                    .all(&supporting_service.db)
+                    .all(&ss.db)
                     .await?;
                 ryot_log!(
                     debug,
@@ -97,10 +97,8 @@ ORDER BY RANDOM() LIMIT 10;
                 let mut media_item_ids = vec![];
                 for media in media_items.into_iter() {
                     ryot_log!(debug, "Getting recommendations: {:?}", media);
-                    update_metadata_and_notify_users(&media.id, supporting_service).await?;
-                    let recommendations = generic_metadata(&media.id, supporting_service)
-                        .await?
-                        .suggestions;
+                    update_metadata_and_notify_users(&media.id, ss).await?;
+                    let recommendations = generic_metadata(&media.id, ss).await?.suggestions;
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                     for rec in recommendations {
                         let relation = metadata_to_metadata::ActiveModel {
@@ -111,14 +109,13 @@ ORDER BY RANDOM() LIMIT 10;
                         };
                         MetadataToMetadata::insert(relation)
                             .on_conflict_do_nothing()
-                            .exec(&supporting_service.db)
+                            .exec(&ss.db)
                             .await
                             .ok();
                         media_item_ids.push(rec);
                     }
                 }
-                supporting_service
-                    .cache_service
+                ss.cache_service
                     .set_key(
                         key,
                         ApplicationCacheValue::UserMetadataRecommendationsSet(
@@ -128,7 +125,7 @@ ORDER BY RANDOM() LIMIT 10;
                     .await?;
                 media_item_ids
             };
-            let preferences = user_by_id(user_id, supporting_service).await?.preferences;
+            let preferences = user_by_id(user_id, ss).await?.preferences;
             let limit = preferences
                 .general
                 .dashboard
@@ -176,7 +173,7 @@ ORDER BY RANDOM() LIMIT 10;
                         Expr::col(metadata::Column::Title).concat(Expr::val(nanoid!(12))),
                     )))
                     .into_tuple::<String>()
-                    .one(&supporting_service.db)
+                    .one(&ss.db)
                     .await?;
                 if let Some(rec) = rec {
                     recommendations.insert(rec);
@@ -187,7 +184,7 @@ ORDER BY RANDOM() LIMIT 10;
             recommendations
         }
     };
-    let cc = &supporting_service.cache_service;
+    let cc = &ss.cache_service;
     let id = cc
         .set_key(
             metadata_recommendations_key,

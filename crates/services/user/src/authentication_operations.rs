@@ -15,53 +15,40 @@ use media_models::{UserDetailsError, UserDetailsErrorVariant};
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use supporting_service::SupportingService;
 
-pub async fn generate_auth_token(
-    supporting_service: &Arc<SupportingService>,
-    user_id: String,
-) -> Result<String> {
+pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
     let auth_token = sign(
         user_id,
-        &supporting_service.config.users.jwt_secret,
-        supporting_service.config.users.token_valid_for_days,
+        &ss.config.users.jwt_secret,
+        ss.config.users.token_valid_for_days,
         None,
     )?;
     Ok(auth_token)
 }
 
 pub async fn revoke_access_link(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     access_link_id: String,
 ) -> Result<bool> {
-    db_revoke_access_link(&supporting_service.db, access_link_id).await
+    db_revoke_access_link(&ss.db, access_link_id).await
 }
 
-pub async fn user_details(
-    supporting_service: &Arc<SupportingService>,
-    token: &str,
-) -> Result<UserDetailsResult> {
-    let found_token = user_id_from_token(token, &supporting_service.config.users.jwt_secret);
+pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<UserDetailsResult> {
+    let found_token = user_id_from_token(token, &ss.config.users.jwt_secret);
     let Ok(user_id) = found_token else {
         return Ok(UserDetailsResult::Error(UserDetailsError {
             error: UserDetailsErrorVariant::AuthTokenInvalid,
         }));
     };
-    let user = user_by_id(&user_id, supporting_service).await?;
+    let user = user_by_id(&user_id, ss).await?;
     Ok(UserDetailsResult::Ok(Box::new(user)))
 }
 
-pub async fn login_user(
-    supporting_service: &Arc<SupportingService>,
-    input: AuthUserInput,
-) -> Result<LoginResult> {
+pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Result<LoginResult> {
     let filter = match input.clone() {
         AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
         AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
     };
-    let Some(user) = User::find()
-        .filter(filter)
-        .one(&supporting_service.db)
-        .await?
-    else {
+    let Some(user) = User::find().filter(filter).one(&ss.db).await? else {
         return Ok(LoginResult::Error(LoginError {
             error: LoginErrorVariant::UsernameDoesNotExist,
         }));
@@ -71,7 +58,7 @@ pub async fn login_user(
             error: LoginErrorVariant::AccountDisabled,
         }));
     }
-    if supporting_service.config.users.validate_password {
+    if ss.config.users.validate_password {
         if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
             if let Some(hashed_password) = &user.password {
                 let parsed_hash = PasswordHash::new(hashed_password).unwrap();
@@ -90,9 +77,9 @@ pub async fn login_user(
             }
         }
     }
-    let jwt_key = generate_auth_token(supporting_service, user.id.clone()).await?;
+    let jwt_key = generate_auth_token(ss, user.id.clone()).await?;
     let mut user: user::ActiveModel = user.into();
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
-    user.update(&supporting_service.db).await?;
+    user.update(&ss.db).await?;
     Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
 }

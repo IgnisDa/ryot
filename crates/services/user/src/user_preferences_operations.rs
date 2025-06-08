@@ -7,13 +7,13 @@ use supporting_service::SupportingService;
 use user_models::UserPreferences;
 
 pub async fn update_user_preference(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UserPreferences,
 ) -> Result<bool> {
-    let user_model = user_by_id(&user_id, supporting_service).await?;
+    let user_model = user_by_id(&user_id, ss).await?;
     let mut user_model: database_models::user::ActiveModel = user_model.into();
     user_model.preferences = ActiveValue::Set(input);
-    user_model.update(&supporting_service.db).await?;
+    user_model.update(&ss.db).await?;
     Ok(true)
 }

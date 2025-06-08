@@ -8,8 +8,8 @@ use openidconnect::{
 };
 use supporting_service::SupportingService;
 
-pub async fn get_oidc_redirect_url(supporting_service: &Arc<SupportingService>) -> Result<String> {
-    let Some((_http, client)) = create_oidc_client(&supporting_service.config).await else {
+pub async fn get_oidc_redirect_url(ss: &Arc<SupportingService>) -> Result<String> {
+    let Some((_http, client)) = create_oidc_client(&ss.config).await else {
         return Err(Error::new("OIDC client not configured"));
     };
     let (authorize_url, _, _) = client
@@ -23,11 +23,8 @@ pub async fn get_oidc_redirect_url(supporting_service: &Arc<SupportingService>) 
     Ok(authorize_url.to_string())
 }
 
-pub async fn get_oidc_token(
-    supporting_service: &Arc<SupportingService>,
-    code: String,
-) -> Result<OidcTokenOutput> {
-    let Some((http, client)) = create_oidc_client(&supporting_service.config).await else {
+pub async fn get_oidc_token(ss: &Arc<SupportingService>, code: String) -> Result<OidcTokenOutput> {
+    let Some((http, client)) = create_oidc_client(&ss.config).await else {
         return Err(Error::new("OIDC client not configured"));
     };
     let token = client

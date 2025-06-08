@@ -12,12 +12,12 @@ use supporting_service::SupportingService;
 use user_models::NotificationPlatformSpecifics;
 
 pub async fn update_user_notification_platform(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UpdateUserNotificationPlatformInput,
 ) -> Result<bool> {
     let db_notification = NotificationPlatform::find_by_id(input.notification_id)
-        .one(&supporting_service.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
     if db_notification.user_id != user_id {
@@ -32,17 +32,17 @@ pub async fn update_user_notification_platform(
     if let Some(e) = input.configured_events {
         db_notification.configured_events = ActiveValue::Set(e);
     }
-    db_notification.update(&supporting_service.db).await?;
+    db_notification.update(&ss.db).await?;
     Ok(true)
 }
 
 pub async fn delete_user_notification_platform(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     notification_id: String,
 ) -> Result<bool> {
     let notification = NotificationPlatform::find_by_id(notification_id)
-        .one(&supporting_service.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
     if notification.user_id != user_id {
@@ -50,17 +50,17 @@ pub async fn delete_user_notification_platform(
             "Notification platform does not belong to the user",
         ));
     }
-    notification.delete(&supporting_service.db).await?;
+    notification.delete(&ss.db).await?;
     Ok(true)
 }
 
 pub async fn test_user_notification_platforms(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
 ) -> Result<bool> {
     let notifications = NotificationPlatform::find()
         .filter(notification_platform::Column::UserId.eq(user_id))
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await?;
     for platform in notifications {
         if platform.is_disabled.unwrap_or_default() {
@@ -73,7 +73,7 @@ pub async fn test_user_notification_platforms(
 }
 
 pub async fn create_user_notification_platform(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: CreateUserNotificationPlatformInput,
 ) -> Result<String> {
@@ -145,6 +145,6 @@ pub async fn create_user_notification_platform(
         configured_events: ActiveValue::Set(UserNotificationContent::iter().collect()),
         ..Default::default()
     };
-    let new_notification_id = notification.insert(&supporting_service.db).await?.id;
+    let new_notification_id = notification.insert(&ss.db).await?.id;
     Ok(new_notification_id)
 }

@@ -9,23 +9,23 @@ use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
 use supporting_service::SupportingService;
 
 pub async fn delete_user_integration(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     integration_id: String,
 ) -> Result<bool> {
     let integration = Integration::find_by_id(integration_id)
-        .one(&supporting_service.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
     if integration.user_id != user_id {
         return Err(Error::new("Integration does not belong to the user"));
     }
-    integration.delete(&supporting_service.db).await?;
+    integration.delete(&ss.db).await?;
     Ok(true)
 }
 
 pub async fn create_or_update_user_integration(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: CreateOrUpdateUserIntegrationInput,
 ) -> Result<bool> {
@@ -34,8 +34,7 @@ pub async fn create_or_update_user_integration(
     if let Some(p) = input.provider {
         match p {
             IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
-                server_key_validation_guard(supporting_service.is_server_key_validated().await?)
-                    .await?;
+                server_key_validation_guard(ss.is_server_key_validated().await?).await?;
             }
             _ => {}
         }
@@ -75,6 +74,6 @@ pub async fn create_or_update_user_integration(
         sync_to_owned_collection: ActiveValue::Set(input.sync_to_owned_collection),
         ..Default::default()
     };
-    to_insert.save(&supporting_service.db).await?;
+    to_insert.save(&ss.db).await?;
     Ok(true)
 }
