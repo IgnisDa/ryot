@@ -19,8 +19,7 @@ pub async fn delete_review(
     let review = Review::find()
         .filter(review::Column::Id.eq(review_id))
         .one(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     match review {
         Some(r) => {
             if r.user_id == user_id {
