@@ -168,7 +168,7 @@ impl IgdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Self {
         let config = ss.config.video_games.clone();
         Self {
-            ss: ss,
+            ss,
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
         }

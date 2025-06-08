@@ -185,8 +185,8 @@ impl TmdbService {
         Self {
             client,
             settings,
+            ss: ss.clone(),
             language: ss.config.movies_and_shows.tmdb.locale.clone(),
-            ss: ss,
         }
     }
 }

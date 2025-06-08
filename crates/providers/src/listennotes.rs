@@ -45,11 +45,7 @@ impl ListennotesService {
             HeaderName::from_static("x-listenapi-key"),
             HeaderValue::from_str(&ss.config.podcasts.listennotes.api_token).unwrap(),
         )]));
-        Self {
-            url,
-            client,
-            ss: ss,
-        }
+        Self { ss, url, client }
     }
 }
 
