@@ -148,8 +148,8 @@ impl JobManager {
                 ])),
             )
             .await;
-        let file = File::open(&export_path).await.unwrap();
-        let content_length = file.metadata().await.unwrap().len();
+        let file = File::open(&export_path).await?;
+        let content_length = file.metadata().await?.len();
         let content_type = mime_guess::from_path(&export_path).first_or_octet_stream();
         let stream = FramedRead::new(file, BytesCodec::new());
         let body = Body::wrap_stream(stream);
@@ -162,8 +162,7 @@ impl JobManager {
             .header("x-amz-meta-ended_at", ended_at.to_rfc2822())
             .body(body)
             .send()
-            .await
-            .unwrap();
+            .await?;
         Ok(())
     }
 }
