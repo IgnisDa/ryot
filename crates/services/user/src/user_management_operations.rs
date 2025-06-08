@@ -1,14 +1,27 @@
 use std::sync::Arc;
 
 use async_graphql::{Error, Result};
-use common_models::StringIdObject;
+use common_models::{DefaultCollection, StringIdObject};
+use common_utils::ryot_log;
 use database_models::{prelude::User, user};
-use database_utils::admin_account_guard;
+use database_utils::{admin_account_guard, deploy_job_to_calculate_user_activities_and_summary};
+use dependent_utils::create_or_update_collection;
+use enum_meta::Meta;
 use enum_models::UserLot;
 use itertools::Itertools;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
+use media_models::{
+    AuthUserInput, CreateOrUpdateCollectionInput, RegisterError, RegisterErrorVariant,
+    RegisterResult, RegisterUserInput,
+};
+use nanoid::nanoid;
+use sea_orm::Iterable;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
+    QueryFilter,
+};
 use supporting_service::SupportingService;
 use user_models::UpdateUserInput;
+use user_models::UserPreferences;
 
 pub async fn update_user(
     supporting_service: &Arc<SupportingService>,
@@ -68,4 +81,83 @@ pub async fn delete_user(
     }
     u.delete(&supporting_service.db).await?;
     Ok(true)
+}
+
+pub async fn register_user(
+    supporting_service: &Arc<SupportingService>,
+    input: RegisterUserInput,
+) -> Result<RegisterResult> {
+    if !supporting_service.config.users.allow_registration
+        && input.admin_access_token.unwrap_or_default()
+            != supporting_service.config.server.admin_access_token
+    {
+        return Ok(RegisterResult::Error(RegisterError {
+            error: RegisterErrorVariant::Disabled,
+        }));
+    }
+    let (filter, username, password) = match input.data.clone() {
+        AuthUserInput::Oidc(data) => (
+            user::Column::OidcIssuerId.eq(&data.issuer_id),
+            data.email,
+            None,
+        ),
+        AuthUserInput::Password(data) => (
+            user::Column::Name.eq(&data.username),
+            data.username,
+            Some(data.password),
+        ),
+    };
+    if User::find()
+        .filter(filter)
+        .count(&supporting_service.db)
+        .await
+        .unwrap()
+        != 0
+    {
+        return Ok(RegisterResult::Error(RegisterError {
+            error: RegisterErrorVariant::IdentifierAlreadyExists,
+        }));
+    };
+    let oidc_issuer_id = match input.data {
+        AuthUserInput::Oidc(data) => Some(data.issuer_id),
+        AuthUserInput::Password(_) => None,
+    };
+    let lot = if User::find().count(&supporting_service.db).await.unwrap() == 0 {
+        UserLot::Admin
+    } else {
+        UserLot::Normal
+    };
+    let user = user::ActiveModel {
+        id: ActiveValue::Set(format!("usr_{}", nanoid!(12))),
+        name: ActiveValue::Set(username),
+        password: ActiveValue::Set(password),
+        oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
+        lot: ActiveValue::Set(lot),
+        preferences: ActiveValue::Set(UserPreferences::default()),
+        ..Default::default()
+    };
+    let user = user.insert(&supporting_service.db).await.unwrap();
+    ryot_log!(
+        debug,
+        "User {:?} registered with id {:?}",
+        user.name,
+        user.id
+    );
+    for col in DefaultCollection::iter() {
+        let meta = col.meta().to_owned();
+        create_or_update_collection(
+            &user.id,
+            supporting_service,
+            CreateOrUpdateCollectionInput {
+                name: col.to_string(),
+                information_template: meta.0,
+                description: Some(meta.1.to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .ok();
+    }
+    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, supporting_service).await;
+    Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
 }

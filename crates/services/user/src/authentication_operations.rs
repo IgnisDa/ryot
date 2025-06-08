@@ -1,11 +1,18 @@
 use std::sync::Arc;
 
 use application_utils::user_id_from_token;
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::Result;
+use chrono::Utc;
+use database_models::{prelude::User, user};
 use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
 use dependent_models::UserDetailsResult;
 use jwt_service::sign;
+use media_models::{
+    AuthUserInput, LoginError, LoginErrorVariant, LoginResponse, LoginResult, PasswordUserInput,
+};
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use supporting_service::SupportingService;
 
 pub async fn generate_auth_token(
@@ -40,4 +47,52 @@ pub async fn user_details(
     };
     let user = user_by_id(&user_id, supporting_service).await?;
     Ok(UserDetailsResult::Ok(Box::new(user)))
+}
+
+pub async fn login_user(
+    supporting_service: &Arc<SupportingService>,
+    input: AuthUserInput,
+) -> Result<LoginResult> {
+    let filter = match input.clone() {
+        AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
+        AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
+    };
+    let Some(user) = User::find()
+        .filter(filter)
+        .one(&supporting_service.db)
+        .await?
+    else {
+        return Ok(LoginResult::Error(LoginError {
+            error: LoginErrorVariant::UsernameDoesNotExist,
+        }));
+    };
+    if user.is_disabled.unwrap_or_default() {
+        return Ok(LoginResult::Error(LoginError {
+            error: LoginErrorVariant::AccountDisabled,
+        }));
+    }
+    if supporting_service.config.users.validate_password {
+        if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
+            if let Some(hashed_password) = &user.password {
+                let parsed_hash = PasswordHash::new(hashed_password).unwrap();
+                if Argon2::default()
+                    .verify_password(password.as_bytes(), &parsed_hash)
+                    .is_err()
+                {
+                    return Ok(LoginResult::Error(LoginError {
+                        error: LoginErrorVariant::CredentialsMismatch,
+                    }));
+                }
+            } else {
+                return Ok(LoginResult::Error(LoginError {
+                    error: LoginErrorVariant::IncorrectProviderChosen,
+                }));
+            }
+        }
+    }
+    let jwt_key = generate_auth_token(supporting_service, user.id.clone()).await?;
+    let mut user: user::ActiveModel = user.into();
+    user.last_login_on = ActiveValue::Set(Some(Utc::now()));
+    user.update(&supporting_service.db).await?;
+    Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
 }
