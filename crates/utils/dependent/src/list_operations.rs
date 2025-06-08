@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
-    AliasedUserToEntity, graphql_to_db_order,
-};
+use application_utils::graphql_to_db_order;
 use async_graphql::Result;
 use common_models::{SearchDetails, UserLevelCacheKey};
 use database_models::{
@@ -23,6 +20,10 @@ use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     CollectionItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
+};
+use migrations::{
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
+    AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{

@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_graphql::Result;
 use background_models::{ApplicationJob, LpApplicationJob};
 use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
+use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
 use enum_models::{EntityLot, MediaLot, SeenState};
@@ -15,7 +16,6 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOr
 use supporting_service::SupportingService;
 
 use crate::{
-    SHOW_SPECIAL_SEASON_NAMES,
     collection_operations::{add_entity_to_collection, remove_entity_from_collection},
     utility_operations::{associate_user_with_entity, expire_user_collections_list_cache},
 };
