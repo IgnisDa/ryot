@@ -1,6 +1,6 @@
 ---
 name: prd-to-issues
-description: Break a PRD into independently-grabbable task files using tracer-bullet vertical slices. Use when user wants to convert a PRD to tasks, create implementation tickets, or break down a PRD into work items.
+description: Break a PRD into independently-grabbable task files using tracer-bullet vertical slices. Use when user wants to convert a PRD to tasks, create implementation tickets, or break down a PRD into work items. Do not use subagents for this.
 ---
 
 # PRD to Tasks
@@ -54,6 +54,7 @@ Iterate until the user approves the breakdown.
 For each approved slice, create a task markdown file in `docs/tasks/{plan-name}/` where `{plan-name}` is the plan directory name.
 
 Task files should be named `{NN}-{task-title}.md` where:
+
 - `{NN}` is zero-padded (01, 02, 03, etc.)
 - `{task-title}` is in kebab-case
 
@@ -97,8 +98,7 @@ After creating all task files, update the parent README.md file to replace the p
 
 Replace the Tasks section (everything after `---` and `## Tasks`) with:
 
-<tasks-section-template>
----
+## <tasks-section-template>
 
 ## Tasks
 
@@ -108,11 +108,11 @@ Replace the Tasks section (everything after `---` and `## Tasks`) with:
 
 ### Task List
 
-| # | Task | Type | Status | Blocked By |
-|---|------|------|--------|------------|
-| 01 | [{Task Title}](./{01}-{task-title}.md) | AFK | todo | None |
-| 02 | [{Task Title}](./{02}-{task-title}.md) | HITL | todo | Task 01 |
-| 03 | [{Task Title}](./{03}-{task-title}.md) | AFK | todo | Task 02 |
+| #   | Task                                   | Type | Status | Blocked By |
+| --- | -------------------------------------- | ---- | ------ | ---------- |
+| 01  | [{Task Title}](./{01}-{task-title}.md) | AFK  | todo   | None       |
+| 02  | [{Task Title}](./{02}-{task-title}.md) | HITL | todo   | Task 01    |
+| 03  | [{Task Title}](./{03}-{task-title}.md) | AFK  | todo   | Task 02    |
 
 </tasks-section-template>
 
@@ -128,6 +128,7 @@ When a task status changes (e.g., from `todo` to `in-progress` to `done`), updat
 4. Update the README.md's "Current Task" to point to the first non-done task
 
 **Valid status values:**
+
 - `todo` - Not started
 - `in-progress` - Currently being worked on
 - `done` - Completed
