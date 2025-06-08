@@ -28,7 +28,7 @@ pub async fn create_user_measurement(
 
 pub async fn delete_user_measurement(
     service: &FitnessService,
-    user_id: String,
+    user_id: &String,
     timestamp: DateTimeUtc,
 ) -> Result<bool> {
     let m = UserMeasurement::find_by_id((user_id.to_owned(), timestamp))
