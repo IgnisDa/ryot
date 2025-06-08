@@ -67,7 +67,7 @@ pub async fn delete_seen_item(
     user_id: &String,
     seen_id: String,
 ) -> Result<StringIdObject> {
-    let seen_item = Seen::find_by_id(seen_id).one(&ss.db).await.unwrap();
+    let seen_item = Seen::find_by_id(seen_id).one(&ss.db).await?;
     let Some(si) = seen_item else {
         return Err(Error::new("This seen item does not exist".to_owned()));
     };
