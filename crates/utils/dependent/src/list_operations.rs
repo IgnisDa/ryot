@@ -5,7 +5,6 @@ use crate::{
     CollectionItem, SearchDetails, UserLevelCacheKey, graphql_to_db_order, ilike_sql,
 };
 use async_graphql::Result;
-use common_models::DefaultCollection;
 use database_models::{
     collection, collection_to_entity, metadata, prelude::*, review, seen, user_to_entity,
 };
