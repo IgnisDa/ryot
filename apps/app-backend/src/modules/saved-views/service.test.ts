@@ -3,6 +3,7 @@ import { expectDataResult } from "~/lib/test-helpers";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
+	ReorderSavedViewsBody,
 	SavedViewQueryDefinition,
 	UpdateSavedViewBody,
 } from "./schemas";
@@ -11,6 +12,7 @@ import {
 	cloneSavedView,
 	createSavedView,
 	deleteSavedView,
+	reorderSavedViews,
 	resolveSavedViewName,
 	type SavedViewServiceDeps,
 	updateSavedView,
@@ -56,6 +58,7 @@ const createListedSavedView = (
 ): ListedSavedView => ({
 	id: "view_1",
 	icon: "book",
+	sortOrder: 0,
 	name: "Reading",
 	isBuiltin: false,
 	isDisabled: false,
@@ -71,10 +74,13 @@ const createListedSavedView = (
 const createDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
 ): SavedViewServiceDeps => ({
+	countSavedViewsByIdsForUser: async (input) => input.viewIds.length,
 	deleteSavedViewByIdForUser: async (input) =>
 		createListedSavedView({ id: input.viewId }),
 	getSavedViewByIdForUser: async (input) =>
 		createListedSavedView({ id: input.viewId }),
+	listUserSavedViewIdsInOrder: async () => ["view_1", "view_2", "view_3"],
+	persistSavedViewOrderForUser: async (input) => input.viewIds,
 	updateSavedViewDisabledByIdForUser: async (input) =>
 		createListedSavedView({ id: input.viewId, isDisabled: input.isDisabled }),
 	createSavedViewForUser: async (input) =>
@@ -97,6 +103,14 @@ const createDeps = (
 			queryDefinition: input.data.queryDefinition,
 			displayConfiguration: input.data.displayConfiguration,
 		}),
+	...overrides,
+});
+
+const createReorderSavedViewsBody = (
+	overrides: Partial<ReorderSavedViewsBody> = {},
+): ReorderSavedViewsBody => ({
+	trackerId: "tracker_1",
+	viewIds: ["view_2", "view_1"],
 	...overrides,
 });
 
@@ -172,6 +186,34 @@ describe("createSavedView", () => {
 });
 
 describe("updateSavedView", () => {
+	it("passes the current scope when moving a mutable saved view", async () => {
+		let updatedCurrentTrackerId: string | null | undefined;
+		const deps = createDeps({
+			getSavedViewByIdForUser: async () =>
+				createListedSavedView({ trackerId: "tracker_1" }),
+			updateSavedViewByIdForUser: async (input) => {
+				updatedCurrentTrackerId = input.currentTrackerId;
+				return createListedSavedView({
+					trackerId: input.data.trackerId ?? null,
+				});
+			},
+		});
+
+		const result = expectDataResult(
+			await updateSavedView(
+				{
+					viewId: "view_1",
+					userId: "user_1",
+					body: { ...createUpdateSavedViewBody(), trackerId: undefined },
+				},
+				deps,
+			),
+		);
+
+		expect(updatedCurrentTrackerId).toBe("tracker_1");
+		expect(result.trackerId).toBeNull();
+	});
+
 	it("allows toggling isDisabled on a built-in view without calling full update", async () => {
 		let fullUpdateCalled = false;
 		let disableToggleCalled = false;
@@ -360,6 +402,67 @@ describe("cloneSavedView", () => {
 		expect(result).toEqual({
 			error: "not_found",
 			message: "Saved view not found",
+		});
+	});
+});
+
+describe("reorderSavedViews", () => {
+	it("keeps unspecified saved views after the requested order in a tracker", async () => {
+		const reordered = expectDataResult(
+			await reorderSavedViews(
+				{ body: createReorderSavedViewsBody(), userId: "user_1" },
+				createDeps(),
+			),
+		);
+
+		expect(reordered.viewIds).toEqual(["view_2", "view_1", "view_3"]);
+	});
+
+	it("supports reordering top-level saved views", async () => {
+		let receivedTrackerId: string | undefined;
+		const reordered = expectDataResult(
+			await reorderSavedViews(
+				{
+					userId: "user_1",
+					body: createReorderSavedViewsBody({
+						trackerId: undefined,
+						viewIds: ["view_3", "view_1"],
+					}),
+				},
+				createDeps({
+					countSavedViewsByIdsForUser: async (input) => {
+						receivedTrackerId = input.trackerId;
+						return input.viewIds.length;
+					},
+				}),
+			),
+		);
+
+		expect(receivedTrackerId).toBeUndefined();
+		expect(reordered.viewIds).toEqual(["view_3", "view_1", "view_2"]);
+	});
+
+	it("returns validation for unknown saved view ids", async () => {
+		const result = await reorderSavedViews(
+			{ body: createReorderSavedViewsBody(), userId: "user_1" },
+			createDeps({ countSavedViewsByIdsForUser: async () => 1 }),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Saved view ids contain unknown saved views",
+		});
+	});
+
+	it("returns validation when persistence cannot update the full scoped order", async () => {
+		const result = await reorderSavedViews(
+			{ body: createReorderSavedViewsBody(), userId: "user_1" },
+			createDeps({ persistSavedViewOrderForUser: async () => undefined }),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Saved view ids contain unknown saved views",
 		});
 	});
 });
