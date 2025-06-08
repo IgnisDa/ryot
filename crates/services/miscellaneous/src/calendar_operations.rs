@@ -109,6 +109,7 @@ pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<
         );
 
     let mut meta_stream = selected_metadata.clone().stream(&service.db).await?;
+    let mut calendar_event_ids_to_delete = Vec::new();
 
     while let Some(meta) = meta_stream.try_next().await? {
         ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
@@ -161,11 +162,21 @@ pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<
                     "Need to delete calendar event id = {:#?} since it is outdated",
                     cal_event.id
                 );
-                CalendarEvent::delete_by_id(cal_event.id)
-                    .exec(&service.db)
-                    .await?;
+                calendar_event_ids_to_delete.push(cal_event.id);
             }
         }
+    }
+
+    if !calendar_event_ids_to_delete.is_empty() {
+        ryot_log!(
+            debug,
+            "Batch deleting {} calendar events",
+            calendar_event_ids_to_delete.len()
+        );
+        CalendarEvent::delete_many()
+            .filter(calendar_event::Column::Id.is_in(calendar_event_ids_to_delete))
+            .exec(&service.db)
+            .await?;
     }
 
     ryot_log!(debug, "Finished deleting invalid calendar events");
