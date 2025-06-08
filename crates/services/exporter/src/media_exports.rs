@@ -94,7 +94,7 @@ impl MediaExports {
                     item_reviews(user_id, &m.id, EntityLot::Metadata, false, &self.service)
                         .await?
                         .into_iter()
-                        .map(|r| ExportUtilities::get_review_export_item(r))
+                        .map(ExportUtilities::get_review_export_item)
                         .collect();
                 let collections =
                     entity_in_collections(&self.service.db, user_id, &m.id, EntityLot::Metadata)
@@ -157,7 +157,7 @@ impl MediaExports {
                 )
                 .await?
                 .into_iter()
-                .map(|r| ExportUtilities::get_review_export_item(r))
+                .map(ExportUtilities::get_review_export_item)
                 .collect();
                 let collections = entity_in_collections(
                     &self.service.db,
@@ -217,7 +217,7 @@ impl MediaExports {
                 let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, &self.service)
                     .await?
                     .into_iter()
-                    .map(|r| ExportUtilities::get_review_export_item(r))
+                    .map(ExportUtilities::get_review_export_item)
                     .collect();
                 let collections =
                     entity_in_collections(&self.service.db, user_id, &p.id, EntityLot::Person)

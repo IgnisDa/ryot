@@ -113,7 +113,7 @@ impl FitnessExports {
                 )
                 .await?
                 .into_iter()
-                .map(|r| ExportUtilities::get_review_export_item(r))
+                .map(ExportUtilities::get_review_export_item)
                 .collect_vec();
                 let collections = entity_in_collections(
                     &self.service.db,
