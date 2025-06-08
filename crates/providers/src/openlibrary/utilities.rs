@@ -18,7 +18,7 @@ pub fn parse_date(date_str: &str) -> Option<NaiveDate> {
 
 /// Parse date with multiple formats
 pub fn parse_date_flexible(input: &str) -> Option<NaiveDate> {
-    let formats = ["%b %d, %Y", "%Y", "%b %d, %Y"];
+    let formats = ["%b %d, %Y", "%Y"];
     for format in formats.iter() {
         if let Ok(date) = NaiveDate::parse_from_str(input, format) {
             return Some(date);
