@@ -57,7 +57,7 @@ pub async fn update_seen_item(
         }
         seen.review_id = ActiveValue::Set(to_update_review_id);
     }
-    let seen = seen.update(&ss.db).await.unwrap();
+    let seen = seen.update(&ss.db).await?;
     deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(true)
 }
