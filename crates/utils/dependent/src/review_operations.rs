@@ -1,19 +1,20 @@
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::StringIdObject;
+use common_utils::ryot_log;
 use database_models::review;
 use database_utils::user_by_id;
 use enum_models::{EntityLot, Visibility};
 use media_models::{
-    CreateOrUpdateReviewInput, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraOptionalInformation,
+    CreateOrUpdateReviewInput, ImportOrExportItemRating, ReviewPostedEvent,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraOptionalInformation,
     SeenShowExtraOptionalInformation,
 };
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue};
 use std::sync::Arc;
 use supporting_service::SupportingService;
-use user_models::UserReviewScale;
+use user_models::{UserPreferences, UserReviewScale};
 
 use crate::{
     associate_user_with_entity, get_entity_title_from_id_and_lot, mark_entity_as_recently_consumed,
@@ -128,5 +129,39 @@ pub async fn post_review(
     associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
     Ok(StringIdObject {
         id: insert.id.unwrap(),
+    })
+}
+
+pub fn convert_review_into_input(
+    review: &ImportOrExportItemRating,
+    preferences: &UserPreferences,
+    entity_id: String,
+    entity_lot: EntityLot,
+) -> Option<CreateOrUpdateReviewInput> {
+    if review.review.is_none() && review.rating.is_none() {
+        ryot_log!(debug, "Skipping review since it has no content");
+        return None;
+    }
+    let rating = match preferences.general.review_scale {
+        UserReviewScale::OutOfTen => review.rating.map(|rating| rating / dec!(10)),
+        UserReviewScale::OutOfFive => review.rating.map(|rating| rating / dec!(20)),
+        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => review.rating,
+    };
+    let text = review.review.clone().and_then(|r| r.text);
+    let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
+    let date = review.review.clone().map(|r| r.date);
+    Some(CreateOrUpdateReviewInput {
+        rating,
+        text,
+        is_spoiler,
+        visibility: review.review.clone().and_then(|r| r.visibility),
+        date: date.flatten(),
+        entity_id,
+        entity_lot,
+        show_season_number: review.show_season_number,
+        show_episode_number: review.show_episode_number,
+        podcast_episode_number: review.podcast_episode_number,
+        manga_chapter_number: review.manga_chapter_number,
+        ..Default::default()
     })
 }

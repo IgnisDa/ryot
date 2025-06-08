@@ -121,3 +121,21 @@ pub async fn details_from_provider(
     let results = provider.metadata_details(identifier).await?;
     Ok(results)
 }
+
+pub async fn get_identifier_from_book_isbn(
+    isbn: &str,
+    hardcover_service: &HardcoverService,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+) -> Option<(String, MediaSource)> {
+    if let Some(id) = hardcover_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::Hardcover));
+    }
+    if let Some(id) = google_books_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::GoogleBooks));
+    }
+    if let Some(id) = open_library_service.id_from_isbn(isbn).await {
+        return Some((id, MediaSource::Openlibrary));
+    }
+    None
+}
