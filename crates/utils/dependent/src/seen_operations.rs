@@ -15,8 +15,9 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOr
 use supporting_service::SupportingService;
 
 use crate::{
-    SHOW_SPECIAL_SEASON_NAMES, add_entity_to_collection, associate_user_with_entity,
-    expire_user_collections_list_cache, remove_entity_from_collection,
+    SHOW_SPECIAL_SEASON_NAMES,
+    collection_operations::{add_entity_to_collection, remove_entity_from_collection},
+    utility_operations::{associate_user_with_entity, expire_user_collections_list_cache},
 };
 
 pub async fn seen_history(

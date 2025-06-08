@@ -22,7 +22,10 @@ use std::cmp::Reverse;
 use supporting_service::SupportingService;
 use user_models::UserStatisticsMeasurement;
 
-use crate::{add_entity_to_collection, expire_user_measurements_list_cache};
+use crate::{
+    collection_operations::add_entity_to_collection,
+    utility_operations::expire_user_measurements_list_cache,
+};
 
 pub async fn create_user_measurement(
     user_id: &String,

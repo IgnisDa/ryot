@@ -118,6 +118,12 @@ pub use seen_operations::*;
 mod fitness_operations;
 pub use fitness_operations::*;
 
+mod collection_operations;
+pub use collection_operations::*;
+
+mod list_operations;
+pub use list_operations::*;
+
 pub async fn progress_update(
     user_id: &String,
     // update only if media has not been consumed for this user in the last `n` duration
@@ -693,7 +699,7 @@ async fn create_collection_and_add_entity_to_it(
     ss: &Arc<SupportingService>,
     import_failed_set: &mut Vec<ImportFailedItem>,
 ) {
-    if let Err(e) = create_or_update_collection(
+    if let Err(e) = collection_operations::create_or_update_collection(
         user_id,
         ss,
         CreateOrUpdateCollectionInput {
@@ -710,7 +716,7 @@ async fn create_collection_and_add_entity_to_it(
             ..Default::default()
         });
     }
-    if let Err(e) = add_entity_to_collection(
+    if let Err(e) = collection_operations::add_entity_to_collection(
         user_id,
         ChangeCollectionToEntityInput {
             entity_id,
@@ -1046,7 +1052,12 @@ where
                 }
             }
             ImportCompletedItem::Collection(col_details) => {
-                if let Err(e) = create_or_update_collection(user_id, ss, col_details.clone()).await
+                if let Err(e) = collection_operations::create_or_update_collection(
+                    user_id,
+                    ss,
+                    col_details.clone(),
+                )
+                .await
                 {
                     import.failed.push(ImportFailedItem {
                         error: Some(e.message),
@@ -1133,386 +1144,6 @@ where
     };
 
     Ok((source_result, details))
-}
-
-pub async fn add_entity_to_collection(
-    user_id: &String,
-    input: ChangeCollectionToEntityInput,
-    ss: &Arc<SupportingService>,
-) -> Result<bool> {
-    let collection = Collection::find()
-        .left_join(UserToEntity)
-        .filter(user_to_entity::Column::UserId.eq(user_id))
-        .filter(collection::Column::Name.eq(input.collection_name))
-        .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
-    let mut updated: collection::ActiveModel = collection.into();
-    updated.last_updated_on = ActiveValue::Set(Utc::now());
-    let collection = updated.update(&ss.db).await.unwrap();
-    let column = get_cte_column_from_lot(input.entity_lot);
-
-    let resp = match CollectionToEntity::find()
-        .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
-        .one(&ss.db)
-        .await?
-    {
-        Some(etc) => etc,
-        None => {
-            let mut created_collection = collection_to_entity::ActiveModel {
-                collection_id: ActiveValue::Set(collection.id),
-                information: ActiveValue::Set(input.information),
-                ..Default::default()
-            };
-            let id = input.entity_id.clone();
-            match input.entity_lot {
-                EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-                EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-                EntityLot::MetadataGroup => {
-                    created_collection.metadata_group_id = ActiveValue::Set(Some(id))
-                }
-                EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-                EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-                EntityLot::WorkoutTemplate => {
-                    created_collection.workout_template_id = ActiveValue::Set(Some(id))
-                }
-                EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                    unreachable!()
-                }
-            }
-            let created = created_collection.insert(&ss.db).await?;
-            ryot_log!(debug, "Created collection to entity: {:?}", created);
-            match input.entity_lot {
-                EntityLot::Workout
-                | EntityLot::WorkoutTemplate
-                | EntityLot::Review
-                | EntityLot::UserMeasurement => {}
-                _ => {
-                    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
-                        .await
-                        .ok();
-                }
-            }
-            created
-        }
-    };
-    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
-    ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
-    ))
-    .await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
-    Ok(true)
-}
-
-pub async fn create_or_update_collection(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-    input: CreateOrUpdateCollectionInput,
-) -> Result<StringIdObject> {
-    ryot_log!(debug, "Creating or updating collection: {:?}", input);
-    let txn = ss.db.begin().await?;
-    let meta = Collection::find()
-        .filter(collection::Column::Name.eq(input.name.clone()))
-        .filter(collection::Column::UserId.eq(user_id))
-        .one(&txn)
-        .await
-        .unwrap();
-    let mut new_name = input.name.clone();
-    let created = match meta {
-        Some(m) if input.update_id.is_none() => m.id,
-        _ => {
-            let id = match input.update_id {
-                None => ActiveValue::NotSet,
-                Some(i) => {
-                    let already = Collection::find_by_id(i.clone())
-                        .one(&txn)
-                        .await
-                        .unwrap()
-                        .unwrap();
-                    if DefaultCollection::iter()
-                        .map(|s| s.to_string())
-                        .contains(&already.name)
-                    {
-                        new_name = already.name;
-                    }
-                    ActiveValue::Unchanged(i.clone())
-                }
-            };
-            let col = collection::ActiveModel {
-                id,
-                name: ActiveValue::Set(new_name),
-                user_id: ActiveValue::Set(user_id.to_owned()),
-                last_updated_on: ActiveValue::Set(Utc::now()),
-                description: ActiveValue::Set(input.description),
-                information_template: ActiveValue::Set(input.information_template),
-                ..Default::default()
-            };
-            let inserted = col
-                .save(&txn)
-                .await
-                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
-            let id = inserted.id.unwrap();
-            let result = UserToEntity::delete_many()
-                .filter(user_to_entity::Column::CollectionId.eq(&id))
-                .exec(&txn)
-                .await?;
-            ryot_log!(debug, "Deleted old user to entity: {:?}", result);
-            let mut collaborators = HashSet::from([user_id.to_owned()]);
-            if let Some(input_collaborators) = input.collaborators {
-                collaborators.extend(input_collaborators);
-            }
-            ryot_log!(debug, "Collaborators: {:?}", collaborators);
-            for c in &collaborators {
-                expire_user_collections_list_cache(c, ss).await?;
-            }
-            for c in collaborators {
-                UserToEntity::insert(user_to_entity::ActiveModel {
-                    user_id: ActiveValue::Set(c.clone()),
-                    last_updated_on: ActiveValue::Set(Utc::now()),
-                    collection_id: ActiveValue::Set(Some(id.clone())),
-                    collection_extra_information: match &c == user_id {
-                        true => ActiveValue::Set(input.extra_information.clone()),
-                        _ => Default::default(),
-                    },
-                    ..Default::default()
-                })
-                .on_conflict(
-                    OnConflict::new()
-                        .exprs([
-                            Expr::col(user_to_entity::Column::UserId),
-                            Expr::col(user_to_entity::Column::CollectionId),
-                        ])
-                        .update_columns([
-                            user_to_entity::Column::CollectionExtraInformation,
-                            user_to_entity::Column::LastUpdatedOn,
-                        ])
-                        .to_owned(),
-                )
-                .exec_without_returning(&txn)
-                .await?;
-            }
-            id
-        }
-    };
-    txn.commit().await?;
-    Ok(StringIdObject { id: created })
-}
-
-pub async fn remove_entity_from_collection(
-    user_id: &String,
-    input: ChangeCollectionToEntityInput,
-    ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
-    let collect = Collection::find()
-        .left_join(UserToEntity)
-        .filter(collection::Column::Name.eq(input.collection_name))
-        .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
-        .one(&ss.db)
-        .await
-        .unwrap()
-        .unwrap();
-    let column = get_cte_column_from_lot(input.entity_lot);
-    CollectionToEntity::delete_many()
-        .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
-        .exec(&ss.db)
-        .await?;
-    if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
-            .await
-            .ok();
-    }
-    expire_user_collections_list_cache(user_id, ss).await?;
-    Ok(StringIdObject { id: collect.id })
-}
-
-pub async fn user_metadata_list(
-    user_id: &String,
-    input: UserMetadataListInput,
-    ss: &Arc<SupportingService>,
-) -> Result<CachedResponse<UserMetadataListResponse>> {
-    let cc = &ss.cache_service;
-    let key = ApplicationCacheKey::UserMetadataList(UserLevelCacheKey {
-        input: input.clone(),
-        user_id: user_id.to_owned(),
-    });
-    if let Some((id, cached)) = cc.get_value::<UserMetadataListResponse>(key.clone()).await {
-        return Ok(CachedResponse {
-            cache_id: id,
-            response: cached,
-        });
-    }
-    let preferences = user_by_id(user_id, ss).await?.preferences;
-
-    let avg_rating_col = "user_average_rating";
-    let cloned_user_id_1 = user_id.clone();
-    let cloned_user_id_2 = user_id.clone();
-
-    let order_by = input
-        .sort
-        .clone()
-        .map(|a| graphql_to_db_order(a.order))
-        .unwrap_or(Order::Asc);
-    let review_scale = match preferences.general.review_scale {
-        UserReviewScale::OutOfTen => 10,
-        UserReviewScale::OutOfFive => 20,
-        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
-    };
-    let take = input
-        .search
-        .clone()
-        .and_then(|s| s.take)
-        .unwrap_or(preferences.general.list_page_size);
-    let page: u64 = input
-        .search
-        .clone()
-        .and_then(|s| s.page)
-        .unwrap_or(1)
-        .try_into()
-        .unwrap();
-    let paginator = Metadata::find()
-        .select_only()
-        .column(metadata::Column::Id)
-        .expr_as(
-            Func::round_with_precision(
-                Func::avg(
-                    Expr::col((AliasedReview::Table, AliasedReview::Rating)).div(review_scale),
-                ),
-                review_scale,
-            ),
-            avg_rating_col,
-        )
-        .group_by(metadata::Column::Id)
-        .filter(user_to_entity::Column::UserId.eq(user_id))
-        .apply_if(input.lot, |query, v| {
-            query.filter(metadata::Column::Lot.eq(v))
-        })
-        .inner_join(UserToEntity)
-        .join(
-            JoinType::LeftJoin,
-            metadata::Relation::Review
-                .def()
-                .on_condition(move |_left, right| {
-                    Condition::all().add(
-                        Expr::col((right, review::Column::UserId)).eq(cloned_user_id_1.clone()),
-                    )
-                }),
-        )
-        .join(
-            JoinType::LeftJoin,
-            metadata::Relation::Seen
-                .def()
-                .on_condition(move |_left, right| {
-                    Condition::all()
-                        .add(Expr::col((right, seen::Column::UserId)).eq(cloned_user_id_2.clone()))
-                }),
-        )
-        .apply_if(input.search.and_then(|s| s.query), |query, v| {
-            query.filter(
-                Condition::any()
-                    .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
-                    .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
-            )
-        })
-        .apply_if(
-            input.filter.clone().and_then(|f| f.date_range),
-            |outer_query, outer_value| {
-                outer_query
-                    .apply_if(outer_value.start_date, |inner_query, inner_value| {
-                        inner_query.filter(seen::Column::FinishedOn.gte(inner_value))
-                    })
-                    .apply_if(outer_value.end_date, |inner_query, inner_value| {
-                        inner_query.filter(seen::Column::FinishedOn.lte(inner_value))
-                    })
-            },
-        )
-        .apply_if(
-            input.filter.clone().and_then(|f| f.collections),
-            |query, v| {
-                apply_collection_filter(
-                    metadata::Column::Id,
-                    query,
-                    collection_to_entity::Column::MetadataId,
-                    v,
-                )
-            },
-        )
-        .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
-            MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
-            MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
-            MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
-            MediaGeneralFilter::Unfinished => query.filter(
-                Expr::expr(
-                    Expr::val(UserToMediaReason::Finished.to_string())
-                        .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
-                )
-                .not(),
-            ),
-            s => query.filter(seen::Column::State.eq(match s {
-                MediaGeneralFilter::Dropped => SeenState::Dropped,
-                MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                _ => unreachable!(),
-            })),
-        })
-        .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-            MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
-            MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
-            MediaSortBy::TimesConsumed => query.order_by(seen::Column::Id.count(), order_by),
-            MediaSortBy::LastUpdated => query
-                .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
-                .group_by(user_to_entity::Column::LastUpdatedOn),
-            MediaSortBy::ReleaseDate => query.order_by_with_nulls(
-                metadata::Column::PublishYear,
-                order_by,
-                NullOrdering::Last,
-            ),
-            MediaSortBy::LastSeen => query.order_by_with_nulls(
-                seen::Column::FinishedOn.max(),
-                order_by,
-                NullOrdering::Last,
-            ),
-            MediaSortBy::UserRating => query.order_by_with_nulls(
-                Expr::col(Alias::new(avg_rating_col)),
-                order_by,
-                NullOrdering::Last,
-            ),
-            MediaSortBy::ProviderRating => query.order_by_with_nulls(
-                metadata::Column::ProviderRating,
-                order_by,
-                NullOrdering::Last,
-            ),
-        })
-        .into_tuple::<String>()
-        .paginate(&ss.db, take);
-    let ItemsAndPagesNumber {
-        number_of_items,
-        number_of_pages,
-    } = paginator.num_items_and_pages().await?;
-    let mut items = vec![];
-    for c in paginator.fetch_page(page - 1).await? {
-        items.push(c);
-    }
-    let response = SearchResults {
-        items,
-        details: SearchDetails {
-            total: number_of_items.try_into().unwrap(),
-            next_page: if page < number_of_pages {
-                Some((page + 1).try_into().unwrap())
-            } else {
-                None
-            },
-        },
-    };
-    let cache_id = cc
-        .set_key(
-            key,
-            ApplicationCacheValue::UserMetadataList(response.clone()),
-        )
-        .await?;
-    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn user_metadata_groups_list(
@@ -2093,116 +1724,6 @@ pub async fn generic_metadata(
         model: meta,
         suggestions,
     })
-}
-
-pub async fn user_collections_list(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<CachedResponse<UserCollectionsListResponse>> {
-    let cc = &ss.cache_service;
-    let cache_key = ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
-        input: (),
-        user_id: user_id.to_owned(),
-    });
-    if let Some((cache_id, response)) = cc.get_value(cache_key.clone()).await {
-        return Ok(CachedResponse { cache_id, response });
-    }
-    let user_jsonb_build_object = PgFunc::json_build_object(vec![
-        (
-            Expr::val("id"),
-            Expr::col((AliasedUser::Table, AliasedUser::Id)),
-        ),
-        (
-            Expr::val("name"),
-            Expr::col((AliasedUser::Table, AliasedUser::Name)),
-        ),
-    ]);
-    let outer_collaborator = PgFunc::json_build_object(vec![
-        (
-            Expr::val("collaborator"),
-            Expr::expr(user_jsonb_build_object.clone()),
-        ),
-        (
-            Expr::val("extra_information"),
-            Expr::col((
-                AliasedUserToEntity::Table,
-                AliasedUserToEntity::CollectionExtraInformation,
-            )),
-        ),
-    ]);
-    let collaborators_subquery = Query::select()
-        .from(UserToEntity)
-        .expr(PgFunc::json_agg(outer_collaborator.clone()))
-        .join(
-            JoinType::InnerJoin,
-            AliasedUser::Table,
-            Expr::col((AliasedUserToEntity::Table, AliasedUserToEntity::UserId))
-                .equals((AliasedUser::Table, AliasedUser::Id)),
-        )
-        .and_where(
-            Expr::col((
-                AliasedUserToEntity::Table,
-                AliasedUserToEntity::CollectionId,
-            ))
-            .equals((AliasedCollection::Table, AliasedCollection::Id)),
-        )
-        .to_owned();
-    let count_subquery = Query::select()
-        .expr(collection_to_entity::Column::Id.count())
-        .from(CollectionToEntity)
-        .and_where(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                AliasedCollectionToEntity::CollectionId,
-            ))
-            .equals((
-                AliasedUserToEntity::Table,
-                AliasedUserToEntity::CollectionId,
-            )),
-        )
-        .to_owned();
-    let response = Collection::find()
-        .select_only()
-        .column(collection::Column::Id)
-        .column(collection::Column::Name)
-        .column_as(
-            collection::Column::Name
-                .is_in(DefaultCollection::iter().map(|s| s.to_string()))
-                .and(collection::Column::UserId.eq(user_id)),
-            "is_default",
-        )
-        .column(collection::Column::InformationTemplate)
-        .expr_as(
-            SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
-            "count",
-        )
-        .expr_as(
-            Func::coalesce([
-                SimpleExpr::SubQuery(
-                    None,
-                    Box::new(collaborators_subquery.into_sub_query_statement()),
-                ),
-                SimpleExpr::FunctionCall(Func::cast_as(Expr::val("[]"), Alias::new("JSON"))),
-            ]),
-            "collaborators",
-        )
-        .column(collection::Column::Description)
-        .column_as(Expr::expr(user_jsonb_build_object), "creator")
-        .order_by_desc(collection::Column::LastUpdatedOn)
-        .left_join(User)
-        .left_join(UserToEntity)
-        .filter(user_to_entity::Column::UserId.eq(user_id))
-        .into_model::<CollectionItem>()
-        .all(&ss.db)
-        .await
-        .unwrap();
-    let cache_id = cc
-        .set_key(
-            cache_key,
-            ApplicationCacheValue::UserCollectionsList(response.clone()),
-        )
-        .await?;
-    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn calculate_user_activities_and_summary(
