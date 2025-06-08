@@ -58,7 +58,7 @@ impl FitnessExports {
                     details: details.details,
                     collections: details.collections.into_iter().map(|c| c.name).collect(),
                 };
-                writer.serialize_value(&exp).unwrap();
+                writer.serialize_value(&exp)?;
             }
             if let Some(next_page) = workout_ids.response.details.next_page {
                 current_page = next_page;
