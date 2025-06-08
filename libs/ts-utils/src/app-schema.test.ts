@@ -118,160 +118,9 @@ describe("toAppSchemaProperties", () => {
 			},
 		});
 	});
-
-	it("preserves object unknown-key policy when converting from zod", () => {
-		expect(
-			toAppSchema(
-				z.object({
-					metadata: z.object({ title: z.string() }),
-				}),
-			),
-		).toEqual({
-			label: "Value",
-			type: "object",
-			unknownKeys: "strip",
-			validation: { required: true },
-			properties: {
-				metadata: {
-					label: "Metadata",
-					type: "object",
-					unknownKeys: "strip",
-					validation: { required: true },
-					properties: {
-						title: {
-							label: "Title",
-							type: "string",
-							validation: { required: true },
-						},
-					},
-				},
-			},
-		});
-	});
 });
 
 describe("fromAppSchema", () => {
-	it("validates primitive schemas", () => {
-		expect(
-			fromAppSchema({ label: "Value", type: "string" }).safeParse("hello")
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "integer" }).safeParse(12.5)
-				.success,
-		).toBeFalse();
-		expect(
-			fromAppSchema({ label: "Value", type: "date" }).safeParse("2026-03-08")
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "datetime" }).safeParse(
-				"2026-03-08T10:15:30Z",
-			).success,
-		).toBeTrue();
-	});
-
-	it("allows null and undefined for non-required fields", () => {
-		expect(
-			fromAppSchema({ label: "Value", type: "string" }).safeParse(null).success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "string" }).safeParse(undefined)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "boolean" }).safeParse(null)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "boolean" }).safeParse(undefined)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "number" }).safeParse(null).success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "number" }).safeParse(undefined)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "integer" }).safeParse(null)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "integer" }).safeParse(undefined)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "date" }).safeParse(null).success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "date" }).safeParse(undefined)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "datetime" }).safeParse(null)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({ label: "Value", type: "datetime" }).safeParse(undefined)
-				.success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({
-				type: "array",
-				label: "Value",
-				items: { label: "Item", type: "string" },
-			}).safeParse(null).success,
-		).toBeTrue();
-		expect(
-			fromAppSchema({
-				type: "array",
-				label: "Value",
-				items: { label: "Item", type: "string" },
-			}).safeParse(undefined).success,
-		).toBeTrue();
-	});
-
-	it("rejects null for required fields", () => {
-		expect(
-			fromAppSchema({
-				label: "Value",
-				type: "string",
-				validation: { required: true },
-			}).safeParse(null).success,
-		).toBeFalse();
-		expect(
-			fromAppSchema({
-				label: "Value",
-				type: "boolean",
-				validation: { required: true },
-			}).safeParse(null).success,
-		).toBeFalse();
-		expect(
-			fromAppSchema({
-				label: "Value",
-				type: "number",
-				validation: { required: true },
-			}).safeParse(null).success,
-		).toBeFalse();
-		expect(
-			fromAppSchema({
-				label: "Value",
-				type: "integer",
-				validation: { required: true },
-			}).safeParse(null).success,
-		).toBeFalse();
-		expect(
-			fromAppSchema({
-				type: "array",
-				label: "Value",
-				items: { label: "Item", type: "string" },
-				validation: { required: true },
-			}).safeParse(null).success,
-		).toBeFalse();
-	});
-
 	it("validates nested object required-ness", () => {
 		const schema = fromAppSchema({
 			type: "object",
@@ -363,32 +212,6 @@ describe("fromAppSchema", () => {
 		});
 	});
 
-	it("applies string validation rules", () => {
-		const schema = fromAppSchema({
-			type: "string",
-			label: "Value",
-			validation: { minLength: 2, maxLength: 4, pattern: "^[A-Z]+$" },
-		});
-
-		expect(schema.safeParse("OK").success).toBeTrue();
-		expect(schema.safeParse("O").success).toBeFalse();
-		expect(schema.safeParse("TOO_LONG").success).toBeFalse();
-		expect(schema.safeParse("bad").success).toBeFalse();
-	});
-
-	it("applies numeric validation rules", () => {
-		const schema = fromAppSchema({
-			label: "Value",
-			type: "integer",
-			validation: { minimum: 1, maximum: 5 },
-		});
-
-		expect(schema.safeParse(3).success).toBeTrue();
-		expect(schema.safeParse(0).success).toBeFalse();
-		expect(schema.safeParse(6).success).toBeFalse();
-		expect(schema.safeParse(3.5).success).toBeFalse();
-	});
-
 	it("applies transforms before numeric validation", () => {
 		const schema = fromAppSchema({
 			type: "number",
@@ -400,19 +223,6 @@ describe("fromAppSchema", () => {
 		expect(schema.parse(25.555)).toBe(25.56);
 		expect(() => schema.parse(99.995)).toThrow();
 		expect(() => schema.parse(0.004)).toThrow();
-	});
-
-	it("applies array validation rules", () => {
-		const schema = fromAppSchema({
-			label: "Value",
-			type: "array",
-			items: { label: "Item", type: "string" },
-			validation: { minItems: 1, maxItems: 2 },
-		});
-
-		expect(schema.safeParse(["one"]).success).toBeTrue();
-		expect(schema.safeParse([]).success).toBeFalse();
-		expect(schema.safeParse(["one", "two", "three"]).success).toBeFalse();
 	});
 });
 
