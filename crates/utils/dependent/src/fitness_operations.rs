@@ -169,12 +169,11 @@ pub fn clean_values(value: &mut UserWorkoutSetRecord, exercise_lot: &ExerciseLot
 pub async fn get_focused_workout_summary(
     exercises: &[ProcessedExercise],
     ss: &Arc<SupportingService>,
-) -> WorkoutFocusedSummary {
+) -> Result<WorkoutFocusedSummary> {
     let db_exercises = Exercise::find()
         .filter(exercise::Column::Id.is_in(exercises.iter().map(|e| e.id.clone())))
         .all(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     let mut lots = HashMap::new();
     let mut levels = HashMap::new();
     let mut forces = HashMap::new();
@@ -222,13 +221,13 @@ pub async fn get_focused_workout_summary(
         })
         .sorted_by_key(|f| Reverse(f.exercises.len()))
         .collect();
-    WorkoutFocusedSummary {
+    Ok(WorkoutFocusedSummary {
         lots,
         levels,
         forces,
         muscles,
         equipments,
-    }
+    })
 }
 
 pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
@@ -549,7 +548,7 @@ pub async fn create_or_update_user_workout(
         .into_iter()
         .map(|(_, _, ex)| ex)
         .collect_vec();
-    let focused = get_focused_workout_summary(&processed_exercises, ss).await;
+    let focused = get_focused_workout_summary(&processed_exercises, ss).await?;
     let model = workout::Model {
         end_time,
         duration,

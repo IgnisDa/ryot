@@ -80,7 +80,7 @@ pub async fn create_or_update_user_workout_template(
         });
     }
     let processed_exercises = information.exercises.clone();
-    summary.focused = get_focused_workout_summary(&processed_exercises, &service.0).await;
+    summary.focused = get_focused_workout_summary(&processed_exercises, &service.0).await?;
     let template = workout_template::ActiveModel {
         name: ActiveValue::Set(input.name),
         summary: ActiveValue::Set(summary),
