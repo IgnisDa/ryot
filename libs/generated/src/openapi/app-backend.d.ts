@@ -305,8 +305,8 @@ export interface paths {
                                 slug: string;
                                 name: string;
                                 config?: unknown;
-                                enabled: boolean;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 description?: string | null;
@@ -330,7 +330,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create an enabled custom tracker */
+        /** Create a custom tracker */
         post: {
             parameters: {
                 query?: never;
@@ -363,8 +363,8 @@ export interface paths {
                                 slug: string;
                                 name: string;
                                 config?: unknown;
-                                enabled: boolean;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 description?: string | null;
@@ -430,7 +430,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        enabled?: boolean;
+                        isDisabled?: boolean;
                         description?: string | unknown;
                         /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                         icon?: string;
@@ -452,8 +452,8 @@ export interface paths {
                                 slug: string;
                                 name: string;
                                 config?: unknown;
-                                enabled: boolean;
                                 isBuiltin: boolean;
+                                isDisabled: boolean;
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
                                 description?: string | null;

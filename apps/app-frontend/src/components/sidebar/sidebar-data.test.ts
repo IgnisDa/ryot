@@ -66,7 +66,7 @@ describe("toSidebarData", () => {
 				id: "tracker-3",
 				name: "Hidden",
 				slug: "hidden",
-				enabled: false,
+				isDisabled: true,
 			}),
 		];
 		const views: AppSavedView[] = [
@@ -94,7 +94,7 @@ describe("toSidebarData", () => {
 				id: "tracker-1",
 				name: "Media",
 				slug: "media",
-				enabled: true,
+				isDisabled: false,
 				isBuiltin: false,
 				accentColor: "#5B7FFF",
 				views: [
@@ -112,7 +112,7 @@ describe("toSidebarData", () => {
 				views: [],
 				sortOrder: 2,
 				id: "tracker-2",
-				enabled: true,
+				isDisabled: false,
 				name: "Fitness",
 				slug: "fitness",
 				isBuiltin: false,
@@ -141,7 +141,7 @@ describe("toSidebarData", () => {
 				id: "tracker-2",
 				name: "Hidden",
 				slug: "hidden",
-				enabled: false,
+				isDisabled: true,
 				icon: "eye-off",
 				accentColor: "#A78BFA",
 			}),
@@ -165,6 +165,6 @@ describe("toSidebarData", () => {
 			"tracker-1",
 			"tracker-2",
 		]);
-		expect(result.trackers[1]?.enabled).toBe(false);
+		expect(result.trackers[1]?.isDisabled).toBe(true);
 	});
 });
