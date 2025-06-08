@@ -5,11 +5,8 @@ import {
 	getComputedFieldOrThrow,
 } from "~/lib/views/computed-fields";
 import { QueryEngineValidationError } from "~/lib/views/errors";
-import type {
-	RuntimeRef,
-	ViewComputedField,
-	ViewExpression,
-} from "~/lib/views/expression";
+import type { RuntimeRef } from "@ryot/ts-utils";
+import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import {
 	assertConcatCompatibleExpression,
 	assertNumericExpression,
@@ -40,6 +37,29 @@ const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 const buildEventJoinJsonColumnExpression = (alias: string, joinKey: string) => {
 	return sql`${sql.raw(`${alias}.${getEventJoinColumnName(joinKey)}`)}`;
+};
+
+const buildPropertyPathExpression = (
+	base: SqlExpression,
+	propertyPath: string[],
+	mode: "json" | "text",
+): SqlExpression => {
+	const last = propertyPath.at(-1);
+	if (!last) {
+		throw new QueryEngineValidationError(
+			"Property path must have at least one segment",
+		);
+	}
+
+	const intermediate = propertyPath.slice(0, -1);
+	let current = base;
+	for (const segment of intermediate) {
+		current = sql`${current} -> ${segment}`;
+	}
+
+	return mode === "text"
+		? sql`${current} ->> ${last}`
+		: sql`${current} -> ${last}`;
 };
 
 const buildLiteralExpression = (
@@ -154,7 +174,7 @@ const buildEntityColumnExpression = <
 		)
 		.otherwise(() => {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column '@${input.reference.column}'`,
+				`Unsupported entity column '${input.reference.column}'`,
 			);
 		});
 
@@ -203,12 +223,21 @@ const buildSchemaPropertyExpression = <
 	const propertyType = getPropertyType(schema, input.reference.property);
 	if (!propertyType) {
 		throw new QueryEngineValidationError(
-			`Property '${input.reference.property}' not found in schema '${input.reference.slug}'`,
+			`Property '${input.reference.property.join(".")}' not found in schema '${input.reference.slug}'`,
 		);
 	}
 
-	const propertyJson = sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`;
-	const propertyText = sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`;
+	const base = sql`${sql.raw(input.alias)}.properties`;
+	const propertyJson = buildPropertyPathExpression(
+		base,
+		input.reference.property,
+		"json",
+	);
+	const propertyText = buildPropertyPathExpression(
+		base,
+		input.reference.property,
+		"text",
+	);
 	const valueExpression = buildCastedValueExpression(
 		input.targetType ?? normalizeExpressionPropertyType(propertyType),
 		{ propertyJson, propertyText },
@@ -232,7 +261,7 @@ const buildEventJoinColumnExpression = (input: {
 	const propertyType = getEventJoinColumnPropertyType(input.reference.column);
 	if (!propertyType) {
 		throw new QueryEngineValidationError(
-			`Unsupported event join column 'event.${input.reference.joinKey}.@${input.reference.column}'`,
+			`Unsupported event join column 'event.${input.reference.joinKey}.${input.reference.column}'`,
 		);
 	}
 
@@ -263,21 +292,25 @@ const buildEventJoinPropertyExpression = <
 		input.reference,
 	);
 	const propertyType = getEventJoinPropertyType(join, input.reference.property);
-	if (!propertyType) {
-		throw new QueryEngineValidationError(
-			`Property '${input.reference.property}' not found for event join '${join.key}'`,
-		);
-	}
 
 	const joinColumn = buildEventJoinJsonColumnExpression(
 		input.alias,
 		input.reference.joinKey,
 	);
+	const propertiesBase = sql`${joinColumn} -> ${"properties"}`;
 	return buildCastedValueExpression(
 		input.targetType ?? normalizeExpressionPropertyType(propertyType),
 		{
-			propertyJson: sql`${joinColumn} -> 'properties' -> ${input.reference.property}`,
-			propertyText: sql`${joinColumn} -> 'properties' ->> ${input.reference.property}`,
+			propertyJson: buildPropertyPathExpression(
+				propertiesBase,
+				input.reference.property,
+				"json",
+			),
+			propertyText: buildPropertyPathExpression(
+				propertiesBase,
+				input.reference.property,
+				"text",
+			),
 		},
 	);
 };
