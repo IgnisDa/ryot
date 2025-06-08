@@ -185,7 +185,7 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        measurement_operations::delete_user_measurement(self, user_id, timestamp).await
+        measurement_operations::delete_user_measurement(self, &user_id, timestamp).await
     }
 
     // System operations methods delegated to system_operations module
