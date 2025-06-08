@@ -57,11 +57,9 @@ impl JobManager {
                 .file_storage_service
                 .get_object_metadata(key.clone())
                 .await;
-            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())
-                .unwrap()
+            let started_at = DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())?
                 .with_timezone(&Utc);
-            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())
-                .unwrap()
+            let ended_at = DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())?
                 .with_timezone(&Utc);
             resp.push(ExportJob {
                 size,
@@ -84,9 +82,9 @@ impl JobManager {
         let started_at = Utc::now();
         let export_path =
             PathBuf::from(TEMPORARY_DIRECTORY).join(format!("ryot-export-{}.json", nanoid!()));
-        let file = std::fs::File::create(&export_path).unwrap();
+        let file = std::fs::File::create(&export_path)?;
         let mut writer = JsonStreamWriter::new(file);
-        writer.begin_object().unwrap();
+        writer.begin_object()?;
 
         let media_exports = MediaExports::new(self.service.clone());
         let fitness_exports = FitnessExports::new(self.service.clone());
@@ -94,7 +92,7 @@ impl JobManager {
         for export in ExportItem::iter() {
             ryot_log!(debug, "Exporting {export}");
             writer.name(&export.to_string())?;
-            writer.begin_array().unwrap();
+            writer.begin_array()?;
             match export {
                 ExportItem::Metadata => media_exports.export_media(&user_id, &mut writer).await?,
                 ExportItem::People => media_exports.export_people(&user_id, &mut writer).await?,
@@ -124,10 +122,10 @@ impl JobManager {
                         .await?
                 }
             };
-            writer.end_array().unwrap();
+            writer.end_array()?;
         }
-        writer.end_object().unwrap();
-        writer.finish_document().unwrap();
+        writer.end_object()?;
+        writer.finish_document()?;
         ryot_log!(debug, "Exporting completed");
         let ended_at = Utc::now();
         let (_key, url) = self
