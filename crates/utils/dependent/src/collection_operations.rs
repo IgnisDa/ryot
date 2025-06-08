@@ -31,12 +31,11 @@ pub async fn add_entity_to_collection(
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(collection::Column::Name.eq(input.collection_name))
         .one(&ss.db)
-        .await
-        .unwrap()
+        .await?
         .unwrap();
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
-    let collection = updated.update(&ss.db).await.unwrap();
+    let collection = updated.update(&ss.db).await?;
     let column = get_cte_column_from_lot(input.entity_lot);
 
     let resp = match CollectionToEntity::find()
@@ -104,8 +103,7 @@ pub async fn create_or_update_collection(
         .filter(collection::Column::Name.eq(input.name.clone()))
         .filter(collection::Column::UserId.eq(user_id))
         .one(&txn)
-        .await
-        .unwrap();
+        .await?;
     let mut new_name = input.name.clone();
     let created = match meta {
         Some(m) if input.update_id.is_none() => m.id,
@@ -113,11 +111,7 @@ pub async fn create_or_update_collection(
             let id = match input.update_id {
                 None => ActiveValue::NotSet,
                 Some(i) => {
-                    let already = Collection::find_by_id(i.clone())
-                        .one(&txn)
-                        .await
-                        .unwrap()
-                        .unwrap();
+                    let already = Collection::find_by_id(i.clone()).one(&txn).await?.unwrap();
                     if DefaultCollection::iter()
                         .map(|s| s.to_string())
                         .collect::<Vec<_>>()
@@ -198,8 +192,7 @@ pub async fn remove_entity_from_collection(
         .filter(collection::Column::Name.eq(input.collection_name))
         .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
         .one(&ss.db)
-        .await
-        .unwrap()
+        .await?
         .unwrap();
     let column = get_cte_column_from_lot(input.entity_lot);
     CollectionToEntity::delete_many()

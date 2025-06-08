@@ -28,8 +28,7 @@ pub async fn merge_metadata(
         .filter(seen::Column::MetadataId.eq(&merge_from))
         .filter(seen::Column::UserId.eq(&user_id))
         .all(&txn)
-        .await
-        .unwrap()
+        .await?
     {
         let old_seen_active: seen::ActiveModel = old_seen.clone().into();
         let new_seen = seen::ActiveModel {
