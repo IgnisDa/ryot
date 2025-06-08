@@ -159,13 +159,13 @@ pub enum ExerciseEquipment {
     #[default]
     Barbell,
     Machine,
+    #[serde(alias = "body only")]
     BodyOnly,
     Dumbbell,
     #[serde(alias = "foam roll")]
     FoamRoll,
     #[serde(alias = "e-z curl bar")]
     EZCurlBar,
-    #[serde(alias = "body only")]
     Kettlebells,
     #[serde(alias = "exercise ball")]
     ExerciseBall,
