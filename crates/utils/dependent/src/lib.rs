@@ -2,7 +2,6 @@ use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet, hash_map::Entry},
     future::Future,
-    iter::zip,
     sync::Arc,
 };
 
@@ -11,13 +10,12 @@ use application_utils::{
     graphql_to_db_order,
 };
 use async_graphql::{Enum, Error, Result};
-use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
+use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::{Timelike, Utc};
 use common_models::{
-    BackgroundJob, ChangeCollectionToEntityInput, DailyUserActivityHourRecord,
-    DailyUserActivityHourRecordEntity, DefaultCollection, EntityAssets,
-    MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput, SearchDetails, StringIdObject,
-    UserLevelCacheKey,
+    ChangeCollectionToEntityInput, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity,
+    DefaultCollection, EntityAssets, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput,
+    SearchDetails, StringIdObject, UserLevelCacheKey,
 };
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
@@ -25,19 +23,16 @@ use common_utils::{
 use database_models::{
     collection, collection_to_entity, daily_user_activity, exercise,
     functions::get_user_to_entity_association,
-    genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, monitored_entity,
-    notification_platform, person,
+    genre, metadata, metadata_group, metadata_to_metadata, metadata_to_person, person,
     prelude::{
         Collection, CollectionToEntity, DailyUserActivity, Exercise, Genre, Metadata,
-        MetadataGroup, MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, MonitoredEntity, NotificationPlatform, Person,
-        Review, Seen, User, UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
+        MetadataGroup, MetadataToMetadata, MetadataToPerson, Person, Review, Seen, User,
+        UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
     review, seen, user, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    admin_account_guard, apply_collection_filter, get_cte_column_from_lot, ilike_sql,
+    apply_collection_filter, get_cte_column_from_lot, ilike_sql,
     schedule_user_for_workout_revision, user_by_id,
 };
 use dependent_models::{
@@ -52,7 +47,7 @@ use dependent_models::{
 use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserNotificationContent, UserToMediaReason, Visibility, WorkoutSetPersonalBest,
+    SeenState, UserNotificationContent, UserToMediaReason, WorkoutSetPersonalBest,
 };
 use fitness_models::{
     ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
@@ -71,47 +66,32 @@ use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CollectionItem, CommitMetadataGroupInput,
     CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput, GenreListItem,
-    ImportOrExportItemRating, ImportOrExportMetadataItem, MangaSpecifics,
-    MediaAssociatedPersonStateChanges, MediaGeneralFilter, MediaSortBy, MetadataCreator,
-    MetadataCreatorGroupedByRole, MetadataDetails, MovieSpecifics, MusicSpecifics, PartialMetadata,
-    PartialMetadataPerson, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
-    PodcastSpecifics, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
-    ProgressUpdateResultUnion, ReviewPostedEvent, SeenAnimeExtraInformation,
-    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenPodcastExtraOptionalInformation,
-    SeenShowExtraInformation, SeenShowExtraOptionalInformation, ShowSpecifics,
-    UniqueMediaIdentifier, UpdateMediaEntityResult, VideoGameSpecifics, VisualNovelSpecifics,
+    ImportOrExportItemRating, ImportOrExportMetadataItem, MangaSpecifics, MediaGeneralFilter,
+    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MovieSpecifics, MusicSpecifics,
+    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, PodcastSpecifics, ProgressUpdateError,
+    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, VideoGameSpecifics,
+    VisualNovelSpecifics,
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
     AliasedUserToEntity,
 };
 use nanoid::nanoid;
-use notification_service::send_notification;
 use providers::{
-    anilist::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService},
-    audible::AudibleService,
-    google_books::GoogleBooksService,
-    hardcover::HardcoverService,
-    igdb::IgdbService,
-    itunes::ITunesService,
-    listennotes::ListennotesService,
-    mal::{MalAnimeService, MalMangaService, NonMediaMalService},
-    manga_updates::MangaUpdatesService,
-    openlibrary::OpenlibraryService,
-    tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
-    vndb::VndbService,
-    youtube_music::YoutubeMusicService,
+    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{
     Decimal,
-    prelude::{FromPrimitive, One, ToPrimitive},
+    prelude::{FromPrimitive, ToPrimitive},
 };
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    FromQueryResult, ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, EntityTrait, FromQueryResult,
+    ItemsAndPagesNumber, Iterable, JoinType, ModelTrait, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait, TransactionTrait,
     prelude::{Date, DateTimeUtc, Expr},
 };
 use sea_query::{
@@ -121,9 +101,7 @@ use sea_query::{
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use supporting_service::SupportingService;
-use traits::{MediaProvider, TraceOk};
 use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
-use uuid::Uuid;
 
 mod provider_services;
 pub use provider_services::*;
@@ -137,346 +115,14 @@ pub use notification_operations::*;
 mod job_operations;
 pub use job_operations::*;
 
-pub async fn get_entity_title_from_id_and_lot(
-    id: &String,
-    lot: EntityLot,
-    ss: &Arc<SupportingService>,
-) -> Result<String> {
-    let obj_title = match lot {
-        EntityLot::Metadata => Metadata::find_by_id(id).one(&ss.db).await?.unwrap().title,
-        EntityLot::MetadataGroup => {
-            MetadataGroup::find_by_id(id)
-                .one(&ss.db)
-                .await?
-                .unwrap()
-                .title
-        }
-        EntityLot::Person => Person::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Exercise => id.clone(),
-        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::WorkoutTemplate => {
-            WorkoutTemplate::find_by_id(id)
-                .one(&ss.db)
-                .await?
-                .unwrap()
-                .name
-        }
-        EntityLot::Review | EntityLot::UserMeasurement => {
-            unreachable!()
-        }
-    };
-    Ok(obj_title)
-}
+mod utility_operations;
+pub use utility_operations::*;
 
-pub async fn post_review(
-    user_id: &String,
-    input: CreateOrUpdateReviewInput,
-    ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
-    let preferences = user_by_id(user_id, ss).await?.preferences;
-    if preferences.general.disable_reviews {
-        return Err(Error::new("Reviews are disabled"));
-    }
-    let show_ei = if input.show_season_number.is_some() || input.show_episode_number.is_some() {
-        Some(SeenShowExtraOptionalInformation {
-            season: input.show_season_number,
-            episode: input.show_episode_number,
-        })
-    } else {
-        None
-    };
-    let podcast_ei =
-        input
-            .podcast_episode_number
-            .map(|episode| SeenPodcastExtraOptionalInformation {
-                episode: Some(episode),
-            });
-    let anime_ei = input
-        .anime_episode_number
-        .map(|episode| SeenAnimeExtraInformation {
-            episode: Some(episode),
-        });
-    let manga_ei = if input.manga_chapter_number.is_none() && input.manga_volume_number.is_none() {
-        None
-    } else {
-        Some(SeenMangaExtraInformation {
-            chapter: input.manga_chapter_number,
-            volume: input.manga_volume_number,
-        })
-    };
+mod review_operations;
+pub use review_operations::*;
 
-    if input.rating.is_none() && input.text.is_none() {
-        return Err(Error::new("At-least one of rating or review is required."));
-    }
-    let mut review_obj =
-        review::ActiveModel {
-            id: match input.review_id.clone() {
-                Some(i) => ActiveValue::Unchanged(i),
-                None => ActiveValue::NotSet,
-            },
-            rating: ActiveValue::Set(input.rating.map(
-                |r| match preferences.general.review_scale {
-                    UserReviewScale::OutOfTen => r * dec!(10),
-                    UserReviewScale::OutOfFive => r * dec!(20),
-                    UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
-                },
-            )),
-            text: ActiveValue::Set(input.text),
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            show_extra_information: ActiveValue::Set(show_ei),
-            anime_extra_information: ActiveValue::Set(anime_ei),
-            manga_extra_information: ActiveValue::Set(manga_ei),
-            podcast_extra_information: ActiveValue::Set(podcast_ei),
-            comments: ActiveValue::Set(vec![]),
-            ..Default::default()
-        };
-    let entity_id = input.entity_id.clone();
-    match input.entity_lot {
-        EntityLot::Metadata => review_obj.metadata_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Person => review_obj.person_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::MetadataGroup => {
-            review_obj.metadata_group_id = ActiveValue::Set(Some(entity_id))
-        }
-        EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Workout
-        | EntityLot::WorkoutTemplate
-        | EntityLot::Review
-        | EntityLot::UserMeasurement => unreachable!(),
-    };
-    if let Some(s) = input.is_spoiler {
-        review_obj.is_spoiler = ActiveValue::Set(s);
-    }
-    if let Some(v) = input.visibility {
-        review_obj.visibility = ActiveValue::Set(v);
-    }
-    if let Some(d) = input.date {
-        review_obj.posted_on = ActiveValue::Set(d);
-    }
-    let insert = review_obj.save(&ss.db).await.unwrap();
-    if insert.visibility.unwrap() == Visibility::Public {
-        let entity_lot = insert.entity_lot.unwrap();
-        let id = insert.entity_id.unwrap();
-        let obj_title = get_entity_title_from_id_and_lot(&id, entity_lot, ss).await?;
-        let user = user_by_id(&insert.user_id.unwrap(), ss).await?;
-        // DEV: Do not send notification if updating a review
-        if input.review_id.is_none() {
-            ss.perform_application_job(ApplicationJob::Hp(HpApplicationJob::ReviewPosted(
-                ReviewPostedEvent {
-                    obj_title,
-                    entity_lot,
-                    obj_id: id,
-                    username: user.name,
-                    review_id: insert.id.clone().unwrap(),
-                },
-            )))
-            .await?;
-        }
-    }
-    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
-    associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss).await?;
-    Ok(StringIdObject {
-        id: insert.id.unwrap(),
-    })
-}
-
-async fn seen_history(
-    user_id: &String,
-    metadata_id: &String,
-    db: &DatabaseConnection,
-) -> Result<Vec<seen::Model>> {
-    let seen_items = Seen::find()
-        .filter(seen::Column::UserId.eq(user_id))
-        .filter(seen::Column::MetadataId.eq(metadata_id))
-        .order_by_desc(seen::Column::LastUpdatedOn)
-        .all(db)
-        .await
-        .unwrap();
-    Ok(seen_items)
-}
-
-pub async fn is_metadata_finished_by_user(
-    user_id: &String,
-    metadata_id: &String,
-    db: &DatabaseConnection,
-) -> Result<(bool, Vec<seen::Model>)> {
-    let metadata = Metadata::find_by_id(metadata_id)
-        .one(db)
-        .await
-        .unwrap()
-        .unwrap();
-    let seen_history = seen_history(user_id, metadata_id, db).await?;
-    let is_finished = if metadata.lot == MediaLot::Podcast
-        || metadata.lot == MediaLot::Show
-        || metadata.lot == MediaLot::Anime
-        || metadata.lot == MediaLot::Manga
-    {
-        // DEV: If all episodes have been seen the same number of times, the media can be
-        // considered finished.
-        let all_episodes = if let Some(s) = metadata.show_specifics {
-            s.seasons
-                .into_iter()
-                .filter(|s| !SHOW_SPECIAL_SEASON_NAMES.contains(&s.name.as_str()))
-                .flat_map(|s| {
-                    s.episodes
-                        .into_iter()
-                        .map(move |e| format!("{}-{}", s.season_number, e.episode_number))
-                })
-                .collect_vec()
-        } else if let Some(p) = metadata.podcast_specifics {
-            p.episodes
-                .into_iter()
-                .map(|e| format!("{}", e.number))
-                .collect_vec()
-        } else if let Some(e) = metadata.anime_specifics.and_then(|a| a.episodes) {
-            (1..e + 1).map(|e| format!("{}", e)).collect_vec()
-        } else if let Some(c) = metadata.manga_specifics.and_then(|m| m.chapters) {
-            let one = Decimal::one();
-            (0..c.to_u32().unwrap_or(0))
-                .map(|i| Decimal::from(i) + one)
-                .map(|d| d.to_string())
-                .collect_vec()
-        } else {
-            vec![]
-        };
-        if all_episodes.is_empty() {
-            return Ok((true, seen_history));
-        }
-        let mut bag =
-            HashMap::<String, i32>::from_iter(all_episodes.iter().cloned().map(|e| (e, 0)));
-        seen_history
-            .clone()
-            .into_iter()
-            .map(|h| {
-                if let Some(s) = h.show_extra_information {
-                    format!("{}-{}", s.season, s.episode)
-                } else if let Some(p) = h.podcast_extra_information {
-                    format!("{}", p.episode)
-                } else if let Some(a) = h.anime_extra_information.and_then(|a| a.episode) {
-                    format!("{}", a)
-                } else if let Some(m) = h.manga_extra_information.and_then(|m| m.chapter) {
-                    format!("{}", m)
-                } else {
-                    String::new()
-                }
-            })
-            .for_each(|ep| {
-                bag.entry(ep).and_modify(|c| *c += 1);
-            });
-        let values = bag.values().cloned().collect_vec();
-
-        let min_value = values.iter().min();
-        let max_value = values.iter().max();
-
-        match (min_value, max_value) {
-            (Some(min), Some(max)) => min == max && *min != 0,
-            _ => false,
-        }
-    } else {
-        seen_history.iter().any(|h| h.state == SeenState::Completed)
-    };
-    Ok((is_finished, seen_history))
-}
-
-pub async fn deploy_after_handle_media_seen_tasks(
-    seen: seen::Model,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::HandleAfterMediaSeenTasks(Box::new(seen)),
-    ))
-    .await
-}
-
-pub async fn handle_after_metadata_seen_tasks(
-    seen: seen::Model,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let add_entity_to_collection = |collection_name: &str| {
-        add_entity_to_collection(
-            &seen.user_id,
-            ChangeCollectionToEntityInput {
-                creator_user_id: seen.user_id.clone(),
-                collection_name: collection_name.to_string(),
-                entity_id: seen.metadata_id.clone(),
-                entity_lot: EntityLot::Metadata,
-                ..Default::default()
-            },
-            ss,
-        )
-    };
-    let remove_entity_from_collection = |collection_name: &str| {
-        remove_entity_from_collection(
-            &seen.user_id,
-            ChangeCollectionToEntityInput {
-                creator_user_id: seen.user_id.clone(),
-                collection_name: collection_name.to_string(),
-                entity_id: seen.metadata_id.clone(),
-                entity_lot: EntityLot::Metadata,
-                ..Default::default()
-            },
-            ss,
-        )
-    };
-    remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
-        .await
-        .ok();
-    associate_user_with_entity(&seen.user_id, &seen.metadata_id, EntityLot::Metadata, ss).await?;
-    expire_user_collections_list_cache(&seen.user_id, ss).await?;
-    match seen.state {
-        SeenState::InProgress => {
-            for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                add_entity_to_collection(&col.to_string()).await.ok();
-            }
-        }
-        SeenState::Dropped | SeenState::OnAHold => {
-            remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
-                .await
-                .ok();
-        }
-        SeenState::Completed => {
-            let metadata = Metadata::find_by_id(&seen.metadata_id)
-                .one(&ss.db)
-                .await?
-                .unwrap();
-            if metadata.lot == MediaLot::Podcast
-                || metadata.lot == MediaLot::Show
-                || metadata.lot == MediaLot::Anime
-                || metadata.lot == MediaLot::Manga
-            {
-                let (is_complete, _) =
-                    is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, &ss.db).await?;
-                if is_complete {
-                    remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
-                        .await
-                        .ok();
-                    add_entity_to_collection(&DefaultCollection::Completed.to_string())
-                        .await
-                        .ok();
-                } else {
-                    for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                        add_entity_to_collection(&col.to_string()).await.ok();
-                    }
-                }
-            } else {
-                add_entity_to_collection(&DefaultCollection::Completed.to_string())
-                    .await
-                    .ok();
-                for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                    remove_entity_from_collection(&col.to_string()).await.ok();
-                }
-            };
-        }
-    };
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
-            user_id: Some(seen.user_id),
-            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
-        })
-        .await?;
-    Ok(())
-}
+mod seen_operations;
+pub use seen_operations::*;
 
 pub async fn mark_entity_as_recently_consumed(
     user_id: &String,
