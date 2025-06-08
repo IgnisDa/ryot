@@ -199,10 +199,12 @@ export function TrackerOverviewSavedViews(props: {
 								key={view.id}
 								to="/views/$viewId"
 								params={{ viewId: view.id }}
+								style={{
+									color: props.textLink,
+									fontSize: "var(--mantine-font-size-sm)",
+								}}
 							>
-								<Anchor size="sm" style={{ color: props.textLink }}>
-									{view.name}
-								</Anchor>
+								{view.name}
 							</Link>
 						))}
 					</Stack>
