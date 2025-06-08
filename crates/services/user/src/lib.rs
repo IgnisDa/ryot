@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
-use application_utils::{create_oidc_client, user_id_from_token};
+use application_utils::create_oidc_client;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -13,7 +13,7 @@ use database_models::{
 };
 use database_utils::{
     admin_account_guard, deploy_job_to_calculate_user_activities_and_summary, get_user_query,
-    ilike_sql, revoke_access_link, server_key_validation_guard, user_by_id,
+    server_key_validation_guard, user_by_id,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
@@ -35,8 +35,7 @@ use media_models::{
     LoginErrorVariant, LoginResponse, LoginResult, OidcTokenOutput, PasswordUserInput,
     ProcessAccessLinkError, ProcessAccessLinkErrorVariant, ProcessAccessLinkInput,
     ProcessAccessLinkResponse, ProcessAccessLinkResult, RegisterError, RegisterErrorVariant,
-    RegisterResult, RegisterUserInput, UpdateUserNotificationPlatformInput, UserDetailsError,
-    UserDetailsErrorVariant,
+    RegisterResult, RegisterUserInput, UpdateUserNotificationPlatformInput,
 };
 use nanoid::nanoid;
 use notification_service::send_notification;
@@ -55,6 +54,10 @@ use supporting_service::SupportingService;
 use user_models::{
     DashboardElementLot, NotificationPlatformSpecifics, UpdateUserInput, UserPreferences,
 };
+
+mod authentication_operations;
+mod user_data_operations;
+mod user_preferences_operations;
 
 fn empty_nonce_verifier(_nonce: Option<&Nonce>) -> Result<(), String> {
     Ok(())
@@ -238,12 +241,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn user_access_links(&self, user_id: &String) -> Result<Vec<access_link::Model>> {
-        let links = AccessLink::find()
-            .filter(access_link::Column::UserId.eq(user_id))
-            .order_by_desc(access_link::Column::CreatedOn)
-            .all(&self.0.db)
-            .await?;
-        Ok(links)
+        user_data_operations::user_access_links(&self.0, user_id).await
     }
 
     pub async fn create_access_link(
@@ -341,22 +339,11 @@ ORDER BY RANDOM() LIMIT 10;
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
         server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
-        revoke_access_link(&self.0.db, access_link_id).await
+        authentication_operations::revoke_access_link(&self.0, access_link_id).await
     }
 
     pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
-        let users = User::find()
-            .apply_if(query, |query, value| {
-                query.filter(
-                    Expr::col(user::Column::Name)
-                        .ilike(ilike_sql(&value))
-                        .or(Expr::col(user::Column::Id).ilike(ilike_sql(&value))),
-                )
-            })
-            .order_by_asc(user::Column::Name)
-            .all(&self.0.db)
-            .await?;
-        Ok(users)
+        user_data_operations::users_list(&self.0, query).await
     }
 
     pub async fn delete_user(
@@ -456,13 +443,7 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn generate_auth_token(&self, user_id: String) -> Result<String> {
-        let auth_token = sign(
-            user_id,
-            &self.0.config.users.jwt_secret,
-            self.0.config.users.token_valid_for_days,
-            None,
-        )?;
-        Ok(auth_token)
+        authentication_operations::generate_auth_token(&self.0, user_id).await
     }
 
     pub async fn login_user(&self, input: AuthUserInput) -> Result<LoginResult> {
@@ -544,11 +525,7 @@ ORDER BY RANDOM() LIMIT 10;
         user_id: String,
         input: UserPreferences,
     ) -> Result<bool> {
-        let user_model = user_by_id(&user_id, &self.0).await?;
-        let mut user_model: user::ActiveModel = user_model.into();
-        user_model.preferences = ActiveValue::Set(input);
-        user_model.update(&self.0.db).await?;
-        Ok(true)
+        user_preferences_operations::update_user_preference(&self.0, user_id, input).await
     }
 
     pub async fn create_or_update_user_integration(
@@ -757,34 +734,18 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        let found_token = user_id_from_token(token, &self.0.config.users.jwt_secret);
-        let Ok(user_id) = found_token else {
-            return Ok(UserDetailsResult::Error(UserDetailsError {
-                error: UserDetailsErrorVariant::AuthTokenInvalid,
-            }));
-        };
-        let user = user_by_id(&user_id, &self.0).await?;
-        Ok(UserDetailsResult::Ok(Box::new(user)))
+        authentication_operations::user_details(&self.0, token).await
     }
 
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
-        let integrations = Integration::find()
-            .filter(integration::Column::UserId.eq(user_id))
-            .order_by_desc(integration::Column::CreatedOn)
-            .all(&self.0.db)
-            .await?;
-        Ok(integrations)
+        user_data_operations::user_integrations(&self.0, user_id).await
     }
 
     pub async fn user_notification_platforms(
         &self,
         user_id: &String,
     ) -> Result<Vec<notification_platform::Model>> {
-        let all_notifications = NotificationPlatform::find()
-            .filter(notification_platform::Column::UserId.eq(user_id))
-            .all(&self.0.db)
-            .await?;
-        Ok(all_notifications)
+        user_data_operations::user_notification_platforms(&self.0, user_id).await
     }
 
     pub async fn get_oidc_redirect_url(&self) -> Result<String> {
@@ -821,11 +782,6 @@ ORDER BY RANDOM() LIMIT 10;
     }
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
-        let user = get_user_query()
-            .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
-            .one(&self.0.db)
-            .await?
-            .map(|u| u.id);
-        Ok(user)
+        user_data_operations::user_by_oidc_issuer_id(&self.0, oidc_issuer_id).await
     }
 }
