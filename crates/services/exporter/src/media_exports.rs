@@ -60,8 +60,7 @@ impl MediaExports {
                     .find_related(Seen)
                     .filter(seen::Column::UserId.eq(user_id))
                     .all(&self.service.db)
-                    .await
-                    .unwrap();
+                    .await?;
                 let seen_history = seen_history
                     .into_iter()
                     .map(|s| {
