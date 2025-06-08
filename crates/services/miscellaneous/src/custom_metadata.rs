@@ -7,8 +7,9 @@ use database_models::{
     prelude::{Metadata, MetadataToGenre},
 };
 use dependent_utils::{add_entity_to_collection, change_metadata_associations};
-use enum_models::{EntityLot, MediaSource};
-use media_models::{CreateCustomMetadataInput, UpdateCustomMetadataInput};
+use enum_models::{EntityLot, MediaLot, MediaSource};
+use itertools::Itertools;
+use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};
 use nanoid::nanoid;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use supporting_service::SupportingService;
@@ -96,4 +97,61 @@ pub async fn update_custom_metadata(
     )
     .await?;
     Ok(true)
+}
+
+pub fn get_data_for_custom_metadata(
+    input: CreateCustomMetadataInput,
+    identifier: String,
+    user_id: &str,
+    _ss: &Arc<SupportingService>,
+) -> metadata::ActiveModel {
+    let free_creators = input
+        .creators
+        .unwrap_or_default()
+        .into_iter()
+        .map(|c| MetadataFreeCreator {
+            name: c,
+            role: "Creator".to_string(),
+            ..Default::default()
+        })
+        .collect_vec();
+    let is_partial = match input.lot {
+        MediaLot::Show => input.show_specifics.is_none(),
+        MediaLot::Book => input.book_specifics.is_none(),
+        MediaLot::Music => input.music_specifics.is_none(),
+        MediaLot::Anime => input.anime_specifics.is_none(),
+        MediaLot::Manga => input.manga_specifics.is_none(),
+        MediaLot::Movie => input.movie_specifics.is_none(),
+        MediaLot::Podcast => input.podcast_specifics.is_none(),
+        MediaLot::AudioBook => input.audio_book_specifics.is_none(),
+        MediaLot::VideoGame => input.video_game_specifics.is_none(),
+        MediaLot::VisualNovel => input.visual_novel_specifics.is_none(),
+    };
+    metadata::ActiveModel {
+        lot: ActiveValue::Set(input.lot),
+        title: ActiveValue::Set(input.title),
+        assets: ActiveValue::Set(input.assets),
+        identifier: ActiveValue::Set(identifier),
+        is_nsfw: ActiveValue::Set(input.is_nsfw),
+        source: ActiveValue::Set(MediaSource::Custom),
+        is_partial: ActiveValue::Set(Some(is_partial)),
+        description: ActiveValue::Set(input.description),
+        publish_year: ActiveValue::Set(input.publish_year),
+        show_specifics: ActiveValue::Set(input.show_specifics),
+        book_specifics: ActiveValue::Set(input.book_specifics),
+        manga_specifics: ActiveValue::Set(input.manga_specifics),
+        anime_specifics: ActiveValue::Set(input.anime_specifics),
+        movie_specifics: ActiveValue::Set(input.movie_specifics),
+        music_specifics: ActiveValue::Set(input.music_specifics),
+        podcast_specifics: ActiveValue::Set(input.podcast_specifics),
+        created_by_user_id: ActiveValue::Set(Some(user_id.to_owned())),
+        audio_book_specifics: ActiveValue::Set(input.audio_book_specifics),
+        video_game_specifics: ActiveValue::Set(input.video_game_specifics),
+        visual_novel_specifics: ActiveValue::Set(input.visual_novel_specifics),
+        free_creators: ActiveValue::Set(match free_creators.is_empty() {
+            true => None,
+            false => Some(free_creators),
+        }),
+        ..Default::default()
+    }
 }
