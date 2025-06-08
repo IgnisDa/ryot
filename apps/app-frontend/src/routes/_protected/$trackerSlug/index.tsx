@@ -13,33 +13,33 @@ import {
 } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
-import type { CreateEntityPayload } from "#/features/entities/form";
-import { useEntityMutations } from "#/features/entities/hooks";
-import type { AppEntity } from "#/features/entities/model";
-import { CreateEntityModal } from "#/features/entities/section";
-import { EntitySchemaCreateModal } from "#/features/entity-schemas/create-modal";
-import type { CreateEntitySchemaPayload } from "#/features/entity-schemas/form";
+import type { CreateEntityPayload } from "~/features/entities/form";
+import { useEntityMutations } from "~/features/entities/hooks";
+import type { AppEntity } from "~/features/entities/model";
+import { CreateEntityModal } from "~/features/entities/section";
+import { EntitySchemaCreateModal } from "~/features/entity-schemas/create-modal";
+import type { CreateEntitySchemaPayload } from "~/features/entity-schemas/form";
 import {
 	useEntitySchemaMutations,
 	useEntitySchemasQuery,
-} from "#/features/entity-schemas/hooks";
-import { getTrackerEntitySchemaViewState } from "#/features/entity-schemas/model";
-import type { CreateEventSchemaPayload } from "#/features/event-schemas/form";
+} from "~/features/entity-schemas/hooks";
+import { getTrackerEntitySchemaViewState } from "~/features/entity-schemas/model";
+import type { CreateEventSchemaPayload } from "~/features/event-schemas/form";
 import {
 	useEventSchemaMutations,
 	useEventSchemasQuery,
-} from "#/features/event-schemas/hooks";
-import { CreateEventSchemaModal } from "#/features/event-schemas/section";
-import type { CreateEventPayload } from "#/features/events/form";
-import { useEventMutations } from "#/features/events/hooks";
-import { LogEventModal } from "#/features/events/section";
-import { BuiltinMediaTrackerOverview } from "#/features/trackers/builtin-media-overview";
-import { useTrackersQuery } from "#/features/trackers/hooks";
-import { TrackerIcon } from "#/features/trackers/icons";
-import type { AppTracker } from "#/features/trackers/model";
-import { SetupGuidedFlow } from "#/features/trackers/setup-guided-flow";
-import { TrackerOverview } from "#/features/trackers/tracker-overview";
-import { getErrorMessage } from "#/lib/errors";
+} from "~/features/event-schemas/hooks";
+import { CreateEventSchemaModal } from "~/features/event-schemas/section";
+import type { CreateEventPayload } from "~/features/events/form";
+import { useEventMutations } from "~/features/events/hooks";
+import { LogEventModal } from "~/features/events/section";
+import { BuiltinMediaTrackerOverview } from "~/features/trackers/builtin-media-overview";
+import { useTrackersQuery } from "~/features/trackers/hooks";
+import { TrackerIcon } from "~/features/trackers/icons";
+import type { AppTracker } from "~/features/trackers/model";
+import { SetupGuidedFlow } from "~/features/trackers/setup-guided-flow";
+import { TrackerOverview } from "~/features/trackers/tracker-overview";
+import { getErrorMessage } from "~/lib/errors";
 
 export const Route = createFileRoute("/_protected/$trackerSlug/")({
 	component: RouteComponent,

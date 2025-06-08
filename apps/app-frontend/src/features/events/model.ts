@@ -1,5 +1,5 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
-import type { ApiGetResponseData } from "#/lib/api/types";
+import { dayjs } from "@ryot/ts-utils";
+import type { ApiGetResponseData } from "~/lib/api/types";
 
 type ApiEvent = ApiGetResponseData<"/events">[number];
 

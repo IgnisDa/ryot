@@ -23,18 +23,18 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
-import { useResolvedImageUrls } from "#/features/entities/image";
+import { EmptyState, ErrorState, LoadingState } from "~/components/PageStates";
+import { useResolvedImageUrls } from "~/features/entities/image";
 import {
 	type AppEntityImage,
 	toAppEntity,
 	toAppEntityImage,
-} from "#/features/entities/model";
-import { TrackerIcon } from "#/features/trackers/icons";
-import { useApiClient } from "#/hooks/api";
-import { useThemeTokens } from "#/hooks/theme";
-import { STORAGE_KEYS } from "#/lib/storage-keys";
-import { getAccentMuted } from "#/lib/theme";
+} from "~/features/entities/model";
+import { TrackerIcon } from "~/features/trackers/icons";
+import { useApiClient } from "~/hooks/api";
+import { useThemeTokens } from "~/hooks/theme";
+import { STORAGE_KEYS } from "~/lib/storage-keys";
+import { getAccentMuted } from "~/lib/theme";
 import { SavedViewDrawerContent } from "./components/saved-view-drawer-content";
 import { SavedViewResults } from "./view-page-sections";
 import {

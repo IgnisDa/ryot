@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createPropertySchemaInputFixture,
 	createPropertySchemaRowFixture,
-} from "#/features/test-fixtures";
+} from "~/features/test-fixtures";
 import { resolveNextPropertySchemaSlug } from "../property-schemas/form";
 import {
 	buildDefaultEntitySchemaPropertyRow,

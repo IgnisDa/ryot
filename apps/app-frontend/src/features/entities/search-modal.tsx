@@ -14,10 +14,10 @@ import { notifications } from "@mantine/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
-import { useEventSchemasQuery } from "#/features/event-schemas/hooks";
-import { useApiClient } from "#/hooks/api";
-import { getErrorMessage } from "#/lib/errors";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
+import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
+import { useApiClient } from "~/hooks/api";
+import { getErrorMessage } from "~/lib/errors";
 import {
 	createBacklogEventPayload,
 	createLogEventPayload,
