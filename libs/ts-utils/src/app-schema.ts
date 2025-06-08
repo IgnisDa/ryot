@@ -30,7 +30,7 @@ export type AppPropertyTransform = {
 	round?: AppPropertyRoundTransform;
 };
 
-export type AppSchemaUnknownKeysPolicy = "strip" | "strict";
+export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
 
 export type AppArrayPropertyValidation = AppPropertyValidationBase & {
 	maxItems?: number;
@@ -152,13 +152,34 @@ type AppSchemaObjectOptions = {
 const withUnknownKeysPolicy = (
 	shape: Record<string, z.ZodType>,
 	unknownKeys?: AppSchemaUnknownKeysPolicy,
-) => (unknownKeys === "strip" ? z.object(shape) : z.object(shape).strict());
+) => {
+	if (unknownKeys === "passthrough") {
+		return z.object(shape).passthrough();
+	}
+
+	if (unknownKeys === "strip") {
+		return z.object(shape);
+	}
+
+	return z.object(shape).strict();
+};
 
 const getUnknownKeysPolicy = (
 	schema: z.ZodObject<z.ZodRawShape>,
 ): AppSchemaUnknownKeysPolicy => {
-	const definition = schema._def as { catchall?: z.ZodType };
-	return definition.catchall ? "strict" : "strip";
+	const definition = schema._def as {
+		catchall?: { _def?: { type?: string } };
+	};
+	const catchallType = definition.catchall?._def?.type;
+	if (catchallType === "unknown") {
+		return "passthrough";
+	}
+
+	if (catchallType === "never") {
+		return "strict";
+	}
+
+	return "strip";
 };
 
 const roundHalfUp = (value: number, scale: number) => {
@@ -466,7 +487,9 @@ const toAppSchemaInternal = (
 		return applyRequiredValidation({
 			properties,
 			type: "object",
-			...(unknownKeys === "strip" ? { unknownKeys } : {}),
+			...(unknownKeys === "strip" || unknownKeys === "passthrough"
+				? { unknownKeys }
+				: {}),
 		});
 	}
 
