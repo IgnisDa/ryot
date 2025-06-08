@@ -9,7 +9,7 @@ export const getRedisConnection = () => {
 		return sharedRedisConnection as ConnectionOptions;
 	}
 
-	const redisUrl = config.REDIS_URL;
+	const redisUrl = config.redisUrl;
 	sharedRedisConnection = new Redis(redisUrl, {
 		maxRetriesPerRequest: null,
 	});

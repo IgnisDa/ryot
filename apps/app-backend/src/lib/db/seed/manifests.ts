@@ -1,4 +1,4 @@
-import type { AppConfig } from "~/lib/config";
+import type { AppConfigEnvKey } from "~/lib/config";
 import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
 import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
 import audibleAudiobookScriptCode from "~/lib/sandbox/scripts/providers/media/audiobook/audible.txt";
@@ -48,7 +48,7 @@ type BuiltinScriptEntry = {
 	slug: string;
 	code: string;
 	metadata: {
-		requiredAppConfigKeys?: Array<keyof AppConfig>;
+		requiredAppConfigKeys?: Array<AppConfigEnvKey>;
 		allowedHostFunctions: typeof BUILTIN_ALLOWED_HOST_FUNCTIONS;
 	};
 };
@@ -57,7 +57,7 @@ const script = (
 	name: string,
 	slug: string,
 	code: string,
-	requiredAppConfigKeys?: Array<keyof AppConfig>,
+	requiredAppConfigKeys?: Array<AppConfigEnvKey>,
 ): BuiltinScriptEntry => ({
 	name,
 	slug,
