@@ -1,4 +1,9 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import {
+	entityBuiltinColumns,
+	eventJoinBuiltinColumns,
+	type RuntimeRef,
+} from "@ryot/ts-utils";
 
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
@@ -9,21 +14,7 @@ export type ViewExpression =
 export type ViewPredicate = NonNullable<
 	CreateSavedViewBody["queryDefinition"]["filter"]
 >;
-export type RuntimeRef = Extract<
-	ViewExpression,
-	{ type: "reference" }
->["reference"];
 export type ExpressionInput = ViewExpression | string[];
-
-const entityBuiltinFields = new Set([
-	"id",
-	"name",
-	"image",
-	"createdAt",
-	"updatedAt",
-	"externalId",
-	"sandboxScriptId",
-]);
 
 export const literalExpression = (value: unknown | null): ViewExpression => ({
 	value,
@@ -43,7 +34,7 @@ export const schemaPropertyExpression = (
 	property: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "schema-property", slug, property },
+	reference: { type: "schema-property", slug, property: [property] },
 });
 
 export const computedFieldExpression = (key: string): ViewExpression => ({
@@ -51,12 +42,62 @@ export const computedFieldExpression = (key: string): ViewExpression => ({
 	reference: { type: "computed-field", key },
 });
 
-export const entityField = (schemaSlug: string, property: string) => {
-	if (entityBuiltinFields.has(property) || property.startsWith("@")) {
-		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
+export const parseFieldPath = (field: string): RuntimeRef => {
+	const [namespace, segment, tail, ...rest] = field.split(".");
+
+	if (namespace === "computed") {
+		if (!segment || tail !== undefined || rest.length > 0) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		return { key: segment, type: "computed-field" };
 	}
 
-	return `entity.${schemaSlug}.${property}`;
+	if (namespace === "event") {
+		if (!segment || !tail) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		if (tail === "properties") {
+			if (rest.length === 0) {
+				throw new Error(`Invalid field path: ${field}`);
+			}
+
+			return { property: rest, joinKey: segment, type: "event-join-property" };
+		}
+
+		if (rest.length > 0 || !eventJoinBuiltinColumns.has(tail)) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		return { column: tail, joinKey: segment, type: "event-join-column" };
+	}
+
+	if (namespace !== "entity" || !segment || !tail) {
+		throw new Error(`Invalid field path: ${field}`);
+	}
+
+	if (tail === "properties") {
+		if (rest.length === 0) {
+			throw new Error(`Invalid field path: ${field}`);
+		}
+
+		return { slug: segment, property: rest, type: "schema-property" };
+	}
+
+	if (rest.length > 0 || !entityBuiltinColumns.has(tail)) {
+		throw new Error(`Invalid field path: ${field}`);
+	}
+
+	return { slug: segment, column: tail, type: "entity-column" };
+};
+
+export const entityField = (schemaSlug: string, property: string) => {
+	if (entityBuiltinColumns.has(property)) {
+		return `entity.${schemaSlug}.${property}`;
+	}
+
+	return `entity.${schemaSlug}.properties.${property}`;
 };
 
 export const qualifyBuiltinFields = (
@@ -64,35 +105,6 @@ export const qualifyBuiltinFields = (
 	property: string,
 ) => {
 	return schemaSlugs.map((schemaSlug) => entityField(schemaSlug, property));
-};
-
-export const parseReference = (reference: string): RuntimeRef => {
-	const [namespace, segment, tail, ...rest] = reference.split(".");
-	if (namespace === "computed") {
-		if (!segment || tail || rest.length > 0) {
-			throw new Error(`Invalid view reference '${reference}'`);
-		}
-
-		return { type: "computed-field", key: segment };
-	}
-
-	if (namespace === "event") {
-		if (!segment || !tail || rest.length > 0) {
-			throw new Error(`Invalid view reference '${reference}'`);
-		}
-
-		return tail.startsWith("@")
-			? { type: "event-join-column", joinKey: segment, column: tail.slice(1) }
-			: { type: "event-join-property", joinKey: segment, property: tail };
-	}
-
-	if (namespace !== "entity" || !segment || !tail || rest.length > 0) {
-		throw new Error(`Invalid view reference '${reference}'`);
-	}
-
-	return tail.startsWith("@")
-		? { type: "entity-column", slug: segment, column: tail.slice(1) }
-		: { type: "schema-property", slug: segment, property: tail };
 };
 
 export const toExpression = (
@@ -112,7 +124,7 @@ export const toExpression = (
 
 	const values = input.map((reference) => ({
 		type: "reference" as const,
-		reference: parseReference(reference),
+		reference: parseFieldPath(reference),
 	}));
 
 	return values.length === 1
