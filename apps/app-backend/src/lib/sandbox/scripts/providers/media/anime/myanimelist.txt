@@ -107,7 +107,7 @@ function pickImage(mainPicture) {
 
 async function getMalClientId() {
   const configValueResponse = await getAppConfigValue(
-    "ANIME_AND_MANGA_MAL_CLIENT_ID",
+    "animeAndManga.mal.clientId",
   );
   if (!configValueResponse?.success) {
     throw new Error(

@@ -8,8 +8,8 @@ function parseJsonResponse(responseBody) {
 
 async function getCredentials() {
   const [clientIdResp, clientSecretResp] = await Promise.all([
-    getAppConfigValue("VIDEO_GAMES_TWITCH_CLIENT_ID"),
-    getAppConfigValue("VIDEO_GAMES_TWITCH_CLIENT_SECRET"),
+    getAppConfigValue("videoGames.twitch.clientId"),
+    getAppConfigValue("videoGames.twitch.clientSecret"),
   ]);
 
   if (!clientIdResp?.success) {
