@@ -39,6 +39,7 @@ describe("Saved views E2E", () => {
 		expect(fetchedView.id).toBe(createdView.id);
 		expect(fetchedView.name).toBe("Lifecycle View");
 		expect(fetchedView.isBuiltin).toBe(false);
+		expect(fetchedView.isDisabled).toBe(false);
 		expect(Array.isArray(fetchedView.queryDefinition.entitySchemaSlugs)).toBe(
 			true,
 		);
@@ -202,6 +203,43 @@ describe("Saved views E2E", () => {
 		expect(refreshedView.isBuiltin).toBe(false);
 		expect(refreshedView.createdAt).toBe(createdView.createdAt);
 		expect(refreshedView.updatedAt).not.toBe(createdView.updatedAt);
+	});
+
+	it("supports toggling isDisabled on user views", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const createdView = await createSavedView(client, cookies, {
+			name: "Disable Toggle View",
+		});
+
+		expect(createdView.isDisabled).toBe(false);
+
+		const disabledView = await updateSavedView(
+			client,
+			cookies,
+			createdView.id,
+			{
+				isDisabled: true,
+			},
+		);
+		const fetchedDisabled = await getSavedView(client, cookies, createdView.id);
+
+		expect(disabledView.isDisabled).toBe(true);
+		expect(fetchedDisabled.isDisabled).toBe(true);
+
+		const reEnabledView = await updateSavedView(
+			client,
+			cookies,
+			createdView.id,
+			{ isDisabled: false },
+		);
+		const fetchedReEnabled = await getSavedView(
+			client,
+			cookies,
+			createdView.id,
+		);
+
+		expect(reEnabledView.isDisabled).toBe(false);
+		expect(fetchedReEnabled.isDisabled).toBe(false);
 	});
 
 	it("rejects empty sort fields when creating or updating saved views", async () => {
