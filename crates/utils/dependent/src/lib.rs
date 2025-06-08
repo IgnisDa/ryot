@@ -1,5 +1,4 @@
 use std::{
-    cmp::Reverse,
     collections::{HashMap, HashSet, hash_map::Entry},
     future::Future,
     sync::Arc,
@@ -14,22 +13,21 @@ use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::{Timelike, Utc};
 use common_models::{
     ChangeCollectionToEntityInput, DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity,
-    DefaultCollection, EntityAssets, MetadataRecentlyConsumedCacheInput, ProgressUpdateCacheInput,
-    SearchDetails, StringIdObject, UserLevelCacheKey,
+    DefaultCollection, EntityAssets, ProgressUpdateCacheInput, SearchDetails, StringIdObject,
+    UserLevelCacheKey,
 };
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
-    collection, collection_to_entity, daily_user_activity, exercise,
-    functions::get_user_to_entity_association,
-    genre, metadata, metadata_group, metadata_to_metadata, metadata_to_person, person,
+    collection, collection_to_entity, daily_user_activity, exercise, genre, metadata,
+    metadata_group, metadata_to_metadata, metadata_to_person, person,
     prelude::{
         Collection, CollectionToEntity, DailyUserActivity, Exercise, Genre, Metadata,
         MetadataGroup, MetadataToMetadata, MetadataToPerson, Person, Review, Seen, User,
         UserMeasurement, UserToEntity, Workout, WorkoutTemplate,
     },
-    review, seen, user, user_measurement, user_to_entity, workout, workout_template,
+    review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{
     apply_collection_filter, get_cte_column_from_lot, ilike_sql,
@@ -46,18 +44,15 @@ use dependent_models::{
 };
 use enum_meta::Meta;
 use enum_models::{
-    EntityLot, ExerciseLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation,
-    SeenState, UserNotificationContent, UserToMediaReason, WorkoutSetPersonalBest,
+    EntityLot, ExerciseSource, MediaLot, MediaSource, MetadataToMetadataRelation, SeenState,
+    UserNotificationContent, UserToMediaReason,
 };
 use fitness_models::{
-    ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExerciseInput,
-    UserExercisesListInput, UserMeasurementsListInput, UserToExerciseBestSetExtraInformation,
+    ExerciseBestSetRecord, ExerciseSortBy, ProcessedExercise, UserExercisesListInput,
+    UserMeasurementsListInput, UserToExerciseBestSetExtraInformation,
     UserToExerciseExtraInformation, UserToExerciseHistoryExtraInformation, UserWorkoutInput,
-    UserWorkoutSetRecord, WorkoutEquipmentFocusedSummary, WorkoutFocusedSummary,
-    WorkoutForceFocusedSummary, WorkoutInformation, WorkoutLevelFocusedSummary,
-    WorkoutLotFocusedSummary, WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals,
-    WorkoutSetRecord, WorkoutSetStatistic, WorkoutSetTotals, WorkoutSummary,
-    WorkoutSummaryExercise,
+    WorkoutInformation, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetTotals,
+    WorkoutSummary, WorkoutSummaryExercise,
 };
 use futures::TryStreamExt;
 use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
@@ -65,23 +60,19 @@ use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, CollectionItem, CommitMetadataGroupInput,
-    CommitPersonInput, CreateOrUpdateCollectionInput, CreateOrUpdateReviewInput, GenreListItem,
-    ImportOrExportItemRating, ImportOrExportMetadataItem, MangaSpecifics, MediaGeneralFilter,
-    MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole, MovieSpecifics, MusicSpecifics,
-    PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy, PodcastSpecifics, ProgressUpdateError,
-    ProgressUpdateErrorVariant, ProgressUpdateInput, ProgressUpdateResultUnion,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier, VideoGameSpecifics,
-    VisualNovelSpecifics,
+    CommitPersonInput, CreateOrUpdateCollectionInput, GenreListItem, ImportOrExportMetadataItem,
+    MangaSpecifics, MediaGeneralFilter, MediaSortBy, MetadataCreator, MetadataCreatorGroupedByRole,
+    MovieSpecifics, MusicSpecifics, PartialMetadataWithoutId, PersonAndMetadataGroupsSortBy,
+    PodcastSpecifics, ProgressUpdateError, ProgressUpdateErrorVariant, ProgressUpdateInput,
+    ProgressUpdateResultUnion, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation, ShowSpecifics, UniqueMediaIdentifier,
+    VideoGameSpecifics, VisualNovelSpecifics,
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
     AliasedUserToEntity,
 };
 use nanoid::nanoid;
-use providers::{
-    google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
-};
 use rand::seq::SliceRandom;
 use rust_decimal::{
     Decimal,
@@ -101,7 +92,7 @@ use sea_query::{
 use serde::{Deserialize, Serialize};
 use slug::slugify;
 use supporting_service::SupportingService;
-use user_models::{UserPreferences, UserReviewScale, UserStatisticsMeasurement};
+use user_models::UserReviewScale;
 
 mod provider_services;
 pub use provider_services::*;
