@@ -61,10 +61,17 @@ describe("GET /event-schemas", () => {
 				(schema) => schema.slug === "progress",
 			);
 			expect(progressSchema).toBeDefined();
-			expect(progressSchema?.propertiesSchema).toEqual({
+			if (!progressSchema) {
+				throw new Error(`Missing built-in progress schema for ${slug}`);
+			}
+			expect(progressSchema.propertiesSchema).toBeDefined();
+			expect(
+				progressSchema.propertiesSchema as Record<string, unknown>,
+			).toMatchObject({
 				fields: {
 					progressPercent: {
 						type: "number",
+						label: "Progress Percent",
 						transform: { round: { mode: "half_up", scale: 2 } },
 						validation: {
 							required: true,
@@ -78,12 +85,19 @@ describe("GET /event-schemas", () => {
 				(schema) => schema.slug === "complete",
 			);
 			expect(completeSchema).toBeDefined();
-			expect(completeSchema?.propertiesSchema).toEqual({
+			if (!completeSchema) {
+				throw new Error(`Missing built-in complete schema for ${slug}`);
+			}
+			expect(completeSchema.propertiesSchema).toBeDefined();
+			expect(
+				completeSchema.propertiesSchema as Record<string, unknown>,
+			).toMatchObject({
 				fields: {
-					startedOn: { type: "datetime" },
-					completedOn: { type: "datetime" },
+					startedOn: { type: "datetime", label: "Started On" },
+					completedOn: { type: "datetime", label: "Completed On" },
 					completionMode: {
 						type: "string",
+						label: "Completion Mode",
 						validation: {
 							required: true,
 							pattern: "^(just_now|unknown|custom_timestamps)$",
@@ -97,8 +111,8 @@ describe("GET /event-schemas", () => {
 						validation: { required: true },
 						when: {
 							operator: "eq",
-							value: "custom_timestamps",
 							path: ["completionMode"],
+							value: "custom_timestamps",
 						},
 					},
 				],
@@ -107,11 +121,18 @@ describe("GET /event-schemas", () => {
 				(schema) => schema.slug === "review",
 			);
 			expect(reviewSchema).toBeDefined();
-			expect(reviewSchema?.propertiesSchema).toEqual({
+			if (!reviewSchema) {
+				throw new Error(`Missing built-in review schema for ${slug}`);
+			}
+			expect(reviewSchema.propertiesSchema).toBeDefined();
+			expect(
+				reviewSchema.propertiesSchema as Record<string, unknown>,
+			).toMatchObject({
 				fields: {
-					review: { type: "string" },
+					review: { type: "string", label: "Review" },
 					rating: {
 						type: "integer",
+						label: "Rating",
 						validation: { required: true, maximum: 5, minimum: 1 },
 					},
 				},

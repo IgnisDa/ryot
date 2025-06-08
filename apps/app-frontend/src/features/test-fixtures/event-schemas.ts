@@ -10,8 +10,12 @@ export function createEventSchemaFixture(
 		entitySchemaId: "entity-schema-1",
 		propertiesSchema: {
 			fields: {
-				notes: { type: "string" },
-				pages: { type: "integer", validation: { required: true } },
+				notes: { label: "Notes", type: "string" },
+				pages: {
+					label: "Pages",
+					type: "integer",
+					validation: { required: true },
+				},
 			},
 		},
 		...overrides,

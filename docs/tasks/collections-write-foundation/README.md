@@ -71,8 +71,8 @@ the intended long-term model.
     does not arbitrarily block my organization model.
 13. As a user, I want collection writes to work even if they create cycles, so that the backend does
     not impose traversal rules on a write-only slice.
-14. As a user, I want collection field keys to appear as labels for now, so that the feature works
-    without waiting for richer schema metadata.
+14. As a user, I want collection membership templates to carry explicit field labels, so that the
+    feature uses the current `AppSchema` contract.
 15. As a user, I want the built-in `Collections` saved view to reflect the new built-in collection
     schema, so that the default platform structure matches the persisted model.
 16. As a backend developer, I want collections to persist as entities, so that they use the same
@@ -141,8 +141,9 @@ the intended long-term model.
 - Each collection entity stores its membership template in
   `properties.membershipPropertiesSchema`.
 - The value stored there is an `AppSchema`.
-- Field keys are the user-facing labels for now.
-- No separate label, description, default-value, or suggestion system is introduced in this slice.
+- Each field definition must include its own user-facing `label` metadata.
+- No separate description, default-value, or suggestion system is introduced in this slice beyond
+  the required `label` metadata.
 
 ### Built-in collection schema
 
@@ -293,8 +294,9 @@ entities, events, property schemas, and saved views.
   collections.
 - The write model should favor the smallest correct implementation and avoid speculative read-side
   abstractions.
-- Because field labels are just keys in this slice, future UX work should preserve a straightforward
-  migration path to richer schema metadata without invalidating stored membership payloads.
+- Because field labels now live in explicit `label` metadata, future UX work should preserve a
+  straightforward migration path to richer schema metadata without invalidating stored membership
+  payloads.
 - This slice settles the persistence and validation model first so later collection browsing and
   editing work can build on a stable backend contract.
 
