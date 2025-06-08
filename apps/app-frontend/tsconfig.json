@@ -18,8 +18,7 @@
 		"types": ["vite/client", "bun-types"],
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"paths": {
-			"~/*": ["./src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"]
+			"~/*": ["./src/*"]
 		}
 	}
 }
