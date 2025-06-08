@@ -173,12 +173,16 @@ const processPersonStubs = async (input: {
 		});
 
 		if (isNew) {
-			await getQueues().mediaQueue.add(personPopulateJobName, {
-				userId: input.userId,
-				scriptSlug: stub.scriptSlug,
-				externalId: stub.externalId,
-				personEntityId: existingOrCreated.id,
-			});
+			await getQueues().mediaQueue.add(
+				personPopulateJobName,
+				{
+					userId: input.userId,
+					scriptSlug: stub.scriptSlug,
+					externalId: stub.externalId,
+					personEntityId: existingOrCreated.id,
+				},
+				{ jobId: `person-populate-${existingOrCreated.id}` },
+			);
 		}
 	}
 };
