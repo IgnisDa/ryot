@@ -1,6 +1,5 @@
 {
 	"compilerOptions": {
-		"baseUrl": ".",
 		"noEmit": true,
 		"strict": true,
 		"jsx": "react-jsx",
@@ -10,10 +9,10 @@
 		"types": ["bun-types"],
 		"moduleResolution": "bundler",
 		"jsxImportSource": "hono/jsx",
+		"noUncheckedIndexedAccess": true,
 		"paths": {
-			"~/*": ["src/*"],
+			"~/*": ["./src/*"],
 			"@ryot/ts-utils/dayjs": ["../../libs/ts-utils/src/dayjs.ts"]
-		},
-		"noUncheckedIndexedAccess": true
+		}
 	}
 }
