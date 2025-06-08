@@ -91,9 +91,15 @@ export async function createSavedView(
 	return data.data;
 }
 
-export async function listSavedViews(client: Client, cookies: string) {
+export async function listSavedViews(
+	client: Client,
+	cookies: string,
+	options: { trackerId?: string; includeDisabled?: boolean } = {},
+) {
+	const includeDisabled = options.includeDisabled ? "true" : undefined;
 	const { data, response } = await client.GET("/saved-views", {
 		headers: { Cookie: cookies },
+		params: { query: { includeDisabled, trackerId: options.trackerId } },
 	});
 
 	if (response.status !== 200 || !data?.data) {
