@@ -315,18 +315,38 @@ export const inferViewExpressionType = <
 		return inferred;
 	}
 
-	if (reference.type === "entity-column") {
-		getSchemaForReference(input.context.schemaMap, reference);
-		if (reference.column === "image") {
+	if (reference.type === "entity") {
+		const schema = getSchemaForReference(input.context.schemaMap, reference);
+
+		if (reference.path[0] === "properties") {
+			const propertyPath = reference.path.slice(1);
+			const propertyDefinition = getPropertyDefinition(schema, propertyPath);
+			if (!propertyDefinition) {
+				throw new QueryEngineValidationError(
+					`Property '${propertyPath.join(".")}' not found in schema '${reference.slug}'`,
+				);
+			}
+
+			return createPropertyTypeInfo(
+				normalizeExpressionPropertyType(propertyDefinition.type),
+				propertyDefinition,
+			);
+		}
+
+		const [column] = reference.path;
+		if (!column) {
+			throw new QueryEngineValidationError(
+				"Entity reference path must not be empty",
+			);
+		}
+		if (column === "image") {
 			return { kind: "image" };
 		}
 
-		const propertyDefinition = getEntityColumnPropertyDefinition(
-			reference.column,
-		);
+		const propertyDefinition = getEntityColumnPropertyDefinition(column);
 		if (!propertyDefinition) {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.${reference.column}'`,
+				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
 			);
 		}
 
@@ -336,31 +356,13 @@ export const inferViewExpressionType = <
 		);
 	}
 
-	if (reference.type === "event-join-column") {
-		getEventJoinForReference(input.context.eventJoinMap, reference);
-		const propertyDefinition = getEventJoinColumnPropertyDefinition(
-			reference.column,
-		);
-		if (!propertyDefinition) {
-			throw new QueryEngineValidationError(
-				`Unsupported event join column 'event.${reference.joinKey}.${reference.column}'`,
-			);
-		}
+	const join = getEventJoinForReference(input.context.eventJoinMap, reference);
 
-		return createPropertyTypeInfo(
-			normalizeExpressionPropertyType(propertyDefinition.type),
-			propertyDefinition,
-		);
-	}
-
-	if (reference.type === "event-join-property") {
-		const join = getEventJoinForReference(
-			input.context.eventJoinMap,
-			reference,
-		);
+	if (reference.path[0] === "properties") {
+		const propertyPath = reference.path.slice(1);
 		const propertyDefinition = getEventJoinPropertyDefinition(
 			join,
-			reference.property,
+			propertyPath,
 		);
 
 		return createPropertyTypeInfo(
@@ -369,11 +371,16 @@ export const inferViewExpressionType = <
 		);
 	}
 
-	const schema = getSchemaForReference(input.context.schemaMap, reference);
-	const propertyDefinition = getPropertyDefinition(schema, reference.property);
+	const [column] = reference.path;
+	if (!column) {
+		throw new QueryEngineValidationError(
+			"Event reference path must not be empty",
+		);
+	}
+	const propertyDefinition = getEventJoinColumnPropertyDefinition(column);
 	if (!propertyDefinition) {
 		throw new QueryEngineValidationError(
-			`Property '${reference.property.join(".")}' not found in schema '${reference.slug}'`,
+			`Unsupported event join column 'event.${reference.joinKey}.${column}'`,
 		);
 	}
 
