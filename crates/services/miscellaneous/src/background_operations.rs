@@ -466,8 +466,7 @@ async fn regenerate_user_summaries(ss: &Arc<SupportingService>) -> Result<()> {
         .column(user::Column::Id)
         .into_tuple::<String>()
         .all(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     for user_id in all_users {
         calculate_user_activities_and_summary(&user_id, ss, false).await?;
     }
