@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob};
-use chrono::NaiveDate;
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
     StringIdObject,
@@ -32,10 +31,8 @@ use media_models::{
     MarkEntityAsPartialInput, ProgressUpdateInput, ReviewPostedEvent, UpdateCustomMetadataInput,
     UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
-use sea_orm::{
-    ColumnTrait, DatabaseBackend, EntityTrait, QueryFilter, Statement, prelude::DateTimeUtc,
-};
-use sea_query::{Expr, PostgresQueryBuilder, SelectStatement};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
+use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
@@ -73,7 +70,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        user_details::user_metadata_details(self, &self.0, user_id, metadata_id).await
+        user_details::user_metadata_details(&self.0, user_id, metadata_id).await
     }
 
     pub async fn user_person_details(
@@ -92,34 +89,12 @@ impl MiscellaneousService {
         user_details::user_metadata_group_details(&self.0, user_id, metadata_group_id).await
     }
 
-    async fn get_calendar_events(
-        &self,
-        user_id: String,
-        only_monitored: bool,
-        start_date: Option<NaiveDate>,
-        end_date: Option<NaiveDate>,
-        media_limit: Option<u64>,
-        deduplicate: Option<bool>,
-    ) -> Result<Vec<GraphqlCalendarEvent>> {
-        calendar_operations::get_calendar_events(
-            self,
-            &self.0,
-            user_id,
-            only_monitored,
-            start_date,
-            end_date,
-            media_limit,
-            deduplicate,
-        )
-        .await
-    }
-
     pub async fn user_calendar_events(
         &self,
         user_id: String,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        calendar_operations::user_calendar_events(self, user_id, input).await
+        calendar_operations::user_calendar_events(user_id, input, &self.0).await
     }
 
     pub async fn user_upcoming_calendar_events(
@@ -127,7 +102,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        calendar_operations::user_upcoming_calendar_events(self, &self.0, user_id, input).await
+        calendar_operations::user_upcoming_calendar_events(&self.0, user_id, input).await
     }
 
     pub async fn user_metadata_list(
@@ -314,11 +289,6 @@ impl MiscellaneousService {
             },
         )
         .await
-    }
-
-    fn get_db_stmt(&self, stmt: SelectStatement) -> Statement {
-        let (sql, values) = stmt.build(PostgresQueryBuilder {});
-        Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
     }
 
     pub async fn genres_list(

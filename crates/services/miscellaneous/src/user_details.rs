@@ -18,8 +18,9 @@ use sea_orm::{ConnectionTrait, JoinType};
 use sea_query::{Alias, Expr, Func, Query};
 use supporting_service::SupportingService;
 
+use crate::core_operations::get_db_stmt;
+
 pub async fn user_metadata_details(
-    service: &crate::MiscellaneousService,
     ss: &Arc<SupportingService>,
     user_id: String,
     metadata_id: String,
@@ -112,7 +113,7 @@ pub async fn user_metadata_details(
         .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).eq(&metadata_id))
         .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
         .to_owned();
-    let stmt = service.get_db_stmt(seen_select);
+    let stmt = get_db_stmt(seen_select);
     let seen_by = ss
         .db
         .query_one(stmt)

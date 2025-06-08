@@ -37,17 +37,25 @@ use std::sync::Arc;
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 
+use crate::core_operations::get_db_stmt;
 use crate::trending_and_events::get_entity_details_frontend_url;
 
 pub async fn user_calendar_events(
-    service: &crate::MiscellaneousService,
     user_id: String,
     input: UserCalendarEventInput,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<GroupedCalendarEvent>> {
     let (start_date, end_date) = get_first_and_last_day_of_month(input.year, input.month);
-    let events = service
-        .get_calendar_events(user_id, false, Some(start_date), Some(end_date), None, None)
-        .await?;
+    let events = get_calendar_events(
+        ss,
+        user_id,
+        false,
+        Some(start_date),
+        Some(end_date),
+        None,
+        None,
+    )
+    .await?;
     let grouped_events = events
         .into_iter()
         .chunk_by(|event| event.date)
@@ -61,7 +69,6 @@ pub async fn user_calendar_events(
 }
 
 pub async fn user_upcoming_calendar_events(
-    service: &crate::MiscellaneousService,
     ss: &Arc<SupportingService>,
     user_id: String,
     input: UserUpcomingCalendarEventInput,
@@ -78,16 +85,16 @@ pub async fn user_upcoming_calendar_events(
         .dashboard
         .iter()
         .find(|e| matches!(e.section, DashboardElementLot::Upcoming));
-    let events = service
-        .get_calendar_events(
-            user_id,
-            true,
-            Some(start_date),
-            end_date,
-            media_limit,
-            element.and_then(|e| e.deduplicate_media),
-        )
-        .await?;
+    let events = get_calendar_events(
+        ss,
+        user_id,
+        true,
+        Some(start_date),
+        end_date,
+        media_limit,
+        element.and_then(|e| e.deduplicate_media),
+    )
+    .await?;
     Ok(events)
 }
 
@@ -273,7 +280,6 @@ pub async fn queue_notifications_for_released_media(ss: &Arc<SupportingService>)
 }
 
 pub async fn get_calendar_events(
-    service: &crate::MiscellaneousService,
     ss: &Arc<SupportingService>,
     user_id: String,
     only_monitored: bool,
@@ -372,7 +378,7 @@ pub async fn get_calendar_events(
         .to_owned();
     let user_preferences = user_by_id(&user_id, ss).await?.preferences;
     let show_spoilers_in_calendar = user_preferences.general.show_spoilers_in_calendar;
-    let all_events = CalEvent::find_by_statement(service.get_db_stmt(stmt))
+    let all_events = CalEvent::find_by_statement(get_db_stmt(stmt))
         .all(&ss.db)
         .await?;
     let mut events = vec![];

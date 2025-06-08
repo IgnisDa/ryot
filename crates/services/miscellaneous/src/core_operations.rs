@@ -6,8 +6,8 @@ use database_models::{
 use dependent_models::ExpireCacheKeyInput;
 use enum_models::EntityLot;
 use media_models::MarkEntityAsPartialInput;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, DatabaseBackend, EntityTrait, QueryFilter, Statement};
+use sea_query::{Expr, PostgresQueryBuilder, SelectStatement};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
@@ -48,4 +48,9 @@ pub async fn mark_entity_as_partial(
         _ => return Err(Error::new("Invalid entity lot".to_owned())),
     }
     Ok(true)
+}
+
+pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
+    let (sql, values) = stmt.build(PostgresQueryBuilder {});
+    Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
 }
