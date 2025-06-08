@@ -12,7 +12,7 @@
 ## Coding Standards
 
 - **Pattern matching**: Prefer `match` from `ts-pattern` over `switch` statements for type-safe pattern matching.
-- **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns and replicate them. Ask them not to create any files unless extremely necessary. `explore` subagents should be used only for discovery, not for any decision making.
+- **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns to replicate. `explore` subagents should be used only for discovery, not for any decision making. They should not create any files.
 - **Dates**: Prefer `dayjs` from `@ryot/ts-utils` for date parsing, formatting, comparison, and arithmetic. Avoid manual `Date` handling unless necessary.
 - **Comments**: Avoid unless strictly necessary. Prefer self-documenting code.
 - **File size**: Keep files below 500 lines. Split if exceeded.
