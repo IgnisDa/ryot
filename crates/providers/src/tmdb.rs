@@ -171,7 +171,6 @@ pub struct TmdbService {
     client: Client,
     language: String,
     settings: TmdbSettings,
-    ss: Arc<SupportingService>,
 }
 
 impl TmdbService {
@@ -185,7 +184,6 @@ impl TmdbService {
         Self {
             client,
             settings,
-            ss: ss.clone(),
             language: ss.config.movies_and_shows.tmdb.locale.clone(),
         }
     }
@@ -420,7 +418,7 @@ impl MediaProvider for NonMediaTmdbService {
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let language = &self.base.ss.config.movies_and_shows.tmdb.locale;
+        let language = &self.base.language;
         let type_ = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
