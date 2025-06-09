@@ -33,8 +33,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .all(&ss.db)
-            .await
-            .unwrap();
+            .await?;
         let monitoring_collection_id = collections
             .iter()
             .find(|c| c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id)
@@ -59,8 +58,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .all(&ss.db)
-            .await
-            .unwrap();
+            .await?;
         for ute in all_user_to_entities {
             let mut new_reasons = HashSet::new();
             let (entity_id, entity_lot) = if let Some(metadata_id) = ute.metadata_id.clone() {
@@ -97,8 +95,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                         .or(review::Column::PersonId.eq(ute.person_id.clone())),
                 )
                 .count(&ss.db)
-                .await
-                .unwrap()
+                .await?
                 > 0
             {
                 new_reasons.insert(UserToMediaReason::Reviewed);
@@ -127,7 +124,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 HashSet::from_iter(ute.media_reason.clone().unwrap_or_default().into_iter());
             if new_reasons.is_empty() {
                 ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
-                ute.delete(&ss.db).await.unwrap();
+                ute.delete(&ss.db).await?;
             } else {
                 let mut ute: user_to_entity::ActiveModel = ute.into();
                 if new_reasons != previous_reasons {
@@ -135,7 +132,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                     ute.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));
                 }
                 ute.needs_to_be_updated = ActiveValue::Set(None);
-                ute.update(&ss.db).await.unwrap();
+                ute.update(&ss.db).await?;
             }
         }
         expire_user_metadata_list_cache(&user_id, ss).await?;
