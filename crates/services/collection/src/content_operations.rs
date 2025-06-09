@@ -105,6 +105,7 @@ pub async fn collection_contents(
                     collection_to_entity::Column::WorkoutTemplateId.is_not_null()
                 }
                 EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                    // These entity types cannot be directly added to collections
                     unreachable!()
                 }
             };
