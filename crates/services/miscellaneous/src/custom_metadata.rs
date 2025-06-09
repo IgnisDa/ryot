@@ -18,11 +18,6 @@ pub async fn create_custom_metadata(
     ss: &Arc<SupportingService>,
     user_id: String,
     input: CreateCustomMetadataInput,
-    get_data_for_custom_metadata: impl Fn(
-        CreateCustomMetadataInput,
-        String,
-        &str,
-    ) -> metadata::ActiveModel,
 ) -> Result<metadata::Model> {
     let identifier = nanoid!(10);
     let metadata = get_data_for_custom_metadata(input.clone(), identifier, &user_id);
@@ -55,11 +50,6 @@ pub async fn update_custom_metadata(
     ss: &Arc<SupportingService>,
     user_id: &str,
     input: UpdateCustomMetadataInput,
-    get_data_for_custom_metadata: impl Fn(
-        CreateCustomMetadataInput,
-        String,
-        &str,
-    ) -> metadata::ActiveModel,
 ) -> Result<bool> {
     let metadata = Metadata::find_by_id(&input.existing_metadata_id)
         .one(&ss.db)
@@ -103,7 +93,6 @@ pub fn get_data_for_custom_metadata(
     input: CreateCustomMetadataInput,
     identifier: String,
     user_id: &str,
-    _ss: &Arc<SupportingService>,
 ) -> metadata::ActiveModel {
     let free_creators = input
         .creators

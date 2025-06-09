@@ -246,29 +246,12 @@ impl MiscellaneousService {
         progress_operations::delete_seen_item(&self.0, user_id, seen_id).await
     }
 
-    fn get_data_for_custom_metadata(
-        &self,
-        input: CreateCustomMetadataInput,
-        identifier: String,
-        user_id: &str,
-    ) -> metadata::ActiveModel {
-        custom_metadata::get_data_for_custom_metadata(input, identifier, user_id, &self.0)
-    }
-
     pub async fn create_custom_metadata(
         &self,
         user_id: String,
         input: CreateCustomMetadataInput,
     ) -> Result<metadata::Model> {
-        custom_metadata::create_custom_metadata(
-            &self.0,
-            user_id,
-            input,
-            |input, identifier, user_id| {
-                self.get_data_for_custom_metadata(input, identifier, user_id)
-            },
-        )
-        .await
+        custom_metadata::create_custom_metadata(&self.0, user_id, input).await
     }
 
     pub async fn update_custom_metadata(
@@ -276,15 +259,7 @@ impl MiscellaneousService {
         user_id: &str,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        custom_metadata::update_custom_metadata(
-            &self.0,
-            user_id,
-            input,
-            |input, identifier, user_id| {
-                self.get_data_for_custom_metadata(input, identifier, user_id)
-            },
-        )
-        .await
+        custom_metadata::update_custom_metadata(&self.0, user_id, input).await
     }
 
     pub async fn genres_list(
