@@ -4,7 +4,6 @@ use async_graphql::Result;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{
-    collection,
     prelude::{Collection, Review, UserToEntity},
     review, user, user_to_entity,
 };
@@ -28,8 +27,6 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
         .unwrap();
     for user_id in all_users {
         let collections = Collection::find()
-            .column(collection::Column::Id)
-            .column(collection::Column::UserId)
             .left_join(UserToEntity)
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .all(&ss.db)
