@@ -50,7 +50,7 @@ pub async fn update_user(
     if let Some(d) = input.is_disabled {
         user_obj.is_disabled = ActiveValue::Set(Some(d));
     }
-    let user_obj = user_obj.update(&ss.db).await.unwrap();
+    let user_obj = user_obj.update(&ss.db).await?;
     Ok(StringIdObject { id: user_obj.id })
 }
 
