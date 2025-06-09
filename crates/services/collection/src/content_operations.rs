@@ -162,16 +162,12 @@ pub async fn collection_contents(
         ss,
     )
     .await?;
-    let total_items = CollectionToEntity::find()
-        .filter(collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()))
-        .count(&ss.db)
-        .await?;
     let response = CollectionContents {
         user,
         reviews,
         results,
         details,
-        total_items,
+        total_items: number_of_items.try_into().unwrap(),
     };
     let cache_id = cc
         .set_key(
