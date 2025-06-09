@@ -401,15 +401,15 @@ pub async fn deploy_job_to_calculate_user_activities_and_summary(
     user_id: &String,
     calculate_from_beginning: bool,
     ss: &Arc<SupportingService>,
-) {
+) -> Result<()> {
     ss.perform_application_job(ApplicationJob::Hp(
         HpApplicationJob::RecalculateUserActivitiesAndSummary(
             user_id.to_owned(),
             calculate_from_beginning,
         ),
     ))
-    .await
-    .unwrap();
+    .await?;
+    Ok(())
 }
 
 pub async fn schedule_user_for_workout_revision(

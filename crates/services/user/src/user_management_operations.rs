@@ -147,6 +147,6 @@ pub async fn register_user(
         .await
         .ok();
     }
-    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, ss).await;
+    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, ss).await?;
     Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
 }
