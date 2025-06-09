@@ -17,10 +17,10 @@ mod integrations;
 pub use integrations::*;
 
 mod media_specifics;
-pub use metadata_models::*;
-
 pub use media_specifics::*;
+
 mod metadata_models;
+pub use metadata_models::*;
 
 pub use user_interactions::*;
 mod user_interactions;
