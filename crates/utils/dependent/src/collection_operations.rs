@@ -105,6 +105,7 @@ pub async fn create_or_update_collection(
         .one(&txn)
         .await?;
     let mut new_name = input.name.clone();
+    let mut collaborators_to_expire_cache: Option<HashSet<String>> = None;
     let created = match meta {
         Some(m) if input.update_id.is_none() => m.id,
         _ => {
@@ -146,9 +147,7 @@ pub async fn create_or_update_collection(
                 collaborators.extend(input_collaborators);
             }
             ryot_log!(debug, "Collaborators: {:?}", collaborators);
-            for c in &collaborators {
-                expire_user_collections_list_cache(c, ss).await?;
-            }
+            collaborators_to_expire_cache = Some(collaborators.clone());
             for c in collaborators {
                 UserToEntity::insert(user_to_entity::ActiveModel {
                     user_id: ActiveValue::Set(c.clone()),
@@ -179,6 +178,12 @@ pub async fn create_or_update_collection(
         }
     };
     txn.commit().await?;
+
+    if let Some(collaborators) = collaborators_to_expire_cache {
+        for c in &collaborators {
+            expire_user_collections_list_cache(c, ss).await?;
+        }
+    }
     Ok(StringIdObject { id: created })
 }
 
