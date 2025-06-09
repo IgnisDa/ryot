@@ -45,8 +45,7 @@ pub async fn merge_metadata(
         .filter(review::Column::MetadataId.eq(&merge_from))
         .filter(review::Column::UserId.eq(&user_id))
         .all(&txn)
-        .await
-        .unwrap()
+        .await?
     {
         let old_review_active: review::ActiveModel = old_review.clone().into();
         let new_review = review::ActiveModel {

@@ -233,7 +233,7 @@ pub async fn calculate_user_activities_and_summary(
         };
     }
 
-    let exercises = Exercise::find().all(&ss.db).await.unwrap();
+    let exercises = Exercise::find().all(&ss.db).await?;
     let user_exercises = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(user_to_entity::Column::ExerciseId.is_not_null())
