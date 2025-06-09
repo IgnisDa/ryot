@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use application_utils::graphql_to_db_order;
 use async_graphql::{Error, Result};
 use common_models::{SearchDetails, UserLevelCacheKey};
@@ -20,15 +22,14 @@ use sea_orm::{
     QueryOrder, QueryTrait,
 };
 use sea_query::{Condition, Expr, Func, extension::postgres::PgExpr};
-
-use crate::CollectionService;
+use supporting_service::SupportingService;
 
 pub async fn collection_contents(
-    service: &CollectionService,
     user_id: &String,
     input: CollectionContentsInput,
+    ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<CollectionContentsResponse>> {
-    let cc = &service.0.cache_service;
+    let cc = &ss.cache_service;
     let key = ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
         input: input.clone(),
         user_id: user_id.to_owned(),
@@ -42,7 +43,7 @@ pub async fn collection_contents(
             response: cached,
         });
     }
-    let preferences = user_by_id(user_id, &service.0).await?.preferences;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let take = input
         .search
         .clone()
@@ -53,7 +54,7 @@ pub async fn collection_contents(
     let filter = input.filter.unwrap_or_default();
     let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
     let maybe_collection = Collection::find_by_id(input.collection_id.clone())
-        .one(&service.0.db)
+        .one(&ss.db)
         .await
         .unwrap();
     let Some(details) = maybe_collection else {
@@ -129,7 +130,7 @@ pub async fn collection_contents(
             },
             graphql_to_db_order(sort.order),
         )
-        .paginate(&service.0.db, take);
+        .paginate(&ss.db, take);
     let mut items = vec![];
     let ItemsAndPagesNumber {
         number_of_items,
@@ -152,22 +153,18 @@ pub async fn collection_contents(
         },
         items,
     };
-    let user = details
-        .find_related(User)
-        .one(&service.0.db)
-        .await?
-        .unwrap();
+    let user = details.find_related(User).one(&ss.db).await?.unwrap();
     let reviews = item_reviews(
         &details.user_id,
         &input.collection_id,
         EntityLot::Collection,
         true,
-        &service.0,
+        ss,
     )
     .await?;
     let total_items = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()))
-        .count(&service.0.db)
+        .count(&ss.db)
         .await?;
     let response = CollectionContents {
         user,

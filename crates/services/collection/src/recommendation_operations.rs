@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_graphql::Result;
 use common_models::SearchDetails;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
@@ -13,15 +15,14 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement,
 };
 use sea_query::{Condition, Expr, extension::postgres::PgExpr};
-
-use crate::CollectionService;
+use supporting_service::SupportingService;
 
 pub async fn collection_recommendations(
-    service: &CollectionService,
     _user_id: &String,
     input: CollectionRecommendationsInput,
+    ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
-    let cc = &service.0.cache_service;
+    let cc = &ss.cache_service;
     let cache_key =
         ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
             collection_id: input.collection_id.clone(),
@@ -51,12 +52,12 @@ ORDER BY RANDOM() LIMIT 10;
         "#,
             args,
         ))
-        .all(&service.0.db)
+        .all(&ss.db)
         .await?;
         ryot_log!(debug, "Media items: {:?}", media_items);
         for item in media_items {
-            update_metadata_and_notify_users(&item.metadata_id, &service.0).await?;
-            let generic = generic_metadata(&item.metadata_id, &service.0).await?;
+            update_metadata_and_notify_users(&item.metadata_id, ss).await?;
+            let generic = generic_metadata(&item.metadata_id, ss).await?;
             data.extend(generic.suggestions);
         }
         cc.set_key(
@@ -68,7 +69,7 @@ ORDER BY RANDOM() LIMIT 10;
     };
     ryot_log!(debug, "Required set: {:?}", required_set);
 
-    let preferences = user_by_id(_user_id, &service.0).await?.preferences;
+    let preferences = user_by_id(_user_id, ss).await?.preferences;
     let search = input.search.unwrap_or_default();
     let take = search
         .take
@@ -87,7 +88,7 @@ ORDER BY RANDOM() LIMIT 10;
             )
         })
         .into_tuple::<String>()
-        .paginate(&service.0.db, take);
+        .paginate(&ss.db, take);
 
     let ItemsAndPagesNumber {
         number_of_items,

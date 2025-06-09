@@ -34,7 +34,7 @@ impl CollectionService {
         user_id: &String,
         input: CollectionContentsInput,
     ) -> Result<CachedResponse<CollectionContentsResponse>> {
-        content_operations::collection_contents(self, user_id, input).await
+        content_operations::collection_contents(user_id, input, &self.0).await
     }
 
     pub async fn collection_recommendations(
@@ -42,7 +42,7 @@ impl CollectionService {
         user_id: &String,
         input: CollectionRecommendationsInput,
     ) -> Result<SearchResults<String>> {
-        recommendation_operations::collection_recommendations(self, user_id, input).await
+        recommendation_operations::collection_recommendations(user_id, input, &self.0).await
     }
 
     pub async fn create_or_update_collection(
@@ -54,7 +54,7 @@ impl CollectionService {
     }
 
     pub async fn delete_collection(&self, user_id: String, name: &str) -> Result<bool> {
-        management_operations::delete_collection(self, user_id, name).await
+        management_operations::delete_collection(&user_id, name, &self.0).await
     }
 
     pub async fn add_entity_to_collection(
@@ -77,7 +77,7 @@ impl CollectionService {
         &self,
         collection_to_entity_id: Uuid,
     ) -> Result<()> {
-        event_operations::handle_entity_added_to_collection_event(self, collection_to_entity_id)
+        event_operations::handle_entity_added_to_collection_event(collection_to_entity_id, &self.0)
             .await
     }
 }

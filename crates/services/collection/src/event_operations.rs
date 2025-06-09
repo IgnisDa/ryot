@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::{Error, Result};
 use chrono::Utc;
@@ -11,17 +11,16 @@ use database_models::{
 use dependent_utils::expire_user_collections_list_cache;
 use itertools::Itertools;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use supporting_service::SupportingService;
 use uuid::Uuid;
 
-use crate::CollectionService;
-
 pub async fn handle_entity_added_to_collection_event(
-    service: &CollectionService,
     collection_to_entity_id: Uuid,
+    ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let (cte, collection) = CollectionToEntity::find_by_id(collection_to_entity_id)
         .find_also_related(Collection)
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
     let collection = collection.ok_or_else(|| Error::new("Collection does not exist"))?;
@@ -64,16 +63,16 @@ pub async fn handle_entity_added_to_collection_event(
     let mut col: collection::ActiveModel = collection.into();
     col.information_template = ActiveValue::Set(Some(fields));
     col.last_updated_on = ActiveValue::Set(Utc::now());
-    col.update(&service.0.db).await?;
+    col.update(&ss.db).await?;
     let users = UserToEntity::find()
         .select_only()
         .column(user_to_entity::Column::UserId)
         .filter(user_to_entity::Column::CollectionId.eq(&cte.collection_id))
         .into_tuple::<String>()
-        .all(&service.0.db)
+        .all(&ss.db)
         .await?;
     for user in users {
-        expire_user_collections_list_cache(&user, &service.0).await?;
+        expire_user_collections_list_cache(&user, ss).await?;
     }
     Ok(())
 }
