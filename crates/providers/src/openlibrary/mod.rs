@@ -1,11 +1,10 @@
-pub mod client;
-pub mod models;
-pub mod provider_integration;
-pub mod utilities;
+mod client;
+pub use client::{IMAGE_BASE_URL, URL};
 
-// Re-export the main service
+mod models;
 pub use models::OpenlibraryService;
 
-// Re-export useful utilities for external use
-pub use client::{IMAGE_BASE_URL, URL};
+mod provider_integration;
+
+mod utilities;
 pub use utilities::get_key;
