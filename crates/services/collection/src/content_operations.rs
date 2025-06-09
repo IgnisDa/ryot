@@ -55,8 +55,7 @@ pub async fn collection_contents(
     let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
     let maybe_collection = Collection::find_by_id(input.collection_id.clone())
         .one(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     let Some(details) = maybe_collection else {
         return Err(Error::new("Collection not found".to_owned()));
     };
