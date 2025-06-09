@@ -23,38 +23,33 @@ use fitness_models::{
     UpdateUserExerciseSettings, UserExercisesListInput, UserToExerciseExtraInformation,
 };
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use std::sync::Arc;
+use supporting_service::SupportingService;
 
-use crate::{FitnessService, IMAGES_PREFIX_URL, JSON_URL};
+use crate::{IMAGES_PREFIX_URL, JSON_URL};
 
 pub async fn exercise_details(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     exercise_id: String,
 ) -> Result<exercise::Model> {
-    let maybe_exercise = Exercise::find_by_id(exercise_id).one(&service.0.db).await?;
+    let maybe_exercise = Exercise::find_by_id(exercise_id).one(&ss.db).await?;
     match maybe_exercise {
         None => Err(Error::new("Exercise with the given ID could not be found.")),
         Some(mut e) => {
-            transform_entity_assets(&mut e.attributes.assets, &service.0).await;
+            transform_entity_assets(&mut e.attributes.assets, ss).await;
             Ok(e)
         }
     }
 }
 
 pub async fn user_exercise_details(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     exercise_id: String,
 ) -> Result<UserExerciseDetails> {
     let collections =
-        entity_in_collections(&service.0.db, &user_id, &exercise_id, EntityLot::Exercise).await?;
-    let reviews = item_reviews(
-        &user_id,
-        &exercise_id,
-        EntityLot::Exercise,
-        true,
-        &service.0,
-    )
-    .await?;
+        entity_in_collections(&ss.db, &user_id, &exercise_id, EntityLot::Exercise).await?;
+    let reviews = item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, ss).await?;
     let mut resp = UserExerciseDetails {
         collections,
         reviews,
@@ -63,7 +58,7 @@ pub async fn user_exercise_details(
     if let Some(association) = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id))
         .filter(user_to_entity::Column::ExerciseId.eq(exercise_id))
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
     {
         let user_to_exercise_extra_information = association
@@ -77,37 +72,37 @@ pub async fn user_exercise_details(
 }
 
 pub async fn user_exercises_list(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UserExercisesListInput,
 ) -> Result<CachedResponse<UserExercisesListResponse>> {
-    get_user_exercises_list(&user_id, input, &service.0).await
+    get_user_exercises_list(&user_id, input, ss).await
 }
 
 pub async fn create_custom_exercise(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     input: exercise::Model,
 ) -> Result<String> {
-    create_custom_exercise_util(user_id, input, &service.0).await
+    create_custom_exercise_util(user_id, input, ss).await
 }
 
 pub async fn update_custom_exercise(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UpdateCustomExerciseInput,
 ) -> Result<bool> {
     let id = input.update.id.clone();
     let mut update = input.update.clone();
-    let old_exercise = Exercise::find_by_id(&id).one(&service.0.db).await?.unwrap();
+    let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
     for image in old_exercise.attributes.assets.s3_images.clone() {
-        service.0.file_storage_service.delete_object(image).await;
+        ss.file_storage_service.delete_object(image).await;
     }
     if input.should_delete.unwrap_or_default() {
         let ute = UserToEntity::find()
             .filter(user_to_entity::Column::UserId.eq(&user_id))
             .filter(user_to_entity::Column::ExerciseId.eq(&id))
-            .one(&service.0.db)
+            .one(&ss.db)
             .await?
             .ok_or_else(|| Error::new("Exercise does not exist"))?;
         if let Some(exercise_extra_information) = ute.exercise_extra_information {
@@ -117,7 +112,7 @@ pub async fn update_custom_exercise(
                 ));
             }
         }
-        old_exercise.delete(&service.0.db).await?;
+        old_exercise.delete(&ss.db).await?;
         return Ok(true);
     }
     update.source = ExerciseSource::Custom;
@@ -125,19 +120,19 @@ pub async fn update_custom_exercise(
     let input: exercise::ActiveModel = update.into();
     let mut input = input.reset_all();
     input.id = ActiveValue::Unchanged(id);
-    input.update(&service.0.db).await?;
+    input.update(&ss.db).await?;
     Ok(true)
 }
 
 pub async fn update_user_exercise_settings(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UpdateUserExerciseSettings,
 ) -> Result<bool> {
     let ute = match UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(&user_id))
         .filter(user_to_entity::Column::ExerciseId.eq(&input.exercise_id))
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
     {
         Some(ute) => ute,
@@ -150,29 +145,29 @@ pub async fn update_user_exercise_settings(
                 )),
                 ..Default::default()
             };
-            data.insert(&service.0.db).await?
+            data.insert(&ss.db).await?
         }
     };
     let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
     exercise_extra_information.settings = input.change;
     let mut ute: user_to_entity::ActiveModel = ute.into();
     ute.exercise_extra_information = ActiveValue::Set(Some(exercise_extra_information));
-    ute.update(&service.0.db).await?;
+    ute.update(&ss.db).await?;
     Ok(true)
 }
 
 pub async fn merge_exercise(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     merge_from: String,
     merge_into: String,
 ) -> Result<bool> {
     let old_exercise = Exercise::find_by_id(merge_from.clone())
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Exercise does not exist"))?;
     let new_exercise = Exercise::find_by_id(merge_into.clone())
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Exercise does not exist"))?;
     if old_exercise.id == new_exercise.id {
@@ -187,16 +182,16 @@ pub async fn merge_exercise(
     let old_entity = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(&user_id))
         .filter(user_to_entity::Column::ExerciseId.eq(merge_from.clone()))
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
         .ok_or_else(|| Error::new("Exercise does not exist"))?;
-    change_exercise_id_in_history(service, merge_into, old_entity).await?;
-    schedule_user_for_workout_revision(&user_id, &service.0).await?;
+    change_exercise_id_in_history(ss, merge_into, old_entity).await?;
+    schedule_user_for_workout_revision(&user_id, ss).await?;
     Ok(true)
 }
 
 async fn change_exercise_id_in_history(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     new_name: String,
     old_entity: user_to_entity::Model,
 ) -> Result<()> {
@@ -207,7 +202,7 @@ async fn change_exercise_id_in_history(
     };
     for workout in exercise_extra_information.history {
         let db_workout = Workout::find_by_id(workout.workout_id)
-            .one(&service.0.db)
+            .one(&ss.db)
             .await?
             .unwrap();
         let mut summary = db_workout.summary.clone();
@@ -217,13 +212,13 @@ async fn change_exercise_id_in_history(
         let mut db_workout: workout::ActiveModel = db_workout.into();
         db_workout.summary = ActiveValue::Set(summary);
         db_workout.information = ActiveValue::Set(information);
-        db_workout.update(&service.0.db).await?;
+        db_workout.update(&ss.db).await?;
     }
     Ok(())
 }
 
 pub async fn get_all_exercises_from_dataset(
-    _service: &FitnessService,
+    _ss: &Arc<SupportingService>,
 ) -> Result<Vec<GithubExercise>> {
     let data = reqwest::get(JSON_URL)
         .await
@@ -248,7 +243,7 @@ pub async fn get_all_exercises_from_dataset(
         .collect())
 }
 
-pub async fn update_github_exercise(service: &FitnessService, ex: GithubExercise) -> Result<()> {
+pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExercise) -> Result<()> {
     let attributes = ExerciseAttributes {
         instructions: ex.attributes.instructions,
         assets: EntityAssets {
@@ -261,7 +256,7 @@ pub async fn update_github_exercise(service: &FitnessService, ex: GithubExercise
     if let Some(e) = Exercise::find()
         .filter(exercise::Column::Id.eq(&ex.name))
         .filter(exercise::Column::Source.eq(ExerciseSource::Github))
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
     {
         ryot_log!(
@@ -272,7 +267,7 @@ pub async fn update_github_exercise(service: &FitnessService, ex: GithubExercise
         let mut db_ex: exercise::ActiveModel = e.into();
         db_ex.attributes = ActiveValue::Set(attributes);
         db_ex.muscles = ActiveValue::Set(muscles);
-        db_ex.update(&service.0.db).await?;
+        db_ex.update(&ss.db).await?;
     } else {
         let lot = match ex.attributes.category {
             ExerciseCategory::Cardio => ExerciseLot::DistanceAndDuration,
@@ -295,7 +290,7 @@ pub async fn update_github_exercise(service: &FitnessService, ex: GithubExercise
             equipment: ActiveValue::Set(ex.attributes.equipment),
             mechanic: ActiveValue::Set(ex.attributes.mechanic),
         };
-        let created_exercise = db_exercise.insert(&service.0.db).await?;
+        let created_exercise = db_exercise.insert(&ss.db).await?;
         ryot_log!(
             debug,
             "Created new exercise with id: {}",

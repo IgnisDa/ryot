@@ -18,31 +18,31 @@ use fitness_models::{
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use sea_query::OnConflict;
-
-use crate::FitnessService;
+use std::sync::Arc;
+use supporting_service::SupportingService;
 
 pub async fn user_workout_templates_list(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UserTemplatesOrWorkoutsListInput,
 ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-    get_user_workout_templates_list(&user_id, &service.0, input).await
+    get_user_workout_templates_list(&user_id, ss, input).await
 }
 
 pub async fn user_workout_template_details(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     workout_template_id: String,
 ) -> Result<UserWorkoutTemplateDetails> {
-    get_user_workout_template_details(&service.0.db, &user_id, workout_template_id).await
+    get_user_workout_template_details(&ss.db, &user_id, workout_template_id).await
 }
 
 pub async fn create_or_update_user_workout_template(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     input: UserWorkoutInput,
 ) -> Result<String> {
-    server_key_validation_guard(service.0.is_server_key_validated().await?).await?;
+    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
     let mut summary = WorkoutSummary::default();
     let mut information = WorkoutInformation {
         comment: input.comment,
@@ -50,9 +50,8 @@ pub async fn create_or_update_user_workout_template(
         ..Default::default()
     };
     for exercise in input.exercises {
-        let db_ex = service
-            .exercise_details(exercise.exercise_id.clone())
-            .await?;
+        let db_ex =
+            crate::exercise_management::exercise_details(ss, exercise.exercise_id.clone()).await?;
         summary.exercises.push(WorkoutSummaryExercise {
             num_sets: exercise.sets.len(),
             id: exercise.exercise_id.clone(),
@@ -80,7 +79,7 @@ pub async fn create_or_update_user_workout_template(
         });
     }
     let processed_exercises = information.exercises.clone();
-    summary.focused = get_focused_workout_summary(&processed_exercises, &service.0).await?;
+    summary.focused = get_focused_workout_summary(&processed_exercises, ss).await?;
     let template = workout_template::ActiveModel {
         name: ActiveValue::Set(input.name),
         summary: ActiveValue::Set(summary),
@@ -102,26 +101,26 @@ pub async fn create_or_update_user_workout_template(
                 ])
                 .to_owned(),
         )
-        .exec_with_returning(&service.0.db)
+        .exec_with_returning(&ss.db)
         .await?;
-    expire_user_workout_templates_list_cache(&user_id, &service.0).await?;
+    expire_user_workout_templates_list_cache(&user_id, ss).await?;
     Ok(template.id)
 }
 
 pub async fn delete_user_workout_template(
-    service: &FitnessService,
+    ss: &Arc<SupportingService>,
     user_id: String,
     workout_template_id: String,
 ) -> Result<bool> {
-    server_key_validation_guard(service.0.is_server_key_validated().await?).await?;
+    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
     let Some(wkt) = WorkoutTemplate::find_by_id(workout_template_id)
         .filter(workout_template::Column::UserId.eq(&user_id))
-        .one(&service.0.db)
+        .one(&ss.db)
         .await?
     else {
         return Err(Error::new("Workout template does not exist for user"));
     };
-    wkt.delete(&service.0.db).await?;
-    expire_user_workout_templates_list_cache(&user_id, &service.0).await?;
+    wkt.delete(&ss.db).await?;
+    expire_user_workout_templates_list_cache(&user_id, ss).await?;
     Ok(true)
 }

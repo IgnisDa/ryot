@@ -42,7 +42,7 @@ impl FitnessService {
         user_id: String,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-        template_management::user_workout_templates_list(self, user_id, input).await
+        template_management::user_workout_templates_list(&self.0, user_id, input).await
     }
 
     pub async fn user_workout_template_details(
@@ -50,7 +50,8 @@ impl FitnessService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        template_management::user_workout_template_details(self, user_id, workout_template_id).await
+        template_management::user_workout_template_details(&self.0, user_id, workout_template_id)
+            .await
     }
 
     pub async fn create_or_update_user_workout_template(
@@ -58,7 +59,7 @@ impl FitnessService {
         user_id: String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        template_management::create_or_update_user_workout_template(self, user_id, input).await
+        template_management::create_or_update_user_workout_template(&self.0, user_id, input).await
     }
 
     pub async fn delete_user_workout_template(
@@ -66,12 +67,13 @@ impl FitnessService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<bool> {
-        template_management::delete_user_workout_template(self, user_id, workout_template_id).await
+        template_management::delete_user_workout_template(&self.0, user_id, workout_template_id)
+            .await
     }
 
     // Exercise management methods delegated to exercise_management module
     pub async fn exercise_details(&self, exercise_id: String) -> Result<exercise::Model> {
-        exercise_management::exercise_details(self, exercise_id).await
+        exercise_management::exercise_details(&self.0, exercise_id).await
     }
 
     pub async fn user_exercise_details(
@@ -79,7 +81,7 @@ impl FitnessService {
         user_id: String,
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
-        exercise_management::user_exercise_details(self, user_id, exercise_id).await
+        exercise_management::user_exercise_details(&self.0, user_id, exercise_id).await
     }
 
     pub async fn user_exercises_list(
@@ -87,7 +89,7 @@ impl FitnessService {
         user_id: String,
         input: UserExercisesListInput,
     ) -> Result<CachedResponse<UserExercisesListResponse>> {
-        exercise_management::user_exercises_list(self, user_id, input).await
+        exercise_management::user_exercises_list(&self.0, user_id, input).await
     }
 
     pub async fn create_custom_exercise(
@@ -95,7 +97,7 @@ impl FitnessService {
         user_id: &String,
         input: exercise::Model,
     ) -> Result<String> {
-        exercise_management::create_custom_exercise(self, user_id, input).await
+        exercise_management::create_custom_exercise(&self.0, user_id, input).await
     }
 
     pub async fn update_custom_exercise(
@@ -103,7 +105,7 @@ impl FitnessService {
         user_id: String,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        exercise_management::update_custom_exercise(self, user_id, input).await
+        exercise_management::update_custom_exercise(&self.0, user_id, input).await
     }
 
     pub async fn update_user_exercise_settings(
@@ -111,7 +113,7 @@ impl FitnessService {
         user_id: String,
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
-        exercise_management::update_user_exercise_settings(self, user_id, input).await
+        exercise_management::update_user_exercise_settings(&self.0, user_id, input).await
     }
 
     pub async fn merge_exercise(
@@ -120,7 +122,7 @@ impl FitnessService {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        exercise_management::merge_exercise(self, user_id, merge_from, merge_into).await
+        exercise_management::merge_exercise(&self.0, user_id, merge_from, merge_into).await
     }
 
     // Workout operations methods delegated to workout_operations module
@@ -129,7 +131,7 @@ impl FitnessService {
         user_id: &String,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        workout_operations::user_workout_details(self, user_id, workout_id).await
+        workout_operations::user_workout_details(&self.0, user_id, workout_id).await
     }
 
     pub async fn user_workouts_list(
@@ -137,7 +139,7 @@ impl FitnessService {
         user_id: String,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
-        workout_operations::user_workouts_list(self, user_id, input).await
+        workout_operations::user_workouts_list(&self.0, user_id, input).await
     }
 
     pub async fn create_or_update_user_workout(
@@ -145,7 +147,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        workout_operations::create_or_update_user_workout(self, user_id, input).await
+        workout_operations::create_or_update_user_workout(&self.0, user_id, input).await
     }
 
     pub async fn update_user_workout_attributes(
@@ -153,15 +155,15 @@ impl FitnessService {
         user_id: String,
         input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
-        workout_operations::update_user_workout_attributes(self, user_id, input).await
+        workout_operations::update_user_workout_attributes(&self.0, user_id, input).await
     }
 
     pub async fn delete_user_workout(&self, user_id: String, workout_id: String) -> Result<bool> {
-        workout_operations::delete_user_workout(self, user_id, workout_id).await
+        workout_operations::delete_user_workout(&self.0, user_id, workout_id).await
     }
 
     pub async fn revise_user_workouts(&self, user_id: String) -> Result<()> {
-        workout_operations::revise_user_workouts(self, user_id).await
+        workout_operations::revise_user_workouts(&self.0, user_id).await
     }
 
     // Measurement operations methods delegated to measurement_operations module
@@ -170,7 +172,7 @@ impl FitnessService {
         user_id: &String,
         input: UserMeasurementsListInput,
     ) -> Result<CachedResponse<UserMeasurementsListResponse>> {
-        measurement_operations::user_measurements_list(self, user_id, input).await
+        measurement_operations::user_measurements_list(&self.0, user_id, input).await
     }
 
     pub async fn create_user_measurement(
@@ -178,7 +180,7 @@ impl FitnessService {
         user_id: &String,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        measurement_operations::create_user_measurement(self, user_id, input).await
+        measurement_operations::create_user_measurement(&self.0, user_id, input).await
     }
 
     pub async fn delete_user_measurement(
@@ -186,19 +188,19 @@ impl FitnessService {
         user_id: String,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        measurement_operations::delete_user_measurement(self, &user_id, timestamp).await
+        measurement_operations::delete_user_measurement(&self.0, &user_id, timestamp).await
     }
 
     // System operations methods delegated to system_operations module
     pub async fn deploy_update_exercise_library_job(&self) -> Result<()> {
-        system_operations::deploy_update_exercise_library_job(self).await
+        system_operations::deploy_update_exercise_library_job(&self.0).await
     }
 
     pub async fn update_github_exercises(&self) -> Result<()> {
-        system_operations::update_github_exercises(self).await
+        system_operations::update_github_exercises(&self.0).await
     }
 
     pub async fn process_users_scheduled_for_workout_revision(&self) -> Result<()> {
-        system_operations::process_users_scheduled_for_workout_revision(self).await
+        system_operations::process_users_scheduled_for_workout_revision(&self.0).await
     }
 }
