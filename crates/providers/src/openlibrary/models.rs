@@ -10,11 +10,11 @@ pub struct EditionsResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Edition {
-    pub title: Option<String>,
     pub key: String,
+    pub title: Option<String>,
+    pub covers: Option<Vec<u64>>,
     pub publish_date: Option<String>,
     pub number_of_pages: Option<i32>,
-    pub covers: Option<Vec<i64>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -88,7 +88,7 @@ pub struct PersonDetailsAuthor {
     pub key: String,
     pub bio: Option<Description>,
     pub name: String,
-    pub photos: Option<Vec<i64>>,
+    pub photos: Option<Vec<u64>>,
     pub links: Option<Vec<PersonDetailsLink>>,
     pub birth_date: Option<String>,
     pub death_date: Option<String>,
@@ -111,20 +111,20 @@ pub enum MetadataDetailsAuthorResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MetadataDetailsBook {
     pub key: String,
-    pub description: Option<Description>,
     pub title: String,
-    pub covers: Option<Vec<i64>>,
-    pub authors: Option<Vec<MetadataDetailsAuthorResponse>>,
+    pub covers: Option<Vec<u64>>,
     pub subjects: Option<Vec<String>>,
+    pub description: Option<Description>,
+    pub authors: Option<Vec<MetadataDetailsAuthorResponse>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MetadataSearchBook {
     pub key: String,
     pub title: String,
-    pub author_name: Option<Vec<String>>,
-    pub cover_i: Option<i64>,
+    pub cover_i: Option<u64>,
     pub publish_year: Option<Vec<i32>>,
     pub first_publish_year: Option<i32>,
+    pub author_name: Option<Vec<String>>,
     pub number_of_pages_median: Option<i32>,
 }

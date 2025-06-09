@@ -1,14 +1,8 @@
 use chrono::NaiveDate;
-use itertools::Itertools;
 
 /// Extract the key part from OpenLibrary URLs
 pub fn get_key(key: &str) -> String {
-    key.split('/')
-        .collect_vec()
-        .last()
-        .cloned()
-        .unwrap()
-        .to_owned()
+    key.rsplit('/').next().unwrap_or_default().to_owned()
 }
 
 /// Parse various date formats used by OpenLibrary
