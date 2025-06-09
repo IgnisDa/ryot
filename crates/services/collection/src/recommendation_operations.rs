@@ -37,7 +37,6 @@ pub async fn collection_recommendations(
             metadata_id: String,
         }
         let mut args = vec![input.collection_id.into()];
-        let mut args = vec![input.collection_id.into()];
         // Note: The following args are included for future SQL extension but not currently used
         args.extend(
             MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS
