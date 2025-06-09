@@ -9,6 +9,7 @@ use database_models::{
     user_to_entity,
 };
 use dependent_utils::expire_user_collections_list_cache;
+use futures::future::try_join_all;
 use itertools::Itertools;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use supporting_service::SupportingService;
@@ -71,8 +72,11 @@ pub async fn handle_entity_added_to_collection_event(
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
-    for user in users {
-        expire_user_collections_list_cache(&user, ss).await?;
-    }
+    try_join_all(
+        users
+            .into_iter()
+            .map(|user| async move { expire_user_collections_list_cache(&user, ss).await }),
+    )
+    .await?;
     Ok(())
 }

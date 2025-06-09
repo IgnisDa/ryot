@@ -14,6 +14,7 @@ database-utils = { path = "../../utils/database" }
 dependent-utils = { path = "../../utils/dependent" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
+futures = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
