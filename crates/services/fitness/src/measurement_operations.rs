@@ -36,6 +36,6 @@ pub async fn delete_user_measurement(
         .await?
         .ok_or_else(|| Error::new("Measurement does not exist"))?;
     m.delete(&service.0.db).await?;
-    expire_user_measurements_list_cache(&user_id, &service.0).await?;
+    expire_user_measurements_list_cache(user_id, &service.0).await?;
     Ok(true)
 }
