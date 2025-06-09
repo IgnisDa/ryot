@@ -35,8 +35,7 @@ pub async fn update_user(
     }
     let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
         .one(&ss.db)
-        .await
-        .unwrap()
+        .await?
         .unwrap()
         .into();
     if let Some(n) = input.username {
@@ -103,7 +102,7 @@ pub async fn register_user(
             Some(data.password),
         ),
     };
-    if User::find().filter(filter).count(&ss.db).await.unwrap() != 0 {
+    if User::find().filter(filter).count(&ss.db).await? != 0 {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::IdentifierAlreadyExists,
         }));

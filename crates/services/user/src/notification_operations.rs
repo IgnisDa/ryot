@@ -60,12 +60,14 @@ pub async fn test_user_notification_platforms(
 ) -> Result<bool> {
     let notifications = NotificationPlatform::find()
         .filter(notification_platform::Column::UserId.eq(user_id))
+        .filter(
+            notification_platform::Column::IsDisabled
+                .is_null()
+                .or(notification_platform::Column::IsDisabled.eq(false)),
+        )
         .all(&ss.db)
         .await?;
     for platform in notifications {
-        if platform.is_disabled.unwrap_or_default() {
-            continue;
-        }
         let msg = format!("This is a test notification for platform: {}", platform.lot);
         send_notification(platform.platform_specifics, &msg).await?;
     }

@@ -54,18 +54,14 @@ pub async fn send_notification_for_user(
 ) -> Result<()> {
     let notification_platforms = NotificationPlatform::find()
         .filter(notification_platform::Column::UserId.eq(user_id))
+        .filter(
+            notification_platform::Column::IsDisabled
+                .is_null()
+                .or(notification_platform::Column::IsDisabled.eq(false)),
+        )
         .all(&ss.db)
         .await?;
     for platform in notification_platforms {
-        if platform.is_disabled.unwrap_or_default() {
-            ryot_log!(
-                debug,
-                "Skipping sending notification to user: {} for platform: {} since it is disabled",
-                user_id,
-                platform.lot
-            );
-            continue;
-        }
         if !platform.configured_events.contains(change) {
             ryot_log!(
                 debug,
