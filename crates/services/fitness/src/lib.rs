@@ -14,18 +14,19 @@ use fitness_models::{
 use sea_orm::prelude::DateTimeUtc;
 use supporting_service::SupportingService;
 
-// Module declarations
 mod exercise_management;
-mod measurement_operations;
-mod system_operations;
-mod template_management;
-mod workout_operations;
-
-// Re-export the implementations
 pub use exercise_management::*;
+
+mod measurement_operations;
 pub use measurement_operations::*;
+
+mod system_operations;
 pub use system_operations::*;
+
+mod template_management;
 pub use template_management::*;
+
+mod workout_operations;
 pub use workout_operations::*;
 
 const EXERCISE_DB_URL: &str = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
