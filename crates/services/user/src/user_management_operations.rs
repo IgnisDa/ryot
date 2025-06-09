@@ -125,7 +125,7 @@ pub async fn register_user(
         preferences: ActiveValue::Set(UserPreferences::default()),
         ..Default::default()
     };
-    let user = user.insert(&ss.db).await.unwrap();
+    let user = user.insert(&ss.db).await?;
     ryot_log!(
         debug,
         "User {:?} registered with id {:?}",
