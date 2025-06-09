@@ -18,7 +18,7 @@ use sea_query::{Condition, Expr, extension::postgres::PgExpr};
 use supporting_service::SupportingService;
 
 pub async fn collection_recommendations(
-    _user_id: &String,
+    user_id: &String,
     input: CollectionRecommendationsInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
@@ -69,7 +69,7 @@ ORDER BY RANDOM() LIMIT 10;
     };
     ryot_log!(debug, "Required set: {:?}", required_set);
 
-    let preferences = user_by_id(_user_id, ss).await?.preferences;
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     let search = input.search.unwrap_or_default();
     let take = search
         .take
