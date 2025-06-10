@@ -9,7 +9,7 @@ use common_models::{
 use database_models::{
     metadata,
     prelude::{MetadataGroup, Person, User},
-    seen, user,
+    user,
 };
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
@@ -20,10 +20,9 @@ use dependent_models::{
 };
 use dependent_utils::{
     deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, handle_after_metadata_seen_tasks, post_review,
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
-    user_people_list,
+    deploy_update_person_job, post_review, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
@@ -232,10 +231,6 @@ impl MiscellaneousService {
 
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
         review_operations::delete_review(&self.0, user_id, review_id).await
-    }
-
-    pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
-        handle_after_metadata_seen_tasks(*seen, &self.0).await
     }
 
     pub async fn delete_seen_item(
