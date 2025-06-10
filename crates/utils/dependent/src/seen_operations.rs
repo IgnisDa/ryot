@@ -118,12 +118,12 @@ pub async fn is_metadata_finished_by_user(
     Ok((is_finished, seen_history))
 }
 
-pub async fn deploy_after_handle_media_seen_tasks(
+pub async fn deploy_after_metadata_seen_tasks(
     seen: seen::Model,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::HandleAfterMediaSeenTasks(Box::new(seen)),
+        LpApplicationJob::HandleAfterMetadataSeenTasks(Box::new(seen)),
     ))
     .await
 }

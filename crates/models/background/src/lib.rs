@@ -32,7 +32,7 @@ pub enum MpApplicationJob {
 pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
-    HandleAfterMediaSeenTasks(Box<seen::Model>),
+    HandleAfterMetadataSeenTasks(Box<seen::Model>),
     UpdateUserLastActivityPerformed(String, DateTime<Utc>),
 }
 

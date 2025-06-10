@@ -154,7 +154,7 @@ pub async fn perform_lp_application_job(
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        LpApplicationJob::HandleAfterMediaSeenTasks(seen) => {
+        LpApplicationJob::HandleAfterMetadataSeenTasks(seen) => {
             app_services
                 .miscellaneous_service
                 .handle_after_media_seen_tasks(seen)
