@@ -1,5 +1,9 @@
 use async_graphql::{Error, Result};
-use database_models::{prelude::WorkoutTemplate, workout_template};
+use database_models::{
+    exercise,
+    prelude::{Exercise, WorkoutTemplate},
+    workout_template,
+};
 use database_utils::{
     server_key_validation_guard, user_workout_template_details as get_user_workout_template_details,
 };
@@ -8,7 +12,7 @@ use dependent_models::{
     UserWorkoutsTemplatesListResponse,
 };
 use dependent_utils::{
-    expire_user_workout_templates_list_cache, get_focused_workout_summary,
+    expire_user_workout_templates_list_cache, get_focused_workout_summary_with_exercises,
     user_workout_templates_list as get_user_workout_templates_list,
 };
 use fitness_models::{
@@ -18,7 +22,7 @@ use fitness_models::{
 use nanoid::nanoid;
 use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use sea_query::OnConflict;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use supporting_service::SupportingService;
 
 pub async fn user_workout_templates_list(
@@ -49,9 +53,28 @@ pub async fn create_or_update_user_workout_template(
         supersets: input.supersets,
         ..Default::default()
     };
+
+    let exercise_ids: Vec<String> = input
+        .exercises
+        .iter()
+        .map(|e| e.exercise_id.clone())
+        .collect();
+    let db_exercises = Exercise::find()
+        .filter(exercise::Column::Id.is_in(exercise_ids))
+        .all(&ss.db)
+        .await?;
+
+    let exercise_map: HashMap<String, &exercise::Model> =
+        db_exercises.iter().map(|e| (e.id.clone(), e)).collect();
+
     for exercise in input.exercises {
-        let db_ex =
-            crate::exercise_management::exercise_details(ss, exercise.exercise_id.clone()).await?;
+        let db_ex = exercise_map.get(&exercise.exercise_id).ok_or_else(|| {
+            Error::new(format!(
+                "Exercise with ID {} not found",
+                exercise.exercise_id
+            ))
+        })?;
+
         summary.exercises.push(WorkoutSummaryExercise {
             num_sets: exercise.sets.len(),
             id: exercise.exercise_id.clone(),
@@ -79,7 +102,8 @@ pub async fn create_or_update_user_workout_template(
         });
     }
     let processed_exercises = information.exercises.clone();
-    summary.focused = get_focused_workout_summary(&processed_exercises, ss).await?;
+    summary.focused =
+        get_focused_workout_summary_with_exercises(&processed_exercises, &db_exercises)?;
     let template = workout_template::ActiveModel {
         name: ActiveValue::Set(input.name),
         summary: ActiveValue::Set(summary),
