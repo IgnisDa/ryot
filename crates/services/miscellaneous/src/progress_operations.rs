@@ -8,7 +8,7 @@ use database_models::{
 };
 use dependent_models::{ApplicationCacheKey, ExpireCacheKeyInput};
 use dependent_utils::{
-    associate_user_with_entity, handle_after_metadata_seen_tasks, progress_update,
+    associate_user_with_entity, deploy_after_handle_media_seen_tasks, progress_update,
 };
 use enum_models::EntityLot;
 use media_models::{ProgressUpdateInput, UpdateSeenItemInput};
@@ -58,7 +58,7 @@ pub async fn update_seen_item(
         seen.review_id = ActiveValue::Set(to_update_review_id);
     }
     let seen = seen.update(&ss.db).await?;
-    handle_after_metadata_seen_tasks(seen, ss).await?;
+    deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(true)
 }
 
@@ -104,7 +104,7 @@ pub async fn delete_seen_item(
         ));
     }
     si.delete(&ss.db).await.trace_ok();
-    handle_after_metadata_seen_tasks(cloned_seen, ss).await?;
+    deploy_after_handle_media_seen_tasks(cloned_seen, ss).await?;
     associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss).await?;
     Ok(StringIdObject { id: seen_id })
 }

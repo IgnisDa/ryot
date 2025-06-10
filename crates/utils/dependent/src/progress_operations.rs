@@ -20,8 +20,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
 use crate::{
-    seen_operations::handle_after_metadata_seen_tasks,
-    utility_operations::mark_entity_as_recently_consumed,
+    deploy_after_handle_media_seen_tasks, utility_operations::mark_entity_as_recently_consumed,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Copy)]
@@ -283,6 +282,6 @@ pub async fn progress_update(
         )))
         .await?;
     }
-    handle_after_metadata_seen_tasks(seen, ss).await?;
+    deploy_after_handle_media_seen_tasks(seen, ss).await?;
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
