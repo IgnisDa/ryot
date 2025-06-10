@@ -25,8 +25,8 @@ use media_models::{
 use rust_decimal::{Decimal, prelude::ToPrimitive};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, Order, QueryFilter, QueryOrder,
-    QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, Order, QueryFilter,
+    QueryOrder, QuerySelect,
     prelude::{Date, DateTimeUtc},
 };
 use sea_query::NullOrdering;
@@ -368,55 +368,16 @@ pub async fn calculate_user_activities_and_summary(
         }
     }
 
-    let dates_to_delete: Vec<Option<Date>> = activities.keys().cloned().collect();
-
-    if !dates_to_delete.is_empty() {
-        let non_null_dates: Vec<Date> = dates_to_delete
-            .iter()
-            .filter_map(|&date_opt| date_opt)
-            .collect();
-        let has_null = dates_to_delete.iter().any(|&date_opt| date_opt.is_none());
-
-        if has_null && !non_null_dates.is_empty() {
-            DailyUserActivity::delete_many()
-                .filter(daily_user_activity::Column::UserId.eq(user_id))
-                .filter(daily_user_activity::Column::Date.is_null())
-                .exec(&ss.db)
-                .await?;
-            DailyUserActivity::delete_many()
-                .filter(daily_user_activity::Column::UserId.eq(user_id))
-                .filter(daily_user_activity::Column::Date.is_in(non_null_dates))
-                .exec(&ss.db)
-                .await?;
-        } else if has_null {
-            DailyUserActivity::delete_many()
-                .filter(daily_user_activity::Column::UserId.eq(user_id))
-                .filter(daily_user_activity::Column::Date.is_null())
-                .exec(&ss.db)
-                .await?;
-        } else {
-            DailyUserActivity::delete_many()
-                .filter(daily_user_activity::Column::UserId.eq(user_id))
-                .filter(daily_user_activity::Column::Date.is_in(non_null_dates))
-                .exec(&ss.db)
-                .await?;
-        }
-
-        ryot_log!(
-            debug,
-            "Batch deleted activities for {} dates",
-            dates_to_delete.len()
-        );
-    }
-
-    let mut models_to_insert = Vec::new();
-
     for (_, activity) in activities.iter_mut() {
-        ryot_log!(
-            debug,
-            "Preparing activity for batch insert = {:?}",
-            activity.date
-        );
+        DailyUserActivity::delete_many()
+            .filter(daily_user_activity::Column::UserId.eq(user_id))
+            .filter(match activity.date {
+                None => daily_user_activity::Column::Date.is_null(),
+                Some(date) => daily_user_activity::Column::Date.eq(date),
+            })
+            .exec(&ss.db)
+            .await?;
+        ryot_log!(debug, "Inserting activity = {:?}", activity.date);
         let total_collection_count = activity.person_collection_count
             + activity.metadata_collection_count
             + activity.metadata_group_collection_count;
@@ -463,19 +424,7 @@ pub async fn calculate_user_activities_and_summary(
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_collection_count = ActiveValue::Set(total_collection_count);
-        models_to_insert.push(model);
-    }
-
-    if !models_to_insert.is_empty() {
-        DailyUserActivity::insert_many(models_to_insert)
-            .exec(&ss.db)
-            .await
-            .unwrap();
-        ryot_log!(
-            debug,
-            "Batch inserted {} activity records",
-            activities.len()
-        );
+        model.insert(&ss.db).await.unwrap();
     }
 
     ss.cache_service
