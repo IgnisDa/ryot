@@ -24,8 +24,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
         .column(user::Column::Id)
         .into_tuple::<String>()
         .all(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     for user_id in all_users {
         let collections = Collection::find()
             .filter(collection::Column::UserId.eq(&user_id))
