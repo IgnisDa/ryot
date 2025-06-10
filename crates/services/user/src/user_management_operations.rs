@@ -23,6 +23,8 @@ use supporting_service::SupportingService;
 use user_models::UpdateUserInput;
 use user_models::UserPreferences;
 
+use crate::user_data_operations;
+
 pub async fn update_user(
     ss: &Arc<SupportingService>,
     user_id: Option<String>,
@@ -64,7 +66,7 @@ pub async fn delete_user(
     let Some(u) = maybe_user else {
         return Ok(false);
     };
-    if crate::user_data_operations::users_list(ss, None)
+    if user_data_operations::users_list(ss, None)
         .await?
         .into_iter()
         .filter(|u| u.lot == UserLot::Admin)

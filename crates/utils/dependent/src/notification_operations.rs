@@ -16,6 +16,8 @@ use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
 
+use crate::metadata_operations;
+
 pub async fn get_users_and_cte_monitoring_entity(
     entity_id: &String,
     entity_lot: EntityLot,
@@ -101,7 +103,7 @@ pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = crate::metadata_operations::update_metadata(metadata_id, ss).await?;
+    let result = metadata_operations::update_metadata(metadata_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
@@ -123,7 +125,7 @@ pub async fn update_person_and_notify_users(
     person_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = crate::metadata_operations::update_person(person_id.clone(), ss).await?;
+    let result = metadata_operations::update_person(person_id.clone(), ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &ss.db).await?;
@@ -145,7 +147,7 @@ pub async fn update_metadata_group_and_notify_users(
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = crate::metadata_operations::update_metadata_group(metadata_group_id, ss).await?;
+    let result = metadata_operations::update_metadata_group(metadata_group_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify = get_users_and_cte_monitoring_entity(
             metadata_group_id,

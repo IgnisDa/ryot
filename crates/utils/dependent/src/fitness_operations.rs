@@ -230,6 +230,72 @@ pub async fn get_focused_workout_summary(
     })
 }
 
+/// Generate focused workout summary from pre-fetched exercise data.
+/// This version avoids redundant database queries when exercise data is already available.
+pub fn get_focused_workout_summary_with_exercises(
+    exercises: &[ProcessedExercise],
+    db_exercises: &[exercise::Model],
+) -> Result<WorkoutFocusedSummary> {
+    let mut lots = HashMap::new();
+    let mut levels = HashMap::new();
+    let mut forces = HashMap::new();
+    let mut muscles = HashMap::new();
+    let mut equipments = HashMap::new();
+
+    for (idx, ex) in exercises.iter().enumerate() {
+        let exercise = db_exercises.iter().find(|e| e.id == ex.id)
+            .ok_or_else(|| Error::new(format!("Exercise with ID {} not found in fetched data", ex.id)))?;
+        lots.entry(exercise.lot).or_insert(vec![]).push(idx);
+        levels.entry(exercise.level).or_insert(vec![]).push(idx);
+        if let Some(force) = exercise.force {
+            forces.entry(force).or_insert(vec![]).push(idx);
+        }
+        if let Some(equipment) = exercise.equipment {
+            equipments.entry(equipment).or_insert(vec![]).push(idx);
+        }
+        exercise.muscles.iter().for_each(|m| {
+            muscles.entry(*m).or_insert(vec![]).push(idx);
+        });
+    }
+
+    let lots = lots
+        .into_iter()
+        .map(|(lot, exercises)| WorkoutLotFocusedSummary { lot, exercises })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
+        .collect();
+    let levels = levels
+        .into_iter()
+        .map(|(level, exercises)| WorkoutLevelFocusedSummary { level, exercises })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
+        .collect();
+    let forces = forces
+        .into_iter()
+        .map(|(force, exercises)| WorkoutForceFocusedSummary { force, exercises })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
+        .collect();
+    let muscles = muscles
+        .into_iter()
+        .map(|(muscle, exercises)| WorkoutMuscleFocusedSummary { muscle, exercises })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
+        .collect();
+    let equipments = equipments
+        .into_iter()
+        .map(|(equipment, exercises)| WorkoutEquipmentFocusedSummary {
+            equipment,
+            exercises,
+        })
+        .sorted_by_key(|f| Reverse(f.exercises.len()))
+        .collect();
+
+    Ok(WorkoutFocusedSummary {
+        lots,
+        levels,
+        forces,
+        muscles,
+        equipments,
+    })
+}
+
 pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
     format!("{}_{}_{}", name, lot, user_id)
 }

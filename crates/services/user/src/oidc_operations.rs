@@ -8,6 +8,8 @@ use openidconnect::{
 };
 use supporting_service::SupportingService;
 
+use crate::empty_nonce_verifier;
+
 pub async fn get_oidc_redirect_url(ss: &Arc<SupportingService>) -> Result<String> {
     let Some((_http, client)) = create_oidc_client(&ss.config).await else {
         return Err(Error::new("OIDC client not configured"));
@@ -32,7 +34,7 @@ pub async fn get_oidc_token(ss: &Arc<SupportingService>, code: String) -> Result
         .request_async(&http)
         .await?;
     let id_token = token.id_token().unwrap();
-    let claims = id_token.claims(&client.id_token_verifier(), crate::empty_nonce_verifier)?;
+    let claims = id_token.claims(&client.id_token_verifier(), empty_nonce_verifier)?;
     let subject = claims.subject().to_string();
     let email = claims
         .email()

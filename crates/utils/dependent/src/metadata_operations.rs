@@ -29,6 +29,9 @@ use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
 use std::{collections::HashMap, iter::zip, sync::Arc};
 use supporting_service::SupportingService;
 
+use crate::details_from_provider;
+use crate::get_non_metadata_provider;
+
 pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
     ss: &Arc<SupportingService>,
@@ -96,7 +99,7 @@ pub async fn change_metadata_associations(
 
     for (index, person) in people.into_iter().enumerate() {
         let role = person.role.clone();
-        let db_person = crate::commit_person(
+        let db_person = commit_person(
             CommitPersonInput {
                 name: person.name,
                 source: person.source,
@@ -150,7 +153,7 @@ pub async fn change_metadata_associations(
     }
 
     for metadata_group in groups {
-        let db_group = crate::commit_metadata_group(metadata_group, ss).await?;
+        let db_group = commit_metadata_group(metadata_group, ss).await?;
         let intermediate = metadata_to_metadata_group::ActiveModel {
             part: ActiveValue::Set(0),
             metadata_group_id: ActiveValue::Set(db_group.id),
@@ -182,7 +185,7 @@ pub async fn update_metadata(
         .exec(&ss.db)
         .await?;
     let maybe_details =
-        crate::details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
+        details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
     match maybe_details {
         Ok(details) => {
             let mut notifications = vec![];
@@ -458,7 +461,7 @@ pub async fn update_person(
         return Ok(UpdateMediaEntityResult::default());
     }
     let mut notifications = vec![];
-    let provider = crate::get_non_metadata_provider(person.source, ss).await?;
+    let provider = get_non_metadata_provider(person.source, ss).await?;
     let provider_person = provider
         .person_details(&person.identifier, &person.source_specifics)
         .await?;
