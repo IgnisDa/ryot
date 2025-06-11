@@ -3190,6 +3190,7 @@ dependencies = [
  "external-utils",
  "fitness-models",
  "flate2",
+ "futures",
  "importer-models",
  "indexmap 2.9.0",
  "itertools 0.14.0",
