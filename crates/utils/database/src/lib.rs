@@ -70,20 +70,6 @@ pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Resul
     Ok(())
 }
 
-type CteColAlias = collection_to_entity::Column;
-
-pub fn get_cte_column_from_lot(entity_lot: EntityLot) -> collection_to_entity::Column {
-    match entity_lot {
-        EntityLot::Metadata => CteColAlias::MetadataId,
-        EntityLot::Person => CteColAlias::PersonId,
-        EntityLot::MetadataGroup => CteColAlias::MetadataGroupId,
-        EntityLot::Exercise => CteColAlias::ExerciseId,
-        EntityLot::Workout => CteColAlias::WorkoutId,
-        EntityLot::WorkoutTemplate => CteColAlias::WorkoutTemplateId,
-        EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
-    }
-}
-
 pub async fn entity_in_collections_with_collection_to_entity_ids(
     db: &DatabaseConnection,
     user_id: &String,
@@ -96,13 +82,13 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
         .all(db)
         .await
         .unwrap();
-    let column = get_cte_column_from_lot(entity_lot);
     let mtc = CollectionToEntity::find()
         .filter(
-            CteColAlias::CollectionId
+            collection_to_entity::Column::CollectionId
                 .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
         )
-        .filter(column.eq(entity_id))
+        .filter(collection_to_entity::Column::EntityId.eq(entity_id))
+        .filter(collection_to_entity::Column::EntityLot.eq(entity_lot))
         .find_also_related(Collection)
         .all(db)
         .await

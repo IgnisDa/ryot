@@ -6,7 +6,6 @@ use chrono::Utc;
 use common_models::{ChangeCollectionToEntityInput, DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
-use database_utils::get_cte_column_from_lot;
 use enum_models::EntityLot;
 use media_models::CreateOrUpdateCollectionInput;
 use sea_orm::{
@@ -36,11 +35,10 @@ pub async fn add_entity_to_collection(
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(&ss.db).await?;
-    let column = get_cte_column_from_lot(input.entity_lot);
-
     let resp = match CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityId.eq(input.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityLot.eq(input.entity_lot))
         .one(&ss.db)
         .await?
     {
@@ -199,10 +197,10 @@ pub async fn remove_entity_from_collection(
         .one(&ss.db)
         .await?
         .unwrap();
-    let column = get_cte_column_from_lot(input.entity_lot);
     CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-        .filter(column.eq(input.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityId.eq(input.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityLot.eq(input.entity_lot))
         .exec(&ss.db)
         .await?;
     if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
