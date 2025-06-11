@@ -111,11 +111,11 @@ pub async fn delete_seen_item(
 
 pub async fn bulk_progress_update(
     ss: &Arc<SupportingService>,
-    user_id: String,
+    user_id: &String,
     input: Vec<ProgressUpdateInput>,
 ) -> Result<()> {
     for seen in input {
-        progress_update(&user_id, false, seen, ss).await.trace_ok();
+        progress_update(user_id, false, seen, ss).await.trace_ok();
     }
     Ok(())
 }

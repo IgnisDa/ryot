@@ -131,7 +131,7 @@ impl MiscellaneousService {
         user_id: String,
         input: Vec<ProgressUpdateInput>,
     ) -> Result<()> {
-        progress_operations::bulk_progress_update(&self.0, user_id, input).await
+        progress_operations::bulk_progress_update(&self.0, &user_id, input).await
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
