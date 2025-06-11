@@ -117,12 +117,6 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::UpdateGithubExercises => {
             app_services.fitness_service.update_github_exercises().await
         }
-        MpApplicationJob::RecalculateCalendarEvents => {
-            app_services
-                .miscellaneous_service
-                .recalculate_calendar_events()
-                .await
-        }
         MpApplicationJob::PerformBackgroundTasks => {
             app_services
                 .miscellaneous_service

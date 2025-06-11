@@ -308,10 +308,6 @@ impl MiscellaneousService {
         review_operations::create_review_comment(&self.0, user_id, input).await
     }
 
-    pub async fn recalculate_calendar_events(&self) -> Result<()> {
-        calendar_operations::recalculate_calendar_events(&self.0).await
-    }
-
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
         update_metadata_and_notify_users(metadata_id, &self.0).await?;
         Ok(())

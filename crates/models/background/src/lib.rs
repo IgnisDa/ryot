@@ -21,7 +21,6 @@ pub enum MpApplicationJob {
     UpdateGithubExercises,
     UpdateMetadata(String),
     PerformBackgroundTasks,
-    RecalculateCalendarEvents,
     ReviseUserWorkouts(String),
     UpdateMetadataGroup(String),
     ImportFromExternalSource(String, Box<DeployImportJobInput>),
