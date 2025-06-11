@@ -96,16 +96,16 @@ async fn process_item(
     base_url: &str,
     series_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 ) -> std::result::Result<Option<ImportOrExportMetadataItem>, ImportFailedItem> {
-    let type_ = item.type_.clone().unwrap();
+    let typ = item.typ.clone().unwrap();
     ryot_log!(
         debug,
         "Processing item: {:?} ({:?}) ({}/{})",
         item.name,
-        type_,
+        typ,
         idx + 1,
         total
     );
-    let (lot, tmdb_id, ssn, sen) = match type_.clone() {
+    let (lot, tmdb_id, ssn, sen) = match typ.clone() {
         MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
         MediaType::Series | MediaType::Episode => {
             if let Some(series_id) = item.series_id {
@@ -160,7 +160,7 @@ async fn process_item(
             return Err(ImportFailedItem {
                 identifier: item.name,
                 step: ImportFailStep::ItemDetailsFromSource,
-                error: Some(format!("Unknown media type: {:?}", type_)),
+                error: Some(format!("Unknown media type: {:?}", typ)),
                 ..Default::default()
             });
         }
