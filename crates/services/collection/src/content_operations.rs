@@ -94,22 +94,18 @@ pub async fn collection_contents(
         })
         .apply_if(filter.entity_lot, |query, v| {
             let f = match v {
-                EntityLot::Metadata => collection_to_entity::Column::MetadataId.is_not_null(),
-                EntityLot::MetadataGroup => {
-                    collection_to_entity::Column::MetadataGroupId.is_not_null()
-                }
-                EntityLot::Person => collection_to_entity::Column::PersonId.is_not_null(),
-                EntityLot::Exercise => collection_to_entity::Column::ExerciseId.is_not_null(),
-                EntityLot::Workout => collection_to_entity::Column::WorkoutId.is_not_null(),
-                EntityLot::WorkoutTemplate => {
-                    collection_to_entity::Column::WorkoutTemplateId.is_not_null()
-                }
+                EntityLot::Person => EntityLot::Person,
+                EntityLot::Workout => EntityLot::Workout,
+                EntityLot::Metadata => EntityLot::Metadata,
+                EntityLot::Exercise => EntityLot::Exercise,
+                EntityLot::MetadataGroup => EntityLot::MetadataGroup,
+                EntityLot::WorkoutTemplate => EntityLot::WorkoutTemplate,
                 EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
                     // These entity types cannot be directly added to collections
                     unreachable!()
                 }
             };
-            query.filter(f)
+            query.filter(collection_to_entity::Column::EntityLot.eq(f))
         })
         .order_by(
             match sort.by {
