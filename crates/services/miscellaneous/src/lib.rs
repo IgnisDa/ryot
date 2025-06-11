@@ -234,7 +234,7 @@ impl MiscellaneousService {
         review_operations::delete_review(&self.0, user_id, review_id).await
     }
 
-    pub async fn handle_after_media_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
+    pub async fn handle_after_metadata_seen_tasks(&self, seen: Box<seen::Model>) -> Result<()> {
         handle_after_metadata_seen_tasks(*seen, &self.0).await
     }
 

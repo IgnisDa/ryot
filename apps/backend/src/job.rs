@@ -157,7 +157,7 @@ pub async fn perform_lp_application_job(
         LpApplicationJob::HandleAfterMetadataSeenTasks(seen) => {
             app_services
                 .miscellaneous_service
-                .handle_after_media_seen_tasks(seen)
+                .handle_after_metadata_seen_tasks(seen)
                 .await
         }
         LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
