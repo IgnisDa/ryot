@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use async_graphql::Result;
 use common_models::DefaultCollection;
@@ -30,26 +33,28 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             .filter(collection::Column::UserId.eq(&user_id))
             .all(&ss.db)
             .await?;
-        let monitoring_collection_id = collections
-            .iter()
-            .find(|c| c.name == DefaultCollection::Monitoring.to_string() && c.user_id == user_id)
-            .map(|c| c.id.clone())
-            .unwrap();
-        let watchlist_collection_id = collections
-            .iter()
-            .find(|c| c.name == DefaultCollection::Watchlist.to_string() && c.user_id == user_id)
-            .map(|c| c.id.clone())
-            .unwrap();
-        let owned_collection_id = collections
-            .iter()
-            .find(|c| c.name == DefaultCollection::Owned.to_string() && c.user_id == user_id)
-            .map(|c| c.id.clone())
-            .unwrap();
-        let reminder_collection_id = collections
-            .iter()
-            .find(|c| c.name == DefaultCollection::Reminders.to_string() && c.user_id == user_id)
-            .map(|c| c.id.clone())
-            .unwrap();
+
+        let mut collection_id_map: HashMap<String, String> = HashMap::new();
+        let default_collections = [
+            DefaultCollection::Monitoring,
+            DefaultCollection::Watchlist,
+            DefaultCollection::Owned,
+            DefaultCollection::Reminders,
+        ];
+
+        for default_collection in default_collections {
+            let collection_name = default_collection.to_string();
+            if let Some(collection) = collections.iter().find(|c| c.name == collection_name) {
+                collection_id_map.insert(collection_name, collection.id.clone());
+            }
+        }
+
+        let monitoring_collection_id =
+            &collection_id_map[&DefaultCollection::Monitoring.to_string()];
+        let watchlist_collection_id = &collection_id_map[&DefaultCollection::Watchlist.to_string()];
+        let owned_collection_id = &collection_id_map[&DefaultCollection::Owned.to_string()];
+        let reminder_collection_id = &collection_id_map[&DefaultCollection::Reminders.to_string()];
+
         let all_user_to_entities = UserToEntity::find()
             .filter(user_to_entity::Column::NeedsToBeUpdated.eq(true))
             .filter(user_to_entity::Column::UserId.eq(&user_id))
