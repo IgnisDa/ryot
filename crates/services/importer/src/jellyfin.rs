@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+
 use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
@@ -31,9 +36,19 @@ pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
         .unwrap();
 
     let len = library_data.items.len();
+    let series_cache = Arc::new(Mutex::new(HashMap::<String, Option<String>>::new()));
 
     let results: Vec<_> = stream::iter(library_data.items.into_iter().enumerate())
-        .map(|(idx, item)| process_item(idx, item, len, &client, &base_url))
+        .map(|(idx, item)| {
+            process_item(
+                idx,
+                item,
+                len,
+                &client,
+                &base_url,
+                Arc::clone(&series_cache),
+            )
+        })
         .buffer_unordered(5)
         .collect()
         .await;
@@ -79,6 +94,7 @@ async fn process_item(
     total: usize,
     client: &Client,
     base_url: &str,
+    series_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 ) -> std::result::Result<Option<ImportOrExportMetadataItem>, ImportFailedItem> {
     let type_ = item.type_.clone().unwrap();
     ryot_log!(
@@ -93,25 +109,43 @@ async fn process_item(
         MediaType::Movie => (MediaLot::Movie, item.provider_ids.unwrap().tmdb, None, None),
         MediaType::Series | MediaType::Episode => {
             if let Some(series_id) = item.series_id {
-                let details = client
-                    .get(format!("{}/Items/{}", base_url, series_id))
-                    .send()
-                    .await
-                    .map_err(|e| ImportFailedItem {
-                        identifier: item.name.clone(),
-                        error: Some(e.to_string()),
-                        step: ImportFailStep::ItemDetailsFromSource,
-                        ..Default::default()
-                    })?
-                    .json::<ItemResponse>()
-                    .await
-                    .map_err(|e| ImportFailedItem {
-                        identifier: item.name.clone(),
-                        error: Some(e.to_string()),
-                        step: ImportFailStep::ItemDetailsFromSource,
-                        ..Default::default()
-                    })?;
-                let tmdb_id = details.provider_ids.unwrap().tmdb;
+                let cached_tmdb_id = {
+                    let cache = series_cache.lock().unwrap();
+                    cache.get(&series_id).cloned()
+                };
+
+                let tmdb_id = match cached_tmdb_id {
+                    Some(cached_id) => cached_id,
+                    None => {
+                        let details = client
+                            .get(format!("{}/Items/{}", base_url, series_id))
+                            .send()
+                            .await
+                            .map_err(|e| ImportFailedItem {
+                                identifier: item.name.clone(),
+                                error: Some(e.to_string()),
+                                step: ImportFailStep::ItemDetailsFromSource,
+                                ..Default::default()
+                            })?
+                            .json::<ItemResponse>()
+                            .await
+                            .map_err(|e| ImportFailedItem {
+                                identifier: item.name.clone(),
+                                error: Some(e.to_string()),
+                                step: ImportFailStep::ItemDetailsFromSource,
+                                ..Default::default()
+                            })?;
+                        let fetched_tmdb_id = details.provider_ids.unwrap().tmdb;
+
+                        {
+                            let mut cache = series_cache.lock().unwrap();
+                            cache.insert(series_id.clone(), fetched_tmdb_id.clone());
+                        }
+
+                        fetched_tmdb_id
+                    }
+                };
+
                 (
                     MediaLot::Show,
                     tmdb_id,
@@ -119,7 +153,7 @@ async fn process_item(
                     item.index_number,
                 )
             } else {
-                return Ok(None); // Skip items without series_id
+                return Ok(None);
             }
         }
         _ => {
