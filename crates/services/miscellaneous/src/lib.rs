@@ -155,7 +155,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
-        progress_operations::update_seen_item(&self.0, user_id, input).await
+        progress_operations::update_seen_item(&self.0, &user_id, input).await
     }
 
     pub async fn deploy_update_person_job(&self, person_id: String) -> Result<bool> {

@@ -18,13 +18,13 @@ use traits::TraceOk;
 
 pub async fn update_seen_item(
     ss: &Arc<SupportingService>,
-    user_id: String,
+    user_id: &String,
     input: UpdateSeenItemInput,
 ) -> Result<bool> {
     let Some(seen) = Seen::find_by_id(input.seen_id).one(&ss.db).await? else {
         return Err(Error::new("No seen found for this user and metadata"));
     };
-    if seen.user_id != user_id {
+    if &seen.user_id != user_id {
         return Err(Error::new("No seen found for this user and metadata"));
     }
     let mut seen: seen::ActiveModel = seen.into();
@@ -49,7 +49,7 @@ pub async fn update_seen_item(
             true => (None, None),
         };
         if let Some(review_item) = review {
-            if review_item.user_id != user_id {
+            if &review_item.user_id != user_id {
                 return Err(Error::new(
                     "You cannot associate a review with a seen item that is not yours",
                 ));
