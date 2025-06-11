@@ -163,7 +163,7 @@ pub async fn collection_contents(
         reviews,
         results,
         details,
-        total_items: number_of_items.try_into().unwrap(),
+        total_items: number_of_items,
     };
     let cache_id = cc
         .set_key(

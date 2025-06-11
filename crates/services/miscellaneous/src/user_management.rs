@@ -102,10 +102,10 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 new_reasons.insert(UserToMediaReason::Reviewed);
             }
             let is_in_collection = !collections_part_of.is_empty();
-            let is_monitoring = collections_part_of.contains(&monitoring_collection_id);
-            let is_watchlist = collections_part_of.contains(&watchlist_collection_id);
-            let is_owned = collections_part_of.contains(&owned_collection_id);
-            let has_reminder = collections_part_of.contains(&reminder_collection_id);
+            let is_monitoring = collections_part_of.contains(monitoring_collection_id);
+            let is_watchlist = collections_part_of.contains(watchlist_collection_id);
+            let is_owned = collections_part_of.contains(owned_collection_id);
+            let has_reminder = collections_part_of.contains(reminder_collection_id);
             if is_in_collection {
                 new_reasons.insert(UserToMediaReason::Collection);
             }

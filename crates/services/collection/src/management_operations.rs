@@ -25,7 +25,7 @@ pub async fn delete_collection(
     };
     let resp = Collection::delete_by_id(c.id).exec(&ss.db).await?;
     if resp.rows_affected > 0 {
-        expire_user_collections_list_cache(&user_id, ss).await?;
+        expire_user_collections_list_cache(user_id, ss).await?;
     }
     Ok(true)
 }
