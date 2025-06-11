@@ -103,7 +103,7 @@ pub async fn delete_seen_item(
             "This seen item does not belong to this user".to_owned(),
         ));
     }
-    si.delete(&ss.db).await.trace_ok();
+    si.delete(&ss.db).await?;
     deploy_after_metadata_seen_tasks(cloned_seen, ss).await?;
     associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss).await?;
     Ok(StringIdObject { id: seen_id })
