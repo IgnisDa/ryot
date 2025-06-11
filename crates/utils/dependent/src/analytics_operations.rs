@@ -344,12 +344,12 @@ pub async fn calculate_user_activities_and_summary(
 
     let mut collection_stream = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.is_in(user_owned_collection_ids))
-        .filter(collection_to_entity::Column::LastUpdatedOn.gt(start_from))
+        .filter(collection_to_entity::Column::CreatedOn.gt(start_from))
         .stream(&ss.db)
         .await?;
 
     while let Some(cte) = collection_stream.try_next().await? {
-        let date = cte.last_updated_on.date_naive();
+        let date = cte.created_on.date_naive();
         let activity = get_activity_count(
             &mut activities,
             user_id,
@@ -357,7 +357,7 @@ pub async fn calculate_user_activities_and_summary(
             cte.id.to_string(),
             cte.entity_lot,
             None,
-            cte.last_updated_on,
+            cte.created_on,
         );
 
         match cte.entity_lot {
