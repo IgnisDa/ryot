@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use database_models::seen;
 use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -32,7 +31,6 @@ pub enum MpApplicationJob {
 pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
-    HandleAfterMetadataSeenTasks(Box<seen::Model>),
     UpdateUserLastActivityPerformed(String, DateTime<Utc>),
 }
 

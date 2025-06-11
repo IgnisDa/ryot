@@ -154,12 +154,6 @@ pub async fn perform_lp_application_job(
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        LpApplicationJob::HandleAfterMetadataSeenTasks(seen) => {
-            app_services
-                .miscellaneous_service
-                .handle_after_metadata_seen_tasks(seen)
-                .await
-        }
         LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
             app_services
                 .integration_service

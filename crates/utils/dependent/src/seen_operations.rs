@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
-use background_models::{ApplicationJob, LpApplicationJob};
 use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};
@@ -116,16 +115,6 @@ pub async fn is_metadata_finished_by_user(
         seen_history.iter().any(|h| h.state == SeenState::Completed)
     };
     Ok((is_finished, seen_history))
-}
-
-pub async fn deploy_after_metadata_seen_tasks(
-    seen: seen::Model,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::Lp(
-        LpApplicationJob::HandleAfterMetadataSeenTasks(Box::new(seen)),
-    ))
-    .await
 }
 
 pub async fn handle_after_metadata_seen_tasks(
