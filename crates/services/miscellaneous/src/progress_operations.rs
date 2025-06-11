@@ -93,16 +93,16 @@ pub async fn delete_seen_item(
             provider_watched_on: si.provider_watched_on.clone(),
         },
     });
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ByKey(cache))
-        .await?;
-    let seen_id = si.id.clone();
-    let metadata_id = si.metadata_id.clone();
     if &si.user_id != user_id {
         return Err(Error::new(
             "This seen item does not belong to this user".to_owned(),
         ));
     }
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::ByKey(cache))
+        .await?;
+    let seen_id = si.id.clone();
+    let metadata_id = si.metadata_id.clone();
     si.delete(&ss.db).await?;
     deploy_after_metadata_seen_tasks(cloned_seen, ss).await?;
     associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss).await?;
