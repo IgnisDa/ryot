@@ -292,10 +292,16 @@ export default function Page() {
 		loaderData.metadataDetails.title,
 	);
 
-	const changeProgressState = (change: MetadataProgressUpdateChange) => {
+	const changeProgress = (change: MetadataProgressUpdateChange) => {
 		deployBulkMetadataProgressUpdate.mutate([
 			{ change, metadataId: loaderData.metadataId },
 		]);
+	};
+
+	const changeProgressState = (state: SeenState) => {
+		changeProgress({
+			changeLatestInProgress: { state },
+		});
 	};
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
@@ -376,26 +382,14 @@ export default function Page() {
 
 	const PutOnHoldMenuItem = () => {
 		return (
-			<Menu.Item
-				onClick={() => {
-					changeProgressState({
-						changeLatestInProgress: { state: SeenState.OnAHold },
-					});
-				}}
-			>
+			<Menu.Item onClick={() => changeProgressState(SeenState.OnAHold)}>
 				Put on hold
 			</Menu.Item>
 		);
 	};
 	const DropMenuItem = () => {
 		return (
-			<Menu.Item
-				onClick={() => {
-					changeProgressState({
-						changeLatestInProgress: { state: SeenState.Dropped },
-					});
-				}}
-			>
+			<Menu.Item onClick={() => changeProgressState(SeenState.Dropped)}>
 				Mark as dropped
 			</Menu.Item>
 		);
@@ -861,13 +855,11 @@ export default function Page() {
 														<StateChangeButtons />
 													) : null}
 													<Menu.Item
-														onClick={() => {
-															changeProgressState({
-																changeLatestInProgress: {
-																	progress: "100",
-																},
-															});
-														}}
+														onClick={() =>
+															changeProgress({
+																changeLatestInProgress: { progress: "100" },
+															})
+														}
 													>
 														I finished it
 													</Menu.Item>
@@ -881,15 +873,15 @@ export default function Page() {
 														loaderData.metadataDetails.lot,
 													) ? (
 														<Menu.Item
-															onClick={() => {
-																changeProgressState({
+															onClick={() =>
+																changeProgress({
 																	createNewInProgress: {
 																		startedOn: formatDateToNaiveDate(
 																			new Date(),
 																		),
 																	},
-																});
-															}}
+																})
+															}
 														>
 															I'm{" "}
 															{getVerb(
