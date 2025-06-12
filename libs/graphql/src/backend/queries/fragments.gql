@@ -220,7 +220,6 @@ fragment SetRestTimersPart on SetRestTimersSettings {
 
 fragment PersonDetailsGroupedByRolePart on PersonDetailsGroupedByRole {
 	name
-	count
 	items {
 		entityId
 		character

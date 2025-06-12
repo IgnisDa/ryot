@@ -10,6 +10,7 @@ use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
 use external_utils::audiobookshelf::get_updated_podcast_metadata;
+use futures::stream::{self, StreamExt};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
     PartialMetadataWithoutId,
@@ -64,128 +65,187 @@ pub async fn import(
             .await
             .unwrap();
         let len = finished_items.results.len();
-        for (idx, item) in finished_items.results.into_iter().enumerate() {
-            let metadata = item.media.clone().unwrap().metadata;
-            let title = metadata.title.clone();
-            ryot_log!(debug, "Importing item {:?} ({}/{})", title, idx + 1, len);
-            let (identifier, lot, source, episodes) = if Some("epub".to_string())
-                == item.media.as_ref().unwrap().ebook_format
-            {
-                match &metadata.isbn {
-                    Some(isbn) => match get_identifier_from_book_isbn(
-                        isbn,
-                        hardcover_service,
-                        google_books_service,
-                        open_library_service,
-                    )
-                    .await
-                    {
-                        Some((identifier, source)) => (identifier, MediaLot::Book, source, None),
-                        _ => {
-                            failed.push(ImportFailedItem {
-                                identifier: title,
-                                step: ImportFailStep::InputTransformation,
-                                error: Some("No Google Books ID found".to_string()),
-                                ..Default::default()
-                            });
-                            continue;
-                        }
-                    },
-                    _ => {
-                        failed.push(ImportFailedItem {
-                            identifier: title,
-                            error: Some("No ISBN found".to_string()),
-                            step: ImportFailStep::InputTransformation,
-                            ..Default::default()
-                        });
-                        continue;
-                    }
-                }
-            } else if let Some(asin) = metadata.asin.clone() {
-                (asin, MediaLot::AudioBook, MediaSource::Audible, None)
-            } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-                let item_details = get_item_details(&client, &url, &item.id, None).await?;
-                match item_details.media.and_then(|m| m.episodes) {
-                    Some(episodes) => {
-                        let lot = MediaLot::Podcast;
-                        let source = MediaSource::Itunes;
-                        let mut to_return = vec![];
-                        for episode in episodes {
-                            ryot_log!(debug, "Importing episode {:?}", episode.title);
-                            let episode_details = get_item_details(
-                                &client,
-                                &url,
-                                &item.id,
-                                Some(episode.id.unwrap()),
-                            )
-                            .await?;
-                            if let Some(true) =
-                                episode_details.user_media_progress.map(|u| u.is_finished)
-                            {
-                                commit_metadata(
-                                    PartialMetadataWithoutId {
-                                        lot,
-                                        source,
-                                        identifier: itunes_id.clone(),
-                                        ..Default::default()
-                                    },
-                                    ss,
-                                )
-                                .await?;
-                                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
-                                if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
-                                    get_podcast_episode_number_by_name(&p, &episode.title)
-                                }) {
-                                    to_return.push(pe);
-                                }
-                            }
-                        }
-                        (itunes_id, lot, source, Some(to_return))
-                    }
-                    _ => {
-                        failed.push(ImportFailedItem {
-                            error: Some("No episodes found for podcast".to_string()),
-                            identifier: title,
-                            lot: Some(MediaLot::Podcast),
-                            step: ImportFailStep::ItemDetailsFromSource,
-                        });
-                        continue;
-                    }
-                }
-            } else {
-                ryot_log!(
-                    debug,
-                    "No ASIN, ISBN or iTunes ID found for item {:?}",
-                    item
-                );
-                continue;
-            };
-            let mut seen_history = vec![];
-            if let Some(podcasts) = episodes {
-                for episode in podcasts {
-                    seen_history.push(ImportOrExportMetadataItemSeen {
-                        provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
-                        podcast_episode_number: Some(episode),
-                        ..Default::default()
-                    });
-                }
-            } else {
-                seen_history.push(ImportOrExportMetadataItemSeen {
-                    provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
-                    ..Default::default()
-                });
-            };
-            completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                lot,
-                source,
-                identifier,
-                seen_history,
-                source_id: metadata.title,
-                ..Default::default()
-            }))
+
+        let results: Vec<_> = stream::iter(finished_items.results.into_iter().enumerate())
+            .map(|(idx, item)| {
+                process_item(
+                    idx,
+                    item,
+                    len,
+                    &client,
+                    &url,
+                    ss,
+                    hardcover_service,
+                    google_books_service,
+                    open_library_service,
+                )
+            })
+            .buffer_unordered(5)
+            .collect()
+            .await;
+
+        for result in results {
+            match result {
+                Ok(item) => completed.push(item),
+                Err(error_item) => failed.push(error_item),
+            }
         }
     }
     Ok(ImportResult { completed, failed })
+}
+
+async fn process_item(
+    idx: usize,
+    item: audiobookshelf_models::Item,
+    total: usize,
+    client: &Client,
+    url: &str,
+    ss: &Arc<SupportingService>,
+    hardcover_service: &HardcoverService,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+    let metadata = item.media.clone().unwrap().metadata;
+    let title = metadata.title.clone();
+    ryot_log!(debug, "Importing item {:?} ({}/{})", title, idx + 1, total);
+    let (identifier, lot, source, episodes) =
+        if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+            match &metadata.isbn {
+                Some(isbn) => match get_identifier_from_book_isbn(
+                    isbn,
+                    hardcover_service,
+                    google_books_service,
+                    open_library_service,
+                )
+                .await
+                {
+                    Some((identifier, source)) => (identifier, MediaLot::Book, source, None),
+                    _ => {
+                        return Err(ImportFailedItem {
+                            identifier: title,
+                            step: ImportFailStep::InputTransformation,
+                            error: Some("No Google Books ID found".to_string()),
+                            ..Default::default()
+                        });
+                    }
+                },
+                _ => {
+                    return Err(ImportFailedItem {
+                        identifier: title,
+                        error: Some("No ISBN found".to_string()),
+                        step: ImportFailStep::InputTransformation,
+                        ..Default::default()
+                    });
+                }
+            }
+        } else if let Some(asin) = metadata.asin.clone() {
+            (asin, MediaLot::AudioBook, MediaSource::Audible, None)
+        } else if let Some(itunes_id) = metadata.itunes_id.clone() {
+            let item_details = get_item_details(&client, &url, &item.id, None)
+                .await
+                .map_err(|e| ImportFailedItem {
+                    error: Some(e.message),
+                    identifier: title.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    ..Default::default()
+                })?;
+            match item_details.media.and_then(|m| m.episodes) {
+                Some(episodes) => {
+                    let lot = MediaLot::Podcast;
+                    let source = MediaSource::Itunes;
+                    let mut to_return = vec![];
+                    for episode in episodes {
+                        ryot_log!(debug, "Importing episode {:?}", episode.title);
+                        let episode_details =
+                            get_item_details(&client, &url, &item.id, Some(episode.id.unwrap()))
+                                .await
+                                .map_err(|e| ImportFailedItem {
+                                    error: Some(e.message),
+                                    identifier: title.clone(),
+                                    step: ImportFailStep::ItemDetailsFromSource,
+                                    ..Default::default()
+                                })?;
+                        if let Some(true) =
+                            episode_details.user_media_progress.map(|u| u.is_finished)
+                        {
+                            commit_metadata(
+                                PartialMetadataWithoutId {
+                                    lot,
+                                    source,
+                                    identifier: itunes_id.clone(),
+                                    ..Default::default()
+                                },
+                                ss,
+                            )
+                            .await
+                            .map_err(|e| ImportFailedItem {
+                                identifier: title.clone(),
+                                error: Some(e.message),
+                                step: ImportFailStep::ItemDetailsFromSource,
+                                ..Default::default()
+                            })?;
+                            let podcast = get_updated_podcast_metadata(&itunes_id, ss)
+                                .await
+                                .map_err(|e| ImportFailedItem {
+                                    identifier: title.clone(),
+                                    error: Some(e.to_string()),
+                                    step: ImportFailStep::ItemDetailsFromSource,
+                                    ..Default::default()
+                                })?;
+                            if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
+                                get_podcast_episode_number_by_name(&p, &episode.title)
+                            }) {
+                                to_return.push(pe);
+                            }
+                        }
+                    }
+                    (itunes_id, lot, source, Some(to_return))
+                }
+                _ => {
+                    return Err(ImportFailedItem {
+                        identifier: title,
+                        lot: Some(MediaLot::Podcast),
+                        step: ImportFailStep::ItemDetailsFromSource,
+                        error: Some("No episodes found for podcast".to_string()),
+                    });
+                }
+            }
+        } else {
+            ryot_log!(
+                debug,
+                "No ASIN, ISBN or iTunes ID found for item {:?}",
+                item
+            );
+            return Err(ImportFailedItem {
+                identifier: title,
+                step: ImportFailStep::InputTransformation,
+                error: Some("No ASIN, ISBN or iTunes ID found".to_string()),
+                ..Default::default()
+            });
+        };
+    let mut seen_history = vec![];
+    if let Some(podcasts) = episodes {
+        for episode in podcasts {
+            seen_history.push(ImportOrExportMetadataItemSeen {
+                podcast_episode_number: Some(episode),
+                provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
+                ..Default::default()
+            });
+        }
+    } else {
+        seen_history.push(ImportOrExportMetadataItemSeen {
+            provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
+            ..Default::default()
+        });
+    };
+    Ok(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+        lot,
+        source,
+        identifier,
+        seen_history,
+        source_id: metadata.title,
+        ..Default::default()
+    }))
 }
 
 async fn get_item_details(

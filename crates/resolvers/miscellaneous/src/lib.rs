@@ -411,8 +411,8 @@ impl MiscellaneousMutation {
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.mark_entity_as_partial(&user_id, input).await
+        self.user_id_from_ctx(gql_ctx).await?;
+        service.mark_entity_as_partial(input).await
     }
 
     /// Expire a cache key by its ID

@@ -4,11 +4,118 @@ use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::plex as plex_models;
+use futures::stream::{self, StreamExt};
 use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
 };
-use reqwest::header::{ACCEPT, HeaderName, HeaderValue};
+use reqwest::{
+    Client,
+    header::{ACCEPT, HeaderName, HeaderValue},
+};
+
+async fn process_metadata_item(
+    idx: usize,
+    item: plex_models::PlexMetadataItem,
+    total: usize,
+    lot: MediaLot,
+    client: &Client,
+    api_url: &str,
+) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+    let Some(_lv) = item.last_viewed_at else {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            step: ImportFailStep::InputTransformation,
+            identifier: format!("{} ({}) - {}", item.title, lot, item.key),
+            error: Some("No last viewed date".to_string()),
+        });
+    };
+    ryot_log!(debug, "Processing item {}/{}", idx + 1, total);
+    let gu_ids = item.guid.unwrap_or_default();
+    let Some(tmdb_id) = gu_ids
+        .iter()
+        .find(|g| g.id.starts_with("tmdb://"))
+        .map(|g| &g.id[7..])
+    else {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            step: ImportFailStep::ItemDetailsFromSource,
+            identifier: format!("{} ({}) - {}", item.title, lot, item.key),
+            error: Some("No TMDb ID associated with this media".to_string()),
+        });
+    };
+
+    let result = match lot {
+        MediaLot::Movie => ImportOrExportMetadataItem {
+            lot,
+            source_id: item.key,
+            source: MediaSource::Tmdb,
+            identifier: tmdb_id.to_string(),
+            seen_history: vec![ImportOrExportMetadataItemSeen {
+                ended_on: item.last_viewed_at.map(|d| d.date_naive()),
+                provider_watched_on: Some(ImportSource::Plex.to_string()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+        MediaLot::Show => {
+            let leaves = client
+                .get(format!(
+                    "{}/library/metadata/{}/allLeaves",
+                    api_url,
+                    item.rating_key.unwrap()
+                ))
+                .send()
+                .await
+                .map_err(|e| ImportFailedItem {
+                    lot: Some(lot),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: format!("{} ({}) - {}", item.title, lot, item.key),
+                    error: Some(e.to_string()),
+                })?
+                .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
+                .await
+                .map_err(|e| ImportFailedItem {
+                    lot: Some(lot),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: format!("{} ({}) - {}", item.title, lot, item.key),
+                    error: Some(e.to_string()),
+                })?;
+            let mut result_item = ImportOrExportMetadataItem {
+                lot,
+                source: MediaSource::Tmdb,
+                source_id: item.key.clone(),
+                identifier: tmdb_id.to_string(),
+                ..Default::default()
+            };
+            let Some(leafs) = leaves.media_container.metadata else {
+                return Err(ImportFailedItem {
+                    lot: Some(lot),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    identifier: format!("{} ({}) - {}", item.title, lot, item.key),
+                    error: Some("No episodes found".to_string()),
+                });
+            };
+            for leaf in leafs {
+                if leaf.last_viewed_at.is_some() {
+                    result_item
+                        .seen_history
+                        .push(ImportOrExportMetadataItemSeen {
+                            show_episode_number: leaf.index,
+                            show_season_number: leaf.parent_index,
+                            ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
+                            provider_watched_on: Some(ImportSource::Plex.to_string()),
+                            ..Default::default()
+                        });
+                }
+            }
+            result_item
+        }
+        _ => unreachable!(),
+    };
+
+    Ok(ImportCompletedItem::Metadata(result))
+}
 
 pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let client = get_base_http_client(Some(vec![
@@ -59,75 +166,19 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
             continue;
         };
         let total = metadata.len();
-        for (idx, item) in metadata.into_iter().enumerate() {
-            let Some(_lv) = item.last_viewed_at else {
-                continue;
-            };
-            ryot_log!(debug, "Processing item {}/{}", idx + 1, total);
-            let gu_ids = item.guid.unwrap_or_default();
-            let Some(tmdb_id) = gu_ids
-                .iter()
-                .find(|g| g.id.starts_with("tmdb://"))
-                .map(|g| &g.id[7..])
-            else {
-                failed_items.push(ImportFailedItem {
-                    lot: Some(lot),
-                    step: ImportFailStep::ItemDetailsFromSource,
-                    identifier: format!("{} ({}) - {}", item.title, lot, item.key),
-                    error: Some("No TMDb ID associated with this media".to_string()),
-                });
-                continue;
-            };
-            match lot {
-                MediaLot::Movie => {
-                    success_items.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-                        lot,
-                        source_id: item.key,
-                        source: MediaSource::Tmdb,
-                        identifier: tmdb_id.to_string(),
-                        seen_history: vec![ImportOrExportMetadataItemSeen {
-                            ended_on: item.last_viewed_at.map(|d| d.date_naive()),
-                            provider_watched_on: Some(ImportSource::Plex.to_string()),
-                            ..Default::default()
-                        }],
-                        ..Default::default()
-                    }));
-                }
-                MediaLot::Show => {
-                    let leaves = client
-                        .get(format!(
-                            "{}/library/metadata/{}/allLeaves",
-                            input.api_url,
-                            item.rating_key.unwrap()
-                        ))
-                        .send()
-                        .await?
-                        .json::<plex_models::PlexMediaResponse<plex_models::PlexMetadata>>()
-                        .await?;
-                    let mut item = ImportOrExportMetadataItem {
-                        lot,
-                        source: MediaSource::Tmdb,
-                        source_id: item.key.clone(),
-                        identifier: tmdb_id.to_string(),
-                        ..Default::default()
-                    };
-                    let Some(leafs) = leaves.media_container.metadata else {
-                        continue;
-                    };
-                    for leaf in leafs {
-                        if leaf.last_viewed_at.is_some() {
-                            item.seen_history.push(ImportOrExportMetadataItemSeen {
-                                show_episode_number: leaf.index,
-                                show_season_number: leaf.parent_index,
-                                ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
-                                provider_watched_on: Some(ImportSource::Plex.to_string()),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    success_items.push(ImportCompletedItem::Metadata(item));
-                }
-                _ => unreachable!(),
+
+        let results: Vec<_> = stream::iter(metadata.into_iter().enumerate())
+            .map(|(idx, item)| {
+                process_metadata_item(idx, item, total, lot, &client, &input.api_url)
+            })
+            .buffer_unordered(5)
+            .collect()
+            .await;
+
+        for result in results {
+            match result {
+                Ok(item) => success_items.push(item),
+                Err(error_item) => failed_items.push(error_item),
             }
         }
     }

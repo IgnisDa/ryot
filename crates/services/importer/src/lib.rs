@@ -62,8 +62,7 @@ impl ImporterService {
             .filter(import_report::Column::UserId.eq(user_id))
             .order_by_desc(import_report::Column::StartedOn)
             .all(&self.0.db)
-            .await
-            .unwrap();
+            .await?;
         Ok(reports)
     }
 
@@ -80,7 +79,7 @@ impl ImporterService {
             estimated_finish_time: ActiveValue::Set(import_started_at + Duration::hours(1)),
             ..Default::default()
         };
-        let db_import_job = model.insert(&self.0.db).await.unwrap();
+        let db_import_job = model.insert(&self.0.db).await?;
         let import_id = db_import_job.id.clone();
         ryot_log!(debug, "Started import job with id {import_id}");
         let maybe_import = match input.source {
@@ -94,9 +93,9 @@ impl ImporterService {
             ImportSource::Goodreads => {
                 goodreads::import(
                     input.generic_csv.unwrap(),
-                    &get_hardcover_service(&self.0.config).await.unwrap(),
-                    &get_google_books_service(&self.0.config).await.unwrap(),
-                    &get_openlibrary_service(&self.0.config).await.unwrap(),
+                    &get_hardcover_service(&self.0.config).await?,
+                    &get_google_books_service(&self.0.config).await?,
+                    &get_openlibrary_service(&self.0.config).await?,
                 )
                 .await
             }
@@ -105,9 +104,9 @@ impl ImporterService {
             ImportSource::Storygraph => {
                 storygraph::import(
                     input.generic_csv.unwrap(),
-                    &get_hardcover_service(&self.0.config).await.unwrap(),
-                    &get_google_books_service(&self.0.config).await.unwrap(),
-                    &get_openlibrary_service(&self.0.config).await.unwrap(),
+                    &get_hardcover_service(&self.0.config).await?,
+                    &get_google_books_service(&self.0.config).await?,
+                    &get_openlibrary_service(&self.0.config).await?,
                 )
                 .await
             }
@@ -115,9 +114,9 @@ impl ImporterService {
                 audiobookshelf::import(
                     input.url_and_key.unwrap(),
                     &self.0,
-                    &get_hardcover_service(&self.0.config).await.unwrap(),
-                    &get_google_books_service(&self.0.config).await.unwrap(),
-                    &get_openlibrary_service(&self.0.config).await.unwrap(),
+                    &get_hardcover_service(&self.0.config).await?,
+                    &get_google_books_service(&self.0.config).await?,
+                    &get_openlibrary_service(&self.0.config).await?,
                 )
                 .await
             }
@@ -125,7 +124,7 @@ impl ImporterService {
             ImportSource::Imdb => {
                 imdb::import(
                     input.generic_csv.unwrap(),
-                    &get_tmdb_non_media_service(&self.0).await.unwrap(),
+                    &get_tmdb_non_media_service(&self.0).await?,
                 )
                 .await
             }
