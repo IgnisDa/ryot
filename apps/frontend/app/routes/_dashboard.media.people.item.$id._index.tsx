@@ -214,7 +214,7 @@ export default function Page() {
 											data={loaderData.personDetails.associatedMetadata.map(
 												(c) => ({
 													value: c.name,
-													label: `${c.name} (${c.count})`,
+													label: `${c.name} (${c.items.length})`,
 												}),
 											)}
 										/>
@@ -249,7 +249,7 @@ export default function Page() {
 											data={loaderData.personDetails.associatedMetadataGroups.map(
 												(c) => ({
 													value: c.name,
-													label: `${c.name} (${c.count})`,
+													label: `${c.name} (${c.items.length})`,
 												}),
 											)}
 										/>

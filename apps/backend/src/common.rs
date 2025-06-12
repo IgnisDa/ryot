@@ -84,7 +84,7 @@ pub async fn create_app_services(
     let user_service = Arc::new(UserService(supporting_service.clone()));
     let importer_service = Arc::new(ImporterService(supporting_service.clone()));
     let fitness_service = Arc::new(FitnessService(supporting_service.clone()));
-    let exporter_service = Arc::new(ExporterService(supporting_service.clone()));
+    let exporter_service = Arc::new(ExporterService::new(supporting_service.clone()));
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
     let statistics_service = Arc::new(StatisticsService(supporting_service.clone()));
     let integration_service = Arc::new(IntegrationService(supporting_service.clone()));

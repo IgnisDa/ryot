@@ -47,7 +47,7 @@ pub mod jellyfin {
         pub id: String,
         pub name: String,
         #[serde(rename = "Type")]
-        pub type_: Option<MediaType>,
+        pub typ: Option<MediaType>,
         pub index_number: Option<i32>,
         pub series_id: Option<String>,
         pub series_name: Option<String>,

@@ -111,17 +111,11 @@ pub async fn perform_mp_application_job(
         MpApplicationJob::UpdateMetadataGroup(metadata_group_id) => {
             app_services
                 .miscellaneous_service
-                .update_metadata_group_and_notify_users(metadata_group_id)
+                .update_metadata_group_and_notify_users(&metadata_group_id)
                 .await
         }
         MpApplicationJob::UpdateGithubExercises => {
             app_services.fitness_service.update_github_exercises().await
-        }
-        MpApplicationJob::RecalculateCalendarEvents => {
-            app_services
-                .miscellaneous_service
-                .recalculate_calendar_events()
-                .await
         }
         MpApplicationJob::PerformBackgroundTasks => {
             app_services
@@ -154,12 +148,6 @@ pub async fn perform_lp_application_job(
 ) -> Result<(), Error> {
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
-        LpApplicationJob::HandleAfterMediaSeenTasks(seen) => {
-            app_services
-                .miscellaneous_service
-                .handle_after_media_seen_tasks(seen)
-                .await
-        }
         LpApplicationJob::HandleEntityAddedToCollectionEvent(collection_to_entity_id) => {
             app_services
                 .integration_service

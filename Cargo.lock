@@ -845,7 +845,6 @@ name = "background-models"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "database-models",
  "media-models",
  "serde",
  "strum",
@@ -1267,6 +1266,7 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
+ "futures",
  "itertools 0.14.0",
  "media-models",
  "migrations",
@@ -3183,12 +3183,12 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
- "enum_meta",
  "env-utils",
  "external-models",
  "external-utils",
  "fitness-models",
  "flate2",
+ "futures",
  "importer-models",
  "indexmap 2.9.0",
  "itertools 0.14.0",
@@ -3204,6 +3204,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "supporting-service",
+ "tokio",
  "tracing",
  "traits",
 ]
