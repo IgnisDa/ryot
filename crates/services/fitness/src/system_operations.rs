@@ -26,10 +26,11 @@ pub async fn deploy_update_exercise_library_job(ss: &Arc<SupportingService>) -> 
 
 pub async fn update_github_exercises(ss: &Arc<SupportingService>) -> Result<()> {
     let exercises = exercise_management::get_all_exercises_from_dataset(ss).await?;
-    for exercise in exercises.clone() {
+    let count = exercises.len();
+    for exercise in exercises {
         exercise_management::update_github_exercise(ss, exercise).await?;
     }
-    ryot_log!(info, "Updated {} GitHub exercises", exercises.len());
+    ryot_log!(info, "Updated {} GitHub exercises", count);
     Ok(())
 }
 
