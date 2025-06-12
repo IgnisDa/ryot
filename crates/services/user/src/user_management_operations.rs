@@ -8,7 +8,6 @@ use database_utils::{admin_account_guard, deploy_job_to_calculate_user_activitie
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::UserLot;
-use itertools::Itertools;
 use media_models::{
     AuthUserInput, CreateOrUpdateCollectionInput, RegisterError, RegisterErrorVariant,
     RegisterResult, RegisterUserInput,
@@ -66,15 +65,12 @@ pub async fn delete_user(
     let Some(u) = maybe_user else {
         return Ok(false);
     };
-    if user_data_operations::users_list(ss, None)
+    let admin_count = user_data_operations::users_list(ss, None)
         .await?
         .into_iter()
         .filter(|u| u.lot == UserLot::Admin)
-        .collect_vec()
-        .len()
-        == 1
-        && u.lot == UserLot::Admin
-    {
+        .count();
+    if admin_count == 1 && u.lot == UserLot::Admin {
         return Ok(false);
     }
     u.delete(&ss.db).await?;
