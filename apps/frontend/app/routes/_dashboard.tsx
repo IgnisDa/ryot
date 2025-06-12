@@ -1002,7 +1002,7 @@ const MetadataInProgressUpdateForm = ({
 					onFocus={(e) => e.target.select()}
 					rightSection={<IconPercentage size={16} />}
 					onChange={(v) => {
-						if (v) setValue(Number(v));
+						if (isNumber(v)) setValue(v);
 						else setValue(undefined);
 					}}
 				/>
