@@ -85,6 +85,7 @@ import {
 	type ReactNode,
 	type RefObject,
 	forwardRef,
+	useCallback,
 	useMemo,
 	useRef,
 	useState,
@@ -292,16 +293,17 @@ export default function Page() {
 		loaderData.metadataDetails.title,
 	);
 
-	const changeProgress = (change: MetadataProgressUpdateChange) => {
-		deployBulkMetadataProgressUpdate.mutate([
-			{ change, metadataId: loaderData.metadataId },
-		]);
-	};
+	const changeProgress = useCallback(
+		(change: MetadataProgressUpdateChange) => {
+			deployBulkMetadataProgressUpdate.mutate([
+				{ change, metadataId: loaderData.metadataId },
+			]);
+		},
+		[deployBulkMetadataProgressUpdate, loaderData.metadataId],
+	);
 
 	const changeProgressState = (state: SeenState) => {
-		changeProgress({
-			changeLatestInProgress: { state },
-		});
+		changeProgress({ changeLatestInProgress: { state } });
 	};
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
