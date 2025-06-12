@@ -46,8 +46,7 @@ pub async fn import(
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
     let lot = MediaLot::Book;
-    let ratings_reader = Reader::from_path(input.csv_path)
-        .unwrap()
+    let ratings_reader = Reader::from_path(input.csv_path)?
         .deserialize()
         .collect_vec();
     let total = ratings_reader.len();
