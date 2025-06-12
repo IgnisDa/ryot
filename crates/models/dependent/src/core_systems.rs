@@ -55,7 +55,6 @@ pub struct ExerciseParameters {
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
-#[skip_serializing_none]
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
