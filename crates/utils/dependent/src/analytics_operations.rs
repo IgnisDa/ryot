@@ -382,9 +382,8 @@ pub async fn calculate_user_activities_and_summary(
             + activity.metadata_collection_count
             + activity.metadata_group_collection_count;
 
-        activity.total_person_count =
-            activity.person_review_count + activity.person_collection_count;
-        activity.total_metadata_group_count =
+        let total_person_count = activity.person_review_count + activity.person_collection_count;
+        let total_metadata_group_count =
             activity.metadata_group_review_count + activity.metadata_group_collection_count;
 
         let total_review_count = activity.metadata_review_count
@@ -407,7 +406,8 @@ pub async fn calculate_user_activities_and_summary(
             + activity.measurement_count
             + activity.workout_count
             + total_review_count
-            + total_collection_count;
+            + total_person_count
+            + total_metadata_group_count;
         let total_duration = activity.workout_duration
             + activity.audio_book_duration
             + activity.podcast_duration
@@ -421,9 +421,11 @@ pub async fn calculate_user_activities_and_summary(
         model.id = ActiveValue::NotSet;
         model.total_count = ActiveValue::Set(total_count);
         model.total_duration = ActiveValue::Set(total_duration);
+        model.total_person_count = ActiveValue::Set(total_person_count);
         model.total_review_count = ActiveValue::Set(total_review_count);
         model.total_metadata_count = ActiveValue::Set(total_metadata_count);
         model.total_collection_count = ActiveValue::Set(total_collection_count);
+        model.total_metadata_group_count = ActiveValue::Set(total_metadata_group_count);
         model.insert(&ss.db).await.unwrap();
     }
 
