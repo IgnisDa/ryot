@@ -113,6 +113,7 @@ pub async fn register_user(
         AuthUserInput::Oidc(data) => Some(data.issuer_id),
         AuthUserInput::Password(_) => None,
     };
+    // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
     let lot = if User::find().count(&ss.db).await.unwrap() == 0 {
         UserLot::Admin
     } else {

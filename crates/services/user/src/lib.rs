@@ -105,7 +105,7 @@ impl UserService {
         user_id: String,
         input: UserPreferences,
     ) -> Result<bool> {
-        user_preferences_operations::update_user_preference(&self.0, user_id, input).await
+        user_preferences_operations::update_user_preference(&self.0, &user_id, input).await
     }
 
     pub async fn create_or_update_user_integration(

@@ -8,7 +8,7 @@ use user_models::UserPreferences;
 
 pub async fn update_user_preference(
     ss: &Arc<SupportingService>,
-    user_id: String,
+    user_id: &String,
     input: UserPreferences,
 ) -> Result<bool> {
     let user_model = user_by_id(&user_id, ss).await?;
