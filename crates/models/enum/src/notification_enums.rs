@@ -49,7 +49,7 @@ pub enum NotificationPlatformLot {
 )]
 #[sea_orm(
     rs_type = "String",
-    rename_all = "PascalCase",
+    rename_all = "snake_case",
     db_type = "String(StringLen::None)"
 )]
 pub enum UserNotificationContent {
