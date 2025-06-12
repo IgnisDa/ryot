@@ -31,7 +31,8 @@ impl IntegrationManager {
             new_trigger_result.pop_back();
         }
         new_trigger_result.push_front(IntegrationTriggerResult { error, finished_at });
-        let are_all_errors = new_trigger_result.iter().take(5).all(|r| r.error.is_some());
+        let are_all_errors = new_trigger_result.len() >= 5
+            && new_trigger_result.iter().take(5).all(|r| r.error.is_some());
 
         let should_disable =
             integration.extra_settings.disable_on_continuous_errors && are_all_errors;
