@@ -1306,6 +1306,7 @@ const MetadataNewProgressUpdateForm = ({
 				disabled={selectedDate === undefined}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
+					const currentDateFormatted = formatDateToNaiveDate(new Date());
 					const common: MetadataProgressUpdateCommonInput = {
 						showSeasonNumber: metadataToUpdate.showSeasonNumber,
 						mangaVolumeNumber: metadataToUpdate.mangaVolumeNumber,
@@ -1340,7 +1341,7 @@ const MetadataNewProgressUpdateForm = ({
 										createNewInProgress: {
 											...common,
 											animeEpisodeNumber: i,
-											startedOn: formatDateToNaiveDate(new Date()),
+											startedOn: currentDateFormatted,
 										},
 									}))
 									.with(WatchTimes.JustCompletedNow, () => ({
@@ -1348,7 +1349,7 @@ const MetadataNewProgressUpdateForm = ({
 											finishedOnDate: {
 												...common,
 												animeEpisodeNumber: i,
-												finishedOn: formatDateToNaiveDate(new Date()),
+												finishedOn: currentDateFormatted,
 											},
 										},
 									}))
@@ -1408,6 +1409,7 @@ const MetadataNewProgressUpdateForm = ({
 							if (metadataToUpdate.mangaVolumeNumber) {
 								const lastSeenVolume =
 									latestHistoryItem?.mangaExtraInformation?.volume || 0;
+								const currentDateFormatted = formatDateToNaiveDate(new Date());
 								for (
 									let i = lastSeenVolume + 1;
 									i < metadataToUpdate.mangaVolumeNumber;
@@ -1420,7 +1422,7 @@ const MetadataNewProgressUpdateForm = ({
 												createNewInProgress: {
 													...common,
 													mangaVolumeNumber: i,
-													startedOn: formatDateToNaiveDate(new Date()),
+													startedOn: currentDateFormatted,
 												},
 											}))
 											.with(WatchTimes.JustCompletedNow, () => ({
@@ -1428,7 +1430,7 @@ const MetadataNewProgressUpdateForm = ({
 													finishedOnDate: {
 														...common,
 														mangaVolumeNumber: i,
-														finishedOn: formatDateToNaiveDate(new Date()),
+														finishedOn: currentDateFormatted,
 													},
 												},
 											}))
@@ -1485,7 +1487,7 @@ const MetadataNewProgressUpdateForm = ({
 													createNewInProgress: {
 														...common,
 														mangaChapterNumber: i.toString(),
-														startedOn: formatDateToNaiveDate(new Date()),
+														startedOn: currentDateFormatted,
 													},
 												}))
 												.with(WatchTimes.JustCompletedNow, () => ({
@@ -1493,7 +1495,7 @@ const MetadataNewProgressUpdateForm = ({
 														finishedOnDate: {
 															...common,
 															mangaChapterNumber: i.toString(),
-															finishedOn: formatDateToNaiveDate(new Date()),
+															finishedOn: currentDateFormatted,
 														},
 													},
 												}))
@@ -1583,7 +1585,7 @@ const MetadataNewProgressUpdateForm = ({
 												...common,
 												showSeasonNumber: currentEpisode.seasonNumber,
 												showEpisodeNumber: currentEpisode.episodeNumber,
-												startedOn: formatDateToNaiveDate(new Date()),
+												startedOn: currentDateFormatted,
 											},
 										}))
 										.with(WatchTimes.JustCompletedNow, () => ({
@@ -1592,7 +1594,7 @@ const MetadataNewProgressUpdateForm = ({
 													...common,
 													showSeasonNumber: currentEpisode.seasonNumber,
 													showEpisodeNumber: currentEpisode.episodeNumber,
-													finishedOn: formatDateToNaiveDate(new Date()),
+													finishedOn: currentDateFormatted,
 												},
 											},
 										}))
@@ -1655,7 +1657,7 @@ const MetadataNewProgressUpdateForm = ({
 											createNewInProgress: {
 												...common,
 												podcastEpisodeNumber: episode.number,
-												startedOn: formatDateToNaiveDate(new Date()),
+												startedOn: currentDateFormatted,
 											},
 										}))
 										.with(WatchTimes.JustCompletedNow, () => ({
@@ -1663,7 +1665,7 @@ const MetadataNewProgressUpdateForm = ({
 												finishedOnDate: {
 													...common,
 													podcastEpisodeNumber: episode.number,
-													finishedOn: formatDateToNaiveDate(new Date()),
+													finishedOn: currentDateFormatted,
 												},
 											},
 										}))
@@ -1699,14 +1701,14 @@ const MetadataNewProgressUpdateForm = ({
 						.with(WatchTimes.JustStartedIt, () => ({
 							createNewInProgress: {
 								...common,
-								startedOn: formatDateToNaiveDate(new Date()),
+								startedOn: currentDateFormatted,
 							},
 						}))
 						.with(WatchTimes.JustCompletedNow, () => ({
 							createNewCompleted: {
 								finishedOnDate: {
 									...common,
-									finishedOn: formatDateToNaiveDate(new Date()),
+									finishedOn: currentDateFormatted,
 								},
 							},
 						}))
