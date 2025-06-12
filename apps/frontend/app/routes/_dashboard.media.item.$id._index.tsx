@@ -292,7 +292,7 @@ export default function Page() {
 		loaderData.metadataDetails.title,
 	);
 
-	const updateProgress = (change: MetadataProgressUpdateChange) => {
+	const changeProgressState = (change: MetadataProgressUpdateChange) => {
 		deployBulkMetadataProgressUpdate.mutate([
 			{ change, metadataId: loaderData.metadataId },
 		]);
@@ -378,7 +378,7 @@ export default function Page() {
 		return (
 			<Menu.Item
 				onClick={() => {
-					updateProgress({
+					changeProgressState({
 						changeLatestInProgress: { state: SeenState.OnAHold },
 					});
 				}}
@@ -391,7 +391,7 @@ export default function Page() {
 		return (
 			<Menu.Item
 				onClick={() => {
-					updateProgress({
+					changeProgressState({
 						changeLatestInProgress: { state: SeenState.Dropped },
 					});
 				}}
@@ -862,7 +862,7 @@ export default function Page() {
 													) : null}
 													<Menu.Item
 														onClick={() => {
-															updateProgress({
+															changeProgressState({
 																changeLatestInProgress: {
 																	progress: "100",
 																},
@@ -882,7 +882,7 @@ export default function Page() {
 													) ? (
 														<Menu.Item
 															onClick={() => {
-																updateProgress({
+																changeProgressState({
 																	createNewInProgress: {
 																		startedOn: formatDateToNaiveDate(
 																			new Date(),
