@@ -845,7 +845,6 @@ name = "background-models"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "database-models",
  "media-models",
  "serde",
  "strum",
@@ -3184,7 +3183,6 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
- "enum_meta",
  "env-utils",
  "external-models",
  "external-utils",
