@@ -43,6 +43,7 @@ import {
 	MergeMetadataDocument,
 	MetadataDetailsDocument,
 	type MetadataDetailsQuery,
+	type MetadataProgressUpdateChange,
 	type PodcastEpisode,
 	SeenState,
 	UpdateSeenItemDocument,
@@ -291,6 +292,12 @@ export default function Page() {
 		loaderData.metadataDetails.title,
 	);
 
+	const updateProgress = (change: MetadataProgressUpdateChange) => {
+		deployBulkMetadataProgressUpdate.mutate([
+			{ change, metadataId: loaderData.metadataId },
+		]);
+	};
+
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
 	const firstGroupAssociated = loaderData.metadataDetails.group.at(0);
@@ -371,14 +378,9 @@ export default function Page() {
 		return (
 			<Menu.Item
 				onClick={() => {
-					deployBulkMetadataProgressUpdate.mutate([
-						{
-							metadataId: loaderData.metadataId,
-							change: {
-								changeLatestInProgress: { state: SeenState.OnAHold },
-							},
-						},
-					]);
+					updateProgress({
+						changeLatestInProgress: { state: SeenState.OnAHold },
+					});
 				}}
 			>
 				Put on hold
@@ -389,14 +391,9 @@ export default function Page() {
 		return (
 			<Menu.Item
 				onClick={() => {
-					deployBulkMetadataProgressUpdate.mutate([
-						{
-							metadataId: loaderData.metadataId,
-							change: {
-								changeLatestInProgress: { state: SeenState.Dropped },
-							},
-						},
-					]);
+					updateProgress({
+						changeLatestInProgress: { state: SeenState.Dropped },
+					});
 				}}
 			>
 				Mark as dropped
@@ -865,16 +862,11 @@ export default function Page() {
 													) : null}
 													<Menu.Item
 														onClick={() => {
-															deployBulkMetadataProgressUpdate.mutate([
-																{
-																	metadataId: loaderData.metadataId,
-																	change: {
-																		changeLatestInProgress: {
-																			progress: "100",
-																		},
-																	},
+															updateProgress({
+																changeLatestInProgress: {
+																	progress: "100",
 																},
-															]);
+															});
 														}}
 													>
 														I finished it
@@ -890,18 +882,13 @@ export default function Page() {
 													) ? (
 														<Menu.Item
 															onClick={() => {
-																deployBulkMetadataProgressUpdate.mutate([
-																	{
-																		metadataId: loaderData.metadataId,
-																		change: {
-																			createNewInProgress: {
-																				startedOn: formatDateToNaiveDate(
-																					new Date(),
-																				),
-																			},
-																		},
+																updateProgress({
+																	createNewInProgress: {
+																		startedOn: formatDateToNaiveDate(
+																			new Date(),
+																		),
 																	},
-																]);
+																});
 															}}
 														>
 															I'm{" "}
