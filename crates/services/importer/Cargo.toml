@@ -41,6 +41,7 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 serde-xml-rs = { workspace = true }
 supporting-service = { path = "../supporting" }
+tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
 

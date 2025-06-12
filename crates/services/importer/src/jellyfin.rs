@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use common_utils::ryot_log;
@@ -14,6 +11,7 @@ use media_models::{
 };
 use reqwest::Client;
 use serde_json::json;
+use tokio::sync::Mutex;
 
 use super::{ImportFailStep, ImportFailedItem};
 
@@ -110,7 +108,7 @@ async fn process_item(
         MediaType::Series | MediaType::Episode => {
             if let Some(series_id) = item.series_id {
                 let cached_tmdb_id = {
-                    let cache = series_cache.lock().unwrap();
+                    let cache = series_cache.lock().await;
                     cache.get(&series_id).cloned()
                 };
 
@@ -138,7 +136,7 @@ async fn process_item(
                         let fetched_tmdb_id = details.provider_ids.unwrap().tmdb;
 
                         {
-                            let mut cache = series_cache.lock().unwrap();
+                            let mut cache = series_cache.lock().await;
                             cache.insert(series_id.clone(), fetched_tmdb_id.clone());
                         }
 

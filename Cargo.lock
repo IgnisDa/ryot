@@ -3206,6 +3206,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "supporting-service",
+ "tokio",
  "tracing",
  "traits",
 ]
