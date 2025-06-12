@@ -1675,8 +1675,6 @@ export enum PersonAndMetadataGroupsSortBy {
 
 export type PersonDetailsGroupedByRole = {
   __typename?: 'PersonDetailsGroupedByRole';
-  /** The number of items in this role. */
-  count: Scalars['Int']['output'];
   /** The media items in which this role was performed. */
   items: Array<PersonDetailsItemWithCharacter>;
   /** The name of the role performed. */

@@ -51,12 +51,8 @@ pub async fn person_details(
     }
     let associated_metadata = metadata_contents
         .into_iter()
-        .map(|(name, items)| PersonDetailsGroupedByRole {
-            count: items.len(),
-            name,
-            items,
-        })
-        .sorted_by_key(|f| Reverse(f.count))
+        .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
+        .sorted_by_key(|f| Reverse(f.items.len()))
         .collect_vec();
     let associated_metadata_groups = MetadataGroupToPerson::find()
         .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
@@ -76,12 +72,8 @@ pub async fn person_details(
     }
     let associated_metadata_groups = metadata_group_contents
         .into_iter()
-        .map(|(name, items)| PersonDetailsGroupedByRole {
-            count: items.len(),
-            name,
-            items,
-        })
-        .sorted_by_key(|f| Reverse(f.count))
+        .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
+        .sorted_by_key(|f| Reverse(f.items.len()))
         .collect_vec();
     Ok(GraphqlPersonDetails {
         details,

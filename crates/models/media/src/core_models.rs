@@ -36,8 +36,6 @@ pub struct PersonDetailsItemWithCharacter {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct PersonDetailsGroupedByRole {
-    /// The number of items in this role.
-    pub count: usize,
     /// The name of the role performed.
     pub name: String,
     /// The media items in which this role was performed.
