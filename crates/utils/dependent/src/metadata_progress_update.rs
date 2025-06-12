@@ -23,7 +23,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilt
 use supporting_service::SupportingService;
 
 use crate::{
-    deploy_after_handle_media_seen_tasks, expire_user_collections_list_cache,
+    expire_user_collections_list_cache, handle_after_metadata_seen_tasks,
     mark_entity_as_recently_consumed,
 };
 
@@ -201,6 +201,6 @@ pub async fn metadata_progress_update(
     };
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     expire_user_collections_list_cache(user_id, ss).await?;
-    deploy_after_handle_media_seen_tasks(seen, ss).await?;
+    handle_after_metadata_seen_tasks(seen, ss).await?;
     Ok(())
 }

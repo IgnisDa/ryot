@@ -27,8 +27,9 @@ use dependent_utils::{
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, ProgressUpdateInput, ReviewPostedEvent, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataProgressUpdateInput, ProgressUpdateInput, ReviewPostedEvent,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use sea_query::Expr;
@@ -151,12 +152,7 @@ impl MiscellaneousService {
         user_id: String,
         input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<()> {
-        for seen in input {
-            metadata_progress_update(&user_id, &self.0, seen)
-                .await
-                .trace_ok();
-        }
-        Ok(())
+        progress_operations::bulk_metadata_progress_update(&self.0, &user_id, input).await
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
@@ -220,43 +216,7 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<bool> {
-        let delete_review = Review::delete_many()
-            .filter(review::Column::MetadataId.eq(&metadata_id))
-            .filter(review::Column::UserId.eq(&user_id))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(debug, "Deleted {} reviews", delete_review.rows_affected);
-        let delete_seen = Seen::delete_many()
-            .filter(seen::Column::MetadataId.eq(&metadata_id))
-            .filter(seen::Column::UserId.eq(&user_id))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
-        let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
-            &self.0.db,
-            &user_id,
-            &metadata_id,
-            EntityLot::Metadata,
-        )
-        .await?
-        .into_iter()
-        .map(|(_, id)| id);
-        let delete_collections = CollectionToEntity::delete_many()
-            .filter(collection_to_entity::Column::Id.is_in(collections_part_of))
-            .exec(&self.0.db)
-            .await?;
-        ryot_log!(
-            debug,
-            "Deleted {} collections",
-            delete_collections.rows_affected
-        );
-        UserToEntity::delete_many()
-            .filter(user_to_entity::Column::MetadataId.eq(metadata_id.clone()))
-            .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
-            .exec(&self.0.db)
-            .await?;
-        expire_user_metadata_list_cache(&user_id, &self.0).await?;
-        Ok(true)
+        metadata_operations::disassociate_metadata(&self.0, user_id, metadata_id).await
     }
 
     pub async fn metadata_search(
