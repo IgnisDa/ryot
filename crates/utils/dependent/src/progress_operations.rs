@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
 use crate::{
-    expire_user_collections_list_cache, seen_operations::handle_after_metadata_seen_tasks,
+    seen_operations::handle_after_metadata_seen_tasks,
     utility_operations::mark_entity_as_recently_consumed,
 };
 
@@ -463,7 +463,6 @@ pub async fn metadata_progress_update(
         }
     };
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
     handle_after_metadata_seen_tasks(seen, ss).await?;
     Ok(())
 }
