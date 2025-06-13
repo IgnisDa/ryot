@@ -36,6 +36,3 @@ pub use list_operations::*;
 
 mod progress_operations;
 pub use progress_operations::*;
-
-mod metadata_progress_update;
-pub use metadata_progress_update::*;
