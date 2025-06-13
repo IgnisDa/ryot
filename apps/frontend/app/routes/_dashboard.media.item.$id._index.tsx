@@ -294,12 +294,11 @@ export default function Page() {
 	);
 
 	const changeProgress = useCallback(
-		(change: MetadataProgressUpdateChange) => {
+		(change: MetadataProgressUpdateChange) =>
 			deployBulkMetadataProgressUpdate.mutate([
 				{ change, metadataId: loaderData.metadataId },
-			]);
-		},
-		[deployBulkMetadataProgressUpdate, loaderData.metadataId],
+			]),
+		[deployBulkMetadataProgressUpdate.mutate, loaderData.metadataId],
 	);
 
 	const changeProgressState = (state: SeenState) => {
