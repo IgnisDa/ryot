@@ -301,9 +301,11 @@ export default function Page() {
 		[deployBulkMetadataProgressUpdate.mutate, loaderData.metadataId],
 	);
 
-	const changeProgressState = (state: SeenState) => {
-		changeProgress({ changeLatestInProgress: { state } });
-	};
+    const changeProgressState = useCallback(
+      (state: SeenState) =>
+        changeProgress({ changeLatestInProgress: { state } }),
+      [changeProgress],
+    );
 
 	const inProgress = loaderData.userMetadataDetails.inProgress;
 	const nextEntry = loaderData.userMetadataDetails.nextEntry;
