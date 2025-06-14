@@ -21,36 +21,38 @@ The model is:
 
 ## How one execution works
 
-1. `POST /sandbox/enqueue` accepts `{ code, driverName, context? }` and returns a BullMQ `jobId` immediately.
-2. The route builds `apiFunctionDescriptors` server-side and stores them in the job payload.
-3. A worker calls `SandboxService.executeQueuedRun(...)` for the job.
-4. The service reconstructs bound host functions from the static registry, then creates a unique `executionId` and one-time bearer token.
-5. The bridge session is registered:
+1. User creates a script via `POST /sandbox/scripts` with `{ name, slug?, code }`. Returns `{ data: { id, name, slug, code } }`.
+2. User enqueues via `POST /sandbox/enqueue` with `{ scriptId, driverName, context? }`. Returns BullMQ `jobId` immediately.
+3. The route looks up the script, builds `apiFunctionDescriptors` server-side, and stores them in the job payload.
+4. A worker calls `SandboxService.executeQueuedRun(...)` for the job.
+5. The service reconstructs bound host functions from the static registry, then creates a unique `executionId` and one-time bearer token.
+6. The bridge session is registered:
    - Redis stores `{ token, expiresAt }` under `sandbox:session:<executionId>` with TTL.
    - An in-memory map stores the bound host functions for that execution.
-6. A Deno subprocess is spawned with restricted permissions.
-7. The service sends one JSON payload over stdin (`code`, `driverName`, `context`, bridge URL, token, function names, execution id, script id).
-8. Inside Deno (`scripts/runner-source.txt`):
+7. A Deno subprocess is spawned with restricted permissions.
+8. The service sends one JSON payload over stdin (`code`, `driverName`, `context`, bridge URL, token, function names, execution id, script id).
+9. Inside Deno (`scripts/runner-source.txt`):
    - payload is parsed,
    - `console.*` is redirected to stderr,
    - host-function stubs are created so user code can call `await someHostFn(...)`,
    - user code runs in an async wrapper, which registers drivers via `driver(name, fn)`,
    - the named driver is looked up and called with `context` and optional `meta`,
    - final result is written as JSON to stdout.
-9. Bridge calls from stubs hit `POST /rpc/:executionId/:fnName`:
-   - execution and expiry are checked,
-   - bearer token is validated,
-   - body is parsed (`{ args: [...] }`),
-   - mapped host function is executed,
-   - `{ result }` or `{ error }` is returned.
-10. The service collects:
+10. Bridge calls from stubs hit `POST /rpc/:executionId/:fnName`:
+    - execution and expiry are checked,
+    - bearer token is validated,
+    - body is parsed (`{ args: [...] }`),
+    - mapped host function is executed,
+    - `{ result }` or `{ error }` is returned.
+11. The service collects:
     - `stdout` -> final sandbox result JSON,
     - `stderr` -> `logs`.
-11. Session is removed in `finally`.
+12. Session is removed in `finally`.
 
 ## API shape
 
-- `POST /sandbox/enqueue` enqueues a script and returns `{ data: { jobId } }`.
+- `POST /sandbox/scripts` creates a stored script with `{ name, slug?, code }`. Returns `{ data: { id, name, slug, code } }`.
+- `POST /sandbox/enqueue` enqueues a stored script by `scriptId` with `{ scriptId, driverName, context? }`. Returns `{ data: { jobId } }`.
 - `GET /sandbox/result/:jobId` returns one of:
   - `{ data: { status: "pending" } }`
   - `{ data: { status: "completed", logs, value, error } }`
@@ -101,6 +103,7 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 - Deno subprocesses are still per-execution, which keeps run isolation while avoiding bridge re-creation overhead.
 - Redis session metadata allows TTL-based expiry and explicit cleanup on shutdown.
 - Host functions are serialized as descriptors in the job payload, so any worker instance can reconstruct them.
+- Scripts are stored in the database, referenced by `scriptId` at enqueue time.
 
 ## Adding a new host function
 
@@ -117,11 +120,11 @@ Driver functions are the only entry points in sandbox scripts. Every script must
 A driver receives two arguments:
 
 1. `context` — user-provided execution context containing input data (e.g., search query, page size)
-2. `meta` — system-provided metadata object containing `{ sandboxScriptId: string }` when running from a stored script, or `undefined` when running ad-hoc code
+2. `meta` — system-provided metadata object containing `{ sandboxScriptId: string }` when running from a stored script
 
 ```js
 driver("search", async function(context, meta) {
-  // meta.sandboxScriptId contains the script ID when available
+  // meta.sandboxScriptId contains the script ID
   const response = await httpCall("GET", "https://api.example.com/search");
   return response;
 });

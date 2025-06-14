@@ -6,10 +6,7 @@ import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
 import { redis } from "~/lib/redis";
 
-export type AuthType = {
-	user: typeof auth.$Infer.Session.user;
-	session: typeof auth.$Infer.Session.session;
-};
+export type AuthType = { user: typeof auth.$Infer.Session.user };
 
 export type MaybeAuthType = {
 	[K in keyof AuthType]: AuthType[K] | null;
