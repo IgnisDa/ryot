@@ -179,7 +179,7 @@ pub async fn invalidate_import_jobs(service: &Arc<SupportingService>) -> Result<
     Ok(())
 }
 
-pub async fn remove_old_entities_from_monitoring_collection(
+async fn remove_old_entities_from_monitoring_collection(
     service: &Arc<SupportingService>,
 ) -> Result<()> {
     #[derive(Debug, FromQueryResult)]
@@ -241,7 +241,7 @@ pub async fn remove_old_entities_from_monitoring_collection(
     Ok(())
 }
 
-pub async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()> {
+async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()> {
     let metadata_to_delete = Metadata::find()
         .select_only()
         .column(metadata::Column::Id)
@@ -321,7 +321,7 @@ pub async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()>
     Ok(())
 }
 
-pub async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> Result<()> {
+async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> Result<()> {
     async fn update_partial_states<Column1, Column2, Column3, T>(
         ute_filter_column: Column1,
         updater: UpdateMany<T>,
@@ -380,7 +380,7 @@ pub async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> 
     Ok(())
 }
 
-pub async fn queue_notifications_for_outdated_seen_entries(
+async fn queue_notifications_for_outdated_seen_entries(
     service: &Arc<SupportingService>,
 ) -> Result<()> {
     if !service.is_server_key_validated().await? {
@@ -428,7 +428,7 @@ pub async fn queue_notifications_for_outdated_seen_entries(
     Ok(())
 }
 
-pub async fn expire_cache_keys(service: &Arc<SupportingService>) -> Result<()> {
+async fn expire_cache_keys(service: &Arc<SupportingService>) -> Result<()> {
     let mut all_keys = vec![];
     let user_ids = get_user_query()
         .select_only()
@@ -471,13 +471,13 @@ async fn regenerate_user_summaries(ss: &Arc<SupportingService>) -> Result<()> {
     Ok(())
 }
 
-pub async fn sync_integrations_data_to_owned_collection(ss: &Arc<SupportingService>) -> Result<()> {
+async fn sync_integrations_data_to_owned_collection(ss: &Arc<SupportingService>) -> Result<()> {
     ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData))
         .await?;
     Ok(())
 }
 
-pub async fn revoke_invalid_access_tokens(ss: &Arc<SupportingService>) -> Result<()> {
+async fn revoke_invalid_access_tokens(ss: &Arc<SupportingService>) -> Result<()> {
     let access_links = AccessLink::find()
         .select_only()
         .column(access_link::Column::Id)
