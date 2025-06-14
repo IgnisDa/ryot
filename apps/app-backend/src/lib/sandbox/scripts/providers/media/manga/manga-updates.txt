@@ -6,21 +6,12 @@ function parseJsonResponse(responseBody) {
   }
 }
 
-function parsePublishYear(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmedValue = value.trim();
-  if (!/^\d{4}$/.test(trimmedValue)) {
-    return null;
-  }
-
-  const year = Number(trimmedValue);
-  if (!Number.isFinite(year)) {
-    return null;
-  }
-
-  return year;
+function parsePublishYear(value, dayjs) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const d = dayjs(trimmed);
+  return d.isValid() ? d.year() : null;
 }
 
 function pickImage(record) {
@@ -37,17 +28,22 @@ function pickImage(record) {
   return trimmedCandidate || null;
 }
 
-function extractStatus(input) {
+async function extractStatus(input) {
   if (typeof input !== "string") {
     return { volumes: null, productionStatus: null };
   }
 
-  const firstPart = input.split("<BR>")[0]?.trim() ?? "";
-  if (!firstPart) {
+  const { load } = await import("npm:cheerio");
+  const $ = load(`<span>${input}</span>`);
+  $("br").replaceWith("\n");
+  const fullText = $("span").text().trim();
+
+  const firstLine = fullText.split("\n")[0].trim();
+  if (!firstLine) {
     return { volumes: null, productionStatus: null };
   }
 
-  const parts = firstPart.split(/\s+/).filter(Boolean);
+  const parts = firstLine.split(/\s+/).filter(Boolean);
   const firstToken = parts[0];
   const statusToken = parts[2];
 
@@ -106,20 +102,14 @@ function collectImages(image) {
 }
 
 driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const response = await httpCall(
     "POST",
@@ -172,7 +162,7 @@ driver("search", async function(context) {
         hitTitle || (typeof record.title === "string" ? record.title : "");
 
       const image = pickImage(record);
-      const publishYear = parsePublishYear(record.year);
+      const publishYear = parsePublishYear(record.year, dayjs);
 
       return {
         identifier: String(seriesId),
@@ -200,11 +190,12 @@ driver("search", async function(context) {
 });
 
 driver("details", async function(context) {
-  const contextIdentifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!contextIdentifier) {
-    throw new Error("identifier is required");
-  }
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { identifier: contextIdentifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   const response = await httpCall(
     "GET",
@@ -233,7 +224,7 @@ driver("details", async function(context) {
       ? payload.latest_chapter
       : null;
 
-  const { volumes, productionStatus } = extractStatus(payload?.status);
+  const { volumes, productionStatus } = await extractStatus(payload?.status);
 
   return {
     name: title,
@@ -243,7 +234,7 @@ driver("details", async function(context) {
       chapters,
       isNsfw: null,
       productionStatus: productionStatus,
-      publishYear: parsePublishYear(payload?.year),
+      publishYear: parsePublishYear(payload?.year, dayjs),
       assets: { remoteImages: collectImages(payload?.image) },
       genres: collectGenres(payload?.genres, payload?.categories),
       sourceUrl: typeof payload?.url === "string" ? payload.url : null,
