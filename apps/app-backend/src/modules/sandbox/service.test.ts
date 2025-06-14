@@ -145,8 +145,7 @@ describe("getSandboxResult", () => {
 				error: null,
 				value: null,
 				logs: "done",
-				timings: null,
-				denoMetrics: null,
+				timing: null,
 				status: "completed",
 			},
 		});

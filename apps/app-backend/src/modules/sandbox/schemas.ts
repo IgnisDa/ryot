@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { dataSchema, itemDataSchema } from "~/lib/openapi";
-import { denoMetricsSchema, executionTimingsSchema } from "~/lib/sandbox/jobs";
+import { sandboxTimingSchema } from "~/lib/sandbox/jobs";
 import {
 	type SandboxScriptMetadata,
 	sandboxScriptMetadataSchema,
@@ -67,8 +67,7 @@ export const sandboxCompletedResultSchema = z.object({
 	error: z.string().nullable(),
 	value: sandboxResultValueSchema,
 	status: z.literal("completed"),
-	denoMetrics: denoMetricsSchema.nullable().optional(),
-	timings: executionTimingsSchema.nullable().optional(),
+	timing: sandboxTimingSchema.nullable().optional(),
 });
 
 export const pollSandboxResultResponseSchema = dataSchema(
