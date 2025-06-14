@@ -3,10 +3,9 @@ import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	createServiceErrorResult,
+	createStandardResponses,
 	createSuccessResult,
-	jsonResponse,
-	notFoundResponse,
-	payloadErrorResponse,
+	jsonBody,
 } from "~/lib/openapi";
 import {
 	createEventBody,
@@ -23,14 +22,11 @@ const listEventsRoute = createAuthRoute(
 		tags: ["events"],
 		request: { query: listEventsQuery },
 		summary: "List events for a custom entity",
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Entity does not exist for this user"),
-			200: jsonResponse(
-				"Events for the requested entity",
-				listEventsResponseSchema,
-			),
-		},
+		responses: createStandardResponses({
+			successDescription: "Events for the requested entity",
+			successSchema: listEventsResponseSchema,
+			notFoundDescription: "Entity does not exist for this user",
+		}),
 	}),
 );
 
@@ -40,16 +36,13 @@ const createEventRoute = createAuthRoute(
 		method: "post",
 		tags: ["events"],
 		summary: "Create an event for a custom entity",
-		request: {
-			body: { content: { "application/json": { schema: createEventBody } } },
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse(
+		request: { body: jsonBody(createEventBody) },
+		responses: createStandardResponses({
+			successDescription: "Event was created",
+			successSchema: createEventResponseSchema,
+			notFoundDescription:
 				"Entity or event schema does not exist for this user",
-			),
-			200: jsonResponse("Event was created", createEventResponseSchema),
-		},
+		}),
 	}),
 );
 

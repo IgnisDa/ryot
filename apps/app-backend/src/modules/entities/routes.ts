@@ -3,10 +3,9 @@ import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
 	createServiceErrorResult,
+	createStandardResponses,
 	createSuccessResult,
-	jsonResponse,
-	notFoundResponse,
-	payloadErrorResponse,
+	jsonBody,
 } from "~/lib/openapi";
 import {
 	createEntityBody,
@@ -21,15 +20,13 @@ const createEntityRoute = createAuthRoute(
 		path: "/",
 		method: "post",
 		tags: ["entities"],
+		request: { body: jsonBody(createEntityBody) },
 		summary: "Create an entity for a custom entity schema",
-		request: {
-			body: { content: { "application/json": { schema: createEntityBody } } },
-		},
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Entity schema does not exist for this user"),
-			200: jsonResponse("Entity was created", createEntityResponseSchema),
-		},
+		responses: createStandardResponses({
+			successDescription: "Entity was created",
+			successSchema: createEntityResponseSchema,
+			notFoundDescription: "Entity schema does not exist for this user",
+		}),
 	}),
 );
 
@@ -38,13 +35,13 @@ const getEntityRoute = createAuthRoute(
 		method: "get",
 		path: "/{entityId}",
 		tags: ["entities"],
-		summary: "Get a single custom entity",
 		request: { params: entityParams },
-		responses: {
-			400: payloadErrorResponse(),
-			404: notFoundResponse("Entity does not exist for this user"),
-			200: jsonResponse("Requested entity", getEntityResponseSchema),
-		},
+		summary: "Get a single custom entity",
+		responses: createStandardResponses({
+			successDescription: "Requested entity",
+			successSchema: getEntityResponseSchema,
+			notFoundDescription: "Entity does not exist for this user",
+		}),
 	}),
 );
 

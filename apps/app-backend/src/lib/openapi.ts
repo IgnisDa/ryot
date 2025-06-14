@@ -149,6 +149,25 @@ export const listDataSchema = <T extends z.ZodType>(schema: T) =>
 
 export const unknownObjectSchema = z.record(z.string(), z.unknown());
 
+export const jsonBody = <TSchema extends z.ZodType>(schema: TSchema) => ({
+	content: { "application/json": { schema } },
+});
+
+export const createStandardResponses = <TSchema extends z.ZodType>(input: {
+	successSchema: TSchema;
+	successDescription: string;
+	notFoundDescription?: string;
+	includePayloadError?: boolean;
+}) => ({
+	...(input.includePayloadError === false
+		? {}
+		: { 400: payloadErrorResponse() }),
+	...(input.notFoundDescription
+		? { 404: notFoundResponse(input.notFoundDescription) }
+		: {}),
+	200: jsonResponse(input.successDescription, input.successSchema),
+});
+
 const jsonContent = <TSchema extends z.ZodType>(schema: TSchema) => ({
 	"application/json": { schema },
 });
