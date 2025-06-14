@@ -239,6 +239,32 @@ describe("validateSlugNotReserved", () => {
 		expect(reservedSlugs).toContain("anime");
 		expect(reservedSlugs).toContain("manga");
 	});
+
+	it("creates distinct built-in progress schema objects per entity type", () => {
+		const showSchema = builtinEntitySchemas.find(
+			(schema) => schema.slug === "show",
+		);
+		const movieSchema = builtinEntitySchemas.find(
+			(schema) => schema.slug === "movie",
+		);
+		expect(showSchema).toBeDefined();
+		expect(movieSchema).toBeDefined();
+		if (!showSchema || !movieSchema) {
+			throw new Error("Missing built-in media schema");
+		}
+
+		const showProgressSchema = showSchema.eventSchemas.find(
+			(schema) => schema.slug === "progress",
+		);
+		const movieProgressSchema = movieSchema.eventSchemas.find(
+			(schema) => schema.slug === "progress",
+		);
+		expect(showProgressSchema).toBeDefined();
+		expect(movieProgressSchema).toBeDefined();
+		expect(showProgressSchema?.propertiesSchema).not.toBe(
+			movieProgressSchema?.propertiesSchema,
+		);
+	});
 });
 
 describe("listEntitySchemas", () => {
