@@ -279,9 +279,6 @@ export const event = pgTable(
 	{
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
-		sessionEntityId: text().references(() => entity.id, {
-			onDelete: "cascade",
-		}),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -304,7 +301,6 @@ export const event = pgTable(
 		index("event_user_id_idx").on(table.userId),
 		index("event_entity_id_idx").on(table.entityId),
 		index("event_event_schema_id_idx").on(table.eventSchemaId),
-		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
 	],
 );

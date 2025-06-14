@@ -134,7 +134,6 @@ export const createEventForUser = async (input: {
 		.insert(event)
 		.values({
 			userId: input.userId,
-			sessionEntityId: null,
 			entityId: input.entityId,
 			properties: input.properties,
 			eventSchemaId: input.eventSchemaId,
