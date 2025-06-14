@@ -217,7 +217,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         suggestions.push(PartialMetadataWithoutId {
             lot: MediaLot::Anime,
             title: rel.node.title,
-            source: MediaSource::Mal,
+            source: MediaSource::Myanimelist,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
             ..Default::default()
@@ -227,7 +227,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         suggestions.push(PartialMetadataWithoutId {
             lot: MediaLot::Manga,
             title: rel.node.title,
-            source: MediaSource::Mal,
+            source: MediaSource::Myanimelist,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
             ..Default::default()
@@ -237,7 +237,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         suggestions.push(PartialMetadataWithoutId {
             lot,
             title: rel.node.title,
-            source: MediaSource::Mal,
+            source: MediaSource::Myanimelist,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
             ..Default::default()
@@ -254,7 +254,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         anime_specifics,
         manga_specifics,
         title: title.clone(),
-        source: MediaSource::Mal,
+        source: MediaSource::Myanimelist,
         description: details.synopsis,
         provider_rating: details.mean,
         identifier: identifier.clone(),

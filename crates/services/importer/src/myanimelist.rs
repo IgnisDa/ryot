@@ -91,7 +91,7 @@ fn convert_to_format(item: Item, lot: MediaLot) -> ImportOrExportMetadataItem {
     };
     ImportOrExportMetadataItem {
         lot,
-        source: MediaSource::Mal,
+        source: MediaSource::Myanimelist,
         identifier: item.identifier.to_string(),
         seen_history,
         source_id: item.title.clone(),

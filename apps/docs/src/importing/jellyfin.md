@@ -3,8 +3,8 @@
 You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
 
 ::: info
-This will only import media that are already finished. Setup an
-[integration](../integrations.md#jellyfin) if you want to import media in progress.
+After importing, you can also set up an [integration](../integrations.md#jellyfin-sink)
+for continuous updates.
 :::
 
 Enter the correct details in the input. The username you enter should be of the account

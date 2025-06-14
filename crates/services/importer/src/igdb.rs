@@ -1,13 +1,9 @@
 use async_graphql::Result;
-use common_models::DefaultCollection;
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{
-    DeployIgdbImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-};
-use rust_decimal_macros::dec;
+use media_models::{DeployIgdbImportInput, ImportOrExportMetadataItem};
 use serde::Deserialize;
 
 use super::{ImportFailStep, ImportFailedItem};
@@ -28,18 +24,6 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
         .unwrap()
         .deserialize()
         .collect_vec();
-    let seen_history = if collection == DefaultCollection::Completed.to_string() {
-        vec![ImportOrExportMetadataItemSeen {
-            ..Default::default()
-        }]
-    } else if collection == DefaultCollection::InProgress.to_string() {
-        vec![ImportOrExportMetadataItemSeen {
-            progress: Some(dec!(5)),
-            ..Default::default()
-        }]
-    } else {
-        vec![]
-    };
     for (idx, result) in items.into_iter().enumerate() {
         let record: Item = match result {
             Ok(r) => r,
@@ -58,7 +42,6 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
             source,
             identifier: record.id,
             source_id: record.game,
-            seen_history: seen_history.clone(),
             collections: vec![collection.clone()],
             ..Default::default()
         }));

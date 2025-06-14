@@ -118,7 +118,7 @@ mod komga_series {
                 // NOTE: manga_updates doesn't work here because the ID isn't in the url
                 let source = match link.label.to_lowercase().as_str() {
                     "anilist" => MediaSource::Anilist,
-                    "myanimelist" => MediaSource::Mal,
+                    "myanimelist" => MediaSource::Myanimelist,
                     _ => continue,
                 };
 

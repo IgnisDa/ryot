@@ -192,7 +192,7 @@ async fn process_item(
     url: &str,
 ) -> core::result::Result<ImportOrExportMetadataItem, ImportFailedItem> {
     let (details, identifier, source, lot) =
-        get_item_details_with_source(&client, &url, &item).await?;
+        get_item_details_with_source(client, url, &item).await?;
 
     ryot_log!(
         debug,

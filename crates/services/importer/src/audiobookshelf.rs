@@ -141,7 +141,7 @@ async fn process_item(
         } else if let Some(asin) = metadata.asin.clone() {
             (asin, MediaLot::AudioBook, MediaSource::Audible, None)
         } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-            let item_details = get_item_details(&client, &url, &item.id, None)
+            let item_details = get_item_details(client, url, &item.id, None)
                 .await
                 .map_err(|e| ImportFailedItem {
                     error: Some(e.message),
@@ -157,7 +157,7 @@ async fn process_item(
                     for episode in episodes {
                         ryot_log!(debug, "Importing episode {:?}", episode.title);
                         let episode_details =
-                            get_item_details(&client, &url, &item.id, Some(episode.id.unwrap()))
+                            get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
                                 .await
                                 .map_err(|e| ImportFailedItem {
                                     error: Some(e.message),

@@ -38,6 +38,11 @@ pub async fn run_frequent_cron_jobs(
         .process_users_scheduled_for_workout_revision()
         .await
         .trace_ok();
+    app_services
+        .miscellaneous_service
+        .invalidate_import_jobs()
+        .await
+        .trace_ok();
     Ok(())
 }
 
@@ -72,6 +77,12 @@ pub async fn perform_hp_application_job(
             app_services
                 .miscellaneous_service
                 .bulk_progress_update(user_id, input)
+                .await
+        }
+        HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
+            app_services
+                .miscellaneous_service
+                .bulk_metadata_progress_update(user_id, input)
                 .await
         }
     };

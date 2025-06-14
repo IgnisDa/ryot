@@ -4,9 +4,7 @@ The Audiobookshelf importer supports importing all media that have a valid Audib
 ITunes ID or ISBN.
 
 ::: info
-- This will only import media that are already finished. Setup an
-[integration](../integrations.md#audiobookshelf) if you want to import media in progress.
-- If you have enabled the option to auto delete podcast episodes, you'll have to
+If you have enabled the option to auto-delete podcast episodes, you'll have to
 manually mark them as completed.
 :::
 

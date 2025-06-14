@@ -157,7 +157,7 @@ impl ActiveModelBehavior for ActiveModel {
         if self.password.is_set() {
             let cloned_password = self.password.clone().unwrap();
             if let Some(password) = cloned_password {
-                let salt = SaltString::generate(&mut OsRng);
+                let salt = SaltString::try_from_rng(&mut OsRng).unwrap();
                 let password_hash = Argon2::default()
                     .hash_password(password.as_bytes(), &salt)
                     .map_err(|_| DbErr::Custom("Unable to hash password".to_owned()))?
