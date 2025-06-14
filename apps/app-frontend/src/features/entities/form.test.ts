@@ -134,6 +134,94 @@ describe("buildCreateEntityFormSchema", () => {
 		expect(result.success).toBeTrue();
 	});
 
+	it("rejects when required primitive properties are missing", () => {
+		const propertiesSchema = {
+			fields: {
+				title: {
+					label: "Title",
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+			},
+		};
+
+		const schema = buildCreateEntityFormSchema(propertiesSchema);
+
+		const result = schema.safeParse({
+			name: "Test Book",
+			properties: {},
+		});
+
+		expect(result.success).toBeFalse();
+	});
+
+	it("rejects unsupported required properties (arrays and objects)", () => {
+		const propertiesSchema = {
+			fields: {
+				title: {
+					label: "Title",
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+				tags: {
+					label: "Tags",
+					type: "array" as const,
+					items: { label: "Tag", type: "string" as const },
+					validation: { required: true as const },
+				},
+				metadata: {
+					label: "Metadata",
+					type: "object" as const,
+					properties: {
+						year: { label: "Year", type: "integer" as const },
+					},
+					validation: { required: true as const },
+				},
+			},
+		};
+
+		const schema = buildCreateEntityFormSchema(propertiesSchema);
+
+		const result = schema.safeParse({
+			name: "Test Book",
+			properties: { title: "The Book" },
+		});
+
+		expect(result.success).toBeFalse();
+		if (!result.success) {
+			expect(result.error.issues[0]?.path).toEqual(["properties"]);
+			expect(result.error.issues[0]?.message).toInclude(
+				"requires unsupported properties",
+			);
+		}
+	});
+
+	it("filters out non-primitive properties during validation", () => {
+		const propertiesSchema = {
+			fields: {
+				title: {
+					label: "Title",
+					type: "string" as const,
+					validation: { required: true as const },
+				},
+				tags: {
+					label: "Tags",
+					type: "array" as const,
+					items: { label: "Tag", type: "string" as const },
+				},
+			},
+		};
+
+		const schema = buildCreateEntityFormSchema(propertiesSchema);
+
+		const result = schema.safeParse({
+			name: "Test Book",
+			properties: { title: "The Book", tags: ["a", "b", "c"] },
+		});
+
+		expect(result.success).toBeTrue();
+	});
+
 	it("applies conditional required rules", () => {
 		const schema = buildCreateEntityFormSchema({
 			fields: {
@@ -261,13 +349,64 @@ describe("toCreateEntityPayload", () => {
 			properties: { pages: 350, title: "The Great Book" },
 		};
 
-		const payload = toCreateEntityPayload(formValues, "schema-123");
+		const propertiesSchema = {
+			fields: {
+				pages: { label: "Pages", type: "integer" as const },
+				title: { label: "Title", type: "string" as const },
+			},
+		};
+
+		const payload = toCreateEntityPayload(
+			formValues,
+			"schema-123",
+			propertiesSchema,
+		);
 
 		expect(payload).toEqual({
 			image: null,
 			name: "Test Book",
 			entitySchemaId: "schema-123",
 			properties: { pages: 350, title: "The Great Book" },
+		});
+	});
+
+	it("filters out non-primitive properties from payload", () => {
+		const formValues = {
+			image: null,
+			name: "Test Book",
+			properties: {
+				title: "The Great Book",
+				tags: ["fiction", "adventure"],
+				metadata: { year: 2024 },
+			},
+		};
+
+		const propertiesSchema = {
+			fields: {
+				title: { label: "Title", type: "string" as const },
+				tags: {
+					label: "Tags",
+					type: "array" as const,
+					items: { label: "Tag", type: "string" as const },
+				},
+				metadata: {
+					label: "Metadata",
+					type: "object" as const,
+					properties: {
+						year: { label: "Year", type: "integer" as const },
+					},
+				},
+			},
+		};
+
+		const payload = toCreateEntityPayload(
+			formValues,
+			"schema-123",
+			propertiesSchema,
+		);
+
+		expect(payload.properties).toEqual({
+			title: "The Great Book",
 		});
 	});
 });
