@@ -38,7 +38,7 @@ File: `tests/src/tests/view-runtime.test.ts`
 
 **Basic execution:**
 - Simple single-schema query returns entities with correct response shape
-- Response includes all required fields: id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, resolvedProperties
+- Response includes all required fields: id, name, image, entitySchemaId, entitySchemaSlug, createdAt, updatedAt, plus layout-specific `resolvedProperties` or `cells`
 - Pagination metadata is correct (page, total, limit, hasNextPage, hasPreviousPage, totalPages)
 
 **Filter tests:**
@@ -67,11 +67,11 @@ File: `tests/src/tests/view-runtime.test.ts`
 - Zero results (totalPages: 0)
 
 **Display configuration tests:**
-- Grid layout returns semantic keys (imageProperty, titleProperty, etc.)
-- List layout returns semantic keys
-- Table layout returns index-based keys (column_0, column_1, etc.)
+- Grid layout returns semantic keys with `{ value, kind }`
+- List layout returns semantic keys with `{ value, kind }`
+- Table layout returns `meta.table.columns` and ordered `cells`
 - Cross-schema display config COALESCE resolves per-schema properties
-- Empty property reference array resolves to null
+- Empty property reference array resolves cleanly to null wrappers/cells
 
 **Error tests:**
 - Non-existent schema slug returns 404

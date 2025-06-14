@@ -3,7 +3,7 @@ import { applySavedViewReorderPatch } from "./cache";
 import type { AppSavedView } from "./model";
 
 const displayConfiguration: AppSavedView["displayConfiguration"] = {
-	table: { columns: [{ property: ["@name"] }] },
+	table: { columns: [{ label: "Name", property: ["@name"] }] },
 	grid: {
 		badgeProperty: null,
 		subtitleProperty: null,
