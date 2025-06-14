@@ -130,6 +130,7 @@ export const createReorderSavedViewsBody = (
 export const createSavedViewDeps = (
 	overrides: Partial<SavedViewServiceDeps> = {},
 ): SavedViewServiceDeps => ({
+	prepareForValidation: async () => {},
 	persistSavedViewOrderForUser: async (input) => input.viewIds,
 	countSavedViewsByIdsForUser: async (input) => input.viewIds.length,
 	listUserSavedViewIdsInOrder: async () => ["view_1", "view_2", "view_3"],

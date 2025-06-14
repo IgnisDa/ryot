@@ -6,15 +6,9 @@ import {
 	createServiceErrorResult,
 	createStandardResponses,
 	createSuccessResult,
-	createValidationErrorResult,
 	createValidationServiceErrorResult,
 	jsonBody,
 } from "~/lib/openapi";
-import { viewDefinitionModule } from "~/lib/views/definition";
-import {
-	QueryEngineNotFoundError,
-	QueryEngineValidationError,
-} from "~/lib/views/errors";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
 	createSavedViewBody,
@@ -85,7 +79,7 @@ const updateSavedViewRoute = createAuthRoute(
 		tags: ["saved-views"],
 		summary: "Update a saved view by ID",
 		description:
-			"For user-defined views, all fields are applied. For built-in views, only `isDisabled` is applied — all other fields in the request body are ignored.",
+			"For user-defined views, all fields are applied. Built-in views only allow `isDisabled` to change; attempts to modify other fields are rejected.",
 		request: {
 			params: savedViewParams,
 			body: jsonBody(updateSavedViewBody),
@@ -146,17 +140,6 @@ const savedViewNotFoundResult = createNotFoundErrorResult(
 	"Saved view not found",
 );
 
-export const resolveSavedViewValidationErrorResult = (error: unknown) => {
-	if (
-		error instanceof QueryEngineNotFoundError ||
-		error instanceof QueryEngineValidationError
-	) {
-		return createValidationErrorResult(error.message);
-	}
-
-	throw error;
-};
-
 export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listSavedViewsRoute, async (c) => {
 		const user = c.get("user");
@@ -194,37 +177,6 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 		const params = c.req.valid("param");
-		const currentView = await getSavedViewByIdForUser({
-			userId: user.id,
-			viewId: params.viewId,
-		});
-
-		if (!currentView) {
-			return c.json(
-				savedViewNotFoundResult.body,
-				savedViewNotFoundResult.status,
-			);
-		}
-
-		if (!currentView.isBuiltin) {
-			try {
-				(
-					await viewDefinitionModule.prepare({
-						userId: user.id,
-						source: {
-							kind: "saved-view",
-							definition: {
-								queryDefinition: body.queryDefinition,
-								displayConfiguration: body.displayConfiguration,
-							},
-						},
-					})
-				).assertSavable();
-			} catch (error) {
-				const result = resolveSavedViewValidationErrorResult(error);
-				return c.json(result.body, result.status);
-			}
-		}
 
 		const result = await updateSavedView({
 			body,
@@ -243,24 +195,6 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		try {
-			(
-				await viewDefinitionModule.prepare({
-					userId: user.id,
-					source: {
-						kind: "saved-view",
-						definition: {
-							queryDefinition: body.queryDefinition,
-							displayConfiguration: body.displayConfiguration,
-						},
-					},
-				})
-			).assertSavable();
-		} catch (error) {
-			const result = resolveSavedViewValidationErrorResult(error);
-			return c.json(result.body, result.status);
-		}
-
 		const result = await createSavedView({ body, userId: user.id });
 		if ("error" in result) {
 			const response = createValidationServiceErrorResult(result);
@@ -275,8 +209,8 @@ export const savedViewsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const params = c.req.valid("param");
 
 		const result = await deleteSavedView({
-			viewId: params.viewId,
 			userId: user.id,
+			viewId: params.viewId,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
