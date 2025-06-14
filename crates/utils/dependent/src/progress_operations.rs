@@ -302,8 +302,8 @@ fn create_extra_information(
 
     let manga_ei = if matches!(media_lot, MediaLot::Manga) {
         Some(SeenMangaExtraInformation {
-            chapter: payload.manga_chapter_number,
             volume: payload.manga_volume_number,
+            chapter: payload.manga_chapter_number,
         })
     } else {
         None
@@ -350,11 +350,11 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         progress: ActiveValue::Set(input.progress),
         started_on: ActiveValue::Set(input.started_on),
         finished_on: ActiveValue::Set(input.finished_on),
+        user_id: ActiveValue::Set(input.user_id.to_owned()),
+        metadata_id: ActiveValue::Set(input.meta.id.clone()),
         show_extra_information: ActiveValue::Set(extra_info.show_ei),
         anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
         manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
-        user_id: ActiveValue::Set(input.user_id.to_owned()),
-        metadata_id: ActiveValue::Set(input.meta.id.clone()),
         podcast_extra_information: ActiveValue::Set(extra_info.podcast_ei),
         provider_watched_on: ActiveValue::Set(input.payload.provider_watched_on),
         ..Default::default()
