@@ -1,6 +1,10 @@
 import { z } from "@hono/zod-openapi";
 import { dataSchema, itemDataSchema } from "~/lib/openapi";
 import {
+	type SandboxScriptMetadata,
+	sandboxScriptMetadataSchema,
+} from "~/lib/sandbox/types";
+import {
 	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
 	nonEmptyStringSchema,
@@ -24,6 +28,7 @@ export type SandboxEnqueueResult = z.infer<
 >;
 
 export const createSandboxScriptBody = createNameWithOptionalSlugSchema({
+	metadata: sandboxScriptMetadataSchema.optional(),
 	code: nonEmptyStringSchema.max(20_000),
 });
 
@@ -32,6 +37,7 @@ const sandboxScriptSchema = z.object({
 	name: nonEmptyStringSchema,
 	slug: nonEmptyStringSchema,
 	code: nonEmptyStringSchema,
+	metadata: sandboxScriptMetadataSchema,
 });
 
 export const createSandboxScriptResponseSchema =
@@ -73,6 +79,7 @@ export const pollSandboxResultResponseSchema = dataSchema(
 export type SandboxScript = z.infer<typeof sandboxScriptSchema>;
 export type EnqueueSandboxBody = z.infer<typeof enqueueSandboxBody>;
 export type CreateSandboxScriptBody = z.infer<typeof createSandboxScriptBody>;
+export type CreateSandboxScriptMetadata = SandboxScriptMetadata;
 export type PollSandboxResult = z.infer<
 	typeof pollSandboxResultResponseSchema.shape.data
 >;

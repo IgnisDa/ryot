@@ -16,6 +16,7 @@ import { savedViewsApi } from "~/modules/saved-views/routes";
 import { systemApi } from "~/modules/system/routes";
 import { trackersApi } from "~/modules/trackers/routes";
 import { uploadsApi } from "~/modules/uploads/routes";
+import { registerInternalAppRequestHandler } from "./internal-request";
 
 const openApiTags = [
 	{
@@ -126,6 +127,8 @@ const baseApp = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 	.route("/saved-views", savedViewsApi)
 	.route("/collections", collectionsApi)
 	.route("/query-engine", queryEngineApi);
+
+registerInternalAppRequestHandler((request) => baseApp.fetch(request));
 
 export const getAppBackendOpenApiDocument = (origin: string) =>
 	baseApp.getOpenAPIDocument(createOpenApiDocumentConfig(origin));
