@@ -269,9 +269,9 @@ driver("search", async function(context) {
         return null;
       }
 
-      const identifier =
+      const externalId =
         typeof game.id === "number" ? String(game.id) : null;
-      if (!identifier) {
+      if (!externalId) {
         return null;
       }
 
@@ -290,7 +290,7 @@ driver("search", async function(context) {
           : null;
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: name },
         subtitleProperty:
@@ -318,13 +318,13 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  if (!/^\d+$/.test(identifier)) {
+  if (!/^\d+$/.test(externalId)) {
     throw new Error(
-      "identifier must be a numeric IGDB game ID (e.g., '1020')",
+      "externalId must be a numeric IGDB game ID (e.g., '1020')",
     );
   }
 
@@ -333,12 +333,12 @@ driver("details", async function(context) {
   // to keep results clean, but a user may legitimately request a specific edition.
   const gameBody = [
     `fields ${DETAIL_FIELDS};`,
-    `where id = ${identifier};`,
+    `where id = ${externalId};`,
   ].join("\n");
 
   const ttbBody = [
     "fields normally, hastily, completely;",
-    `where game_id = ${identifier};`,
+    `where game_id = ${externalId};`,
   ].join("\n");
 
   const [gameResult, ttbResult] = await Promise.all([
@@ -348,7 +348,7 @@ driver("details", async function(context) {
 
   const gameList = gameResult.data;
   if (!Array.isArray(gameList) || gameList.length === 0) {
-    throw new Error("IGDB returned no game data for this identifier");
+    throw new Error("IGDB returned no game data for this externalId");
   }
 
   const game = gameList[0];

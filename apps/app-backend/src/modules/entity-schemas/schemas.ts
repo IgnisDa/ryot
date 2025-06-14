@@ -85,7 +85,7 @@ export const entitySearchResultResponseSchema = dataSchema(
 
 export const importEntityBody = z.object({
 	scriptId: nonEmptyStringSchema,
-	identifier: nonEmptyStringSchema,
+	externalId: nonEmptyStringSchema,
 	entitySchemaId: nonEmptyStringSchema,
 });
 

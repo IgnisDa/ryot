@@ -158,7 +158,7 @@ describe("GET /entities/:id — global entity read access", () => {
 		}
 
 		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
-			identifier: "OL267933W",
+			externalId: "OL267933W",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});

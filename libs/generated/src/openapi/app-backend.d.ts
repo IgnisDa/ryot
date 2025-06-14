@@ -1264,7 +1264,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         scriptId: string;
-                        identifier: string;
+                        externalId: string;
                         entitySchemaId: string;
                     };
                 };

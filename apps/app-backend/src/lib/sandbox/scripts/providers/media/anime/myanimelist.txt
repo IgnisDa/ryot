@@ -188,7 +188,7 @@ driver("search", async function(context) {
       const publishYear = parsePublishYear(node.start_date, dayjs);
 
       return {
-        identifier: String(nodeId),
+        externalId: String(nodeId),
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -218,8 +218,8 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier: contextIdentifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const clientId = await getMalClientId();
