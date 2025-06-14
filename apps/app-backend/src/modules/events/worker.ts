@@ -2,7 +2,7 @@ import { type Job, Worker } from "bullmq";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 import { createEventsJobData, createEventsJobName } from "./jobs";
-import { createEvents } from "./service";
+import { createEvents, processEventSchemaTriggers } from "./service";
 
 const processCreateEventsJob = async (job: Job) => {
 	const parsed = createEventsJobData.safeParse(job.data);
@@ -15,7 +15,12 @@ const processCreateEventsJob = async (job: Job) => {
 		throw new Error(result.message);
 	}
 
-	return result.data;
+	await processEventSchemaTriggers({
+		userId: parsed.data.userId,
+		createdEvents: result.data.createdEvents,
+	});
+
+	return { count: result.data.count };
 };
 
 const processEventsJob = async (job: Job) => {
