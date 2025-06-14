@@ -644,4 +644,33 @@ describe("getMembershipPropertyEntries", () => {
 	it("returns empty array when schema has empty fields", () => {
 		expect(getMembershipPropertyEntries({ fields: {} })).toEqual([]);
 	});
+
+	it("generates label from key when property label is empty", () => {
+		const schema = {
+			fields: {
+				myPropertyName: { label: "", type: "string" as const },
+				another_property: { label: "", type: "integer" as const },
+				someKey: { label: "Existing Label", type: "boolean" as const },
+			},
+		};
+
+		const entries = getMembershipPropertyEntries(schema);
+
+		expect(entries).toHaveLength(3);
+		expect(entries).toContainEqual({
+			key: "myPropertyName",
+			label: "My Property Name",
+			definition: { label: "", type: "string" },
+		});
+		expect(entries).toContainEqual({
+			key: "another_property",
+			label: "Another Property",
+			definition: { label: "", type: "integer" },
+		});
+		expect(entries).toContainEqual({
+			key: "someKey",
+			label: "Existing Label",
+			definition: { label: "Existing Label", type: "boolean" },
+		});
+	});
 });
