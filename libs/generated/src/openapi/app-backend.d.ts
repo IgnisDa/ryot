@@ -2441,7 +2441,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                items: ({
+                                items: {
                                     id: string;
                                     name: string;
                                     /** Format: date-time */
@@ -2460,28 +2460,40 @@ export interface paths {
                                         kind: "remote";
                                     } | unknown;
                                     resolvedProperties: {
+                                        badgeProperty: {
+                                            value?: unknown;
+                                            /** @enum {string} */
+                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                        };
                                         imageProperty: {
                                             value?: unknown;
                                             /** @enum {string} */
-                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
                                         };
                                         titleProperty: {
                                             value?: unknown;
                                             /** @enum {string} */
-                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
                                         };
                                         subtitleProperty: {
                                             value?: unknown;
                                             /** @enum {string} */
-                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
-                                        };
-                                        badgeProperty: {
-                                            value?: unknown;
-                                            /** @enum {string} */
-                                            kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                            kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
                                         };
                                     };
-                                } | {
+                                }[];
+                                meta: {
+                                    pagination: {
+                                        page: number;
+                                        total: number;
+                                        limit: number;
+                                        hasNextPage: boolean;
+                                        hasPreviousPage: boolean;
+                                        totalPages: number;
+                                    };
+                                };
+                            } | {
+                                items: {
                                     id: string;
                                     name: string;
                                     /** Format: date-time */
@@ -2503,9 +2515,9 @@ export interface paths {
                                         key: string;
                                         value?: unknown;
                                         /** @enum {string} */
-                                        kind: "text" | "number" | "boolean" | "date" | "image" | "json" | "null";
+                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
                                     }[];
-                                })[];
+                                }[];
                                 meta: {
                                     pagination: {
                                         page: number;
@@ -2515,7 +2527,7 @@ export interface paths {
                                         hasPreviousPage: boolean;
                                         totalPages: number;
                                     };
-                                    table?: {
+                                    table: {
                                         columns: {
                                             key: string;
                                             label: string;
