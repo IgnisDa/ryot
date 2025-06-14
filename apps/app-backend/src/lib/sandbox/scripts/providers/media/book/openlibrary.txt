@@ -147,7 +147,8 @@ driver("search", async function(context) {
 driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
-  const customParseFormat = (await import("npm:dayjs/plugin/customParseFormat")).default;
+  // dayjs has no `exports` field in package.json, so Deno requires the explicit .js extension for sub-path imports (https://github.com/iamkun/dayjs/issues/2562)
+  const customParseFormat = (await import("npm:dayjs/plugin/customParseFormat.js")).default;
   dayjs.extend(customParseFormat);
 
   const { identifier: contextIdentifier } = z.object({
