@@ -16,9 +16,12 @@ export function useResolvedEntityImageUrls(entities: AppEntity[]) {
 
 	const presignedQueries = useQueries({
 		queries: s3Keys.map((key) =>
-			apiClient.queryOptions("get", "/uploads/presigned", {
-				params: { query: { key } },
-			}),
+			apiClient.queryOptions(
+				"get",
+				"/uploads/presigned",
+				{ params: { query: { key } } },
+				{ staleTime: 14 * 60 * 1000 /* 14m; URLs are valid for 15m */ },
+			),
 		),
 	});
 
