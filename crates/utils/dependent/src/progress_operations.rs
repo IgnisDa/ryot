@@ -419,7 +419,7 @@ pub async fn metadata_progress_update(
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             if previous_seen.is_some() {
-                return Err(Error::new("Can't create new in progress seen"));
+                return Err(Error::new("An in-progress record already exists for this metadata"));
             };
             commit(CommitInput {
                 ss,
