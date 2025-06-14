@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { type AppSchema, normalizeSlug } from "@ryot/ts-utils";
-import { type Job, Worker } from "bullmq";
+import { type Job, WaitingChildrenError, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema } from "~/lib/db/schema";
@@ -9,7 +9,7 @@ import { personPropertiesSchema } from "~/lib/media/person";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
-import { getSandboxService } from "~/lib/sandbox";
+import { sandboxRunJobName, sandboxRunJobResult } from "~/lib/sandbox/jobs";
 import {
 	getEntitySchemaScopeForUser,
 	getUserLibraryEntityId,
@@ -29,6 +29,7 @@ import {
 import {
 	mediaImportJobData,
 	mediaImportJobName,
+	mediaJobWaitingForSandboxStep,
 	personPopulateJobData,
 	personPopulateJobName,
 } from "./jobs";
@@ -43,6 +44,52 @@ const personDetailsResultSchema = z.object({
 	name: z.string(),
 	properties: z.record(z.string(), z.unknown()),
 });
+
+const queueSandboxChildRun = async (input: {
+	job: Job;
+	childJobId: string;
+	jobData: Record<string, unknown>;
+	sandboxJobData: Record<string, unknown>;
+}) => {
+	if (!input.job.id) {
+		throw new Error("Media job id is missing");
+	}
+
+	await getQueues().sandboxQueue.add(sandboxRunJobName, input.sandboxJobData, {
+		jobId: input.childJobId,
+		parent: {
+			id: input.job.id,
+			queue: input.job.queueQualifiedName,
+		},
+	});
+	await input.job.updateData(input.jobData);
+};
+
+const waitForSandboxChildRun = async (job: Job, token: string | undefined) => {
+	if (!token) {
+		throw new Error("Media job token is missing");
+	}
+
+	const shouldWait = await job.moveToWaitingChildren(token);
+	if (shouldWait) {
+		throw new WaitingChildrenError();
+	}
+};
+
+const getSandboxChildRunResult = async (job: Job) => {
+	const childrenValues = await job.getChildrenValues();
+	const [childValue] = Object.values(childrenValues);
+	if (Object.keys(childrenValues).length !== 1) {
+		throw new Error("Sandbox child job did not complete successfully");
+	}
+
+	const parsed = sandboxRunJobResult.safeParse(childValue);
+	if (!parsed.success) {
+		throw new Error("Sandbox child job returned an invalid payload");
+	}
+
+	return parsed.data;
+};
 
 const processPersonStubs = async (input: {
 	userId: string;
@@ -137,7 +184,7 @@ const processPersonStubs = async (input: {
 	}
 };
 
-const processMediaImportJob = async (job: Job) => {
+const processMediaImportJob = async (job: Job, token?: string) => {
 	const parsed = mediaImportJobData.safeParse(job.data);
 	if (!parsed.success) {
 		throw new Error("Media import job payload is invalid");
@@ -145,22 +192,52 @@ const processMediaImportJob = async (job: Job) => {
 
 	const { userId, scriptId, identifier, entitySchemaId } = parsed.data;
 
-	const script = await getSandboxScriptForUser({ userId, scriptId });
-	if (!script) {
-		throw new Error("Sandbox script not found");
+	let step = parsed.data.step;
+	let schemaFieldKeys = parsed.data.schemaFieldKeys;
+	if (!step) {
+		const script = await getSandboxScriptForUser({ userId, scriptId });
+		if (!script) {
+			throw new Error("Sandbox script not found");
+		}
+
+		const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
+		if (!scope) {
+			throw new Error("Entity schema not found");
+		}
+
+		schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
+		await queueSandboxChildRun({
+			job,
+			childJobId: `${job.id}:sandbox`,
+			jobData: {
+				...parsed.data,
+				schemaFieldKeys,
+				step: mediaJobWaitingForSandboxStep,
+			},
+			sandboxJobData: {
+				userId,
+				scriptId,
+				driverName: "details",
+				context: { identifier },
+			},
+		});
+		step = mediaJobWaitingForSandboxStep;
 	}
 
-	const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
-	if (!scope) {
-		throw new Error("Entity schema not found");
+	if (step !== mediaJobWaitingForSandboxStep) {
+		throw new Error(`Unsupported media import job step: ${step}`);
+	}
+	if (!schemaFieldKeys) {
+		const scope = await getEntitySchemaScopeForUser({ userId, entitySchemaId });
+		if (!scope) {
+			throw new Error("Entity schema not found");
+		}
+		schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
 	}
 
-	const sandboxResult = await getSandboxService().executeQueuedRun({
-		userId,
-		scriptId,
-		driverName: "details",
-		context: { identifier },
-	});
+	await waitForSandboxChildRun(job, token);
+
+	const sandboxResult = await getSandboxChildRunResult(job);
 
 	if (!sandboxResult.success) {
 		throw new Error(sandboxResult.error ?? "Media details script failed");
@@ -175,9 +252,6 @@ const processMediaImportJob = async (job: Job) => {
 	}
 
 	const details = detailsParsed.data;
-	const schemaFieldKeys = Object.keys(
-		(scope.propertiesSchema as AppSchema).fields,
-	);
 	const properties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
 		if (details.properties[key] !== undefined) {
@@ -235,7 +309,7 @@ const processMediaImportJob = async (job: Job) => {
 	return mediaEntity;
 };
 
-const processPersonPopulateJob = async (job: Job) => {
+const processPersonPopulateJob = async (job: Job, token?: string) => {
 	const parsed = personPopulateJobData.safeParse(job.data);
 	if (!parsed.success) {
 		throw new Error("Person populate job payload is invalid");
@@ -243,22 +317,37 @@ const processPersonPopulateJob = async (job: Job) => {
 
 	const { userId, scriptSlug, identifier, personEntityId } = parsed.data;
 
-	const personScript = await getBuiltinSandboxScriptBySlug(scriptSlug);
-	if (!personScript) {
-		throw new Error("Person script not found");
+	let step = parsed.data.step;
+	if (!step) {
+		const personScript = await getBuiltinSandboxScriptBySlug(scriptSlug);
+		if (!personScript) {
+			throw new Error("Person script not found");
+		}
+
+		await queueSandboxChildRun({
+			job,
+			childJobId: `${job.id}:sandbox`,
+			jobData: {
+				...parsed.data,
+				step: mediaJobWaitingForSandboxStep,
+			},
+			sandboxJobData: {
+				userId,
+				driverName: "details",
+				context: { identifier },
+				scriptId: personScript.id,
+			},
+		});
+		step = mediaJobWaitingForSandboxStep;
 	}
 
-	const personSchema = await getBuiltinEntitySchemaBySlug("person");
-	if (!personSchema) {
-		throw new Error("Person entity schema not found");
+	if (step !== mediaJobWaitingForSandboxStep) {
+		throw new Error(`Unsupported person populate job step: ${step}`);
 	}
 
-	const sandboxResult = await getSandboxService().executeQueuedRun({
-		userId,
-		driverName: "details",
-		context: { identifier },
-		scriptId: personScript.id,
-	});
+	await waitForSandboxChildRun(job, token);
+
+	const sandboxResult = await getSandboxChildRunResult(job);
 
 	if (!sandboxResult.success) {
 		throw new Error(sandboxResult.error ?? "Person details script failed");
@@ -272,6 +361,11 @@ const processPersonPopulateJob = async (job: Job) => {
 	);
 	if (!detailsParsed.success) {
 		throw new Error("Person details script returned an unexpected shape");
+	}
+
+	const personSchema = await getBuiltinEntitySchemaBySlug("person");
+	if (!personSchema) {
+		throw new Error("Person entity schema not found");
 	}
 
 	const details = detailsParsed.data;
@@ -312,13 +406,13 @@ const processPersonPopulateJob = async (job: Job) => {
 	});
 };
 
-const processMediaJob = async (job: Job) => {
+const processMediaJob = async (job: Job, token?: string) => {
 	if (job.name === mediaImportJobName) {
-		return processMediaImportJob(job);
+		return processMediaImportJob(job, token);
 	}
 
 	if (job.name === personPopulateJobName) {
-		return processPersonPopulateJob(job);
+		return processPersonPopulateJob(job, token);
 	}
 
 	throw new Error(`Unsupported media job: ${job.name}`);
