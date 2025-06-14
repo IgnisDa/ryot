@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { dataSchema } from "~/lib/openapi";
 import {
-	applicationIconNameSchema,
 	createNameWithOptionalSlugSchema,
+	iconAndAccentColorFields,
 	nonEmptyTrimmedStringSchema,
 } from "~/lib/zod/base";
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
@@ -20,9 +20,8 @@ export const listedEntitySchemaSchema = z.object({
 	slug: z.string(),
 	trackerId: z.string(),
 	isBuiltin: z.boolean(),
-	icon: applicationIconNameSchema,
-	accentColor: nonEmptyTrimmedStringSchema,
 	propertiesSchema: entitySchemaPropertiesObjectSchema,
+	...iconAndAccentColorFields,
 });
 
 export const listEntitySchemasResponseSchema = dataSchema(
@@ -38,10 +37,9 @@ export const listEntitySchemasQuery = z.object({
 });
 
 export const createEntitySchemaBody = createNameWithOptionalSlugSchema({
-	icon: applicationIconNameSchema,
 	trackerId: nonEmptyTrimmedStringSchema,
-	accentColor: nonEmptyTrimmedStringSchema,
 	propertiesSchema: entitySchemaPropertiesInputSchema,
+	...iconAndAccentColorFields,
 });
 
 export type CreateEntitySchemaBody = z.infer<typeof createEntitySchemaBody>;
