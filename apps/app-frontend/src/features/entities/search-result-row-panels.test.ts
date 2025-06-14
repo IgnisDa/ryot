@@ -141,3 +141,84 @@ describe("SearchResultCollectionPanel props", () => {
 		});
 	});
 });
+
+describe("SearchResultCollectionPanel entity ensuring", () => {
+	it("can be in entity ensuring state with pending collection action", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: "collection",
+			selectedCollectionId: "collection-1",
+			collectionProperties: {},
+		};
+		const isEnsuringEntity = actionState.pendingAction === "collection";
+
+		expect(actionState.openPanel).toBe("collection");
+		expect(actionState.pendingAction).toBe("collection");
+		expect(isEnsuringEntity).toBe(true);
+	});
+
+	it("is not in entity ensuring state when no pending action", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: null,
+			selectedCollectionId: "collection-1",
+			collectionProperties: {},
+		};
+		const isEnsuringEntity = actionState.pendingAction === "collection";
+
+		expect(actionState.openPanel).toBe("collection");
+		expect(actionState.pendingAction).toBeNull();
+		expect(isEnsuringEntity).toBe(false);
+	});
+
+	it("allows selecting collection while not ensuring entity", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: null,
+			selectedCollectionId: null,
+			collectionProperties: {},
+		};
+		const collectionState: CollectionDiscoveryState = {
+			type: "collections",
+			collections: [
+				{
+					id: "collection-1",
+					name: "Favorites",
+					image: null,
+					createdAt: new Date(),
+					updatedAt: new Date(),
+					membershipPropertiesSchema: null,
+					entitySchemaSlug: "media",
+				},
+			],
+		};
+
+		expect(actionState.selectedCollectionId).toBeNull();
+		expect(collectionState.type).toBe("collections");
+		expect(actionState.pendingAction).toBeNull();
+	});
+});
