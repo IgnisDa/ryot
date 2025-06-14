@@ -10,13 +10,11 @@ const sandboxScriptCreationSelection = {
 };
 
 export type SandboxScriptAccessRow = {
-	code: string;
 	isBuiltin: boolean;
 	userId: string | null;
 };
 
 const sandboxScriptAccessSelection = {
-	code: sandboxScript.code,
 	userId: sandboxScript.userId,
 	isBuiltin: sandboxScript.isBuiltin,
 };
@@ -85,7 +83,7 @@ export const getSandboxScriptBySlugForUser = async (input: {
 
 export const getBuiltinSandboxScriptBySlug = async (slug: string) => {
 	const [foundScript] = await db
-		.select({ id: sandboxScript.id, code: sandboxScript.code })
+		.select({ id: sandboxScript.id })
 		.from(sandboxScript)
 		.where(
 			and(
