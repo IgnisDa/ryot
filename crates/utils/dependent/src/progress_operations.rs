@@ -194,40 +194,9 @@ pub async fn progress_update(
                 meta.lot
             );
 
-            let show_ei = if matches!(meta.lot, MediaLot::Show) {
-                let season = input.show_season_number.ok_or_else(|| {
-                    Error::new("Season number is required for show progress update")
-                })?;
-                let episode = input.show_episode_number.ok_or_else(|| {
-                    Error::new("Episode number is required for show progress update")
-                })?;
-                Some(SeenShowExtraInformation { season, episode })
-            } else {
-                None
-            };
-            let podcast_ei = if matches!(meta.lot, MediaLot::Podcast) {
-                let episode = input.podcast_episode_number.ok_or_else(|| {
-                    Error::new("Episode number is required for podcast progress update")
-                })?;
-                Some(SeenPodcastExtraInformation { episode })
-            } else {
-                None
-            };
-            let anime_ei = if matches!(meta.lot, MediaLot::Anime) {
-                Some(SeenAnimeExtraInformation {
-                    episode: input.anime_episode_number,
-                })
-            } else {
-                None
-            };
-            let manga_ei = if matches!(meta.lot, MediaLot::Manga) {
-                Some(SeenMangaExtraInformation {
-                    chapter: input.manga_chapter_number,
-                    volume: input.manga_volume_number,
-                })
-            } else {
-                None
-            };
+            let common_input = progress_input_to_common_input(&input);
+            let extra_info = create_extra_information(&meta.lot, &common_input)?;
+
             let finished_on = match action {
                 ProgressUpdateAction::JustStarted => None,
                 _ => input.date,
@@ -259,12 +228,12 @@ pub async fn progress_update(
                 finished_on: ActiveValue::Set(finished_on),
                 user_id: ActiveValue::Set(user_id.to_owned()),
                 state: ActiveValue::Set(SeenState::InProgress),
-                show_extra_information: ActiveValue::Set(show_ei),
-                anime_extra_information: ActiveValue::Set(anime_ei),
-                manga_extra_information: ActiveValue::Set(manga_ei),
-                podcast_extra_information: ActiveValue::Set(podcast_ei),
                 metadata_id: ActiveValue::Set(input.metadata_id.clone()),
+                show_extra_information: ActiveValue::Set(extra_info.show_ei),
+                anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
+                manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
                 provider_watched_on: ActiveValue::Set(input.provider_watched_on),
+                podcast_extra_information: ActiveValue::Set(extra_info.podcast_ei),
                 ..Default::default()
             };
             seen_insert.insert(&ss.db).await.unwrap()
@@ -290,6 +259,78 @@ pub async fn progress_update(
     Ok(ProgressUpdateResultUnion::Ok(StringIdObject { id }))
 }
 
+#[derive(Debug)]
+struct ExtraInformation {
+    show_ei: Option<SeenShowExtraInformation>,
+    anime_ei: Option<SeenAnimeExtraInformation>,
+    manga_ei: Option<SeenMangaExtraInformation>,
+    podcast_ei: Option<SeenPodcastExtraInformation>,
+}
+
+fn create_extra_information(
+    media_lot: &MediaLot,
+    payload: &MetadataProgressUpdateCommonInput,
+) -> Result<ExtraInformation> {
+    let show_ei = if matches!(media_lot, MediaLot::Show) {
+        let season = payload
+            .show_season_number
+            .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
+        let episode = payload
+            .show_episode_number
+            .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
+        Some(SeenShowExtraInformation { season, episode })
+    } else {
+        None
+    };
+
+    let podcast_ei = if matches!(media_lot, MediaLot::Podcast) {
+        let episode = payload
+            .podcast_episode_number
+            .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
+        Some(SeenPodcastExtraInformation { episode })
+    } else {
+        None
+    };
+
+    let anime_ei = if matches!(media_lot, MediaLot::Anime) {
+        Some(SeenAnimeExtraInformation {
+            episode: payload.anime_episode_number,
+        })
+    } else {
+        None
+    };
+
+    let manga_ei = if matches!(media_lot, MediaLot::Manga) {
+        Some(SeenMangaExtraInformation {
+            chapter: payload.manga_chapter_number,
+            volume: payload.manga_volume_number,
+        })
+    } else {
+        None
+    };
+
+    Ok(ExtraInformation {
+        show_ei,
+        anime_ei,
+        manga_ei,
+        podcast_ei,
+    })
+}
+
+fn progress_input_to_common_input(
+    input: &ProgressUpdateInput,
+) -> MetadataProgressUpdateCommonInput {
+    MetadataProgressUpdateCommonInput {
+        show_season_number: input.show_season_number,
+        show_episode_number: input.show_episode_number,
+        manga_volume_number: input.manga_volume_number,
+        anime_episode_number: input.anime_episode_number,
+        manga_chapter_number: input.manga_chapter_number,
+        podcast_episode_number: input.podcast_episode_number,
+        provider_watched_on: input.provider_watched_on.clone(),
+    }
+}
+
 struct CommitInput<'a> {
     state: SeenState,
     progress: Decimal,
@@ -302,54 +343,19 @@ struct CommitInput<'a> {
 }
 
 async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
-    let show_ei = if matches!(input.meta.lot, MediaLot::Show) {
-        let season = input
-            .payload
-            .show_season_number
-            .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
-        let episode = input
-            .payload
-            .show_episode_number
-            .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
-        Some(SeenShowExtraInformation { season, episode })
-    } else {
-        None
-    };
-    let podcast_ei = if matches!(input.meta.lot, MediaLot::Podcast) {
-        let episode = input
-            .payload
-            .podcast_episode_number
-            .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
-        Some(SeenPodcastExtraInformation { episode })
-    } else {
-        None
-    };
-    let anime_ei = if matches!(input.meta.lot, MediaLot::Anime) {
-        Some(SeenAnimeExtraInformation {
-            episode: input.payload.anime_episode_number,
-        })
-    } else {
-        None
-    };
-    let manga_ei = if matches!(input.meta.lot, MediaLot::Manga) {
-        Some(SeenMangaExtraInformation {
-            chapter: input.payload.manga_chapter_number,
-            volume: input.payload.manga_volume_number,
-        })
-    } else {
-        None
-    };
+    let extra_info = create_extra_information(&input.meta.lot, &input.payload)?;
+
     let seen_insert = seen::ActiveModel {
         state: ActiveValue::Set(input.state),
         progress: ActiveValue::Set(input.progress),
         started_on: ActiveValue::Set(input.started_on),
         finished_on: ActiveValue::Set(input.finished_on),
-        show_extra_information: ActiveValue::Set(show_ei),
-        anime_extra_information: ActiveValue::Set(anime_ei),
-        manga_extra_information: ActiveValue::Set(manga_ei),
+        show_extra_information: ActiveValue::Set(extra_info.show_ei),
+        anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
+        manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
         user_id: ActiveValue::Set(input.user_id.to_owned()),
         metadata_id: ActiveValue::Set(input.meta.id.clone()),
-        podcast_extra_information: ActiveValue::Set(podcast_ei),
+        podcast_extra_information: ActiveValue::Set(extra_info.podcast_ei),
         provider_watched_on: ActiveValue::Set(input.payload.provider_watched_on),
         ..Default::default()
     };
@@ -419,7 +425,9 @@ pub async fn metadata_progress_update(
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             if previous_seen.is_some() {
-                return Err(Error::new("An in-progress record already exists for this metadata"));
+                return Err(Error::new(
+                    "An in-progress record already exists for this metadata",
+                ));
             };
             commit(CommitInput {
                 ss,
