@@ -442,7 +442,7 @@ pub async fn metadata_progress_update(
             .await?
         }
         MetadataProgressUpdateChange::CreateNewCompleted(create_new_completed) => {
-            let (started_on, finished_on, input) = match create_new_completed {
+            let (started_on, finished_on, payload) = match create_new_completed {
                 MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(inner_input) => {
                     (None, None, inner_input)
                 }
@@ -460,8 +460,8 @@ pub async fn metadata_progress_update(
             commit(CommitInput {
                 ss,
                 meta,
-                payload: input,
                 user_id,
+                payload,
                 started_on,
                 finished_on,
                 progress: dec!(100),
