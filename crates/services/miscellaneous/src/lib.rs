@@ -369,6 +369,10 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn invalidate_import_jobs(&self) -> Result<()> {
+        background_operations::invalidate_import_jobs(&self.0).await
+    }
+
     pub async fn perform_background_jobs(&self) -> Result<()> {
         background_operations::perform_background_jobs(&self.0).await
     }

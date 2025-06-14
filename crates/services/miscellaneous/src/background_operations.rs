@@ -115,8 +115,6 @@ async fn update_monitored_people_and_queue_notifications(
 pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     ryot_log!(debug, "Starting background jobs...");
 
-    ryot_log!(trace, "Invalidating invalid media import jobs");
-    invalidate_import_jobs(ss).await.trace_ok();
     ryot_log!(trace, "Checking for updates for monitored media");
     update_monitored_metadata_and_queue_notifications(ss)
         .await

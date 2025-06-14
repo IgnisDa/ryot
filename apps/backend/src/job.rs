@@ -38,6 +38,11 @@ pub async fn run_frequent_cron_jobs(
         .process_users_scheduled_for_workout_revision()
         .await
         .trace_ok();
+    app_services
+        .miscellaneous_service
+        .invalidate_import_jobs()
+        .await
+        .trace_ok();
     Ok(())
 }
 
