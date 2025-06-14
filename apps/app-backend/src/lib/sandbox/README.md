@@ -23,9 +23,9 @@ The model is:
 
 1. User creates a script via `POST /sandbox/scripts` with `{ name, slug?, code, metadata? }`. `metadata` defaults to `{}` when omitted. Returns `{ data: { id, name, slug, code, metadata } }`.
 2. User enqueues via `POST /sandbox/enqueue` with `{ scriptId, driverName, context? }`. Returns BullMQ `jobId` immediately.
-3. The route looks up the script, builds `apiFunctionDescriptors` server-side, and stores them in the job payload.
-4. A worker calls `SandboxService.executeQueuedRun(...)` for the job.
-5. The service reconstructs bound host functions from the static registry, then creates a unique `executionId` and one-time bearer token.
+3. The route verifies the script belongs to the user and enqueues a job with `{ userId, scriptId, driverName, context }`.
+4. A worker calls `SandboxService.executeQueuedRun(...)` for the job, fetches the script by `scriptId`, parses its `metadata`, and builds `apiFunctionDescriptors` from `allowedHostFunctions`.
+5. The service constructs bound host functions from the static registry, then creates a unique `executionId` and one-time bearer token.
 6. The bridge session is registered:
    - Redis stores `{ token, expiresAt }` under `sandbox:session:<executionId>` with TTL.
    - An in-memory map stores the bound host functions for that execution.
@@ -102,7 +102,7 @@ The cache persists across restarts. In Docker deployments, mount the cache direc
 - The bridge server and runner file are created once on service startup and reused.
 - Deno subprocesses are still per-execution, which keeps run isolation while avoiding bridge re-creation overhead.
 - Redis session metadata allows TTL-based expiry and explicit cleanup on shutdown for bridge RPC calls.
-- Host functions are serialized as descriptors in the job payload, so any worker instance can reconstruct them.
+- The worker fetches the script by `scriptId` at execution time and rebuilds host-function descriptors from the stored `metadata`, so any worker instance can reconstruct them without descriptor serialization in the job payload.
 - Scripts are stored in the database, referenced by `scriptId` at enqueue time.
 
 ## Host functions
