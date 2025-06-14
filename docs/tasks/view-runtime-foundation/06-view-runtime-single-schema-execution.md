@@ -35,7 +35,7 @@ Update `apps/app-backend/src/modules/view-runtime/schemas.ts`:
 Request schema (see PRD section "View Runtime Module Changes > Request schema structure"):
 - `entitySchemaSlugs: string[]`
 - `filters: FilterExpression[]` (empty array for this task)
-- `sort: { field: string[], direction: "asc" | "desc" }`
+- `sort: { fields: string[], direction: "asc" | "desc" }`
 - `pagination: { page: number, limit: number }`
 - `layout: "grid" | "list" | "table"`
 - `displayConfiguration: GridConfig | ListConfig | TableConfig`
@@ -82,7 +82,7 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - Validate entity schema slugs exist and user has access
 - Call query builder
 - Return response with items and pagination metadata
-- Error handling: 404 for non-existent schema slug, 400 for missing sort field
+- Error handling: 404 for non-existent schema slug, 400 for missing sort fields
 
 ### Integration Tests
 
@@ -95,7 +95,7 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - Table layout returns ordered `cells` and `meta.table.columns`
 - Image fields returned as raw discriminated unions (not resolved to URLs)
 - Non-existent schema slug returns 404
-- Empty sort field returns 400
+- Empty sort fields returns 400
 
 ## Acceptance criteria
 
@@ -111,7 +111,7 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - [x] Grid/list display properties resolved with semantic keys (imageProperty, titleProperty, etc.)
 - [x] Images returned as raw jsonb discriminated unions
 - [x] Returns 404 for non-existent schema slugs
-- [x] Returns 400 for missing/empty sort field
+- [x] Returns 400 for missing/empty sort fields
 - [x] Runtime module does not load saved views by ID (execution-only)
 - [x] Unit tests for pagination math pass
 - [x] Integration tests pass
@@ -134,7 +134,7 @@ Replace the placeholder in `apps/app-backend/src/modules/view-runtime/routes.ts`
 - User story 28 (Drizzle SQL template tag)
 - User story 30 (execution-only, no saved view loading)
 - User story 37 (error patterns)
-- User story 39 (sort field required)
+- User story 39 (sort fields required)
 - User story 40 (zero-result pagination)
 - User story 41 (separate CTE for count)
 - User story 46 (schema introspection as separate service)
