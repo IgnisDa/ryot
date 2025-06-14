@@ -95,7 +95,7 @@ describe("authentication bootstrap helpers", () => {
 				queryDefinition: {
 					filters: [],
 					entitySchemaSlugs: ["book"],
-					sort: { field: ["@name"], direction: "asc" },
+					sort: { fields: ["@name"], direction: "asc" },
 				},
 			},
 		]);
@@ -115,7 +115,7 @@ describe("authentication bootstrap helpers", () => {
 						queryDefinition: {
 							filters: [],
 							entitySchemaSlugs: [],
-							sort: { field: ["@name"], direction: "asc" },
+							sort: { fields: ["@name"], direction: "asc" },
 						},
 					},
 				],
@@ -131,7 +131,7 @@ describe("authentication bootstrap helpers", () => {
 				queryDefinition: {
 					filters: [],
 					entitySchemaSlugs: [],
-					sort: { field: ["@name"], direction: "asc" },
+					sort: { fields: ["@name"], direction: "asc" },
 				},
 			},
 		]);

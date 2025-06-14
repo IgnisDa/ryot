@@ -21,5 +21,5 @@ export const createDefaultQueryDefinition = (
 ): SavedViewQueryDefinition => ({
 	filters: [],
 	entitySchemaSlugs,
-	sort: { field: ["@name"], direction: "asc" },
+	sort: { fields: ["@name"], direction: "asc" },
 });

@@ -132,7 +132,7 @@ export const emptyDisplayConfiguration = {
 export const basicQueryDefinition = {
 	filters: [],
 	entitySchemaSlugs: ["book"],
-	sort: { direction: "asc" as const, field: ["name"] },
+	sort: { direction: "asc" as const, fields: ["name"] },
 };
 
 export async function createAuthenticatedClient() {

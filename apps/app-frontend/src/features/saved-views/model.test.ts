@@ -33,7 +33,7 @@ function createSavedView(overrides: Partial<AppSavedView>): AppSavedView {
 		queryDefinition: {
 			filters: [],
 			entitySchemaSlugs: ["schema-1"],
-			sort: { field: ["@name"], direction: "asc" },
+			sort: { fields: ["@name"], direction: "asc" },
 		},
 		...overrides,
 	};
@@ -63,7 +63,7 @@ describe("toAppSavedView", () => {
 			queryDefinition: {
 				filters: [],
 				entitySchemaSlugs: ["schema-1", "schema-2"],
-				sort: { field: ["@name"], direction: "asc" },
+				sort: { fields: ["@name"], direction: "asc" },
 			},
 		});
 
