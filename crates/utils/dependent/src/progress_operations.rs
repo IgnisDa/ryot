@@ -298,17 +298,17 @@ struct CommitInput<'a> {
     started_on: Option<NaiveDate>,
     finished_on: Option<NaiveDate>,
     ss: &'a Arc<SupportingService>,
-    input: MetadataProgressUpdateCommonInput,
+    payload: MetadataProgressUpdateCommonInput,
 }
 
 async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
     let show_ei = if matches!(input.meta.lot, MediaLot::Show) {
         let season = input
-            .input
+            .payload
             .show_season_number
             .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
         let episode = input
-            .input
+            .payload
             .show_episode_number
             .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
         Some(SeenShowExtraInformation { season, episode })
@@ -317,7 +317,7 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
     };
     let podcast_ei = if matches!(input.meta.lot, MediaLot::Podcast) {
         let episode = input
-            .input
+            .payload
             .podcast_episode_number
             .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
         Some(SeenPodcastExtraInformation { episode })
@@ -326,15 +326,15 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
     };
     let anime_ei = if matches!(input.meta.lot, MediaLot::Anime) {
         Some(SeenAnimeExtraInformation {
-            episode: input.input.anime_episode_number,
+            episode: input.payload.anime_episode_number,
         })
     } else {
         None
     };
     let manga_ei = if matches!(input.meta.lot, MediaLot::Manga) {
         Some(SeenMangaExtraInformation {
-            chapter: input.input.manga_chapter_number,
-            volume: input.input.manga_volume_number,
+            chapter: input.payload.manga_chapter_number,
+            volume: input.payload.manga_volume_number,
         })
     } else {
         None
@@ -350,7 +350,7 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         user_id: ActiveValue::Set(input.user_id.to_owned()),
         metadata_id: ActiveValue::Set(input.meta.id.clone()),
         podcast_extra_information: ActiveValue::Set(podcast_ei),
-        provider_watched_on: ActiveValue::Set(input.input.provider_watched_on),
+        provider_watched_on: ActiveValue::Set(input.payload.provider_watched_on),
         ..Default::default()
     };
     let resp = seen_insert.insert(&input.ss.db).await?;
@@ -428,7 +428,7 @@ pub async fn metadata_progress_update(
                 progress: dec!(0),
                 finished_on: None,
                 state: SeenState::InProgress,
-                input: create_new_in_progress.data,
+                payload: create_new_in_progress.data,
                 started_on: Some(create_new_in_progress.started_on),
             })
             .await?
@@ -452,7 +452,7 @@ pub async fn metadata_progress_update(
             commit(CommitInput {
                 ss,
                 meta,
-                input,
+                payload: input,
                 user_id,
                 started_on,
                 finished_on,
