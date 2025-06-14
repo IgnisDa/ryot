@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dataSchema } from "~/lib/openapi";
+import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createNameWithOptionalSlugSchema,
 	iconAndAccentColorFields,
@@ -24,11 +24,11 @@ export const listedEntitySchemaSchema = z.object({
 	...iconAndAccentColorFields,
 });
 
-export const listEntitySchemasResponseSchema = dataSchema(
-	z.array(listedEntitySchemaSchema),
+export const listEntitySchemasResponseSchema = listDataSchema(
+	listedEntitySchemaSchema,
 );
 
-export const createEntitySchemaResponseSchema = dataSchema(
+export const createEntitySchemaResponseSchema = itemDataSchema(
 	listedEntitySchemaSchema,
 );
 
