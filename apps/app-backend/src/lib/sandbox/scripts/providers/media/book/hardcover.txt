@@ -358,7 +358,6 @@ query GetHardcoverBookDetails($id: Int!) {
 
   return {
     name: title,
-    externalId: identifier,
     properties: {
       pages,
       freeCreators: [],
