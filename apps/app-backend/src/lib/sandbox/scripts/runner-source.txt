@@ -1,3 +1,5 @@
+const denoStartupMs = performance.now();
+
 const stdinBytes = await new Response(Deno.stdin.readable).arrayBuffer();
 const payload = JSON.parse(new TextDecoder().decode(stdinBytes));
 
@@ -42,6 +44,16 @@ const writeResult = (payload) => {
 	Deno.stdout.writeSync(stderrEncoder.encode(JSON.stringify(payload)));
 };
 
+const buildDenoMetrics = (scriptExecMs) => {
+	const mem = Deno.memoryUsage();
+	return {
+		scriptExecMs,
+		memoryRssBytes: mem.rss,
+		memoryHeapUsedBytes: mem.heapUsed,
+		startupMs: Math.round(denoStartupMs),
+	};
+};
+
 const createApiStub = (fnName) => {
 	return async (...args) => {
 		const response = await fetch(`${apiBase}/rpc/${executionId}/${fnName}`, {
@@ -80,25 +92,29 @@ try {
 
 	const factory = new Function(wrapperCode);
 	const userFunction = factory(driver);
+
+	const execT0 = performance.now();
 	await userFunction(stubs, context);
 
 	if (!driverName) {
-		writeResult({ success: false, error: "driverName is required" });
+		writeResult({ success: false, error: "driverName is required", denoMetrics: buildDenoMetrics(0) });
 		Deno.exit(0);
 	}
 
 	const driverFn = driverRegistry[driverName];
 	if (!driverFn) {
-		writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script` });
+		writeResult({ success: false, error: `Driver "${driverName}" is not defined in this script`, denoMetrics: buildDenoMetrics(0) });
 		Deno.exit(0);
 	}
 
 	const meta = scriptId ? { sandboxScriptId: scriptId } : undefined;
 	const driverResult = await driverFn(context, meta);
-	writeResult({ success: true, value: driverResult ?? null });
+	const scriptExecMs = Math.round(performance.now() - execT0);
+	writeResult({ success: true, value: driverResult ?? null, denoMetrics: buildDenoMetrics(scriptExecMs) });
 } catch (error) {
 	writeResult({
 		success: false,
+		denoMetrics: buildDenoMetrics(0),
 		error: error instanceof Error ? error.message : String(error),
 	});
 }
