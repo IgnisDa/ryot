@@ -13,7 +13,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { Edit3, LayoutGrid, List, Table2 } from "lucide-react";
+import { Copy, Edit3, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
 import { useResolvedImageUrls } from "#/features/entities/image";
@@ -33,7 +33,14 @@ import {
 	type ViewLayout,
 } from "./view-page-utils";
 
-export function SavedViewPage(props: { viewId: string }) {
+export function SavedViewPage(props: {
+	viewId: string;
+	isCloning?: boolean;
+	isDeleting?: boolean;
+	actionError?: string | null;
+	onClone: () => void | Promise<void>;
+	onDelete: () => void | Promise<void>;
+}) {
 	const apiClient = useApiClient();
 	const { surface, textPrimary, textSecondary } = useThemeTokens();
 	const [drawerOpened, drawer] = useDisclosure(false);
@@ -196,6 +203,27 @@ export function SavedViewPage(props: { viewId: string }) {
 							</Group>
 						</Stack>
 						<Group gap="xs">
+							<Button
+								size="sm"
+								variant="light"
+								loading={props.isCloning}
+								leftSection={<Copy size={14} />}
+								onClick={() => void props.onClone()}
+							>
+								Clone
+							</Button>
+							{!savedView.isBuiltin ? (
+								<Button
+									size="sm"
+									color="red"
+									variant="light"
+									loading={props.isDeleting}
+									leftSection={<Trash2 size={14} />}
+									onClick={() => void props.onDelete()}
+								>
+									Delete
+								</Button>
+							) : null}
 							<SegmentedControl
 								value={layout}
 								onChange={(value) => setLayout(value as ViewLayout)}
@@ -215,6 +243,11 @@ export function SavedViewPage(props: { viewId: string }) {
 							</ActionIcon>
 						</Group>
 					</Group>
+					{props.actionError ? (
+						<Text size="sm" c="red">
+							{props.actionError}
+						</Text>
+					) : null}
 				</Paper>
 
 				{items.length === 0 ? (
