@@ -197,7 +197,10 @@ pub fn calculate_average_rating_for_user(
     user_id: &String,
     reviews: &[ReviewItem],
 ) -> Option<Decimal> {
-    let reviews_with_ratings = reviews.iter().filter_map(|r| r.rating).count();
+    let reviews_with_ratings = reviews
+        .iter()
+        .filter(|r| r.posted_by.id == *user_id && r.rating.is_some())
+        .count();
     match reviews_with_ratings {
         0 => None,
         _ => Some(
