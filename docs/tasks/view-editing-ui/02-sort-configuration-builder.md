@@ -62,3 +62,27 @@ const sortSchema = z.object({
 
 - User story 5: As a user, I want to change the sort order of my saved view, so that entities appear in my preferred sequence.
 - User story 6: As a user, I want to configure multiple sort fields with COALESCE fallback, so that cross-schema views sort correctly.
+
+## Verification
+
+After implementation, verify the work using:
+
+1. **Run tests:**
+   ```bash
+   cd apps/app-frontend/src/features/saved-views
+   bun test
+   ```
+
+2. **Run typecheck:**
+   ```bash
+   cd apps/app-frontend
+   bun run typecheck
+   ```
+
+3. **Build frontend:**
+   ```bash
+   cd apps/app-frontend
+   bun run build
+   ```
+
+All steps must pass with no errors.
