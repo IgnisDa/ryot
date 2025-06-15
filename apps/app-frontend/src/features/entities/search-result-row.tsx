@@ -22,6 +22,7 @@ import type {
 } from "~/features/collections";
 import type { CollectionsDestination } from "~/features/collections/model";
 import { useThemeTokens } from "~/hooks/theme";
+import type { SearchResultItem } from "./model";
 import type {
 	MediaSearchDoneAction,
 	MediaSearchLogDateOption,
@@ -32,7 +33,6 @@ import {
 	SearchResultLogPanel,
 	SearchResultReviewPanel,
 } from "./search-result-row-panels";
-import type { SearchResultItem } from "./use-search";
 
 export type SearchResultRowActionState = {
 	rateStars: number;

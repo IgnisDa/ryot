@@ -20,6 +20,24 @@ type ReorderSavedViewsBody = NonNullable<
 >["content"]["application/json"];
 type QueryDefinition = CreateSavedViewBody["queryDefinition"];
 type DisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
+type CardDisplayConfiguration = DisplayConfiguration["grid"];
+type TableDisplayConfiguration = DisplayConfiguration["table"];
+
+export type DisplayColumnInput = {
+	label: string;
+	property?: string[];
+	expression?: ExpressionInput;
+};
+
+export type CardDisplayConfigurationInput = {
+	[K in keyof CardDisplayConfiguration]?: ExpressionInput | null;
+};
+
+export type DisplayConfigurationInput = {
+	table: { columns: DisplayColumnInput[] };
+	grid: CardDisplayConfigurationInput;
+	list: CardDisplayConfigurationInput;
+};
 
 type CreateSavedViewInput = Partial<
 	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
@@ -35,88 +53,50 @@ type UpdateSavedViewInput = Partial<
 	displayConfiguration?: DisplayConfigurationInput;
 };
 
-type DisplayColumnInput = {
-	label: string;
-	property?: string[];
-	expression?: ExpressionInput;
-};
+const normalizeCardDisplayConfiguration = (
+	input: CardDisplayConfigurationInput,
+	allowNulls: boolean,
+): CardDisplayConfiguration => ({
+	calloutProperty:
+		(input.calloutProperty === null && allowNulls
+			? null
+			: toRequiredExpression(input.calloutProperty ?? null)) ?? null,
+	titleProperty:
+		(input.titleProperty === null && allowNulls
+			? null
+			: toRequiredExpression(input.titleProperty ?? null)) ?? null,
+	imageProperty:
+		(input.imageProperty === null && allowNulls
+			? null
+			: toRequiredExpression(input.imageProperty ?? null)) ?? null,
+	primarySubtitleProperty:
+		(input.primarySubtitleProperty === null && allowNulls
+			? null
+			: toRequiredExpression(input.primarySubtitleProperty ?? null)) ?? null,
+	secondarySubtitleProperty:
+		(input.secondarySubtitleProperty === null && allowNulls
+			? null
+			: toRequiredExpression(input.secondarySubtitleProperty ?? null)) ?? null,
+});
 
-type DisplayConfigurationInput = {
-	table: { columns: DisplayColumnInput[] };
-	grid: {
-		calloutProperty: ExpressionInput | null;
-		titleProperty: ExpressionInput | null;
-		imageProperty: ExpressionInput | null;
-		primarySubtitleProperty: ExpressionInput | null;
-		secondarySubtitleProperty?: ExpressionInput | null;
-	};
-	list: {
-		calloutProperty: ExpressionInput | null;
-		titleProperty: ExpressionInput | null;
-		imageProperty: ExpressionInput | null;
-		primarySubtitleProperty: ExpressionInput | null;
-		secondarySubtitleProperty?: ExpressionInput | null;
-	};
-};
+const normalizeTableDisplayConfiguration = (input: {
+	columns: DisplayColumnInput[];
+}): TableDisplayConfiguration => ({
+	columns: input.columns.map((column) => ({
+		label: column.label,
+		expression: toRequiredExpression(
+			column.expression ?? column.property ?? [],
+		),
+	})),
+});
 
 const normalizeDisplayConfiguration = (
 	input: DisplayConfigurationInput,
 	allowNulls = true,
 ): DisplayConfiguration => ({
-	grid: {
-		calloutProperty:
-			(input.grid.calloutProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.grid.calloutProperty)) ?? null,
-		titleProperty:
-			(input.grid.titleProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.grid.titleProperty)) ?? null,
-		imageProperty:
-			(input.grid.imageProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.grid.imageProperty)) ?? null,
-		primarySubtitleProperty:
-			(input.grid.primarySubtitleProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.grid.primarySubtitleProperty)) ?? null,
-		secondarySubtitleProperty:
-			(input.grid.secondarySubtitleProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.grid.secondarySubtitleProperty ?? null)) ??
-			null,
-	},
-	list: {
-		calloutProperty:
-			(input.list.calloutProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.list.calloutProperty)) ?? null,
-		titleProperty:
-			(input.list.titleProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.list.titleProperty)) ?? null,
-		imageProperty:
-			(input.list.imageProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.list.imageProperty)) ?? null,
-		primarySubtitleProperty:
-			(input.list.primarySubtitleProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.list.primarySubtitleProperty)) ?? null,
-		secondarySubtitleProperty:
-			(input.list.secondarySubtitleProperty === null && allowNulls
-				? null
-				: toRequiredExpression(input.list.secondarySubtitleProperty ?? null)) ??
-			null,
-	},
-	table: {
-		columns: input.table.columns.map((column) => ({
-			label: column.label,
-			expression: toRequiredExpression(
-				column.expression ?? column.property ?? [],
-			),
-		})),
-	},
+	grid: normalizeCardDisplayConfiguration(input.grid, allowNulls),
+	list: normalizeCardDisplayConfiguration(input.list, allowNulls),
+	table: normalizeTableDisplayConfiguration(input.table),
 });
 
 const defaultQueryDefinition: QueryDefinition = {
