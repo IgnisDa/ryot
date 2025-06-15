@@ -162,11 +162,7 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
 
 pub async fn invalidate_import_jobs(service: &Arc<SupportingService>) -> Result<()> {
     let all_jobs = ImportReport::find()
-        .filter(
-            import_report::Column::WasSuccess
-                .eq(false)
-                .or(import_report::Column::WasSuccess.is_null()),
-        )
+        .filter(import_report::Column::WasSuccess.is_null())
         .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
         .all(&service.db)
         .await?;
