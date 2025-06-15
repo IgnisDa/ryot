@@ -11,7 +11,10 @@ import { useApiClient } from "~/hooks/api";
 import type { ApiPostResponseData } from "~/lib/api/types";
 import { getErrorMessage } from "~/lib/errors";
 import { sleep } from "~/lib/sleep";
-import { createEntityRuntimeRequest } from "./model";
+import {
+	createEntityColumnExpression,
+	createEntityRuntimeRequest,
+} from "./model";
 
 export type SearchResultItem = {
 	externalId: string;
@@ -202,28 +205,6 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		],
 	);
 
-	const ensureItemEntity = useCallback(
-		async (item: SearchResultItem) => {
-			const provider = props.entitySchema.providers[selectedProviderIndex];
-			if (!provider) {
-				throw new Error("Search provider is unavailable");
-			}
-
-			const queryOptions = getEnsuredEntityQueryOptions(item, provider);
-			const entity = await queryClient.fetchQuery(queryOptions);
-			void queryClient.invalidateQueries({ queryKey: entityListQueryKey });
-
-			return entity;
-		},
-		[
-			queryClient,
-			entityListQueryKey,
-			props.entitySchema,
-			selectedProviderIndex,
-			getEnsuredEntityQueryOptions,
-		],
-	);
-
 	const searchQuery = useQuery({
 		retry: false,
 		refetchOnWindowFocus: false,
@@ -317,6 +298,77 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 	const currentResultProvider = submittedSearch
 		? props.entitySchema.providers[submittedSearch.providerIndex]
 		: undefined;
+
+	const trackedEntitiesBody = useMemo(() => {
+		if (!currentResultProvider || currentResults.length === 0) {
+			return null;
+		}
+		const schemaSlug = props.entitySchema.slug;
+		return {
+			fields: [],
+			eventJoins: [],
+			computedFields: [],
+			entitySchemaSlugs: [schemaSlug],
+			pagination: { page: 1, limit: Math.max(currentResults.length, 1) },
+			sort: {
+				direction: "asc" as const,
+				expression: createEntityColumnExpression(schemaSlug, "name"),
+			},
+			filter: {
+				type: "and" as const,
+				predicates: [
+					{
+						type: "in" as const,
+						expression: createEntityColumnExpression(schemaSlug, "externalId"),
+						values: currentResults.map((item) => ({
+							value: item.externalId,
+							type: "literal" as const,
+						})),
+					},
+					{
+						operator: "eq" as const,
+						type: "comparison" as const,
+						left: createEntityColumnExpression(schemaSlug, "sandboxScriptId"),
+						right: {
+							type: "literal" as const,
+							value: currentResultProvider.scriptId,
+						},
+					},
+				],
+			},
+		};
+	}, [currentResults, currentResultProvider, props.entitySchema.slug]);
+
+	const trackedEntitiesQueryKey = apiClient.queryOptions(
+		"post",
+		"/query-engine/execute",
+		{
+			body:
+				trackedEntitiesBody ??
+				createEntityRuntimeRequest(props.entitySchema.slug),
+		},
+	).queryKey;
+
+	const trackedEntitiesQuery = apiClient.useQuery(
+		"post",
+		"/query-engine/execute",
+		{
+			body:
+				trackedEntitiesBody ??
+				createEntityRuntimeRequest(props.entitySchema.slug),
+		},
+		{ enabled: trackedEntitiesBody !== null },
+	);
+
+	const trackedExternalIds = useMemo(() => {
+		const items = trackedEntitiesQuery.data?.data.items ?? [];
+		return new Set(
+			items
+				.map((item) => item.externalId)
+				.filter((id): id is string => id !== null),
+		);
+	}, [trackedEntitiesQuery.data]);
+
 	const ensuredEntityQueries = useQueries({
 		queries:
 			currentResultProvider && currentResults.length > 0
@@ -326,6 +378,30 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 					}))
 				: [],
 	});
+
+	const ensureItemEntity = useCallback(
+		async (item: SearchResultItem) => {
+			const provider = props.entitySchema.providers[selectedProviderIndex];
+			if (!provider) {
+				throw new Error("Search provider is unavailable");
+			}
+
+			const queryOptions = getEnsuredEntityQueryOptions(item, provider);
+			const entity = await queryClient.fetchQuery(queryOptions);
+			void queryClient.invalidateQueries({ queryKey: entityListQueryKey });
+			void queryClient.invalidateQueries({ queryKey: trackedEntitiesQueryKey });
+
+			return entity;
+		},
+		[
+			queryClient,
+			entityListQueryKey,
+			props.entitySchema,
+			selectedProviderIndex,
+			trackedEntitiesQueryKey,
+			getEnsuredEntityQueryOptions,
+		],
+	);
 
 	const addItem = useCallback(
 		async (item: SearchResultItem) => {
@@ -409,6 +485,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 		clearSearch,
 		searchError,
 		ensureItemEntity,
+		trackedExternalIds,
 		selectedProviderIndex,
 		setSelectedProviderIndex,
 		page: submittedSearch?.page ?? 1,
