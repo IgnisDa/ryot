@@ -17,7 +17,6 @@ function getNullableString(value) {
 
 const MB_BASE = "https://musicbrainz.org/ws/2";
 const MB_HEADERS = {
-  "User-Agent": "Ryot/1.0 ( https://github.com/ignisda/ryot )",
   Accept: "application/json",
 };
 const PAGE_SIZE = 20;
