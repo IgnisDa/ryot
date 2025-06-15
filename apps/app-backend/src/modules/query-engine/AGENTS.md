@@ -4,16 +4,16 @@
 
 ## Module Purpose
 
-The query engine is a query-and-field-resolution module that powers dynamic data retrieval. It accepts a declarative query (entity schema slugs, field selections, expressions, filters, sorts, pagination) and returns typed, display-ready results. The UI uses it to render grids, lists, and tables without hardcoding per-schema field resolution.
+Accepts a declarative query (entity schema slugs, fields, expressions, filters, sorts, pagination) and returns typed, display-ready results for grids, lists, and tables.
 
 ## Abstraction Boundaries
 
-- **query-builder.ts** owns SQL shaping: CTEs, joins, filtering, sorting, pagination, and row extraction. It must not format display values.
-- **display-builder.ts** owns field-value resolution: compiling expressions to JSONB, inferring types, and wrapping values in `{ kind, value }` objects. It must not construct SQL queries.
-- **expression-compiler.ts** is the shared core that translates the ViewExpression AST into Drizzle SQL expressions. Both builders depend on it.
-- **filter-builder.ts** and **sort-builder.ts** delegate to the expression compiler for their SQL generation.
-- **preparer.ts** orchestrates the pipeline: loads schemas from the DB, validates references, and calls `executePreparedQuery`.
-- Reference validation (`~/lib/views/validator.ts`) and reference parsing (`~/lib/views/reference.ts`) live outside this module — do not duplicate that logic here.
+- **query-builder.ts**: SQL shaping (CTEs, joins, filtering, sorting, pagination). Must not format display values.
+- **display-builder.ts**: Field-value resolution (expressions → JSONB `{ kind, value }`). Must not construct SQL.
+- **expression-compiler.ts**: Shared core translating ViewExpression AST → Drizzle SQL. Both builders depend on it.
+- **filter-builder.ts** / **sort-builder.ts**: Delegate to the expression compiler.
+- **preparer.ts**: Orchestrates the pipeline — loads schemas, validates references, calls `executePreparedQuery`.
+- Reference validation and parsing live outside this module (`~/lib/views/validator.ts`, `~/lib/views/reference.ts`).
 
 ## Conventions
 
