@@ -23,6 +23,28 @@ import { useState } from "react";
 import { useApiClient } from "~/hooks/api";
 import type { ApiPostRequestBody } from "~/lib/api/types";
 
+export function createFormSubmitHandler(
+	handleSubmit: () => void | Promise<void>,
+) {
+	return (event: React.FormEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		void handleSubmit();
+	};
+}
+
+function FieldErrors(props: {
+	errors: Array<{ message?: string } | string | null | undefined>;
+}) {
+	return (
+		<Text c="red" size="xs">
+			{props.errors
+				.map((e) => (typeof e === "string" ? e : e?.message))
+				.join(", ")}
+		</Text>
+	);
+}
+
 type TextFieldProps = {
 	id?: string;
 	label: string;
@@ -68,9 +90,7 @@ function TextField(props: TextFieldProps) {
 				onChange={(event) => field.handleChange(event.target.value)}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -105,9 +125,7 @@ function NumberField(props: NumberFieldProps) {
 				}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -133,9 +151,7 @@ function CheckboxField(props: CheckboxFieldProps) {
 				onChange={(event) => field.handleChange(event.currentTarget.checked)}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -387,9 +403,7 @@ function ImageField(props: ImageFieldProps) {
 			</Stack>
 
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -438,9 +452,7 @@ function SelectField(props: SelectFieldProps) {
 				}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -474,9 +486,7 @@ function MultiSelectField(props: MultiSelectFieldProps) {
 				onChange={(value) => field.handleChange(value as string[])}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -507,9 +517,7 @@ function TextareaField(props: TextareaFieldProps) {
 				onChange={(event) => field.handleChange(event.currentTarget.value)}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -538,9 +546,7 @@ function ColorInputField(props: ColorInputFieldProps) {
 				onChange={(value) => field.handleChange(value)}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs">
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);
@@ -578,9 +584,7 @@ function SegmentedControlField(props: SegmentedControlFieldProps) {
 				onChange={(value) => field.handleChange(value)}
 			/>
 			{!field.state.meta.isValid && (
-				<Text c="red" size="xs" mt={4}>
-					{field.state.meta.errors.map((e) => e?.message).join(", ")}
-				</Text>
+				<FieldErrors errors={field.state.meta.errors} />
 			)}
 		</div>
 	);

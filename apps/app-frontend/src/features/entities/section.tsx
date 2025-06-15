@@ -1,6 +1,8 @@
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button, Group, Modal, Stack } from "@mantine/core";
+import { FormError } from "~/components/PageStates";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { GeneratedPropertyField } from "~/features/generated-property-fields";
+import { createFormSubmitHandler } from "~/hooks/forms";
 import type { CreateEntityPayload } from "./form";
 import { useCreateEntityForm } from "./use-form";
 
@@ -40,20 +42,10 @@ export function CreateEntityModal(props: {
 			title={`Add ${props.entitySchema.name}`}
 			overlayProps={{ backgroundOpacity: 0.55, blur: 3 }}
 		>
-			<form
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					void entityForm.handleSubmit();
-				}}
-			>
+			<form onSubmit={createFormSubmitHandler(entityForm.handleSubmit)}>
 				<entityForm.AppForm>
 					<Stack gap="md">
-						{props.errorMessage && (
-							<Text c="red" size="sm">
-								{props.errorMessage}
-							</Text>
-						)}
+						<FormError message={props.errorMessage} />
 
 						<entityForm.AppField name="name">
 							{(field) => (
