@@ -160,24 +160,22 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     Ok(())
 }
 
-pub async fn invalidate_import_jobs(service: &Arc<SupportingService>) -> Result<()> {
+pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     let all_jobs = ImportReport::find()
         .filter(import_report::Column::WasSuccess.is_null())
         .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     for job in all_jobs {
         ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
         let mut job: import_report::ActiveModel = job.into();
         job.was_success = ActiveValue::Set(Some(false));
-        job.save(&service.db).await?;
+        job.save(&ss.db).await?;
     }
     Ok(())
 }
 
-async fn remove_old_entities_from_monitoring_collection(
-    service: &Arc<SupportingService>,
-) -> Result<()> {
+async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingService>) -> Result<()> {
     #[derive(Debug, FromQueryResult)]
     struct CustomQueryResponse {
         id: Uuid,
@@ -198,12 +196,12 @@ async fn remove_old_entities_from_monitoring_collection(
         .inner_join(Collection)
         .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
         .into_model::<CustomQueryResponse>()
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     let mut to_delete = vec![];
     for cte in all_cte {
         let delta = cte.last_updated_on - cte.created_on;
-        if delta.num_days().abs() > service.config.media.monitoring_remove_after_days {
+        if delta.num_days().abs() > ss.config.media.monitoring_remove_after_days {
             to_delete.push(cte);
         }
     }
@@ -213,14 +211,13 @@ async fn remove_old_entities_from_monitoring_collection(
     for item in to_delete.iter() {
         let users_in_this_collection = UserToEntity::find()
             .filter(user_to_entity::Column::CollectionId.eq(&item.collection_id))
-            .all(&service.db)
+            .all(&ss.db)
             .await?;
-        let title =
-            get_entity_title_from_id_and_lot(&item.entity_id, item.entity_lot, service).await?;
+        let title = get_entity_title_from_id_and_lot(&item.entity_id, item.entity_lot, ss).await?;
         for user in users_in_this_collection {
             send_notification_for_user(
                 &user.user_id,
-                service,
+                ss,
                 &(
                     format!("{} has been removed from the monitoring collection", title),
                     UserNotificationContent::EntityRemovedFromMonitoringCollection,
@@ -231,26 +228,26 @@ async fn remove_old_entities_from_monitoring_collection(
     }
     let result = CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::Id.is_in(to_delete.into_iter().map(|c| c.id)))
-        .exec(&service.db)
+        .exec(&ss.db)
         .await?;
     ryot_log!(debug, "Deleted collection to entity: {:#?}", result);
     Ok(())
 }
 
-async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()> {
+async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
     let metadata_to_delete = Metadata::find()
         .select_only()
         .column(metadata::Column::Id)
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::MetadataId.is_null())
         .into_tuple::<String>()
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     for chunk in metadata_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
         ryot_log!(debug, "Deleting {} metadata items", chunk.len());
         Metadata::delete_many()
             .filter(metadata::Column::Id.is_in(chunk))
-            .exec(&service.db)
+            .exec(&ss.db)
             .await
             .trace_ok();
     }
@@ -260,13 +257,13 @@ async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()> {
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::PersonId.is_null())
         .into_tuple::<String>()
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     for chunk in people_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
         ryot_log!(debug, "Deleting {} people", chunk.len());
         Person::delete_many()
             .filter(person::Column::Id.is_in(chunk))
-            .exec(&service.db)
+            .exec(&ss.db)
             .await
             .trace_ok();
     }
@@ -276,13 +273,13 @@ async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()> {
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::MetadataGroupId.is_null())
         .into_tuple::<String>()
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     for chunk in metadata_groups_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
         ryot_log!(debug, "Deleting {} metadata groups", chunk.len());
         MetadataGroup::delete_many()
             .filter(metadata_group::Column::Id.is_in(chunk))
-            .exec(&service.db)
+            .exec(&ss.db)
             .await
             .trace_ok();
     }
@@ -292,32 +289,32 @@ async fn remove_useless_data(service: &Arc<SupportingService>) -> Result<()> {
         .left_join(MetadataToGenre)
         .filter(metadata_to_genre::Column::MetadataId.is_null())
         .into_tuple::<String>()
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     for chunk in genre_to_delete.chunks(BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE) {
         ryot_log!(debug, "Deleting {} genres", chunk.len());
         Genre::delete_many()
             .filter(genre::Column::Id.is_in(chunk))
-            .exec(&service.db)
+            .exec(&ss.db)
             .await
             .trace_ok();
     }
     ryot_log!(debug, "Deleting revoked access tokens");
     AccessLink::delete_many()
         .filter(access_link::Column::IsRevoked.eq(true))
-        .exec(&service.db)
+        .exec(&ss.db)
         .await
         .trace_ok();
     ryot_log!(debug, "Deleting expired application caches");
     ApplicationCache::delete_many()
         .filter(application_cache::Column::ExpiresAt.lt(Utc::now()))
-        .exec(&service.db)
+        .exec(&ss.db)
         .await
         .trace_ok();
     Ok(())
 }
 
-async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> Result<()> {
+async fn put_entities_in_partial_state(ss: &Arc<SupportingService>) -> Result<()> {
     async fn update_partial_states<Column1, Column2, Column3, T>(
         ute_filter_column: Column1,
         updater: UpdateMany<T>,
@@ -354,7 +351,7 @@ async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> Resu
         Metadata::update_many(),
         metadata::Column::Id,
         metadata::Column::IsPartial,
-        &service.db,
+        &ss.db,
     )
     .await?;
     update_partial_states(
@@ -362,7 +359,7 @@ async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> Resu
         MetadataGroup::update_many(),
         metadata_group::Column::Id,
         metadata_group::Column::IsPartial,
-        &service.db,
+        &ss.db,
     )
     .await?;
     update_partial_states(
@@ -370,16 +367,14 @@ async fn put_entities_in_partial_state(service: &Arc<SupportingService>) -> Resu
         Person::update_many(),
         person::Column::Id,
         person::Column::IsPartial,
-        &service.db,
+        &ss.db,
     )
     .await?;
     Ok(())
 }
 
-async fn queue_notifications_for_outdated_seen_entries(
-    service: &Arc<SupportingService>,
-) -> Result<()> {
-    if !service.is_server_key_validated().await? {
+async fn queue_notifications_for_outdated_seen_entries(ss: &Arc<SupportingService>) -> Result<()> {
+    if !ss.is_server_key_validated().await? {
         return Ok(());
     }
     for state in [SeenState::InProgress, SeenState::OnAHold] {
@@ -392,10 +387,10 @@ async fn queue_notifications_for_outdated_seen_entries(
         let seen_items = Seen::find()
             .filter(seen::Column::State.eq(state))
             .filter(seen::Column::LastUpdatedOn.lte(threshold))
-            .all(&service.db)
+            .all(&ss.db)
             .await?;
         for seen_item in seen_items {
-            let Some(metadata) = seen_item.find_related(Metadata).one(&service.db).await? else {
+            let Some(metadata) = seen_item.find_related(Metadata).one(&ss.db).await? else {
                 continue;
             };
             let state = seen_item
@@ -405,7 +400,7 @@ async fn queue_notifications_for_outdated_seen_entries(
                 .to_case(Case::Lower);
             send_notification_for_user(
                 &seen_item.user_id,
-                service,
+                ss,
                 &(
                     format!(
                         "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
@@ -424,13 +419,13 @@ async fn queue_notifications_for_outdated_seen_entries(
     Ok(())
 }
 
-async fn expire_cache_keys(service: &Arc<SupportingService>) -> Result<()> {
+async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
     let mut all_keys = vec![];
     let user_ids = get_user_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     for user_id in user_ids {
         all_keys.push(ExpireCacheKeyInput::BySanitizedKey {
@@ -449,7 +444,7 @@ async fn expire_cache_keys(service: &Arc<SupportingService>) -> Result<()> {
     ));
 
     for key in all_keys {
-        service.cache_service.expire_key(key).await?;
+        ss.cache_service.expire_key(key).await?;
     }
     Ok(())
 }
