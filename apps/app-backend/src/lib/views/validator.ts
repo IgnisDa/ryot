@@ -26,29 +26,31 @@ import {
 } from "./reference";
 
 type QueryEngineRequestLike = {
-	fields: Array<{ expression: ViewExpression; key: string }>;
-	sort: { expression: ViewExpression; direction: "asc" | "desc" };
-	filter: ViewPredicate | null;
 	eventJoins: unknown[];
 	entitySchemaSlugs: string[];
+	filter: ViewPredicate | null;
 	computedFields?: ViewComputedField[];
 	pagination: { page: number; limit: number };
+	fields: Array<{ expression: ViewExpression; key: string }>;
+	sort: { expression: ViewExpression; direction: "asc" | "desc" };
 };
 
 type DisplayConfigurationLike = {
+	table: { columns: Array<{ label: string; expression: ViewExpression }> };
 	grid: {
 		imageProperty: ViewExpression | null;
 		titleProperty: ViewExpression | null;
-		badgeProperty: ViewExpression | null;
-		subtitleProperty: ViewExpression | null;
+		calloutProperty: ViewExpression | null;
+		primarySubtitleProperty: ViewExpression | null;
+		secondarySubtitleProperty: ViewExpression | null;
 	};
 	list: {
 		imageProperty: ViewExpression | null;
 		titleProperty: ViewExpression | null;
-		badgeProperty: ViewExpression | null;
-		subtitleProperty: ViewExpression | null;
+		calloutProperty: ViewExpression | null;
+		primarySubtitleProperty: ViewExpression | null;
+		secondarySubtitleProperty: ViewExpression | null;
 	};
-	table: { columns: Array<{ label: string; expression: ViewExpression }> };
 };
 
 type ValidationSchemaRow = QueryEngineSchemaLike;
@@ -318,12 +320,14 @@ export const validateSavedViewDisplayConfiguration = (
 	for (const refs of [
 		displayConfiguration.grid.imageProperty,
 		displayConfiguration.grid.titleProperty,
-		displayConfiguration.grid.badgeProperty,
-		displayConfiguration.grid.subtitleProperty,
+		displayConfiguration.grid.calloutProperty,
+		displayConfiguration.grid.primarySubtitleProperty,
+		displayConfiguration.grid.secondarySubtitleProperty,
 		displayConfiguration.list.imageProperty,
 		displayConfiguration.list.titleProperty,
-		displayConfiguration.list.badgeProperty,
-		displayConfiguration.list.subtitleProperty,
+		displayConfiguration.list.calloutProperty,
+		displayConfiguration.list.primarySubtitleProperty,
+		displayConfiguration.list.secondarySubtitleProperty,
 	]) {
 		if (refs) {
 			validateExpressionAgainstSchemas(

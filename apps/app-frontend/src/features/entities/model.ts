@@ -41,10 +41,11 @@ export type AppEntityImage =
 
 export type AppEntity = Omit<
 	ApiEntity,
-	"createdAt" | "updatedAt" | "image" | "detailsSandboxScriptId"
+	"createdAt" | "updatedAt" | "populatedAt" | "image" | "detailsSandboxScriptId"
 > & {
 	createdAt: Date;
 	updatedAt: Date;
+	populatedAt?: Date;
 	image: AppEntityImage;
 	sandboxScriptId: string | null;
 	fields?: ApiQueryEngineEntity["fields"];
@@ -114,6 +115,9 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		entitySchemaId,
 		image: entityImage,
 	} = entity;
+	const populatedAt = isQueryEngineEntity(entity)
+		? undefined
+		: dayjs(entity.populatedAt).toDate();
 
 	return {
 		id,
@@ -125,6 +129,7 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		sandboxScriptId,
 		createdAt: dayjs(createdAt).toDate(),
 		updatedAt: dayjs(updatedAt).toDate(),
+		populatedAt: dayjs(populatedAt).toDate(),
 		image: toAppEntityImage(entityImage),
 		entitySchemaSlug: isQueryEngineEntity(entity)
 			? entity.entitySchemaSlug
