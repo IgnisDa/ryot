@@ -197,13 +197,15 @@ pub fn calculate_average_rating_for_user(
     user_id: &String,
     reviews: &[ReviewItem],
 ) -> Option<Decimal> {
-    let eligible = reviews
+    let (sum, count) = reviews
         .iter()
         .filter(|r| r.posted_by.id == *user_id && r.rating.is_some())
-        .map(|r| r.rating.unwrap());
-    let reviews_with_ratings = eligible.clone().count();
-    match reviews_with_ratings {
+        .map(|r| r.rating.unwrap())
+        .fold((Decimal::ZERO, 0), |(sum, count), rating| {
+            (sum + rating, count + 1)
+        });
+    match count {
         0 => None,
-        _ => Some(eligible.sum::<Decimal>() / Decimal::from(reviews_with_ratings)),
+        _ => Some(sum / Decimal::from(count)),
     }
 }
