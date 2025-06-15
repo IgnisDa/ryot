@@ -193,13 +193,19 @@ pub async fn create_oidc_client(
     }
 }
 
-pub fn calculate_average_rating(reviews: &[ReviewItem]) -> Option<Decimal> {
-    let reviews_with_ratings = reviews.iter().filter_map(|r| r.rating).count();
-    match reviews_with_ratings {
+pub fn calculate_average_rating_for_user(
+    user_id: &String,
+    reviews: &[ReviewItem],
+) -> Option<Decimal> {
+    let (sum, count) = reviews
+        .iter()
+        .filter(|r| r.posted_by.id == *user_id && r.rating.is_some())
+        .map(|r| r.rating.unwrap())
+        .fold((Decimal::ZERO, 0), |(sum, count), rating| {
+            (sum + rating, count + 1)
+        });
+    match count {
         0 => None,
-        _ => Some(
-            reviews.iter().filter_map(|r| r.rating).sum::<Decimal>()
-                / Decimal::from(reviews_with_ratings),
-        ),
+        _ => Some(sum / Decimal::from(count)),
     }
 }
