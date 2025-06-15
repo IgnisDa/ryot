@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useIsMobileScreen } from "#/hooks/screen";
+import { useThemeTokens } from "#/hooks/theme";
 import { authClient } from "#/lib/auth";
 import {
 	getSidebarApiKeyDetails,
@@ -31,13 +32,9 @@ function getErrorMessage(error: unknown, fallback: string) {
 	return fallback;
 }
 
-export function SidebarApiKeysSection(props: {
-	border: string;
-	opened: boolean;
-	isDark: boolean;
-	textMuted: string;
-}) {
+export function SidebarApiKeysSection(props: { opened: boolean }) {
 	const isMobile = useIsMobileScreen();
+	const { isDark, border, textMuted } = useThemeTokens();
 	const queryClient = useQueryClient();
 	const [draftName, setDraftName] = useState("");
 	const [animatedContentRef] = useAutoAnimate<HTMLDivElement>();
@@ -136,11 +133,11 @@ export function SidebarApiKeysSection(props: {
 					<Text fw={600} size="lg" ff="var(--mantine-headings-font-family)">
 						API Keys
 					</Text>
-					<Text c={props.textMuted} size="xs">
+					<Text c={textMuted} size="xs">
 						{apiKeys.length} key{apiKeys.length === 1 ? "" : "s"}
 					</Text>
 				</Group>
-				<Text c={props.textMuted} size="sm">
+				<Text c={textMuted} size="sm">
 					Create and revoke personal keys for scripts, automations, and local
 					tooling.
 				</Text>
@@ -209,8 +206,8 @@ export function SidebarApiKeysSection(props: {
 						p="md"
 						style={{
 							borderRadius: "12px",
-							border: `1px dashed ${props.border}`,
-							background: props.isDark
+							border: `1px dashed ${border}`,
+							background: isDark
 								? "rgba(212, 165, 116, 0.05)"
 								: "rgba(212, 165, 116, 0.06)",
 						}}
@@ -226,7 +223,7 @@ export function SidebarApiKeysSection(props: {
 										>
 											Copy this key now
 										</Text>
-										<Text c={props.textMuted} size="xs" mt={4}>
+										<Text c={textMuted} size="xs" mt={4}>
 											For security, this secret is only shown once.
 										</Text>
 									</Box>
@@ -258,7 +255,7 @@ export function SidebarApiKeysSection(props: {
 											>
 												Copy this key now
 											</Text>
-											<Text c={props.textMuted} size="xs" mt={4}>
+											<Text c={textMuted} size="xs" mt={4}>
 												For security, this secret is only shown once.
 											</Text>
 										</Box>
@@ -304,7 +301,7 @@ export function SidebarApiKeysSection(props: {
 				{!apiKeysQuery.isPending &&
 					!apiKeysQuery.isError &&
 					apiKeys.length === 0 && (
-						<Text c={props.textMuted} size="sm" lh={1.6}>
+						<Text c={textMuted} size="sm" lh={1.6}>
 							No API keys yet. Create one here when you need Ryot access from a
 							script or integration.
 						</Text>
@@ -320,12 +317,9 @@ export function SidebarApiKeysSection(props: {
 
 					return (
 						<Box
-							key={key.id}
 							p="md"
-							style={{
-								borderRadius: "12px",
-								border: `1px solid ${props.border}`,
-							}}
+							key={key.id}
+							style={{ borderRadius: "12px", border: `1px solid ${border}` }}
 						>
 							{isMobile ? (
 								<Stack gap="md">
@@ -338,7 +332,7 @@ export function SidebarApiKeysSection(props: {
 												{status.label}
 											</Badge>
 										</Group>
-										<Text c={props.textMuted} size="xs">
+										<Text c={textMuted} size="xs">
 											{details.map((item, index) => (
 												<Text
 													component="span"
@@ -376,7 +370,7 @@ export function SidebarApiKeysSection(props: {
 												{status.label}
 											</Badge>
 										</Group>
-										<Text c={props.textMuted} size="xs">
+										<Text c={textMuted} size="xs">
 											{details.map((item, index) => (
 												<Text
 													component="span"
