@@ -3,6 +3,7 @@ import {
 	localStorageColorSchemeManager,
 	MantineProvider,
 } from "@mantine/core";
+import { ModalsProvider } from "@mantine/modals";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
@@ -40,16 +41,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					defaultColorScheme="auto"
 					colorSchemeManager={colorSchemeManager}
 				>
-					{children}
-					<TanStackDevtools
-						config={{ position: "bottom-right" }}
-						plugins={[
-							{
-								name: "Tanstack Router",
-								render: <TanStackRouterDevtoolsPanel />,
-							},
-						]}
-					/>
+					<ModalsProvider>
+						{children}
+						<TanStackDevtools
+							config={{ position: "bottom-right" }}
+							plugins={[
+								{
+									name: "Tanstack Router",
+									render: <TanStackRouterDevtoolsPanel />,
+								},
+							]}
+						/>
+					</ModalsProvider>
 				</MantineProvider>
 				<Scripts />
 			</body>
