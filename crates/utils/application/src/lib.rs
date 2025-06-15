@@ -193,7 +193,7 @@ pub async fn create_oidc_client(
     }
 }
 
-pub fn calculate_average_rating(reviews: &[ReviewItem]) -> Option<Decimal> {
+pub fn calculate_average_rating_for_user(reviews: &[ReviewItem]) -> Option<Decimal> {
     let reviews_with_ratings = reviews.iter().filter_map(|r| r.rating).count();
     match reviews_with_ratings {
         0 => None,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use application_utils::calculate_average_rating;
+use application_utils::calculate_average_rating_for_user;
 use async_graphql::Result;
 use database_models::functions::get_user_to_entity_association;
 use database_utils::{entity_in_collections, item_reviews};
@@ -123,7 +123,7 @@ pub async fn user_metadata_details(
     let seen_by: usize = seen_by.try_into().unwrap();
     let user_to_meta =
         get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata).await;
-    let average_rating = calculate_average_rating(&reviews);
+    let average_rating = calculate_average_rating_for_user(&reviews);
     let seen_by_user_count = history.len();
     let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
         let mut seasons = vec![];
@@ -209,7 +209,7 @@ pub async fn user_person_details(
         get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss).await?;
     let person_meta =
         get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person).await;
-    let average_rating = calculate_average_rating(&reviews);
+    let average_rating = calculate_average_rating_for_user(&reviews);
     Ok(UserPersonDetails {
         reviews,
         collections,
@@ -242,7 +242,7 @@ pub async fn user_metadata_group_details(
     let is_recently_consumed =
         get_entity_recently_consumed(&user_id, &metadata_group_id, EntityLot::MetadataGroup, ss)
             .await?;
-    let average_rating = calculate_average_rating(&reviews);
+    let average_rating = calculate_average_rating_for_user(&reviews);
     let metadata_group_meta = get_user_to_entity_association(
         &ss.db,
         &user_id,
