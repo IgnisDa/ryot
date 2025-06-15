@@ -491,7 +491,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
+                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
                                     /** Format: date-time */
                                     backlogAt: string;
                                     labels: {
@@ -589,7 +589,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
+                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
                                     /** Format: date-time */
                                     progressAt: string;
                                     labels: {
@@ -692,7 +692,7 @@ export interface paths {
                                         label?: string | null;
                                     };
                                     /** @enum {string} */
-                                    entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
+                                    entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
                                     /** Format: date-time */
                                     completedAt: string;
                                     /** Format: date-time */
@@ -792,7 +792,7 @@ export interface paths {
                                             kind: "remote";
                                         } | unknown;
                                         /** @enum {string} */
-                                        entitySchemaSlug: "book" | "anime" | "manga" | "audiobook" | "video-game";
+                                        entitySchemaSlug: "book" | "comic-book" | "anime" | "manga" | "audiobook" | "podcast" | "movie" | "show" | "video-game" | "visual-novel" | "music";
                                     };
                                 }[];
                                 count: number;
@@ -908,10 +908,16 @@ export interface paths {
                                 inProgress: number;
                                 entityTypeCounts: {
                                     book?: number;
+                                    "comic-book"?: number;
                                     anime?: number;
                                     manga?: number;
                                     audiobook?: number;
+                                    podcast?: number;
+                                    movie?: number;
+                                    show?: number;
                                     "video-game"?: number;
+                                    "visual-novel"?: number;
+                                    music?: number;
                                 };
                             };
                         };
@@ -2925,7 +2931,7 @@ export interface paths {
         };
         /**
          * Update a saved view by ID
-         * @description For user-defined views, all fields are applied. For built-in views, only `isDisabled` is applied — all other fields in the request body are ignored.
+         * @description For user-defined views, all fields are applied. Built-in views only allow `isDisabled` to change; attempts to modify other fields are rejected.
          */
         put: {
             parameters: {
@@ -3729,6 +3735,8 @@ export interface paths {
                                         /** @enum {string} */
                                         kind: "remote";
                                     } | unknown;
+                                    externalId: string | null;
+                                    sandboxScriptId: string | null;
                                     fields: {
                                         value?: unknown;
                                         /** @enum {string} */
