@@ -20,8 +20,8 @@ See the parent PRD section **Testing Decisions**.
 
 ## Acceptance criteria
 
-- [ ] Tests cover loading and empty states for the inline collection panel.
-- [ ] Tests cover membership-form required-field validation and payload shaping.
+- [x] Tests cover loading and empty states for the inline collection panel.
+- [x] Tests cover membership-form required-field validation and payload shaping.
 - [ ] Tests cover successful save-to-collection behavior.
 - [ ] Tests cover the partial-failure case where the entity exists in the library but the membership
       write fails.
