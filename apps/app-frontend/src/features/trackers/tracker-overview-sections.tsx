@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { FilePlus2, NotebookPen, Plus, Shapes } from "lucide-react";
 import type { AppSavedView } from "#/features/saved-views/model";
 import { useThemeTokens } from "#/hooks/theme";
+import { getAccentMuted } from "#/lib/theme";
 import { TrackerIcon } from "./icons";
 import type { AppTracker } from "./model";
 
@@ -20,7 +21,7 @@ export function TrackerOverviewHeader(props: {
 						flexShrink: 0,
 						color: props.accentColor,
 						borderRadius: "var(--mantine-radius-md)",
-						backgroundColor: `color-mix(in srgb, ${props.accentColor} 15%, transparent)`,
+						backgroundColor: getAccentMuted(props.accentColor),
 					}}
 				>
 					<TrackerIcon size={24} strokeWidth={2} icon={props.tracker.icon} />
@@ -65,7 +66,7 @@ export function TrackerOverviewActivityItem(props: {
 						display: "grid",
 						borderRadius: "50%",
 						placeItems: "center",
-						backgroundColor: `color-mix(in srgb, ${props.accentColor} 15%, transparent)`,
+						backgroundColor: getAccentMuted(props.accentColor),
 					}}
 				>
 					<Icon size={14} color={props.accentColor} />
@@ -94,7 +95,7 @@ export function TrackerOverviewQuickActions(props: {
 	onCreateEntity: () => void;
 }) {
 	const { surface } = useThemeTokens();
-	const accentBg = `color-mix(in srgb, ${props.accentColor} 12%, transparent)`;
+	const accentBg = getAccentMuted(props.accentColor, 12);
 
 	return (
 		<Paper p="md" withBorder radius="md" bg={surface}>

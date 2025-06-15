@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import { useIsMobileScreen } from "#/hooks/screen";
 import { useThemeTokens } from "#/hooks/theme";
 import { authClient } from "#/lib/auth";
+import { getErrorMessage } from "#/lib/errors";
 import {
 	getSidebarApiKeyDetails,
 	getSidebarApiKeyDisplayName,
@@ -24,13 +25,6 @@ import {
 } from "./sidebar-api-keys";
 
 const accountApiKeysQueryKey = ["account", "api-keys"] as const;
-
-function getErrorMessage(error: unknown, fallback: string) {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-	return fallback;
-}
 
 export function SidebarApiKeysSection(props: { opened: boolean }) {
 	const isMobile = useIsMobileScreen();
