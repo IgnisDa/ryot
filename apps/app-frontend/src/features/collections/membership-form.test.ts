@@ -823,12 +823,12 @@ describe("getMembershipPropertyEntries", () => {
 		expect(entries).toContainEqual({
 			key: "myPropertyName",
 			label: "My Property Name",
-			definition: { label: "", type: "string" },
+			definition: { label: "My Property Name", type: "string" },
 		});
 		expect(entries).toContainEqual({
 			key: "another_property",
 			label: "Another Property",
-			definition: { label: "", type: "integer" },
+			definition: { label: "Another Property", type: "integer" },
 		});
 		expect(entries).toContainEqual({
 			key: "someKey",
