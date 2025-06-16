@@ -32,8 +32,8 @@ use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use futures::future::join_all;
 use itertools::Itertools;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    FromQueryResult, ModelTrait, QueryFilter, QuerySelect, prelude::DateTimeUtc, query::UpdateMany,
+    ColumnTrait, Condition, DatabaseConnection, EntityTrait, FromQueryResult, ModelTrait,
+    QueryFilter, QuerySelect, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::Expr;
 use supporting_service::SupportingService;
