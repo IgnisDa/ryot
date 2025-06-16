@@ -161,17 +161,13 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
 }
 
 pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
-    let all_jobs = ImportReport::find()
+    let result = ImportReport::update_many()
+        .col_expr(import_report::Column::WasSuccess, Expr::value(false))
         .filter(import_report::Column::WasSuccess.is_null())
         .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
-        .all(&ss.db)
+        .exec(&ss.db)
         .await?;
-    for job in all_jobs {
-        ryot_log!(debug, "Invalidating job with id = {id}", id = job.id);
-        let mut job: import_report::ActiveModel = job.into();
-        job.was_success = ActiveValue::Set(Some(false));
-        job.save(&ss.db).await?;
-    }
+    ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
     Ok(())
 }
 
