@@ -549,8 +549,8 @@ const MediaSearchItem = (props: {
 	return (
 		<Box>
 			<MetadataDisplayItem
-				shouldHighlightNameIfInteracted
 				metadataId={props.item}
+				shouldHighlightNameIfInteracted
 				imageClassName={OnboardingTourStepTargets.GoToMoviesSectionAgain}
 				onImageClickBehavior={() => {
 					if (tourControlThree) {
