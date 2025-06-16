@@ -371,15 +371,6 @@ export const BaseMediaDisplayItem = (props: {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const gridPacking = userPreferences.general.gridPacking;
-	const SurroundingElement = (iProps: { children: ReactNode }) => (
-		<Anchor
-			component={Link}
-			to={props.onImageClickBehavior[0]}
-			onClick={props.onImageClickBehavior[1]}
-		>
-			{iProps.children}
-		</Anchor>
-	);
 	const defaultOverlayProps = {
 		pos: "absolute",
 		style: { zIndex: 10, ...blackBgStyles },
@@ -388,7 +379,11 @@ export const BaseMediaDisplayItem = (props: {
 	return (
 		<Flex direction="column" ref={props.innerRef} justify="space-between">
 			<Box pos="relative" w="100%">
-				<SurroundingElement>
+				<Anchor
+					component={Link}
+					to={props.onImageClickBehavior[0]}
+					onClick={props.onImageClickBehavior[1]}
+				>
 					<Tooltip
 						position="top"
 						label={props.name}
@@ -440,7 +435,7 @@ export const BaseMediaDisplayItem = (props: {
 							) : null}
 						</Paper>
 					</Tooltip>
-				</SurroundingElement>
+				</Anchor>
 				{props.imageOverlay?.topLeft ? (
 					<Center top={5} left={5} {...defaultOverlayProps}>
 						{props.imageOverlay.topLeft}
