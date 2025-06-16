@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{result::Result as StdResult, sync::Arc};
 
 use anyhow::anyhow;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
@@ -104,7 +104,7 @@ async fn process_item(
     client: &Client,
     url: &str,
     services: &ImportServices<'_>,
-) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let metadata = item.media.clone().unwrap().metadata;
     let title = metadata.title.clone();
     ryot_log!(debug, "Importing item {:?} ({}/{})", title, idx + 1, total);
