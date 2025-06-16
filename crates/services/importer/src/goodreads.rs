@@ -1,3 +1,5 @@
+use std::result::Result as StdResult;
+
 use async_graphql::Result;
 use chrono::NaiveDate;
 use common_utils::ryot_log;
@@ -87,7 +89,7 @@ async fn process_book_record(
     hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let record: Book = match result {
         Ok(r) => r,
         Err(e) => {

@@ -1,3 +1,5 @@
+use std::result::Result as StdResult;
+
 use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_utils::ryot_log;
@@ -21,7 +23,7 @@ async fn process_metadata_item(
     lot: MediaLot,
     client: &Client,
     api_url: &str,
-) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let Some(_lv) = item.last_viewed_at else {
         return Err(ImportFailedItem {
             lot: Some(lot),

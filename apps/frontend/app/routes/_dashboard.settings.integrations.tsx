@@ -579,10 +579,9 @@ const CreateOrUpdateModal = (props: {
 										props.integrationData?.providerSpecifics?.komgaProvider ||
 										undefined
 									}
-									data={[MediaSource.Anilist, MediaSource.Mal].map((is) => ({
-										label: changeCase(is),
-										value: is,
-									}))}
+									data={[MediaSource.Anilist, MediaSource.Myanimelist].map(
+										(is) => ({ value: is, label: changeCase(is) }),
+									)}
 								/>
 							</>
 						))
