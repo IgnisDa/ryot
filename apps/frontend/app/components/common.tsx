@@ -60,7 +60,6 @@ import {
 	getInitials,
 	humanizeDuration,
 	isNumber,
-	isString,
 	snakeCase,
 } from "@ryot/ts-utils";
 import {
@@ -361,7 +360,7 @@ export const BaseMediaDisplayItem = (props: {
 	highlightImage?: boolean;
 	innerRef?: Ref<HTMLDivElement>;
 	labels?: { right?: ReactNode; left?: ReactNode };
-	onImageClickBehavior: string | (() => Promise<void>);
+	onImageClickBehavior: [string, (() => Promise<void>)?];
 	imageOverlay?: {
 		topRight?: ReactNode;
 		topLeft?: ReactNode;
@@ -372,14 +371,15 @@ export const BaseMediaDisplayItem = (props: {
 	const coreDetails = useCoreDetails();
 	const userPreferences = useUserPreferences();
 	const gridPacking = userPreferences.general.gridPacking;
-	const SurroundingElement = (iProps: { children: ReactNode }) =>
-		isString(props.onImageClickBehavior) ? (
-			<Anchor component={Link} to={props.onImageClickBehavior}>
-				{iProps.children}
-			</Anchor>
-		) : (
-			<Box onClick={props.onImageClickBehavior}>{iProps.children}</Box>
-		);
+	const SurroundingElement = (iProps: { children: ReactNode }) => (
+		<Anchor
+			component={Link}
+			to={props.onImageClickBehavior[0]}
+			onClick={props.onImageClickBehavior[1]}
+		>
+			{iProps.children}
+		</Anchor>
+	);
 	const defaultOverlayProps = {
 		pos: "absolute",
 		style: { zIndex: 10, ...blackBgStyles },

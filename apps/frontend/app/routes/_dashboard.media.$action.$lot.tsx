@@ -552,10 +552,8 @@ const MediaSearchItem = (props: {
 				metadataId={props.item}
 				shouldHighlightNameIfInteracted
 				imageClassName={OnboardingTourStepTargets.GoToMoviesSectionAgain}
-				onImageClickBehavior={() => {
-					if (tourControlThree) {
-						advanceOnboardingTourStep();
-					}
+				onImageClickBehavior={async () => {
+					if (tourControlThree) advanceOnboardingTourStep();
 				}}
 				nameRight={
 					<Menu shadow="md">
