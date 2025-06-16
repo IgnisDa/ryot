@@ -28,7 +28,7 @@ import {
 	IconStarFilled,
 } from "@tabler/icons-react";
 import { type ReactNode, useMemo } from "react";
-import { Form, Link, useNavigate } from "react-router";
+import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -186,13 +186,12 @@ export const MetadataDisplayItem = (props: {
 	rightLabelLot?: boolean;
 	imageClassName?: string;
 	rightLabelHistory?: boolean;
-	onImageClickBehavior?: () => void;
 	shouldHighlightNameIfInteracted?: boolean;
+	onImageClickBehavior?: () => Promise<void>;
 }) => {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
-	const navigate = useNavigate();
 
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
@@ -265,10 +264,10 @@ export const MetadataDisplayItem = (props: {
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataDetails?.hasInteracted
 			}
-			onImageClickBehavior={async () => {
-				props.onImageClickBehavior?.();
-				navigate($path("/media/item/:id", { id: props.metadataId }));
-			}}
+			onImageClickBehavior={[
+				$path("/media/item/:id", { id: props.metadataId }),
+				props.onImageClickBehavior,
+			]}
 			labels={
 				metadataDetails
 					? {
@@ -362,9 +361,9 @@ export const MetadataGroupDisplayItem = (props: {
 			name={metadataDetails?.details.title}
 			imageUrl={metadataDetails?.details.assets.remoteImages.at(0)}
 			highlightImage={userMetadataGroupDetails?.isRecentlyConsumed}
-			onImageClickBehavior={$path("/media/groups/item/:id", {
-				id: props.metadataGroupId,
-			})}
+			onImageClickBehavior={[
+				$path("/media/groups/item/:id", { id: props.metadataGroupId }),
+			]}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
 				userMetadataGroupDetails?.hasInteracted
@@ -419,9 +418,9 @@ export const PersonDisplayItem = (props: {
 			isLoading={isPersonDetailsLoading}
 			highlightImage={userPersonDetails?.isRecentlyConsumed}
 			imageUrl={personDetails?.details.assets.remoteImages.at(0)}
-			onImageClickBehavior={$path("/media/people/item/:id", {
-				id: props.personId,
-			})}
+			onImageClickBehavior={[
+				$path("/media/people/item/:id", { id: props.personId }),
+			]}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
 				userPersonDetails?.hasInteracted
