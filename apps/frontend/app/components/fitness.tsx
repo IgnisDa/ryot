@@ -447,7 +447,7 @@ export const ExerciseDisplayItem = (props: {
 			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
 			isLoading={isExerciseDetailsLoading}
-			onImageClickBehavior={getExerciseDetailsPath(props.exerciseId)}
+			onImageClickBehavior={[getExerciseDetailsPath(props.exerciseId)]}
 			labels={{
 				left: isNumber(times)
 					? `${times} time${times > 1 ? "s" : ""}`
@@ -475,10 +475,12 @@ export const WorkoutDisplayItem = (props: {
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}
-			onImageClickBehavior={$path("/fitness/:entity/:id", {
-				id: props.workoutId,
-				entity: "workouts",
-			})}
+			onImageClickBehavior={[
+				$path("/fitness/:entity/:id", {
+					entity: "workouts",
+					id: props.workoutId,
+				}),
+			]}
 			labels={{
 				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
 				right: props.rightLabel,
@@ -501,10 +503,12 @@ export const WorkoutTemplateDisplayItem = (props: {
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}
-			onImageClickBehavior={$path("/fitness/:entity/:id", {
-				id: props.workoutTemplateId,
-				entity: FitnessEntity.Templates,
-			})}
+			onImageClickBehavior={[
+				$path("/fitness/:entity/:id", {
+					id: props.workoutTemplateId,
+					entity: FitnessEntity.Templates,
+				}),
+			]}
 			labels={{
 				left: dayjsLib(workoutTemplateDetails?.details.createdOn).format("l"),
 				right: "Template",
