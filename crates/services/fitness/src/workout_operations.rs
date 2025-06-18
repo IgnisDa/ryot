@@ -154,22 +154,5 @@ pub async fn revise_user_workouts(ss: &Arc<SupportingService>, user_id: String) 
         create_or_update_user_workout_util(&user_id, workout_input, ss).await?;
         ryot_log!(debug, "Revised workout: {}/{}", idx + 1, total);
     }
-    let mut all_stream = UserToEntity::find()
-        .filter(user_to_entity::Column::UserId.eq(&user_id))
-        .filter(user_to_entity::Column::ExerciseId.is_not_null())
-        .stream(&ss.db)
-        .await?;
-    while let Some(ute) = all_stream.try_next().await? {
-        let eei = ute.exercise_extra_information.clone().unwrap_or_default();
-        if eei.history.is_empty() {
-            ryot_log!(
-                debug,
-                "Deleting empty exercise history for user: {}, exercise: {:?}",
-                user_id,
-                ute.exercise_id
-            );
-            ute.delete(&ss.db).await?;
-        }
-    }
     Ok(())
 }
