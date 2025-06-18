@@ -169,11 +169,7 @@ pub async fn user_metadata_list(
             MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
             MediaSortBy::TimesConsumed => query.order_by(seen::Column::Id.count(), order_by),
             MediaSortBy::LastUpdated => query
-                .order_by_with_nulls(
-                    user_to_entity::Column::LastUpdatedOn,
-                    order_by,
-                    NullOrdering::Last,
-                )
+                .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
                 .group_by(user_to_entity::Column::LastUpdatedOn),
             MediaSortBy::ReleaseDate => query.order_by_with_nulls(
                 metadata::Column::PublishYear,
@@ -181,7 +177,11 @@ pub async fn user_metadata_list(
                 NullOrdering::Last,
             ),
             MediaSortBy::LastSeen => query
-                .order_by(seen::Column::FinishedOn.max(), order_by.clone())
+                .order_by_with_nulls(
+                    seen::Column::FinishedOn.max(),
+                    order_by.clone(),
+                    NullOrdering::Last,
+                )
                 .order_by(seen::Column::LastUpdatedOn.max(), order_by),
             MediaSortBy::UserRating => query.order_by_with_nulls(
                 Expr::col(Alias::new(avg_rating_col)),
