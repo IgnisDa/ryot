@@ -169,7 +169,11 @@ pub async fn user_metadata_list(
             MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
             MediaSortBy::TimesConsumed => query.order_by(seen::Column::Id.count(), order_by),
             MediaSortBy::LastUpdated => query
-                .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
+                .order_by_with_nulls(
+                    user_to_entity::Column::LastUpdatedOn,
+                    order_by,
+                    NullOrdering::Last,
+                )
                 .group_by(user_to_entity::Column::LastUpdatedOn),
             MediaSortBy::ReleaseDate => query.order_by_with_nulls(
                 metadata::Column::PublishYear,
