@@ -1308,7 +1308,7 @@ const MetadataNewProgressUpdateForm = ({
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
 					const selectedDateFormatted = convertToUtcIsoString(selectedDate);
-					const currentDateFormatted = formatDateToNaiveDate(new Date());
+					const currentDateFormatted = convertToUtcIsoString(new Date());
 					const common: MetadataProgressUpdateCommonInput = {
 						showSeasonNumber: metadataToUpdate.showSeasonNumber,
 						mangaVolumeNumber: metadataToUpdate.mangaVolumeNumber,
