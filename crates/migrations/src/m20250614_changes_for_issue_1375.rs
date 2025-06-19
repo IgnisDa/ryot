@@ -15,6 +15,18 @@ UPDATE "metadata" SET "source" = 'myanimelist' where "source" = 'mal';
         )
         .await?;
 
+        // Convert started_on column from date to timestamptz
+        db.execute_unprepared(
+            "ALTER TABLE seen ALTER COLUMN started_on TYPE timestamptz USING started_on::timestamptz"
+        )
+        .await?;
+
+        // Convert finished_on column from date to timestamptz
+        db.execute_unprepared(
+            "ALTER TABLE seen ALTER COLUMN finished_on TYPE timestamptz USING finished_on::timestamptz"
+        )
+        .await?;
+
         Ok(())
     }
 
