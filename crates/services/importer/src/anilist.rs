@@ -2,6 +2,7 @@ use std::{collections::HashMap, fs, sync::Arc};
 
 use async_graphql::Result;
 use chrono::NaiveDateTime;
+use common_utils::convert_naive_to_utc_datetime;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 use media_models::{
@@ -92,7 +93,7 @@ pub async fn import(
                 ended_on: item
                     .updated_at
                     .clone()
-                    .map(|d| parse_date_string(&d).date()),
+                    .map(|d| convert_naive_to_utc_datetime(parse_date_string(&d))),
                 ..Default::default()
             };
             match lot {

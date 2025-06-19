@@ -79,6 +79,10 @@ pub fn convert_naive_to_utc(d: NaiveDate) -> DateTime<Utc> {
     )
 }
 
+pub fn convert_naive_to_utc_datetime(d: NaiveDateTime) -> DateTime<Utc> {
+    DateTime::from_naive_utc_and_offset(d, Utc)
+}
+
 pub fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>
 where
     D: de::Deserializer<'de>,
