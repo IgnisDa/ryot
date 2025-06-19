@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
-use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
+use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
 use database_models::{
