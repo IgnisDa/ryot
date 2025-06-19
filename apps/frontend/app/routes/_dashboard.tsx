@@ -1307,6 +1307,7 @@ const MetadataNewProgressUpdateForm = ({
 				disabled={selectedDate === undefined}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
+					const selectedDateFormatted = convertToUtcIsoString(selectedDate);
 					const currentDateFormatted = formatDateToNaiveDate(new Date());
 					const common: MetadataProgressUpdateCommonInput = {
 						showSeasonNumber: metadataToUpdate.showSeasonNumber,
@@ -1355,14 +1356,14 @@ const MetadataNewProgressUpdateForm = ({
 										},
 									}))
 									.with(WatchTimes.CustomDate, () => {
-										const date = convertToUtcIsoString(selectedDate);
-										if (!date) throw new Error("Selected date is undefined");
+										if (!selectedDateFormatted)
+											throw new Error("Selected date is undefined");
 										return {
 											createNewCompleted: {
 												finishedOnDate: {
 													...common,
-													finishedOn: date,
 													animeEpisodeNumber: i,
+													finishedOn: selectedDateFormatted,
 												},
 											},
 										};
@@ -1436,15 +1437,14 @@ const MetadataNewProgressUpdateForm = ({
 												},
 											}))
 											.with(WatchTimes.CustomDate, () => {
-												const date = convertToUtcIsoString(selectedDate);
-												if (!date)
+												if (!selectedDateFormatted)
 													throw new Error("Selected date is undefined");
 												return {
 													createNewCompleted: {
 														finishedOnDate: {
 															...common,
-															finishedOn: date,
 															mangaVolumeNumber: i,
+															finishedOn: selectedDateFormatted,
 														},
 													},
 												};
@@ -1502,15 +1502,14 @@ const MetadataNewProgressUpdateForm = ({
 													},
 												}))
 												.with(WatchTimes.CustomDate, () => {
-													const date = convertToUtcIsoString(selectedDate);
-													if (!date)
+													if (!selectedDateFormatted)
 														throw new Error("Selected date is undefined");
 													return {
 														createNewCompleted: {
 															finishedOnDate: {
 																...common,
-																finishedOn: date,
 																mangaChapterNumber: i.toString(),
+																finishedOn: selectedDateFormatted,
 															},
 														},
 													};
@@ -1602,13 +1601,13 @@ const MetadataNewProgressUpdateForm = ({
 											},
 										}))
 										.with(WatchTimes.CustomDate, () => {
-											const date = convertToUtcIsoString(selectedDate);
-											if (!date) throw new Error("Selected date is undefined");
+											if (!selectedDateFormatted)
+												throw new Error("Selected date is undefined");
 											return {
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
-														finishedOn: date,
+														finishedOn: selectedDateFormatted,
 														showSeasonNumber: currentEpisode.seasonNumber,
 														showEpisodeNumber: currentEpisode.episodeNumber,
 													},
@@ -1673,13 +1672,13 @@ const MetadataNewProgressUpdateForm = ({
 											},
 										}))
 										.with(WatchTimes.CustomDate, () => {
-											const date = convertToUtcIsoString(selectedDate);
-											if (!date) throw new Error("Selected date is undefined");
+											if (!selectedDateFormatted)
+												throw new Error("Selected date is undefined");
 											return {
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
-														finishedOn: date,
+														finishedOn: selectedDateFormatted,
 														podcastEpisodeNumber: episode.number,
 													},
 												},
@@ -1716,12 +1715,15 @@ const MetadataNewProgressUpdateForm = ({
 							},
 						}))
 						.with(WatchTimes.CustomDate, () => {
-							const date = convertToUtcIsoString(selectedDate);
-							if (!date) throw new Error("Selected date is undefined");
+							if (!selectedDateFormatted)
+								throw new Error("Selected date is undefined");
 
 							return {
 								createNewCompleted: {
-									finishedOnDate: { ...common, finishedOn: date },
+									finishedOnDate: {
+										...common,
+										finishedOn: selectedDateFormatted,
+									},
 								},
 							};
 						})
