@@ -60,6 +60,15 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
+export const convertToUtcIsoString = (dateTime?: Date | string | null) => {
+	if (!dateTime) return null;
+
+	const parsed = dayjs(dateTime);
+	if (!parsed.isValid()) return null;
+
+	return parsed.utc().format();
+};
+
 export const zodCommaDelimitedString = z
 	.string()
 	.optional()
