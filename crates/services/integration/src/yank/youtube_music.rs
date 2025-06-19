@@ -119,7 +119,6 @@ pub async fn yank_progress(
                 identifier: song_id,
                 lot: MediaLot::Music,
                 seen_history: vec![ImportOrExportMetadataItemSeen {
-                    ended_on: Some(date),
                     progress: Some(progress),
                     provider_watched_on: Some("Youtube Music".to_owned()),
                     ..Default::default()
