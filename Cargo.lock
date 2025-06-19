@@ -839,8 +839,8 @@ dependencies = [
 name = "background-models"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "media-models",
+ "sea-orm",
  "serde",
  "strum",
  "uuid",
@@ -1314,6 +1314,7 @@ dependencies = [
  "enum-models",
  "env-utils",
  "reqwest",
+ "sea-orm",
  "serde",
  "tokio",
 ]

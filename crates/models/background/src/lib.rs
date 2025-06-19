@@ -1,7 +1,7 @@
-use chrono::{DateTime, Utc};
 use media_models::{
     DeployImportJobInput, MetadataProgressUpdateInput, ProgressUpdateInput, ReviewPostedEvent,
 };
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -33,7 +33,7 @@ pub enum MpApplicationJob {
 pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
-    UpdateUserLastActivityPerformed(String, DateTime<Utc>),
+    UpdateUserLastActivityPerformed(String, DateTimeUtc),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

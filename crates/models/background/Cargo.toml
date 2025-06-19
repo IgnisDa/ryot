@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chrono = { workspace = true }
 media-models = { path = "../media" }
+sea-orm = { workspace = true }
 serde = { workspace = true }
 strum = { workspace = true }
 uuid = { workspace = true }

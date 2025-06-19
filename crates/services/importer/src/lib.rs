@@ -19,7 +19,8 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+    prelude::DateTimeUtc, prelude::Expr,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -191,18 +192,19 @@ impl ImporterService {
 }
 
 pub mod utils {
+
     use super::*;
 
     pub fn get_date_time_with_offset(
         date_time: NaiveDateTime,
         timezone: &chrono_tz::Tz,
-    ) -> DateTime<Utc> {
+    ) -> DateTimeUtc {
         let offset = timezone
             .offset_from_utc_datetime(&Utc::now().naive_utc())
             .fix()
             .local_minus_utc();
         let offset = Duration::try_seconds(offset.into()).unwrap();
-        DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
+        DateTimeUtc::from_naive_utc_and_offset(date_time, Utc) - offset
     }
 
     pub async fn associate_with_existing_or_new_exercise(
