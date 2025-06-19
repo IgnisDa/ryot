@@ -123,7 +123,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				formData,
 				createAccessLinkFormSchema,
 			);
-			submission.expiresOn = dayjsLib(submission.expiresOn).toISOString();
+			submission.expiresOn = submission.expiresOn
+				? dayjsLib(submission.expiresOn).toISOString()
+				: undefined;
 			submission.isMutationAllowed = submission.isMutationAllowed === true;
 			await serverGqlService.authenticatedRequest(
 				request,
