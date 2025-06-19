@@ -60,7 +60,9 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
-export const convertToUtcIsoString = (dateTime?: Date | string | null) => {
+export const convertTimestampToUtcString = (
+	dateTime?: Date | string | null,
+) => {
 	if (!dateTime) return null;
 
 	const parsed = dayjs(dateTime);
@@ -100,7 +102,7 @@ export const zodCollectionFilter = zodCommaDelimitedString.transform(
 
 export const zodDateTimeString = z
 	.string()
-	.transform((v) => convertToUtcIsoString(v));
+	.transform((v) => convertTimestampToUtcString(v));
 
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";

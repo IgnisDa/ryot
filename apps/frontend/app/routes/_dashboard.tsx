@@ -122,7 +122,7 @@ import {
 	Verb,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
-	convertToUtcIsoString,
+	convertTimestampToUtcString,
 	dayjsLib,
 	forcedDashboardPath,
 	getVerb,
@@ -1307,8 +1307,9 @@ const MetadataNewProgressUpdateForm = ({
 				disabled={selectedDate === undefined}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
-					const selectedDateFormatted = convertToUtcIsoString(selectedDate);
-					const currentDateFormatted = convertToUtcIsoString(new Date());
+					const selectedDateFormatted =
+						convertTimestampToUtcString(selectedDate);
+					const currentDateFormatted = convertTimestampToUtcString(new Date());
 					const common: MetadataProgressUpdateCommonInput = {
 						showSeasonNumber: metadataToUpdate.showSeasonNumber,
 						mangaVolumeNumber: metadataToUpdate.mangaVolumeNumber,
