@@ -168,7 +168,7 @@ async fn process_item(
         let seen = ImportOrExportMetadataItemSeen {
             show_season_number: ssn,
             show_episode_number: sen,
-            ended_on: item_user_data.last_played_date.map(|d| d.date_naive()),
+            ended_on: item_user_data.last_played_date,
             ..Default::default()
         };
         let mut collections = vec![];

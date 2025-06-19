@@ -4,8 +4,7 @@ use std::{
 };
 
 use async_graphql::Result;
-use chrono::NaiveDate;
-use common_utils::convert_string_to_date;
+use common_utils::{convert_naive_to_utc, convert_string_to_date};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
@@ -16,6 +15,7 @@ use media_models::{
 };
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub async fn import(input: DeployMalImportInput) -> Result<ImportResult> {
@@ -55,11 +55,10 @@ where
     Ok(deserialized)
 }
 
-fn get_date(date: String) -> Option<NaiveDate> {
-    if date.starts_with("0000") {
-        None
-    } else {
-        convert_string_to_date(&date)
+fn get_date(date: String) -> Option<DateTimeUtc> {
+    match date.as_str() {
+        s if s.starts_with("0000") => None,
+        _ => convert_string_to_date(&date).map(|d| convert_naive_to_utc(d)),
     }
 }
 
