@@ -40,7 +40,7 @@ import {
 	rem,
 	useMantineTheme,
 } from "@mantine/core";
-import { DateInput, DatePickerInput, DateTimePicker } from "@mantine/dates";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -122,6 +122,7 @@ import {
 	Verb,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
+	convertToUtcIsoString,
 	dayjsLib,
 	forcedDashboardPath,
 	getVerb,
@@ -1065,8 +1066,8 @@ const MetadataNewProgressUpdateForm = ({
 }) => {
 	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [selectedDate, setSelectedDate] = useState<string | null | undefined>(
-		formatDateToNaiveDate(new Date()),
+	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
+		new Date(),
 	);
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
@@ -1266,7 +1267,7 @@ const MetadataNewProgressUpdateForm = ({
 					setWatchTime(v as typeof watchTime);
 					match(v)
 						.with(WatchTimes.JustCompletedNow, () =>
-							setSelectedDate(formatDateToNaiveDate(new Date())),
+							setSelectedDate(new Date()),
 						)
 						.with(
 							WatchTimes.IDontRemember,
@@ -1278,13 +1279,13 @@ const MetadataNewProgressUpdateForm = ({
 				}}
 			/>
 			{watchTime === WatchTimes.CustomDate ? (
-				<DatePickerInput
+				<DateTimePicker
 					required
 					clearable
 					dropdownType="modal"
 					maxDate={new Date()}
 					label="Enter exact date"
-					onChange={setSelectedDate}
+					onChange={(e) => setSelectedDate(e ? new Date(e) : null)}
 				/>
 			) : null}
 			{watchTime !== WatchTimes.JustStartedIt ? (
@@ -1354,14 +1355,14 @@ const MetadataNewProgressUpdateForm = ({
 										},
 									}))
 									.with(WatchTimes.CustomDate, () => {
-										if (!selectedDate)
-											throw new Error("Selected date is undefined");
+										const date = convertToUtcIsoString(selectedDate);
+										if (!date) throw new Error("Selected date is undefined");
 										return {
 											createNewCompleted: {
 												finishedOnDate: {
 													...common,
+													finishedOn: date,
 													animeEpisodeNumber: i,
-													finishedOn: selectedDate,
 												},
 											},
 										};
@@ -1435,14 +1436,15 @@ const MetadataNewProgressUpdateForm = ({
 												},
 											}))
 											.with(WatchTimes.CustomDate, () => {
-												if (!selectedDate)
+												const date = convertToUtcIsoString(selectedDate);
+												if (!date)
 													throw new Error("Selected date is undefined");
 												return {
 													createNewCompleted: {
 														finishedOnDate: {
 															...common,
+															finishedOn: date,
 															mangaVolumeNumber: i,
-															finishedOn: selectedDate,
 														},
 													},
 												};
@@ -1500,14 +1502,15 @@ const MetadataNewProgressUpdateForm = ({
 													},
 												}))
 												.with(WatchTimes.CustomDate, () => {
-													if (!selectedDate)
+													const date = convertToUtcIsoString(selectedDate);
+													if (!date)
 														throw new Error("Selected date is undefined");
 													return {
 														createNewCompleted: {
 															finishedOnDate: {
 																...common,
+																finishedOn: date,
 																mangaChapterNumber: i.toString(),
-																finishedOn: selectedDate,
 															},
 														},
 													};
@@ -1599,15 +1602,15 @@ const MetadataNewProgressUpdateForm = ({
 											},
 										}))
 										.with(WatchTimes.CustomDate, () => {
-											if (!selectedDate)
-												throw new Error("Selected date is undefined");
+											const date = convertToUtcIsoString(selectedDate);
+											if (!date) throw new Error("Selected date is undefined");
 											return {
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
+														finishedOn: date,
 														showSeasonNumber: currentEpisode.seasonNumber,
 														showEpisodeNumber: currentEpisode.episodeNumber,
-														finishedOn: selectedDate,
 													},
 												},
 											};
@@ -1670,14 +1673,14 @@ const MetadataNewProgressUpdateForm = ({
 											},
 										}))
 										.with(WatchTimes.CustomDate, () => {
-											if (!selectedDate)
-												throw new Error("Selected date is undefined");
+											const date = convertToUtcIsoString(selectedDate);
+											if (!date) throw new Error("Selected date is undefined");
 											return {
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
+														finishedOn: date,
 														podcastEpisodeNumber: episode.number,
-														finishedOn: selectedDate,
 													},
 												},
 											};
@@ -1713,11 +1716,12 @@ const MetadataNewProgressUpdateForm = ({
 							},
 						}))
 						.with(WatchTimes.CustomDate, () => {
-							if (!selectedDate) throw new Error("Selected date is undefined");
+							const date = convertToUtcIsoString(selectedDate);
+							if (!date) throw new Error("Selected date is undefined");
 
 							return {
 								createNewCompleted: {
-									finishedOnDate: { ...common, finishedOn: selectedDate },
+									finishedOnDate: { ...common, finishedOn: date },
 								},
 							};
 						})
