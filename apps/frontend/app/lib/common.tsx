@@ -60,15 +60,19 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
-export const convertTimestampToUtcString = (
-	dateTime?: Date | string | null,
-) => {
-	if (!dateTime) return null;
+type TimestampToStringResult<T> = T extends Date | string ? string : null;
+
+export const convertTimestampToUtcString = <
+	T extends Date | string | null | undefined,
+>(
+	dateTime: T,
+): TimestampToStringResult<T> => {
+	if (!dateTime) return null as TimestampToStringResult<T>;
 
 	const parsed = dayjs(dateTime);
-	if (!parsed.isValid()) return null;
+	if (!parsed.isValid()) return null as TimestampToStringResult<T>;
 
-	return parsed.utc().format();
+	return parsed.utc().format() as TimestampToStringResult<T>;
 };
 
 export const zodCommaDelimitedString = z
