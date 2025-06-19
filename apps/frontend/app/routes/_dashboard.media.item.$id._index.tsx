@@ -29,7 +29,7 @@ import {
 	Title,
 	Tooltip,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
+import { DateTimePicker } from "@mantine/dates";
 import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
@@ -114,6 +114,7 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	Verb,
 	clientGqlService,
+	convertToUtcIsoString,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
@@ -247,15 +248,13 @@ const mergeMetadataSchema = z.object({
 	mergeInto: z.string(),
 });
 
-const dateString = z
-	.string()
-	.transform((v) => formatDateToNaiveDate(new Date(v)));
+const dateTimeString = z.string().transform((v) => convertToUtcIsoString(v));
 
 const editSeenItem = z.object({
 	seenId: z.string(),
 	reviewId: z.string().optional(),
-	startedOn: dateString.optional(),
-	finishedOn: dateString.optional(),
+	startedOn: dateTimeString.optional(),
+	finishedOn: dateTimeString.optional(),
 	manualTimeSpent: z.string().optional(),
 	providerWatchedOn: z.string().optional(),
 });
@@ -1396,14 +1395,14 @@ const EditHistoryItemModal = (props: {
 				<input hidden name="seenId" defaultValue={id} />
 				<Stack>
 					<Title order={3}>Edit history record</Title>
-					<DateInput
-						label="Start time"
+					<DateTimePicker
+						label="Start Date & Time"
 						name="startedOn"
 						defaultValue={startedOn ? new Date(startedOn) : undefined}
 						disabled={isNotCompleted}
 					/>
-					<DateInput
-						label="End time"
+					<DateTimePicker
+						label="End Date & Time"
 						name="finishedOn"
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 						disabled={isNotCompleted}
