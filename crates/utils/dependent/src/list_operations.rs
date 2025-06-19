@@ -176,17 +176,11 @@ pub async fn user_metadata_list(
                 order_by,
                 NullOrdering::Last,
             ),
-            MediaSortBy::LastSeen => query
-                .order_by_with_nulls(
-                    seen::Column::FinishedOn.max(),
-                    order_by.clone(),
-                    NullOrdering::Last,
-                )
-                .order_by_with_nulls(
-                    seen::Column::LastUpdatedOn.max(),
-                    order_by,
-                    NullOrdering::Last,
-                ),
+            MediaSortBy::LastSeen => query.order_by_with_nulls(
+                seen::Column::FinishedOn.max(),
+                order_by,
+                NullOrdering::Last,
+            ),
             MediaSortBy::UserRating => query.order_by_with_nulls(
                 Expr::col(Alias::new(avg_rating_col)),
                 order_by,
@@ -198,6 +192,7 @@ pub async fn user_metadata_list(
                 NullOrdering::Last,
             ),
         })
+        .order_by_desc(seen::Column::LastUpdatedOn.max())
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
