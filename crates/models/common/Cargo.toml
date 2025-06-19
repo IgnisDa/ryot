@@ -8,7 +8,6 @@ async-graphql = { workspace = true }
 chrono = { workspace = true }
 enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
-rust_decimal = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }

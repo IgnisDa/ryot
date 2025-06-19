@@ -86,6 +86,7 @@ pub struct MetadataProgressUpdateInput {
     pub change: MetadataProgressUpdateChange,
 }
 
+// FIXME: remove this after migration to `metadata_progress_update` is complete
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {
     pub metadata_id: String,
@@ -115,6 +116,7 @@ pub struct ProgressUpdateError {
     pub error: ProgressUpdateErrorVariant,
 }
 
+// FIXME: remove this after migration to `metadata_progress_update` is complete
 #[derive(Union)]
 pub enum ProgressUpdateResultUnion {
     Ok(StringIdObject),

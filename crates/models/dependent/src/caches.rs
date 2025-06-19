@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use common_models::{
     ApplicationDateRange, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
-    MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput, UserAnalyticsInput,
-    UserLevelCacheKey, YoutubeMusicSongListened,
+    MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
+    YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use sea_orm::FromJsonQueryResult;
@@ -67,7 +67,6 @@ pub enum ApplicationCacheKey {
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     CollectionRecommendations(CollectionRecommendationsCachedInput),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
-    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     UserMeasurementsList(UserLevelCacheKey<UserMeasurementsListInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
@@ -90,7 +89,6 @@ pub enum ApplicationCacheValue {
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
-    ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
     ListennotesSettings(ListennotesSettings),
