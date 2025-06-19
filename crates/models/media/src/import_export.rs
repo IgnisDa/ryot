@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use async_graphql::{InputObject, SimpleObject};
-use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
@@ -19,9 +18,9 @@ pub struct ImportOrExportMetadataItemSeen {
     /// The progress of media done. If none, it is considered as done.
     pub progress: Option<Decimal>,
     /// The timestamp when finished watching.
-    pub ended_on: Option<NaiveDate>,
+    pub ended_on: Option<DateTimeUtc>,
     /// The timestamp when started watching.
-    pub started_on: Option<NaiveDate>,
+    pub started_on: Option<DateTimeUtc>,
     /// If for a show, the season which was seen.
     pub show_season_number: Option<i32>,
     /// If for a manga, the volume which was seen.

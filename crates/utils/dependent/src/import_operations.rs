@@ -225,8 +225,8 @@ where
                         respect_cache,
                         ProgressUpdateInput {
                             progress,
-                            date: seen.ended_on,
-                            start_date: seen.started_on,
+                            date: seen.ended_on.map(|d| d.date_naive()),
+                            start_date: seen.started_on.map(|d| d.date_naive()),
                             metadata_id: db_metadata_id.clone(),
                             show_season_number: seen.show_season_number,
                             show_episode_number: seen.show_episode_number,
