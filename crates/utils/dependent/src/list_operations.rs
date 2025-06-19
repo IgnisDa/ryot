@@ -192,6 +192,7 @@ pub async fn user_metadata_list(
                 NullOrdering::Last,
             ),
         })
+        .order_by_desc(seen::Column::LastUpdatedOn.max())
         .into_tuple::<String>()
         .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
