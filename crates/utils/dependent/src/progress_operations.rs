@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use application_utils::get_current_date;
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, LpApplicationJob};
-use chrono::{NaiveDate, Utc};
+use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::*, seen};
 use enum_models::{EntityLot, MediaLot, SeenState};
@@ -16,6 +15,7 @@ use media_models::{
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use sea_orm::prelude::DateTimeUtc;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
@@ -97,8 +97,8 @@ struct CommitInput<'a> {
     progress: Decimal,
     user_id: &'a String,
     meta: metadata::Model,
-    started_on: Option<NaiveDate>,
-    finished_on: Option<NaiveDate>,
+    started_on: Option<DateTimeUtc>,
+    finished_on: Option<DateTimeUtc>,
     ss: &'a Arc<SupportingService>,
     payload: MetadataProgressUpdateCommonInput,
 }
@@ -165,7 +165,7 @@ pub async fn metadata_progress_update(
                     if new_progress >= dec!(100) {
                         progress = dec!(100);
                         state = SeenState::Completed;
-                        finished_on = Some(get_current_date(&ss.timezone));
+                        finished_on = Some(Utc::now());
                     }
                 }
             }

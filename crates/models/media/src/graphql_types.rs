@@ -41,14 +41,14 @@ pub struct MetadataProgressUpdateCommonInput {
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
 pub struct MetadataProgressUpdateFinishedOnDateInput {
-    pub finished_on: NaiveDate,
+    pub finished_on: DateTimeUtc,
     #[graphql(flatten)]
     pub common: MetadataProgressUpdateCommonInput,
 }
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
 pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
-    pub started_on: NaiveDate,
+    pub started_on: DateTimeUtc,
     #[graphql(flatten)]
     pub data: MetadataProgressUpdateFinishedOnDateInput,
 }
@@ -68,7 +68,7 @@ pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
 pub struct MetadataProgressUpdateNewInProgressInput {
-    pub started_on: NaiveDate,
+    pub started_on: DateTimeUtc,
     #[graphql(flatten)]
     pub data: MetadataProgressUpdateCommonInput,
 }
@@ -213,8 +213,8 @@ pub struct UserMediaNextEntry {
 pub struct UpdateSeenItemInput {
     pub seen_id: String,
     pub review_id: Option<String>,
-    pub started_on: Option<NaiveDate>,
-    pub finished_on: Option<NaiveDate>,
+    pub started_on: Option<DateTimeUtc>,
+    pub finished_on: Option<DateTimeUtc>,
     pub manual_time_spent: Option<Decimal>,
     pub provider_watched_on: Option<String>,
 }
