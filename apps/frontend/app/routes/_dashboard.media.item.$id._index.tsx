@@ -114,7 +114,7 @@ import {
 	PRO_REQUIRED_MESSAGE,
 	Verb,
 	clientGqlService,
-	convertToUtcIsoString,
+	zodDateTimeString,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
@@ -248,13 +248,11 @@ const mergeMetadataSchema = z.object({
 	mergeInto: z.string(),
 });
 
-const dateTimeString = z.string().transform((v) => convertToUtcIsoString(v));
-
 const editSeenItem = z.object({
 	seenId: z.string(),
 	reviewId: z.string().optional(),
-	startedOn: dateTimeString.optional(),
-	finishedOn: dateTimeString.optional(),
+	startedOn: zodDateTimeString.optional(),
+	finishedOn: zodDateTimeString.optional(),
 	manualTimeSpent: z.string().optional(),
 	providerWatchedOn: z.string().optional(),
 });
