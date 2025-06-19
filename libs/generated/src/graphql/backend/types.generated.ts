@@ -1244,7 +1244,7 @@ export type MetadataProgressUpdateCommonInput = {
 
 export type MetadataProgressUpdateFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  finishedOn: Scalars['NaiveDate']['input'];
+  finishedOn: Scalars['DateTime']['input'];
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1266,19 +1266,19 @@ export type MetadataProgressUpdateNewInProgressInput = {
   providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
-  startedOn: Scalars['NaiveDate']['input'];
+  startedOn: Scalars['DateTime']['input'];
 };
 
 export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  finishedOn: Scalars['NaiveDate']['input'];
+  finishedOn: Scalars['DateTime']['input'];
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
-  startedOn: Scalars['NaiveDate']['input'];
+  startedOn: Scalars['DateTime']['input'];
 };
 
 export type MetadataSearchInput = {
@@ -2172,7 +2172,7 @@ export type SearchInput = {
 export type Seen = {
   __typename?: 'Seen';
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
-  finishedOn?: Maybe<Scalars['NaiveDate']['output']>;
+  finishedOn?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
@@ -2184,7 +2184,7 @@ export type Seen = {
   providerWatchedOn?: Maybe<Scalars['String']['output']>;
   reviewId?: Maybe<Scalars['String']['output']>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
-  startedOn?: Maybe<Scalars['NaiveDate']['output']>;
+  startedOn?: Maybe<Scalars['DateTime']['output']>;
   state: SeenState;
   userId: Scalars['String']['output'];
 };
@@ -2346,12 +2346,12 @@ export type UpdateCustomMetadataInput = {
 };
 
 export type UpdateSeenItemInput = {
-  finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  finishedOn?: InputMaybe<Scalars['DateTime']['input']>;
   manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   reviewId?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
-  startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  startedOn?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type UpdateUserExerciseSettings = {
