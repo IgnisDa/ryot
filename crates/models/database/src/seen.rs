@@ -2,7 +2,6 @@
 
 use async_graphql::SimpleObject;
 use async_trait::async_trait;
-use chrono::NaiveDate;
 use educe::Educe;
 use enum_models::SeenState;
 use media_models::{
@@ -11,6 +10,7 @@ use media_models::{
 };
 use nanoid::nanoid;
 use rust_decimal::Decimal;
+use sea_orm::prelude::DateTimeUtc;
 use sea_orm::{ActiveValue, entity::prelude::*};
 use serde::{Deserialize, Serialize};
 
@@ -22,8 +22,8 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
     pub progress: Decimal,
-    pub started_on: Option<NaiveDate>,
-    pub finished_on: Option<NaiveDate>,
+    pub started_on: Option<DateTimeUtc>,
+    pub finished_on: Option<DateTimeUtc>,
     pub user_id: String,
     pub metadata_id: String,
     pub state: SeenState,
