@@ -47,6 +47,10 @@ impl CacheService {
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
+            ApplicationCacheKey::MetadataProgressUpdateCache { .. } => {
+                self.config.server.progress_update_threshold
+            }
+
             ApplicationCacheKey::UserCollectionsList { .. }
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 

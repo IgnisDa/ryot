@@ -6,6 +6,7 @@ use common_models::{
     YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
+use media_models::MetadataProgressUpdateCacheInput;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -74,6 +75,7 @@ pub enum ApplicationCacheKey {
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
+    MetadataProgressUpdateCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
 }
 
 pub type IgdbSettings = String;
@@ -96,6 +98,7 @@ pub enum ApplicationCacheValue {
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
     UserExercisesList(UserExercisesListResponse),
+    MetadataProgressUpdateCache(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
     TrendingMetadataIds(TrendingMetadataIdsResponse),
     UserCollectionsList(UserCollectionsListResponse),

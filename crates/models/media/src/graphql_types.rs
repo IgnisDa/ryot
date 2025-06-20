@@ -28,7 +28,7 @@ pub struct CreateOrUpdateReviewInput {
     pub manga_chapter_number: Option<Decimal>,
 }
 
-#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct MetadataProgressUpdateCommonInput {
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
@@ -85,6 +85,12 @@ pub enum MetadataProgressUpdateChange {
 pub struct MetadataProgressUpdateInput {
     pub metadata_id: String,
     pub change: MetadataProgressUpdateChange,
+}
+
+#[derive(InputObject, Debug, Deserialize, Serialize, Clone, Eq, PartialEq, Hash)]
+pub struct MetadataProgressUpdateCacheInput {
+    pub metadata_id: String,
+    pub common: MetadataProgressUpdateCommonInput,
 }
 
 #[derive(Debug, InputObject)]
