@@ -86,6 +86,12 @@ pub struct MetadataProgressUpdateInput {
     pub change: MetadataProgressUpdateChange,
 }
 
+#[derive(Debug)]
+pub enum MetadataProgressUpdateSource {
+    Import,
+    Integration,
+}
+
 // FIXME: remove this after migration to `metadata_progress_update` is complete
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
 pub struct ProgressUpdateInput {

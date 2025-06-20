@@ -7,11 +7,12 @@ use common_utils::ryot_log;
 use database_models::{metadata, prelude::*, seen};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use media_models::{
-    MetadataProgressUpdateChange, MetadataProgressUpdateChangeCreateNewCompletedInput,
+    ImportOrExportMetadataItemSeen, MetadataProgressUpdateChange,
+    MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
-    MetadataProgressUpdateInput, ProgressUpdateInput, ProgressUpdateResultUnion,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation,
+    MetadataProgressUpdateInput, MetadataProgressUpdateSource, ProgressUpdateInput,
+    ProgressUpdateResultUnion, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -31,6 +32,15 @@ pub async fn progress_update(
     input: ProgressUpdateInput,
     ss: &Arc<SupportingService>,
 ) -> Result<ProgressUpdateResultUnion> {
+    todo!()
+}
+
+pub async fn convert_import_seen_item_to_metadata_progress_update(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+    source: MetadataProgressUpdateSource,
+    input: ImportOrExportMetadataItemSeen,
+) -> Result<MetadataProgressUpdateInput> {
     todo!()
 }
 
