@@ -7,7 +7,6 @@ use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
-// Import structures from other modules that are referenced
 use crate::{SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation};
 
 #[derive(Debug, InputObject, Default)]
