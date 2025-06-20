@@ -217,17 +217,23 @@ where
                 }
                 for seen in metadata.seen_history {
                     let item = convert_import_seen_item_to_metadata_progress_update(
-                        is_import, user_id, ss, seen,
+                        is_import,
+                        user_id,
+                        &db_metadata_id,
+                        ss,
+                        seen,
                     )
                     .await?;
-                    if let Err(e) = metadata_progress_update(user_id, ss, item).await {
-                        import.failed.push(ImportFailedItem {
-                            lot: Some(metadata.lot),
-                            step: ImportFailStep::DatabaseCommit,
-                            identifier: metadata.source_id.to_owned(),
-                            error: Some(e.message),
-                        });
-                    };
+                    if let Some(item) = item {
+                        if let Err(e) = metadata_progress_update(user_id, ss, item).await {
+                            import.failed.push(ImportFailedItem {
+                                lot: Some(metadata.lot),
+                                step: ImportFailStep::DatabaseCommit,
+                                identifier: metadata.source_id.to_owned(),
+                                error: Some(e.message),
+                            });
+                        };
+                    }
                 }
                 for review in metadata.reviews.iter() {
                     if let Some(input) = convert_review_into_input(

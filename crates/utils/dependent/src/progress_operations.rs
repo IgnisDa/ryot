@@ -10,8 +10,9 @@ use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
-    MetadataProgressUpdateInput, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation,
+    MetadataProgressUpdateFinishedOnDateInput, MetadataProgressUpdateInput,
+    MetadataProgressUpdateStartedAndFinishedOnDateInput, SeenAnimeExtraInformation,
+    SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -27,9 +28,35 @@ use crate::{
 pub async fn convert_import_seen_item_to_metadata_progress_update(
     is_import: bool,
     user_id: &String,
+    metadata_id: &String,
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
-) -> Result<MetadataProgressUpdateInput> {
+) -> Result<Option<MetadataProgressUpdateInput>> {
+    if is_import {
+        let common = MetadataProgressUpdateCommonInput {
+            show_season_number: input.show_season_number,
+            provider_watched_on: input.provider_watched_on,
+            manga_volume_number: input.manga_volume_number,
+            show_episode_number: input.show_episode_number,
+            anime_episode_number: input.anime_episode_number,
+            manga_chapter_number: input.manga_chapter_number,
+            podcast_episode_number: input.podcast_episode_number,
+        };
+        let change_inner = match (input.started_on, input.ended_on) {
+            (Some(started_on), Some(finished_on)) => {
+                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
+                    MetadataProgressUpdateStartedAndFinishedOnDateInput {
+                        started_on,
+                        data: MetadataProgressUpdateFinishedOnDateInput {
+                            common,
+                            finished_on,
+                        },
+                    },
+                )
+            }
+            _ => todo!(),
+        };
+    }
     todo!()
 }
 
