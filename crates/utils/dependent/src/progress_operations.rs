@@ -32,16 +32,16 @@ pub async fn convert_import_seen_item_to_metadata_progress_update(
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<Option<MetadataProgressUpdateInput>> {
+    let common = MetadataProgressUpdateCommonInput {
+        show_season_number: input.show_season_number,
+        provider_watched_on: input.provider_watched_on,
+        manga_volume_number: input.manga_volume_number,
+        show_episode_number: input.show_episode_number,
+        anime_episode_number: input.anime_episode_number,
+        manga_chapter_number: input.manga_chapter_number,
+        podcast_episode_number: input.podcast_episode_number,
+    };
     if is_import {
-        let common = MetadataProgressUpdateCommonInput {
-            show_season_number: input.show_season_number,
-            provider_watched_on: input.provider_watched_on,
-            manga_volume_number: input.manga_volume_number,
-            show_episode_number: input.show_episode_number,
-            anime_episode_number: input.anime_episode_number,
-            manga_chapter_number: input.manga_chapter_number,
-            podcast_episode_number: input.podcast_episode_number,
-        };
         let change_inner = match (input.started_on, input.ended_on) {
             (Some(started_on), Some(finished_on)) => {
                 MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
@@ -54,8 +54,31 @@ pub async fn convert_import_seen_item_to_metadata_progress_update(
                     },
                 )
             }
-            _ => todo!(),
+            (Some(started_on), None) => {
+                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedOnDate(
+                    MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                        common,
+                        timestamp: started_on,
+                    },
+                )
+            }
+            (None, Some(finished_on)) => {
+                MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
+                    MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                        common,
+                        timestamp: finished_on,
+                    },
+                )
+            }
+            (None, None) => {
+                MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common)
+            }
         };
+        let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
+        return Ok(Some(MetadataProgressUpdateInput {
+            change,
+            metadata_id: metadata_id.to_owned(),
+        }));
     }
     todo!()
 }
