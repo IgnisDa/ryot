@@ -1224,6 +1224,7 @@ export type MetadataProgressUpdateChange = {
 export type MetadataProgressUpdateChangeCreateNewCompletedInput = {
   finishedOnDate?: InputMaybe<MetadataProgressUpdateStartedOrFinishedOnDateInput>;
   startedAndFinishedOnDate?: InputMaybe<MetadataProgressUpdateStartedAndFinishedOnDateInput>;
+  startedOnDate?: InputMaybe<MetadataProgressUpdateStartedOrFinishedOnDateInput>;
   withoutDates?: InputMaybe<MetadataProgressUpdateCommonInput>;
 };
 

@@ -62,6 +62,7 @@ pub enum MetadataProgressUpdateChangeLatestInProgressInput {
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
     WithoutDates(MetadataProgressUpdateCommonInput),
+    StartedOnDate(MetadataProgressUpdateStartedOrFinishedOnDateInput),
     FinishedOnDate(MetadataProgressUpdateStartedOrFinishedOnDateInput),
     StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
 }

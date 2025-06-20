@@ -233,6 +233,9 @@ pub async fn metadata_progress_update(
                 MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(inner_input) => {
                     (None, None, inner_input)
                 }
+                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedOnDate(inner_input) => {
+                    (Some(inner_input.timestamp), None, inner_input.common)
+                }
                 MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
                     inner_input,
                 ) => (None, Some(inner_input.timestamp), inner_input.common),
