@@ -27,7 +27,7 @@ use dependent_utils::{
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataProgressUpdateInput, ProgressUpdateInput, ReviewPostedEvent,
+    MarkEntityAsPartialInput, MetadataProgressUpdateInput, ReviewPostedEvent,
     UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
@@ -113,19 +113,6 @@ impl MiscellaneousService {
         user_metadata_list(&user_id, input, &self.0).await
     }
 
-    pub async fn deploy_bulk_progress_update(
-        &self,
-        user_id: String,
-        input: Vec<ProgressUpdateInput>,
-    ) -> Result<bool> {
-        self.0
-            .perform_application_job(ApplicationJob::Hp(HpApplicationJob::BulkProgressUpdate(
-                user_id, input,
-            )))
-            .await?;
-        Ok(true)
-    }
-
     pub async fn deploy_bulk_metadata_progress_update(
         &self,
         user_id: String,
@@ -137,14 +124,6 @@ impl MiscellaneousService {
             ))
             .await?;
         Ok(true)
-    }
-
-    pub async fn bulk_progress_update(
-        &self,
-        user_id: String,
-        input: Vec<ProgressUpdateInput>,
-    ) -> Result<()> {
-        progress_operations::bulk_progress_update(&self.0, &user_id, input).await
     }
 
     pub async fn bulk_metadata_progress_update(

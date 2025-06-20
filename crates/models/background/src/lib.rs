@@ -1,6 +1,4 @@
-use media_models::{
-    DeployImportJobInput, MetadataProgressUpdateInput, ProgressUpdateInput, ReviewPostedEvent,
-};
+use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use strum::Display;
@@ -11,7 +9,6 @@ pub enum HpApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
-    BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
     BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
 }
 

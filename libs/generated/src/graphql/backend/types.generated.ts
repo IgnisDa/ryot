@@ -1362,11 +1362,6 @@ export type MutationRoot = {
    * progress is updated only if it has actually changed.
    */
   deployBulkMetadataProgressUpdate: Scalars['Boolean']['output'];
-  /**
-   * Deploy job to update progress of media items in bulk. For seen items in progress,
-   * progress is updated only if it has actually changed.
-   */
-  deployBulkProgressUpdate: Scalars['Boolean']['output'];
   /** Deploy a job to export data for a user. */
   deployExportJob: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
@@ -1553,11 +1548,6 @@ export type MutationRootDeployBackgroundJobArgs = {
 
 export type MutationRootDeployBulkMetadataProgressUpdateArgs = {
   input: Array<MetadataProgressUpdateInput>;
-};
-
-
-export type MutationRootDeployBulkProgressUpdateArgs = {
-  input: Array<ProgressUpdateInput>;
 };
 
 
@@ -1853,20 +1843,6 @@ export type ProcessedExercise = {
   sets: Array<WorkoutSetRecord>;
   total?: Maybe<WorkoutOrExerciseTotals>;
   unitSystem: UserUnitSystem;
-};
-
-export type ProgressUpdateInput = {
-  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  changeState?: InputMaybe<SeenState>;
-  date?: InputMaybe<Scalars['NaiveDate']['input']>;
-  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
-  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
-  metadataId: Scalars['String']['input'];
-  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  progress?: InputMaybe<Scalars['Decimal']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
-  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ProviderLanguageInformation = {

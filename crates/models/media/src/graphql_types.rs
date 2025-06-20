@@ -1,6 +1,6 @@
-use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
-use common_models::{ApplicationDateRange, StringIdObject};
+use common_models::ApplicationDateRange;
 use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
@@ -84,43 +84,6 @@ pub enum MetadataProgressUpdateChange {
 pub struct MetadataProgressUpdateInput {
     pub metadata_id: String,
     pub change: MetadataProgressUpdateChange,
-}
-
-// FIXME: remove this after migration to `metadata_progress_update` is complete
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateInput {
-    pub metadata_id: String,
-    pub date: Option<NaiveDate>,
-    pub progress: Option<Decimal>,
-    #[graphql(skip_input)]
-    pub start_date: Option<NaiveDate>,
-    pub change_state: Option<SeenState>,
-    pub show_season_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub manga_volume_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub podcast_episode_number: Option<i32>,
-    pub provider_watched_on: Option<String>,
-    pub manga_chapter_number: Option<Decimal>,
-}
-
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum ProgressUpdateErrorVariant {
-    AlreadySeen,
-    NoSeenInProgress,
-    UpdateWithoutProgressUpdate,
-}
-
-#[derive(Debug, SimpleObject)]
-pub struct ProgressUpdateError {
-    pub error: ProgressUpdateErrorVariant,
-}
-
-// FIXME: remove this after migration to `metadata_progress_update` is complete
-#[derive(Union)]
-pub enum ProgressUpdateResultUnion {
-    Ok(StringIdObject),
-    Error(ProgressUpdateError),
 }
 
 #[derive(Debug, InputObject)]

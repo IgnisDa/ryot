@@ -10,9 +10,8 @@ use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
-    MetadataProgressUpdateInput, ProgressUpdateInput, ProgressUpdateResultUnion,
-    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
-    SeenShowExtraInformation,
+    MetadataProgressUpdateInput, SeenAnimeExtraInformation, SeenMangaExtraInformation,
+    SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -24,16 +23,6 @@ use crate::{
     seen_operations::handle_after_metadata_seen_tasks,
     utility_operations::mark_entity_as_recently_consumed,
 };
-
-pub async fn progress_update(
-    user_id: &String,
-    // update only if media has not been consumed for this user in the last `n` duration
-    respect_cache: bool,
-    input: ProgressUpdateInput,
-    ss: &Arc<SupportingService>,
-) -> Result<ProgressUpdateResultUnion> {
-    todo!()
-}
 
 pub async fn convert_import_seen_item_to_metadata_progress_update(
     is_import: bool,

@@ -73,12 +73,6 @@ pub async fn perform_hp_application_job(
                 .handle_review_posted_event(event)
                 .await
         }
-        HpApplicationJob::BulkProgressUpdate(user_id, input) => {
-            app_services
-                .miscellaneous_service
-                .bulk_progress_update(user_id, input)
-                .await
-        }
         HpApplicationJob::BulkMetadataProgressUpdate(user_id, input) => {
             app_services
                 .miscellaneous_service
