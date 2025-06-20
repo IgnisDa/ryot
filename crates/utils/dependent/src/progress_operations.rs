@@ -370,7 +370,9 @@ pub async fn metadata_progress_update(
             .await?
         }
     };
+    ryot_log!(debug, "Seen created: {:?}", seen);
     mark_entity_as_recently_consumed(user_id, &input.metadata_id, EntityLot::Metadata, ss).await?;
     handle_after_metadata_seen_tasks(seen, ss).await?;
+    ryot_log!(debug, "Progress update completed: {}", input.metadata_id);
     Ok(())
 }
