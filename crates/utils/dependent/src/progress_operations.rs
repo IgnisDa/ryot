@@ -111,10 +111,12 @@ pub async fn commit_import_seen_item(
     );
 
     if completed_cache.is_some() {
+        ryot_log!(debug, "Progress already completed for: {}", metadata_id);
         return Ok(());
     }
 
     if in_progress_cache.is_none() {
+        ryot_log!(debug, "Creating new in-progress seen for: {}", metadata_id);
         let change = MetadataProgressUpdateChange::CreateNewInProgress(
             MetadataProgressUpdateNewInProgressInput {
                 data: common,
@@ -136,6 +138,7 @@ pub async fn commit_import_seen_item(
     }
 
     if let Some(progress) = input.progress {
+        ryot_log!(debug, "Updating in-progress seen for: {}", metadata_id);
         let change = MetadataProgressUpdateChange::ChangeLatestInProgress(
             MetadataProgressUpdateChangeLatestInProgressInput::Progress(progress),
         );
