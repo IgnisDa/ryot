@@ -3,11 +3,14 @@ use std::sync::Arc;
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
+use common_models::UserLevelCacheKey;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::*, seen};
+use dependent_models::{ApplicationCacheKey, EmptyCacheValue};
 use enum_models::{EntityLot, MediaLot, SeenState};
+use futures::join;
 use media_models::{
-    ImportOrExportMetadataItemSeen, MetadataProgressUpdateChange,
+    ImportOrExportMetadataItemSeen, MetadataProgressUpdateCacheInput, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
     MetadataProgressUpdateInput, MetadataProgressUpdateStartedAndFinishedOnDateInput,
@@ -87,6 +90,23 @@ pub async fn commit_import_seen_item(
         return Ok(());
     }
 
+    let common_input = UserLevelCacheKey {
+        user_id: user_id.to_owned(),
+        input: MetadataProgressUpdateCacheInput {
+            common,
+            metadata_id: metadata_id.to_owned(),
+        },
+    };
+    let completed_cache_key =
+        ApplicationCacheKey::MetadataProgressUpdateCompletedCache(common_input.clone());
+    let in_progress_cache_key =
+        ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
+    let (completed_cache, in_progress_cache) = join!(
+        ss.cache_service
+            .get_value::<EmptyCacheValue>(completed_cache_key),
+        ss.cache_service
+            .get_value::<EmptyCacheValue>(in_progress_cache_key),
+    );
     todo!("When integration is completed, add to cache")
 }
 
