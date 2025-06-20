@@ -51,7 +51,7 @@ impl IntegrationService {
                 });
             }
         });
-        let result = process_import(&integration.user_id, true, import, &self.0, |_| async {
+        let result = process_import(false, &integration.user_id, import, &self.0, |_| async {
             Ok(())
         })
         .await;

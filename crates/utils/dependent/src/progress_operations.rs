@@ -10,9 +10,9 @@ use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
-    MetadataProgressUpdateInput, MetadataProgressUpdateSource, ProgressUpdateInput,
-    ProgressUpdateResultUnion, SeenAnimeExtraInformation, SeenMangaExtraInformation,
-    SeenPodcastExtraInformation, SeenShowExtraInformation,
+    MetadataProgressUpdateInput, ProgressUpdateInput, ProgressUpdateResultUnion,
+    SeenAnimeExtraInformation, SeenMangaExtraInformation, SeenPodcastExtraInformation,
+    SeenShowExtraInformation,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -36,9 +36,9 @@ pub async fn progress_update(
 }
 
 pub async fn convert_import_seen_item_to_metadata_progress_update(
+    is_import: bool,
     user_id: &String,
     ss: &Arc<SupportingService>,
-    source: MetadataProgressUpdateSource,
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<MetadataProgressUpdateInput> {
     todo!()

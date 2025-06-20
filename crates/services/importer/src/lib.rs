@@ -148,7 +148,7 @@ impl ImporterService {
                         + Duration::seconds((import.completed.len() * each_item) as i64),
                 );
                 quick_update_model.update(&self.0.db).await?;
-                match process_import(&user_id, false, import, &self.0, |progress| {
+                match process_import(true, &user_id, import, &self.0, |progress| {
                     let id = import_id.clone();
                     async move {
                         ImportReport::update_many()
