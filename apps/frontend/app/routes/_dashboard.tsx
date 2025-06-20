@@ -1402,29 +1402,92 @@ const MetadataNewProgressUpdateForm = ({
 							(hasValidChapter && hasValidVolume) ||
 							(!hasValidChapter && !hasValidVolume)
 						) {
-							notifications.show({
+							return notifications.show({
 								color: "red",
 								message:
 									"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
 							});
-						} else {
-							// If volume number is provided
-							if (metadataToUpdate.mangaVolumeNumber) {
-								const lastSeenVolume =
-									latestHistoryItem?.mangaExtraInformation?.volume || 0;
-								const currentDateFormatted = formatDateToNaiveDate(new Date());
-								for (
-									let i = lastSeenVolume + 1;
-									i < metadataToUpdate.mangaVolumeNumber;
-									i++
-								) {
+						}
+						// If volume number is provided
+						if (metadataToUpdate.mangaVolumeNumber) {
+							const lastSeenVolume =
+								latestHistoryItem?.mangaExtraInformation?.volume || 0;
+							const currentDateFormatted = formatDateToNaiveDate(new Date());
+							for (
+								let i = lastSeenVolume + 1;
+								i < metadataToUpdate.mangaVolumeNumber;
+								i++
+							) {
+								updates.push({
+									metadataId: metadataToUpdate.metadataId,
+									change: match(watchTime)
+										.with(WatchTimes.JustStartedIt, () => ({
+											createNewInProgress: {
+												...common,
+												mangaVolumeNumber: i,
+												startedOn: currentDateFormatted,
+											},
+										}))
+										.with(WatchTimes.JustCompletedNow, () => ({
+											createNewCompleted: {
+												finishedOnDate: {
+													...common,
+													mangaVolumeNumber: i,
+													finishedOn: currentDateFormatted,
+												},
+											},
+										}))
+										.with(WatchTimes.CustomDate, () => {
+											if (!selectedDateFormatted)
+												throw new Error("Selected date is undefined");
+											return {
+												createNewCompleted: {
+													finishedOnDate: {
+														...common,
+														mangaVolumeNumber: i,
+														finishedOn: selectedDateFormatted,
+													},
+												},
+											};
+										})
+										.with(WatchTimes.IDontRemember, () => ({
+											createNewCompleted: {
+												withoutDates: {
+													...common,
+													mangaVolumeNumber: i,
+												},
+											},
+										}))
+										.exhaustive(),
+								});
+							}
+						}
+
+						// If chapter number is provided
+						if (metadataToUpdate.mangaChapterNumber) {
+							const targetChapter = Number(metadataToUpdate.mangaChapterNumber);
+							const markedChapters = new Set();
+
+							// Collect already marked chapters
+							for (const historyItem of history) {
+								const chapter = Number(
+									historyItem?.mangaExtraInformation?.chapter,
+								);
+								if (!Number.isNaN(chapter) && chapter < targetChapter) {
+									markedChapters.add(chapter);
+								}
+							}
+
+							// Add updates for unmarked chapters
+							for (let i = 1; i < targetChapter; i++) {
+								if (!markedChapters.has(i)) {
 									updates.push({
 										metadataId: metadataToUpdate.metadataId,
 										change: match(watchTime)
 											.with(WatchTimes.JustStartedIt, () => ({
 												createNewInProgress: {
 													...common,
-													mangaVolumeNumber: i,
+													mangaChapterNumber: i.toString(),
 													startedOn: currentDateFormatted,
 												},
 											}))
@@ -1432,7 +1495,7 @@ const MetadataNewProgressUpdateForm = ({
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
-														mangaVolumeNumber: i,
+														mangaChapterNumber: i.toString(),
 														finishedOn: currentDateFormatted,
 													},
 												},
@@ -1444,7 +1507,7 @@ const MetadataNewProgressUpdateForm = ({
 													createNewCompleted: {
 														finishedOnDate: {
 															...common,
-															mangaVolumeNumber: i,
+															mangaChapterNumber: i.toString(),
 															finishedOn: selectedDateFormatted,
 														},
 													},
@@ -1454,78 +1517,12 @@ const MetadataNewProgressUpdateForm = ({
 												createNewCompleted: {
 													withoutDates: {
 														...common,
-														mangaVolumeNumber: i,
+														mangaChapterNumber: i.toString(),
 													},
 												},
 											}))
 											.exhaustive(),
 									});
-								}
-							}
-
-							// If chapter number is provided
-							if (metadataToUpdate.mangaChapterNumber) {
-								const targetChapter = Number(
-									metadataToUpdate.mangaChapterNumber,
-								);
-								const markedChapters = new Set();
-
-								// Collect already marked chapters
-								for (const historyItem of history) {
-									const chapter = Number(
-										historyItem?.mangaExtraInformation?.chapter,
-									);
-									if (!Number.isNaN(chapter) && chapter < targetChapter) {
-										markedChapters.add(chapter);
-									}
-								}
-
-								// Add updates for unmarked chapters
-								for (let i = 1; i < targetChapter; i++) {
-									if (!markedChapters.has(i)) {
-										updates.push({
-											metadataId: metadataToUpdate.metadataId,
-											change: match(watchTime)
-												.with(WatchTimes.JustStartedIt, () => ({
-													createNewInProgress: {
-														...common,
-														mangaChapterNumber: i.toString(),
-														startedOn: currentDateFormatted,
-													},
-												}))
-												.with(WatchTimes.JustCompletedNow, () => ({
-													createNewCompleted: {
-														finishedOnDate: {
-															...common,
-															mangaChapterNumber: i.toString(),
-															finishedOn: currentDateFormatted,
-														},
-													},
-												}))
-												.with(WatchTimes.CustomDate, () => {
-													if (!selectedDateFormatted)
-														throw new Error("Selected date is undefined");
-													return {
-														createNewCompleted: {
-															finishedOnDate: {
-																...common,
-																mangaChapterNumber: i.toString(),
-																finishedOn: selectedDateFormatted,
-															},
-														},
-													};
-												})
-												.with(WatchTimes.IDontRemember, () => ({
-													createNewCompleted: {
-														withoutDates: {
-															...common,
-															mangaChapterNumber: i.toString(),
-														},
-													},
-												}))
-												.exhaustive(),
-										});
-									}
 								}
 							}
 						}
