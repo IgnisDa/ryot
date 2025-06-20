@@ -6,14 +6,17 @@ use chrono::Utc;
 use common_models::UserLevelCacheKey;
 use common_utils::ryot_log;
 use database_models::{metadata, prelude::*, seen};
-use dependent_models::{ApplicationCacheKey, EmptyCacheValue};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
+};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::join;
 use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateCacheInput, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
-    MetadataProgressUpdateInput, MetadataProgressUpdateStartedAndFinishedOnDateInput,
+    MetadataProgressUpdateInput, MetadataProgressUpdateNewInProgressInput,
+    MetadataProgressUpdateStartedAndFinishedOnDateInput,
     MetadataProgressUpdateStartedOrFinishedOnDateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
@@ -93,7 +96,7 @@ pub async fn commit_import_seen_item(
     let common_input = UserLevelCacheKey {
         user_id: user_id.to_owned(),
         input: MetadataProgressUpdateCacheInput {
-            common,
+            common: common.clone(),
             metadata_id: metadata_id.to_owned(),
         },
     };
@@ -103,19 +106,65 @@ pub async fn commit_import_seen_item(
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
     let cc = &ss.cache_service;
     let (in_progress_cache, completed_cache) = join!(
-        cc.get_value::<EmptyCacheValue>(in_progress_cache_key),
-        cc.get_value::<EmptyCacheValue>(completed_cache_key),
+        cc.get_value::<EmptyCacheValue>(in_progress_cache_key.clone()),
+        cc.get_value::<EmptyCacheValue>(completed_cache_key.clone()),
     );
 
-    todo!("
-if completed_cache is Some, then we need to ignore, then return early
+    if completed_cache.is_some() {
+        return Ok(());
+    }
 
-if in_progress_cache is None, we need to create a new in-progress seen item
-and then set the in-progress cache, then return early
+    if in_progress_cache.is_none() {
+        let change = MetadataProgressUpdateChange::CreateNewInProgress(
+            MetadataProgressUpdateNewInProgressInput {
+                data: common,
+                started_on: Utc::now(),
+            },
+        );
+        metadata_progress_update(
+            user_id,
+            ss,
+            MetadataProgressUpdateInput {
+                change,
+                metadata_id: metadata_id.to_owned(),
+            },
+        )
+        .await?;
 
-if in_progress_cache is Some, we need to update the in-progress seen item
-and then set the in-progress cache. if the progress is 100, we need to set the completed cache then return
-    ")
+        cc.set_key(in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
+        return Ok(());
+    }
+
+    if let Some(progress) = input.progress {
+        let change = MetadataProgressUpdateChange::ChangeLatestInProgress(
+            MetadataProgressUpdateChangeLatestInProgressInput::Progress(progress),
+        );
+
+        metadata_progress_update(
+            user_id,
+            ss,
+            MetadataProgressUpdateInput {
+                change,
+                metadata_id: metadata_id.to_owned(),
+            },
+        )
+        .await?;
+
+        cc.expire_key(ExpireCacheKeyInput::ByKey(in_progress_cache_key))
+            .await?;
+
+        if progress >= dec!(100) {
+            cc.set_key(
+                completed_cache_key,
+                ApplicationCacheValue::MetadataProgressUpdateCompletedCache(
+                    EmptyCacheValue::default(),
+                ),
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]
