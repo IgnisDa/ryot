@@ -60,13 +60,7 @@ import {
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { AddEntityToCollectionDocument } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	formatDateToNaiveDate,
-	groupBy,
-	isNumber,
-	snakeCase,
-} from "@ryot/ts-utils";
+import { changeCase, groupBy, isNumber, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconBook,
@@ -1412,7 +1406,6 @@ const MetadataNewProgressUpdateForm = ({
 						if (metadataToUpdate.mangaVolumeNumber) {
 							const lastSeenVolume =
 								latestHistoryItem?.mangaExtraInformation?.volume || 0;
-							const currentDateFormatted = formatDateToNaiveDate(new Date());
 							for (
 								let i = lastSeenVolume + 1;
 								i < metadataToUpdate.mangaVolumeNumber;
