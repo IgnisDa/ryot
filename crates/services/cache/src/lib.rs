@@ -47,7 +47,7 @@ impl CacheService {
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
-            ApplicationCacheKey::MetadataProgressUpdateCache { .. } => {
+            ApplicationCacheKey::MetadataProgressUpdateCompletedCache { .. } => {
                 self.config.server.progress_update_threshold
             }
 
@@ -62,6 +62,8 @@ impl CacheService {
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
             | ApplicationCacheKey::ListennotesSettings => 120,
+
+            ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => 720,
         }
     }
 

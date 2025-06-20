@@ -75,7 +75,8 @@ pub enum ApplicationCacheKey {
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
-    MetadataProgressUpdateCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
+    MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
+    MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
 }
 
 pub type IgdbSettings = String;
@@ -98,12 +99,13 @@ pub enum ApplicationCacheValue {
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
     UserExercisesList(UserExercisesListResponse),
-    MetadataProgressUpdateCache(EmptyCacheValue),
     UserAnalyticsParameters(ApplicationDateRange),
     TrendingMetadataIds(TrendingMetadataIdsResponse),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     UserMeasurementsList(UserMeasurementsListResponse),
+    MetadataProgressUpdateCompletedCache(EmptyCacheValue),
+    MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
