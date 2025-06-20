@@ -21,11 +21,11 @@ use std::collections::hash_map::Entry;
 use supporting_service::SupportingService;
 
 use crate::{
-    collection_operations, commit_metadata, commit_metadata_group, commit_person,
-    convert_import_seen_item_to_metadata_progress_update, convert_review_into_input,
-    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, metadata_progress_update, post_review,
+    collection_operations, commit_import_seen_item, commit_metadata, commit_metadata_group,
+    commit_person, convert_review_into_input, create_custom_exercise,
+    create_or_update_user_workout, create_user_measurement, db_workout_to_workout_input,
+    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
+    post_review,
 };
 
 async fn create_collection_and_add_entity_to_it(
@@ -216,24 +216,16 @@ where
                     });
                 }
                 for seen in metadata.seen_history {
-                    let item = convert_import_seen_item_to_metadata_progress_update(
-                        is_import,
-                        user_id,
-                        &db_metadata_id,
-                        ss,
-                        seen,
-                    )
-                    .await?;
-                    if let Some(item) = item {
-                        if let Err(e) = metadata_progress_update(user_id, ss, item).await {
-                            import.failed.push(ImportFailedItem {
-                                lot: Some(metadata.lot),
-                                step: ImportFailStep::DatabaseCommit,
-                                identifier: metadata.source_id.to_owned(),
-                                error: Some(e.message),
-                            });
-                        };
-                    }
+                    if let Err(e) =
+                        commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
+                    {
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata.lot),
+                            step: ImportFailStep::DatabaseCommit,
+                            identifier: metadata.source_id.to_owned(),
+                            error: Some(e.message),
+                        });
+                    };
                 }
                 for review in metadata.reviews.iter() {
                     if let Some(input) = convert_review_into_input(

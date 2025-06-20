@@ -25,13 +25,14 @@ use crate::{
     utility_operations::mark_entity_as_recently_consumed,
 };
 
-pub async fn convert_import_seen_item_to_metadata_progress_update(
+pub async fn commit_import_seen_item(
     is_import: bool,
     user_id: &String,
     metadata_id: &String,
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
-) -> Result<Option<MetadataProgressUpdateInput>> {
+) -> Result<()> {
+    let mut seen = None;
     let common = MetadataProgressUpdateCommonInput {
         show_season_number: input.show_season_number,
         provider_watched_on: input.provider_watched_on,
@@ -75,12 +76,16 @@ pub async fn convert_import_seen_item_to_metadata_progress_update(
             }
         };
         let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
-        return Ok(Some(MetadataProgressUpdateInput {
+        seen = Some(MetadataProgressUpdateInput {
             change,
             metadata_id: metadata_id.to_owned(),
-        }));
+        });
     }
-    todo!()
+
+    if let Some(seen) = seen {
+        metadata_progress_update(user_id, ss, seen).await?;
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
