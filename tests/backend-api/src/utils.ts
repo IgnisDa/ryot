@@ -2,13 +2,13 @@ import { faker } from "@faker-js/faker";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
-	DeployBulkProgressUpdateDocument,
+	DeployBulkMetadataProgressUpdateDocument,
 	GraphqlSortOrder,
 	LoginUserDocument,
 	MediaLot,
 	MediaSource,
+	type MetadataProgressUpdateInput,
 	MetadataSearchDocument,
-	type ProgressUpdateInput,
 	RegisterUserDocument,
 	UserCollectionsListDocument,
 	UserExercisesListDocument,
@@ -183,13 +183,13 @@ export async function getCollectionContents(
 export async function progressUpdate(
 	baseUrl: string,
 	userApiKey: string,
-	input: ProgressUpdateInput[],
+	input: MetadataProgressUpdateInput[],
 ) {
 	const client = getGraphqlClient(baseUrl);
-	const { deployBulkProgressUpdate } = await client.request(
-		DeployBulkProgressUpdateDocument,
+	const { deployBulkMetadataProgressUpdate } = await client.request(
+		DeployBulkMetadataProgressUpdateDocument,
 		{ input },
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
-	return deployBulkProgressUpdate;
+	return deployBulkMetadataProgressUpdate;
 }

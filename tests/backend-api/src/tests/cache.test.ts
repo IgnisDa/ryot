@@ -221,8 +221,18 @@ describe("Cache related tests", () => {
 		const secondMovieId = searchResult[1];
 
 		await progressUpdate(url, userApiKey, [
-			{ progress: "0", metadataId: firstMovieId },
-			{ progress: "0", metadataId: secondMovieId },
+			{
+				metadataId: firstMovieId,
+				change: {
+					createNewInProgress: { startedOn: new Date().toISOString() },
+				},
+			},
+			{
+				metadataId: secondMovieId,
+				change: {
+					createNewInProgress: { startedOn: new Date().toISOString() },
+				},
+			},
 		]);
 		await waitFor(2000);
 
@@ -240,7 +250,10 @@ describe("Cache related tests", () => {
 		expect(initialSecondMovie).toBe(firstMovieId);
 
 		await progressUpdate(url, userApiKey, [
-			{ progress: "25", metadataId: firstMovieId },
+			{
+				metadataId: firstMovieId,
+				change: { changeLatestInProgress: { progress: "25" } },
+			},
 		]);
 		await waitFor(2000);
 
@@ -257,8 +270,14 @@ describe("Cache related tests", () => {
 		expect(updatedSecondMovie).toBe(secondMovieId);
 
 		await progressUpdate(url, userApiKey, [
-			{ progress: "100", metadataId: firstMovieId },
-			{ progress: "100", metadataId: secondMovieId },
+			{
+				metadataId: firstMovieId,
+				change: { changeLatestInProgress: { progress: "100" } },
+			},
+			{
+				metadataId: secondMovieId,
+				change: { changeLatestInProgress: { progress: "100" } },
+			},
 		]);
 		await waitFor(2000);
 
