@@ -58,7 +58,7 @@ where
 fn get_date(date: String) -> Option<DateTimeUtc> {
     match date.as_str() {
         s if s.starts_with("0000") => None,
-        _ => convert_string_to_date(&date).map(|d| convert_naive_to_utc(d)),
+        _ => convert_string_to_date(&date).map(convert_naive_to_utc),
     }
 }
 
