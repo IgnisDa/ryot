@@ -32,7 +32,6 @@ pub async fn commit_import_seen_item(
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<()> {
-    let mut seen = None;
     let common = MetadataProgressUpdateCommonInput {
         show_season_number: input.show_season_number,
         provider_watched_on: input.provider_watched_on,
@@ -76,15 +75,18 @@ pub async fn commit_import_seen_item(
             }
         };
         let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
-        seen = Some(MetadataProgressUpdateInput {
-            change,
-            metadata_id: metadata_id.to_owned(),
-        });
+        metadata_progress_update(
+            user_id,
+            ss,
+            MetadataProgressUpdateInput {
+                change,
+                metadata_id: metadata_id.to_owned(),
+            },
+        )
+        .await?;
+        return Ok(());
     }
 
-    if let Some(seen) = seen {
-        metadata_progress_update(user_id, ss, seen).await?;
-    }
     Ok(())
 }
 
