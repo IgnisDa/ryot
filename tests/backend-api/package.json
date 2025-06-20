@@ -3,7 +3,7 @@
 	"private": true,
 	"type": "module",
 	"devDependencies": {
-		"@aws-sdk/client-s3": "3.828.0",
+		"@aws-sdk/client-s3": "3.832.0",
 		"@faker-js/faker": "9.8.0",
 		"@ryot/generated": "workspace:*",
 		"@ryot/graphql": "workspace:*",
@@ -14,6 +14,6 @@
 		"graphql-request": "7.2.0",
 		"testcontainers": "11.0.3",
 		"vite-tsconfig-paths": "5.1.4",
-		"vitest": "3.2.3"
+		"vitest": "3.2.4"
 	}
 }
