@@ -19,7 +19,6 @@ UPDATE "metadata" SET "source" = 'myanimelist' where "source" = 'mal';
         db.execute_unprepared(
             "
 ALTER TABLE seen ALTER COLUMN started_on TYPE timestamptz USING started_on::timestamptz;
-UPDATE seen SET started_on = updated_at[1] WHERE started_on IS NOT NULL;
             ",
         )
         .await?;
@@ -28,7 +27,6 @@ UPDATE seen SET started_on = updated_at[1] WHERE started_on IS NOT NULL;
         db.execute_unprepared(
             "
 ALTER TABLE seen ALTER COLUMN finished_on TYPE timestamptz USING finished_on::timestamptz;
-UPDATE seen SET finished_on = updated_at[array_upper(updated_at, 1)] WHERE finished_on IS NOT NULL;
             ",
         )
         .await?;
