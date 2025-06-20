@@ -22,6 +22,7 @@ use file_storage_service::FileStorageService;
 use fitness_resolver::{FitnessMutation, FitnessQuery};
 use fitness_service::FitnessService;
 use futures::future::join_all;
+use http::Request;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
@@ -33,6 +34,9 @@ use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQuery;
 use statistics_service::StatisticsService;
 use supporting_service::SupportingService;
+use tower_governor::{
+    GovernorError, GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor,
+};
 use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
@@ -66,6 +70,15 @@ pub async fn create_app_services(
         s3_client,
         config.file_storage.s3_bucket_name.clone(),
     ));
+    let governor_conf = Arc::new(
+        GovernorConfigBuilder::default()
+            .per_second(2)
+            .burst_size(5)
+            .key_extractor(RateLimitExtractor)
+            .use_headers()
+            .finish()
+            .unwrap(),
+    );
     let cache_service = CacheService::new(&db, config.clone());
     let supporting_service = Arc::new(
         SupportingService::builder()
@@ -118,19 +131,14 @@ pub async fn create_app_services(
         .allow_origin(cors_origins)
         .allow_credentials(true);
 
-    let webhook_routes = Router::new().route(
-        "/integrations/{integration_slug}",
-        post(integration_webhook),
-    );
-
-    join_all(
-        [
-            MpApplicationJob::SyncIntegrationsData,
-            MpApplicationJob::UpdateExerciseLibrary,
-        ]
-        .map(|job| supporting_service.perform_application_job(ApplicationJob::Mp(job))),
-    )
-    .await;
+    let webhook_routes = Router::new()
+        .route(
+            "/integrations/{integration_slug}",
+            post(integration_webhook),
+        )
+        .layer(GovernorLayer {
+            config: governor_conf,
+        });
 
     let mut gql = post(graphql_handler);
     if config.server.graphql_playground_enabled {
@@ -152,6 +160,15 @@ pub async fn create_app_services(
         ))
         .layer(cors);
 
+    join_all(
+        [
+            MpApplicationJob::SyncIntegrationsData,
+            MpApplicationJob::UpdateExerciseLibrary,
+        ]
+        .map(|job| supporting_service.perform_application_job(ApplicationJob::Mp(job))),
+    )
+    .await;
+
     (
         app_router,
         Arc::new(AppServices {
@@ -164,6 +181,17 @@ pub async fn create_app_services(
             miscellaneous_service,
         }),
     )
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct RateLimitExtractor;
+
+impl KeyExtractor for RateLimitExtractor {
+    type Key = String;
+
+    fn extract<B>(&self, req: &Request<B>) -> Result<Self::Key, GovernorError> {
+        Ok(req.uri().path().to_owned())
+    }
 }
 
 #[derive(MergedObject, Default)]
