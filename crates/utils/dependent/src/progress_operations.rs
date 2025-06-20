@@ -10,8 +10,8 @@ use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
     MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
-    MetadataProgressUpdateFinishedOnDateInput, MetadataProgressUpdateInput,
-    MetadataProgressUpdateStartedAndFinishedOnDateInput, SeenAnimeExtraInformation,
+    MetadataProgressUpdateInput, MetadataProgressUpdateStartedAndFinishedOnDateInput,
+    MetadataProgressUpdateStartedOrFinishedOnDateInput, SeenAnimeExtraInformation,
     SeenMangaExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
 use rust_decimal::Decimal;
@@ -47,9 +47,9 @@ pub async fn convert_import_seen_item_to_metadata_progress_update(
                 MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
                     MetadataProgressUpdateStartedAndFinishedOnDateInput {
                         started_on,
-                        data: MetadataProgressUpdateFinishedOnDateInput {
+                        data: MetadataProgressUpdateStartedOrFinishedOnDateInput {
                             common,
-                            finished_on,
+                            timestamp: finished_on,
                         },
                     },
                 )
@@ -235,12 +235,12 @@ pub async fn metadata_progress_update(
                 }
                 MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
                     inner_input,
-                ) => (None, Some(inner_input.finished_on), inner_input.common),
+                ) => (None, Some(inner_input.timestamp), inner_input.common),
                 MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
                     inner_input,
                 ) => (
                     Some(inner_input.started_on),
-                    Some(inner_input.data.finished_on),
+                    Some(inner_input.data.timestamp),
                     inner_input.data.common,
                 ),
             };

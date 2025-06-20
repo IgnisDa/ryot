@@ -40,8 +40,8 @@ pub struct MetadataProgressUpdateCommonInput {
 }
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
-pub struct MetadataProgressUpdateFinishedOnDateInput {
-    pub finished_on: DateTimeUtc,
+pub struct MetadataProgressUpdateStartedOrFinishedOnDateInput {
+    pub timestamp: DateTimeUtc,
     #[graphql(flatten)]
     pub common: MetadataProgressUpdateCommonInput,
 }
@@ -50,7 +50,7 @@ pub struct MetadataProgressUpdateFinishedOnDateInput {
 pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
     pub started_on: DateTimeUtc,
     #[graphql(flatten)]
-    pub data: MetadataProgressUpdateFinishedOnDateInput,
+    pub data: MetadataProgressUpdateStartedOrFinishedOnDateInput,
 }
 
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
@@ -62,7 +62,7 @@ pub enum MetadataProgressUpdateChangeLatestInProgressInput {
 #[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
 pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
     WithoutDates(MetadataProgressUpdateCommonInput),
-    FinishedOnDate(MetadataProgressUpdateFinishedOnDateInput),
+    FinishedOnDate(MetadataProgressUpdateStartedOrFinishedOnDateInput),
     StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
 }
 

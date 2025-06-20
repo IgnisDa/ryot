@@ -1222,7 +1222,7 @@ export type MetadataProgressUpdateChange = {
 };
 
 export type MetadataProgressUpdateChangeCreateNewCompletedInput = {
-  finishedOnDate?: InputMaybe<MetadataProgressUpdateFinishedOnDateInput>;
+  finishedOnDate?: InputMaybe<MetadataProgressUpdateStartedOrFinishedOnDateInput>;
   startedAndFinishedOnDate?: InputMaybe<MetadataProgressUpdateStartedAndFinishedOnDateInput>;
   withoutDates?: InputMaybe<MetadataProgressUpdateCommonInput>;
 };
@@ -1234,17 +1234,6 @@ export type MetadataProgressUpdateChangeLatestInProgressInput = {
 
 export type MetadataProgressUpdateCommonInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
-  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
-  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
-  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type MetadataProgressUpdateFinishedOnDateInput = {
-  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  finishedOn: Scalars['DateTime']['input'];
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1271,7 +1260,6 @@ export type MetadataProgressUpdateNewInProgressInput = {
 
 export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
   animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  finishedOn: Scalars['DateTime']['input'];
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
@@ -1279,6 +1267,18 @@ export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   startedOn: Scalars['DateTime']['input'];
+  timestamp: Scalars['DateTime']['input'];
+};
+
+export type MetadataProgressUpdateStartedOrFinishedOnDateInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  timestamp: Scalars['DateTime']['input'];
 };
 
 export type MetadataSearchInput = {
