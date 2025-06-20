@@ -101,13 +101,21 @@ pub async fn commit_import_seen_item(
         ApplicationCacheKey::MetadataProgressUpdateCompletedCache(common_input.clone());
     let in_progress_cache_key =
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
-    let (completed_cache, in_progress_cache) = join!(
-        ss.cache_service
-            .get_value::<EmptyCacheValue>(completed_cache_key),
-        ss.cache_service
-            .get_value::<EmptyCacheValue>(in_progress_cache_key),
+    let cc = &ss.cache_service;
+    let (in_progress_cache, completed_cache) = join!(
+        cc.get_value::<EmptyCacheValue>(in_progress_cache_key),
+        cc.get_value::<EmptyCacheValue>(completed_cache_key),
     );
-    todo!("When integration is completed, add to cache")
+
+    todo!("
+if completed_cache is Some, then we need to ignore, then return early
+
+if in_progress_cache is None, we need to create a new in-progress seen item
+and then set the in-progress cache, then return early
+
+if in_progress_cache is Some, we need to update the in-progress seen item
+and then set the in-progress cache. if the progress is 100, we need to set the completed cache then return
+    ")
 }
 
 #[derive(Debug)]
