@@ -5,6 +5,7 @@ use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visib
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 // Import structures from other modules that are referenced
 use crate::{SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation};
@@ -28,6 +29,7 @@ pub struct CreateOrUpdateReviewInput {
     pub manga_chapter_number: Option<Decimal>,
 }
 
+#[skip_serializing_none]
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct MetadataProgressUpdateCommonInput {
     pub show_season_number: Option<i32>,

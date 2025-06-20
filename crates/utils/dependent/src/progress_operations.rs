@@ -10,7 +10,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
 };
 use enum_models::{EntityLot, MediaLot, SeenState};
-use futures::join;
+use futures::{join, try_join};
 use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateCacheInput, MetadataProgressUpdateChange,
     MetadataProgressUpdateChangeCreateNewCompletedInput,
@@ -153,17 +153,16 @@ pub async fn commit_import_seen_item(
         )
         .await?;
 
-        cc.expire_key(ExpireCacheKeyInput::ByKey(in_progress_cache_key))
-            .await?;
-
         if progress >= dec!(100) {
-            cc.set_key(
-                completed_cache_key,
-                ApplicationCacheValue::MetadataProgressUpdateCompletedCache(
-                    EmptyCacheValue::default(),
-                ),
-            )
-            .await?;
+            let _ = try_join!(
+                cc.expire_key(ExpireCacheKeyInput::ByKey(in_progress_cache_key)),
+                cc.set_key(
+                    completed_cache_key,
+                    ApplicationCacheValue::MetadataProgressUpdateCompletedCache(
+                        EmptyCacheValue::default(),
+                    ),
+                )
+            );
         }
     }
 
