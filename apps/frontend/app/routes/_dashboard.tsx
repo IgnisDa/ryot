@@ -1352,7 +1352,7 @@ const MetadataNewProgressUpdateForm = ({
 											finishedOnDate: {
 												...common,
 												animeEpisodeNumber: i,
-												finishedOn: currentDateFormatted,
+												timestamp: currentDateFormatted,
 											},
 										},
 									}))
@@ -1364,7 +1364,7 @@ const MetadataNewProgressUpdateForm = ({
 												finishedOnDate: {
 													...common,
 													animeEpisodeNumber: i,
-													finishedOn: selectedDateFormatted,
+													timestamp: selectedDateFormatted,
 												},
 											},
 										};
@@ -1433,7 +1433,7 @@ const MetadataNewProgressUpdateForm = ({
 												finishedOnDate: {
 													...common,
 													mangaVolumeNumber: i,
-													finishedOn: currentDateFormatted,
+													timestamp: currentDateFormatted,
 												},
 											},
 										}))
@@ -1445,7 +1445,7 @@ const MetadataNewProgressUpdateForm = ({
 													finishedOnDate: {
 														...common,
 														mangaVolumeNumber: i,
-														finishedOn: selectedDateFormatted,
+														timestamp: selectedDateFormatted,
 													},
 												},
 											};
@@ -1496,7 +1496,7 @@ const MetadataNewProgressUpdateForm = ({
 													finishedOnDate: {
 														...common,
 														mangaChapterNumber: i.toString(),
-														finishedOn: currentDateFormatted,
+														timestamp: currentDateFormatted,
 													},
 												},
 											}))
@@ -1508,7 +1508,7 @@ const MetadataNewProgressUpdateForm = ({
 														finishedOnDate: {
 															...common,
 															mangaChapterNumber: i.toString(),
-															finishedOn: selectedDateFormatted,
+															timestamp: selectedDateFormatted,
 														},
 													},
 												};
@@ -1592,9 +1592,9 @@ const MetadataNewProgressUpdateForm = ({
 											createNewCompleted: {
 												finishedOnDate: {
 													...common,
+													timestamp: currentDateFormatted,
 													showSeasonNumber: currentEpisode.seasonNumber,
 													showEpisodeNumber: currentEpisode.episodeNumber,
-													finishedOn: currentDateFormatted,
 												},
 											},
 										}))
@@ -1605,7 +1605,7 @@ const MetadataNewProgressUpdateForm = ({
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
-														finishedOn: selectedDateFormatted,
+														timestamp: selectedDateFormatted,
 														showSeasonNumber: currentEpisode.seasonNumber,
 														showEpisodeNumber: currentEpisode.episodeNumber,
 													},
@@ -1664,8 +1664,8 @@ const MetadataNewProgressUpdateForm = ({
 											createNewCompleted: {
 												finishedOnDate: {
 													...common,
+													timestamp: currentDateFormatted,
 													podcastEpisodeNumber: episode.number,
-													finishedOn: currentDateFormatted,
 												},
 											},
 										}))
@@ -1676,7 +1676,7 @@ const MetadataNewProgressUpdateForm = ({
 												createNewCompleted: {
 													finishedOnDate: {
 														...common,
-														finishedOn: selectedDateFormatted,
+														timestamp: selectedDateFormatted,
 														podcastEpisodeNumber: episode.number,
 													},
 												},
@@ -1708,7 +1708,7 @@ const MetadataNewProgressUpdateForm = ({
 							createNewCompleted: {
 								finishedOnDate: {
 									...common,
-									finishedOn: currentDateFormatted,
+									timestamp: currentDateFormatted,
 								},
 							},
 						}))
@@ -1720,7 +1720,7 @@ const MetadataNewProgressUpdateForm = ({
 								createNewCompleted: {
 									finishedOnDate: {
 										...common,
-										finishedOn: selectedDateFormatted,
+										timestamp: selectedDateFormatted,
 									},
 								},
 							};
