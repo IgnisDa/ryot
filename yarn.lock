@@ -2865,18 +2865,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@biomejs/biome@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/biome@npm:1.9.4"
+"@biomejs/biome@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/biome@npm:2.0.2"
   dependencies:
-    "@biomejs/cli-darwin-arm64": "npm:1.9.4"
-    "@biomejs/cli-darwin-x64": "npm:1.9.4"
-    "@biomejs/cli-linux-arm64": "npm:1.9.4"
-    "@biomejs/cli-linux-arm64-musl": "npm:1.9.4"
-    "@biomejs/cli-linux-x64": "npm:1.9.4"
-    "@biomejs/cli-linux-x64-musl": "npm:1.9.4"
-    "@biomejs/cli-win32-arm64": "npm:1.9.4"
-    "@biomejs/cli-win32-x64": "npm:1.9.4"
+    "@biomejs/cli-darwin-arm64": "npm:2.0.2"
+    "@biomejs/cli-darwin-x64": "npm:2.0.2"
+    "@biomejs/cli-linux-arm64": "npm:2.0.2"
+    "@biomejs/cli-linux-arm64-musl": "npm:2.0.2"
+    "@biomejs/cli-linux-x64": "npm:2.0.2"
+    "@biomejs/cli-linux-x64-musl": "npm:2.0.2"
+    "@biomejs/cli-win32-arm64": "npm:2.0.2"
+    "@biomejs/cli-win32-x64": "npm:2.0.2"
   dependenciesMeta:
     "@biomejs/cli-darwin-arm64":
       optional: true
@@ -2896,62 +2896,69 @@ __metadata:
       optional: true
   bin:
     biome: bin/biome
-  checksum: 10/bd8ff8fb4dc0581bd60a9b9ac28d0cd03ba17c6a1de2ab6228b7fda582079594ceee774f47e41aac2fc6d35de1637def2e32ef2e58fa24e22d1b24ef9ee5cefa
+  checksum: 10/b968a62c81a8dc34a0adc42c1716556e688c551379bffc11d4f9ddf7aaf5e3001dc942bb299f2db8eed15046eac0cb92cb87864869404c1c54244b3479b5bdec
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-arm64@npm:1.9.4, @biomejs/cli-darwin-arm64@npm:^1.9.4":
+"@biomejs/cli-darwin-arm64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-darwin-arm64@npm:2.0.2"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@biomejs/cli-darwin-arm64@npm:^1.9.4":
   version: 1.9.4
   resolution: "@biomejs/cli-darwin-arm64@npm:1.9.4"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-x64@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-darwin-x64@npm:1.9.4"
+"@biomejs/cli-darwin-x64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-darwin-x64@npm:2.0.2"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64-musl@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-linux-arm64-musl@npm:1.9.4"
+"@biomejs/cli-linux-arm64-musl@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-linux-arm64-musl@npm:2.0.2"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-linux-arm64@npm:1.9.4"
+"@biomejs/cli-linux-arm64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-linux-arm64@npm:2.0.2"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64-musl@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-linux-x64-musl@npm:1.9.4"
+"@biomejs/cli-linux-x64-musl@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-linux-x64-musl@npm:2.0.2"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-linux-x64@npm:1.9.4"
+"@biomejs/cli-linux-x64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-linux-x64@npm:2.0.2"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-arm64@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-win32-arm64@npm:1.9.4"
+"@biomejs/cli-win32-arm64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-win32-arm64@npm:2.0.2"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-x64@npm:1.9.4":
-  version: 1.9.4
-  resolution: "@biomejs/cli-win32-x64@npm:1.9.4"
+"@biomejs/cli-win32-x64@npm:2.0.2":
+  version: 2.0.2
+  resolution: "@biomejs/cli-win32-x64@npm:2.0.2"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -7343,7 +7350,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/root@workspace:."
   dependencies:
-    "@biomejs/biome": "npm:1.9.4"
+    "@biomejs/biome": "npm:2.0.2"
     tsconfig-moon: "npm:1.4.0"
     typescript: "npm:5.8.3"
   languageName: unknown
