@@ -51,7 +51,7 @@ const entityColumnExpression = (slug: string, column: "createdAt") => ({
 
 const entityPropertyExpression = (slug: string, property: string) => ({
 	type: "reference" as const,
-	reference: { slug, property, type: "schema-property" as const },
+	reference: { slug, property: [property], type: "schema-property" as const },
 });
 
 const eventJoinColumnExpression = (joinKey: string, column: "createdAt") => ({
@@ -61,7 +61,11 @@ const eventJoinColumnExpression = (joinKey: string, column: "createdAt") => ({
 
 const eventJoinPropertyExpression = (joinKey: string, property: string) => ({
 	type: "reference" as const,
-	reference: { property, joinKey, type: "event-join-property" as const },
+	reference: {
+		joinKey,
+		property: [property],
+		type: "event-join-property" as const,
+	},
 });
 
 const coalesceExpression = (
