@@ -86,11 +86,11 @@ pub async fn merge_metadata(
         }
     }
     if let Some(_association) =
-        get_user_to_entity_association(&txn, &user_id, &merge_into, EntityLot::Metadata).await
+        get_user_to_entity_association(&txn, &user_id, &merge_into, EntityLot::Metadata).await?
     {
         let old_association =
             get_user_to_entity_association(&txn, &user_id, &merge_from, EntityLot::Metadata)
-                .await
+                .await?
                 .unwrap();
         let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
         cloned.needs_to_be_updated = ActiveValue::Set(Some(true));

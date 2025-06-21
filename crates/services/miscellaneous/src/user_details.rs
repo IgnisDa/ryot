@@ -32,7 +32,7 @@ pub async fn user_metadata_details(
         reviews_result,
         history_result,
         seen_by_result,
-        user_to_meta,
+        user_to_meta_result,
         is_recently_consumed_result,
     ) = join!(
         generic_metadata(&metadata_id, ss),
@@ -55,6 +55,7 @@ pub async fn user_metadata_details(
     let (_, history) = history_result?;
     let seen_by = seen_by_result?;
     let is_recently_consumed = is_recently_consumed_result?;
+    let user_to_meta = user_to_meta_result?;
     let in_progress = history
         .iter()
         .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -199,7 +200,7 @@ pub async fn user_person_details(
     let is_recently_consumed =
         get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss).await?;
     let person_meta =
-        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person).await;
+        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person).await?;
     let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
     Ok(UserPersonDetails {
         reviews,
@@ -240,7 +241,7 @@ pub async fn user_metadata_group_details(
         &metadata_group_id,
         EntityLot::MetadataGroup,
     )
-    .await;
+    .await?;
     Ok(UserMetadataGroupDetails {
         reviews,
         collections,
