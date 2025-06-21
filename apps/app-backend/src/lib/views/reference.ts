@@ -34,8 +34,15 @@ export type QueryEngineReferenceContext<
 	TSchema extends QueryEngineSchemaLike = QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike = QueryEngineEventJoinLike,
 > = {
+	// Required for SQL compilation (event-aggregate subqueries). Optional during
+	// validation-only paths where no SQL is generated.
+	userId?: string;
 	schemaMap: Map<string, TSchema>;
 	eventJoinMap: Map<string, TJoin>;
+	// Set of event schema slugs visible to the current user for the entity
+	// schemas in the query. Used to validate event-aggregate references. When
+	// absent, event-aggregate slug validation is skipped.
+	eventSchemaSlugs?: ReadonlySet<string>;
 };
 
 type RuntimeColumnConfig = {
