@@ -265,42 +265,42 @@ These can be added in future iterations once the core editing functionality is p
 
 ### Functional Requirements
 
-- [ ] User can edit entity schemas list (add/remove schemas)
-- [ ] User can add new filters with field, operator, and value
-- [ ] User can edit existing filters (change any field)
-- [ ] User can remove filters
-- [ ] User can edit sort configuration (fields array and direction)
-- [ ] User can edit grid display configuration (image, title, subtitle, badge properties)
-- [ ] User can edit list display configuration
-- [ ] User can edit table display configuration (columns with labels)
-- [ ] User can switch between grid/list/table config tabs
-- [ ] Changes save successfully to backend
-- [ ] View results update immediately after save
-- [ ] Built-in views show read-only message
-- [ ] Built-in views offer clone option
-- [ ] Server validation errors display clearly
-- [ ] Form shows loading state during save
+- [x] User can edit entity schemas list (add/remove schemas)
+- [x] User can add new filters with field, operator, and value
+- [x] User can edit existing filters (change any field)
+- [x] User can remove filters
+- [x] User can edit sort configuration (fields array and direction)
+- [x] User can edit grid display configuration (image, title, subtitle, badge properties)
+- [x] User can edit list display configuration
+- [x] User can edit table display configuration (columns with labels)
+- [x] User can switch between grid/list/table config tabs
+- [x] Changes save successfully to backend
+- [x] View results update immediately after save
+- [x] Built-in views show read-only message
+- [x] Built-in views offer clone option
+- [x] Server validation errors display clearly
+- [x] Form shows loading state during save
 
 ### Technical Requirements
 
-- [ ] Form schema uses Zod with proper type inference
-- [ ] Components follow existing array field patterns
-- [ ] Mutation hook sends complete payload to PUT endpoint
-- [ ] Drawer integrates cleanly with existing view page
-- [ ] No TypeScript errors
-- [ ] No console warnings or errors
-- [ ] Code follows Ryot frontend guidelines (Mantine props, typography, spacing)
+- [x] Form schema uses Zod with proper type inference
+- [x] Components follow existing array field patterns
+- [x] Mutation hook sends complete payload to PUT endpoint
+- [x] Drawer integrates cleanly with existing view page
+- [x] No TypeScript errors
+- [x] No console warnings or errors
+- [x] Code follows Ryot frontend guidelines (Mantine props, typography, spacing)
 
 ### UX Requirements
 
-- [ ] Filter operator dropdown shows all supported operators
-- [ ] Help text explains property path syntax (@name, schema.property)
-- [ ] Add/remove buttons clearly labeled
-- [ ] Form sections logically organized
-- [ ] Loading states indicate save in progress
-- [ ] Success feedback confirms save completed
-- [ ] Error messages are actionable
-- [ ] Drawer size accommodates complex form without scrolling issues
+- [x] Filter operator dropdown shows all supported operators
+- [x] Help text explains property path syntax (@name, schema.property)
+- [x] Add/remove buttons clearly labeled
+- [x] Form sections logically organized
+- [x] Loading states indicate save in progress
+- [x] Success feedback confirms save completed
+- [x] Error messages are actionable
+- [x] Drawer size accommodates complex form without scrolling issues
 
 ## Testing Strategy
 
@@ -392,9 +392,9 @@ Basic metadata fields (name, icon, accentColor, trackerId) are already editable 
 
 ## Tasks
 
-**Overall Progress:** 5 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 06](./06-builtin-protection-ux-polish.md) (todo)
+**Current Task:** All tasks completed
 
 **Note for Agents:** Do not create git commits. Leave all commit creation to the user.
 
@@ -407,4 +407,4 @@ Basic metadata fields (name, icon, accentColor, trackerId) are already editable 
 | 03 | [Filters Builder](./03-filters-builder.md) | AFK | completed | Task 02 |
 | 04 | [Grid Display Configuration](./04-grid-display-configuration.md) | AFK | completed | Task 03 |
 | 05 | [List and Table Display Configurations](./05-list-table-display-configurations.md) | AFK | completed | Task 04 |
-| 06 | [Built-in Protection and UX Polish](./06-builtin-protection-ux-polish.md) | AFK | todo | Task 05 |
+| 06 | [Built-in Protection and UX Polish](./06-builtin-protection-ux-polish.md) | AFK | completed | Task 05 |
