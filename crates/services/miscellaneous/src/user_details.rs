@@ -12,6 +12,7 @@ use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPerson
 use dependent_utils::generic_metadata;
 use dependent_utils::{get_entity_recently_consumed, is_metadata_finished_by_user};
 use enum_models::{EntityLot, SeenState};
+use futures::join;
 use itertools::Itertools;
 use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
@@ -25,11 +26,35 @@ pub async fn user_metadata_details(
     user_id: String,
     metadata_id: String,
 ) -> Result<UserMetadataDetails> {
-    let media_details = generic_metadata(&metadata_id, ss).await?;
-    let collections =
-        entity_in_collections(&ss.db, &user_id, &metadata_id, EntityLot::Metadata).await?;
-    let reviews = item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss).await?;
-    let (_, history) = is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db).await?;
+    let (
+        media_details_result,
+        collections_result,
+        reviews_result,
+        history_result,
+        seen_by_result,
+        user_to_meta,
+        is_recently_consumed_result,
+    ) = join!(
+        generic_metadata(&metadata_id, ss),
+        entity_in_collections(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
+        item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
+        is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db),
+        Metadata::find_by_id(&metadata_id)
+            .select_only()
+            .column_as(seen::Column::Id.count(), "num_times_seen")
+            .left_join(Seen)
+            .into_tuple::<(i64,)>()
+            .one(&ss.db),
+        get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
+        get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss)
+    );
+
+    let media_details = media_details_result?;
+    let collections = collections_result?;
+    let reviews = reviews_result?;
+    let (_, history) = history_result?;
+    let seen_by = seen_by_result?;
+    let is_recently_consumed = is_recently_consumed_result?;
     let in_progress = history
         .iter()
         .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
@@ -91,15 +116,6 @@ pub async fn user_metadata_details(
             None
         }
     });
-    let seen_by = Metadata::find_by_id(&metadata_id)
-        .select_only()
-        .column_as(seen::Column::Id.count(), "num_times_seen")
-        .left_join(Seen)
-        .into_tuple::<(i64,)>()
-        .one(&ss.db)
-        .await?;
-    let user_to_meta =
-        get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata).await;
     let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
     let seen_by_user_count = history.len();
     let show_progress = if let Some(show_specifics) = media_details.model.show_specifics {
@@ -155,8 +171,6 @@ pub async fn user_metadata_details(
     } else {
         None
     };
-    let is_recently_consumed =
-        get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss).await?;
     Ok(UserMetadataDetails {
         reviews,
         history,
