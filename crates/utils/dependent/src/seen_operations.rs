@@ -6,7 +6,6 @@ use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
 use enum_models::{EntityLot, MediaLot, SeenState};
-use futures::try_join;
 use itertools::Itertools;
 use rust_decimal::{
     Decimal,
@@ -148,11 +147,9 @@ pub async fn handle_after_metadata_seen_tasks(
             ss,
         )
     };
-    let _ = try_join!(
-        remove_entity_from_collection(&DefaultCollection::Watchlist.to_string()),
-        associate_user_with_entity(&seen.user_id, &seen.metadata_id, EntityLot::Metadata, ss),
-        expire_user_collections_list_cache(&seen.user_id, ss),
-    );
+    remove_entity_from_collection(&DefaultCollection::Watchlist.to_string()).await?;
+    associate_user_with_entity(&seen.user_id, &seen.metadata_id, EntityLot::Metadata, ss).await?;
+    expire_user_collections_list_cache(&seen.user_id, ss).await?;
     match seen.state {
         SeenState::InProgress => {
             for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
@@ -177,10 +174,9 @@ pub async fn handle_after_metadata_seen_tasks(
                 let (is_complete, _) =
                     is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, &ss.db).await?;
                 if is_complete {
-                    let _ = try_join!(
-                        remove_entity_from_collection(&DefaultCollection::InProgress.to_string()),
-                        add_entity_to_collection(&DefaultCollection::Completed.to_string()),
-                    );
+                    remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
+                        .await?;
+                    add_entity_to_collection(&DefaultCollection::Completed.to_string()).await?;
                 } else {
                     for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
                         add_entity_to_collection(&col.to_string()).await.ok();
