@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import getPort from "get-port";
 import {
 	createAuthenticatedClient,
+	createEntity,
 	createEntitySchema,
 	createTracker,
 	enqueueSandboxScript,
@@ -74,7 +75,7 @@ describe("sandbox async flow", () => {
 		expect(result.error).toBeNull();
 	});
 
-	it("completes a script that uses getEntitySchemas", async () => {
+	it("completes a script that uses executeQuery", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, cookies, {
 			name: "Sandbox Schema Tracker",
@@ -84,8 +85,24 @@ describe("sandbox async flow", () => {
 			name: "Sandbox Schema",
 			slug: `sandbox-schema-${crypto.randomUUID()}`,
 		});
+		await createEntity(client, cookies, {
+			image: null,
+			properties: {},
+			name: "Test Entity",
+			entitySchemaId: schema.id,
+		});
 		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			code: `return await getEntitySchemas([${JSON.stringify(slug)}]);`,
+			code: `
+const result = await executeQuery({
+  entitySchemaSlugs: [${JSON.stringify(slug)}],
+  pagination: { page: 1, limit: 10 },
+  sort: { direction: "asc", expression: { type: "reference", reference: { column: "name", type: "entity-column", slug: ${JSON.stringify(slug)} } } }
+});
+if (!result.success) {
+  throw new Error(result.error);
+}
+return result.data.items;
+`,
 		});
 
 		const result = await pollSandboxResult(client, cookies, jobId);
@@ -95,25 +112,19 @@ describe("sandbox async flow", () => {
 			throw new Error("Expected sandbox job to complete");
 		}
 
-		const value = result.value as {
-			success?: boolean;
-			data?: Array<{
-				id: string;
-				name: string;
-				slug: string;
-				trackerId: string;
-			}>;
-		};
-		const listedSchema = value.data?.[0];
-
-		expect(value.success).toBe(true);
-		expect(Array.isArray(value.data)).toBe(true);
-		expect(value.data?.length).toBe(1);
-		expect(listedSchema?.id).toBe(schema.id);
-		expect(listedSchema?.name).toBe(schema.name);
-		expect(listedSchema?.slug).toBe(slug);
-		expect(listedSchema?.trackerId).toBe(trackerId);
 		expect(result.error).toBeNull();
+
+		const value = result.value as Array<{
+			id: string;
+			name: string;
+			slug: string;
+			trackerId: string;
+		}>;
+
+		expect(Array.isArray(value)).toBe(true);
+		expect(value.length).toBe(1);
+		expect(value[0]?.name).toBe("Test Entity");
+		expect(value[0]?.id).toBeDefined();
 	});
 
 	it("returns a completed result when the script throws", async () => {
