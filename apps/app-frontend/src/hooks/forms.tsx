@@ -546,6 +546,46 @@ function ColorInputField(props: ColorInputFieldProps) {
 	);
 }
 
+type SegmentedControlFieldProps = {
+	label?: string;
+	required?: boolean;
+	disabled?: boolean;
+	fullWidth?: boolean;
+	data: ComponentProps<typeof SegmentedControl>["data"];
+};
+
+function SegmentedControlField(props: SegmentedControlFieldProps) {
+	const field = useFieldContext<string | number | bigint | boolean>();
+
+	return (
+		<div>
+			{props.label && (
+				<Text size="sm" fw={500} mb={4}>
+					{props.label}
+					{props.required && (
+						<Text span c="red.6">
+							{" "}
+							*
+						</Text>
+					)}
+				</Text>
+			)}
+			<SegmentedControl
+				data={props.data}
+				disabled={props.disabled}
+				fullWidth={props.fullWidth}
+				value={String(field.state.value)}
+				onChange={(value) => field.handleChange(value)}
+			/>
+			{!field.state.meta.isValid && (
+				<Text c="red" size="xs" mt={4}>
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</Text>
+			)}
+		</div>
+	);
+}
+
 type SubmitButtonProps = {
 	label: string;
 	variant?: string;
@@ -589,5 +629,6 @@ export const { useAppForm } = createFormHook({
 		TextareaField,
 		ColorInputField,
 		MultiSelectField,
+		SegmentedControlField,
 	},
 });
