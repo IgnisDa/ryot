@@ -6,7 +6,7 @@ export const schemaPropertyExpression = (
 	field: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "schema-property", slug: schemaSlug, property: [field] },
+	reference: { type: "entity", slug: schemaSlug, path: ["properties", field] },
 });
 
 export const eventExpression = (
@@ -14,7 +14,7 @@ export const eventExpression = (
 	field: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "event-join-property", joinKey, property: [field] },
+	reference: { type: "event", joinKey, path: ["properties", field] },
 });
 
 export const computedExpression = (key: string): ViewExpression => ({

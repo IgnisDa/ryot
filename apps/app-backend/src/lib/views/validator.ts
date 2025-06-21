@@ -1,9 +1,9 @@
+import type { RuntimeRef } from "@ryot/ts-utils";
 import {
 	getComputedFieldOrThrow,
 	prepareComputedFields,
 } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
-import type { RuntimeRef } from "@ryot/ts-utils";
 import type { ViewComputedField, ViewExpression } from "./expression";
 import {
 	assertSortableExpression,
@@ -68,45 +68,56 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		);
 	}
 
-	if (reference.type === "entity-column") {
-		getSchemaForReference(context.schemaMap, reference);
-		if (!validBuiltins.has(reference.column)) {
+	if (reference.type === "entity") {
+		const schema = getSchemaForReference(context.schemaMap, reference);
+
+		if (reference.path[0] === "properties") {
+			const propertyPath = reference.path.slice(1);
+			const propertyType = getPropertyType(schema, propertyPath);
+			if (!propertyType) {
+				throw new QueryEngineValidationError(
+					`Property '${propertyPath.join(".")}' not found in schema '${reference.slug}'`,
+				);
+			}
+			return;
+		}
+
+		const [column] = reference.path;
+		if (!column) {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.${reference.column}'`,
+				"Entity reference path must not be empty",
 			);
 		}
-		if (
-			!getEntityColumnPropertyDefinition(reference.column) &&
-			reference.column !== "image"
-		) {
+		if (!validBuiltins.has(column)) {
 			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.${reference.column}'`,
+				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
+			);
+		}
+		if (!getEntityColumnPropertyDefinition(column) && column !== "image") {
+			throw new QueryEngineValidationError(
+				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
 			);
 		}
 		return;
 	}
 
-	if (reference.type === "event-join-column") {
-		getEventJoinForReference(context.eventJoinMap, reference);
-		if (!getEventJoinColumnPropertyDefinition(reference.column)) {
-			throw new QueryEngineValidationError(
-				`Unsupported event join column 'event.${reference.joinKey}.${reference.column}'`,
-			);
-		}
+	const join = getEventJoinForReference(context.eventJoinMap, reference);
+
+	if (reference.path[0] === "properties") {
+		const propertyPath = reference.path.slice(1);
+		getEventJoinPropertyType(join, propertyPath);
 		return;
 	}
 
-	if (reference.type === "event-join-property") {
-		const join = getEventJoinForReference(context.eventJoinMap, reference);
-		getEventJoinPropertyType(join, reference.property);
-		return;
-	}
-
-	const schema = getSchemaForReference(context.schemaMap, reference);
-	const propertyType = getPropertyType(schema, reference.property);
-	if (!propertyType) {
+	const [column] = reference.path;
+	if (!column) {
 		throw new QueryEngineValidationError(
-			`Property '${reference.property.join(".")}' not found in schema '${reference.slug}'`,
+			"Event reference path must not be empty",
+		);
+	}
+	if (!getEventJoinColumnPropertyDefinition(column)) {
+		throw new QueryEngineValidationError(
+			`Unsupported event join column 'event.${reference.joinKey}.${column}'`,
 		);
 	}
 };
