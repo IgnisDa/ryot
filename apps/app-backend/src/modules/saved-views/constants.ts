@@ -221,7 +221,7 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 			),
 			primarySubtitleProperty: createTransformExpression(
 				"titleCase",
-				createEntityPropertyExpression(slug, "lot"),
+				createEntityPropertyExpression(slug, "kind"),
 			),
 		};
 	}
