@@ -38,9 +38,24 @@ export function buildDefaultFilterRow(): FilterRow {
 	return buildFilterRow("", "eq", "");
 }
 
+const propertyArraySchema = z.array(z.string());
+
+const gridDisplayConfigSchema = z.object({
+	imageProperty: propertyArraySchema.nullable(),
+	titleProperty: propertyArraySchema.nullable(),
+	badgeProperty: propertyArraySchema.nullable(),
+	subtitleProperty: propertyArraySchema.nullable(),
+});
+
+const displayConfigurationSchema = z.object({
+	list: z.any(),
+	table: z.any(),
+	grid: gridDisplayConfigSchema,
+});
+
 export const savedViewExtendedFormSchema = z.object({
-	displayConfiguration: z.any(),
 	filters: z.array(filterRowSchema),
+	displayConfiguration: displayConfigurationSchema,
 	entitySchemaSlugs: z.array(z.string()).min(1, "At least one schema required"),
 	sort: z.object({
 		direction: z.enum(["asc", "desc"]),
