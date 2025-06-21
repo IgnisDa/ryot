@@ -26,11 +26,11 @@ const listEntitySchemasRoute = createAuthRoute(
 		method: "get",
 		tags: ["entity-schemas"],
 		request: { query: listEntitySchemasQuery },
-		summary: "List entity schemas for a tracker",
+		summary: "List entity schemas with optional tracker or slug filters",
 		responses: createStandardResponses({
 			successSchema: listEntitySchemasResponseSchema,
 			notFoundDescription: "Tracker does not exist for this user",
-			successDescription: "Entity schemas for the requested tracker",
+			successDescription: "Entity schemas for the requested filters or user",
 		}),
 	}),
 );
@@ -72,6 +72,7 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 
 		const result = await listEntitySchemas({
 			userId: user.id,
+			slugs: query.slugs,
 			trackerId: query.trackerId,
 		});
 		if ("error" in result) {

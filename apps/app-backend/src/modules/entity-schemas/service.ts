@@ -14,6 +14,7 @@ import {
 	getEntitySchemaByIdForUser,
 	getEntitySchemaBySlugForUser,
 	listEntitySchemasByTracker,
+	listEntitySchemasForUser,
 } from "./repository";
 import type { CreateEntitySchemaBody, ListedEntitySchema } from "./schemas";
 
@@ -26,6 +27,7 @@ export type EntitySchemaServiceDeps = {
 	getTrackerScopeForUser: typeof getTrackerScopeForUser;
 	createEntitySchemaForUser: typeof createEntitySchemaForUser;
 	listEntitySchemasByTracker: typeof listEntitySchemasByTracker;
+	listEntitySchemasForUser: typeof listEntitySchemasForUser;
 	getEntitySchemaByIdForUser: typeof getEntitySchemaByIdForUser;
 	getEntitySchemaBySlugForUser: typeof getEntitySchemaBySlugForUser;
 };
@@ -42,6 +44,7 @@ const entitySchemaServiceDeps: EntitySchemaServiceDeps = {
 	createEntitySchemaForUser,
 	getEntitySchemaByIdForUser,
 	getEntitySchemaBySlugForUser,
+	listEntitySchemasForUser,
 	getTrackerScopeForUser,
 	listEntitySchemasByTracker,
 };
@@ -145,29 +148,43 @@ const resolveEntitySchemaCreateInputResult = (
 };
 
 export const listEntitySchemas = async (
-	input: { trackerId: string; userId: string },
+	input: { slugs?: string[]; trackerId?: string; userId: string },
 	deps: EntitySchemaServiceDeps = entitySchemaServiceDeps,
 ): Promise<EntitySchemaServiceResult<ListedEntitySchema[]>> => {
-	const trackerIdResult = resolveEntitySchemaTrackerIdResult(input.trackerId);
-	if ("error" in trackerIdResult) {
-		return trackerIdResult;
+	if (input.trackerId) {
+		const trackerIdResult = resolveEntitySchemaTrackerIdResult(input.trackerId);
+		if ("error" in trackerIdResult) {
+			return trackerIdResult;
+		}
+
+		const foundTracker = resolveTrackerReadAccess(
+			await deps.getTrackerScopeForUser({
+				userId: input.userId,
+				trackerId: trackerIdResult.data,
+			}),
+		);
+		if (foundTracker.error) {
+			return createErrorResult({
+				error: "not_found",
+				message: trackerNotFoundError,
+			});
+		}
+
+		const entitySchemas = input.slugs?.length
+			? await deps.listEntitySchemasForUser({
+					slugs: input.slugs,
+					userId: input.userId,
+					trackerId: trackerIdResult.data,
+				})
+			: await deps.listEntitySchemasByTracker({
+					trackerId: trackerIdResult.data,
+				});
+		return createDataResult(entitySchemas);
 	}
 
-	const foundTracker = resolveTrackerReadAccess(
-		await deps.getTrackerScopeForUser({
-			userId: input.userId,
-			trackerId: trackerIdResult.data,
-		}),
-	);
-	if (foundTracker.error) {
-		return createErrorResult({
-			error: "not_found",
-			message: trackerNotFoundError,
-		});
-	}
-
-	const entitySchemas = await deps.listEntitySchemasByTracker({
-		trackerId: trackerIdResult.data,
+	const entitySchemas = await deps.listEntitySchemasForUser({
+		slugs: input.slugs,
+		userId: input.userId,
 	});
 	return createDataResult(entitySchemas);
 };
