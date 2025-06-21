@@ -2973,32 +2973,32 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@conform-to/dom@npm:1.7.1":
-  version: 1.7.1
-  resolution: "@conform-to/dom@npm:1.7.1"
-  checksum: 10/981a2cb78425179bfe56cc6bffa1fc3307675818d86b208a4eaaef9e5dfa82fcf2e769e6c50e1a8bb7e4b823ac2c06e417d1e4ade38bf916ff4c4d1635dfadab
+"@conform-to/dom@npm:1.7.2":
+  version: 1.7.2
+  resolution: "@conform-to/dom@npm:1.7.2"
+  checksum: 10/fd09e6d660154575288576bec46de3f48358b3c0a274146eaa7248963d4bd49ed5dfda778e162bc73a19fd1fb0a469a8c992e1a6746b9c145c3e4b300dbd3192
   languageName: node
   linkType: hard
 
-"@conform-to/react@npm:1.7.1":
-  version: 1.7.1
-  resolution: "@conform-to/react@npm:1.7.1"
+"@conform-to/react@npm:1.7.2":
+  version: 1.7.2
+  resolution: "@conform-to/react@npm:1.7.2"
   dependencies:
-    "@conform-to/dom": "npm:1.7.1"
+    "@conform-to/dom": "npm:1.7.2"
   peerDependencies:
     react: ">=18"
-  checksum: 10/08948a7906c6ba7758d51043168bca79a151640645a9744c9088c9df8cf73760ec074351a07e9fc6de3a6b863bef4b1e82075f596640e0e2b1f5b0aa49b9df6f
+  checksum: 10/10d07340442fb2e618535f7f5645b5f4111289f97d6847692648919b38d13e8e3ee853aca9f1f361228431cd1f5fee111fb7cc98b8968b5a5ba214fa11231e98
   languageName: node
   linkType: hard
 
-"@conform-to/zod@npm:1.7.1":
-  version: 1.7.1
-  resolution: "@conform-to/zod@npm:1.7.1"
+"@conform-to/zod@npm:1.7.2":
+  version: 1.7.2
+  resolution: "@conform-to/zod@npm:1.7.2"
   dependencies:
-    "@conform-to/dom": "npm:1.7.1"
+    "@conform-to/dom": "npm:1.7.2"
   peerDependencies:
     zod: ^3.21.0
-  checksum: 10/a6d73a8a58979d5676653031cd5c4d3cba07d9efb18c58d4a7c3c6ec79996c4d9769d59d54581ec845def98b3628c9f1bf9c1eaaf1801a682d6fe2d903d53cad
+  checksum: 10/1d9bf003d65dfbaffa691385ae99e9a43b0a404fc0083e2e48eaa6b0431ec3ff53852ad2fcebad9477c96ec7056414b6bd873e4ba9e2a20a9084df716aab716d
   languageName: node
   linkType: hard
 
@@ -7236,8 +7236,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/frontend@workspace:apps/frontend"
   dependencies:
-    "@conform-to/react": "npm:1.7.1"
-    "@conform-to/zod": "npm:1.7.1"
+    "@conform-to/react": "npm:1.7.2"
+    "@conform-to/zod": "npm:1.7.2"
     "@formkit/auto-animate": "npm:0.8.2"
     "@hello-pangea/dnd": "npm:18.0.1"
     "@lukemorales/query-key-factory": "npm:1.3.4"
@@ -7301,7 +7301,7 @@ __metadata:
     react-router: "npm:7.6.2"
     react-router-devtools: "npm:5.0.6"
     react-virtuoso: "npm:4.13.0"
-    recharts: "npm:2.15.3"
+    recharts: "npm:2.15.4"
     remix-utils: "npm:8.7.0"
     safe-routes: "npm:1.0.13"
     tailwind-merge: "npm:3.3.1"
@@ -7367,7 +7367,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/ts-utils@workspace:libs/ts-utils"
   dependencies:
-    "@conform-to/zod": "npm:1.7.1"
+    "@conform-to/zod": "npm:1.7.2"
     "@ryot/generated": "workspace:*"
     "@types/lodash": "npm:4.17.17"
     clsx: "npm:2.1.1"
@@ -7385,7 +7385,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ryot/website@workspace:apps/website"
   dependencies:
-    "@conform-to/zod": "npm:1.7.1"
+    "@conform-to/zod": "npm:1.7.2"
     "@isaacs/ttlcache": "npm:1.4.1"
     "@oslojs/crypto": "npm:1.0.1"
     "@oslojs/encoding": "npm:1.1.0"
@@ -7425,7 +7425,7 @@ __metadata:
     input-otp: "npm:1.4.2"
     isbot: "npm:5.1.28"
     lodash: "npm:4.17.21"
-    lucide-react: "npm:0.518.0"
+    lucide-react: "npm:0.519.0"
     nanoid: "npm:5.1.5"
     next-themes: "npm:0.4.6"
     nodemailer: "npm:7.0.3"
@@ -14315,12 +14315,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lucide-react@npm:0.518.0":
-  version: 0.518.0
-  resolution: "lucide-react@npm:0.518.0"
+"lucide-react@npm:0.519.0":
+  version: 0.519.0
+  resolution: "lucide-react@npm:0.519.0"
   peerDependencies:
     react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/c257930bea5661cf98bbb91540a2a67f22efe62a14215357ae96e5af21919d13fc900a367a2145e1ffb70b85966625e3db3cc735d85e89a9b47f4c30bda70741
+  checksum: 10/b00fbddb6974e147daf00c18af8a01393a14669d4a467001a1516fb00f3c149a59d50e5bfc3e3b11ef52e883b8f9eee841caa9f757ae74c175cb0cef7e8176b2
   languageName: node
   linkType: hard
 
@@ -16587,9 +16587,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"recharts@npm:2.15.3":
-  version: 2.15.3
-  resolution: "recharts@npm:2.15.3"
+"recharts@npm:2.15.4":
+  version: 2.15.4
+  resolution: "recharts@npm:2.15.4"
   dependencies:
     clsx: "npm:^2.0.0"
     eventemitter3: "npm:^4.0.1"
@@ -16602,7 +16602,7 @@ __metadata:
   peerDependencies:
     react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
     react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/611315edc8f25238c7eaa4842e549abff59e4df51a2c8b5bdd80ce9778717e0097e35e56ea4a3c4f6139ad3083fbf6041065c8a5c6c6a3d950cb04490bd54237
+  checksum: 10/d29656d465ccdfcf95de7bc35e53c1f30fbd45e3d7b53c70bc2cd1892707058606eab8b0a648c1e1d0b3f21cc3b6774abf3f304da4d4534f550500909623492f
   languageName: node
   linkType: hard
 

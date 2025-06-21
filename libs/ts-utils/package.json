@@ -2,7 +2,7 @@
 	"name": "@ryot/ts-utils",
 	"main": "src/index.ts",
 	"dependencies": {
-		"@conform-to/zod": "1.7.1",
+		"@conform-to/zod": "1.7.2",
 		"@ryot/generated": "workspace:*",
 		"clsx": "2.1.1",
 		"dayjs": "1.11.13",
