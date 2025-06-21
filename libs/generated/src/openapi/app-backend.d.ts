@@ -3798,8 +3798,6 @@ export interface paths {
                                     createdAt: string;
                                     /** Format: date-time */
                                     updatedAt: string;
-                                    entitySchemaId: string;
-                                    entitySchemaSlug: string;
                                     image: {
                                         key: string;
                                         /** @enum {string} */
@@ -4161,6 +4159,10 @@ export interface components {
             eventSchemaSlug: string;
             /** @enum {string} */
             aggregation: "avg" | "count" | "max" | "min" | "sum";
+            path: string[];
+        } | {
+            /** @enum {string} */
+            type: "entity-schema";
             path: string[];
         };
         ViewPredicate: {

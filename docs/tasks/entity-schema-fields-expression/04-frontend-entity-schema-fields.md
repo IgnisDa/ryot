@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -23,11 +23,11 @@ Update the frontend saved view page to read entity schema information from the q
 
 ## Acceptance criteria
 
-- [ ] Grid layout displays entity schema slug/name using the fields array
-- [ ] List layout displays entity schema slug/name using the fields array
-- [ ] Table layout handles entity schema columns correctly
-- [ ] No remaining frontend code reads `entitySchemaSlug` as a top-level attribute from query engine items
-- [ ] The UI renders entity type information without visual regressions
+- [x] Grid layout displays entity schema slug/name using the fields array
+- [x] List layout displays entity schema slug/name using the fields array
+- [x] Table layout handles entity schema columns correctly
+- [x] No remaining frontend code reads `entitySchemaSlug` as a top-level attribute from query engine items
+- [x] The UI renders entity type information without visual regressions
 
 ## User stories addressed
 

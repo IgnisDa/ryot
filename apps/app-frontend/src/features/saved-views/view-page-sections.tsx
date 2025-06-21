@@ -109,6 +109,9 @@ export function SavedViewResults(props: {
 					const secondarySubtitle = item.fields
 						? getRuntimeField(item, "secondarySubtitle")
 						: undefined;
+					const entitySchemaSlugField = item.fields
+						? getRuntimeField(item, "entitySchemaSlug")
+						: undefined;
 
 					return (
 						<Link
@@ -145,7 +148,9 @@ export function SavedViewResults(props: {
 									justify="space-between"
 								>
 									<Badge size="xs" c="white" bg="rgba(0,0,0,0.55)">
-										{item.entitySchemaSlug ?? "entity"}
+										{entitySchemaSlugField
+											? formatRuntimeValue(entitySchemaSlugField.value)
+											: "entity"}
 									</Badge>
 									{isRuntimeField(callout) && callout.kind === "number" ? (
 										<Badge size="xs" c="white" bg={props.accentColor}>
@@ -219,6 +224,9 @@ export function SavedViewResults(props: {
 					const secondarySubtitle = item.fields
 						? getRuntimeField(item, "secondarySubtitle")
 						: undefined;
+					const entitySchemaSlugField = item.fields
+						? getRuntimeField(item, "entitySchemaSlug")
+						: undefined;
 
 					return (
 						<Link
@@ -269,7 +277,9 @@ export function SavedViewResults(props: {
 												</Text>
 											) : null}
 											<Text size="xs" c="dimmed">
-												{item.entitySchemaSlug}
+												{entitySchemaSlugField
+													? formatRuntimeValue(entitySchemaSlugField.value)
+													: "entity"}
 											</Text>
 										</Stack>
 									</Group>

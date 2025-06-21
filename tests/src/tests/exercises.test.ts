@@ -151,7 +151,10 @@ describe("Exercises E2E", () => {
 						},
 						{
 							label: "Equipment",
-							expression: createEntityPropertyExpression("exercise", "equipment"),
+							expression: createEntityPropertyExpression(
+								"exercise",
+								"equipment",
+							),
 						},
 					],
 				},
@@ -159,7 +162,10 @@ describe("Exercises E2E", () => {
 					titleProperty: createEntityColumnExpression("exercise", "name"),
 					imageProperty: createEntityColumnExpression("exercise", "image"),
 					calloutProperty: createEntityPropertyExpression("exercise", "level"),
-					primarySubtitleProperty: createEntityPropertyExpression("exercise", "kind"),
+					primarySubtitleProperty: createEntityPropertyExpression(
+						"exercise",
+						"kind",
+					),
 					secondarySubtitleProperty: createEntityPropertyExpression(
 						"exercise",
 						"equipment",
@@ -169,7 +175,10 @@ describe("Exercises E2E", () => {
 					titleProperty: createEntityColumnExpression("exercise", "name"),
 					imageProperty: createEntityColumnExpression("exercise", "image"),
 					calloutProperty: createEntityPropertyExpression("exercise", "level"),
-					primarySubtitleProperty: createEntityPropertyExpression("exercise", "kind"),
+					primarySubtitleProperty: createEntityPropertyExpression(
+						"exercise",
+						"kind",
+					),
 					secondarySubtitleProperty: createEntityPropertyExpression(
 						"exercise",
 						"equipment",
@@ -184,7 +193,6 @@ describe("Exercises E2E", () => {
 		const exercise = await waitForSeededExercise(client, cookies);
 
 		expect(exercise.name).toBe(seededExerciseName);
-		expect(exercise.entitySchemaSlug).toBe("exercise");
 		expect(exercise.sandboxScriptId).toBeNull();
 		expect(exercise.image).toEqual({
 			kind: "remote",

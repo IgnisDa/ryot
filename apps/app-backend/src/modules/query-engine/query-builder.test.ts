@@ -69,8 +69,7 @@ describe("mapQueryRowToItem", () => {
 				id: "entity-1",
 				external_id: null,
 				sandbox_script_id: null,
-				entity_schema_slug: "books",
-				entity_schema_id: "schema-1",
+				entity_schema_data: { slug: "books" },
 				created_at: dayjs("2024-01-01T00:00:00.000Z").toDate(),
 				updated_at: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 				fields: [
@@ -84,8 +83,6 @@ describe("mapQueryRowToItem", () => {
 			id: "entity-1",
 			externalId: null,
 			sandboxScriptId: null,
-			entitySchemaSlug: "books",
-			entitySchemaId: "schema-1",
 			createdAt: dayjs("2024-01-01T00:00:00.000Z").toDate(),
 			updatedAt: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 			fields: [
@@ -106,9 +103,8 @@ describe("mapQueryRowToItem", () => {
 				created_at: null,
 				updated_at: null,
 				external_id: null,
-				entity_schema_id: null,
 				sandbox_script_id: null,
-				entity_schema_slug: null,
+				entity_schema_data: null,
 			}),
 		).toBeNull();
 	});
@@ -122,8 +118,7 @@ describe("mapQueryRowToItem", () => {
 				name: "Entity",
 				external_id: null,
 				sandbox_script_id: null,
-				entity_schema_slug: "books",
-				entity_schema_id: "schema-1",
+				entity_schema_data: { slug: "books" },
 				created_at: dayjs("2024-01-01T00:00:00.000Z").toDate(),
 				updated_at: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 				fields: [
@@ -137,8 +132,6 @@ describe("mapQueryRowToItem", () => {
 			name: "Entity",
 			externalId: null,
 			sandboxScriptId: null,
-			entitySchemaSlug: "books",
-			entitySchemaId: "schema-1",
 			createdAt: dayjs("2024-01-01T00:00:00.000Z").toDate(),
 			updatedAt: dayjs("2024-01-02T00:00:00.000Z").toDate(),
 			fields: [
