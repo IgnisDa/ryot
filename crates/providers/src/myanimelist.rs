@@ -118,7 +118,7 @@ async fn get_client_config(client_id: &str) -> Client {
 async fn search(
     client: &Client,
     media_type: &str,
-    q: &str,
+    query: &str,
     page: Option<i32>,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
@@ -134,7 +134,7 @@ async fn search(
     }
     let search: SearchResponse = client
         .get(format!("{}/{}", URL, media_type))
-        .query(&json!({ "q": q, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
+        .query(&json!({ "q": query, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
         .send()
         .await
         .map_err(|e| anyhow!(e))?
