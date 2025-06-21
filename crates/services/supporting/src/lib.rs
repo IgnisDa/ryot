@@ -205,7 +205,7 @@ impl SupportingService {
                                 .collect(),
                             "en".to_owned(),
                         ),
-                        MediaSource::Mal
+                        MediaSource::Myanimelist
                         | MediaSource::Igdb
                         | MediaSource::Vndb
                         | MediaSource::Custom

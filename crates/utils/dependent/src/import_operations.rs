@@ -11,8 +11,7 @@ use importer_models::ImportFailedItem;
 use importer_models::{ImportDetails, ImportFailStep, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    ImportOrExportMetadataItem, PartialMetadataWithoutId, ProgressUpdateInput,
-    UniqueMediaIdentifier,
+    ImportOrExportMetadataItem, PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
@@ -22,10 +21,11 @@ use std::collections::hash_map::Entry;
 use supporting_service::SupportingService;
 
 use crate::{
-    collection_operations, commit_metadata, commit_metadata_group, commit_person,
-    convert_review_into_input, create_custom_exercise, create_or_update_user_workout,
-    create_user_measurement, db_workout_to_workout_input, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job, post_review, progress_update,
+    collection_operations, commit_import_seen_item, commit_metadata, commit_metadata_group,
+    commit_person, convert_review_into_input, create_custom_exercise,
+    create_or_update_user_workout, create_user_measurement, db_workout_to_workout_input,
+    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
+    post_review,
 };
 
 async fn create_collection_and_add_entity_to_it(
@@ -76,8 +76,8 @@ async fn create_collection_and_add_entity_to_it(
 }
 
 pub async fn process_import<F>(
+    is_import: bool,
     user_id: &String,
-    respect_cache: bool,
     mut import: ImportResult,
     ss: &Arc<SupportingService>,
     on_item_processed: impl Fn(Decimal) -> F,
@@ -215,31 +215,9 @@ where
                         error: Some("Progress update *might* be wrong".to_owned()),
                     });
                 }
-                for seen in metadata.seen_history.iter() {
-                    let progress = match seen.progress {
-                        Some(_p) => seen.progress,
-                        None => Some(dec!(100)),
-                    };
-                    if let Err(e) = progress_update(
-                        user_id,
-                        respect_cache,
-                        ProgressUpdateInput {
-                            progress,
-                            date: seen.ended_on,
-                            start_date: seen.started_on,
-                            metadata_id: db_metadata_id.clone(),
-                            show_season_number: seen.show_season_number,
-                            show_episode_number: seen.show_episode_number,
-                            manga_volume_number: seen.manga_volume_number,
-                            anime_episode_number: seen.anime_episode_number,
-                            manga_chapter_number: seen.manga_chapter_number,
-                            podcast_episode_number: seen.podcast_episode_number,
-                            provider_watched_on: seen.provider_watched_on.clone(),
-                            ..Default::default()
-                        },
-                        ss,
-                    )
-                    .await
+                for seen in metadata.seen_history {
+                    if let Err(e) =
+                        commit_import_seen_item(is_import, user_id, &db_metadata_id, ss, seen).await
                     {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),

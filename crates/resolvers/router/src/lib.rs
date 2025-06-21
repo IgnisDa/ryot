@@ -1,4 +1,4 @@
-use std::{fs::write, path::PathBuf, sync::Arc};
+use std::{fs::write, path::PathBuf, result::Result as StdResult, sync::Arc};
 
 use anyhow::Result;
 use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
@@ -49,7 +49,7 @@ pub async fn integration_webhook(
     Path(integration_slug): Path<String>,
     Extension(integration_service): Extension<Arc<IntegrationService>>,
     payload: String,
-) -> std::result::Result<(StatusCode, String), StatusCode> {
+) -> StdResult<(StatusCode, String), StatusCode> {
     let response = integration_service
         .process_integration_webhook(integration_slug, payload)
         .await

@@ -1,6 +1,6 @@
 use async_graphql::Result;
 use chrono::NaiveDate;
-use common_utils::ryot_log;
+use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
@@ -123,7 +123,7 @@ pub async fn import(
         ];
         if let Some(w) = record.last_date_read {
             let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-            seen_history.first_mut().unwrap().ended_on = Some(w);
+            seen_history.first_mut().unwrap().ended_on = Some(convert_naive_to_utc(w));
         }
         let mut collections = vec![];
         collections.push(match record.read_status {

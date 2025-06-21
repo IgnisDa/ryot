@@ -48,9 +48,9 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "=1.0.98"
-apalis = { version = "=0.7.1", features = ["catch-panic", "limit", "retry"] }
-apalis-cron = "=0.7.1"
-argon2 = "=0.6.0-pre.1"
+apalis = { version = "=0.7.2", features = ["catch-panic", "limit", "retry"] }
+apalis-cron = "=0.7.2"
+argon2 = "=0.6.0-rc.0"
 async-graphql = { version = "=7.0.17", features = [
     "chrono",
     "decimal",
@@ -85,7 +85,7 @@ educe = { version = "=0.6.0", features = [
 ], default-features = false }
 enum_meta = "=0.7.0"
 eventsource-stream = "=0.2.3"
-flate2 = "=1.1.0"
+flate2 = "=1.1.1"
 futures = "=0.3.31"
 graphql_client = "=0.14.0"
 hashbag = "=0.1.12"
@@ -96,20 +96,20 @@ isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.14.0"
 jsonwebtoken = { version = "=9.3.1", default-features = false }
 logs-wheel = "=0.3.1"
-markdown = "=1.0.0-alpha.23"
+markdown = "=1.0.0"
 mime_guess = "=2.0.5"
 nanoid = "=0.4.0"
-nest_struct = "=0.5.3"
+nest_struct = "=0.5.4"
 openidconnect = "=4.0.0"
 paginate = "=1.1.11"
 rand = "=0.9.1"
 regex = "=1.11.1"
-reqwest = { version = "=0.12.15", features = ["json", "stream"] }
+reqwest = { version = "=0.12.18", features = ["json", "stream"] }
 rust_decimal = "=1.37.1"
 rust_decimal_macros = "=1.37.1"
 rust_iso3166 = "=0.1.14"
 rustypipe = { version = "0.11.4", features = ["userdata"] }
-schematic = { version = "=0.18.4", features = [
+schematic = { version = "=0.18.5", features = [
     "config",
     "env",
     "json",
@@ -123,7 +123,7 @@ schematic = { version = "=0.18.4", features = [
     "validate",
     "yaml",
 ], default-features = false }
-sea-orm = { version = "=1.1.11", features = [
+sea-orm = { version = "=1.1.12", features = [
     "debug-print",
     "postgres-array",
     "macros",
@@ -134,24 +134,28 @@ sea-orm = { version = "=1.1.11", features = [
     "with-rust_decimal",
     "with-uuid",
 ], default-features = false }
-sea-orm-migration = "=1.1.11"
-sea-query = "=0.32.5"
+sea-orm-migration = { version = "=1.1.12", features = [
+    "runtime-tokio-native-tls",
+    "sqlx-postgres",
+] }
+sea-query = "=0.32.6"
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.140"
 serde_with = { version = "=3.12.0", features = ["chrono_0_4"] }
-serde-xml-rs = "=0.6.0"
+serde-xml-rs = "=0.8.1"
 slug = "=0.1.6"
-sqlx = { version = "=0.8.5", default-features = false, features = ["postgres"] }
+sqlx = { version = "=0.8.6", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
-tokio = { version = "=1.45.0", features = ["full"] }
+tokio = { version = "=1.45.1", features = ["full"] }
 tokio-util = { version = "=0.7.15", features = ["codec"] }
 tower = "=0.5.2"
-tower-http = { version = "=0.6.2", features = ["catch-panic", "cors", "trace"] }
+tower_governor = "=0.7.0"
+tower-http = { version = "=0.6.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.41", features = ["attributes"] }
 tracing-subscriber = "=0.3.19"
 unkey = "=0.6.0"
-uuid = { version = "=1.16.0", features = ["v4"], default-features = false }
+uuid = { version = "=1.17.0", features = ["v4"], default-features = false }
 
 [profile.release]
 lto = true

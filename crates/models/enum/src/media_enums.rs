@@ -57,12 +57,12 @@ meta! {
     VideoGame, vec![MediaSource::Igdb];
     Anime, vec![
         MediaSource::Anilist,
-        MediaSource::Mal,
+        MediaSource::Myanimelist,
     ];
     Manga, vec![
         MediaSource::Anilist,
         MediaSource::MangaUpdates,
-        MediaSource::Mal,
+        MediaSource::Myanimelist,
     ];
     Movie, vec![MediaSource::Tmdb];
     Music, vec![MediaSource::YoutubeMusic];
@@ -93,7 +93,6 @@ meta! {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum MediaSource {
-    Mal,
     Igdb,
     Tmdb,
     Vndb,
@@ -103,6 +102,7 @@ pub enum MediaSource {
     Anilist,
     Audible,
     Hardcover,
+    Myanimelist,
     Listennotes,
     GoogleBooks,
     Openlibrary,
@@ -113,12 +113,12 @@ pub enum MediaSource {
 meta! {
     MediaSource, Option<MediaLot>;
 
-    Mal, None;
     Vndb, None;
     Custom, None;
     Itunes, None;
     Anilist, None;
     Audible, None;
+    Myanimelist, None;
     Listennotes, None;
     GoogleBooks, None;
     Openlibrary, None;

@@ -27,8 +27,9 @@ use dependent_utils::{
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, ProgressUpdateInput, ReviewPostedEvent, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataProgressUpdateInput, ReviewPostedEvent,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
 use sea_query::Expr;
@@ -112,25 +113,25 @@ impl MiscellaneousService {
         user_metadata_list(&user_id, input, &self.0).await
     }
 
-    pub async fn deploy_bulk_progress_update(
+    pub async fn deploy_bulk_metadata_progress_update(
         &self,
         user_id: String,
-        input: Vec<ProgressUpdateInput>,
+        input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<bool> {
         self.0
-            .perform_application_job(ApplicationJob::Hp(HpApplicationJob::BulkProgressUpdate(
-                user_id, input,
-            )))
+            .perform_application_job(ApplicationJob::Hp(
+                HpApplicationJob::BulkMetadataProgressUpdate(user_id, input),
+            ))
             .await?;
         Ok(true)
     }
 
-    pub async fn bulk_progress_update(
+    pub async fn bulk_metadata_progress_update(
         &self,
         user_id: String,
-        input: Vec<ProgressUpdateInput>,
+        input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<()> {
-        progress_operations::bulk_progress_update(&self.0, &user_id, input).await
+        progress_operations::bulk_metadata_progress_update(&self.0, &user_id, input).await
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
@@ -345,6 +346,10 @@ impl MiscellaneousService {
             .exec(&self.0.db)
             .await?;
         Ok(())
+    }
+
+    pub async fn invalidate_import_jobs(&self) -> Result<()> {
+        background_operations::invalidate_import_jobs(&self.0).await
     }
 
     pub async fn perform_background_jobs(&self) -> Result<()> {

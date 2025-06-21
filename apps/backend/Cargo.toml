@@ -50,6 +50,7 @@ statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
 supporting-service = { path = "../../crates/services/supporting" }
 tokio = { workspace = true }
+tower_governor = { workspace = true }
 tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

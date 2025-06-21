@@ -1,10 +1,13 @@
 import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
-import type {
-	EntityLot,
-	MediaLot,
+import { notifications } from "@mantine/notifications";
+import {
+	DeployBulkMetadataProgressUpdateDocument,
+	type EntityLot,
+	type MediaLot,
+	type MetadataProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router";
@@ -19,6 +22,7 @@ import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
 	type FitnessAction,
+	clientGqlService,
 	dayjsLib,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
@@ -26,6 +30,7 @@ import {
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
+	refreshEntityDetails,
 	selectRandomElement,
 } from "~/lib/common";
 import {
@@ -260,4 +265,35 @@ export const useIsMobile = () => {
 export const useIsOnboardingTourCompleted = () => {
 	const dashboardData = useDashboardLayoutData();
 	return dashboardData.isOnboardingTourCompleted;
+};
+
+export const useDeployBulkMetadataProgressUpdate = (title: string) => {
+	const revalidator = useRevalidator();
+	const events = useApplicationEvents();
+
+	const mutation = useMutation({
+		mutationFn: async (input: MetadataProgressUpdateInput[]) => {
+			const resp = await clientGqlService.request(
+				DeployBulkMetadataProgressUpdateDocument,
+				{ input },
+			);
+			return [resp, input.map((i) => i.metadataId)] as const;
+		},
+		onSuccess: (data) => {
+			for (const id of data[1]) {
+				refreshEntityDetails(id);
+			}
+			notifications.show({
+				color: "green",
+				title: "Progress Updated",
+				message: "Progress will be updated shortly",
+			});
+			events.updateProgress(title);
+			setTimeout(() => {
+				revalidator.revalidate();
+			}, 1500);
+		},
+	});
+
+	return mutation;
 };

@@ -44,8 +44,8 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(Seen::StartedOn).date())
-                    .col(ColumnDef::new(Seen::FinishedOn).date())
+                    .col(ColumnDef::new(Seen::StartedOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(Seen::FinishedOn).timestamp_with_time_zone())
                     .col(
                         ColumnDef::new(Seen::State)
                             .text()

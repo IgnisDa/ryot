@@ -9,8 +9,8 @@ use providers::{
     igdb::IgdbService,
     itunes::ITunesService,
     listennotes::ListennotesService,
-    mal::{MalAnimeService, MalMangaService, NonMediaMalService},
     manga_updates::MangaUpdatesService,
+    myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
     openlibrary::OpenlibraryService,
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
     vndb::VndbService,
@@ -69,7 +69,7 @@ pub async fn get_metadata_provider(
             }
             _ => return err(),
         },
-        MediaSource::Mal => match lot {
+        MediaSource::Myanimelist => match lot {
             MediaLot::Anime => Box::new(MalAnimeService::new(&ss.config.anime_and_manga.mal).await),
             MediaLot::Manga => Box::new(MalMangaService::new(&ss.config.anime_and_manga.mal).await),
             _ => return err(),
@@ -105,7 +105,7 @@ pub async fn get_non_metadata_provider(
         MediaSource::Anilist => {
             Box::new(NonMediaAnilistService::new(&ss.config.anime_and_manga.anilist).await)
         }
-        MediaSource::Mal => Box::new(NonMediaMalService::new().await),
+        MediaSource::Myanimelist => Box::new(NonMediaMalService::new().await),
         MediaSource::Custom => return err(),
     };
     Ok(service)

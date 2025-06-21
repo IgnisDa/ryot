@@ -1,6 +1,8 @@
+use std::result::Result as StdResult;
+
 use async_graphql::Result;
 use chrono::NaiveDate;
-use common_utils::ryot_log;
+use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
@@ -87,7 +89,7 @@ async fn process_book_record(
     hardcover_service: &HardcoverService,
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
-) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let record: Book = match result {
         Ok(r) => r,
         Err(e) => {
@@ -144,7 +146,7 @@ async fn process_book_record(
     ];
     if let Some(w) = record.date_read {
         let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-        seen_history.first_mut().unwrap().ended_on = Some(w);
+        seen_history.first_mut().unwrap().ended_on = Some(convert_naive_to_utc(w));
     }
 
     let mut collections = vec![];

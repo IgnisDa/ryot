@@ -1155,8 +1155,8 @@ export enum MediaSource {
   Igdb = 'IGDB',
   Itunes = 'ITUNES',
   Listennotes = 'LISTENNOTES',
-  Mal = 'MAL',
   MangaUpdates = 'MANGA_UPDATES',
+  Myanimelist = 'MYANIMELIST',
   Openlibrary = 'OPENLIBRARY',
   Tmdb = 'TMDB',
   Vndb = 'VNDB',
@@ -1213,6 +1213,73 @@ export type MetadataLotSourceMappings = {
   __typename?: 'MetadataLotSourceMappings';
   lot: MediaLot;
   sources: Array<MediaSource>;
+};
+
+export type MetadataProgressUpdateChange = {
+  changeLatestInProgress?: InputMaybe<MetadataProgressUpdateChangeLatestInProgressInput>;
+  createNewCompleted?: InputMaybe<MetadataProgressUpdateChangeCreateNewCompletedInput>;
+  createNewInProgress?: InputMaybe<MetadataProgressUpdateNewInProgressInput>;
+};
+
+export type MetadataProgressUpdateChangeCreateNewCompletedInput = {
+  finishedOnDate?: InputMaybe<MetadataProgressUpdateStartedOrFinishedOnDateInput>;
+  startedAndFinishedOnDate?: InputMaybe<MetadataProgressUpdateStartedAndFinishedOnDateInput>;
+  startedOnDate?: InputMaybe<MetadataProgressUpdateStartedOrFinishedOnDateInput>;
+  withoutDates?: InputMaybe<MetadataProgressUpdateCommonInput>;
+};
+
+export type MetadataProgressUpdateChangeLatestInProgressInput = {
+  progress?: InputMaybe<Scalars['Decimal']['input']>;
+  state?: InputMaybe<SeenState>;
+};
+
+export type MetadataProgressUpdateCommonInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type MetadataProgressUpdateInput = {
+  change: MetadataProgressUpdateChange;
+  metadataId: Scalars['String']['input'];
+};
+
+export type MetadataProgressUpdateNewInProgressInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  startedOn: Scalars['DateTime']['input'];
+};
+
+export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  startedOn: Scalars['DateTime']['input'];
+  timestamp: Scalars['DateTime']['input'];
+};
+
+export type MetadataProgressUpdateStartedOrFinishedOnDateInput = {
+  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
+  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
+  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
+  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
+  timestamp: Scalars['DateTime']['input'];
 };
 
 export type MetadataSearchInput = {
@@ -1295,7 +1362,7 @@ export type MutationRoot = {
    * Deploy job to update progress of media items in bulk. For seen items in progress,
    * progress is updated only if it has actually changed.
    */
-  deployBulkProgressUpdate: Scalars['Boolean']['output'];
+  deployBulkMetadataProgressUpdate: Scalars['Boolean']['output'];
   /** Deploy a job to export data for a user. */
   deployExportJob: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
@@ -1480,8 +1547,8 @@ export type MutationRootDeployBackgroundJobArgs = {
 };
 
 
-export type MutationRootDeployBulkProgressUpdateArgs = {
-  input: Array<ProgressUpdateInput>;
+export type MutationRootDeployBulkMetadataProgressUpdateArgs = {
+  input: Array<MetadataProgressUpdateInput>;
 };
 
 
@@ -1777,20 +1844,6 @@ export type ProcessedExercise = {
   sets: Array<WorkoutSetRecord>;
   total?: Maybe<WorkoutOrExerciseTotals>;
   unitSystem: UserUnitSystem;
-};
-
-export type ProgressUpdateInput = {
-  animeEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  changeState?: InputMaybe<SeenState>;
-  date?: InputMaybe<Scalars['NaiveDate']['input']>;
-  mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
-  mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
-  metadataId: Scalars['String']['input'];
-  podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  progress?: InputMaybe<Scalars['Decimal']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
-  showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ProviderLanguageInformation = {
@@ -2096,7 +2149,7 @@ export type SearchInput = {
 export type Seen = {
   __typename?: 'Seen';
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
-  finishedOn?: Maybe<Scalars['NaiveDate']['output']>;
+  finishedOn?: Maybe<Scalars['DateTime']['output']>;
   id: Scalars['String']['output'];
   lastUpdatedOn: Scalars['DateTime']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
@@ -2108,7 +2161,7 @@ export type Seen = {
   providerWatchedOn?: Maybe<Scalars['String']['output']>;
   reviewId?: Maybe<Scalars['String']['output']>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
-  startedOn?: Maybe<Scalars['NaiveDate']['output']>;
+  startedOn?: Maybe<Scalars['DateTime']['output']>;
   state: SeenState;
   userId: Scalars['String']['output'];
 };
@@ -2270,12 +2323,12 @@ export type UpdateCustomMetadataInput = {
 };
 
 export type UpdateSeenItemInput = {
-  finishedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  finishedOn?: InputMaybe<Scalars['DateTime']['input']>;
   manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
   providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
   reviewId?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
-  startedOn?: InputMaybe<Scalars['NaiveDate']['input']>;
+  startedOn?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type UpdateUserExerciseSettings = {

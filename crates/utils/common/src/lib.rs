@@ -4,6 +4,7 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use reqwest::header::HeaderValue;
+use sea_orm::prelude::DateTimeUtc;
 use serde::de;
 use tokio::time::{Duration, sleep};
 
@@ -72,11 +73,15 @@ pub fn convert_date_to_year(d: &str) -> Option<i32> {
     convert_string_to_date(d).map(|d| d.format("%Y").to_string().parse::<i32>().unwrap())
 }
 
-pub fn convert_naive_to_utc(d: NaiveDate) -> DateTime<Utc> {
+pub fn convert_naive_to_utc(d: NaiveDate) -> DateTimeUtc {
     DateTime::from_naive_utc_and_offset(
         NaiveDateTime::new(d, NaiveTime::from_hms_opt(0, 0, 0).unwrap()),
         Utc,
     )
+}
+
+pub fn convert_naive_to_utc_datetime(d: NaiveDateTime) -> DateTimeUtc {
+    DateTime::from_naive_utc_and_offset(d, Utc)
 }
 
 pub fn deserialize_date<'de, D>(deserializer: D) -> Result<NaiveDate, D::Error>

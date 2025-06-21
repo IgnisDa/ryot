@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use common_models::{
     ApplicationDateRange, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
-    MetadataSearchInput, PeopleSearchInput, ProgressUpdateCacheInput, UserAnalyticsInput,
-    UserLevelCacheKey, YoutubeMusicSongListened,
+    MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
+    YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
+use media_models::MetadataProgressUpdateCacheInput;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -67,7 +68,6 @@ pub enum ApplicationCacheKey {
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     CollectionRecommendations(CollectionRecommendationsCachedInput),
     MetadataGroupSearch(UserLevelCacheKey<MetadataGroupSearchInput>),
-    ProgressUpdateCache(UserLevelCacheKey<ProgressUpdateCacheInput>),
     UserCollectionContents(UserLevelCacheKey<CollectionContentsInput>),
     UserMeasurementsList(UserLevelCacheKey<UserMeasurementsListInput>),
     YoutubeMusicSongListened(UserLevelCacheKey<YoutubeMusicSongListened>),
@@ -75,6 +75,8 @@ pub enum ApplicationCacheKey {
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
+    MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
+    MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
 }
 
 pub type IgdbSettings = String;
@@ -90,7 +92,6 @@ pub enum ApplicationCacheValue {
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
-    ProgressUpdateCache(EmptyCacheValue),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
     ListennotesSettings(ListennotesSettings),
@@ -103,6 +104,8 @@ pub enum ApplicationCacheValue {
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     UserMeasurementsList(UserMeasurementsListResponse),
+    MetadataProgressUpdateCompletedCache(EmptyCacheValue),
+    MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),

@@ -124,10 +124,6 @@ mutation DeployBackgroundJob($jobName: BackgroundJob!) {
 	deployBackgroundJob(jobName: $jobName)
 }
 
-mutation DeployBulkProgressUpdate($input: [ProgressUpdateInput!]!) {
-	deployBulkProgressUpdate(input: $input)
-}
-
 mutation DeployExportJob {
 	deployExportJob
 }
@@ -247,4 +243,10 @@ mutation MarkEntityAsPartial($input: MarkEntityAsPartialInput!) {
 
 mutation ExpireCacheKey($cacheId: UUID!) {
 	expireCacheKey(cacheId: $cacheId)
+}
+
+mutation DeployBulkMetadataProgressUpdate(
+	$input: [MetadataProgressUpdateInput!]!
+) {
+	deployBulkMetadataProgressUpdate(input: $input)
 }

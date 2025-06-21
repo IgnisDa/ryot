@@ -37,7 +37,7 @@ impl IntegrationService {
                         _ => true,
                     });
                 metadata.seen_history.iter_mut().for_each(|update| {
-                    update.ended_on = Some(update.ended_on.unwrap_or(Utc::now().date_naive()));
+                    update.ended_on = Some(update.ended_on.unwrap_or(Utc::now()));
                     if let Some(progress) = update.progress {
                         if progress > integration.maximum_progress.unwrap() {
                             ryot_log!(
@@ -51,7 +51,7 @@ impl IntegrationService {
                 });
             }
         });
-        let result = process_import(&integration.user_id, true, import, &self.0, |_| async {
+        let result = process_import(false, &integration.user_id, import, &self.0, |_| async {
             Ok(())
         })
         .await;

@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
 use async_graphql::Result;
-use chrono::Timelike;
+use chrono::{NaiveDate, Timelike};
 use common_models::{DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity};
 use common_utils::ryot_log;
 use database_models::{
@@ -48,7 +48,7 @@ pub async fn calculate_user_activities_and_summary(
         anime_extra_information: Option<SeenAnimeExtraInformation>,
         manga_extra_information: Option<SeenMangaExtraInformation>,
         metadata_id: String,
-        finished_on: Option<Date>,
+        finished_on: Option<DateTimeUtc>,
         last_updated_on: DateTimeUtc,
         metadata_lot: MediaLot,
         audio_book_specifics: Option<AudioBookSpecifics>,
@@ -87,15 +87,16 @@ pub async fn calculate_user_activities_and_summary(
     let mut activities = HashMap::new();
 
     fn get_activity_count<'a>(
-        activities: &'a mut HashMap<Option<Date>, daily_user_activity::Model>,
+        activities: &'a mut HashMap<Option<NaiveDate>, daily_user_activity::Model>,
         user_id: &'a String,
-        date: Option<Date>,
+        dt: Option<DateTimeUtc>,
         entity_id: String,
         entity_lot: EntityLot,
         metadata_lot: Option<MediaLot>,
         timestamp: DateTimeUtc,
     ) -> &'a mut daily_user_activity::Model {
         ryot_log!(debug, "Updating activity counts for id: {:?}", entity_id);
+        let date = dt.map(|d| d.date_naive());
         let existing = activities
             .entry(date)
             .or_insert(daily_user_activity::Model {
@@ -245,11 +246,10 @@ pub async fn calculate_user_activities_and_summary(
         .stream(&ss.db)
         .await?;
     while let Some(workout) = workout_stream.try_next().await? {
-        let date = workout.end_time.date_naive();
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            Some(date),
+            Some(workout.end_time),
             workout.id,
             EntityLot::Workout,
             None,
@@ -293,11 +293,10 @@ pub async fn calculate_user_activities_and_summary(
         .stream(&ss.db)
         .await?;
     while let Some(measurement) = measurement_stream.try_next().await? {
-        let date = measurement.timestamp.date_naive();
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            Some(date),
+            Some(measurement.timestamp),
             measurement.timestamp.to_string(),
             EntityLot::UserMeasurement,
             None,
@@ -312,11 +311,10 @@ pub async fn calculate_user_activities_and_summary(
         .stream(&ss.db)
         .await?;
     while let Some(review) = review_stream.try_next().await? {
-        let date = review.posted_on.date_naive();
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            Some(date),
+            Some(review.posted_on),
             review.id,
             EntityLot::Review,
             None,
@@ -349,11 +347,10 @@ pub async fn calculate_user_activities_and_summary(
         .await?;
 
     while let Some(cte) = collection_stream.try_next().await? {
-        let date = cte.created_on.date_naive();
         let activity = get_activity_count(
             &mut activities,
             user_id,
-            Some(date),
+            Some(cte.created_on),
             cte.id.to_string(),
             cte.entity_lot,
             None,

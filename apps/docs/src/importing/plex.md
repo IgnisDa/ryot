@@ -3,8 +3,8 @@
 You can import your watched movies and shows from [Plex](https://plex.tv).
 
 ::: info
-This will only import media that are already finished. Setup an
-[integration](../integrations.md#plex-sink) if you want to import media in progress.
+After importing, you can also set up an [integration](../integrations.md#plex-sink) for
+continuous updates.
 :::
 
 1. Obtain a `Plex-Token` as described

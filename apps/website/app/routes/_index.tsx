@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import TTLCache from "@isaacs/ttlcache";
-import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import ContactSubmissionEmail from "@ryot/transactional/emails/ContactSubmission";
+import LoginCodeEmail from "@ryot/transactional/emails/LoginCode";
 import {
 	cn,
 	getActionIntent,

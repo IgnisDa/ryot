@@ -17,7 +17,6 @@ fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }
 nanoid = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 schematic = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }

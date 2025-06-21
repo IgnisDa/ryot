@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
-use media_models::{DeployImportJobInput, ProgressUpdateInput, ReviewPostedEvent};
+use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use strum::Display;
 use uuid::Uuid;
@@ -9,7 +9,7 @@ pub enum HpApplicationJob {
     ReviewPosted(ReviewPostedEvent),
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
-    BulkProgressUpdate(String, Vec<ProgressUpdateInput>),
+    BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
@@ -30,7 +30,7 @@ pub enum MpApplicationJob {
 pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
-    UpdateUserLastActivityPerformed(String, DateTime<Utc>),
+    UpdateUserLastActivityPerformed(String, DateTimeUtc),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

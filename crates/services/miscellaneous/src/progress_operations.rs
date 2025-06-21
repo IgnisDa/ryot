@@ -1,17 +1,16 @@
 use std::sync::Arc;
 
 use async_graphql::{Error, Result};
-use common_models::{ProgressUpdateCacheInput, StringIdObject, UserLevelCacheKey};
+use common_models::StringIdObject;
 use database_models::{
     prelude::{Review, Seen},
     seen,
 };
-use dependent_models::{ApplicationCacheKey, ExpireCacheKeyInput};
 use dependent_utils::{
-    associate_user_with_entity, handle_after_metadata_seen_tasks, progress_update,
+    associate_user_with_entity, handle_after_metadata_seen_tasks, metadata_progress_update,
 };
 use enum_models::EntityLot;
-use media_models::{ProgressUpdateInput, UpdateSeenItemInput};
+use media_models::{MetadataProgressUpdateInput, UpdateSeenItemInput};
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -72,35 +71,11 @@ pub async fn delete_seen_item(
         return Err(Error::new("This seen item does not exist".to_owned()));
     };
     let cloned_seen = si.clone();
-    let (ssn, sen) = match &si.show_extra_information {
-        Some(d) => (Some(d.season), Some(d.episode)),
-        None => (None, None),
-    };
-    let pen = si.podcast_extra_information.as_ref().map(|d| d.episode);
-    let aen = si.anime_extra_information.as_ref().and_then(|d| d.episode);
-    let mcn = si.manga_extra_information.as_ref().and_then(|d| d.chapter);
-    let mvn = si.manga_extra_information.as_ref().and_then(|d| d.volume);
-    let cache = ApplicationCacheKey::ProgressUpdateCache(UserLevelCacheKey {
-        user_id: user_id.to_owned(),
-        input: ProgressUpdateCacheInput {
-            show_season_number: ssn,
-            manga_volume_number: mvn,
-            show_episode_number: sen,
-            anime_episode_number: aen,
-            manga_chapter_number: mcn,
-            podcast_episode_number: pen,
-            metadata_id: si.metadata_id.clone(),
-            provider_watched_on: si.provider_watched_on.clone(),
-        },
-    });
     if &si.user_id != user_id {
         return Err(Error::new(
             "This seen item does not belong to this user".to_owned(),
         ));
     }
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ByKey(cache))
-        .await?;
     let seen_id = si.id.clone();
     let metadata_id = si.metadata_id.clone();
     si.delete(&ss.db).await.trace_ok();
@@ -109,13 +84,13 @@ pub async fn delete_seen_item(
     Ok(StringIdObject { id: seen_id })
 }
 
-pub async fn bulk_progress_update(
+pub async fn bulk_metadata_progress_update(
     ss: &Arc<SupportingService>,
     user_id: &String,
-    input: Vec<ProgressUpdateInput>,
+    input: Vec<MetadataProgressUpdateInput>,
 ) -> Result<()> {
     for seen in input {
-        progress_update(user_id, false, seen, ss).await.trace_ok();
+        metadata_progress_update(user_id, ss, seen).await.trace_ok();
     }
     Ok(())
 }

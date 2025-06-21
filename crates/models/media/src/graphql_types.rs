@@ -1,12 +1,12 @@
-use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
+use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
-use common_models::{ApplicationDateRange, StringIdObject};
+use common_models::ApplicationDateRange;
 use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{prelude::DateTimeUtc, strum::Display};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
-// Import structures from other modules that are referenced
 use crate::{SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation};
 
 #[derive(Debug, InputObject, Default)]
@@ -28,14 +28,9 @@ pub struct CreateOrUpdateReviewInput {
     pub manga_chapter_number: Option<Decimal>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
-pub struct ProgressUpdateInput {
-    pub metadata_id: String,
-    pub date: Option<NaiveDate>,
-    pub progress: Option<Decimal>,
-    #[graphql(skip_input)]
-    pub start_date: Option<NaiveDate>,
-    pub change_state: Option<SeenState>,
+#[skip_serializing_none]
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
+pub struct MetadataProgressUpdateCommonInput {
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
     pub manga_volume_number: Option<i32>,
@@ -45,22 +40,58 @@ pub struct ProgressUpdateInput {
     pub manga_chapter_number: Option<Decimal>,
 }
 
-#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
-pub enum ProgressUpdateErrorVariant {
-    AlreadySeen,
-    NoSeenInProgress,
-    UpdateWithoutProgressUpdate,
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateStartedOrFinishedOnDateInput {
+    pub timestamp: DateTimeUtc,
+    #[graphql(flatten)]
+    pub common: MetadataProgressUpdateCommonInput,
 }
 
-#[derive(Debug, SimpleObject)]
-pub struct ProgressUpdateError {
-    pub error: ProgressUpdateErrorVariant,
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateStartedAndFinishedOnDateInput {
+    pub started_on: DateTimeUtc,
+    #[graphql(flatten)]
+    pub data: MetadataProgressUpdateStartedOrFinishedOnDateInput,
 }
 
-#[derive(Union)]
-pub enum ProgressUpdateResultUnion {
-    Ok(StringIdObject),
-    Error(ProgressUpdateError),
+#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MetadataProgressUpdateChangeLatestInProgressInput {
+    State(SeenState),
+    Progress(Decimal),
+}
+
+#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
+    WithoutDates(MetadataProgressUpdateCommonInput),
+    StartedOnDate(MetadataProgressUpdateStartedOrFinishedOnDateInput),
+    FinishedOnDate(MetadataProgressUpdateStartedOrFinishedOnDateInput),
+    StartedAndFinishedOnDate(MetadataProgressUpdateStartedAndFinishedOnDateInput),
+}
+
+#[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
+pub struct MetadataProgressUpdateNewInProgressInput {
+    pub started_on: DateTimeUtc,
+    #[graphql(flatten)]
+    pub data: MetadataProgressUpdateCommonInput,
+}
+
+#[derive(OneofObject, Debug, Deserialize, Serialize, Display, Clone)]
+pub enum MetadataProgressUpdateChange {
+    CreateNewInProgress(MetadataProgressUpdateNewInProgressInput),
+    CreateNewCompleted(MetadataProgressUpdateChangeCreateNewCompletedInput),
+    ChangeLatestInProgress(MetadataProgressUpdateChangeLatestInProgressInput),
+}
+
+#[derive(InputObject, Debug, Deserialize, Serialize, Clone)]
+pub struct MetadataProgressUpdateInput {
+    pub metadata_id: String,
+    pub change: MetadataProgressUpdateChange,
+}
+
+#[derive(InputObject, Debug, Deserialize, Serialize, Clone, Eq, PartialEq, Hash)]
+pub struct MetadataProgressUpdateCacheInput {
+    pub metadata_id: String,
+    pub common: MetadataProgressUpdateCommonInput,
 }
 
 #[derive(Debug, InputObject)]
@@ -153,8 +184,8 @@ pub struct UserMediaNextEntry {
 pub struct UpdateSeenItemInput {
     pub seen_id: String,
     pub review_id: Option<String>,
-    pub started_on: Option<NaiveDate>,
-    pub finished_on: Option<NaiveDate>,
+    pub started_on: Option<DateTimeUtc>,
+    pub finished_on: Option<DateTimeUtc>,
     pub manual_time_spent: Option<Decimal>,
     pub provider_watched_on: Option<String>,
 }

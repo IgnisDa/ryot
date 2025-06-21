@@ -1,3 +1,5 @@
+use std::result::Result as StdResult;
+
 use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{USER_AGENT_STR, ryot_log};
@@ -127,7 +129,7 @@ async fn get_item_details_with_source(
     client: &reqwest::Client,
     url: &str,
     item: &Item,
-) -> core::result::Result<(ItemDetails, String, MediaSource, MediaLot), ImportFailedItem> {
+) -> StdResult<(ItemDetails, String, MediaSource, MediaLot), ImportFailedItem> {
     let Some(media_type) = item.media_type.as_ref() else {
         return Err(ImportFailedItem {
             identifier: item.id.to_string(),
@@ -190,9 +192,9 @@ async fn process_item(
     total: usize,
     client: &reqwest::Client,
     url: &str,
-) -> core::result::Result<ImportOrExportMetadataItem, ImportFailedItem> {
+) -> StdResult<ImportOrExportMetadataItem, ImportFailedItem> {
     let (details, identifier, source, lot) =
-        get_item_details_with_source(&client, &url, &item).await?;
+        get_item_details_with_source(client, url, &item).await?;
 
     ryot_log!(
         debug,
@@ -242,7 +244,7 @@ async fn process_item(
                     (None, None)
                 };
                 ImportOrExportMetadataItemSeen {
-                    ended_on: s.date.map(|d| d.date_naive()),
+                    ended_on: s.date,
                     show_season_number: season_number,
                     show_episode_number: episode_number,
                     provider_watched_on: Some(ImportSource::Mediatracker.to_string()),

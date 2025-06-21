@@ -76,16 +76,16 @@ impl MediaExports {
                             s.manga_extra_information.clone().and_then(|d| d.chapter);
                         let manga_volume_number = s.manga_extra_information.and_then(|d| d.volume);
                         ImportOrExportMetadataItemSeen {
-                            progress: Some(s.progress),
-                            started_on: s.started_on,
-                            ended_on: s.finished_on,
-                            provider_watched_on: s.provider_watched_on,
                             show_season_number,
                             show_episode_number,
-                            podcast_episode_number,
+                            manga_volume_number,
                             anime_episode_number,
                             manga_chapter_number,
-                            manga_volume_number,
+                            podcast_episode_number,
+                            ended_on: s.finished_on,
+                            started_on: s.started_on,
+                            progress: Some(s.progress),
+                            provider_watched_on: s.provider_watched_on,
                         }
                     })
                     .collect();

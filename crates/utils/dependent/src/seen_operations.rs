@@ -14,10 +14,7 @@ use rust_decimal::{
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
-use crate::{
-    collection_operations::{add_entity_to_collection, remove_entity_from_collection},
-    utility_operations::{associate_user_with_entity, expire_user_collections_list_cache},
-};
+use crate::collection_operations::{add_entity_to_collection, remove_entity_from_collection};
 
 pub async fn seen_history(
     user_id: &String,
@@ -147,11 +144,7 @@ pub async fn handle_after_metadata_seen_tasks(
             ss,
         )
     };
-    remove_entity_from_collection(&DefaultCollection::Watchlist.to_string())
-        .await
-        .ok();
-    associate_user_with_entity(&seen.user_id, &seen.metadata_id, EntityLot::Metadata, ss).await?;
-    expire_user_collections_list_cache(&seen.user_id, ss).await?;
+    remove_entity_from_collection(&DefaultCollection::Watchlist.to_string()).await?;
     match seen.state {
         SeenState::InProgress => {
             for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
@@ -177,11 +170,8 @@ pub async fn handle_after_metadata_seen_tasks(
                     is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, &ss.db).await?;
                 if is_complete {
                     remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
-                        .await
-                        .ok();
-                    add_entity_to_collection(&DefaultCollection::Completed.to_string())
-                        .await
-                        .ok();
+                        .await?;
+                    add_entity_to_collection(&DefaultCollection::Completed.to_string()).await?;
                 } else {
                     for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
                         add_entity_to_collection(&col.to_string()).await.ok();

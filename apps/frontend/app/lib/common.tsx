@@ -60,6 +60,21 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
+type TimestampToStringResult<T> = T extends Date | string ? string : null;
+
+export const convertTimestampToUtcString = <
+	T extends Date | string | null | undefined,
+>(
+	dateTime: T,
+): TimestampToStringResult<T> => {
+	if (!dateTime) return null as TimestampToStringResult<T>;
+
+	const parsed = dayjs(dateTime);
+	if (!parsed.isValid()) return null as TimestampToStringResult<T>;
+
+	return parsed.utc().format() as TimestampToStringResult<T>;
+};
+
 export const zodCommaDelimitedString = z
 	.string()
 	.optional()
@@ -88,6 +103,10 @@ export const zodCollectionFilter = zodCommaDelimitedString.transform(
 			})
 			.filter(Boolean) as MediaCollectionFilter[],
 );
+
+export const zodDateTimeString = z
+	.string()
+	.transform((v) => convertTimestampToUtcString(v));
 
 export const LOGO_IMAGE_URL =
 	"https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";

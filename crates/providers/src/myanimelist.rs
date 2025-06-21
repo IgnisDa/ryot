@@ -118,7 +118,7 @@ async fn get_client_config(client_id: &str) -> Client {
 async fn search(
     client: &Client,
     media_type: &str,
-    q: &str,
+    query: &str,
     page: Option<i32>,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
@@ -134,7 +134,7 @@ async fn search(
     }
     let search: SearchResponse = client
         .get(format!("{}/{}", URL, media_type))
-        .query(&json!({ "q": q, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
+        .query(&json!({ "q": query, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
         .send()
         .await
         .map_err(|e| anyhow!(e))?
@@ -217,7 +217,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         suggestions.push(PartialMetadataWithoutId {
             lot: MediaLot::Anime,
             title: rel.node.title,
-            source: MediaSource::Mal,
+            source: MediaSource::Myanimelist,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
             ..Default::default()
@@ -227,7 +227,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         suggestions.push(PartialMetadataWithoutId {
             lot: MediaLot::Manga,
             title: rel.node.title,
-            source: MediaSource::Mal,
+            source: MediaSource::Myanimelist,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
             ..Default::default()
@@ -237,7 +237,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         suggestions.push(PartialMetadataWithoutId {
             lot,
             title: rel.node.title,
-            source: MediaSource::Mal,
+            source: MediaSource::Myanimelist,
             identifier: rel.node.id.to_string(),
             image: Some(rel.node.main_picture.large),
             ..Default::default()
@@ -254,7 +254,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         anime_specifics,
         manga_specifics,
         title: title.clone(),
-        source: MediaSource::Mal,
+        source: MediaSource::Myanimelist,
         description: details.synopsis,
         provider_rating: details.mean,
         identifier: identifier.clone(),

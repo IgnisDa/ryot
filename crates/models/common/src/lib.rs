@@ -2,7 +2,6 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use chrono::NaiveDate;
 use enum_meta::{Meta, meta};
 use enum_models::{EntityLot, MediaLot, MediaSource};
-use rust_decimal::Decimal;
 use schematic::{ConfigEnum, Schematic};
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc, sea_query::PgDateTruncUnit};
 use serde::{Deserialize, Serialize};
@@ -383,19 +382,6 @@ pub struct UserLevelCacheKey<T> {
 pub struct MetadataRecentlyConsumedCacheInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProgressUpdateCacheInput {
-    pub metadata_id: String,
-    pub show_season_number: Option<i32>,
-    pub manga_volume_number: Option<i32>,
-    pub show_episode_number: Option<i32>,
-    pub anime_episode_number: Option<i32>,
-    pub provider_watched_on: Option<String>,
-    pub podcast_episode_number: Option<i32>,
-    pub manga_chapter_number: Option<Decimal>,
 }
 
 #[skip_serializing_none]

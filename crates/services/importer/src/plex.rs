@@ -1,3 +1,5 @@
+use std::result::Result as StdResult;
+
 use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_utils::ryot_log;
@@ -21,7 +23,7 @@ async fn process_metadata_item(
     lot: MediaLot,
     client: &Client,
     api_url: &str,
-) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let Some(_lv) = item.last_viewed_at else {
         return Err(ImportFailedItem {
             lot: Some(lot),
@@ -52,7 +54,7 @@ async fn process_metadata_item(
             source: MediaSource::Tmdb,
             identifier: tmdb_id.to_string(),
             seen_history: vec![ImportOrExportMetadataItemSeen {
-                ended_on: item.last_viewed_at.map(|d| d.date_naive()),
+                ended_on: item.last_viewed_at,
                 provider_watched_on: Some(ImportSource::Plex.to_string()),
                 ..Default::default()
             }],
@@ -101,9 +103,9 @@ async fn process_metadata_item(
                     result_item
                         .seen_history
                         .push(ImportOrExportMetadataItemSeen {
+                            ended_on: leaf.last_viewed_at,
                             show_episode_number: leaf.index,
                             show_season_number: leaf.parent_index,
-                            ended_on: leaf.last_viewed_at.map(|d| d.date_naive()),
                             provider_watched_on: Some(ImportSource::Plex.to_string()),
                             ..Default::default()
                         });

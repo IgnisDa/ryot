@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{result::Result as StdResult, sync::Arc};
 
 use anyhow::anyhow;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
@@ -27,6 +27,13 @@ use supporting_service::SupportingService;
 
 use super::{ImportFailStep, ImportFailedItem};
 
+struct ImportServices<'a> {
+    ss: &'a Arc<SupportingService>,
+    hardcover_service: &'a HardcoverService,
+    google_books_service: &'a GoogleBooksService,
+    open_library_service: &'a OpenlibraryService,
+}
+
 pub async fn import(
     input: DeployUrlAndKeyImportInput,
     ss: &Arc<SupportingService>,
@@ -41,6 +48,14 @@ pub async fn import(
         AUTHORIZATION,
         HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),
     )]));
+
+    let services = ImportServices {
+        ss,
+        hardcover_service,
+        google_books_service,
+        open_library_service,
+    };
+
     let libraries_resp = client
         .get(format!("{}/libraries", url))
         .send()
@@ -67,19 +82,7 @@ pub async fn import(
         let len = finished_items.results.len();
 
         let results: Vec<_> = stream::iter(finished_items.results.into_iter().enumerate())
-            .map(|(idx, item)| {
-                process_item(
-                    idx,
-                    item,
-                    len,
-                    &client,
-                    &url,
-                    ss,
-                    hardcover_service,
-                    google_books_service,
-                    open_library_service,
-                )
-            })
+            .map(|(idx, item)| process_item(idx, item, len, &client, &url, &services))
             .buffer_unordered(5)
             .collect()
             .await;
@@ -100,22 +103,19 @@ async fn process_item(
     total: usize,
     client: &Client,
     url: &str,
-    ss: &Arc<SupportingService>,
-    hardcover_service: &HardcoverService,
-    google_books_service: &GoogleBooksService,
-    open_library_service: &OpenlibraryService,
-) -> core::result::Result<ImportCompletedItem, ImportFailedItem> {
+    services: &ImportServices<'_>,
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
     let metadata = item.media.clone().unwrap().metadata;
     let title = metadata.title.clone();
     ryot_log!(debug, "Importing item {:?} ({}/{})", title, idx + 1, total);
     let (identifier, lot, source, episodes) =
-        if Some("epub".to_string()) == item.media.as_ref().unwrap().ebook_format {
+        if item.media.as_ref().unwrap().ebook_format.as_deref() == Some("epub") {
             match &metadata.isbn {
                 Some(isbn) => match get_identifier_from_book_isbn(
                     isbn,
-                    hardcover_service,
-                    google_books_service,
-                    open_library_service,
+                    services.hardcover_service,
+                    services.google_books_service,
+                    services.open_library_service,
                 )
                 .await
                 {
@@ -141,7 +141,7 @@ async fn process_item(
         } else if let Some(asin) = metadata.asin.clone() {
             (asin, MediaLot::AudioBook, MediaSource::Audible, None)
         } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-            let item_details = get_item_details(&client, &url, &item.id, None)
+            let item_details = get_item_details(client, url, &item.id, None)
                 .await
                 .map_err(|e| ImportFailedItem {
                     error: Some(e.message),
@@ -157,7 +157,7 @@ async fn process_item(
                     for episode in episodes {
                         ryot_log!(debug, "Importing episode {:?}", episode.title);
                         let episode_details =
-                            get_item_details(&client, &url, &item.id, Some(episode.id.unwrap()))
+                            get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
                                 .await
                                 .map_err(|e| ImportFailedItem {
                                     error: Some(e.message),
@@ -175,7 +175,7 @@ async fn process_item(
                                     identifier: itunes_id.clone(),
                                     ..Default::default()
                                 },
-                                ss,
+                                services.ss,
                             )
                             .await
                             .map_err(|e| ImportFailedItem {
@@ -184,7 +184,7 @@ async fn process_item(
                                 step: ImportFailStep::ItemDetailsFromSource,
                                 ..Default::default()
                             })?;
-                            let podcast = get_updated_podcast_metadata(&itunes_id, ss)
+                            let podcast = get_updated_podcast_metadata(&itunes_id, services.ss)
                                 .await
                                 .map_err(|e| ImportFailedItem {
                                     identifier: title.clone(),

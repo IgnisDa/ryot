@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
-use chrono::{DateTime, Duration, NaiveDateTime, Offset, TimeZone, Utc};
+use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;
 use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
 use database_models::{
@@ -19,7 +19,8 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+    prelude::DateTimeUtc, prelude::Expr,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -147,7 +148,7 @@ impl ImporterService {
                         + Duration::seconds((import.completed.len() * each_item) as i64),
                 );
                 quick_update_model.update(&self.0.db).await?;
-                match process_import(&user_id, false, import, &self.0, |progress| {
+                match process_import(true, &user_id, import, &self.0, |progress| {
                     let id = import_id.clone();
                     async move {
                         ImportReport::update_many()
@@ -191,18 +192,19 @@ impl ImporterService {
 }
 
 pub mod utils {
+
     use super::*;
 
     pub fn get_date_time_with_offset(
         date_time: NaiveDateTime,
         timezone: &chrono_tz::Tz,
-    ) -> DateTime<Utc> {
+    ) -> DateTimeUtc {
         let offset = timezone
             .offset_from_utc_datetime(&Utc::now().naive_utc())
             .fix()
             .local_minus_utc();
         let offset = Duration::try_seconds(offset.into()).unwrap();
-        DateTime::<Utc>::from_naive_utc_and_offset(date_time, Utc) - offset
+        DateTimeUtc::from_naive_utc_and_offset(date_time, Utc) - offset
     }
 
     pub async fn associate_with_existing_or_new_exercise(
