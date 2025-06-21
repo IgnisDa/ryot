@@ -69,7 +69,7 @@ function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
 		const url = getImageUrl(path);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push(url);
+			images.push({ kind: "remote", url });
 		}
 	};
 
@@ -440,7 +440,7 @@ driver("details", async function (context) {
 
 	const showSeasons = seasonDataList.map((s) => buildSeason(s, dayjs));
 
-	const remoteImages = collectImages(
+	const images = collectImages(
 		showData?.poster_path,
 		showData?.backdrop_path,
 		imagesData?.posters,
@@ -459,7 +459,7 @@ driver("details", async function (context) {
 		properties: {
 			showSeasons,
 			providerRating,
-			assets: { remoteImages },
+			assets: { images, videos: [] },
 			isNsfw: showData?.adult === true ? true : null,
 			genres: collectGenres(showData?.genres),
 			sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,

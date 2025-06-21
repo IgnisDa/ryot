@@ -239,7 +239,10 @@ driver("details", async function (context) {
       genres: [],
       publishYear,
       byVariousArtists,
-      assets: { remoteImages: coverUrl ? [coverUrl] : [] },
+      assets: {
+        images: coverUrl ? [{ kind: "remote", url: coverUrl }] : [],
+        videos: [],
+      },
       sourceUrl: `https://musicbrainz.org/recording/${externalId}`,
     },
   };

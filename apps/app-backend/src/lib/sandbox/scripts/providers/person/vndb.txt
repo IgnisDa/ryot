@@ -144,7 +144,7 @@ driver("details", async function (context) {
       birthPlace: null,
       description,
       alternateNames: [],
-      assets: { remoteImages: [] },
+      assets: { images: [], videos: [] },
       sourceUrl: `https://vndb.org/${externalId}`,
     },
   };
