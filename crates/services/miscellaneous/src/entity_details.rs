@@ -1,6 +1,6 @@
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
-use async_graphql::Result;
+use async_graphql::{Error, Result};
 use common_models::SearchDetails;
 use database_models::{
     metadata_group_to_person, metadata_to_genre, metadata_to_metadata_group, metadata_to_person,
@@ -14,6 +14,7 @@ use dependent_models::{
     GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, SearchResults,
 };
 use dependent_utils::generic_metadata;
+use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
     GenreDetailsInput, GenreListItem, GraphqlMetadataDetails, GraphqlMetadataGroup,
@@ -143,19 +144,24 @@ pub async fn metadata_details(
     ss: &Arc<SupportingService>,
     metadata_id: &String,
 ) -> Result<GraphqlMetadataDetails> {
-    let MetadataBaseData {
-        mut model,
-        genres,
-        creators,
-        suggestions,
-    } = generic_metadata(metadata_id, ss).await?;
+    let (
+        MetadataBaseData {
+            mut model,
+            genres,
+            creators,
+            suggestions,
+        },
+        associations,
+    ) = try_join!(
+        generic_metadata(metadata_id, ss),
+        MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .find_also_related(MetadataGroup)
+            .all(&ss.db)
+            .map_err(|_e| Error::new("Failed to fetch metadata associations"))
+    )?;
 
     let mut group = vec![];
-    let associations = MetadataToMetadataGroup::find()
-        .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-        .find_also_related(MetadataGroup)
-        .all(&ss.db)
-        .await?;
     for association in associations {
         let grp = association.1.unwrap();
         group.push(GraphqlMetadataGroup {
