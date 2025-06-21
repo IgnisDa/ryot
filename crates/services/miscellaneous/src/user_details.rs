@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use application_utils::calculate_average_rating_for_user;
 use async_graphql::Result;
-use database_models::functions::get_user_to_entity_association;
+use database_models::{
+    functions::get_user_to_entity_association,
+    prelude::{Metadata, Seen},
+    seen,
+};
 use database_utils::{entity_in_collections, item_reviews};
 use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails};
 use dependent_utils::generic_metadata;
@@ -12,13 +16,9 @@ use itertools::Itertools;
 use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
-use migrations::{AliasedMetadata, AliasedSeen};
 use rust_decimal_macros::dec;
-use sea_orm::{ConnectionTrait, JoinType};
-use sea_query::{Alias, Expr, Func, Query};
+use sea_orm::{ColumnTrait, EntityTrait, QuerySelect};
 use supporting_service::SupportingService;
-
-use crate::core_operations::get_db_stmt;
 
 pub async fn user_metadata_details(
     ss: &Arc<SupportingService>,
@@ -91,36 +91,13 @@ pub async fn user_metadata_details(
             None
         }
     });
-    let metadata_alias = Alias::new("m");
-    let seen_alias = Alias::new("s");
-    let seen_select = Query::select()
-        .expr_as(
-            Expr::col((metadata_alias.clone(), AliasedMetadata::Id)),
-            Alias::new("metadata_id"),
-        )
-        .expr_as(
-            Func::count(Expr::col((seen_alias.clone(), AliasedSeen::MetadataId))),
-            Alias::new("num_times_seen"),
-        )
-        .from_as(AliasedMetadata::Table, metadata_alias.clone())
-        .join_as(
-            JoinType::LeftJoin,
-            AliasedSeen::Table,
-            seen_alias.clone(),
-            Expr::col((metadata_alias.clone(), AliasedMetadata::Id))
-                .equals((seen_alias.clone(), AliasedSeen::MetadataId)),
-        )
-        .and_where(Expr::col((metadata_alias.clone(), AliasedMetadata::Id)).eq(&metadata_id))
-        .group_by_col((metadata_alias.clone(), AliasedMetadata::Id))
-        .to_owned();
-    let stmt = get_db_stmt(seen_select);
-    let seen_by = ss
-        .db
-        .query_one(stmt)
-        .await?
-        .map(|qr| qr.try_get_by_index::<i64>(1).unwrap())
-        .unwrap();
-    let seen_by: usize = seen_by.try_into().unwrap();
+    let seen_by = Metadata::find_by_id(&metadata_id)
+        .select_only()
+        .column_as(seen::Column::Id.count(), "num_times_seen")
+        .left_join(Seen)
+        .into_tuple::<(i64,)>()
+        .one(&ss.db)
+        .await?;
     let user_to_meta =
         get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata).await;
     let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
@@ -191,9 +168,9 @@ pub async fn user_metadata_details(
         podcast_progress,
         seen_by_user_count,
         is_recently_consumed,
-        seen_by_all_count: seen_by,
         has_interacted: user_to_meta.is_some(),
         media_reason: user_to_meta.and_then(|n| n.media_reason),
+        seen_by_all_count: seen_by.map(|s| s.0).unwrap_or_default(),
     })
 }
 
