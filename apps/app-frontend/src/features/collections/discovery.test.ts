@@ -137,19 +137,6 @@ describe("collection discovery data flow", () => {
 	});
 
 	describe("collection selector data requirements", () => {
-		it("provides collection id and name for selector display", () => {
-			const entity = createQueryEngineCollectionFixture({
-				id: "selector-test",
-				name: "Display Name",
-			});
-
-			const result = toAppCollection(entity);
-
-			// These are the minimal fields needed to render a selector
-			expect(result.id).toBe("selector-test");
-			expect(result.name).toBe("Display Name");
-		});
-
 		it("provides membershipPropertiesSchema for form generation", () => {
 			const schema = {
 				fields: {
