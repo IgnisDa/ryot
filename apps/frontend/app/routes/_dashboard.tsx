@@ -1060,9 +1060,7 @@ const MetadataNewProgressUpdateForm = ({
 }) => {
 	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [selectedDate, setSelectedDate] = useState<Date | null | undefined>(
-		new Date(),
-	);
+	const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
@@ -1298,7 +1296,7 @@ const MetadataNewProgressUpdateForm = ({
 			) : null}
 			<Button
 				variant="outline"
-				disabled={selectedDate === undefined}
+				disabled={selectedDate === null}
 				className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
 				onClick={async () => {
 					const selectedDateFormatted =
