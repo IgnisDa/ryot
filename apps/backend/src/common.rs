@@ -21,7 +21,7 @@ use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
 use file_storage_service::FileStorageService;
 use fitness_resolver::{FitnessMutation, FitnessQuery};
 use fitness_service::FitnessService;
-use futures::future::join_all;
+use futures::try_join;
 use http::Request;
 use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
@@ -160,14 +160,13 @@ pub async fn create_app_services(
         ))
         .layer(cors);
 
-    join_all(
-        [
-            MpApplicationJob::SyncIntegrationsData,
-            MpApplicationJob::UpdateExerciseLibrary,
-        ]
-        .map(|job| supporting_service.perform_application_job(ApplicationJob::Mp(job))),
-    )
-    .await;
+    let _ = try_join!(
+        supporting_service.core_details(),
+        supporting_service
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData)),
+        supporting_service
+            .perform_application_job(ApplicationJob::Mp(MpApplicationJob::UpdateExerciseLibrary)),
+    );
 
     (
         app_router,
