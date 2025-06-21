@@ -455,7 +455,7 @@ export function SearchResultCollectionPanel(props: {
 	onRetryCollectionDiscovery: () => void;
 	collectionState: CollectionDiscoveryState;
 	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
-	collectionsDestination: { type: "view"; viewId: string } | { type: "none" };
+	collectionsDestination: { type: "view"; viewSlug: string } | { type: "none" };
 	onSaveCollection: (
 		values: CollectionMembershipFormValues,
 	) => Promise<void> | void;
@@ -526,7 +526,7 @@ export function SearchResultCollectionPanel(props: {
 							component={Link}
 							variant="subtle"
 							size="compact-xs"
-							to={`/views/${props.collectionsDestination.viewId}`}
+							to={`/views/${props.collectionsDestination.viewSlug}`}
 						>
 							Go to Collections
 						</Button>

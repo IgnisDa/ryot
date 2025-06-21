@@ -24,7 +24,7 @@ type SavedViewBodyOverrides = NonNullable<
 >;
 
 const builtinViewError = "Cannot modify built-in saved views";
-const missingViewId = "00000000-0000-0000-0000-000000000000";
+const missingViewSlug = "non-existent-view-slug";
 
 describe("Saved views E2E", () => {
 	it("lists built-in and user-created views together", async () => {
@@ -82,7 +82,7 @@ describe("Saved views E2E", () => {
 		const createdView = await createSavedView(client, cookies, {
 			name: "Lifecycle View",
 		});
-		const fetchedView = await getSavedView(client, cookies, createdView.id);
+		const fetchedView = await getSavedView(client, cookies, createdView.slug);
 
 		expect(fetchedView.id).toBe(createdView.id);
 		expect(fetchedView.name).toBe("Lifecycle View");
@@ -95,7 +95,7 @@ describe("Saved views E2E", () => {
 		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
 		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
 
-		const clonedView = await cloneSavedView(client, cookies, createdView.id);
+		const clonedView = await cloneSavedView(client, cookies, createdView.slug);
 		expect(clonedView.id).not.toBe(createdView.id);
 		expect(clonedView.name).toBe("Lifecycle View (Copy)");
 		expect(clonedView.isBuiltin).toBe(false);
@@ -158,13 +158,13 @@ describe("Saved views E2E", () => {
 		const updatedClone = await updateSavedView(
 			client,
 			cookies,
-			clonedView.id,
+			clonedView.slug,
 			updatedCloneInput,
 		);
 		const fetchedUpdatedClone = await getSavedView(
 			client,
 			cookies,
-			clonedView.id,
+			clonedView.slug,
 		);
 
 		expect(updatedClone.name).toBe("Lifecycle View (Copy) Revised");
@@ -180,9 +180,13 @@ describe("Saved views E2E", () => {
 		const deletedOriginal = await deleteSavedView(
 			client,
 			cookies,
-			createdView.id,
+			createdView.slug,
 		);
-		const deletedClone = await deleteSavedView(client, cookies, clonedView.id);
+		const deletedClone = await deleteSavedView(
+			client,
+			cookies,
+			clonedView.slug,
+		);
 		const remainingViews = await listSavedViews(client, cookies);
 		const remainingIds = remainingViews.map((view) => view.id);
 
@@ -195,16 +199,20 @@ describe("Saved views E2E", () => {
 	it("clones a built-in view into a deletable user view", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
-		const clonedView = await cloneSavedView(client, cookies, builtinView.id);
+		const clonedView = await cloneSavedView(client, cookies, builtinView.slug);
 
 		expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
 		expect(clonedView.isBuiltin).toBe(false);
 
-		const deletedClone = await deleteSavedView(client, cookies, clonedView.id);
+		const deletedClone = await deleteSavedView(
+			client,
+			cookies,
+			clonedView.slug,
+		);
 		const refreshedBuiltin = await getSavedView(
 			client,
 			cookies,
-			builtinView.id,
+			builtinView.slug,
 		);
 		const remainingViews = await listSavedViews(client, cookies);
 
@@ -217,9 +225,9 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const deleteResult = await client.DELETE("/saved-views/{viewId}", {
+		const deleteResult = await client.DELETE("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: builtinView.id } },
+			params: { path: { viewSlug: builtinView.slug } },
 		});
 
 		expect(deleteResult.response.status).toBe(400);
@@ -230,9 +238,9 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const invalidUpdate = await client.PUT("/saved-views/{viewId}", {
+		const invalidUpdate = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: builtinView.id } },
+			params: { path: { viewSlug: builtinView.slug } },
 			body: buildUpdatedSavedViewBody({
 				isDisabled: true,
 				name: "Attempted Rename",
@@ -242,9 +250,9 @@ describe("Saved views E2E", () => {
 		expect(invalidUpdate.response.status).toBe(400);
 		expect(invalidUpdate.error?.error?.message).toBe(builtinViewError);
 
-		const disableResult = await client.PUT("/saved-views/{viewId}", {
+		const disableResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: builtinView.id } },
+			params: { path: { viewSlug: builtinView.slug } },
 			body: {
 				icon: builtinView.icon,
 				name: builtinView.name,
@@ -258,9 +266,9 @@ describe("Saved views E2E", () => {
 		expect(disableResult.response.status).toBe(200);
 		expect(disableResult.data?.data.isDisabled).toBe(true);
 
-		const reEnableResult = await client.PUT("/saved-views/{viewId}", {
+		const reEnableResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: builtinView.id } },
+			params: { path: { viewSlug: builtinView.slug } },
 			body: {
 				icon: builtinView.icon,
 				name: builtinView.name,
@@ -275,7 +283,7 @@ describe("Saved views E2E", () => {
 		const fetchedReEnabled = await getSavedView(
 			client,
 			cookies,
-			builtinView.id,
+			builtinView.slug,
 		);
 
 		expect(fetchedReEnabled.isDisabled).toBe(false);
@@ -285,22 +293,22 @@ describe("Saved views E2E", () => {
 	it("returns 404 for missing views across read, update, clone, and delete", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const readResult = await client.GET("/saved-views/{viewId}", {
+		const readResult = await client.GET("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: missingViewId } },
+			params: { path: { viewSlug: missingViewSlug } },
 		});
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: missingViewId } },
+			params: { path: { viewSlug: missingViewSlug } },
 			body: buildUpdatedSavedViewBody(),
 		});
-		const cloneResult = await client.POST("/saved-views/{viewId}/clone", {
+		const cloneResult = await client.POST("/saved-views/{viewSlug}/clone", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: missingViewId } },
+			params: { path: { viewSlug: missingViewSlug } },
 		});
-		const deleteResult = await client.DELETE("/saved-views/{viewId}", {
+		const deleteResult = await client.DELETE("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: missingViewId } },
+			params: { path: { viewSlug: missingViewSlug } },
 		});
 
 		for (const result of [
@@ -321,11 +329,11 @@ describe("Saved views E2E", () => {
 		});
 
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		await updateSavedView(client, cookies, createdView.id, {
+		await updateSavedView(client, cookies, createdView.slug, {
 			name: "Immutable Fields View Updated",
 		});
 
-		const refreshedView = await getSavedView(client, cookies, createdView.id);
+		const refreshedView = await getSavedView(client, cookies, createdView.slug);
 
 		expect(refreshedView.id).toBe(createdView.id);
 		expect(refreshedView.isBuiltin).toBe(false);
@@ -344,12 +352,16 @@ describe("Saved views E2E", () => {
 		const disabledView = await updateSavedView(
 			client,
 			cookies,
-			createdView.id,
+			createdView.slug,
 			{
 				isDisabled: true,
 			},
 		);
-		const fetchedDisabled = await getSavedView(client, cookies, createdView.id);
+		const fetchedDisabled = await getSavedView(
+			client,
+			cookies,
+			createdView.slug,
+		);
 
 		expect(disabledView.isDisabled).toBe(true);
 		expect(fetchedDisabled.isDisabled).toBe(true);
@@ -357,13 +369,13 @@ describe("Saved views E2E", () => {
 		const reEnabledView = await updateSavedView(
 			client,
 			cookies,
-			createdView.id,
+			createdView.slug,
 			{ isDisabled: false },
 		);
 		const fetchedReEnabled = await getSavedView(
 			client,
 			cookies,
-			createdView.id,
+			createdView.slug,
 		);
 
 		expect(reEnabledView.isDisabled).toBe(false);
@@ -376,7 +388,7 @@ describe("Saved views E2E", () => {
 			name: `Filtered View ${crypto.randomUUID()}`,
 		});
 
-		await updateSavedView(client, cookies, createdView.id, {
+		await updateSavedView(client, cookies, createdView.slug, {
 			isDisabled: true,
 		});
 
@@ -403,7 +415,7 @@ describe("Saved views E2E", () => {
 			name: `Standalone View ${crypto.randomUUID()}`,
 		});
 
-		await updateSavedView(client, cookies, disabledTrackedView.id, {
+		await updateSavedView(client, cookies, disabledTrackedView.slug, {
 			trackerId,
 			isDisabled: true,
 		});
@@ -441,7 +453,7 @@ describe("Saved views E2E", () => {
 		});
 
 		const reordered = await reorderSavedViews(client, cookies, {
-			viewIds: [second.id, first.id],
+			viewSlugs: [second.slug, first.slug],
 			trackerId,
 		});
 		const scopedViews = await listSavedViews(client, cookies, {
@@ -452,10 +464,10 @@ describe("Saved views E2E", () => {
 			includeDisabled: true,
 		});
 
-		expect(reordered.viewIds.slice(0, 2)).toEqual([second.id, first.id]);
-		expect(scopedViews.map((view) => view.id).slice(0, 2)).toEqual([
-			second.id,
-			first.id,
+		expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
+		expect(scopedViews.map((view) => view.slug).slice(0, 2)).toEqual([
+			second.slug,
+			first.slug,
 		]);
 		expect(topLevelViews.some((view) => view.id === standalone.id)).toBe(true);
 	});
@@ -477,7 +489,7 @@ describe("Saved views E2E", () => {
 		});
 
 		await reorderSavedViews(client, cookies, {
-			viewIds: [second.id, first.id],
+			viewSlugs: [second.slug, first.slug],
 		});
 		const topLevelViews = await listSavedViews(client, cookies, {
 			includeDisabled: true,
@@ -486,11 +498,11 @@ describe("Saved views E2E", () => {
 			trackerId,
 			includeDisabled: true,
 		});
-		const topLevelCreatedIdsInOrder = topLevelViews
-			.filter((view) => view.id === first.id || view.id === second.id)
-			.map((view) => view.id);
+		const topLevelCreatedSlugsInOrder = topLevelViews
+			.filter((view) => view.slug === first.slug || view.slug === second.slug)
+			.map((view) => view.slug);
 
-		expect(topLevelCreatedIdsInOrder).toEqual([second.id, first.id]);
+		expect(topLevelCreatedSlugsInOrder).toEqual([second.slug, first.slug]);
 		expect(trackedViews.some((view) => view.id === tracked.id)).toBe(true);
 	});
 
@@ -504,11 +516,11 @@ describe("Saved views E2E", () => {
 			name: `Movable View ${crypto.randomUUID()}`,
 		});
 
-		const updatedView = await updateSavedView(client, cookies, movedView.id, {
+		const updatedView = await updateSavedView(client, cookies, movedView.slug, {
 			trackerId: undefined,
 			name: `${movedView.name} Updated`,
 		});
-		const fetchedView = await getSavedView(client, cookies, movedView.id);
+		const fetchedView = await getSavedView(client, cookies, movedView.slug);
 		const topLevelViews = await listSavedViews(client, cookies, {
 			includeDisabled: true,
 		});
@@ -538,12 +550,12 @@ describe("Saved views E2E", () => {
 
 		const result = await client.POST("/saved-views/reorder", {
 			headers: { Cookie: cookies },
-			body: { trackerId, viewIds: [tracked.id, standalone.id] },
+			body: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
 		});
 
 		expect(result.response.status).toBe(400);
 		expect(result.error?.error?.message).toBe(
-			"Saved view ids contain unknown saved views",
+			"Saved view slugs contain unknown saved views",
 		);
 	});
 
@@ -566,9 +578,9 @@ describe("Saved views E2E", () => {
 				},
 			}),
 		});
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: createdView.id } },
+			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: {
 					filter: null,
@@ -579,7 +591,7 @@ describe("Saved views E2E", () => {
 				},
 			}),
 		});
-		const refreshedView = await getSavedView(client, cookies, createdView.id);
+		const refreshedView = await getSavedView(client, cookies, createdView.slug);
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
@@ -658,78 +670,83 @@ describe("Saved views E2E", () => {
 				},
 			},
 		});
-		const updatedView = await updateSavedView(client, cookies, createdView.id, {
-			name: "Computed Saved View Updated",
-			queryDefinition: {
-				eventJoins: [],
-				entitySchemaSlugs: ["book"],
-				sort: { direction: "desc", expression: nextYearReference },
-				filter: {
-					type: "comparison",
-					operator: "gte",
-					left: nextYearReference,
-					right: { type: "literal", value: 2021 },
-				},
-				computedFields: [
-					{
-						key: "nextYear",
-						expression: {
-							type: "arithmetic",
-							operator: "add",
-							left: publishYearExpression,
-							right: { type: "literal", value: 1 },
-						},
+		const updatedView = await updateSavedView(
+			client,
+			cookies,
+			createdView.slug,
+			{
+				name: "Computed Saved View Updated",
+				queryDefinition: {
+					eventJoins: [],
+					entitySchemaSlugs: ["book"],
+					sort: { direction: "desc", expression: nextYearReference },
+					filter: {
+						type: "comparison",
+						operator: "gte",
+						left: nextYearReference,
+						right: { type: "literal", value: 2021 },
 					},
-					{
-						key: "label",
-						expression: {
-							type: "concat",
-							values: [
-								{ type: "literal", value: "Book: " },
-								entityColumnExpression("book", "name"),
-							],
-						},
-					},
-					{
-						key: "yearBand",
-						expression: {
-							type: "conditional",
-							whenTrue: { type: "literal", value: "modern" },
-							whenFalse: { type: "literal", value: "classic" },
-							condition: {
-								type: "comparison",
-								operator: "gte",
-								left: nextYearReference,
-								right: { type: "literal", value: 2021 },
+					computedFields: [
+						{
+							key: "nextYear",
+							expression: {
+								type: "arithmetic",
+								operator: "add",
+								left: publishYearExpression,
+								right: { type: "literal", value: 1 },
 							},
 						},
+						{
+							key: "label",
+							expression: {
+								type: "concat",
+								values: [
+									{ type: "literal", value: "Book: " },
+									entityColumnExpression("book", "name"),
+								],
+							},
+						},
+						{
+							key: "yearBand",
+							expression: {
+								type: "conditional",
+								whenTrue: { type: "literal", value: "modern" },
+								whenFalse: { type: "literal", value: "classic" },
+								condition: {
+									type: "comparison",
+									operator: "gte",
+									left: nextYearReference,
+									right: { type: "literal", value: 2021 },
+								},
+							},
+						},
+					],
+				},
+				displayConfiguration: {
+					table: {
+						columns: [{ label: "Band", expression: yearBandReference }],
 					},
-				],
-			},
-			displayConfiguration: {
-				table: {
-					columns: [{ label: "Band", expression: yearBandReference }],
-				},
-				grid: {
-					calloutProperty: yearBandReference,
-					titleProperty: labelReference,
-					imageProperty: [entityField("book", "image")],
-					primarySubtitleProperty: nextYearReference,
-					secondarySubtitleProperty: null,
-				},
-				list: {
-					calloutProperty: yearBandReference,
-					titleProperty: labelReference,
-					imageProperty: [entityField("book", "image")],
-					primarySubtitleProperty: nextYearReference,
-					secondarySubtitleProperty: null,
+					grid: {
+						calloutProperty: yearBandReference,
+						titleProperty: labelReference,
+						imageProperty: [entityField("book", "image")],
+						primarySubtitleProperty: nextYearReference,
+						secondarySubtitleProperty: null,
+					},
+					list: {
+						calloutProperty: yearBandReference,
+						titleProperty: labelReference,
+						imageProperty: [entityField("book", "image")],
+						primarySubtitleProperty: nextYearReference,
+						secondarySubtitleProperty: null,
+					},
 				},
 			},
-		});
+		);
 		const fetchedUpdatedView = await getSavedView(
 			client,
 			cookies,
-			createdView.id,
+			createdView.slug,
 		);
 
 		expect(createdView.queryDefinition.computedFields).toHaveLength(2);
@@ -773,9 +790,9 @@ describe("Saved views E2E", () => {
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: createdView.id } },
+			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: invalidQueryDefinition,
 			}),
@@ -817,9 +834,9 @@ describe("Saved views E2E", () => {
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: createdView.id } },
+			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: invalidQueryDefinition,
 			}),
@@ -858,9 +875,9 @@ describe("Saved views E2E", () => {
 				},
 			} as never,
 		});
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: createdView.id } },
+			params: { path: { viewSlug: createdView.slug } },
 			body: {
 				...buildUpdatedSavedViewBody(),
 				queryDefinition: {
@@ -902,9 +919,9 @@ describe("Saved views E2E", () => {
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
 		const createdView = await createSavedView(client, cookies);
-		const updateResult = await client.PUT("/saved-views/{viewId}", {
+		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
-			params: { path: { viewId: createdView.id } },
+			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
 				queryDefinition: invalidQueryDefinition,
 			}),

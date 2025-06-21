@@ -2613,6 +2613,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
+                                slug: string;
                                 name: string;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -2761,6 +2762,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
+                                slug: string;
                                 name: string;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -2846,20 +2848,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/saved-views/{viewId}": {
+    "/saved-views/{viewSlug}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get a saved view by ID */
+        /** Get a saved view by slug */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    viewId: string;
+                    viewSlug: string;
                 };
                 cookie?: never;
             };
@@ -2874,6 +2876,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
+                                slug: string;
                                 name: string;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -2954,7 +2957,7 @@ export interface paths {
             };
         };
         /**
-         * Update a saved view by ID
+         * Update a saved view by slug
          * @description For user-defined views, all fields are applied. Built-in views only allow `isDisabled` to change; attempts to modify other fields are rejected.
          */
         put: {
@@ -2962,7 +2965,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    viewId: string;
+                    viewSlug: string;
                 };
                 cookie?: never;
             };
@@ -3027,6 +3030,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
+                                slug: string;
                                 name: string;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -3124,7 +3128,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    viewId: string;
+                    viewSlug: string;
                 };
                 cookie?: never;
             };
@@ -3139,6 +3143,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
+                                slug: string;
                                 name: string;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -3234,7 +3239,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/saved-views/{viewId}/clone": {
+    "/saved-views/{viewSlug}/clone": {
         parameters: {
             query?: never;
             header?: never;
@@ -3249,7 +3254,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    viewId: string;
+                    viewSlug: string;
                 };
                 cookie?: never;
             };
@@ -3264,6 +3269,7 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
+                                slug: string;
                                 name: string;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -3381,7 +3387,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         trackerId?: string;
-                        viewIds: string[];
+                        viewSlugs: string[];
                     };
                 };
             };
@@ -3394,7 +3400,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                viewIds: string[];
+                                viewSlugs: string[];
                             };
                         };
                     };
