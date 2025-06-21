@@ -6,6 +6,7 @@ import {
 	FileButton,
 	Group,
 	Loader,
+	MultiSelect,
 	NumberInput,
 	Paper,
 	SegmentedControl,
@@ -445,6 +446,42 @@ function SelectField(props: SelectFieldProps) {
 	);
 }
 
+type MultiSelectFieldProps = {
+	label: string;
+	required?: boolean;
+	disabled?: boolean;
+	searchable?: boolean;
+	placeholder?: string;
+	description?: string;
+	data: ComponentProps<typeof MultiSelect>["data"];
+};
+
+function MultiSelectField(props: MultiSelectFieldProps) {
+	const field = useFieldContext<string[]>();
+
+	return (
+		<div>
+			<MultiSelect
+				data={props.data}
+				label={props.label}
+				required={props.required}
+				disabled={props.disabled}
+				value={field.state.value}
+				searchable={props.searchable}
+				placeholder={props.placeholder}
+				description={props.description}
+				error={!field.state.meta.isValid}
+				onChange={(value) => field.handleChange(value as string[])}
+			/>
+			{!field.state.meta.isValid && (
+				<Text c="red" size="xs">
+					{field.state.meta.errors.map((e) => e?.message).join(", ")}
+				</Text>
+			)}
+		</div>
+	);
+}
+
 type TextareaFieldProps = {
 	label: string;
 	rows?: number;
@@ -551,5 +588,6 @@ export const { useAppForm } = createFormHook({
 		CheckboxField,
 		TextareaField,
 		ColorInputField,
+		MultiSelectField,
 	},
 });
