@@ -1,19 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { AppEventSchema } from "./model";
+import { createEventSchemaFixture } from "#/features/test-fixtures";
 import { getEntityEventSchemaViewState } from "./model";
-
-function createEventSchemaFixture(
-	overrides: Partial<AppEventSchema> = {},
-): AppEventSchema {
-	return {
-		name: "Schema",
-		slug: "schema",
-		id: "schema-id",
-		propertiesSchema: {},
-		entitySchemaId: "entity-schema-id",
-		...overrides,
-	};
-}
 
 describe("getEntityEventSchemaViewState", () => {
 	it("returns empty when an entity schema has no event schemas", () => {

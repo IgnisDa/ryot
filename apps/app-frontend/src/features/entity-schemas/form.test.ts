@@ -1,4 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import {
+	createPropertySchemaInputFixture,
+	createPropertySchemaRowFixture,
+} from "#/features/test-fixtures";
 import { resolveNextPropertySchemaSlug } from "../property-schemas/form";
 import {
 	buildDefaultEntitySchemaPropertyRow,
@@ -9,6 +13,9 @@ import {
 	isEntitySchemaPropertyRowsValid,
 	toCreateEntitySchemaPayload,
 } from "./form";
+
+const input = createPropertySchemaInputFixture;
+const row = createPropertySchemaRowFixture;
 
 describe("buildDefaultEntitySchemaPropertyRow", () => {
 	it("returns an empty optional string property row", () => {
@@ -66,9 +73,7 @@ describe("buildEntitySchemaFormValues", () => {
 	});
 
 	it("maps existing values into form defaults", () => {
-		const properties = [
-			{ key: "title", type: "string" as const, required: true as const },
-		];
+		const properties = [input({ key: "title", required: true })];
 		const inputRow = properties[0];
 
 		if (!inputRow) {
@@ -163,8 +168,8 @@ describe("isEntitySchemaPropertyRowsValid", () => {
 	it("returns false when trimmed keys are duplicated", () => {
 		expect(
 			isEntitySchemaPropertyRowsValid([
-				{ key: "title", type: "string", required: false },
-				{ key: " title ", type: "number", required: true },
+				input({ key: "title" }),
+				input({ key: " title ", type: "number", required: true }),
 			]),
 		).toBeFalse();
 	});
@@ -172,8 +177,8 @@ describe("isEntitySchemaPropertyRowsValid", () => {
 	it("returns true for unique non-empty trimmed keys", () => {
 		expect(
 			isEntitySchemaPropertyRowsValid([
-				{ key: " title ", type: "string", required: false },
-				{ key: "publishedAt", type: "date", required: true },
+				input({ key: " title " }),
+				input({ key: "publishedAt", type: "date", required: true }),
 			]),
 		).toBeTrue();
 	});
@@ -186,9 +191,7 @@ describe("createEntitySchemaFormSchema", () => {
 			slug: "  \n\t ",
 			icon: "book-open",
 			accentColor: "#5B7FFF",
-			properties: [
-				{ id: "title", key: "title", type: "string", required: false },
-			],
+			properties: [row({ id: "title", key: "title" })],
 		});
 
 		expect(result.success).toBeFalse();
@@ -210,9 +213,7 @@ describe("createEntitySchemaFormSchema", () => {
 			slug: "  \n\t ",
 			icon: "book-open",
 			accentColor: "#5B7FFF",
-			properties: [
-				{ id: "title", key: "title", type: "string", required: false },
-			],
+			properties: [row({ id: "title", key: "title" })],
 		});
 
 		expect(result.success).toBeTrue();
@@ -242,8 +243,8 @@ describe("createEntitySchemaFormSchema", () => {
 
 	it("rejects duplicate trimmed property keys", () => {
 		const properties = [
-			{ id: "title", key: "title", type: "string", required: false },
-			{ id: "rating", key: " title ", type: "number", required: true },
+			row({ id: "title", key: "title" }),
+			row({ id: "rating", key: " title ", type: "number", required: true }),
 		] as const;
 		const result = createEntitySchemaFormSchema.safeParse({
 			properties,
@@ -267,9 +268,7 @@ describe("createEntitySchemaFormSchema", () => {
 	});
 
 	it("rejects a whitespace-only property key after trimming", () => {
-		const properties = [
-			{ id: "title", key: " \n\t ", type: "string", required: false },
-		] as const;
+		const properties = [row({ id: "title", key: " \n\t " })] as const;
 		const result = createEntitySchemaFormSchema.safeParse({
 			properties,
 			name: "Books",
@@ -297,9 +296,7 @@ describe("createEntitySchemaFormSchema", () => {
 			name: "Books",
 			slug: "books",
 			accentColor: "",
-			properties: [
-				{ id: "title", key: "title", type: "string", required: false },
-			],
+			properties: [row({ id: "title", key: "title" })],
 		});
 
 		expect(result.success).toBeFalse();
@@ -312,13 +309,8 @@ describe("createEntitySchemaFormSchema", () => {
 			icon: "book-open",
 			accentColor: "#5B7FFF",
 			properties: [
-				{ id: "title", key: "title", type: "string", required: true },
-				{
-					id: "published-at",
-					key: "publishedAt",
-					type: "date",
-					required: false,
-				},
+				row({ id: "title", key: "title", required: true }),
+				row({ id: "published-at", key: "publishedAt", type: "date" }),
 			],
 		});
 
@@ -330,9 +322,9 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 	it("maps scalar property types and trims keys", () => {
 		expect(
 			buildEntitySchemaPropertiesSchema([
-				{ key: " title ", type: "string", required: false },
-				{ key: "rating", type: "number", required: false },
-				{ key: "isOwned", type: "boolean", required: false },
+				input({ key: " title " }),
+				input({ key: "rating", type: "number" }),
+				input({ key: "isOwned", type: "boolean" }),
 			]),
 		).toEqual({
 			title: { type: "string" },
@@ -344,7 +336,7 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 	it("maps integer type correctly", () => {
 		expect(
 			buildEntitySchemaPropertiesSchema([
-				{ key: "pages", type: "integer", required: false },
+				input({ key: "pages", type: "integer" }),
 			]),
 		).toEqual({ pages: { type: "integer" } });
 	});
@@ -352,8 +344,8 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 	it("maps date rows and includes required flag when present", () => {
 		expect(
 			buildEntitySchemaPropertiesSchema([
-				{ key: "releasedOn", type: "date", required: true },
-				{ key: "summary", type: "string", required: false },
+				input({ key: "releasedOn", type: "date", required: true }),
+				input({ key: "summary" }),
 			]),
 		).toEqual({
 			summary: { type: "string" },
@@ -372,18 +364,13 @@ describe("toCreateEntitySchemaPayload", () => {
 					icon: "  book-open  ",
 					accentColor: "  #5B7FFF  ",
 					properties: [
-						{
+						row({
 							id: "released-on",
 							key: " releasedOn ",
 							type: "date",
 							required: true,
-						},
-						{
-							id: "rating",
-							key: "rating",
-							type: "number",
-							required: false,
-						},
+						}),
+						row({ id: "rating", key: "rating", type: "number" }),
 					],
 				},
 				"tracker-123",
@@ -409,9 +396,7 @@ describe("toCreateEntitySchemaPayload", () => {
 					icon: "book-open",
 					name: "  Books  ",
 					accentColor: "#5B7FFF",
-					properties: [
-						{ id: "title", key: "title", type: "string", required: false },
-					],
+					properties: [row({ id: "title", key: "title" })],
 				},
 				"tracker-123",
 			),
