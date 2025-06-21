@@ -34,6 +34,7 @@ const buildConditionalConcatProperty = (
 const buildSecondarySubtitleForSlug = (slug: string): ViewExpression | null => {
 	return match(slug)
 		.with("book", () => buildConditionalConcatProperty(slug, "pages", " pages"))
+		.with("exercise", () => createEntityPropertyExpression(slug, "equipment"))
 		.with("show", () =>
 			createEntityPropertyExpression(slug, "productionStatus"),
 		)
@@ -76,6 +77,17 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			{
 				label: "Birth Place",
 				expression: createEntityPropertyExpression(slug, "birthPlace"),
+			},
+		])
+		.with("exercise", () => [
+			nameColumn,
+			{
+				label: "Level",
+				expression: createEntityPropertyExpression(slug, "level"),
+			},
+			{
+				label: "Equipment",
+				expression: createEntityPropertyExpression(slug, "equipment"),
 			},
 		])
 		.with("collection", () => [nameColumn])
@@ -185,6 +197,13 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 				slug,
 				"birthDate",
 			),
+		};
+	}
+	if (slug === "exercise") {
+		return {
+			secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
+			calloutProperty: createEntityPropertyExpression(slug, "level"),
+			primarySubtitleProperty: createEntityPropertyExpression(slug, "lot"),
 		};
 	}
 	return {
