@@ -85,9 +85,9 @@ export function SavedViewResults(props: {
 	layout: ViewLayout;
 	accentColor: string;
 	accentMuted: string;
-	displayConfiguration: SavedViewDisplayConfiguration;
 	meta: QueryEngineMeta;
 	imageUrlById: Map<string, string | undefined>;
+	displayConfiguration: SavedViewDisplayConfiguration;
 }) {
 	const { isDark, textPrimary, textSecondary } = useThemeTokens();
 	if (props.layout === "grid") {
