@@ -1,0 +1,1 @@
+DROP INDEX "entity_global_no_script_external_id_unique";
