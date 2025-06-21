@@ -23,9 +23,9 @@ import {
 	type UserTemplatesOrWorkoutsListInput,
 	UserTemplatesOrWorkoutsListSortBy,
 	UserWorkoutDetailsDocument,
+	UserWorkoutsListDocument,
 	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
-	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -61,18 +61,18 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
+	WorkoutRevisionScheduledAlert,
 } from "~/components/fitness";
 import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	convertEnumToSelectData,
 	dayjsLib,
+	FitnessAction,
+	FitnessEntity,
+	PRO_REQUIRED_MESSAGE,
 	pageQueryParam,
 } from "~/lib/common";
 import {

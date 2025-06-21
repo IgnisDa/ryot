@@ -17,8 +17,8 @@ import {
 	Stack,
 	TagsInput,
 	Text,
-	TextInput,
 	Textarea,
+	TextInput,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -63,11 +63,11 @@ import {
 	ProRequiredAlert,
 } from "~/components/common";
 import {
-	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	convertEnumToSelectData,
 	getMetadataDetailsQuery,
 	openConfirmationModal,
+	PRO_REQUIRED_MESSAGE,
 	queryClient,
 	queryFactory,
 	zodCommaDelimitedString,

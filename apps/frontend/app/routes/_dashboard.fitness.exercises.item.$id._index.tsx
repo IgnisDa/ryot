@@ -14,6 +14,7 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
+	rem,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -22,7 +23,6 @@ import {
 	Tabs,
 	Text,
 	Title,
-	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -47,11 +47,9 @@ import {
 	IconChartPie,
 	IconCheck,
 	IconExternalLink,
-	IconMessageCircle2,
-} from "@tabler/icons-react";
-import {
 	IconHistoryToggle,
 	IconInfoCircle,
+	IconMessageCircle2,
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
@@ -67,18 +65,18 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
 import {
-	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	ExerciseHistory,
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
 import {
-	FitnessEntity,
-	TimeSpan,
 	clientGqlService,
 	convertEnumToSelectData,
 	dayjsLib,
+	FitnessEntity,
 	getDateFromTimeSpan,
+	TimeSpan,
 } from "~/lib/common";
 import {
 	useCoreDetails,

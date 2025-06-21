@@ -47,8 +47,8 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { BaseMediaDisplayItem } from "~/components/common";
 import {
-	FitnessEntity,
 	dayjsLib,
+	FitnessEntity,
 	getExerciseDetailsPath,
 	getSetColor,
 } from "~/lib/common";

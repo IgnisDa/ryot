@@ -66,12 +66,12 @@ import {
 } from "~/components/fitness";
 import {
 	ApplicationTimeRange,
-	MediaColors,
-	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	convertUtcHourToLocalHour,
 	dayjsLib,
 	getStartTimeFromRange,
+	MediaColors,
+	PRO_REQUIRED_MESSAGE,
 	queryFactory,
 	selectRandomElement,
 } from "~/lib/common";
@@ -297,10 +297,7 @@ export default function Page() {
 	);
 }
 
-const DisplayStat = (props: {
-	label: string;
-	value: string | number;
-}) => {
+const DisplayStat = (props: { label: string; value: string | number }) => {
 	return (
 		<Stack gap={4}>
 			<Text c="dimmed">{props.label}</Text>

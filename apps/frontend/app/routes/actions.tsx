@@ -25,11 +25,11 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { redirectToQueryParam } from "~/lib/common";
 import {
-	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
 	extendResponseHeaders,
 	getLogoutCookies,
+	MetadataSpecificsSchema,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/actions";
@@ -44,7 +44,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	let redirectTo = redirectToSearchParams || undefined;
 	let returnData = {};
 	const headers = new Headers();
-	let status = undefined;
+	let status;
 	await match(intent)
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;

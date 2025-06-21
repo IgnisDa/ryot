@@ -41,10 +41,10 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationGrid,
+	DisplayCollectionEntity,
 	DisplaySummarySection,
 	ProRequiredAlert,
 } from "~/components/common";
-import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
 import {
 	clientGqlService,
