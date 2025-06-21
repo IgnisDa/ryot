@@ -1,19 +1,12 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import {
-	entity,
-	entitySchema,
-	event,
-	relationship,
-	relationshipSchema,
-} from "~/lib/db/schema";
+import { entity, entitySchema, event, relationship } from "~/lib/db/schema";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineReferenceContext,
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import type { ImageSchemaType } from "~/lib/zod";
-import { getUserLibraryEntityId } from "~/modules/entities";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import type {
@@ -60,47 +53,61 @@ const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 const buildBaseEntitiesCte = (input: {
 	userId: string;
-	userLibraryEntityId: string | undefined;
 	entitySchemaIds: string[];
+	relationshipSchemaIds: string[];
 }) => {
 	const entitySchemaIdList = sql.join(
 		input.entitySchemaIds.map((entitySchemaId) => sql`${entitySchemaId}`),
 		sql`, `,
 	);
-	const libraryMembershipClause = input.userLibraryEntityId
-		? sql`${relationship.targetEntityId} = ${input.userLibraryEntityId}`
-		: sql`false`;
+
+	const entityColumns = sql`
+		${entity.id} as id,
+		${entity.name} as name,
+		${entity.image} as image,
+		${entity.createdAt} as created_at,
+		${entity.updatedAt} as updated_at,
+		${entity.properties} as properties,
+		${entity.externalId} as external_id,
+		${entitySchema.slug} as entity_schema_slug,
+		${entity.entitySchemaId} as entity_schema_id,
+		${entity.sandboxScriptId} as sandbox_script_id
+	`;
+
+	const userOwnedEntities = sql`
+		select ${entityColumns}
+		from ${entity}
+		inner join ${entitySchema}
+			on ${entity.entitySchemaId} = ${entitySchema.id}
+		where ${entity.userId} = ${input.userId}
+			and ${entity.entitySchemaId} in (${entitySchemaIdList})
+	`;
+
+	if (input.relationshipSchemaIds.length === 0) {
+		return sql`
+			base_entities as (
+				${userOwnedEntities}
+				union
+				select ${entityColumns}
+				from ${entity}
+				inner join ${entitySchema}
+					on ${entity.entitySchemaId} = ${entitySchema.id}
+				where ${entity.userId} is null
+					and ${entity.entitySchemaId} in (${entitySchemaIdList})
+			)
+		`;
+	}
+
+	const relationshipSchemaIdList = sql.join(
+		input.relationshipSchemaIds.map((id) => sql`${id}`),
+		sql`, `,
+	);
 
 	return sql`
 		base_entities as (
-			select
-				${entity.id} as id,
-				${entity.name} as name,
-				${entity.image} as image,
-				${entity.createdAt} as created_at,
-				${entity.updatedAt} as updated_at,
-				${entity.properties} as properties,
-				${entity.externalId} as external_id,
-				${entitySchema.slug} as entity_schema_slug,
-				${entity.entitySchemaId} as entity_schema_id,
-				${entity.sandboxScriptId} as sandbox_script_id
-			from ${entity}
-			inner join ${entitySchema}
-				on ${entity.entitySchemaId} = ${entitySchema.id}
-			where ${entity.userId} = ${input.userId}
-				and ${entity.entitySchemaId} in (${entitySchemaIdList})
+			${userOwnedEntities}
 			union
-			select
-				${entity.id} as id,
-				${entity.name} as name,
-				${entity.image} as image,
-				${entity.createdAt} as created_at,
-				${entity.updatedAt} as updated_at,
-				${entity.properties} as properties,
-				${entity.externalId} as external_id,
-				${entitySchema.slug} as entity_schema_slug,
-				${entity.entitySchemaId} as entity_schema_id,
-				${entity.sandboxScriptId} as sandbox_script_id
+			select ${entityColumns}
 			from ${entity}
 			inner join ${entitySchema}
 				on ${entity.entitySchemaId} = ${entitySchema.id}
@@ -109,14 +116,7 @@ const buildBaseEntitiesCte = (input: {
 			where ${entity.userId} is null
 				and ${entity.entitySchemaId} in (${entitySchemaIdList})
 				and ${relationship.userId} = ${input.userId}
-				and ${relationship.relationshipSchemaId} = (
-				select ${relationshipSchema.id}
-				from ${relationshipSchema}
-				where ${relationshipSchema.slug} = 'in-library'
-				and ${relationshipSchema.userId} is null
-				limit 1
-			)
-				and ${libraryMembershipClause}
+				and ${relationship.relationshipSchemaId} in (${relationshipSchemaIdList})
 		)
 	`;
 };
@@ -214,6 +214,7 @@ export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 export const executePreparedQuery = async (input: {
 	userId: string;
 	request: QueryEngineRequest;
+	relationshipSchemaIds: string[];
 	runtimeSchemas: QueryEngineSchemaRow[];
 	eventJoins: QueryEnginePreparedEventJoin[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
@@ -229,12 +230,9 @@ export const executePreparedQuery = async (input: {
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
-	const userLibraryEntityId = await getUserLibraryEntityId({
-		userId: input.userId,
-	});
 	const baseEntitiesCte = buildBaseEntitiesCte({
-		userLibraryEntityId,
 		userId: input.userId,
+		relationshipSchemaIds: input.relationshipSchemaIds,
 		entitySchemaIds: input.runtimeSchemas.map((schema) => schema.id),
 	});
 	const latestEventJoinCtes = input.eventJoins.map((join) => {

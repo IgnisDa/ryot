@@ -103,6 +103,7 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
+				relationships: [{ relationshipSchemaSlug: "in-library" }],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: null,
@@ -152,6 +153,7 @@ describe("Query engine E2E", () => {
 
 		const request = buildGridRequest({
 			entitySchemaSlugs: [schema.slug],
+			relationships: [{ relationshipSchemaSlug: "in-library" }],
 			displayConfiguration: buildGridDisplayConfiguration(
 				{
 					calloutProperty: null,
