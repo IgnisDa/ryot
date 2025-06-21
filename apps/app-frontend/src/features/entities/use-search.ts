@@ -154,8 +154,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 				const enqueueResult = await enqueueDetails.mutateAsync({
 					body: {
 						kind: "script",
+						driverName: "mediaDetails",
 						scriptId: provider.scriptId,
-						driverName: "details",
 						context: { identifier: item.identifier },
 					},
 				});
@@ -263,8 +263,8 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			const enqueueResult = await enqueueSearch.mutateAsync({
 				body: {
 					kind: "script",
+					driverName: "mediaSearch",
 					scriptId: provider.scriptId,
-					driverName: "search",
 					context: {
 						pageSize: 10,
 						page: currentSearch.page,
