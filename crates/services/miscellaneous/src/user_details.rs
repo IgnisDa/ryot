@@ -188,13 +188,12 @@ pub async fn user_person_details(
     user_id: String,
     person_id: String,
 ) -> Result<UserPersonDetails> {
-    let reviews = item_reviews(&user_id, &person_id, EntityLot::Person, true, ss).await?;
-    let collections =
-        entity_in_collections(&ss.db, &user_id, &person_id, EntityLot::Person).await?;
-    let is_recently_consumed =
-        get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss).await?;
-    let person_meta =
-        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person).await?;
+    let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
+        item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
+        entity_in_collections(&ss.db, &user_id, &person_id, EntityLot::Person),
+        get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
+        get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
+    )?;
     let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
     Ok(UserPersonDetails {
         reviews,
@@ -210,32 +209,29 @@ pub async fn user_metadata_group_details(
     user_id: String,
     metadata_group_id: String,
 ) -> Result<UserMetadataGroupDetails> {
-    let collections = entity_in_collections(
-        &ss.db,
-        &user_id,
-        &metadata_group_id,
-        EntityLot::MetadataGroup,
-    )
-    .await?;
-    let reviews = item_reviews(
-        &user_id,
-        &metadata_group_id,
-        EntityLot::MetadataGroup,
-        true,
-        ss,
-    )
-    .await?;
-    let is_recently_consumed =
-        get_entity_recently_consumed(&user_id, &metadata_group_id, EntityLot::MetadataGroup, ss)
-            .await?;
+    let (collections, reviews, is_recently_consumed, metadata_group_meta) = try_join!(
+        entity_in_collections(
+            &ss.db,
+            &user_id,
+            &metadata_group_id,
+            EntityLot::MetadataGroup,
+        ),
+        item_reviews(
+            &user_id,
+            &metadata_group_id,
+            EntityLot::MetadataGroup,
+            true,
+            ss,
+        ),
+        get_entity_recently_consumed(&user_id, &metadata_group_id, EntityLot::MetadataGroup, ss),
+        get_user_to_entity_association(
+            &ss.db,
+            &user_id,
+            &metadata_group_id,
+            EntityLot::MetadataGroup,
+        )
+    )?;
     let average_rating = calculate_average_rating_for_user(&user_id, &reviews);
-    let metadata_group_meta = get_user_to_entity_association(
-        &ss.db,
-        &user_id,
-        &metadata_group_id,
-        EntityLot::MetadataGroup,
-    )
-    .await?;
     Ok(UserMetadataGroupDetails {
         reviews,
         collections,
