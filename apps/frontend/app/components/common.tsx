@@ -806,14 +806,12 @@ export const ReviewItemDisplay = (props: {
 					</Group>
 					{props.review.textRendered ? (
 						!props.review.isSpoiler ? (
-							<>
-								<div
-									// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-									dangerouslySetInnerHTML={{
-										__html: props.review.textRendered,
-									}}
-								/>
-							</>
+							<div
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
+								dangerouslySetInnerHTML={{
+									__html: props.review.textRendered,
+								}}
+							/>
 						) : (
 							<>
 								{!opened ? (

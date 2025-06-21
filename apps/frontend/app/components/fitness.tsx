@@ -23,6 +23,7 @@ import {
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
+	type WorkoutSetPersonalBest,
 	type UserWorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
@@ -164,6 +165,17 @@ export const DisplaySetStatistics = (props: {
 	);
 };
 
+const DisplayPersonalBest = (props: {
+	personalBest: WorkoutSetPersonalBest;
+}) => {
+	const color = useGetRandomMantineColor(props.personalBest);
+	return (
+		<Badge size="xs" color={color} variant="light">
+			{startCase(props.personalBest)}
+		</Badge>
+	);
+};
+
 type Exercise =
 	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
@@ -204,14 +216,9 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => {
-									const color = useGetRandomMantineColor(pb);
-									return (
-										<Badge key={pb} size="xs" color={color} variant="light">
-											{startCase(pb)}
-										</Badge>
-									);
-								})}
+								{props.set.personalBests.map((pb) => (
+									<DisplayPersonalBest key={pb} personalBest={pb} />
+								))}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>

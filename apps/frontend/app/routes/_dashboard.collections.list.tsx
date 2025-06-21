@@ -306,6 +306,13 @@ type Collection =
 
 const IMAGES_CONTAINER_WIDTH = 250;
 
+const FallBackImage = (props: { name: string }) => {
+	const fallbackImageUrl = useFallbackImageUrl(props.name);
+	return (
+		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
+	);
+};
+
 const DisplayCollection = (props: {
 	index: number;
 	collection: Collection;
@@ -314,7 +321,6 @@ const DisplayCollection = (props: {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
-	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
 
 	const { data: collectionImages } = useQuery({
@@ -363,10 +369,6 @@ const DisplayCollection = (props: {
 			`${props.collection.collaborators.length - 1} collaborators`,
 		);
 
-	const FallBackImage = () => (
-		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
-	);
-
 	return (
 		<Paper
 			pr="md"
@@ -400,11 +402,11 @@ const DisplayCollection = (props: {
 								);
 							})
 						) : (
-							<FallBackImage />
+							<FallBackImage name={props.collection.name} />
 						)
 					) : (
 						<>
-							<FallBackImage />
+							<FallBackImage name={props.collection.name} />
 							<Box pos="absolute" left={0} right={0} bottom={0}>
 								<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
 							</Box>

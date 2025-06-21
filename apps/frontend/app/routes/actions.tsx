@@ -44,7 +44,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	let redirectTo = redirectToSearchParams || undefined;
 	let returnData = {};
 	const headers = new Headers();
-	let status;
+	let status: number | undefined;
 	await match(intent)
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
