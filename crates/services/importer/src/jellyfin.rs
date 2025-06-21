@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, result::Result as StdResult, sync::Arc};
 
 use async_graphql::Result;
 use common_utils::ryot_log;
@@ -93,7 +93,7 @@ async fn process_item(
     client: &Client,
     base_url: &str,
     series_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
-) -> std::result::Result<Option<ImportOrExportMetadataItem>, ImportFailedItem> {
+) -> StdResult<Option<ImportOrExportMetadataItem>, ImportFailedItem> {
     let typ = item.typ.clone().unwrap();
     ryot_log!(
         debug,
