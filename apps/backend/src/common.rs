@@ -73,7 +73,7 @@ pub async fn create_app_services(
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(2)
-            .burst_size(5)
+            .burst_size(1)
             .key_extractor(RateLimitExtractor)
             .use_headers()
             .finish()
