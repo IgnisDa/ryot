@@ -124,7 +124,7 @@ function collectGenres(cachedTags) {
 }
 
 async function getHardcoverApiKey() {
-  const configValueResponse = await getAppConfigValue("BOOKS_HARDCOVER_API_KEY");
+  const configValueResponse = await getAppConfigValue("books.hardcover.apiKey");
   if (!configValueResponse?.success) {
     throw new Error(
       configValueResponse?.error ?? "Could not load Hardcover API key",
