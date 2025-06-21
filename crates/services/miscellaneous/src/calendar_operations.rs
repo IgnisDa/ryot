@@ -1,6 +1,6 @@
 use application_utils::get_current_date;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
-use async_graphql::Result;
+use async_graphql::{Error, Result};
 use chrono::{Days, NaiveDate, Utc};
 use common_models::EntityAssets;
 use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
@@ -18,7 +18,7 @@ use dependent_utils::{
     get_users_monitoring_entity, remove_entity_from_collection, send_notification_for_user,
 };
 use enum_models::{EntityLot, MediaLot, UserNotificationContent, UserToMediaReason};
-use futures::TryStreamExt;
+use futures::{TryFutureExt, TryStreamExt, try_join};
 use itertools::Itertools;
 use media_models::{
     GraphqlCalendarEvent, PodcastSpecifics, SeenAnimeExtraInformation, SeenPodcastExtraInformation,
@@ -386,11 +386,13 @@ pub async fn get_calendar_events(
         )
         .order_by(Alias::new("date"), Order::Asc)
         .to_owned();
-    let user_preferences = user_by_id(&user_id, ss).await?.preferences;
-    let show_spoilers_in_calendar = user_preferences.general.show_spoilers_in_calendar;
-    let all_events = CalEvent::find_by_statement(get_db_stmt(stmt))
-        .all(&ss.db)
-        .await?;
+    let (user, all_events) = try_join!(
+        user_by_id(&user_id, ss),
+        CalEvent::find_by_statement(get_db_stmt(stmt))
+            .all(&ss.db)
+            .map_err(|_e| Error::new("Failed to fetch calendar events"))
+    )?;
+    let show_spoilers_in_calendar = user.preferences.general.show_spoilers_in_calendar;
     let mut events = vec![];
     for evt in all_events {
         let mut calc = GraphqlCalendarEvent {
