@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "entity_global_no_script_external_id_unique" ON "entity" USING btree ("external_id","entity_schema_id") WHERE "entity"."user_id" IS NULL AND "entity"."sandbox_script_id" IS NULL;
