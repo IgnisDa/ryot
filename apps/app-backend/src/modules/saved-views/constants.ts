@@ -1,6 +1,6 @@
 import {
-	createEntityColumnExpression as buildEntityColumnExpression,
-	createEntityPropertyExpression as buildEntityPropertyExpression,
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ViewExpression } from "~/lib/views/expression";
@@ -11,8 +11,6 @@ import type {
 	TableConfig,
 } from "./schemas";
 
-export { buildEntityColumnExpression, buildEntityPropertyExpression };
-
 const buildConditionalConcatProperty = (
 	schemaSlug: string,
 	property: string,
@@ -21,12 +19,12 @@ const buildConditionalConcatProperty = (
 	type: "conditional",
 	condition: {
 		type: "isNotNull",
-		expression: buildEntityPropertyExpression(schemaSlug, property),
+		expression: createEntityPropertyExpression(schemaSlug, property),
 	},
 	whenTrue: {
 		type: "concat",
 		values: [
-			buildEntityPropertyExpression(schemaSlug, property),
+			createEntityPropertyExpression(schemaSlug, property),
 			{ type: "literal", value: unit },
 		],
 	},
@@ -36,7 +34,9 @@ const buildConditionalConcatProperty = (
 const buildSecondarySubtitleForSlug = (slug: string): ViewExpression | null => {
 	return match(slug)
 		.with("book", () => buildConditionalConcatProperty(slug, "pages", " pages"))
-		.with("show", () => buildEntityPropertyExpression(slug, "productionStatus"))
+		.with("show", () =>
+			createEntityPropertyExpression(slug, "productionStatus"),
+		)
 		.with("movie", () =>
 			buildConditionalConcatProperty(slug, "runtime", " min"),
 		)
@@ -64,18 +64,18 @@ const buildSecondarySubtitleForSlug = (slug: string): ViewExpression | null => {
 const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 	const nameColumn = {
 		label: "Name",
-		expression: buildEntityColumnExpression(slug, "name"),
+		expression: createEntityColumnExpression(slug, "name"),
 	};
 	const yearColumn = {
 		label: "Year",
-		expression: buildEntityPropertyExpression(slug, "publishYear"),
+		expression: createEntityPropertyExpression(slug, "publishYear"),
 	};
 	return match(slug)
 		.with("person", () => [
 			nameColumn,
 			{
 				label: "Birth Place",
-				expression: buildEntityPropertyExpression(slug, "birthPlace"),
+				expression: createEntityPropertyExpression(slug, "birthPlace"),
 			},
 		])
 		.with("collection", () => [nameColumn])
@@ -84,7 +84,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Pages",
-				expression: buildEntityPropertyExpression(slug, "pages"),
+				expression: createEntityPropertyExpression(slug, "pages"),
 			},
 		])
 		.with("show", () => [
@@ -92,7 +92,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Status",
-				expression: buildEntityPropertyExpression(slug, "productionStatus"),
+				expression: createEntityPropertyExpression(slug, "productionStatus"),
 			},
 		])
 		.with("movie", () => [
@@ -100,7 +100,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Runtime",
-				expression: buildEntityPropertyExpression(slug, "runtime"),
+				expression: createEntityPropertyExpression(slug, "runtime"),
 			},
 		])
 		.with("anime", () => [
@@ -108,7 +108,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Episodes",
-				expression: buildEntityPropertyExpression(slug, "episodes"),
+				expression: createEntityPropertyExpression(slug, "episodes"),
 			},
 		])
 		.with("manga", () => [
@@ -116,7 +116,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Chapters",
-				expression: buildEntityPropertyExpression(slug, "chapters"),
+				expression: createEntityPropertyExpression(slug, "chapters"),
 			},
 		])
 		.with("audiobook", () => [
@@ -124,7 +124,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Runtime",
-				expression: buildEntityPropertyExpression(slug, "runtime"),
+				expression: createEntityPropertyExpression(slug, "runtime"),
 			},
 		])
 		.with("podcast", () => [
@@ -132,7 +132,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Episodes",
-				expression: buildEntityPropertyExpression(slug, "totalEpisodes"),
+				expression: createEntityPropertyExpression(slug, "totalEpisodes"),
 			},
 		])
 		.with("comic-book", () => [
@@ -140,7 +140,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Pages",
-				expression: buildEntityPropertyExpression(slug, "pages"),
+				expression: createEntityPropertyExpression(slug, "pages"),
 			},
 		])
 		.with("visual-novel", () => [
@@ -148,7 +148,7 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 			yearColumn,
 			{
 				label: "Length",
-				expression: buildEntityPropertyExpression(slug, "lengthMinutes"),
+				expression: createEntityPropertyExpression(slug, "lengthMinutes"),
 			},
 		])
 		.otherwise(() => [nameColumn, yearColumn]);
@@ -177,19 +177,22 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	if (slug === "person") {
 		return {
 			calloutProperty: null,
-			primarySubtitleProperty: buildEntityPropertyExpression(
+			primarySubtitleProperty: createEntityPropertyExpression(
 				slug,
 				"birthPlace",
 			),
-			secondarySubtitleProperty: buildEntityPropertyExpression(
+			secondarySubtitleProperty: createEntityPropertyExpression(
 				slug,
 				"birthDate",
 			),
 		};
 	}
 	return {
-		calloutProperty: buildEntityPropertyExpression(slug, "providerRating"),
-		primarySubtitleProperty: buildEntityPropertyExpression(slug, "publishYear"),
+		calloutProperty: createEntityPropertyExpression(slug, "providerRating"),
+		primarySubtitleProperty: createEntityPropertyExpression(
+			slug,
+			"publishYear",
+		),
 		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
 	};
 };
@@ -207,10 +210,10 @@ export const createDefaultDisplayConfiguration = (
 		primarySubtitleProperty,
 		secondarySubtitleProperty,
 		titleProperty: entitySchemaSlug
-			? buildEntityColumnExpression(entitySchemaSlug, "name")
+			? createEntityColumnExpression(entitySchemaSlug, "name")
 			: null,
 		imageProperty: entitySchemaSlug
-			? buildEntityColumnExpression(entitySchemaSlug, "image")
+			? createEntityColumnExpression(entitySchemaSlug, "image")
 			: null,
 	} satisfies GridConfig;
 	return {
@@ -233,7 +236,7 @@ export const createDefaultQueryDefinition = (
 	sort: {
 		direction: "asc",
 		expression: entitySchemaSlugs[0]
-			? buildEntityColumnExpression(entitySchemaSlugs[0], "name")
+			? createEntityColumnExpression(entitySchemaSlugs[0], "name")
 			: { type: "literal", value: "" },
 	},
 });

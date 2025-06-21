@@ -229,8 +229,6 @@ export function getMembershipPropertyEntries(
 	return entries;
 }
 
-export { getUnsupportedRequiredProperties };
-
 export function getUnsupportedRequiredPropertiesMessage(
 	propertyKeys: string[],
 ): string {
