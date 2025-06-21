@@ -1,5 +1,8 @@
 import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import type { ReactNode } from "react";
+import type { AppEntitySchema } from "#/features/entity-schemas/model";
+import type { PropertyPathRow } from "../form-extended";
+import { PropertyPathAutocomplete } from "./property-path-autocomplete";
 
 type DisplayConfigSection = "grid" | "list";
 type DisplayConfigProperty =
@@ -18,11 +21,6 @@ export type DisplayConfigPropertyFieldName =
 	| `displayConfiguration.${DisplayConfigSection}.${DisplayConfigProperty}[${number}].value`
 	| `displayConfiguration.table.columns[${number}].label`
 	| `displayConfiguration.table.columns[${number}].property[${number}].value`;
-
-type PropertyPathRow = {
-	id: string;
-	value: string;
-};
 
 type PropertyArrayFieldMeta = {
 	isValid: boolean;
@@ -59,6 +57,7 @@ export function PropertyArrayEditor(props: {
 	description: string;
 	emptyLabel?: string;
 	buttonLabel?: string;
+	schemas: AppEntitySchema[];
 	notConfiguredLabel?: string;
 	form: DisplayConfigBuilderFormLike;
 	buildNewRow: () => PropertyPathRow;
@@ -82,10 +81,20 @@ export function PropertyArrayEditor(props: {
 
 					if (properties === null) {
 						return (
-							<Text c="dimmed" size="xs" ta="center">
-								{props.notConfiguredLabel ??
-									'Not configured. Click "Add property path" to add one.'}
-							</Text>
+							<Stack gap="sm">
+								<Text c="dimmed" size="xs" ta="center">
+									{props.notConfiguredLabel ??
+										'Not configured. Click "Add property path" to add one.'}
+								</Text>
+								<Button
+									type="button"
+									variant="light"
+									disabled={props.isLoading}
+									onClick={() => arrayField.pushValue(props.buildNewRow())}
+								>
+									{props.buttonLabel ?? "Add property path"}
+								</Button>
+							</Stack>
 						);
 					}
 
@@ -110,11 +119,16 @@ export function PropertyArrayEditor(props: {
 												}
 											>
 												{(valueField) => (
-													<valueField.TextField
+													<PropertyPathAutocomplete
 														required
+														excludeImage={false}
+														schemas={props.schemas}
 														disabled={props.isLoading}
 														label={`Path ${index + 1}`}
-														placeholder="e.g., @name or smartphones.brand"
+														value={valueField.state.value}
+														onBlur={valueField.handleBlur}
+														error={!valueField.state.meta.isValid}
+														onChange={(value) => valueField.handleChange(value)}
 													/>
 												)}
 											</props.form.AppField>
