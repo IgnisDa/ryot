@@ -182,6 +182,28 @@ describe("Saved views E2E", () => {
 		});
 	});
 
+	it("returns built-in all-shows with in-library scoping for each user", async () => {
+		const userA = await createAuthenticatedClient();
+		const userB = await createAuthenticatedClient();
+		const userAView = await getSavedView(
+			userA.client,
+			userA.cookies,
+			"all-shows",
+		);
+		const userBView = await getSavedView(
+			userB.client,
+			userB.cookies,
+			"all-shows",
+		);
+
+		expect(userAView.queryDefinition.relationships).toEqual([
+			{ relationshipSchemaSlug: "in-library" },
+		]);
+		expect(userBView.queryDefinition.relationships).toEqual([
+			{ relationshipSchemaSlug: "in-library" },
+		]);
+	});
+
 	it("supports the full create-get-update-clone-delete lifecycle", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const createdView = await createSavedView(client, cookies, {
