@@ -1,10 +1,10 @@
 import { dayjs } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
-import type { ImageSchemaType } from "~/lib/db/schema";
 import type {
 	BuiltinMediaEntitySchemaSlug,
 	BuiltinMediaEventSchemaSlug,
 } from "~/lib/media/constants";
+import type { ImageSchemaType } from "~/lib/zod";
 import {
 	compareContinueItems,
 	compareRateTheseItems,

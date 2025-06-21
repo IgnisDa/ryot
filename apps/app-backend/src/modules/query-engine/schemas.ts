@@ -1,12 +1,11 @@
 import { z } from "@hono/zod-openapi";
-import { ImageSchema } from "~/lib/db/schema";
 import { dataSchema } from "~/lib/openapi";
 import {
 	computedFieldArraySchema,
 	viewExpressionSchema,
 } from "~/lib/views/expression";
 import { nullableViewPredicateSchema } from "~/lib/views/filtering";
-import { timestampFields } from "~/lib/zod";
+import { ImageSchema, timestampFields } from "~/lib/zod";
 import {
 	eventJoinDefinitionArraySchema,
 	sortDefinitionSchema,
