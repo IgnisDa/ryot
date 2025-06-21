@@ -5,10 +5,10 @@ import {
 	CoreDetailsDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
-import { type SerializeOptions, parse, serialize } from "cookie";
+import { parse, type SerializeOptions, serialize } from "cookie";
 import {
 	ClientError,
 	GraphQLClient,

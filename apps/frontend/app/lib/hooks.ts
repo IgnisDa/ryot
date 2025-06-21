@@ -10,8 +10,8 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router";
 import {
+	useNavigate,
 	useRevalidator,
 	useRouteLoaderData,
 	useSearchParams,
@@ -21,9 +21,9 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
-	type FitnessAction,
 	clientGqlService,
 	dayjsLib,
+	type FitnessAction,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,

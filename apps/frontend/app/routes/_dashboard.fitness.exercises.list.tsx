@@ -12,13 +12,13 @@ import {
 	Indicator,
 	MantineThemeProvider,
 	Pagination,
+	rem,
 	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
 	Text,
 	Title,
-	rem,
 } from "@mantine/core";
 import {
 	type UseListStateHandlers,

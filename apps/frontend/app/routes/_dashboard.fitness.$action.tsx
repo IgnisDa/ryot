@@ -22,6 +22,7 @@ import {
 	Paper,
 	Progress,
 	RingProgress,
+	rem,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -29,12 +30,11 @@ import {
 	Stack,
 	Table,
 	Text,
-	TextInput,
 	Textarea,
+	TextInput,
 	ThemeIcon,
 	Transition,
 	UnstyledButton,
-	rem,
 	useMantineTheme,
 } from "@mantine/core";
 import {
@@ -107,21 +107,21 @@ import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
 import {
 	DisplaySetStatistics,
-	ExerciseHistory,
 	displayWeightWithUnit,
+	ExerciseHistory,
 } from "~/components/fitness";
 import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	clientSideFileUpload,
 	convertEnumToSelectData,
 	dayjsLib,
+	FitnessAction,
+	FitnessEntity,
 	getExerciseDetailsPath,
 	getSetColor,
 	getSurroundingElements,
 	openConfirmationModal,
+	PRO_REQUIRED_MESSAGE,
 	postMessageToServiceWorker,
 	queryClient,
 	queryFactory,
@@ -138,16 +138,16 @@ import {
 import {
 	type CurrentWorkoutStopwatch,
 	type CurrentWorkoutTimer,
-	type Exercise,
-	type InProgressWorkout,
-	type Superset,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
+	type Exercise,
 	getExerciseDetailsQuery,
 	getExerciseImages,
 	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
+	type InProgressWorkout,
+	type Superset,
 	useCurrentWorkout,
 	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
@@ -263,7 +263,7 @@ const usePerformTasksAfterSetConfirmed = () => {
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
 		);
-		let exerciseIdxToFocusOn = undefined;
+		let exerciseIdxToFocusOn;
 		setCurrentWorkout((cw) =>
 			produce(cw, (draft) => {
 				if (!draft) return;
@@ -743,9 +743,7 @@ export default function Page() {
 	);
 }
 
-const NameAndOtherInputs = (props: {
-	openAssetsModal: () => void;
-}) => {
+const NameAndOtherInputs = (props: { openAssetsModal: () => void }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -1062,7 +1060,10 @@ const AssetDisplay = (props: {
 const DisplaySupersetModal = ({
 	onClose,
 	supersetWith,
-}: { onClose: () => void; supersetWith: string | null }) => {
+}: {
+	onClose: () => void;
+	supersetWith: string | null;
+}) => {
 	const [cw] = useCurrentWorkout();
 
 	const exerciseAlreadyInSuperset = useMemo(() => {

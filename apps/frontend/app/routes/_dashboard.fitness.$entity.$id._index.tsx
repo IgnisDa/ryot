@@ -59,17 +59,17 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { DisplayCollection, ProRequiredAlert } from "~/components/common";
 import {
-	ExerciseHistory,
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
+	ExerciseHistory,
+	WorkoutRevisionScheduledAlert,
 } from "~/components/fitness";
 import {
+	dayjsLib,
 	FitnessAction,
 	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
 	openConfirmationModal,
+	PRO_REQUIRED_MESSAGE,
 } from "~/lib/common";
 import {
 	useConfirmSubmit,
@@ -642,9 +642,7 @@ export default function Page() {
 	);
 }
 
-const ConsumedMetadataDisplay = (props: {
-	metadataId: string;
-}) => {
+const ConsumedMetadataDisplay = (props: { metadataId: string }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails } = useMetadataDetails(
 		props.metadataId,

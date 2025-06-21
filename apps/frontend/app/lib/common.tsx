@@ -636,9 +636,7 @@ export const clientSideFileUpload = async (file: File, prefix: string) => {
 	return presignedPutS3Url.key;
 };
 
-export const convertEnumToSelectData = (value: {
-	[id: number]: string;
-}) =>
+export const convertEnumToSelectData = (value: { [id: number]: string }) =>
 	Object.values(value).map((v) => ({
 		value: v,
 		label: startCase(v.toString().toLowerCase()),

@@ -10,12 +10,12 @@ import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { match } from "ts-pattern";
-import { type TPlanTypes, customers } from "~/drizzle/schema.server";
+import { customers, type TPlanTypes } from "~/drizzle/schema.server";
 import {
-	GRACE_PERIOD,
 	createUnkeyKey,
 	customDataSchema,
 	db,
+	GRACE_PERIOD,
 	getPaddleServerClient,
 	getProductAndPlanTypeByPriceId,
 	sendEmail,

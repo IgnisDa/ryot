@@ -23,6 +23,7 @@ import {
 	MultiSelect,
 	NumberInput,
 	Rating,
+	rem,
 	ScrollArea,
 	SegmentedControl,
 	Select,
@@ -31,19 +32,19 @@ import {
 	Stack,
 	Switch,
 	Text,
-	TextInput,
 	Textarea,
+	TextInput,
 	ThemeIcon,
 	Title,
 	Tooltip,
 	UnstyledButton,
-	rem,
 	useMantineTheme,
 } from "@mantine/core";
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	AddEntityToCollectionDocument,
 	CollectionExtraInformationLot,
 	CreateUserMeasurementDocument,
 	EntityLot,
@@ -59,7 +60,6 @@ import {
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { AddEntityToCollectionDocument } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, groupBy, isNumber, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
@@ -90,37 +90,37 @@ import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import { Fragment } from "react/jsx-runtime";
 import Joyride from "react-joyride";
 import {
 	Form,
+	isRouteErrorResponse,
 	Link,
 	NavLink,
 	Outlet,
-	isRouteErrorResponse,
 	useLoaderData,
 	useLocation,
 	useNavigate,
 	useRevalidator,
 	useRouteError,
 } from "react-router";
-import { Fragment } from "react/jsx-runtime";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { MultiSelectCreatable } from "~/components/common";
 import {
-	FitnessAction,
-	LOGO_IMAGE_URL,
-	ThreePointSmileyRating,
-	Verb,
 	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	convertTimestampToUtcString,
 	dayjsLib,
+	FitnessAction,
 	forcedDashboardPath,
 	getVerb,
+	LOGO_IMAGE_URL,
 	refreshEntityDetails,
+	ThreePointSmileyRating,
+	Verb,
 } from "~/lib/common";
 import {
 	useApplicationEvents,
@@ -148,6 +148,7 @@ import {
 	useReviewEntity,
 } from "~/lib/state/media";
 import {
+	colorSchemeCookie,
 	getCookieValue,
 	getCoreDetails,
 	getDecodedJwt,
@@ -156,7 +157,6 @@ import {
 	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
-import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
 
@@ -1311,7 +1311,7 @@ const MetadataNewProgressUpdateForm = ({
 						animeEpisodeNumber: metadataToUpdate.animeEpisodeNumber,
 						podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
 					};
-					const updates = new Array<MetadataProgressUpdateInput>();
+					const updates: MetadataProgressUpdateInput[] = [];
 
 					// Handle bulk updates for previous media
 					const latestHistoryItem = history[0];
