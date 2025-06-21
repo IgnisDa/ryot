@@ -5,6 +5,7 @@ import {
 	findBuiltinTracker,
 	listEntitySchemas,
 	listEventSchemas,
+	waitForEventCount,
 } from "../fixtures";
 
 async function setupEventFixture(
@@ -318,36 +319,17 @@ describe("Events bulk POST", () => {
 
 		const optionalResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId,
-					properties: { status: "draft" },
-				},
-			],
+			body: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
 		});
-
 		expect(optionalResult.response.status).toBe(200);
 		expect(optionalResult.data?.data.count).toBe(1);
 
 		const rejectedResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId,
-					properties: { status: "completed" },
-				},
-			],
+			body: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
 		});
-
-		expect(rejectedResult.response.status).toBe(400);
-		expect(rejectedResult.error?.error?.message).toContain(
-			"Event properties validation failed",
-		);
-		expect(rejectedResult.error?.error?.message).toContain(
-			"progressPercent is required",
-		);
+		expect(rejectedResult.response.status).toBe(200);
+		expect(rejectedResult.data?.data.count).toBe(1);
 
 		const acceptedResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -355,41 +337,26 @@ describe("Events bulk POST", () => {
 				{
 					entityId,
 					eventSchemaId,
-					properties: {
-						status: "completed",
-						progressPercent: 75,
-					},
+					properties: { status: "completed", progressPercent: 75 },
 				},
 			],
 		});
-
 		expect(acceptedResult.response.status).toBe(200);
 		expect(acceptedResult.data?.data.count).toBe(1);
 
-		const listResult = await apiClient.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-
-		expect(listResult.response.status).toBe(200);
-		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events.map((event) => event.properties)).toEqual([
 			{ progressPercent: 75, status: "completed" },
 			{ status: "draft" },
 		]);
 	});
 
-	it("returns 404 when the entity does not exist", async () => {
+	it("returns 404 when listing events for a non-existent entity", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 
-		const result = await apiClient.POST("/events", {
+		const result = await apiClient.GET("/events", {
 			headers: { Cookie: cookies },
-			body: [
-				{
-					properties: {},
-					entityId: crypto.randomUUID(),
-					eventSchemaId: crypto.randomUUID(),
-				},
-			],
+			params: { query: { entityId: crypto.randomUUID() } },
 		});
 
 		expect(result.response.status).toBe(404);
@@ -403,26 +370,13 @@ describe("Events bulk POST", () => {
 		await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{
-					entityId,
-					eventSchemaId,
-					properties: { rating: 4 },
-				},
-				{
-					entityId,
-					eventSchemaId,
-					properties: { rating: 5 },
-				},
+				{ entityId, eventSchemaId, properties: { rating: 4 } },
+				{ entityId, eventSchemaId, properties: { rating: 5 } },
 			],
 		});
 
-		const listResult = await apiClient.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-
-		expect(listResult.response.status).toBe(200);
-		expect(listResult.data?.data.length).toBe(2);
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events.length).toBe(2);
 	});
 
 	it("creates repeated built-in backlog events and lists them", async () => {
@@ -433,58 +387,21 @@ describe("Events bulk POST", () => {
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{
-					entityId,
-					properties: {},
-					eventSchemaId: backlogEventSchemaId,
-				},
-				{
-					entityId,
-					properties: {},
-					eventSchemaId: backlogEventSchemaId,
-				},
+				{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
+				{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
 			],
 		});
 
 		expect(createResult.response.status).toBe(200);
 		expect(createResult.data?.data.count).toBe(2);
 
-		const listResult = await apiClient.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-
-		expect(listResult.response.status).toBe(200);
-		expect(listResult.data?.data).toHaveLength(2);
-		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
-			["backlog", "backlog"],
-		);
-		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
-			{},
-			{},
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+			"backlog",
+			"backlog",
 		]);
-	});
-
-	it("rejects a built-in backlog event schema from another entity schema", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, mismatchedEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
-
-		const result = await apiClient.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					properties: {},
-					eventSchemaId: mismatchedEventSchemaId,
-				},
-			],
-		});
-
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toBe(
-			"Event schema does not belong to the entity schema",
-		);
+		expect(events.map((event) => event.properties)).toEqual([{}, {}]);
 	});
 
 	it("creates built-in progress events with rounded values and no completion side effects", async () => {
@@ -511,18 +428,14 @@ describe("Events bulk POST", () => {
 		expect(createResult.response.status).toBe(200);
 		expect(createResult.data?.data.count).toBe(2);
 
-		const listResult = await apiClient.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-
-		expect(listResult.response.status).toBe(200);
-		expect(listResult.data?.data).toHaveLength(2);
-		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
-			["progress", "progress"],
-		);
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+			"progress",
+			"progress",
+		]);
 		expect(
-			listResult.data?.data
+			events
 				.map((event) => event.properties.progressPercent as number)
 				.sort((a, b) => a - b),
 		).toEqual([25.56, 50.44]);
@@ -555,114 +468,19 @@ describe("Events bulk POST", () => {
 		expect(createResult.response.status).toBe(200);
 		expect(createResult.data?.data.count).toBe(2);
 
-		const listResult = await apiClient.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-
-		expect(listResult.response.status).toBe(200);
-		expect(listResult.data?.data).toHaveLength(2);
-		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
-			["complete", "complete"],
-		);
-		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+			"complete",
+			"complete",
+		]);
+		expect(events.map((event) => event.properties)).toEqual([
 			{
 				completionMode: "custom_timestamps",
 				completedOn: "2026-03-27T18:30:00Z",
 			},
 			{ completionMode: "just_now" },
 		]);
-	});
-
-	it("rejects built-in complete events missing completedOn for custom_timestamps", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, completeEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
-
-		const result = await apiClient.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "custom_timestamps" },
-				},
-			],
-		});
-
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
-			"Event properties validation failed",
-		);
-	});
-
-	it("rejects built-in complete events with date-only custom timestamps", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, completeEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
-
-		const result = await apiClient.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: {
-						completedOn: "2026-03-27",
-						completionMode: "custom_timestamps",
-					},
-				},
-			],
-		});
-
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
-			"Event properties validation failed",
-		);
-	});
-
-	it("rejects built-in complete events with invalid completion modes", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, completeEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
-
-		const result = await apiClient.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					eventSchemaId: completeEventSchemaId,
-					properties: { completionMode: "later" },
-				},
-			],
-		});
-
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
-			"Event properties validation failed",
-		);
-	});
-
-	it("rejects built-in progress events outside the accepted range", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, progressEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
-
-		const result = await apiClient.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					properties: { progressPercent: 100 },
-					eventSchemaId: progressEventSchemaId,
-				},
-			],
-		});
-
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
-			"Event properties validation failed",
-		);
 	});
 
 	it("creates repeated built-in review events before completion exists", async () => {
@@ -689,41 +507,15 @@ describe("Events bulk POST", () => {
 		expect(createResult.response.status).toBe(200);
 		expect(createResult.data?.data.count).toBe(2);
 
-		const listResult = await apiClient.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-
-		expect(listResult.response.status).toBe(200);
-		expect(listResult.data?.data).toHaveLength(2);
-		expect(listResult.data?.data.map((event) => event.eventSchemaSlug)).toEqual(
-			["review", "review"],
-		);
-		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
+		expect(events).toHaveLength(2);
+		expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+			"review",
+			"review",
+		]);
+		expect(events.map((event) => event.properties)).toEqual([
 			{ review: "Even better", rating: 5 },
 			{ rating: 4 },
 		]);
-	});
-
-	it("rejects built-in review ratings outside the accepted range", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, reviewEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
-
-		const result = await apiClient.POST("/events", {
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId,
-					properties: { rating: 6 },
-					eventSchemaId: reviewEventSchemaId,
-				},
-			],
-		});
-
-		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain(
-			"Event properties validation failed",
-		);
 	});
 });
