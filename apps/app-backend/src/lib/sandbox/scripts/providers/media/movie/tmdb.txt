@@ -328,9 +328,9 @@ driver("details", async function (context) {
 	return {
 		name: title,
 		properties: {
+			images,
 			runtime,
 			providerRating,
-			assets: { images, videos: [] },
 			isNsfw: movieData?.adult === true ? true : null,
 			genres: collectGenres(movieData?.genres),
 			...collectPeople(creditsData?.cast, creditsData?.crew),

@@ -264,10 +264,7 @@ driver("details", async function(context) {
       publishYear,
       description: getNullableString(podcast?.description),
       sourceUrl: buildSourceUrl(externalId, title),
-      assets: {
-        images: image.map((url) => ({ kind: "remote", url })),
-        videos: [],
-      },
+      images: image.map((url) => ({ kind: "remote", url })),
       freeCreators: creators,
       totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,

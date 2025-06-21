@@ -219,15 +219,21 @@ export const updateGlobalEntityById = async (input: {
 	name: string;
 	entityId: string;
 	entitySchemaId: string;
+	removePropertyKeys?: string[];
 	image: ImageSchemaType | null;
 	properties: EntityPropertiesShape;
 }) => {
+	const propertiesBase = (input.removePropertyKeys ?? []).reduce(
+		(acc, key) => sql`(${acc} - ${key})`,
+		sql`${entity.properties}`,
+	);
+
 	await db
 		.update(entity)
 		.set({
 			name: input.name,
 			image: input.image,
-			properties: sql`${entity.properties} || ${JSON.stringify(input.properties)}::jsonb`,
+			properties: sql`${propertiesBase} || ${JSON.stringify(input.properties)}::jsonb`,
 		})
 		.where(
 			and(

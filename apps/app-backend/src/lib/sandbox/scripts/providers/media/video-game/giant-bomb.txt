@@ -310,9 +310,9 @@ driver("details", async function(context) {
   return {
     name,
     properties: {
+      images,
       genres,
       platformReleases,
-      assets: { images, videos: [] },
       publishYear: extractYear(game.original_release_date),
       description: combineDescription(game.deck, game.description),
       sourceUrl:
