@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use application_utils::calculate_average_rating_for_user;
-use async_graphql::Result;
+use async_graphql::{Error, Result};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
@@ -12,7 +12,7 @@ use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPerson
 use dependent_utils::generic_metadata;
 use dependent_utils::{get_entity_recently_consumed, is_metadata_finished_by_user};
 use enum_models::{EntityLot, SeenState};
-use futures::join;
+use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
@@ -27,14 +27,14 @@ pub async fn user_metadata_details(
     metadata_id: String,
 ) -> Result<UserMetadataDetails> {
     let (
-        media_details_result,
-        collections_result,
-        reviews_result,
-        history_result,
-        seen_by_result,
-        user_to_meta_result,
-        is_recently_consumed_result,
-    ) = join!(
+        media_details,
+        collections,
+        reviews,
+        (_, history),
+        seen_by,
+        user_to_meta,
+        is_recently_consumed,
+    ) = try_join!(
         generic_metadata(&metadata_id, ss),
         entity_in_collections(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
         item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
@@ -44,18 +44,12 @@ pub async fn user_metadata_details(
             .column_as(seen::Column::Id.count(), "num_times_seen")
             .left_join(Seen)
             .into_tuple::<(i64,)>()
-            .one(&ss.db),
+            .one(&ss.db)
+            .map_err(|_| Error::new("Metadata not found")),
         get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
         get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss)
-    );
+    )?;
 
-    let media_details = media_details_result?;
-    let collections = collections_result?;
-    let reviews = reviews_result?;
-    let (_, history) = history_result?;
-    let seen_by = seen_by_result?;
-    let is_recently_consumed = is_recently_consumed_result?;
-    let user_to_meta = user_to_meta_result?;
     let in_progress = history
         .iter()
         .find(|h| h.state == SeenState::InProgress || h.state == SeenState::OnAHold)
