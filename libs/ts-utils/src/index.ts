@@ -207,6 +207,7 @@ export {
 	resolveRequiredString,
 } from "./slug";
 export {
+	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEventAggregateExpression,
