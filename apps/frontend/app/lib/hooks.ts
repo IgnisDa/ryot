@@ -289,7 +289,9 @@ export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 				message: "Progress will be updated shortly",
 			});
 			events.updateProgress(title);
-			revalidator.revalidate();
+			setTimeout(() => {
+				revalidator.revalidate();
+			}, 1500);
 		},
 	});
 
