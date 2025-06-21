@@ -1295,7 +1295,7 @@ describe("Query engine E2E", () => {
 		});
 		const schema = await createEntitySchema(client, cookies, {
 			trackerId,
-			name: "Movie",
+			name: "Tagged Movie",
 			propertiesSchema: {
 				fields: {
 					tags: {
