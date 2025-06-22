@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, OneofObject, SimpleObject};
+use common_models::{IdAndNamedObject, PersonSourceSpecifics};
+use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-
-use common_models::{IdAndNamedObject, PersonSourceSpecifics};
-use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 
 /// A specific instance when an entity was seen.
 #[skip_serializing_none]
@@ -180,9 +179,19 @@ pub struct DeployGenericCsvImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployTraktImportInput {
-    // The public username in Trakt.
-    pub username: String,
+pub struct DeployTraktImportListInput {
+    // The public url of the list in Trakt.
+    pub url: String,
+    // The name of the collection to import into.
+    pub collection: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum DeployTraktImportInput {
+    // Import from a public Trakt user.
+    User(String),
+    // Import from a public Trakt list.
+    List(DeployTraktImportListInput),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

@@ -497,7 +497,13 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
-  username: Scalars['String']['input'];
+  list?: InputMaybe<DeployTraktImportListInput>;
+  user?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type DeployTraktImportListInput = {
+  collection: Scalars['String']['input'];
+  url: Scalars['String']['input'];
 };
 
 export type DeployUrlAndKeyImportInput = {
