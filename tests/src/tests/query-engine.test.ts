@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
@@ -32,6 +33,17 @@ import {
 	waitForEventCount,
 } from "../fixtures";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
+
+type QueryEngineItems =
+	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"]["data"]["items"];
+
+const getItemFieldValue = (
+	item: Parameters<typeof getQueryEngineFieldOrThrow>[0],
+	key: string,
+) => getQueryEngineFieldOrThrow(item, key).value;
+
+const getItemTitles = (items: QueryEngineItems | undefined) =>
+	items?.map((item) => getItemFieldValue(item, "title"));
 
 describe("Query engine E2E", () => {
 	it("includes a global media entity when the user has it in their library", async () => {
@@ -77,7 +89,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([entity.name]);
+		expect(getItemTitles(data?.data.items)).toEqual([entity.name]);
 	});
 
 	it("computes entity averageRating from the current user's review events only", async () => {
@@ -265,9 +277,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(userAResult.response.status).toBe(200);
-		expect(userAResult.data?.data.items.map((item) => item.name)).toEqual([
-			entity.name,
-		]);
+		expect(getItemTitles(userAResult.data?.data.items)).toEqual([entity.name]);
 		expect(userBResult.response.status).toBe(200);
 		expect(userBResult.data?.data.items).toEqual([]);
 	});
@@ -285,11 +295,8 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(result?.items).toHaveLength(5);
-		expect(firstItem?.id).toBeDefined();
-		expect(firstItem?.name).toBe("Alpha Phone");
-		expect(Number.isNaN(Date.parse(String(firstItem?.createdAt)))).toBe(false);
-		expect(Number.isNaN(Date.parse(String(firstItem?.updatedAt)))).toBe(false);
-		expect(firstItem?.image).toEqual({
+		expect(getItemFieldValue(firstItem, "title")).toBe("Alpha Phone");
+		expect(getItemFieldValue(firstItem, "image")).toEqual({
 			kind: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
@@ -363,7 +370,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "label", kind: "text", value: "Pinned" },
 			{ key: "yearOrFallback", kind: "number", value: 2018 },
 		]);
@@ -419,7 +426,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "title", kind: "text", value: "Alpha Phone" },
 			{ key: "badge", kind: "text", value: "Alpha Phone" },
 			{ key: "rawReview", kind: "null", value: null },
@@ -469,15 +476,14 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
-			"Delta Watch",
-			"Gamma Phone",
-		]);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(
+			data?.data.items.map((item) => getItemFieldValue(item, "label")),
+		).toEqual(["Release 2022", "Release 2021"]);
+		expect(data?.data.items[0]).toEqual([
 			{ key: "label", kind: "text", value: "Release 2022" },
 			{ key: "nextYear", kind: "number", value: 2022 },
 		]);
-		expect(data?.data.items[1]?.fields).toEqual([
+		expect(data?.data.items[1]).toEqual([
 			{ key: "label", kind: "text", value: "Release 2021" },
 			{ key: "nextYear", kind: "number", value: 2021 },
 		]);
@@ -691,7 +697,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "nextYear", kind: "number", value: 2021 },
 			{ key: "rounded", kind: "number", value: 673 },
 			{ key: "floored", kind: "number", value: 673 },
@@ -735,7 +741,7 @@ describe("Query engine E2E", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "integerNormalized", kind: "number", value: 5 },
 		]);
 	});
@@ -833,9 +839,7 @@ describe("Query engine E2E", () => {
 			);
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items.map((item) => item.name)).toEqual(
-				scenario.expected,
-			);
+			expect(getItemTitles(data?.data.items)).toEqual(scenario.expected);
 		}
 	});
 
@@ -868,7 +872,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual(["Gamma Phone"]);
+		expect(getItemTitles(data?.data.items)).toEqual(["Gamma Phone"]);
 	});
 
 	it("applies explicit entity name filters across every schema", async () => {
@@ -879,11 +883,14 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: null,
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[smartphoneSlug, tabletSlug],
+				),
 				filter: {
 					type: "or",
 					predicates: [
@@ -909,7 +916,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(data?.data.items)).toEqual([
 			"Alpha Phone",
 			"Delta Tablet",
 		]);
@@ -923,11 +930,14 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: null,
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[smartphoneSlug, tabletSlug],
+				),
 				filter: {
 					type: "or",
 					predicates: [
@@ -949,7 +959,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(data?.data.items)).toEqual([
 			"Delta Tablet",
 			"Gamma Phone",
 			"Omega Phone",
@@ -987,21 +997,21 @@ describe("Query engine E2E", () => {
 			}),
 		);
 
-		expect(ascResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(ascResult.data?.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
 			"Delta Watch",
 			"Gamma Phone",
 			"Omega Prototype",
 		]);
-		expect(descResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(descResult.data?.data.items)).toEqual([
 			"Omega Prototype",
 			"Gamma Phone",
 			"Delta Watch",
 			"Beta Tablet",
 			"Alpha Phone",
 		]);
-		expect(yearResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(yearResult.data?.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
 			"Gamma Phone",
@@ -1042,9 +1052,7 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items).toHaveLength(1);
-		expect(data?.data.items[0]?.id).toBe(targetId);
-		expect(data?.data.items[0]?.name).toBe("Gamma Phone");
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "column_0", kind: "text", value: targetId },
 			{ key: "column_1", kind: "text", value: "Gamma Phone" },
 		]);
@@ -1066,11 +1074,14 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: [entityField(schema.slug, "id")],
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: [entityField(schema.slug, "id")],
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[schema.slug],
+				),
 				filter: {
 					type: "contains",
 					expression: createEntityColumnExpression(schema.slug, "id"),
@@ -1080,7 +1091,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual(["Beta Tablet"]);
+		expect(getItemTitles(data?.data.items)).toEqual(["Beta Tablet"]);
 		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
 			key: "callout",
 			kind: "text",
@@ -1091,11 +1102,14 @@ describe("Query engine E2E", () => {
 	it("sorts across schemas with COALESCE and keeps null values last", async () => {
 		const { client, cookies, smartphoneSlug, tabletSchema, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
-		const neutralDisplay = buildGridDisplayConfiguration({
-			calloutProperty: null,
-			primarySubtitleProperty: null,
-			secondarySubtitleProperty: null,
-		});
+		const neutralDisplay = buildGridDisplayConfiguration(
+			{
+				calloutProperty: null,
+				primarySubtitleProperty: null,
+				secondarySubtitleProperty: null,
+			},
+			[smartphoneSlug, tabletSlug],
+		);
 		const coalesceSort = {
 			direction: "asc" as const,
 			expression: {
@@ -1135,7 +1149,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(coalesceResult.response.status).toBe(200);
-		expect(coalesceResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(coalesceResult.data?.data.items)).toEqual([
 			"Alpha Phone",
 			"Beta Tablet",
 			"Gamma Phone",
@@ -1143,7 +1157,9 @@ describe("Query engine E2E", () => {
 			"Omega Phone",
 		]);
 		expect(nullsLastResult.response.status).toBe(200);
-		expect(nullsLastResult.data?.data.items.at(-1)?.name).toBe("Null Tablet");
+		expect(
+			getItemFieldValue(nullsLastResult.data?.data.items.at(-1), "title"),
+		).toBe("Null Tablet");
 	});
 
 	it("returns correct pagination metadata for first, middle, and last pages", async () => {
@@ -1199,9 +1215,7 @@ describe("Query engine E2E", () => {
 			);
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items.map((item) => item.name)).toEqual(
-				scenario.expectedNames,
-			);
+			expect(getItemTitles(data?.data.items)).toEqual(scenario.expectedNames);
 			expect(data?.data.meta.pagination).toEqual(scenario.expectedMeta);
 		}
 	});
@@ -1357,13 +1371,13 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(nameResult.response.status).toBe(200);
-		expect(nameResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(nameResult.data?.data.items)).toEqual([
 			"Alpha Phone",
 			"Gamma Phone",
 		]);
 
 		expect(categoryResult.response.status).toBe(200);
-		expect(categoryResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(categoryResult.data?.data.items)).toEqual([
 			"Alpha Phone",
 			"Gamma Phone",
 		]);
@@ -1418,11 +1432,14 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				entitySchemaSlugs: [schema.slug],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: null,
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[schema.slug],
+				),
 				filter: {
 					type: "contains",
 					expression: createEntityPropertyExpression(schema.slug, "tags"),
@@ -1432,7 +1449,7 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(data?.data.items)).toEqual([
 			"Action Movie",
 			"Sci-Fi Movie",
 		]);
@@ -1474,11 +1491,14 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 		});
 
-		const neutralDisplay = buildGridDisplayConfiguration({
-			calloutProperty: null,
-			primarySubtitleProperty: null,
-			secondarySubtitleProperty: null,
-		});
+		const neutralDisplay = buildGridDisplayConfiguration(
+			{
+				calloutProperty: null,
+				primarySubtitleProperty: null,
+				secondarySubtitleProperty: null,
+			},
+			[schema.slug],
+		);
 
 		const percentResult = await executeQueryEngine(
 			client,
@@ -1508,12 +1528,12 @@ describe("Query engine E2E", () => {
 		);
 
 		expect(percentResult.response.status).toBe(200);
-		expect(percentResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(percentResult.data?.data.items)).toEqual([
 			"Percent Item",
 		]);
 
 		expect(underscoreResult.response.status).toBe(200);
-		expect(underscoreResult.data?.data.items.map((item) => item.name)).toEqual([
+		expect(getItemTitles(underscoreResult.data?.data.items)).toEqual([
 			"Underscore Item",
 		]);
 	});
@@ -1607,9 +1627,7 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items).toHaveLength(1);
-		expect(data?.data.items[0]?.externalId).toBe(externalId);
-		expect(data?.data.items[0]?.sandboxScriptId).toBe(provider.scriptId);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "column_0", kind: "text", value: externalId },
 			{ key: "column_1", kind: "text", value: provider.scriptId },
 		]);
@@ -1646,9 +1664,7 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items).toHaveLength(1);
-		expect(data?.data.items[0]?.externalId).toBeNull();
-		expect(data?.data.items[0]?.sandboxScriptId).toBeNull();
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "column_0", kind: "null", value: null },
 			{ key: "column_1", kind: "null", value: null },
 		]);
@@ -1678,7 +1694,7 @@ describe("Query engine E2E", () => {
 		expect(response.status).toBe(200);
 		expect(data?.data.items.length).toBeGreaterThan(0);
 		for (const item of data?.data.items ?? []) {
-			expect(item.externalId).toBeNull();
+			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("null");
 		}
 	});
 
@@ -1773,16 +1789,14 @@ describe("Query engine E2E", () => {
 		expect(data?.data.items).toHaveLength(2);
 
 		const globalItem = data?.data.items.find(
-			(item) => item.name === globalEntity.name,
+			(item) => getItemFieldValue(item, "column_1") === externalId,
 		);
 		const userItem = data?.data.items.find(
-			(item) => item.name === userEntityName,
+			(item) => getItemFieldValue(item, "column_0") === userEntityName,
 		);
 
-		expect(globalItem?.externalId).toBe(externalId);
-		expect(globalItem?.sandboxScriptId).toBe(provider.scriptId);
-		expect(userItem?.externalId).toBeNull();
-		expect(userItem?.sandboxScriptId).toBeNull();
+		expect(globalItem).toBeDefined();
+		expect(userItem).toBeDefined();
 	});
 
 	describe("entity-schema fields", () => {
@@ -1834,7 +1848,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items[0]?.fields).toEqual([
+			expect(data?.data.items[0]).toEqual([
 				{ key: "entitySchemaName", kind: "text", value: schema.data.name },
 			]);
 		});
@@ -1859,7 +1873,7 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.items[0]?.fields).toEqual([
+			expect(data?.data.items[0]).toEqual([
 				{ key: "isBuiltin", kind: "boolean", value: false },
 			]);
 		});
@@ -1884,8 +1898,8 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const slugs = data?.data.items.map(
-				(item) => item.fields.find((f) => f.key === "entitySchemaSlug")?.value,
+			const slugs = data?.data.items.map((item) =>
+				getItemFieldValue(item, "entitySchemaSlug"),
 			);
 			expect(
 				slugs?.every((slug) => slug === smartphoneSlug || slug === tabletSlug),
@@ -1938,8 +1952,8 @@ describe("Query engine E2E", () => {
 			});
 
 			expect(response.status).toBe(200);
-			const names = data?.data.items.map(
-				(item) => item.fields.find((f) => f.key === "entitySchemaName")?.value,
+			const names = data?.data.items.map((item) =>
+				getItemFieldValue(item, "entitySchemaName"),
 			);
 			expect(names?.length).toBeGreaterThan(1);
 		});

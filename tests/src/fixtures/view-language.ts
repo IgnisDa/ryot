@@ -1,6 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
-	type EventAggregation,
 	entityBuiltinColumns,
 	entitySchemaBuiltinColumns,
 	eventJoinBuiltinColumns,
