@@ -85,9 +85,11 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				`Event schema '${reference.eventSchemaSlug}' is not available for the requested entity schemas`,
 			);
 		}
-		// Path validation is not performed here because event schemas can differ
-		// per entity schema, making cross-schema property resolution complex. The
-		// SQL subquery handles invalid paths gracefully by returning NULL.
+		if (reference.path[0] !== "properties") {
+			throw new QueryEngineValidationError(
+				`Event aggregate path must start with 'properties' (received '${reference.path[0]}')`,
+			);
+		}
 		return;
 	}
 
