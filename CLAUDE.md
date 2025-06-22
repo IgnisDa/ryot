@@ -1,9 +1,15 @@
 # Rules for Ryot
 
-- The project uses moon for mono repo management. So all commands (like typecheck, running tests etc) should use moon commands.
-- After adding a graphql query/mutation to the backend, always run the command to regenerate graphql types. You can check the relevant moon.yml for the correct command.
+- The project uses moon for monorepo management. So all commands (like typecheck, running
+  tests etc) should use moon commands.
+- When running tests, the backend needs to be compiled in release mode. Since this takes a
+  lot of time, thus we prefer to run tests only after the feature has been implemented.
+  Always ask the user approval to run tests.
+- After adding a graphql query/mutation to the backend, always run the command to
+  regenerate graphql types. You can check the relevant moon.yml for the correct command.
 - Do not add code comments unless strictly necessary.
-- When adding code, please make sure attributes are always ordered by the line length. For example:
+- When adding code, please make sure attributes are always ordered by the line length. For
+  example:
 
   ```tsx
   <TextInput
@@ -46,7 +52,7 @@
   ```
 
 - Since this an open source project, we have a slightly different approach to writing
-  migrations. When adding the migration, if the table you are working with already exists,
-  then the same change should be applied to the migration where this table was created. We
-  need to do this so that new instances of Ryot can have the same table structure right off
-  the bat.
+  migrations. When adding a migration with a schema change, if the table you are working
+  with already exists, then the same change should be applied to the migration where this
+  table was first created. We need to do this so that new instances of Ryot can have the
+  same table structure right off the bat.
