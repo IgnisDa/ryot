@@ -1,9 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createBuiltinAnimeProgressEventDeps,
 	createBuiltinBacklogEventDeps,
 	createBuiltinCompleteEventDeps,
+	createBuiltinMangaProgressEventDeps,
+	createBuiltinPodcastProgressEventDeps,
 	createBuiltinProgressEventDeps,
 	createBuiltinReviewEventDeps,
+	createBuiltinShowProgressEventDeps,
 	createEventBody,
 	createEventCreateScope,
 	createEventDeps,
@@ -425,6 +429,203 @@ describe("createEvent", () => {
 
 		expect(createdEvent.eventSchemaSlug).toBe("progress");
 		expect(createdEvent.properties).toEqual({ progressPercent: 25.56 });
+	});
+
+	it("creates a built-in show progress event with season and episode", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: {
+							showSeason: 2,
+							showEpisode: 5,
+							progressPercent: 25.555,
+						},
+					}),
+				},
+				createBuiltinShowProgressEventDeps(),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("progress");
+		expect(createdEvent.properties).toEqual({
+			showSeason: 2,
+			showEpisode: 5,
+			progressPercent: 25.56,
+		});
+	});
+
+	it("rejects show progress events with episode but without season", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: { showEpisode: 5, progressPercent: 100 },
+				}),
+			},
+			createBuiltinShowProgressEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("showSeason is required"),
+		});
+	});
+
+	it("rejects show progress events with season but without episode", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: { showSeason: 2, progressPercent: 100 },
+				}),
+			},
+			createBuiltinShowProgressEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("showEpisode is required"),
+		});
+	});
+
+	it("creates a built-in anime progress event with an episode", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: { animeEpisode: 7, progressPercent: 100 },
+					}),
+				},
+				createBuiltinAnimeProgressEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({
+			animeEpisode: 7,
+			progressPercent: 100,
+		});
+	});
+
+	it("rejects anime progress events with a non-integer episode", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: { animeEpisode: 7.5, progressPercent: 100 },
+				}),
+			},
+			createBuiltinAnimeProgressEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+	});
+
+	it("creates a built-in manga progress event with decimal chapter and volume", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: {
+							mangaVolume: 8,
+							mangaChapter: 42.5,
+							progressPercent: 100,
+						},
+					}),
+				},
+				createBuiltinMangaProgressEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({
+			mangaVolume: 8,
+			mangaChapter: 42.5,
+			progressPercent: 100,
+		});
+	});
+
+	it("rejects manga progress events with a non-integer volume", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: {
+						mangaVolume: 8.5,
+						mangaChapter: 42.5,
+						progressPercent: 100,
+					},
+				}),
+			},
+			createBuiltinMangaProgressEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+	});
+
+	it("creates a built-in podcast progress event with an episode", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({
+						properties: { podcastEpisode: 14, progressPercent: 100 },
+					}),
+				},
+				createBuiltinPodcastProgressEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({
+			podcastEpisode: 14,
+			progressPercent: 100,
+		});
+	});
+
+	it("rejects podcast progress events with a non-integer episode", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: { podcastEpisode: 14.2, progressPercent: 100 },
+				}),
+			},
+			createBuiltinPodcastProgressEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
+	});
+
+	it("rejects show-only fields on non-episodic media progress events", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: {
+						showSeason: 1,
+						showEpisode: 1,
+						progressPercent: 100,
+					},
+				}),
+			},
+			createBuiltinProgressEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event properties validation failed"),
+		});
 	});
 
 	it("creates a built-in complete event with a just_now payload", async () => {
