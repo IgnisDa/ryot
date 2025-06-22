@@ -1,3 +1,4 @@
+import { faker } from "@faker-js/faker";
 import {
 	CreateOrUpdateCollectionDocument,
 	ResetUserDocument,
@@ -7,7 +8,6 @@ import {
 	UserNotificationPlatformsDocument,
 	UserWorkoutTemplatesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { faker } from "@faker-js/faker";
 import {
 	getGraphqlClient,
 	getUserCollectionsList,
@@ -213,7 +213,7 @@ describe("Reset User functionality", () => {
 		expect(initialCollections).toHaveLength(7);
 		const customCollectionName1 = faker.lorem.words(2);
 		const customCollectionName2 = faker.lorem.words(2);
-		
+
 		await client.request(
 			CreateOrUpdateCollectionDocument,
 			{

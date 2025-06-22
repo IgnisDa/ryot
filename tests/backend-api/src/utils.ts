@@ -198,10 +198,10 @@ export async function progressUpdate(
 
 export async function registerAdminUser(baseUrl: string) {
 	const client = getGraphqlClient(baseUrl);
-	
+
 	// First register a regular user
 	const [userApiKey, userId] = await registerTestUser(baseUrl);
-	
+
 	// Then upgrade them to admin using the test admin token
 	await client.request(UpdateUserDocument, {
 		input: {
@@ -210,10 +210,8 @@ export async function registerAdminUser(baseUrl: string) {
 			adminAccessToken: TEST_ADMIN_ACCESS_TOKEN,
 		},
 	});
-	
-	console.log(
-		`[Test Utils] User '${userId}' upgraded to admin successfully`,
-	);
-	
+
+	console.log(`[Test Utils] User '${userId}' upgraded to admin successfully`);
+
 	return [userApiKey, userId] as const;
 }
