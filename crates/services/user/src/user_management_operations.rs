@@ -117,7 +117,11 @@ pub async fn reset_user(
     };
 
     let register_result = register_user(ss, register_input).await?;
+    ss.cache_service
+        .expire_key(dependent_models::ExpireCacheKeyInput::ByUser(original_id))
+        .await?;
     match register_result {
+        RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
         RegisterResult::Ok(result) => {
             ryot_log!(debug, "User reset with id {:?}", result.id);
             Ok(UserResetResult::Ok(UserResetResponse {
@@ -125,7 +129,6 @@ pub async fn reset_user(
                 password: new_password,
             }))
         }
-        RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
     }
 }
 
