@@ -212,35 +212,28 @@ describe("Reset User functionality", () => {
 			targetUserApiKey,
 		);
 		expect(initialCollections).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
-		const customCollectionName1 = faker.lorem.words(2);
-		const customCollectionName2 = faker.lorem.words(2);
 
-		await client.request(
-			CreateOrUpdateCollectionDocument,
-			{
-				input: {
-					name: customCollectionName1,
-					description: faker.lorem.sentence(),
+		const additionalCollections = 2;
+		for (let i = 0; i < additionalCollections; i++) {
+			await client.request(
+				CreateOrUpdateCollectionDocument,
+				{
+					input: {
+						name: `Custom Collection ${i + 1}`,
+						description: faker.lorem.sentence(),
+					},
 				},
-			},
-			{ Authorization: `Bearer ${targetUserApiKey}` },
-		);
+				{ Authorization: `Bearer ${targetUserApiKey}` },
+			);
+		}
 
-		await client.request(
-			CreateOrUpdateCollectionDocument,
-			{
-				input: {
-					name: customCollectionName2,
-					description: faker.lorem.sentence(),
-				},
-			},
-			{ Authorization: `Bearer ${targetUserApiKey}` },
-		);
 		const collectionsWithCustom = await getUserCollectionsList(
 			url,
 			targetUserApiKey,
 		);
-		expect(collectionsWithCustom).toHaveLength(9);
+		expect(collectionsWithCustom).toHaveLength(
+			DEFAULT_USER_COLLECTIONS_COUNT + additionalCollections,
+		);
 		const { resetUser } = await client.request(
 			ResetUserDocument,
 			{ toResetUserId: targetUserId },
