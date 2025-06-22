@@ -1,0 +1,1 @@
+ALTER TABLE "sandbox_script" DROP COLUMN "metadata";
