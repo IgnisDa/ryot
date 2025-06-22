@@ -24,7 +24,7 @@ export const queryEngineFieldSchema = z
 	})
 	.strict();
 
-export const executeQueryEngineBody = z
+export const queryEngineRequestSchema = z
 	.object({
 		sort: sortDefinitionSchema,
 		pagination: paginationSchema,
@@ -106,7 +106,7 @@ export const executeQueryEngineResponseSchema = dataSchema(
 
 export type QueryEngineItem = z.infer<typeof queryEngineItemSchema>;
 export type QueryEngineField = z.infer<typeof queryEngineFieldSchema>;
-export type QueryEngineRequest = z.infer<typeof executeQueryEngineBody>;
+export type QueryEngineRequest = z.infer<typeof queryEngineRequestSchema>;
 export type ResolvedDisplayValue = z.infer<typeof resolvedDisplayValueSchema>;
 export type QueryEngineResponse = z.infer<
 	typeof executeQueryEngineResponseSchema
