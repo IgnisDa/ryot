@@ -207,8 +207,7 @@ pub async fn user_metadata_list(
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages.try_into().unwrap())
-                .then(|| (page + 1).try_into().unwrap()),
+            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
         },
     };
     let cache_id = cc
@@ -414,8 +413,7 @@ pub async fn user_metadata_groups_list(
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages.try_into().unwrap())
-                .then(|| (page + 1).try_into().unwrap()),
+            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
         },
     };
     let cache_id = cc
@@ -505,8 +503,7 @@ pub async fn user_people_list(
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages.try_into().unwrap())
-                .then(|| (page + 1).try_into().unwrap()),
+            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
         },
     };
     let cache_id = cc
@@ -562,8 +559,7 @@ pub async fn user_workouts_list(
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages.try_into().unwrap())
-                .then(|| (page + 1).try_into().unwrap()),
+            next_page: (page < number_of_pages.try_into().unwrap()).then(|| page + 1),
         },
     };
     let cache_id = cc
@@ -624,8 +620,7 @@ pub async fn user_workout_templates_list(
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages.try_into().unwrap())
-                .then(|| (page + 1).try_into().unwrap()),
+            next_page: (page < number_of_pages.try_into().unwrap()).then(|| page + 1),
         },
     };
     let cache_id = cc
