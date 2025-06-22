@@ -1,6 +1,6 @@
 # Trakt
 
-You can import from either a Trakt public user or a public list.
+You can import from either a public Trakt user or a public list.
 
 ## User
 
@@ -23,8 +23,8 @@ import. Also, items that have been "check(ed) in" will not be imported.
 
 ## List
 
-All items can be imported from a public Trakt list. All items in the list will be added to
-the collection of your choice.
+All items from a public Trakt list can be imported and added to the collection of your
+choice.
 
 1. Enter a URL for the list to import. For example: `https://trakt.tv/users/felix66/lists/trakt-movie-the-new-york-times-guide-to-the-best-1-000-movies-ever-made?sort=rank,asc`.
 2. Select the collection you want to import the items into.
