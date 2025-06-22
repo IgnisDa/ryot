@@ -10,7 +10,7 @@ use enum_meta::Meta;
 use enum_models::UserLot;
 use media_models::{
     AuthUserInput, CreateOrUpdateCollectionInput, OidcUserInput, PasswordUserInput, RegisterError,
-    RegisterErrorVariant, RegisterResult, RegisterUserInput,
+    RegisterErrorVariant, RegisterResult, RegisterUserInput, UserResetResponse, UserResetResult,
 };
 use nanoid::nanoid;
 use sea_orm::Iterable;
@@ -81,11 +81,13 @@ pub async fn reset_user(
     ss: &Arc<SupportingService>,
     admin_user_id: String,
     to_reset_user_id: String,
-) -> Result<StringIdObject> {
+) -> Result<UserResetResult> {
     admin_account_guard(&admin_user_id, ss).await?;
     let maybe_user = User::find_by_id(&to_reset_user_id).one(&ss.db).await?;
     let Some(user_to_reset) = maybe_user else {
-        return Err(Error::new("User not found".to_owned()));
+        return Ok(UserResetResult::Error(RegisterError {
+            error: RegisterErrorVariant::IdentifierAlreadyExists, // Reusing existing error variant
+        }));
     };
 
     let original_id = user_to_reset.id.clone();
@@ -94,6 +96,11 @@ pub async fn reset_user(
 
     user_to_reset.delete(&ss.db).await?;
 
+    let new_password = match original_oidc_issuer_id {
+        Some(_) => None,
+        None => Some(nanoid!(12)),
+    };
+
     let auth_input = match original_oidc_issuer_id {
         Some(issuer_id) => AuthUserInput::Oidc(OidcUserInput {
             issuer_id,
@@ -101,7 +108,7 @@ pub async fn reset_user(
         }),
         None => AuthUserInput::Password(PasswordUserInput {
             username: original_name,
-            password: "".to_owned(),
+            password: new_password.clone().unwrap_or_default(),
         }),
     };
 
@@ -115,12 +122,12 @@ pub async fn reset_user(
     match register_result {
         RegisterResult::Ok(result) => {
             ryot_log!(debug, "User reset with id {:?}", result.id);
-            Ok(result)
+            Ok(UserResetResult::Ok(UserResetResponse {
+                id: result.id,
+                password: new_password,
+            }))
         }
-        RegisterResult::Error(error) => Err(Error::new(format!(
-            "Failed to register user: {:?}",
-            error.error
-        ))),
+        RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
     }
 }
 

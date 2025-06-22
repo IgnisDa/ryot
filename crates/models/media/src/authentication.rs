@@ -60,6 +60,18 @@ pub enum RegisterResult {
     Error(RegisterError),
 }
 
+#[derive(Debug, SimpleObject)]
+pub struct UserResetResponse {
+    pub id: String,
+    pub password: Option<String>,
+}
+
+#[derive(Union)]
+pub enum UserResetResult {
+    Ok(UserResetResponse),
+    Error(RegisterError),
+}
+
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum LoginErrorVariant {
     AccountDisabled,
