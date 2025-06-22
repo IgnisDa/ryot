@@ -4,6 +4,7 @@ import {
 	Box,
 	Button,
 	Container,
+	CopyButton,
 	Flex,
 	Group,
 	Modal,
@@ -36,6 +37,7 @@ import {
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
+	IconCopy,
 	IconPencil,
 	IconPlus,
 	IconRefresh,
@@ -398,6 +400,15 @@ const UpdateUserModal = (props: {
 							value={resetPassword}
 							label="New Password (Generated)"
 							description="This is the new password for the user"
+							rightSection={
+								<CopyButton value={resetPassword}>
+									{({ copy }) => (
+										<ActionIcon onClick={copy}>
+											<IconCopy size={16} />
+										</ActionIcon>
+									)}
+								</CopyButton>
+							}
 						/>
 					)}
 					<Group wrap="nowrap">
