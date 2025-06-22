@@ -14,12 +14,11 @@ import type {
 	QueryEngineResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
+import { getEventJoinColumnName } from "./sql-expression-helpers";
 
 export type QueryEngineSchemaRow = QueryEngineSchemaLike & {
 	id: string;
 };
-
-export type QueryEnginePreparedEventJoin = QueryEngineEventJoinLike;
 
 type QueryRow = {
 	total: number;
@@ -40,7 +39,6 @@ type PaginationResult = PaginationInput & {
 };
 
 const getEventJoinCteName = (joinKey: string) => `latest_event_join_${joinKey}`;
-const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
 
 const buildBaseEntitiesCte = (input: {
 	userId: string;
@@ -124,7 +122,7 @@ const buildBaseEntitiesCte = (input: {
 };
 
 const buildLatestEventJoinCte = (input: {
-	join: QueryEnginePreparedEventJoin;
+	join: QueryEngineEventJoinLike;
 	userId: string;
 }) => {
 	const eventSchemaIdList = sql.join(
@@ -150,7 +148,7 @@ const buildLatestEventJoinCte = (input: {
 	`;
 };
 
-const buildJoinedEntitiesCte = (eventJoins: QueryEnginePreparedEventJoin[]) => {
+const buildJoinedEntitiesCte = (eventJoins: QueryEngineEventJoinLike[]) => {
 	const selectJoins = eventJoins.map((join) => {
 		return sql`${sql.raw(getEventJoinCteName(join.key))}.latest_event as ${sql.raw(getEventJoinColumnName(join.key))}`;
 	});
@@ -198,13 +196,13 @@ export const executePreparedQuery = async (input: {
 	request: QueryEngineRequest;
 	relationshipSchemaIds: string[];
 	runtimeSchemas: QueryEngineSchemaRow[];
-	eventJoins: QueryEnginePreparedEventJoin[];
+	eventJoins: QueryEngineEventJoinLike[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
-	eventJoinMap: Map<string, QueryEnginePreparedEventJoin>;
+	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 }): Promise<QueryEngineResponse> => {
 	const context: QueryEngineReferenceContext<
 		QueryEngineSchemaRow,
-		QueryEnginePreparedEventJoin
+		QueryEngineEventJoinLike
 	> = {
 		userId: input.userId,
 		schemaMap: input.schemaMap,
