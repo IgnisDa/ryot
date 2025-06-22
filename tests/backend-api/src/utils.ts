@@ -21,6 +21,7 @@ import {
 import { GraphQLClient } from "graphql-request";
 
 export const TEST_ADMIN_ACCESS_TOKEN = "test-admin-access-token-for-e2e-tests";
+export const DEFAULT_USER_COLLECTIONS_COUNT = 7;
 
 export const getGraphqlClient = (baseUrl: string) => {
 	return new GraphQLClient(`${baseUrl}/backend/graphql`);

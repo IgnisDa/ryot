@@ -9,6 +9,7 @@ import {
 	UserWorkoutTemplatesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	DEFAULT_USER_COLLECTIONS_COUNT,
 	getGraphqlClient,
 	getUserCollectionsList,
 	getUserMeasurementsList,
@@ -69,7 +70,7 @@ describe("User related tests", () => {
 
 	it("should have 7 system-created collections", async () => {
 		const collections = await getUserCollectionsList(url, userApiKey);
-		expect(collections).toHaveLength(7);
+		expect(collections).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
 
 	it("should have 0 imports", async () => {
@@ -172,7 +173,7 @@ describe("Reset User functionality", () => {
 			url,
 			targetUserApiKey,
 		);
-		expect(collectionsAfterReset).toHaveLength(7);
+		expect(collectionsAfterReset).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
 
 	it("should fail when non-admin user tries to reset another user", async () => {
@@ -210,7 +211,7 @@ describe("Reset User functionality", () => {
 			url,
 			targetUserApiKey,
 		);
-		expect(initialCollections).toHaveLength(7);
+		expect(initialCollections).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 		const customCollectionName1 = faker.lorem.words(2);
 		const customCollectionName2 = faker.lorem.words(2);
 
@@ -257,6 +258,6 @@ describe("Reset User functionality", () => {
 			url,
 			targetUserApiKey,
 		);
-		expect(collectionsAfterReset).toHaveLength(7);
+		expect(collectionsAfterReset).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
 });
