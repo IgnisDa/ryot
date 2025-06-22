@@ -4,13 +4,12 @@ import {
 	listDataSchema,
 	unknownObjectSchema,
 } from "~/lib/openapi";
-import { nonEmptyTrimmedStringSchema } from "~/lib/zod/base";
+import { nonEmptyTrimmedStringSchema, timestampFields } from "~/lib/zod/base";
 import { occurredAtStringSchema } from "./service";
 
 export const listedEventSchema = z.object({
 	id: z.string(),
-	createdAt: z.date(),
-	updatedAt: z.date(),
+	...timestampFields,
 	occurredAt: z.date(),
 	entityId: z.string(),
 	eventSchemaId: z.string(),
