@@ -42,7 +42,6 @@ export const createEntitySchemaDeps = (
 	getEntitySchemaByIdForUser: async () => undefined,
 	getEntitySchemaBySlugForUser: async () => undefined,
 	listEntitySchemasForUser: async () => [createListedEntitySchema()],
-	listEntitySchemasByTracker: async () => [createListedEntitySchema()],
 	getTrackerScopeForUser: async (input) => ({
 		isBuiltin: false,
 		id: input.trackerId,
