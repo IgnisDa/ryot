@@ -58,7 +58,7 @@ type CreateSavedViewBody = NonNullable<
 >["content"]["application/json"];
 type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
 type SavedViewQueryInput = {
-	entitySchemaSlugs: string[];
+	scope: string[];
 	eventJoins?: SavedViewQueryDefinition["eventJoins"];
 	computedFields?: SavedViewQueryDefinition["computedFields"];
 	filter?: SavedViewQueryDefinition["filter"];
@@ -467,7 +467,7 @@ async function createSavedView(
 		}
 
 		const column = value.slice(1);
-		return queryDefinition.entitySchemaSlugs.map((schemaSlug) => {
+		return queryDefinition.scope.map((schemaSlug) => {
 			return `entity.${schemaSlug}.${column}`;
 		});
 	};
@@ -478,14 +478,14 @@ async function createSavedView(
 		}
 
 		if (value.startsWith("@")) {
-			if (queryDefinition.entitySchemaSlugs.length !== 1) {
+			if (queryDefinition.scope.length !== 1) {
 				throw new Error(
 					`Cannot normalize ambiguous filter reference '${value}' for saved view '${name}'`,
 				);
 			}
 
 			const column = value.slice(1);
-			return `entity.${queryDefinition.entitySchemaSlugs[0]}.${column}`;
+			return `entity.${queryDefinition.scope[0]}.${column}`;
 		}
 
 		if (value.split(".").length === 2) {
@@ -608,7 +608,7 @@ async function createSavedView(
 	const normalizedQueryDefinition = {
 		computedFields: queryDefinition.computedFields ?? [],
 		eventJoins: queryDefinition.eventJoins ?? [],
-		entitySchemaSlugs: queryDefinition.entitySchemaSlugs,
+		scope: queryDefinition.scope,
 		filter: toFilterPredicate(),
 		sort: {
 			direction: queryDefinition.sort.direction,
@@ -2126,7 +2126,7 @@ async function seedSavedViews(
 				filters: [
 					{ op: "gte", field: schemaField("whiskey", "age"), value: 18 },
 				],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2153,7 +2153,7 @@ async function seedSavedViews(
 				filters: [
 					{ op: "eq", field: schemaField("whiskey", "type"), value: "Scotch" },
 				],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2180,7 +2180,7 @@ async function seedSavedViews(
 				filters: [
 					{ op: "gte", field: schemaField("whiskey", "proof"), value: 100 },
 				],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "proof")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2206,7 +2206,7 @@ async function seedSavedViews(
 			accentColor: "#F59E0B",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition("desc", "@createdAt"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2236,7 +2236,7 @@ async function seedSavedViews(
 						value: "Japanese",
 					},
 				],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition("desc", schemaField("whiskey", "age")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2260,7 +2260,7 @@ async function seedSavedViews(
 			accentColor: "#7C3AED",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition(
 					"asc",
 					schemaField("whiskey", "region"),
@@ -2292,7 +2292,7 @@ async function seedSavedViews(
 				filters: [
 					{ op: "gte", field: schemaField("whiskey", "proof"), value: 120 },
 				],
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				sort: sortDefinition(
 					"desc",
 					schemaField("whiskey", "proof"),
@@ -2330,7 +2330,7 @@ async function seedSavedViews(
 						value: ["Restaurant", "Cafe"],
 					},
 				],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2361,7 +2361,7 @@ async function seedSavedViews(
 						value: ["Museum", "Gallery", "Theater"],
 					},
 				],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition("asc", schemaField("place", "city")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2388,7 +2388,7 @@ async function seedSavedViews(
 				filters: [
 					{ op: "eq", field: schemaField("place", "type"), value: "Park" },
 				],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2412,7 +2412,7 @@ async function seedSavedViews(
 			accentColor: "#3B82F6",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition("desc", "@createdAt"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2437,7 +2437,7 @@ async function seedSavedViews(
 			accentColor: "#06B6D4",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition(
 					"asc",
 					schemaField("place", "country"),
@@ -2467,7 +2467,7 @@ async function seedSavedViews(
 			accentColor: "#0F766E",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition("asc", schemaField("place", "country"), "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2492,7 +2492,7 @@ async function seedSavedViews(
 			accentColor: "#1D4ED8",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				sort: sortDefinition(
 					"asc",
 					schemaField("place", "city"),
@@ -2527,7 +2527,7 @@ async function seedSavedViews(
 				filters: [
 					{ op: "gte", field: schemaField("smartphone", "year"), value: 2020 },
 				],
-				entitySchemaSlugs: ["smartphone"],
+				scope: ["smartphone"],
 				sort: sortDefinition("desc", schemaField("smartphone", "year")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2558,7 +2558,7 @@ async function seedSavedViews(
 					{ op: "gte", field: "smartphone.storage_gb", value: 256 },
 					{ op: "gte", field: "tablet.storage_gb", value: 256 },
 				],
-				entitySchemaSlugs: ["smartphone", "tablet"],
+				scope: ["smartphone", "tablet"],
 				sort: sortDefinition(
 					"desc",
 					"smartphone.storage_gb",
@@ -2595,7 +2595,7 @@ async function seedSavedViews(
 					{ op: "eq", field: "smartphone.os", value: "iOS" },
 					{ op: "eq", field: "tablet.os", value: "iPadOS" },
 				],
-				entitySchemaSlugs: ["smartphone", "tablet"],
+				scope: ["smartphone", "tablet"],
 				sort: sortDefinition("desc", "smartphone.year", "tablet.year"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2624,7 +2624,7 @@ async function seedSavedViews(
 					{ op: "eq", field: "smartphone.os", value: "Android" },
 					{ op: "eq", field: "tablet.os", value: "Android" },
 				],
-				entitySchemaSlugs: ["smartphone", "tablet"],
+				scope: ["smartphone", "tablet"],
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2659,7 +2659,7 @@ async function seedSavedViews(
 						value: 999,
 					},
 				],
-				entitySchemaSlugs: ["smartphone"],
+				scope: ["smartphone"],
 				sort: sortDefinition("desc", schemaField("smartphone", "price_usd")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2695,7 +2695,7 @@ async function seedSavedViews(
 						value: 399,
 					},
 				],
-				entitySchemaSlugs: ["smartphone"],
+				scope: ["smartphone"],
 				sort: sortDefinition("asc", schemaField("smartphone", "price_usd")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2726,7 +2726,7 @@ async function seedSavedViews(
 					{ op: "gte", field: "smartphone.screen_size", value: 6.5 },
 					{ op: "gte", field: "tablet.screen_size", value: 11 },
 				],
-				entitySchemaSlugs: ["smartphone", "tablet"],
+				scope: ["smartphone", "tablet"],
 				sort: sortDefinition(
 					"desc",
 					"smartphone.screen_size",
@@ -2765,7 +2765,7 @@ async function seedSavedViews(
 						value: true,
 					},
 				],
-				entitySchemaSlugs: ["tablet"],
+				scope: ["tablet"],
 				sort: sortDefinition("desc", schemaField("tablet", "screen_size")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2796,7 +2796,7 @@ async function seedSavedViews(
 						value: true,
 					},
 				],
-				entitySchemaSlugs: ["feature-phone"],
+				scope: ["feature-phone"],
 				sort: sortDefinition("desc", schemaField("feature-phone", "year")),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2825,7 +2825,7 @@ async function seedSavedViews(
 			accentColor: "#475569",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
+				scope: ["smartphone", "feature-phone", "tablet"],
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2875,7 +2875,7 @@ async function seedSavedViews(
 			accentColor: "#FFD700",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: allSchemaSlugs,
+				scope: allSchemaSlugs,
 				sort: sortDefinition("desc", "@createdAt"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2918,7 +2918,7 @@ async function seedSavedViews(
 			accentColor: "#1F2937",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: allSchemaSlugs,
+				scope: allSchemaSlugs,
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -2960,7 +2960,7 @@ async function seedSavedViews(
 			accentColor: "#0F172A",
 			queryDefinition: {
 				filters: [],
-				entitySchemaSlugs: allSchemaSlugs,
+				scope: allSchemaSlugs,
 				sort: sortDefinition("desc", "@updatedAt"),
 			},
 			displayConfiguration: displayConfiguration(
@@ -3007,7 +3007,7 @@ async function seedSavedViews(
 			icon: "star",
 			accentColor: "#F59E0B",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				eventJoins: [eventJoin("tasting", "tasting")],
 				sort: sortByExpr("desc", eventCol("tasting", "createdAt")),
 			},
@@ -3033,7 +3033,7 @@ async function seedSavedViews(
 			icon: "trophy",
 			accentColor: "#D97706",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				eventJoins: [eventJoin("tasting", "tasting")],
 				filter: compare("gte", eventProp("tasting", "rating"), literal(8)),
 				sort: sortByExpr("desc", eventProp("tasting", "rating")),
@@ -3060,7 +3060,7 @@ async function seedSavedViews(
 			icon: "shopping-cart",
 			accentColor: "#059669",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				eventJoins: [eventJoin("purchase", "purchase")],
 				filter: isNotNullPred(eventProp("purchase", "price")),
 				sort: sortByExpr("desc", eventProp("purchase", "price")),
@@ -3087,7 +3087,7 @@ async function seedSavedViews(
 			icon: "calendar",
 			accentColor: "#3B82F6",
 			queryDefinition: {
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				eventJoins: [eventJoin("visit", "visit")],
 				filter: isNotNullPred(eventProp("visit", "date")),
 				sort: sortByExpr("desc", eventCol("visit", "createdAt")),
@@ -3115,7 +3115,7 @@ async function seedSavedViews(
 			icon: "percent",
 			accentColor: "#7C3AED",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				computedFields: [
 					computedField(
 						"abv",
@@ -3148,7 +3148,7 @@ async function seedSavedViews(
 			icon: "layers",
 			accentColor: "#BE185D",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				computedFields: [
 					computedField(
 						"tier",
@@ -3191,7 +3191,7 @@ async function seedSavedViews(
 			icon: "file-text",
 			accentColor: "#0284C7",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				computedFields: [
 					computedField(
 						"description",
@@ -3233,7 +3233,7 @@ async function seedSavedViews(
 			icon: "activity",
 			accentColor: "#C026D3",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				eventJoins: [eventJoin("tasting", "tasting")],
 				computedFields: [
 					computedField(
@@ -3279,7 +3279,7 @@ async function seedSavedViews(
 			icon: "award",
 			accentColor: "#92400E",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				filter: andPred(
 					compare("eq", schemaProp("whiskey", "type"), literal("Bourbon")),
 					compare("gte", schemaProp("whiskey", "age"), literal(15)),
@@ -3308,7 +3308,7 @@ async function seedSavedViews(
 			icon: "x-circle",
 			accentColor: "#6B7280",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				filter: notPred(
 					compare("eq", schemaProp("whiskey", "type"), literal("Rye")),
 				),
@@ -3335,7 +3335,7 @@ async function seedSavedViews(
 			icon: "zap",
 			accentColor: "#B45309",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				filter: andPred(
 					inPred(schemaProp("whiskey", "type"), [
 						literal("Bourbon"),
@@ -3370,7 +3370,7 @@ async function seedSavedViews(
 			icon: "help-circle",
 			accentColor: "#9CA3AF",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				filter: isNullPred(schemaProp("whiskey", "region")),
 				sort: sortDefinition("asc", "@name"),
 			},
@@ -3395,7 +3395,7 @@ async function seedSavedViews(
 			icon: "map-pin",
 			accentColor: "#0F766E",
 			queryDefinition: {
-				entitySchemaSlugs: ["place"],
+				scope: ["place"],
 				filter: andPred(
 					isNotNullPred(schemaProp("place", "address")),
 					isNotNullPred(schemaProp("place", "city")),
@@ -3424,7 +3424,7 @@ async function seedSavedViews(
 			icon: "map",
 			accentColor: "#064E3B",
 			queryDefinition: {
-				entitySchemaSlugs: ["whiskey"],
+				scope: ["whiskey"],
 				filter: containsPred(schemaProp("whiskey", "region"), literal("side")),
 				sort: sortDefinition("asc", schemaField("whiskey", "distillery")),
 			},
@@ -3449,7 +3449,7 @@ async function seedSavedViews(
 			icon: "smartphone",
 			accentColor: "#1E40AF",
 			queryDefinition: {
-				entitySchemaSlugs: ["smartphone", "tablet"],
+				scope: ["smartphone", "tablet"],
 				filter: orPred(
 					compare(
 						"neq",

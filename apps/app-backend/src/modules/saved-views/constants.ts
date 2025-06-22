@@ -270,18 +270,18 @@ export const createDefaultDisplayConfiguration = (
 };
 
 export const createDefaultQueryDefinition = (
-	entitySchemaSlugs: string[],
+	scope: string[],
 	options?: { relationships?: SavedViewQueryDefinition["relationships"] },
 ): SavedViewQueryDefinition => ({
 	filter: null,
 	eventJoins: [],
-	entitySchemaSlugs,
+	scope,
 	computedFields: [],
 	relationships: options?.relationships ?? [],
 	sort: {
 		direction: "asc",
-		expression: entitySchemaSlugs[0]
-			? createEntityColumnExpression(entitySchemaSlugs[0], "name")
+		expression: scope[0]
+			? createEntityColumnExpression(scope[0], "name")
 			: { type: "literal", value: "" },
 	},
 });
