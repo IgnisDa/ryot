@@ -182,6 +182,9 @@ impl CacheService {
             .filter(match by.clone() {
                 ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
                 ExpireCacheKeyInput::ByKey(key) => application_cache::Column::Key.eq(key),
+                ExpireCacheKeyInput::ByUser(user_id) => {
+                    application_cache::Column::SanitizedKey.like(format!("%-{}", user_id))
+                }
                 ExpireCacheKeyInput::BySanitizedKey { key, user_id } => {
                     let sanitized_key = match (key, user_id) {
                         (key, None) => key.to_string(),
