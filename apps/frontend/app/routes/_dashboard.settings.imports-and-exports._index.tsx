@@ -108,7 +108,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					strongApp: processSubmission(formData, strongAppImportFormSchema),
 				}))
 				.with(ImportSource.Trakt, () => ({
-					trakt: processSubmission(formData, usernameImportFormSchema),
+					trakt: processSubmission(formData, traktImportFormSchema),
 				}))
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
@@ -153,6 +153,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.run();
 };
+
+const traktImportFormSchema = z.object({ user: z.string() });
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 
@@ -300,11 +302,7 @@ export default function Page() {
 											))
 											.with(ImportSource.Trakt, () => (
 												<>
-													<TextInput
-														label="Username"
-														required
-														name="username"
-													/>
+													<TextInput required name="user" label="Username" />
 												</>
 											))
 											.with(ImportSource.Jellyfin, () => (
