@@ -483,12 +483,12 @@ export interface paths {
                     content: {
                         "application/json": {
                             data: {
-                                /** @enum {string} */
-                                status: "pending";
-                            } | {
                                 error: string;
                                 /** @enum {string} */
                                 status: "failed";
+                            } | {
+                                /** @enum {string} */
+                                status: "pending";
                             } | {
                                 /** @enum {string} */
                                 status: "completed";
@@ -1401,6 +1401,7 @@ export interface paths {
                                 providers: {
                                     name: string;
                                     scriptId: string;
+                                    searchDriverName?: string;
                                 }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
@@ -1508,6 +1509,7 @@ export interface paths {
                                 providers: {
                                     name: string;
                                     scriptId: string;
+                                    searchDriverName?: string;
                                 }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
@@ -1598,6 +1600,7 @@ export interface paths {
                                 providers: {
                                     name: string;
                                     scriptId: string;
+                                    searchDriverName?: string;
                                 }[];
                                 /** @description A Lucide icon name (e.g., 'book', 'dumbbell', 'gamepad-2'). See https://lucide.dev/icons/ */
                                 icon: string;
