@@ -204,10 +204,10 @@ async function startBackendProcess(
 
 		setTimeout(() => {
 			console.log(
-				"[Orchestrator] Backend process assumed ready after 5 seconds.",
+				"[Orchestrator] Backend process assumed ready after 10 seconds.",
 			);
 			resolve(backendProcess);
-		}, 5000);
+		}, 10000);
 	});
 }
 
