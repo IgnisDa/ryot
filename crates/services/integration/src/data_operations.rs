@@ -2,7 +2,11 @@ use std::collections::HashSet;
 
 use async_graphql::Result;
 use common_utils::ryot_log;
-use database_models::{integration, prelude::Integration};
+use database_models::{
+    integration,
+    prelude::{Integration, User},
+    user,
+};
 use database_utils::user_by_id;
 
 use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
@@ -88,7 +92,13 @@ impl IntegrationService {
 
     pub async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
+            .inner_join(User)
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
+            .filter(
+                user::Column::IsDisabled
+                    .eq(false)
+                    .or(user::Column::IsDisabled.is_null()),
+            )
             .select_only()
             .column(integration::Column::UserId)
             .into_tuple::<String>()
