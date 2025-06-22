@@ -16,6 +16,7 @@ import { ViewRuntimeValidationError } from "~/lib/views/errors";
 import {
 	getPropertyType,
 	getSchemaForReference,
+	type PropertyType,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
@@ -40,11 +41,19 @@ const buildPropertyFilterExpression = <
 		);
 	}
 
-	return buildCastedValueExpression(propertyType, {
+	const expression = buildCastedValueExpression(propertyType, {
 		propertyJson: sql`${sql.raw(input.alias)}.properties -> ${input.reference.property}`,
 		propertyText: sql`${sql.raw(input.alias)}.properties ->> ${input.reference.property}`,
 	});
+
+	return { expression, propertyType };
 };
+
+const buildTopLevelColumnType = (column: string): PropertyType | null =>
+	match(column)
+		.with("name", () => "string" as const)
+		.with("createdAt", "updatedAt", () => "date" as const)
+		.otherwise(() => null);
 
 const buildTopLevelFilterExpression = (alias: string, column: string) =>
 	match(column)
@@ -65,6 +74,7 @@ const buildTopLevelFilterExpression = (alias: string, column: string) =>
 const buildFilterOperationClause = (
 	filter: FilterExpression,
 	expression: ReturnType<typeof sql>,
+	propertyType?: PropertyType,
 ) =>
 	match(filter)
 		.with({ op: "isNull" }, () => isNull(expression))
@@ -82,6 +92,29 @@ const buildFilterOperationClause = (
 			}
 
 			return inArray(expression, value);
+		})
+		.with({ op: "contains" }, ({ value }) => {
+			if (propertyType === "array") {
+				if (Array.isArray(value)) {
+					throw new ViewRuntimeValidationError(
+						"Filter operator 'contains' for array properties requires a scalar value",
+					);
+				}
+				return sql`${expression} @> ${JSON.stringify([value])}::jsonb`;
+			}
+			if (propertyType === "object") {
+				return sql`${expression} @> ${JSON.stringify(value)}::jsonb`;
+			}
+			if (propertyType !== undefined && propertyType !== "string") {
+				throw new ViewRuntimeValidationError(
+					`Filter operator 'contains' is not supported for property type '${propertyType}'`,
+				);
+			}
+			const safe = String(value)
+				.replace(/\\/g, "\\\\")
+				.replace(/%/g, "\\%")
+				.replace(/_/g, "\\_");
+			return sql`${expression} ilike ${`%${safe}%`} escape '\\'`;
 		})
 		.exhaustive();
 
@@ -101,7 +134,9 @@ const buildFilterClauseForSchema = <
 			input.alias,
 			parsedReference.column,
 		);
-		return buildFilterOperationClause(input.filter, expression);
+		const topLevelType =
+			buildTopLevelColumnType(parsedReference.column) ?? undefined;
+		return buildFilterOperationClause(input.filter, expression, topLevelType);
 	}
 
 	if (parsedReference.slug !== input.schemaSlug) {
@@ -109,13 +144,13 @@ const buildFilterClauseForSchema = <
 		return undefined;
 	}
 
-	const expression = buildPropertyFilterExpression({
+	const { expression, propertyType } = buildPropertyFilterExpression({
 		alias: input.alias,
 		schemaMap: input.schemaMap,
 		reference: parsedReference,
 	});
 
-	return buildFilterOperationClause(input.filter, expression);
+	return buildFilterOperationClause(input.filter, expression, propertyType);
 };
 
 export const buildFilterWhereClause = <
