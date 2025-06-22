@@ -193,13 +193,13 @@ describe("Reset User functionality", () => {
 		const [adminApiKey] = await registerAdminUser(url);
 		const nonExistentUserId = "usr_nonexistent123";
 
-		const { resetUser } = await client.request(
-			ResetUserDocument,
-			{ toResetUserId: nonExistentUserId },
-			{ Authorization: `Bearer ${adminApiKey}` },
-		);
-
-		expect(resetUser.__typename).toBe("RegisterError");
+		await expect(
+			client.request(
+				ResetUserDocument,
+				{ toResetUserId: nonExistentUserId },
+				{ Authorization: `Bearer ${adminApiKey}` },
+			),
+		).rejects.toThrow("User not found");
 	});
 
 	it("should reset user data and create fresh default collections", async () => {
