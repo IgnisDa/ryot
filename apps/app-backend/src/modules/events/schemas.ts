@@ -24,6 +24,7 @@ export const createEventBulkResponseSchema = itemDataSchema(
 
 export const listEventsQuery = z.object({
 	entityId: nonEmptyTrimmedStringSchema,
+	eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
 });
 
 export const createEventBody = z.object({
