@@ -86,11 +86,49 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
 
             // URL format: https://trakt.tv/users/{username}/lists/{list_slug}?some=other
             let url_parts: Vec<&str> = url.split('/').collect();
-            if url_parts.len() < 6 || url_parts[3] != "users" || url_parts[5] != "lists" {
+
+            // Validate URL structure and length
+            if url_parts.len() < 7 {
                 failed.push(ImportFailedItem {
                     identifier: url.clone(),
                     step: ImportFailStep::ItemDetailsFromSource,
-                    error: Some("Invalid Trakt list URL format".to_owned()),
+                    error: Some(format!(
+                        "Invalid Trakt list URL format. Expected format: https://trakt.tv/users/{{username}}/lists/{{list_slug}}. Found {} URL parts, need at least 7.",
+                        url_parts.len()
+                    )),
+                    ..Default::default()
+                });
+                return Ok(ImportResult {
+                    failed,
+                    ..Default::default()
+                });
+            }
+
+            // Validate URL scheme and domain
+            if url_parts.len() >= 3
+                && (url_parts[0] != "https:" || !url_parts[2].contains("trakt.tv"))
+            {
+                failed.push(ImportFailedItem {
+                    identifier: url.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some(
+                        "Invalid Trakt list URL. Must be from trakt.tv with https scheme."
+                            .to_owned(),
+                    ),
+                    ..Default::default()
+                });
+                return Ok(ImportResult {
+                    failed,
+                    ..Default::default()
+                });
+            }
+
+            // Validate URL path structure
+            if url_parts[3] != "users" || url_parts[5] != "lists" {
+                failed.push(ImportFailedItem {
+                    identifier: url.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some("Invalid Trakt list URL path. Expected format: https://trakt.tv/users/{username}/lists/{list_slug}".to_owned()),
                     ..Default::default()
                 });
                 return Ok(ImportResult {
@@ -100,7 +138,52 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             }
 
             let username = url_parts[4];
-            let list_slug = url_parts[6].split('?').next().unwrap_or(url_parts[6]);
+
+            // Safely parse list slug, handling query parameters
+            let list_slug = if let Some(slug_with_params) = url_parts.get(6) {
+                slug_with_params
+                    .split('?')
+                    .next()
+                    .unwrap_or(slug_with_params)
+            } else {
+                failed.push(ImportFailedItem {
+                    identifier: url.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some("Missing list slug in URL. Expected format: https://trakt.tv/users/{username}/lists/{list_slug}".to_owned()),
+                    ..Default::default()
+                });
+                return Ok(ImportResult {
+                    failed,
+                    ..Default::default()
+                });
+            };
+
+            // Validate that username and list_slug are not empty
+            if username.is_empty() {
+                failed.push(ImportFailedItem {
+                    identifier: url.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some("Username cannot be empty in Trakt list URL".to_owned()),
+                    ..Default::default()
+                });
+                return Ok(ImportResult {
+                    failed,
+                    ..Default::default()
+                });
+            }
+
+            if list_slug.is_empty() {
+                failed.push(ImportFailedItem {
+                    identifier: url.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some("List slug cannot be empty in Trakt list URL".to_owned()),
+                    ..Default::default()
+                });
+                return Ok(ImportResult {
+                    failed,
+                    ..Default::default()
+                });
+            }
 
             let api_url = format!("{}/users/{}/lists/{}/items", API_URL, username, list_slug);
 
