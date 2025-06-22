@@ -112,15 +112,11 @@ pub async fn genre_details(
             num_items: Some(number_of_items.try_into().unwrap()),
         },
         contents: SearchResults {
+            items: contents,
             details: SearchDetails {
                 total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
+                next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
             },
-            items: contents,
         },
     })
 }

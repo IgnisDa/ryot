@@ -139,15 +139,11 @@ pub async fn collection_contents(
         });
     }
     let results = dependent_models::SearchResults {
+        items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: if page < number_of_pages {
-                Some((page + 1).try_into().unwrap())
-            } else {
-                None
-            },
+            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
         },
-        items,
     };
     let user = details.find_related(User).one(&ss.db).await?.unwrap();
     let reviews = item_reviews(

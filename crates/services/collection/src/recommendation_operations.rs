@@ -102,11 +102,7 @@ ORDER BY RANDOM() LIMIT 10;
         items,
         details: SearchDetails {
             total: number_of_items.try_into().unwrap(),
-            next_page: if page < number_of_pages {
-                Some((page + 1).try_into().unwrap())
-            } else {
-                None
-            },
+            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
         },
     })
 }
