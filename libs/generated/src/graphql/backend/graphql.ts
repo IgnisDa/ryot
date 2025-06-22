@@ -2074,8 +2074,7 @@ export type RegisterError = {
 
 export enum RegisterErrorVariant {
   Disabled = 'DISABLED',
-  IdentifierAlreadyExists = 'IDENTIFIER_ALREADY_EXISTS',
-  Unrelated = 'UNRELATED'
+  IdentifierAlreadyExists = 'IDENTIFIER_ALREADY_EXISTS'
 }
 
 export type RegisterResult = RegisterError | StringIdObject;

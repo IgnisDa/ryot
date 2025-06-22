@@ -46,7 +46,6 @@ pub struct RegisterUserInput {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum RegisterErrorVariant {
     Disabled,
-    Unrelated,
     IdentifierAlreadyExists,
 }
 

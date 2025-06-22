@@ -85,9 +85,7 @@ pub async fn reset_user(
     admin_account_guard(&admin_user_id, ss).await?;
     let maybe_user = User::find_by_id(&to_reset_user_id).one(&ss.db).await?;
     let Some(user_to_reset) = maybe_user else {
-        return Ok(UserResetResult::Error(RegisterError {
-            error: RegisterErrorVariant::Unrelated,
-        }));
+        return Err(Error::new("User not found"));
     };
 
     let original_id = user_to_reset.id.clone();
