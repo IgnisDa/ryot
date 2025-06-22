@@ -290,6 +290,7 @@ export function BuiltinMediaTrackerOverview(
 										item.id,
 										schema?.accentColor ?? STONE,
 										schema?.id ?? "",
+										item.entitySchemaSlug,
 										item.progress.progressPercent ?? null,
 									);
 								}}
@@ -337,6 +338,7 @@ export function BuiltinMediaTrackerOverview(
 										handleStartItem(
 											item.id,
 											schema?.id ?? "",
+											item.entitySchemaSlug,
 											schema?.accentColor ?? STONE,
 										);
 									}}
