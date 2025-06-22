@@ -123,6 +123,69 @@ describe("Events bulk POST", () => {
 		expect(events.length).toBe(2);
 	});
 
+	it("filters listed events by event schema slug", async () => {
+		const {
+			userId,
+			cookies,
+			client: apiClient,
+		} = await createAuthenticatedClient();
+		const { entityId, completeEventSchemaId, progressEventSchemaId } =
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
+
+		const createResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId: progressEventSchemaId,
+					properties: { progressPercent: 25 },
+				},
+				{
+					entityId,
+					eventSchemaId: completeEventSchemaId,
+					properties: { completionMode: "just_now" },
+				},
+			],
+		});
+
+		expect(createResult.response.status).toBe(200);
+		expect(createResult.data?.data.count).toBe(2);
+
+		await waitForEventCount(apiClient, cookies, entityId, 2);
+
+		const allEventsResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId } },
+		});
+		expect(allEventsResult.response.status).toBe(200);
+		expect(allEventsResult.data?.data).toHaveLength(2);
+
+		const progressEventsResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId, eventSchemaSlug: "progress" } },
+		});
+		expect(progressEventsResult.response.status).toBe(200);
+		expect(
+			progressEventsResult.data?.data.map((event) => event.eventSchemaSlug),
+		).toEqual(["progress"]);
+
+		const completeEventsResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId, eventSchemaSlug: "complete" } },
+		});
+		expect(completeEventsResult.response.status).toBe(200);
+		expect(
+			completeEventsResult.data?.data.map((event) => event.eventSchemaSlug),
+		).toEqual(["complete"]);
+
+		const missingEventsResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId, eventSchemaSlug: "nonexistent" } },
+		});
+		expect(missingEventsResult.response.status).toBe(200);
+		expect(missingEventsResult.data?.data).toEqual([]);
+	});
+
 	it("creates repeated built-in backlog events and lists them", async () => {
 		const {
 			client: apiClient,
