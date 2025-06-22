@@ -22,6 +22,7 @@ import {
 	DeleteUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
+	ResetUserDocument,
 	UpdateUserDocument,
 	UserLot,
 	UsersListDocument,
@@ -39,12 +40,19 @@ import {
 	IconPencil,
 	IconPlus,
 	IconRefresh,
+	IconRotateClockwise,
 	IconTrash,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { forwardRef, useState } from "react";
-import { Form, data, redirect, useLoaderData, useRevalidator } from "react-router";
+import {
+	Form,
+	data,
+	redirect,
+	useLoaderData,
+	useRevalidator,
+} from "react-router";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -272,7 +280,7 @@ const UserDisplay = (props: { index: number }) => {
 				revalidator.revalidate();
 			}
 		},
-		onError: (error) => {
+		onError: () => {
 			notifications.show({
 				color: "red",
 				title: "Error",
@@ -333,17 +341,52 @@ const UpdateUserModal = (props: {
 	updateUserData: User | null;
 	closeIntegrationModal: () => void;
 }) => {
+	const [resetPassword, setResetPassword] = useState<string | null>(null);
+
+	const resetUserMutation = useMutation({
+		mutationFn: async (toResetUserId: string) => {
+			const { resetUser } = await clientGqlService.request(ResetUserDocument, {
+				toResetUserId,
+			});
+			return resetUser;
+		},
+		onSuccess: (resetUser) => {
+			if (resetUser.__typename === "UserResetResponse") {
+				if (resetUser.password) {
+					setResetPassword(resetUser.password);
+				}
+				notifications.show({
+					color: "green",
+					title: "Success",
+					message: "User password reset successfully",
+				});
+			}
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to reset user",
+			});
+		},
+	});
+
+	const handleClose = () => {
+		setResetPassword(null);
+		props.closeIntegrationModal();
+	};
+
 	return (
 		<Modal
-			opened={props.updateUserData !== null}
-			onClose={props.closeIntegrationModal}
 			centered
+			onClose={handleClose}
 			withCloseButton={false}
+			opened={props.updateUserData !== null}
 		>
 			<Form
 				replace
 				method="POST"
-				onSubmit={() => props.closeIntegrationModal()}
+				onSubmit={handleClose}
 				action={withQuery(".", { intent: "update" })}
 			>
 				<input hidden name="userId" defaultValue={props.updateUserData?.id} />
@@ -362,7 +405,33 @@ const UpdateUserModal = (props: {
 						defaultChecked={props.updateUserData?.isDisabled || undefined}
 					/>
 					<PasswordInput name="password" label="Password" />
-					<Button type="submit">Submit</Button>
+					{resetPassword && (
+						<TextInput
+							readOnly
+							value={resetPassword}
+							label="New Password (Generated)"
+							description="This is the new password for the user"
+						/>
+					)}
+					<Group wrap="nowrap">
+						<Button
+							color="red"
+							flex="none"
+							variant="outline"
+							loading={resetUserMutation.isPending}
+							leftSection={<IconRotateClockwise size={16} />}
+							onClick={() => {
+								if (props.updateUserData?.id) {
+									resetUserMutation.mutate(props.updateUserData.id);
+								}
+							}}
+						>
+							Reset
+						</Button>
+						<Button fullWidth type="submit">
+							Submit
+						</Button>
+					</Group>
 				</Stack>
 			</Form>
 		</Modal>
