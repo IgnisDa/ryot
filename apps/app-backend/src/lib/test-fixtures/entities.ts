@@ -52,6 +52,7 @@ export const createEntityDeps = (
 		entitySchemaSlug: "custom",
 	}),
 	getEntitySchemaScopeForUser: async (input) => ({
+		slug: "custom",
 		isBuiltin: false,
 		userId: input.userId,
 		id: input.entitySchemaId,

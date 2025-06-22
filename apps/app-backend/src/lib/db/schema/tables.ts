@@ -265,6 +265,9 @@ export const event = pgTable(
 		entityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
+		sessionEntityId: text().references(() => entity.id, {
+			onDelete: "cascade",
+		}),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
@@ -274,6 +277,7 @@ export const event = pgTable(
 		index("event_user_id_idx").on(table.userId),
 		index("event_entity_id_idx").on(table.entityId),
 		index("event_event_schema_id_idx").on(table.eventSchemaId),
+		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
 		index("event_user_entity_schema_idx").on(
 			table.userId,

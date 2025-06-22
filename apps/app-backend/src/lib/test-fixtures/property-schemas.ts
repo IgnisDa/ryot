@@ -1,3 +1,5 @@
+import { workoutSetPropertiesJsonSchema } from "~/lib/fitness/workout";
+
 export const createOptionalTitlePropertiesSchema = () => ({
 	fields: { title: { label: "Title", type: "string" as const } },
 });
@@ -152,6 +154,9 @@ export const createReviewPropertiesSchema = () => ({
 		},
 	},
 });
+
+export const createWorkoutSetPropertiesSchema = () =>
+	workoutSetPropertiesJsonSchema;
 
 export const createNestedMetadataPropertiesSchema = () => ({
 	fields: {

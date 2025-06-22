@@ -2,6 +2,10 @@ import type { AppSchema } from "@ryot/ts-utils";
 import { normalizeSlug } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";
+import {
+	workoutPropertiesJsonSchema,
+	workoutSetPropertiesJsonSchema,
+} from "~/lib/fitness/workout";
 import { animePropertiesJsonSchema } from "~/lib/media/anime";
 import { audiobookPropertiesJsonSchema } from "~/lib/media/audiobook";
 import { bookPropertiesJsonSchema } from "~/lib/media/book";
@@ -292,12 +296,27 @@ export const authenticationBuiltinEntitySchemas = () => [
 	},
 	{
 		icon: "dumbbell",
-		eventSchemas: [],
 		slug: "exercise",
 		name: "Exercise",
 		trackerSlug: "fitness",
 		accentColor: "#2DD4BF",
 		propertiesSchema: exercisePropertiesJsonSchema,
+		eventSchemas: [
+			{
+				name: "Workout Set",
+				slug: "workout-set",
+				propertiesSchema: workoutSetPropertiesJsonSchema,
+			},
+		],
+	},
+	{
+		slug: "workout",
+		name: "Workout",
+		icon: "dumbbell",
+		eventSchemas: [],
+		trackerSlug: "fitness",
+		accentColor: "#2DD4BF",
+		propertiesSchema: workoutPropertiesJsonSchema,
 	},
 ];
 
@@ -338,6 +357,13 @@ export const authenticationBuiltinSavedViews = () => [
 		trackerSlug: "fitness",
 		entitySchemaSlug: "exercise",
 		displayConfiguration: createDefaultDisplayConfiguration("exercise"),
+	},
+	{
+		slug: "all-workouts",
+		name: "All Workouts",
+		trackerSlug: "fitness",
+		entitySchemaSlug: "workout",
+		displayConfiguration: createDefaultDisplayConfiguration("workout"),
 	},
 	...builtinMediaEntitySchemaSlugs.map((slug) => ({
 		trackerSlug: "media",

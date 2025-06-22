@@ -18,6 +18,8 @@ import {
 } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
 
+const manuallyCreatableBuiltinEntitySchemaSlug = "workout";
+
 export type EntityPropertiesShape = Record<string, unknown>;
 
 type EntityMutationError = "not_found" | "validation";
@@ -217,7 +219,11 @@ export const createEntity = async (
 	if (!scope) {
 		return serviceError("not_found", entitySchemaNotFoundError);
 	}
-	if (scope.isBuiltin) {
+
+	if (
+		scope.isBuiltin &&
+		scope.slug !== manuallyCreatableBuiltinEntitySchemaSlug
+	) {
 		return serviceError("validation", customEntitySchemaError);
 	}
 

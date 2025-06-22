@@ -2289,8 +2289,9 @@ export interface paths {
         /** List events for an entity */
         get: {
             parameters: {
-                query: {
-                    entityId: string;
+                query?: {
+                    entityId?: string;
+                    sessionEntityId?: string;
                     eventSchemaSlug?: string;
                 };
                 header?: never;
@@ -2319,6 +2320,7 @@ export interface paths {
                                 properties: {
                                     [key: string]: unknown;
                                 };
+                                sessionEntityId: string | null;
                             }[];
                         };
                     };
@@ -2375,6 +2377,7 @@ export interface paths {
                         };
                         entityId: string;
                         eventSchemaId: string;
+                        sessionEntityId?: string;
                     }[];
                 };
             };
