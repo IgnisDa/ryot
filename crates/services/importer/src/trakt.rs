@@ -55,10 +55,8 @@ struct ListResponse {
 }
 
 pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
-    let mut completed = vec![];
     let mut failed = vec![];
 
-    let url = format!("{}/users/{}", API_URL, input.username);
     let client = get_base_http_client(Some(vec![
         (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
         (
@@ -70,167 +68,174 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             HeaderValue::from_static(API_VERSION),
         ),
     ]));
-    let rsp = client.get(format!("{}/lists", url)).send().await.unwrap();
-    let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
+    let completed = match input {
+        DeployTraktImportInput::User(username) => {
+            let mut completed = vec![];
+            let url = format!("{}/users/{}", API_URL, username);
+            let rsp = client.get(format!("{}/lists", url)).send().await.unwrap();
+            let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
 
-    for list in lists.iter_mut() {
-        let rsp = client
-            .get(format!("{}/lists/{}/items", url, list.ids.trakt))
-            .send()
-            .await
-            .unwrap();
-        let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
-        list.items = items;
-    }
-    for list in ["watchlist", "favorites"] {
-        let rsp = client
-            .get(format!("{}/{}", url, list))
-            .send()
-            .await
-            .unwrap();
-        let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
-        lists.push(ListResponse {
-            items,
-            name: list.to_owned(),
-            ..Default::default()
-        });
-    }
-
-    for typ in ["movies", "shows"] {
-        let rsp = client
-            .get(format!("{}/collection/{}", url, typ))
-            .send()
-            .await
-            .unwrap();
-        let items = rsp.json::<Vec<ListItemResponse>>().await.unwrap();
-        for item in items.iter() {
-            match process_item(item) {
-                Ok(mut d) => {
-                    d.collections.push("Owned".to_string());
-                    completed.push(d);
-                }
-                Err(e) => failed.push(e),
+            for list in lists.iter_mut() {
+                let rsp = client
+                    .get(format!("{}/lists/{}/items", url, list.ids.trakt))
+                    .send()
+                    .await
+                    .unwrap();
+                let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                list.items = items;
             }
-        }
-        let rsp = client
-            .get(format!("{}/ratings/{}", url, typ))
-            .send()
-            .await
-            .unwrap();
-        let ratings: Vec<ListItemResponse> = rsp.json().await.unwrap();
-        for item in ratings.iter() {
-            match process_item(item) {
-                Ok(mut d) => {
-                    d.reviews.push(ImportOrExportItemRating {
-                        rating: item
-                            .rating
-                            // DEV: Rates items out of 10
-                            .map(|e| e * dec!(10)),
-                        review: Some(ImportOrExportItemReview {
-                            date: item.rated_at,
-                            spoiler: Some(false),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
-                    completed.push(d)
-                }
-                Err(d) => failed.push(d),
-            }
-        }
-    }
-
-    for l in lists.iter() {
-        for i in l.items.iter() {
-            match process_item(i) {
-                Ok(mut d) => {
-                    d.collections.push(l.name.to_case(Case::Title));
-                    completed.push(d)
-                }
-                Err(d) => failed.push(d),
-            }
-        }
-    }
-
-    let mut histories = vec![];
-    let rsp = client
-        .head(format!("{}/history", url))
-        .query(&serde_json::json!({ "limit": 1000 }))
-        .send()
-        .await
-        .unwrap();
-    let total_history = rsp
-        .headers()
-        .get("x-pagination-page-count")
-        .expect("pagination to be present")
-        .to_str()
-        .unwrap()
-        .parse::<usize>()
-        .unwrap();
-    for page in 1..total_history + 1 {
-        ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
-        let rsp = client
-            .get(format!("{}/history", url))
-            .query(&serde_json::json!({ "page": page, "limit": 1000 }))
-            .send()
-            .await
-            .unwrap();
-        let history: Vec<ListItemResponse> = rsp.json().await.unwrap();
-        histories.extend(history);
-    }
-
-    histories.sort_by_key(|h| h.watched_at.unwrap_or_default());
-
-    for item in histories.iter() {
-        match process_item(item) {
-            Ok(mut d) => {
-                let (show_season_number, show_episode_number) =
-                    if let Some(e) = item.episode.as_ref() {
-                        (e.season, e.number)
-                    } else {
-                        (None, None)
-                    };
-                if d.lot == MediaLot::Show
-                    && (show_season_number.is_none() || show_episode_number.is_none())
-                {
-                    failed.push(ImportFailedItem {
-                        lot: Some(d.lot),
-                        step: ImportFailStep::ItemDetailsFromSource,
-                        identifier: "".to_owned(),
-                        error: Some(
-                            "Item is a show but does not have a season or episode number"
-                                .to_owned(),
-                        ),
-                    });
-                    continue;
-                }
-                d.seen_history.push(ImportOrExportMetadataItemSeen {
-                    show_season_number,
-                    show_episode_number,
-                    ended_on: item.watched_at,
-                    provider_watched_on: Some(ImportSource::Trakt.to_string()),
+            for list in ["watchlist", "favorites"] {
+                let rsp = client
+                    .get(format!("{}/{}", url, list))
+                    .send()
+                    .await
+                    .unwrap();
+                let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                lists.push(ListResponse {
+                    items,
+                    name: list.to_owned(),
                     ..Default::default()
                 });
-                completed.push(d);
             }
-            Err(d) => failed.push(d),
-        }
-    }
 
-    let mut completed = completed
-        .into_iter()
-        .map(ImportCompletedItem::Metadata)
-        .collect_vec();
-    completed.extend(lists.iter().map(|l| {
-        ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
-            name: l.name.to_case(Case::Title),
-            description: l.description.as_ref().and_then(|s| match s.is_empty() {
-                true => None,
-                false => Some(s.to_owned()),
-            }),
-            ..Default::default()
-        })
-    }));
+            for typ in ["movies", "shows"] {
+                let rsp = client
+                    .get(format!("{}/collection/{}", url, typ))
+                    .send()
+                    .await
+                    .unwrap();
+                let items = rsp.json::<Vec<ListItemResponse>>().await.unwrap();
+                for item in items.iter() {
+                    match process_item(item) {
+                        Ok(mut d) => {
+                            d.collections.push("Owned".to_string());
+                            completed.push(d);
+                        }
+                        Err(e) => failed.push(e),
+                    }
+                }
+                let rsp = client
+                    .get(format!("{}/ratings/{}", url, typ))
+                    .send()
+                    .await
+                    .unwrap();
+                let ratings: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                for item in ratings.iter() {
+                    match process_item(item) {
+                        Ok(mut d) => {
+                            d.reviews.push(ImportOrExportItemRating {
+                                rating: item
+                                    .rating
+                                    // DEV: Rates items out of 10
+                                    .map(|e| e * dec!(10)),
+                                review: Some(ImportOrExportItemReview {
+                                    date: item.rated_at,
+                                    spoiler: Some(false),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            });
+                            completed.push(d)
+                        }
+                        Err(d) => failed.push(d),
+                    }
+                }
+            }
+
+            for l in lists.iter() {
+                for i in l.items.iter() {
+                    match process_item(i) {
+                        Ok(mut d) => {
+                            d.collections.push(l.name.to_case(Case::Title));
+                            completed.push(d)
+                        }
+                        Err(d) => failed.push(d),
+                    }
+                }
+            }
+
+            let mut histories = vec![];
+            let rsp = client
+                .head(format!("{}/history", url))
+                .query(&serde_json::json!({ "limit": 1000 }))
+                .send()
+                .await
+                .unwrap();
+            let total_history = rsp
+                .headers()
+                .get("x-pagination-page-count")
+                .expect("pagination to be present")
+                .to_str()
+                .unwrap()
+                .parse::<usize>()
+                .unwrap();
+            for page in 1..total_history + 1 {
+                ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
+                let rsp = client
+                    .get(format!("{}/history", url))
+                    .query(&serde_json::json!({ "page": page, "limit": 1000 }))
+                    .send()
+                    .await
+                    .unwrap();
+                let history: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                histories.extend(history);
+            }
+
+            histories.sort_by_key(|h| h.watched_at.unwrap_or_default());
+
+            for item in histories.iter() {
+                match process_item(item) {
+                    Ok(mut d) => {
+                        let (show_season_number, show_episode_number) =
+                            if let Some(e) = item.episode.as_ref() {
+                                (e.season, e.number)
+                            } else {
+                                (None, None)
+                            };
+                        if d.lot == MediaLot::Show
+                            && (show_season_number.is_none() || show_episode_number.is_none())
+                        {
+                            failed.push(ImportFailedItem {
+                                lot: Some(d.lot),
+                                step: ImportFailStep::ItemDetailsFromSource,
+                                identifier: "".to_owned(),
+                                error: Some(
+                                    "Item is a show but does not have a season or episode number"
+                                        .to_owned(),
+                                ),
+                            });
+                            continue;
+                        }
+                        d.seen_history.push(ImportOrExportMetadataItemSeen {
+                            show_season_number,
+                            show_episode_number,
+                            ended_on: item.watched_at,
+                            provider_watched_on: Some(ImportSource::Trakt.to_string()),
+                            ..Default::default()
+                        });
+                        completed.push(d);
+                    }
+                    Err(d) => failed.push(d),
+                }
+            }
+
+            let mut completed = completed
+                .into_iter()
+                .map(ImportCompletedItem::Metadata)
+                .collect_vec();
+            completed.extend(lists.iter().map(|l| {
+                ImportCompletedItem::Collection(CreateOrUpdateCollectionInput {
+                    name: l.name.to_case(Case::Title),
+                    description: l.description.as_ref().and_then(|s| match s.is_empty() {
+                        true => None,
+                        false => Some(s.to_owned()),
+                    }),
+                    ..Default::default()
+                })
+            }));
+            completed
+        }
+    };
     Ok(ImportResult { completed, failed })
 }
 
