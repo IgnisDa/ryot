@@ -86,7 +86,7 @@ pub async fn reset_user(
     let maybe_user = User::find_by_id(&to_reset_user_id).one(&ss.db).await?;
     let Some(user_to_reset) = maybe_user else {
         return Ok(UserResetResult::Error(RegisterError {
-            error: RegisterErrorVariant::IdentifierAlreadyExists, // Reusing existing error variant
+            error: RegisterErrorVariant::Unrelated,
         }));
     };
 
