@@ -1415,6 +1415,11 @@ export type MutationRoot = {
   registerUser: RegisterResult;
   /** Remove an entity from a collection if it is not there, otherwise do nothing. */
   removeEntityFromCollection: StringIdObject;
+  /**
+   * Reset a user by deleting and recreating them with the same ID. The account
+   * resetting the user must be an `Admin`.
+   */
+  resetUser: UserResetResult;
   /** Revoke an access link. */
   revokeAccessLink: Scalars['Boolean']['output'];
   /** Test all notification platforms for the currently logged in user. */
@@ -1627,6 +1632,11 @@ export type MutationRootRegisterUserArgs = {
 
 export type MutationRootRemoveEntityFromCollectionArgs = {
   input: ChangeCollectionToEntityInput;
+};
+
+
+export type MutationRootResetUserArgs = {
+  toResetUserId: Scalars['String']['input'];
 };
 
 
@@ -2803,6 +2813,14 @@ export type UserPreferencesInput = {
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
 };
+
+export type UserResetResponse = {
+  __typename?: 'UserResetResponse';
+  id: Scalars['String']['output'];
+  password?: Maybe<Scalars['String']['output']>;
+};
+
+export type UserResetResult = RegisterError | UserResetResponse;
 
 export enum UserReviewScale {
   OutOfFive = 'OUT_OF_FIVE',
