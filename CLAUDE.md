@@ -44,3 +44,9 @@
       pub items: Vec<PersonDetailsItemWithCharacter>,
   }
   ```
+
+- Since this an open source project, we have a slightly different approach to writing
+  migrations. When adding the migration, if the table you are working with already exists,
+  then the same change should be applied to the migration where this table was created. We
+  need to do this so that new instances of Ryot can have the same table structure right off
+  the bat.
