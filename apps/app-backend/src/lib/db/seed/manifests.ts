@@ -31,6 +31,7 @@ import tmdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tmdb.tx
 import tvdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tvdb.txt";
 import vndbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/vndb.txt";
 import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person/youtube-music.txt";
+import autoCompleteOnFullProgressScriptCode from "~/lib/sandbox/scripts/triggers/auto-complete-on-full-progress.txt";
 import type { SandboxScriptMetadata } from "~/lib/sandbox/types";
 
 const BUILTIN_ALLOWED_HOST_FUNCTIONS: NonNullable<
@@ -48,8 +49,8 @@ type BuiltinScriptEntry = {
 	slug: string;
 	code: string;
 	metadata: {
+		allowedHostFunctions: string[];
 		requiredAppConfigKeys?: Array<AppConfigPath>;
-		allowedHostFunctions: typeof BUILTIN_ALLOWED_HOST_FUNCTIONS;
 	};
 };
 
@@ -142,6 +143,12 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 		"videoGames.twitch.clientId",
 		"videoGames.twitch.clientSecret",
 	]),
+	{
+		name: "Auto-Complete on Full Progress",
+		code: autoCompleteOnFullProgressScriptCode,
+		slug: "trigger.auto-complete-on-full-progress",
+		metadata: { allowedHostFunctions: ["appApiCall"] },
+	},
 ];
 
 export const entitySchemaScriptLinks = () =>
@@ -233,6 +240,15 @@ export const entitySchemaScriptLinks = () =>
 		{
 			schemaSlug: "music",
 			scriptSlug: "music.youtube-music",
+		},
+	] as const;
+
+export const builtinEventSchemaTriggerLinks = () =>
+	[
+		{
+			eventSchemaSlug: "progress",
+			triggerName: "Auto-Complete on Full Progress",
+			scriptSlug: "trigger.auto-complete-on-full-progress",
 		},
 	] as const;
 
