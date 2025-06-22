@@ -36,6 +36,9 @@ pub enum AuthUserInput {
 #[derive(Debug, InputObject)]
 pub struct RegisterUserInput {
     pub data: AuthUserInput,
+    /// Internal use only - specific user ID to create (hidden from GraphQL schema)
+    #[graphql(skip)]
+    pub user_id: Option<String>,
     /// If registration is disabled, this can be used to override it.
     pub admin_access_token: Option<String>,
 }

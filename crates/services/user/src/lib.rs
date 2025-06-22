@@ -80,6 +80,14 @@ impl UserService {
         user_management_operations::delete_user(&self.0, admin_user_id, to_delete_user_id).await
     }
 
+    pub async fn reset_user(
+        &self,
+        admin_user_id: String,
+        to_reset_user_id: String,
+    ) -> Result<StringIdObject> {
+        user_management_operations::reset_user(&self.0, admin_user_id, to_reset_user_id).await
+    }
+
     pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
         user_management_operations::register_user(&self.0, input).await
     }
