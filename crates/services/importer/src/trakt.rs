@@ -69,6 +69,9 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         ),
     ]));
     let completed = match input {
+        DeployTraktImportInput::List(url) => {
+            todo!()
+        }
         DeployTraktImportInput::User(username) => {
             let mut completed = vec![];
             let url = format!("{}/users/{}", API_URL, username);

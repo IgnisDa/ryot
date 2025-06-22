@@ -183,6 +183,8 @@ pub struct DeployGenericCsvImportInput {
 pub enum DeployTraktImportInput {
     // The public username in Trakt.
     User(String),
+    // The public url of the list in Trakt.
+    List(String),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
