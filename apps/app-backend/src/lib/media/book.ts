@@ -4,9 +4,11 @@ import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
 
 export const bookPropertiesSchema =
 	mediaWithFreeCreatorsPropertiesSchema.extend({
-		images: imagesSchema,
-		pages: nullableIntSchema,
-		isCompilation: nullableBooleanSchema,
+		images: imagesSchema.describe("Cover and related images for this book"),
+		pages: nullableIntSchema.describe("Total number of pages in this edition"),
+		isCompilation: nullableBooleanSchema.describe(
+			"Whether this is an anthology or compilation of multiple works",
+		),
 	});
 
 export const bookPropertiesJsonSchema =
