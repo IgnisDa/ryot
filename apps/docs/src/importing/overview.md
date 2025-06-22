@@ -20,3 +20,5 @@ import completes/fails. You can see them under "Import History" of the imports p
 - I recommend turning on debug logging for the duration of the import using the
   `RUST_LOG=ryot=debug` environment variable. This will help you help you see import
   progress in the docker logs.
+- If your importing goes wrong, you can always reset the user data from the user settings.
+  Keep in mind that this will delete ALL your data.
