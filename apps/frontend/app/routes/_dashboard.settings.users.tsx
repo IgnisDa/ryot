@@ -20,7 +20,6 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserDocument,
-	RegisterErrorVariant,
 	RegisterUserDocument,
 	ResetUserDocument,
 	UpdateUserDocument,
@@ -103,7 +102,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("registerNew", async () => {
 			const submission = processSubmission(formData, registerFormSchema);
-			const { registerUser } = await serverGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				RegisterUserDocument,
 				{
@@ -118,22 +117,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					},
 				},
 			);
-			const success = registerUser.__typename === "StringIdObject";
 			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
-					type: success ? "success" : "error",
-					message: success
-						? "User registered successfully"
-						: match(registerUser.error)
-								.with(
-									RegisterErrorVariant.Disabled,
-									() => "Registration is disabled",
-								)
-								.with(
-									RegisterErrorVariant.IdentifierAlreadyExists,
-									() => "Username already exists",
-								)
-								.exhaustive(),
+					type: "success",
+					message: "User registered successfully",
 				}),
 			});
 		})

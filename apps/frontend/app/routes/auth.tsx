@@ -123,6 +123,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 						RegisterErrorVariant.IdentifierAlreadyExists,
 						() => "This username already exists",
 					)
+					.with(
+						RegisterErrorVariant.Unrelated,
+						() => "An unknown error was encountered. Please contact support.",
+					)
 					.exhaustive();
 				return data({} as const, {
 					headers: await createToastHeaders({ message, type: "error" }),
