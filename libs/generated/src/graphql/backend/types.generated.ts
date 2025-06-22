@@ -484,6 +484,7 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
+  list?: InputMaybe<Scalars['String']['input']>;
   user?: InputMaybe<Scalars['String']['input']>;
 };
 
