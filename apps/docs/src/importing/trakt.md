@@ -8,11 +8,8 @@ All movies and shows can be imported from [Trakt](https://trakt.tv) along with
 their ratings, history, comments and lists.
 
 ::: info
-
-- It is necessary to set your account's privacy to public during the
-  duration of the import.
-- Items that have been "check(ed) in" will not be imported.
-
+It is necessary to set your account's privacy to public during the duration of the
+import. Also, items that have been "check(ed) in" will not be imported.
 :::
 
 1. Login to your Trakt account and go to the settings page.
