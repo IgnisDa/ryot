@@ -101,7 +101,7 @@ function collectGenres(genres, tags) {
   return [...genreSet];
 }
 
-driver("mediaSearch", async function(context) {
+driver("search", async function(context) {
   const pageSize =
     Number.isFinite(Number(context?.pageSize)) &&
     Number(context.pageSize) > 0 &&
@@ -222,7 +222,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
   };
 });
 
-driver("mediaDetails", async function(context) {
+driver("details", async function(context) {
   const contextIdentifier =
     typeof context?.identifier === "string" ? context.identifier.trim() : "";
   if (!contextIdentifier) {
