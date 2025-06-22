@@ -1,6 +1,6 @@
 # Trakt
 
-You can import from either a public Trakt user or a public list.
+You can import from either a public Trakt user or a public Trakt list.
 
 ## User
 
@@ -29,7 +29,7 @@ choice.
 1. Enter a URL for the list to import. For example:
 
 ```txt
-https://trakt.tv/users/felix66/lists/trakt-movie-the-new-york-times-guide-to-the-best-1-000-movies-ever-made?sort=rank,asc`.
+https://trakt.tv/users/felix66/lists/trakt-movie-the-new-york-times-guide-to-the-best-1-000-movies-ever-made?sort=rank,asc
 ```
 
 2. Select the collection you want to import the items into.
