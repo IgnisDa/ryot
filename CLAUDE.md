@@ -54,6 +54,9 @@
 
   For equal length, make sure the attribute names are alphabetically arranged.
 
+- The migration files should be named `m<date>_changes_for_issue_<number>`.
+- We do not have down migrations since we always roll forward. It should just be an empty
+  block with `Ok(())`.
 - Since this an open-source project, we have a slightly different approach to writing
   migrations. When adding a migration with a schema change, if the table you are working
   with already exists, then the same change should be applied to the migration where this
