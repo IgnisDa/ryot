@@ -781,7 +781,12 @@ async function seedSavedViews(
 	console.log("\n💾 Seeding Saved Views...");
 
 	const savedViews: Awaited<ReturnType<typeof createSavedView>>[] = [];
-	const neutralCard = cardConfig(null, null, null, null);
+	const defaultCard = cardConfig(
+		propertyReference("@image"),
+		propertyReference("@name"),
+		null,
+		null,
+	);
 	const allSchemaSlugs = [
 		"whiskey",
 		"place",
@@ -827,7 +832,7 @@ async function seedSavedViews(
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Region", "region"),
@@ -852,7 +857,7 @@ async function seedSavedViews(
 				sort: sortDefinition("desc", "proof"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Proof", "proof"),
@@ -980,7 +985,7 @@ async function seedSavedViews(
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Type", "type"),
@@ -1060,7 +1065,7 @@ async function seedSavedViews(
 				sort: sortDefinition("desc", "@createdAt"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Created", "@createdAt"),
@@ -1085,7 +1090,7 @@ async function seedSavedViews(
 				sort: sortDefinition("asc", "country", "city"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Country", "country"),
 					tableColumn("City", "city"),
@@ -1136,7 +1141,7 @@ async function seedSavedViews(
 				sort: sortDefinition("asc", "city", "address"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("City", "city"),
 					tableColumn("Name", "@name"),
@@ -1197,7 +1202,7 @@ async function seedSavedViews(
 				),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
@@ -1230,7 +1235,7 @@ async function seedSavedViews(
 				sort: sortDefinition("desc", "smartphone.year", "tablet.year"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Platform", "smartphone.os", "tablet.os"),
@@ -1288,7 +1293,7 @@ async function seedSavedViews(
 				sort: sortDefinition("desc", "price_usd"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", "price_usd"),
@@ -1315,7 +1320,7 @@ async function seedSavedViews(
 				sort: sortDefinition("asc", "price_usd"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", "price_usd"),
@@ -1401,7 +1406,7 @@ async function seedSavedViews(
 				sort: sortDefinition("desc", "year"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Manufacturer", "manufacturer"),
@@ -1477,7 +1482,7 @@ async function seedSavedViews(
 				sort: sortDefinition("desc", "@createdAt"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Created", "@createdAt"),
@@ -1520,7 +1525,7 @@ async function seedSavedViews(
 				sort: sortDefinition("asc", "@name"),
 			},
 			displayConfiguration: displayConfiguration(
-				neutralCard,
+				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn(
