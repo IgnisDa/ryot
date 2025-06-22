@@ -10,6 +10,7 @@ import {
 	jsonBody,
 	resolveValidationData,
 } from "~/lib/openapi";
+import { resolveRuntimeReference } from "../view-runtime/runtime-reference";
 import { executeViewRuntimeBody } from "../view-runtime/schemas";
 import { getSavedViewByIdForUser, listSavedViewsForUser } from "./repository";
 import {
@@ -44,6 +45,12 @@ type SavedViewRuntimeValidationInput = {
 const preValidateSavedViewBody = <T extends SavedViewRuntimeValidationInput>(
 	body: T,
 ) => {
+	const validateReferences = (references: string[] | null) => {
+		for (const reference of references ?? []) {
+			resolveRuntimeReference(reference);
+		}
+	};
+
 	const runtimeLayouts = [
 		{
 			layout: "grid",
@@ -60,13 +67,31 @@ const preValidateSavedViewBody = <T extends SavedViewRuntimeValidationInput>(
 	] as const;
 
 	for (const runtimeLayout of runtimeLayouts) {
-		executeViewRuntimeBody.parse({
+		const runtimeRequest = executeViewRuntimeBody.parse({
 			sort: body.queryDefinition.sort,
 			pagination: { page: 1, limit: 1 },
 			filters: body.queryDefinition.filters,
 			entitySchemaSlugs: body.queryDefinition.entitySchemaSlugs,
 			...runtimeLayout,
 		});
+
+		for (const field of runtimeRequest.sort.fields) {
+			resolveRuntimeReference(field);
+		}
+		for (const filter of runtimeRequest.filters) {
+			resolveRuntimeReference(filter.field);
+		}
+		if (runtimeRequest.layout === "table") {
+			for (const column of runtimeRequest.displayConfiguration.columns) {
+				validateReferences(column.property);
+			}
+			continue;
+		}
+
+		validateReferences(runtimeRequest.displayConfiguration.imageProperty);
+		validateReferences(runtimeRequest.displayConfiguration.titleProperty);
+		validateReferences(runtimeRequest.displayConfiguration.badgeProperty);
+		validateReferences(runtimeRequest.displayConfiguration.subtitleProperty);
 	}
 
 	return body;
