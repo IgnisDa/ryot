@@ -1,7 +1,8 @@
 # Rules for Ryot
 
-- The project uses moon for monorepo management. So all commands (like typecheck, running
-  tests etc) should use moon commands.
+- The project uses `moon` for monorepo management. All frontend related commands (like
+  typecheck, running tests etc) should use moon commands. You can read
+  `apps/docs/src/contributing.md` for a overview on project architecture.
 - When running tests, the backend needs to be compiled in release mode. Since this takes a
   lot of time, thus we prefer to run tests only after the feature has been implemented.
   Always ask the user approval to run tests.
