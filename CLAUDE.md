@@ -6,8 +6,8 @@
 - When running tests, the backend needs to be compiled in release mode. Since this takes a
   lot of time, we prefer to run tests only after the feature has been implemented. Always
   ask for the user's approval to run tests.
-- After adding a graphql query/mutation to the backend, always run the command to
-  regenerate graphql types. You can check the relevant moon.yml for the correct command.
+- After adding a graphql query/mutation to the backend, run `moon r
+  generated:backend-graphql` so that the frontend can use the new query/mutation.
 - Do not add code comments unless strictly necessary.
 - When adding code, attributes should be ordered by line length (ascending). For
   example:
