@@ -181,8 +181,8 @@ describe("GET /entities/:id — global entity read access", () => {
 		}
 
 		const { jobId } = await importMedia(clientA, cookiesA, {
+			identifier: "OL267933W",
 			scriptId: detailsScriptId,
-			identifier: "OL39858429M",
 			entitySchemaId: schema.id,
 		});
 
