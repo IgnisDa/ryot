@@ -319,13 +319,37 @@ export const getUpNextItems = async (
 	deps: MediaServiceDeps = defaultDeps,
 ) => {
 	const backlogAtRef = eventJoinColumnExpression("backlog", "createdAt");
+	const completeAtRef = eventJoinColumnExpression("complete", "createdAt");
 	const progressAtRef = eventJoinColumnExpression("progress", "createdAt");
 
 	const filter = {
 		type: "and" as const,
 		predicates: [
-			{ type: "isNull" as const, expression: progressAtRef },
 			{ expression: backlogAtRef, type: "isNotNull" as const },
+			{
+				type: "or" as const,
+				predicates: [
+					{ type: "isNull" as const, expression: progressAtRef },
+					{
+						left: backlogAtRef,
+						right: progressAtRef,
+						operator: "gt" as const,
+						type: "comparison" as const,
+					},
+				],
+			},
+			{
+				type: "or" as const,
+				predicates: [
+					{ type: "isNull" as const, expression: completeAtRef },
+					{
+						left: backlogAtRef,
+						right: completeAtRef,
+						operator: "gt" as const,
+						type: "comparison" as const,
+					},
+				],
+			},
 		],
 	};
 
