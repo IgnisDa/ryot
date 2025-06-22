@@ -173,9 +173,11 @@ describe("GET /entities/:id — global entity read access", () => {
 		const { client: clientA, cookies: cookiesA } =
 			await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
-		const detailsScriptId = schema.providers[0]?.scriptId;
+		const detailsScriptId = schema.providers.find(
+			(p) => p.name === "OpenLibrary",
+		)?.scriptId;
 		if (!detailsScriptId) {
-			throw new Error("No provider script found");
+			throw new Error("OpenLibrary provider script not found");
 		}
 
 		const { jobId } = await importMedia(clientA, cookiesA, {
@@ -187,15 +189,6 @@ describe("GET /entities/:id — global entity read access", () => {
 		const result = await pollMediaImportResult(clientA, cookiesA, jobId, {
 			timeoutMs: 30_000,
 		});
-
-		// Skip if the external API is unavailable
-		if (result.status === "failed") {
-			console.warn(
-				"[skip] media import failed — external API likely unavailable. " +
-					"Verify manually if this persists.",
-			);
-			return;
-		}
 
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
