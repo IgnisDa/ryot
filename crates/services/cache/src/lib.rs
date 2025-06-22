@@ -142,14 +142,12 @@ impl CacheService {
     ) -> Result<HashMap<ApplicationCacheKey, GetCacheKeyResponse>> {
         let caches = ApplicationCache::find()
             .filter(application_cache::Column::Key.is_in(keys))
+            .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
             .all(&self.db)
             .await?;
+
         let mut values = HashMap::new();
         for cache in caches {
-            let valid_by_expiry = cache.expires_at > Utc::now();
-            if !valid_by_expiry {
-                continue;
-            }
             if let Some(version) = cache.version {
                 if version != self.version {
                     continue;
