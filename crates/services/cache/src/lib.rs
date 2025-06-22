@@ -40,10 +40,10 @@ impl CacheService {
             | ApplicationCacheKey::UserWorkoutsList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
+            | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::UserMetadataGroupsList { .. }
             | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::UserWorkoutTemplatesList { .. }
-            | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
@@ -56,8 +56,8 @@ impl CacheService {
 
             ApplicationCacheKey::TrendingMetadataIds
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
-            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. }
-            | ApplicationCacheKey::CollectionRecommendations { .. } => 24,
+            | ApplicationCacheKey::CollectionRecommendations { .. }
+            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
