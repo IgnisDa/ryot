@@ -1,7 +1,7 @@
 # Rules for Ryot
 
 - The project uses `moon` for monorepo management. All frontend related commands (like
-  typecheck, running tests etc) should use moon commands. You can read
+  typecheck, running tests etc.) should use moon commands. You can read
   `apps/docs/src/contributing.md` for a overview on project architecture.
 - When running tests, the backend needs to be compiled in release mode. Since this takes a
   lot of time, thus we prefer to run tests only after the feature has been implemented.
@@ -52,7 +52,9 @@
   }
   ```
 
-- Since this an open source project, we have a slightly different approach to writing
+  For equal length, make sure the attribute names are alphabetically arranged.
+
+- Since this an open-source project, we have a slightly different approach to writing
   migrations. When adding a migration with a schema change, if the table you are working
   with already exists, then the same change should be applied to the migration where this
   table was first created. We need to do this so that new instances of Ryot can have the
