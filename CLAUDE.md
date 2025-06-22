@@ -1,0 +1,1 @@
+- The project uses moon for mono repo management. So all commands (like typecheck, running tests etc) should use moon commands.
