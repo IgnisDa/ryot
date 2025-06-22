@@ -10,8 +10,10 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
+        db.execute_unprepared(r#"CREATE EXTENSION IF NOT EXISTS "pg_trgm";"#)
+            .await?;
         db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{}" ON application_cache USING gin (sanitized_key gin_trgm_ops);"#,
+            r#"CREATE INDEX IF NOT EXISTS "{}" ON application_cache USING gin (sanitized_key gin_trgm_ops);"#,
             APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX
         ))
         .await?;
