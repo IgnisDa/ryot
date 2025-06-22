@@ -70,7 +70,45 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
     ]));
     let completed = match input {
         DeployTraktImportInput::List(DeployTraktImportListInput { url, collection }) => {
-            todo!()
+            let mut completed = vec![];
+
+            // URL format: https://trakt.tv/users/{username}/lists/{list_slug}?some=other
+            let url_parts: Vec<&str> = url.split('/').collect();
+            if url_parts.len() < 6 || url_parts[3] != "users" || url_parts[5] != "lists" {
+                failed.push(ImportFailedItem {
+                    identifier: url.clone(),
+                    step: ImportFailStep::ItemDetailsFromSource,
+                    error: Some("Invalid Trakt list URL format".to_owned()),
+                    ..Default::default()
+                });
+                return Ok(ImportResult {
+                    completed: vec![],
+                    failed,
+                });
+            }
+
+            let username = url_parts[4];
+            let list_slug = url_parts[6].split('?').next().unwrap_or(url_parts[6]);
+
+            // Construct API URL
+            let api_url = format!("{}/users/{}/lists/{}/items", API_URL, username, list_slug);
+
+            // Fetch list items
+            let rsp = client.get(&api_url).send().await.unwrap();
+            let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
+
+            // Process each item and add to the specified collection
+            for item in items.iter() {
+                match process_item(item) {
+                    Ok(mut d) => {
+                        d.collections.push(collection.clone());
+                        completed.push(ImportCompletedItem::Metadata(d));
+                    }
+                    Err(e) => failed.push(e),
+                }
+            }
+
+            completed
         }
         DeployTraktImportInput::User(username) => {
             let mut completed = vec![];
