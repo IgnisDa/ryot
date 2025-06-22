@@ -90,6 +90,7 @@ export function SavedViewResults(props: {
 	displayConfiguration: SavedViewDisplayConfiguration;
 }) {
 	const { isDark, textPrimary, textSecondary } = useThemeTokens();
+
 	if (props.layout === "grid") {
 		return (
 			<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="sm">
