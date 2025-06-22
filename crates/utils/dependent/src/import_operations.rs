@@ -188,32 +188,34 @@ where
                         continue;
                     }
                 };
-                let mut was_updated_successfully = false;
-                for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                    let is_partial = Metadata::find_by_id(&db_metadata_id)
-                        .select_only()
-                        .column(metadata::Column::IsPartial)
-                        .into_tuple::<bool>()
-                        .one(&ss.db)
-                        .await?
-                        .unwrap_or(true);
-                    if is_partial {
-                        deploy_update_metadata_job(&db_metadata_id, ss).await?;
-                        let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
-                        ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
-                        sleep_for_n_seconds(sleep_time).await;
-                    } else {
-                        was_updated_successfully = true;
-                        break;
+                if !metadata.seen_history.is_empty() {
+                    let mut was_updated_successfully = false;
+                    for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                        let is_partial = Metadata::find_by_id(&db_metadata_id)
+                            .select_only()
+                            .column(metadata::Column::IsPartial)
+                            .into_tuple::<bool>()
+                            .one(&ss.db)
+                            .await?
+                            .unwrap_or(true);
+                        if is_partial {
+                            deploy_update_metadata_job(&db_metadata_id, ss).await?;
+                            let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                            ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
+                            sleep_for_n_seconds(sleep_time).await;
+                        } else {
+                            was_updated_successfully = true;
+                            break;
+                        }
                     }
-                }
-                if !was_updated_successfully {
-                    import.failed.push(ImportFailedItem {
-                        lot: Some(metadata.lot),
-                        identifier: db_metadata_id.clone(),
-                        step: ImportFailStep::MediaDetailsFromProvider,
-                        error: Some("Progress update *might* be wrong".to_owned()),
-                    });
+                    if !was_updated_successfully {
+                        import.failed.push(ImportFailedItem {
+                            lot: Some(metadata.lot),
+                            identifier: db_metadata_id.clone(),
+                            step: ImportFailStep::MediaDetailsFromProvider,
+                            error: Some("Progress update *might* be wrong".to_owned()),
+                        });
+                    }
                 }
                 for seen in metadata.seen_history {
                     if let Err(e) =
