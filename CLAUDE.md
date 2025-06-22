@@ -1,15 +1,15 @@
 # Rules for Ryot
 
-- The project uses `moon` for monorepo management. All frontend related commands (like
+- The project uses `moon` for monorepo management. All front-end related commands (like
   typecheck, running tests etc.) should use moon commands. You can read
-  `apps/docs/src/contributing.md` for a overview on project architecture.
+  `apps/docs/src/contributing.md` for an overview on the architecture.
 - When running tests, the backend needs to be compiled in release mode. Since this takes a
-  lot of time, thus we prefer to run tests only after the feature has been implemented.
-  Always ask the user approval to run tests.
+  lot of time, we prefer to run tests only after the feature has been implemented. Always
+  ask for the user's approval to run tests.
 - After adding a graphql query/mutation to the backend, always run the command to
   regenerate graphql types. You can check the relevant moon.yml for the correct command.
 - Do not add code comments unless strictly necessary.
-- When adding code, please make sure attributes are always ordered by the line length. For
+- When adding code, attributes should be ordered by line length (ascending). For
   example:
 
   ```tsx
@@ -21,7 +21,7 @@
   />
   ```
 
-  should be:
+  It should be:
 
   ```tsx
   <TextInput
@@ -32,7 +32,7 @@
   />
   ```
 
-  Another example in rust:
+  Another example in Rust:
 
   ```rs
   #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -42,7 +42,7 @@
   }
   ```
 
-  should be:
+  It should be:
 
   ```rs
   #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -52,12 +52,12 @@
   }
   ```
 
-  For equal length, make sure the attribute names are alphabetically arranged.
+  When lengths are equal, the attributes should be arranged alphabetically.
 
 - The migration files should be named `m<date>_changes_for_issue_<number>`.
 - We do not have down migrations since we always roll forward. It should just be an empty
   block with `Ok(())`.
-- Since this an open-source project, we have a slightly different approach to writing
+- Since this is an open-source project, we have a slightly different approach to writing
   migrations. When adding a migration with a schema change, if the table you are working
   with already exists, then the same change should be applied to the migration where this
   table was first created. We need to do this so that new instances of Ryot can have the
