@@ -421,8 +421,12 @@ const UpdateUserModal = (props: {
 							loading={resetUserMutation.isPending}
 							leftSection={<IconRotateClockwise size={16} />}
 							onClick={() => {
-								if (props.updateUserData?.id) {
-									resetUserMutation.mutate(props.updateUserData.id);
+								const updateUserData = props.updateUserData;
+								if (updateUserData?.id) {
+									openConfirmationModal(
+										"Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.",
+										() => resetUserMutation.mutate(updateUserData.id),
+									);
 								}
 							}}
 						>
