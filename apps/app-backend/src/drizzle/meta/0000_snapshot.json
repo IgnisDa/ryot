@@ -1,5 +1,5 @@
 {
-	"id": "73810ca6-3434-4252-834c-e865739c06aa",
+	"id": "ce002d30-1239-4998-b588-6c5492584918",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -765,12 +765,6 @@
 					"notNull": true,
 					"default": "'{}'::jsonb"
 				},
-				"session_entity_id": {
-					"name": "session_entity_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"user_id": {
 					"name": "user_id",
 					"type": "text",
@@ -849,21 +843,6 @@
 					"method": "btree",
 					"with": {}
 				},
-				"event_session_entity_id_idx": {
-					"name": "event_session_entity_id_idx",
-					"columns": [
-						{
-							"expression": "session_entity_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"event_properties_idx": {
 					"name": "event_properties_idx",
 					"columns": [
@@ -881,15 +860,6 @@
 				}
 			},
 			"foreignKeys": {
-				"event_session_entity_id_entity_id_fk": {
-					"name": "event_session_entity_id_entity_id_fk",
-					"tableFrom": "event",
-					"tableTo": "entity",
-					"columnsFrom": ["session_entity_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
 				"event_user_id_user_id_fk": {
 					"name": "event_user_id_user_id_fk",
 					"tableFrom": "event",
@@ -1427,12 +1397,6 @@
 			"name": "sandbox_script",
 			"schema": "",
 			"columns": {
-				"metadata": {
-					"name": "metadata",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"slug": {
 					"name": "slug",
 					"type": "text",
@@ -1448,6 +1412,12 @@
 				"code": {
 					"name": "code",
 					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
 					"primaryKey": false,
 					"notNull": true
 				},
