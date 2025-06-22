@@ -52,8 +52,8 @@ After adding a GraphQL query or mutation to the backend, run `moon run generated
 
   When lengths are equal, the attributes should be arranged alphabetically.
 
-- The migration files should be named `m<date>_changes_for_issue_<number>`. Read the other
-  migration files for examples.
+The migration files should be named `m<YYYYMMDD>_changes_for_issue_<number>`. Read other
+migration files for examples.
 - We do not have down migrations since we always roll forward. It should just be an empty
   block with `Ok(())`.
 - Since this is an open-source project, we have a slightly different approach to writing
