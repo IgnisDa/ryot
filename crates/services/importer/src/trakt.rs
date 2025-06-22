@@ -21,6 +21,18 @@ use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 const API_URL: &str = "https://api.trakt.tv";
 const API_VERSION: &str = "2";
 
+async fn fetch_json<T: serde::de::DeserializeOwned>(
+    client: &reqwest::Client,
+    url: &str,
+    query: Option<&serde_json::Value>,
+) -> Result<T, reqwest::Error> {
+    let mut request = client.get(url);
+    if let Some(q) = query {
+        request = request.query(q);
+    }
+    request.send().await?.json().await
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct Id {
     trakt: u64,
@@ -82,22 +94,18 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                     ..Default::default()
                 });
                 return Ok(ImportResult {
-                    completed: vec![],
                     failed,
+                    ..Default::default()
                 });
             }
 
             let username = url_parts[4];
             let list_slug = url_parts[6].split('?').next().unwrap_or(url_parts[6]);
 
-            // Construct API URL
             let api_url = format!("{}/users/{}/lists/{}/items", API_URL, username, list_slug);
 
-            // Fetch list items
-            let rsp = client.get(&api_url).send().await.unwrap();
-            let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
+            let items: Vec<ListItemResponse> = fetch_json(&client, &api_url, None).await?;
 
-            // Process each item and add to the specified collection
             for item in items.iter() {
                 match process_item(item) {
                     Ok(mut d) => {
@@ -113,25 +121,21 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         DeployTraktImportInput::User(username) => {
             let mut completed = vec![];
             let url = format!("{}/users/{}", API_URL, username);
-            let rsp = client.get(format!("{}/lists", url)).send().await.unwrap();
-            let mut lists: Vec<ListResponse> = rsp.json().await.unwrap();
+            let mut lists: Vec<ListResponse> =
+                fetch_json(&client, &format!("{}/lists", url), None).await?;
 
             for list in lists.iter_mut() {
-                let rsp = client
-                    .get(format!("{}/lists/{}/items", url, list.ids.trakt))
-                    .send()
-                    .await
-                    .unwrap();
-                let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                let items: Vec<ListItemResponse> = fetch_json(
+                    &client,
+                    &format!("{}/lists/{}/items", url, list.ids.trakt),
+                    None,
+                )
+                .await?;
                 list.items = items;
             }
             for list in ["watchlist", "favorites"] {
-                let rsp = client
-                    .get(format!("{}/{}", url, list))
-                    .send()
-                    .await
-                    .unwrap();
-                let items: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                let items: Vec<ListItemResponse> =
+                    fetch_json(&client, &format!("{}/{}", url, list), None).await?;
                 lists.push(ListResponse {
                     items,
                     name: list.to_owned(),
@@ -140,12 +144,8 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
             }
 
             for typ in ["movies", "shows"] {
-                let rsp = client
-                    .get(format!("{}/collection/{}", url, typ))
-                    .send()
-                    .await
-                    .unwrap();
-                let items = rsp.json::<Vec<ListItemResponse>>().await.unwrap();
+                let items: Vec<ListItemResponse> =
+                    fetch_json(&client, &format!("{}/collection/{}", url, typ), None).await?;
                 for item in items.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
@@ -155,12 +155,8 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                         Err(e) => failed.push(e),
                     }
                 }
-                let rsp = client
-                    .get(format!("{}/ratings/{}", url, typ))
-                    .send()
-                    .await
-                    .unwrap();
-                let ratings: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                let ratings: Vec<ListItemResponse> =
+                    fetch_json(&client, &format!("{}/ratings/{}", url, typ), None).await?;
                 for item in ratings.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
@@ -212,13 +208,12 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
                 .unwrap();
             for page in 1..total_history + 1 {
                 ryot_log!(debug, "Fetching user history {page:?}/{total_history:?}");
-                let rsp = client
-                    .get(format!("{}/history", url))
-                    .query(&serde_json::json!({ "page": page, "limit": 1000 }))
-                    .send()
-                    .await
-                    .unwrap();
-                let history: Vec<ListItemResponse> = rsp.json().await.unwrap();
+                let history: Vec<ListItemResponse> = fetch_json(
+                    &client,
+                    &format!("{}/history", url),
+                    Some(&serde_json::json!({ "page": page, "limit": 1000 })),
+                )
+                .await?;
                 histories.extend(history);
             }
 
