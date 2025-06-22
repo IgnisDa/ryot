@@ -3,7 +3,6 @@ use background_models::{ApplicationJob, MpApplicationJob};
 use common_utils::ryot_log;
 use database_models::{prelude::Exercise, user};
 use database_utils::get_enabled_users_query;
-
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, PaginatorTrait, QueryFilter};
 use sea_query::Expr;
 use std::sync::Arc;
