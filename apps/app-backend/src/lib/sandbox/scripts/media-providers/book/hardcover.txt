@@ -66,6 +66,16 @@ function collectPeople(contributions) {
       continue;
     }
 
+    const authorName =
+      contrib.author &&
+      typeof contrib.author === "object" &&
+      typeof contrib.author.name === "string"
+        ? contrib.author.name.trim()
+        : null;
+    if (!authorName) {
+      continue;
+    }
+
     const role =
       typeof contrib.contribution === "string" && contrib.contribution.trim()
         ? contrib.contribution.trim()
@@ -73,8 +83,9 @@ function collectPeople(contributions) {
 
     people.push({
       role,
-      source: "hardcover",
+      name: authorName,
       identifier: personIdentifier,
+      scriptSlug: "person.hardcover",
     });
   }
 
@@ -286,6 +297,7 @@ query GetHardcoverBookDetails($id: Int!) {
     contributions {
       contribution
       author_id
+      author { name }
     }
   }
 }
@@ -358,6 +370,7 @@ query GetHardcoverBookDetails($id: Int!) {
     externalId: identifier,
     properties: {
       pages,
+      freeCreators: [],
       sourceUrl: sourceUrl,
       publishYear: releaseYear,
       genres: collectGenres(bookData.cached_tags),
