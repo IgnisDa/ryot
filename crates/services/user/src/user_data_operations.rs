@@ -6,7 +6,7 @@ use database_models::{
     prelude::{AccessLink, Integration, NotificationPlatform, User},
     user,
 };
-use database_utils::{get_user_query, ilike_sql};
+use database_utils::{get_enabled_users_query, ilike_sql};
 use sea_orm::{
     ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr,
     sea_query::extension::postgres::PgExpr,
@@ -70,7 +70,7 @@ pub async fn user_by_oidc_issuer_id(
     ss: &Arc<SupportingService>,
     oidc_issuer_id: String,
 ) -> Result<Option<String>> {
-    let user = get_user_query()
+    let user = get_enabled_users_query()
         .filter(user::Column::OidcIssuerId.eq(oidc_issuer_id))
         .one(&ss.db)
         .await?
