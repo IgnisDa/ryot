@@ -36,6 +36,9 @@ pub enum AuthUserInput {
 #[derive(Debug, InputObject)]
 pub struct RegisterUserInput {
     pub data: AuthUserInput,
+    /// Specific user ID to create.
+    #[graphql(skip)]
+    pub user_id: Option<String>,
     /// If registration is disabled, this can be used to override it.
     pub admin_access_token: Option<String>,
 }
@@ -54,6 +57,18 @@ pub struct RegisterError {
 #[derive(Union)]
 pub enum RegisterResult {
     Ok(StringIdObject),
+    Error(RegisterError),
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserResetResponse {
+    pub id: String,
+    pub password: Option<String>,
+}
+
+#[derive(Union)]
+pub enum UserResetResult {
+    Ok(UserResetResponse),
     Error(RegisterError),
 }
 

@@ -433,7 +433,5 @@ pub async fn calculate_user_activities_and_summary(
         })
         .await?;
 
-    ryot_log!(debug, "Expired cache key for user: {:?}", user_id);
-
     Ok(())
 }

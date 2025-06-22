@@ -1,6 +1,0 @@
----
-description: Instructions for running tests in the project.
-globs:
-alwaysApply: true
----
-To run tests, use the following command: `moon r backend-api-tests:test`

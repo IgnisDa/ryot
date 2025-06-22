@@ -10,6 +10,7 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(
             r#"
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
         "#,
         )
         .await?;

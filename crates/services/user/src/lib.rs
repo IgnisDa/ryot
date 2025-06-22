@@ -12,7 +12,7 @@ use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput,
+    UpdateUserNotificationPlatformInput, UserResetResult,
 };
 
 use openidconnect::Nonce;
@@ -78,6 +78,14 @@ impl UserService {
         to_delete_user_id: String,
     ) -> Result<bool> {
         user_management_operations::delete_user(&self.0, admin_user_id, to_delete_user_id).await
+    }
+
+    pub async fn reset_user(
+        &self,
+        admin_user_id: String,
+        to_reset_user_id: String,
+    ) -> Result<UserResetResult> {
+        user_management_operations::reset_user(&self.0, admin_user_id, to_reset_user_id).await
     }
 
     pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {

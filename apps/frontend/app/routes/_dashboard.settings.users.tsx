@@ -4,6 +4,7 @@ import {
 	Box,
 	Button,
 	Container,
+	CopyButton,
 	Flex,
 	Group,
 	Modal,
@@ -17,10 +18,11 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserDocument,
-	RegisterErrorVariant,
 	RegisterUserDocument,
+	ResetUserDocument,
 	UpdateUserDocument,
 	UserLot,
 	UsersListDocument,
@@ -35,22 +37,31 @@ import {
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
+	IconCopy,
 	IconPencil,
 	IconPlus,
 	IconRefresh,
+	IconRotateClockwise,
 	IconTrash,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { forwardRef, useState } from "react";
-import { Form, data, redirect, useLoaderData } from "react-router";
+import {
+	Form,
+	data,
+	redirect,
+	useLoaderData,
+	useRevalidator,
+} from "react-router";
 import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput } from "~/components/common";
-import { openConfirmationModal } from "~/lib/common";
-import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
+import { clientGqlService, openConfirmationModal } from "~/lib/common";
+import { useCoreDetails } from "~/lib/hooks";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,
@@ -91,25 +102,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("delete", async () => {
-			const submission = processSubmission(formData, deleteSchema);
-			const { deleteUser } = await serverGqlService.authenticatedRequest(
-				request,
-				DeleteUserDocument,
-				submission,
-			);
-			return data({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: deleteUser ? "success" : "error",
-					message: deleteUser
-						? "User deleted successfully"
-						: "User can not be deleted",
-				}),
-			});
-		})
 		.with("registerNew", async () => {
 			const submission = processSubmission(formData, registerFormSchema);
-			const { registerUser } = await serverGqlService.authenticatedRequest(
+			await serverGqlService.authenticatedRequest(
 				request,
 				RegisterUserDocument,
 				{
@@ -124,22 +119,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					},
 				},
 			);
-			const success = registerUser.__typename === "StringIdObject";
 			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
-					type: success ? "success" : "error",
-					message: success
-						? "User registered successfully"
-						: match(registerUser.error)
-								.with(
-									RegisterErrorVariant.Disabled,
-									() => "Registration is disabled",
-								)
-								.with(
-									RegisterErrorVariant.IdentifierAlreadyExists,
-									() => "Username already exists",
-								)
-								.exhaustive(),
+					type: "success",
+					message: "User registered successfully",
 				}),
 			});
 		})
@@ -164,8 +147,6 @@ const registerFormSchema = z.object({
 	password: z.string(),
 	adminAccessToken: z.string().optional(),
 });
-
-const deleteSchema = z.object({ toDeleteUserId: z.string() });
 
 const updateUserSchema = z.object({
 	userId: z.string(),
@@ -265,8 +246,37 @@ type User = UsersListQuery["usersList"][number];
 const UserDisplay = (props: { index: number }) => {
 	const loaderData = useLoaderData<typeof loader>();
 	const user = loaderData.usersList[props.index];
-	const submit = useConfirmSubmit();
+	const revalidator = useRevalidator();
 	const [updateUserData, setUpdateUserData] = useState<User | null>(null);
+
+	const deleteUserMutation = useMutation({
+		mutationFn: async (toDeleteUserId: string) => {
+			const { deleteUser } = await clientGqlService.request(
+				DeleteUserDocument,
+				{ toDeleteUserId },
+			);
+			return deleteUser;
+		},
+		onSuccess: (deleteUser) => {
+			notifications.show({
+				color: deleteUser ? "green" : "red",
+				title: deleteUser ? "Success" : "Error",
+				message: deleteUser
+					? "User deleted successfully"
+					: "User can not be deleted",
+			});
+			if (deleteUser) {
+				revalidator.revalidate();
+			}
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to delete user",
+			});
+		},
+	});
 
 	if (!user) return null;
 
@@ -297,24 +307,19 @@ const UserDisplay = (props: { index: number }) => {
 					>
 						<IconPencil />
 					</ActionIcon>
-					<Form method="POST" action={withQuery(".", { intent: "delete" })}>
-						<input hidden name="toDeleteUserId" defaultValue={user.id} />
-						<ActionIcon
-							color="red"
-							type="submit"
-							variant="subtle"
-							onClick={(e) => {
-								const form = e.currentTarget.form;
-								e.preventDefault();
-								openConfirmationModal(
-									"Are you sure you want to delete this user?",
-									() => submit(form),
-								);
-							}}
-						>
-							<IconTrash />
-						</ActionIcon>
-					</Form>
+					<ActionIcon
+						color="red"
+						variant="subtle"
+						loading={deleteUserMutation.isPending}
+						onClick={() => {
+							openConfirmationModal(
+								"Are you sure you want to delete this user?",
+								() => deleteUserMutation.mutate(user.id),
+							);
+						}}
+					>
+						<IconTrash />
+					</ActionIcon>
 				</Group>
 			</Flex>
 		</Paper>
@@ -325,17 +330,52 @@ const UpdateUserModal = (props: {
 	updateUserData: User | null;
 	closeIntegrationModal: () => void;
 }) => {
+	const [resetPassword, setResetPassword] = useState<string | null>(null);
+
+	const resetUserMutation = useMutation({
+		mutationFn: async (toResetUserId: string) => {
+			const { resetUser } = await clientGqlService.request(ResetUserDocument, {
+				toResetUserId,
+			});
+			return resetUser;
+		},
+		onSuccess: (resetUser) => {
+			if (resetUser.__typename === "UserResetResponse") {
+				if (resetUser.password) {
+					setResetPassword(resetUser.password);
+				}
+				notifications.show({
+					color: "green",
+					title: "Success",
+					message: "User password reset successfully",
+				});
+			}
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to reset user",
+			});
+		},
+	});
+
+	const handleClose = () => {
+		setResetPassword(null);
+		props.closeIntegrationModal();
+	};
+
 	return (
 		<Modal
-			opened={props.updateUserData !== null}
-			onClose={props.closeIntegrationModal}
 			centered
+			onClose={handleClose}
 			withCloseButton={false}
+			opened={props.updateUserData !== null}
 		>
 			<Form
 				replace
 				method="POST"
-				onSubmit={() => props.closeIntegrationModal()}
+				onSubmit={handleClose}
 				action={withQuery(".", { intent: "update" })}
 			>
 				<input hidden name="userId" defaultValue={props.updateUserData?.id} />
@@ -354,7 +394,46 @@ const UpdateUserModal = (props: {
 						defaultChecked={props.updateUserData?.isDisabled || undefined}
 					/>
 					<PasswordInput name="password" label="Password" />
-					<Button type="submit">Submit</Button>
+					{resetPassword && (
+						<TextInput
+							readOnly
+							value={resetPassword}
+							label="New Password (Generated)"
+							description="This is the new password for the user"
+							rightSection={
+								<CopyButton value={resetPassword}>
+									{({ copy }) => (
+										<ActionIcon onClick={copy}>
+											<IconCopy size={16} />
+										</ActionIcon>
+									)}
+								</CopyButton>
+							}
+						/>
+					)}
+					<Group wrap="nowrap">
+						<Button
+							color="red"
+							flex="none"
+							variant="outline"
+							loading={resetUserMutation.isPending}
+							leftSection={<IconRotateClockwise size={16} />}
+							onClick={() => {
+								const updateUserData = props.updateUserData;
+								if (updateUserData?.id) {
+									openConfirmationModal(
+										"Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.",
+										() => resetUserMutation.mutate(updateUserData.id),
+									);
+								}
+							}}
+						>
+							Reset
+						</Button>
+						<Button fullWidth type="submit">
+							Submit
+						</Button>
+					</Group>
 				</Stack>
 			</Form>
 		</Modal>

@@ -1,5 +1,9 @@
 # Contributing
 
+:::info
+CLAUDE.md is an excellent place to start reading on coding conventions followed in this project.
+:::
+
 - Install [Rust](https://www.rust-lang.org), [Moon](https://moonrepo.dev) and
   [Caddy](https://caddyserver.com/) (>= 2.7).
 - Make sure you have PostgreSQL installed and running. I prefer using Docker e.g.
