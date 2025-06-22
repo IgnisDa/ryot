@@ -7,8 +7,8 @@ use enum_models::{ImportSource, MediaLot, MediaSource};
 use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
 use media_models::{
-    CreateOrUpdateCollectionInput, DeployTraktImportInput, ImportOrExportItemRating,
-    ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
+    CreateOrUpdateCollectionInput, DeployTraktImportInput, DeployTraktImportListInput,
+    ImportOrExportItemRating, ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
 use reqwest::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use rust_decimal::Decimal;
@@ -69,7 +69,7 @@ pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
         ),
     ]));
     let completed = match input {
-        DeployTraktImportInput::List(url) => {
+        DeployTraktImportInput::List(DeployTraktImportListInput { url, collection }) => {
             todo!()
         }
         DeployTraktImportInput::User(username) => {
