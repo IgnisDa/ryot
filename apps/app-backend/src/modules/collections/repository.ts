@@ -44,6 +44,47 @@ export const getBuiltinCollectionSchema = async () => {
 	return foundEntitySchema;
 };
 
+export const createLibraryEntityForUser = async (
+	input: { userId: string; entitySchemaId: string },
+	database: DbClient = db,
+) => {
+	const [existing] = await database
+		.select({ id: entity.id })
+		.from(entity)
+		.where(
+			and(
+				eq(entity.userId, input.userId),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+				isNull(entity.externalId),
+				isNull(entity.sandboxScriptId),
+			),
+		)
+		.limit(1);
+
+	if (existing) {
+		return existing;
+	}
+
+	const [createdEntity] = await database
+		.insert(entity)
+		.values({
+			image: null,
+			properties: {},
+			name: "Library",
+			externalId: null,
+			userId: input.userId,
+			sandboxScriptId: null,
+			entitySchemaId: input.entitySchemaId,
+		})
+		.returning({ id: entity.id });
+
+	if (!createdEntity) {
+		throw new Error("Could not persist library entity");
+	}
+
+	return createdEntity;
+};
+
 export const createCollectionForUser = async (input: {
 	name: string;
 	userId: string;
@@ -191,15 +232,15 @@ export const getCollectionById = async (
 export const getEntityById = async (
 	entityId: string,
 	userId: string,
-): Promise<{ id: string } | undefined> => {
+): Promise<{ id: string; userId: string | null } | undefined> => {
 	const [foundEntity] = await db
-		.select({ id: entity.id })
+		.select({ id: entity.id, userId: entity.userId })
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.where(
 			and(
 				eq(entity.id, entityId),
-				eq(entity.userId, userId),
+				or(isNull(entity.userId), eq(entity.userId, userId)),
 				or(isNull(entitySchema.userId), eq(entitySchema.userId, userId)),
 			),
 		)

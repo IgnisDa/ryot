@@ -7,7 +7,11 @@ import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 import { getSandboxService } from "~/lib/sandbox";
-import { createEntity, getEntitySchemaScopeForUser } from "~/modules/entities";
+import {
+	getEntitySchemaScopeForUser,
+	getUserLibraryEntityId,
+	upsertInLibraryRelationship,
+} from "~/modules/entities";
 import {
 	createGlobalEntity,
 	updateGlobalEntityById,
@@ -173,29 +177,46 @@ const processMediaImportJob = async (job: Job) => {
 		? { kind: "remote" as const, url: firstImage }
 		: null;
 
-	const entityResult = await createEntity({
-		userId,
-		body: {
-			image,
-			properties,
-			entitySchemaId,
-			name: details.name,
-			sandboxScriptId: scriptId,
-			externalId: details.externalId,
-		},
+	const mediaEntity = await createGlobalEntity({
+		entitySchemaId,
+		name: details.name,
+		sandboxScriptId: scriptId,
+		externalId: details.externalId,
 	});
 
-	if ("error" in entityResult) {
-		throw new Error(entityResult.message);
+	const isNew =
+		mediaEntity.properties &&
+		typeof mediaEntity.properties === "object" &&
+		!("populatedAt" in mediaEntity.properties);
+
+	if (isNew) {
+		await updateGlobalEntityById({
+			image,
+			entitySchemaId,
+			name: details.name,
+			entityId: mediaEntity.id,
+			properties: { ...properties, populatedAt: new Date().toISOString() },
+		});
 	}
+
+	const libraryEntityId = await getUserLibraryEntityId({ userId });
+	if (!libraryEntityId) {
+		throw new Error("User library entity not found");
+	}
+
+	await upsertInLibraryRelationship({
+		userId,
+		libraryEntityId,
+		mediaEntityId: mediaEntity.id,
+	});
 
 	await processPersonStubs({
 		userId,
+		mediaEntityId: mediaEntity.id,
 		rawProperties: details.properties,
-		mediaEntityId: entityResult.data.id,
 	});
 
-	return entityResult.data;
+	return mediaEntity;
 };
 
 const processPersonPopulateJob = async (job: Job) => {

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Backwards compatibility
 
@@ -50,15 +50,15 @@ Add a single sentence to each of tasks 01–07 in the "What to build" section: _
 
 ## Acceptance criteria
 
-- [ ] `media/worker.ts` does not import `createEntity` from `~/modules/entities`.
-- [ ] `getEntityDetail` returns `200` (data) for a global media entity (`userId = null`, `isBuiltin = true`), not `not_found` or `validation`.
-- [ ] `getEntityDetail` continues to return `not_found` for a user-scoped entity with a builtin schema that does not belong to the requesting user.
-- [ ] No `if (scope.isBuiltin && !hasExternalId)` condition exists anywhere in the entity service.
-- [ ] No e2e test asserts that `POST /entities` with a builtin schema and provenance fields returns `200`.
-- [ ] The `isUniqueConstraintError` catch in `createEntity` is only reachable for custom (non-builtin) schema entities; any builtin-schema path is blocked before it.
-- [ ] The `customEntityDetailError` constant is either deleted or renamed to reflect its post-fix scope.
-- [ ] Tasks 01–07 each contain an explicit backwards-compatibility note.
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
+- [x] `media/worker.ts` does not import `createEntity` from `~/modules/entities`.
+- [x] `getEntityDetail` returns `200` (data) for a global media entity (`userId = null`, `isBuiltin = true`), not `not_found` or `validation`.
+- [x] `getEntityDetail` continues to return `not_found` for a user-scoped entity with a builtin schema that does not belong to the requesting user.
+- [x] No `if (scope.isBuiltin && !hasExternalId)` condition exists anywhere in the entity service.
+- [x] No e2e test asserts that `POST /entities` with a builtin schema and provenance fields returns `200`.
+- [x] The `isUniqueConstraintError` catch in `createEntity` is only reachable for custom (non-builtin) schema entities; any builtin-schema path is blocked before it.
+- [x] The `customEntityDetailError` constant is either deleted or renamed to reflect its post-fix scope.
+- [x] Tasks 01–07 each contain an explicit backwards-compatibility note.
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass in both `apps/app-backend` and `tests`.
 
 ## Blocked by
 

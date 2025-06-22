@@ -10,6 +10,7 @@ import {
 	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
+import { createLibraryEntityForUser } from "~/modules/collections";
 import {
 	createTrackerEntitySchemas,
 	listBuiltinEntitySchemas,
@@ -26,6 +27,7 @@ import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
 	buildAuthenticationTrackerInputs,
+	buildLibraryEntityInput,
 	resolveAuthenticationName,
 } from "./service";
 
@@ -99,10 +101,16 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					links: buildAuthenticationTrackerEntitySchemaLinks({
 						trackers: createdTrackers,
 						entitySchemas: builtinEntitySchemaRows,
-						schemaLinks: authenticationBuiltinEntitySchemas().map((schema) => ({
-							slug: schema.slug,
-							trackerSlug: schema.trackerSlug,
-						})),
+						schemaLinks: authenticationBuiltinEntitySchemas()
+							.filter(
+								(schema): schema is typeof schema & { trackerSlug: string } =>
+									typeof (schema as { trackerSlug?: string }).trackerSlug ===
+									"string",
+							)
+							.map((schema) => ({
+								slug: schema.slug,
+								trackerSlug: schema.trackerSlug,
+							})),
 					}),
 				});
 
@@ -115,6 +123,14 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 						savedViews: authenticationBuiltinSavedViews(),
 					}),
 				});
+
+				const libraryEntityInput = buildLibraryEntityInput({
+					entitySchemas: builtinEntitySchemaRows,
+				});
+				await createLibraryEntityForUser(
+					{ userId: signUpResult.user.id, ...libraryEntityInput },
+					tx,
+				);
 			});
 		} catch (error) {
 			if (isAPIError(error)) {
