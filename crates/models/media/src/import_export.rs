@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, OneofObject, SimpleObject};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
@@ -179,10 +179,10 @@ pub struct DeployGenericCsvImportInput {
     pub csv_path: String,
 }
 
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployTraktImportInput {
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum DeployTraktImportInput {
     // The public username in Trakt.
-    pub username: String,
+    User(String),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
