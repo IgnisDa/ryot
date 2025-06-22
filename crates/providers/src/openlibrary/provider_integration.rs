@@ -56,15 +56,11 @@ impl MediaProvider for OpenlibraryService {
             })
             .collect_vec();
         let data = SearchResults {
+            items: resp,
             details: SearchDetails {
                 total: search.num_found,
-                next_page: if search.num_found - ((page) * PAGE_SIZE) > 0 {
-                    Some(page + 1)
-                } else {
-                    None
-                },
+                next_page: (search.num_found - (page * PAGE_SIZE) > 0).then(|| page + 1),
             },
-            items: resp,
         };
         Ok(data)
     }

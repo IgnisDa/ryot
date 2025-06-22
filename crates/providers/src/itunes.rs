@@ -201,15 +201,11 @@ impl MediaProvider for ITunesService {
             .collect_vec();
 
         Ok(SearchResults {
+            items: resp,
             details: SearchDetails {
                 total,
-                next_page: if total > page * PAGE_SIZE {
-                    Some(page + 1)
-                } else {
-                    None
-                },
+                next_page: (total > page * PAGE_SIZE).then(|| page + 1),
             },
-            items: resp,
         })
     }
 }

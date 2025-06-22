@@ -1,3 +1,4 @@
+use async_graphql::Result;
 use enum_models::EntityLot;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 
@@ -8,7 +9,7 @@ pub async fn get_user_to_entity_association<C>(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
-) -> Option<user_to_entity::Model>
+) -> Result<Option<user_to_entity::Model>>
 where
     C: ConnectionTrait,
 {
@@ -23,11 +24,10 @@ where
         | EntityLot::Review
         | EntityLot::UserMeasurement => unreachable!(),
     };
-    UserToEntity::find()
+    let ute = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(user_id.to_owned()))
         .filter(column.eq(entity_id))
         .one(db)
-        .await
-        .ok()
-        .flatten()
+        .await?;
+    Ok(ute)
 }

@@ -162,13 +162,14 @@ impl MediaProvider for MangaUpdatesService {
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
+        let page = page.unwrap_or(1);
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
             .post(format!("{}/authors/search", URL))
             .json(&serde_json::json!({
+                "page": page,
                 "search": query,
                 "perpage": PAGE_SIZE,
-                "page": page.unwrap_or(1)
             }))
             .send()
             .await
@@ -186,15 +187,11 @@ impl MediaProvider for MangaUpdatesService {
             })
             .collect();
         Ok(SearchResults {
+            items,
             details: SearchDetails {
                 total: data.total_hits,
-                next_page: if data.total_hits - ((page.unwrap_or(1)) * PAGE_SIZE) > 0 {
-                    Some(page.unwrap_or(1) + 1)
-                } else {
-                    None
-                },
+                next_page: (data.total_hits - (page * PAGE_SIZE) > 0).then(|| page + 1),
             },
-            items,
         })
     }
 

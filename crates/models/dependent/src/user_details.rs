@@ -84,7 +84,7 @@ pub struct UserMetadataDetails {
     /// The public reviews of this media.
     pub reviews: Vec<ReviewItem>,
     /// The number of users who have seen this media.
-    pub seen_by_all_count: usize,
+    pub seen_by_all_count: i64,
     /// The seen history of this media.
     pub history: Vec<seen::Model>,
     /// The number of times this user has seen this media.

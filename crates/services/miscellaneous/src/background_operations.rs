@@ -20,7 +20,7 @@ use database_models::{
     },
     seen, user, user_to_entity,
 };
-use database_utils::{get_user_query, revoke_access_link};
+use database_utils::{get_enabled_users_query, revoke_access_link};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput,
 };
@@ -417,7 +417,7 @@ async fn queue_notifications_for_outdated_seen_entries(ss: &Arc<SupportingServic
 
 async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
     let mut all_keys = vec![];
-    let user_ids = get_user_query()
+    let user_ids = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()
@@ -446,7 +446,7 @@ async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
 }
 
 async fn regenerate_user_summaries(ss: &Arc<SupportingService>) -> Result<()> {
-    let all_users = get_user_query()
+    let all_users = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()

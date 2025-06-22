@@ -75,7 +75,7 @@ pub async fn associate_user_with_entity(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let user_to_entity_model =
-        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await;
+        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await?;
 
     let entity_id_owned = entity_id.to_owned();
 

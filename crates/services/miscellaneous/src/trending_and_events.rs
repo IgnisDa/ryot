@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use async_graphql::Result;
 use database_models::{metadata, prelude::Metadata, user};
-use database_utils::get_user_query;
+use database_utils::get_enabled_users_query;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TrendingMetadataIdsResponse};
 use dependent_utils::{
     commit_metadata, get_metadata_provider, get_users_monitoring_entity, send_notification_for_user,
@@ -94,7 +94,7 @@ pub async fn handle_review_posted_event(
     event: ReviewPostedEvent,
 ) -> Result<()> {
     let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, &ss.db).await?;
-    let users = get_user_query()
+    let users = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .filter(user::Column::Id.is_in(monitored_by))

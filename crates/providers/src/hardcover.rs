@@ -326,11 +326,7 @@ query {{
             items,
             details: SearchDetails {
                 total: response.found,
-                next_page: if page < response.found / PAGE_SIZE {
-                    Some(page + 1)
-                } else {
-                    None
-                },
+                next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
         Ok(resp)
@@ -425,11 +421,7 @@ query {{
             items,
             details: SearchDetails {
                 total: response.found,
-                next_page: if page < response.found / PAGE_SIZE {
-                    Some(page + 1)
-                } else {
-                    None
-                },
+                next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
         Ok(resp)
@@ -601,11 +593,7 @@ query {{
             items,
             details: SearchDetails {
                 total: response.found,
-                next_page: if page < response.found / PAGE_SIZE {
-                    Some(page + 1)
-                } else {
-                    None
-                },
+                next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
         Ok(resp)

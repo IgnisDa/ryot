@@ -11,7 +11,7 @@ use database_models::{
     prelude::{Collection, Review, UserToEntity},
     review, user, user_to_entity,
 };
-use database_utils::{entity_in_collections, get_user_query};
+use database_utils::{entity_in_collections, get_enabled_users_query};
 use dependent_utils::{expire_user_metadata_list_cache, is_metadata_finished_by_user};
 use enum_models::{EntityLot, UserToMediaReason};
 use itertools::Itertools;
@@ -22,7 +22,7 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) -> Result<()> {
-    let all_users = get_user_query()
+    let all_users = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()
