@@ -2,7 +2,7 @@
 
 - The project uses `moon` for monorepo management. All front-end related commands (like
   typecheck, running tests etc.) should use moon commands.
-- You can read `apps/docs/src/contributing.md` for an overview on the project architecture
+- You can read @apps/docs/src/contributing.md for an overview of the project architecture
   and some common commands.
 - When running tests, the backend needs to be compiled in release mode. Since this takes a
   lot of time, we prefer to run tests only after the feature has been implemented. Always
