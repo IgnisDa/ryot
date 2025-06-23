@@ -26,7 +26,6 @@ import {
 	Table,
 	Text,
 	TextInput,
-	Textarea,
 	Transition,
 	UnstyledButton,
 	rem,
@@ -55,7 +54,6 @@ import {
 	sum,
 } from "@ryot/ts-utils";
 import {
-	IconCamera,
 	IconCheck,
 	IconChevronUp,
 	IconClipboard,
@@ -89,6 +87,7 @@ import {
 	ExerciseHistory,
 	displayWeightWithUnit,
 } from "~/components/fitness";
+import { NameAndOtherInputs } from "~/components/fitness/NameAndOtherInputs";
 import { NoteInput } from "~/components/fitness/NoteInput";
 import { ReorderDrawer } from "~/components/fitness/ReorderDrawer";
 import { RestTimer } from "~/components/fitness/RestTimer";
@@ -454,6 +453,7 @@ export default function Page() {
 							/>
 							<Stack ref={parent}>
 								<NameAndOtherInputs
+									isCreatingTemplate={loaderData.isCreatingTemplate}
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
@@ -727,105 +727,6 @@ export default function Page() {
 		</Container>
 	);
 }
-
-const NameAndOtherInputs = (props: {
-	openAssetsModal: () => void;
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	invariant(currentWorkout);
-
-	const [name, setName] = useDebouncedState(currentWorkout.name, 500);
-	const [comment, setComment] = useDebouncedState(currentWorkout.comment, 500);
-	const [isCaloriesBurntModalOpen, setIsCaloriesBurntModalOpen] =
-		useState(false);
-	const [caloriesBurnt, setCaloriesBurnt] = useDebouncedState(
-		currentWorkout.caloriesBurnt,
-		500,
-	);
-	const workoutHasImages = currentWorkout.images.length > 0;
-
-	useDidUpdate(() => {
-		if (name)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.name = name;
-				}),
-			);
-	}, [name]);
-
-	useDidUpdate(() => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				draft.comment = comment || undefined;
-			}),
-		);
-	}, [comment]);
-
-	useDidUpdate(() => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				draft.caloriesBurnt = caloriesBurnt;
-			}),
-		);
-	}, [caloriesBurnt]);
-
-	return (
-		<>
-			<Modal
-				title="Additional details"
-				opened={isCaloriesBurntModalOpen}
-				onClose={() => setIsCaloriesBurntModalOpen(false)}
-			>
-				<Stack gap="xs">
-					<NumberInput
-						size="sm"
-						value={currentWorkout.caloriesBurnt}
-						label={`Energy burnt in ${userPreferences.fitness.logging.caloriesBurntUnit}`}
-						onChange={(e) => setCaloriesBurnt(isNumber(e) ? e : undefined)}
-					/>
-					<Textarea
-						size="sm"
-						minRows={2}
-						label="Comments"
-						defaultValue={comment}
-						placeholder="Your thoughts about this workout"
-						onChange={(e) => setComment(e.currentTarget.value)}
-					/>
-				</Stack>
-			</Modal>
-			<TextInput
-				size="sm"
-				defaultValue={name}
-				placeholder="A name for your workout"
-				styles={{ label: { width: "100%" } }}
-				onChange={(e) => setName(e.currentTarget.value)}
-				rightSection={
-					<ActionIcon
-						onClick={props.openAssetsModal}
-						variant={workoutHasImages ? "outline" : undefined}
-					>
-						<IconCamera size={30} />
-					</ActionIcon>
-				}
-				label={
-					<Group justify="space-between" mr="xs">
-						<Text size="sm">Name</Text>
-						{!loaderData.isCreatingTemplate ? (
-							<Anchor
-								size="xs"
-								onClick={() => setIsCaloriesBurntModalOpen(true)}
-							>
-								More Information
-							</Anchor>
-						) : null}
-					</Group>
-				}
-			/>
-		</>
-	);
-};
 
 type FuncStartTimer = (
 	duration: number,
