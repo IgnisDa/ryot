@@ -4,12 +4,14 @@ import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
 	Anchor,
+	Avatar,
 	Box,
 	Button,
 	Collapse,
 	Container,
 	Divider,
 	Drawer,
+	FileButton,
 	Flex,
 	FocusTrap,
 	Group,
@@ -36,6 +38,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import {
+	type UseListStateHandlers,
 	useDebouncedState,
 	useDidUpdate,
 	useDisclosure,
@@ -77,11 +80,13 @@ import {
 	IconDropletHalf2Filled,
 	IconHeartSpark,
 	IconLayersIntersect,
+	IconLibraryPhoto,
 	IconPhoto,
 	IconReorder,
 	IconReplace,
 	IconStopwatch,
 	IconTrash,
+	IconVideo,
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -89,7 +94,7 @@ import clsx from "clsx";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -104,22 +109,19 @@ import {
 	ExerciseHistory,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { NoteInput } from "~/components/fitness/NoteInput";
-import { RestTimer } from "~/components/fitness/RestTimer";
 import { StatDisplay } from "~/components/fitness/StatDisplay";
-import { StatInput } from "~/components/fitness/StatInput";
-import { DisplaySupersetModal } from "~/components/fitness/SupersetModals";
-import { UploadAssetsModal } from "~/components/fitness/UploadAssetsModal";
+import { RestTimer } from "~/components/fitness/RestTimer";
 import { WorkoutDurationTimer } from "~/components/fitness/WorkoutDurationTimer";
-import {
-	formatTimerDuration,
-	getStopwatchMilliSeconds,
-} from "~/components/fitness/utils";
+import { StatInput } from "~/components/fitness/StatInput";
+import { AssetDisplay } from "~/components/fitness/AssetDisplay";
+import { NoteInput } from "~/components/fitness/NoteInput";
+import { formatTimerDuration, getStopwatchMilliSeconds } from "~/components/fitness/utils";
 import {
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
+	clientSideFileUpload,
 	convertEnumToSelectData,
 	dayjsLib,
 	getExerciseDetailsPath,
@@ -135,6 +137,7 @@ import {
 	forceUpdateEverySecond,
 	useApplicationEvents,
 	useCoreDetails,
+	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
@@ -142,6 +145,7 @@ import {
 	type CurrentWorkoutTimer,
 	type Exercise,
 	type InProgressWorkout,
+	type Superset,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	getExerciseDetailsQuery,
@@ -475,8 +479,8 @@ export default function Page() {
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
-									<WorkoutDurationTimer
-										isWorkoutPaused={isWorkoutPaused}
+									<WorkoutDurationTimer 
+										isWorkoutPaused={isWorkoutPaused} 
 										isCreatingTemplate={loaderData.isCreatingTemplate}
 										isUpdatingWorkout={loaderData.isUpdatingWorkout}
 									/>
@@ -845,6 +849,258 @@ const NameAndOtherInputs = (props: {
 	);
 };
 
+
+
+
+
+
+const DisplaySupersetModal = ({
+	onClose,
+	supersetWith,
+}: { onClose: () => void; supersetWith: string | null }) => {
+	const [cw] = useCurrentWorkout();
+
+	const exerciseAlreadyInSuperset = useMemo(() => {
+		if (cw && supersetWith) {
+			const index = cw?.supersets.findIndex((s) =>
+				s.exercises.includes(supersetWith),
+			);
+			if (index !== -1) return [index, cw.supersets[index]] as const;
+		}
+		return undefined;
+	}, [cw, supersetWith]);
+
+	return (
+		<Modal
+			onClose={onClose}
+			withCloseButton={false}
+			opened={isString(supersetWith)}
+		>
+			{supersetWith ? (
+				exerciseAlreadyInSuperset ? (
+					<EditSupersetModal
+						onClose={onClose}
+						supersetWith={supersetWith}
+						superset={exerciseAlreadyInSuperset}
+					/>
+				) : (
+					<CreateSupersetModal onClose={onClose} supersetWith={supersetWith} />
+				)
+			) : null}
+		</Modal>
+	);
+};
+
+const CreateSupersetModal = (props: {
+	onClose: () => void;
+	supersetWith: string;
+}) => {
+	const [cw, setCurrentWorkout] = useCurrentWorkout();
+	const [exercises, setExercisesHandle] = useListState<string>([
+		props.supersetWith,
+	]);
+	const colors = useGetMantineColors();
+	const [allowedColors, setAllowedColors] = useState<string[]>([]);
+	const [selectedColor, setSelectedColor] = useState<string>("");
+
+	useEffect(() => {
+		if (cw) {
+			const newColors = colors
+				.filter((c) => !["dark", "gray"].includes(c))
+				.filter((c) => !cw.supersets.map((s) => s.color).includes(c));
+			setAllowedColors(newColors);
+			setSelectedColor(newColors[0]);
+		}
+	}, [cw]);
+
+	if (!cw) return null;
+
+	return (
+		<Stack gap="lg">
+			<Group wrap="nowrap">
+				<Text>Select color</Text>
+				<Select
+					size="xs"
+					value={selectedColor}
+					leftSectionWidth={rem(40)}
+					onChange={(v) => setSelectedColor(v ?? "")}
+					data={allowedColors.map((c) => ({
+						value: c,
+						label: changeCase(c),
+					}))}
+				/>
+			</Group>
+			<Stack gap="xs">
+				{cw.exercises.map((ex) => (
+					<CreateSupersetExerciseButton
+						exercise={ex}
+						key={ex.identifier}
+						exercises={exercises}
+						selectedColor={selectedColor}
+						setExercisesHandle={setExercisesHandle}
+					/>
+				))}
+			</Stack>
+			<Button
+				disabled={exercises.length <= 1}
+				onClick={() => {
+					setCurrentWorkout(
+						produce(cw, (draft) => {
+							draft.supersets.push({
+								exercises,
+								color: selectedColor,
+								identifier: randomUUID(),
+							});
+						}),
+					);
+					props.onClose();
+				}}
+			>
+				Create superset
+			</Button>
+		</Stack>
+	);
+};
+
+const CreateSupersetExerciseButton = (props: {
+	exercise: Exercise;
+	exercises: string[];
+	selectedColor: string;
+	setExercisesHandle: UseListStateHandlers<string>;
+}) => {
+	const [cw] = useCurrentWorkout();
+	const index = props.exercises.findIndex(
+		(e) => e === props.exercise.identifier,
+	);
+	invariant(cw);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Button
+			size="xs"
+			fullWidth
+			color={props.selectedColor}
+			variant={index !== -1 ? "light" : "outline"}
+			disabled={cw.supersets
+				.flatMap((s) => s.exercises)
+				.includes(props.exercise.identifier)}
+			onClick={() => {
+				if (index !== -1) props.setExercisesHandle.remove(index);
+				else props.setExercisesHandle.append(props.exercise.identifier);
+			}}
+		>
+			{exerciseDetails?.name}
+		</Button>
+	);
+};
+
+const EditSupersetModal = (props: {
+	onClose: () => void;
+	supersetWith: string;
+	superset: readonly [number, Superset];
+}) => {
+	const [cw, setCurrentWorkout] = useCurrentWorkout();
+	const [exercises, setExercisesHandle] = useListState<string>(
+		props.superset[1].exercises,
+	);
+
+	if (!cw) return null;
+
+	return (
+		<Stack gap="lg">
+			<Text>Editing {props.superset[1].color} superset:</Text>
+			<Stack gap="xs">
+				{cw.exercises.map((ex) => (
+					<EditSupersetExerciseButton
+						exercise={ex}
+						key={ex.identifier}
+						exercises={exercises}
+						superset={props.superset[1]}
+						setExercisesHandle={setExercisesHandle}
+					/>
+				))}
+			</Stack>
+			<Group wrap="nowrap">
+				<Button
+					color="red"
+					flex="none"
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to delete this superset?",
+							() => {
+								setCurrentWorkout(
+									produce(cw, (draft) => {
+										draft.supersets.splice(props.superset[0], 1);
+									}),
+								);
+								props.onClose();
+							},
+						);
+					}}
+				>
+					Delete superset
+				</Button>
+				<Button
+					fullWidth
+					disabled={
+						exercises.length <= 1 ||
+						props.superset[1].exercises.length === exercises.length
+					}
+					onClick={() => {
+						setCurrentWorkout(
+							produce(cw, (draft) => {
+								draft.supersets[props.superset[0]].exercises = exercises;
+							}),
+						);
+						props.onClose();
+					}}
+				>
+					Add to superset
+				</Button>
+			</Group>
+		</Stack>
+	);
+};
+
+const EditSupersetExerciseButton = (props: {
+	exercise: Exercise;
+	superset: Superset;
+	exercises: string[];
+	setExercisesHandle: UseListStateHandlers<string>;
+}) => {
+	const [cw] = useCurrentWorkout();
+	const index = props.exercises.findIndex(
+		(e) => e === props.exercise.identifier,
+	);
+	invariant(cw);
+
+	const { data: exerciseDetails } = useQuery(
+		getExerciseDetailsQuery(props.exercise.exerciseId),
+	);
+
+	return (
+		<Button
+			size="xs"
+			fullWidth
+			color={props.superset.color}
+			variant={index !== -1 ? "light" : "outline"}
+			disabled={cw.supersets
+				.filter((s) => s.identifier !== props.superset.identifier)
+				.flatMap((s) => s.exercises)
+				.includes(props.exercise.identifier)}
+			onClick={() => {
+				if (index !== -1) props.setExercisesHandle.remove(index);
+				else props.setExercisesHandle.append(props.exercise.identifier);
+			}}
+		>
+			{exerciseDetails?.name}
+		</Button>
+	);
+};
+
 type FuncStartTimer = (
 	duration: number,
 	triggeredBy: { exerciseIdentifier: string; setIdentifier: string },
@@ -863,6 +1119,175 @@ const exerciseHasDetailsToShow = (
 ) => {
 	const images = getExerciseImages(details);
 	return (images.length || 0) > 0 || (userDetails?.history?.length || 0) > 0;
+};
+
+const UploadAssetsModal = (props: {
+	closeModal: () => void;
+	modalOpenedBy: string | null | undefined;
+}) => {
+	const coreDetails = useCoreDetails();
+	const fileUploadAllowed = coreDetails.fileStorageEnabled;
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [isFileUploading, setIsFileUploading] = useState(false);
+
+	if (!currentWorkout) return null;
+
+	const afterFileSelected = async (
+		file: File | null,
+		type: "image" | "video",
+	) => {
+		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
+			notifications.show({
+				color: "red",
+				message: PRO_REQUIRED_MESSAGE,
+			});
+			return;
+		}
+		if (!file) return;
+		setIsFileUploading(true);
+		try {
+			const key = await clientSideFileUpload(file, "workouts");
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					if (type === "image") {
+						if (exercise) draft.exercises[exerciseIdx].images.push(key);
+						else draft.images.push(key);
+					} else {
+						if (exercise) draft.exercises[exerciseIdx].videos.push(key);
+						else draft.videos.push(key);
+					}
+				}),
+			);
+		} catch {
+			notifications.show({
+				color: "red",
+				message: `Error while uploading ${type}`,
+			});
+		} finally {
+			setIsFileUploading(false);
+		}
+	};
+
+	const exerciseIdx = currentWorkout.exercises.findIndex(
+		(e) => e.identifier === props.modalOpenedBy,
+	);
+	const exercise =
+		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
+
+	const { data: exerciseDetails } = useQuery({
+		...getExerciseDetailsQuery(exercise?.exerciseId || ""),
+		enabled: exercise !== null,
+	});
+
+	const imagesToDisplay = isString(props.modalOpenedBy)
+		? exercise?.images || []
+		: currentWorkout.images;
+
+	const videosToDisplay = isString(props.modalOpenedBy)
+		? exercise?.videos || []
+		: currentWorkout.videos;
+
+	const hasAssets = imagesToDisplay.length > 0 || videosToDisplay.length > 0;
+
+	const onRemoveAsset = (key: string, type: "image" | "video") => {
+		deleteUploadedAsset(key);
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				if (type === "image") {
+					if (exerciseIdx !== -1) {
+						draft.exercises[exerciseIdx].images = draft.exercises[
+							exerciseIdx
+						].images.filter((i) => i !== key);
+					} else {
+						draft.images = draft.images.filter((i) => i !== key);
+					}
+					return;
+				}
+				if (exerciseIdx !== -1) {
+					draft.exercises[exerciseIdx].videos = draft.exercises[
+						exerciseIdx
+					].videos.filter((i) => i !== key);
+				} else {
+					draft.videos = draft.videos.filter((i) => i !== key);
+				}
+			}),
+		);
+	};
+
+	return (
+		<Modal
+			onClose={() => props.closeModal()}
+			opened={props.modalOpenedBy !== undefined}
+			title={`Images for ${exerciseDetails ? exerciseDetails.name : "the workout"}`}
+		>
+			<Stack>
+				{fileUploadAllowed ? (
+					<>
+						{hasAssets ? (
+							<Avatar.Group spacing="xs">
+								{imagesToDisplay.map((i) => (
+									<AssetDisplay
+										key={i}
+										s3Key={i}
+										type="image"
+										removeAsset={() => onRemoveAsset(i, "image")}
+									/>
+								))}
+								{videosToDisplay.map((i) => (
+									<AssetDisplay
+										key={i}
+										s3Key={i}
+										type="video"
+										removeAsset={() => onRemoveAsset(i, "video")}
+									/>
+								))}
+							</Avatar.Group>
+						) : null}
+						<Group justify="space-between">
+							<FileButton
+								accept="image/*"
+								onChange={(file) => afterFileSelected(file, "image")}
+							>
+								{(props) => (
+									<Button
+										{...props}
+										flex={1}
+										color="cyan"
+										variant="outline"
+										loading={isFileUploading}
+										leftSection={<IconLibraryPhoto />}
+									>
+										Image
+									</Button>
+								)}
+							</FileButton>
+							<FileButton
+								accept="video/*"
+								onChange={(file) => afterFileSelected(file, "video")}
+							>
+								{(props) => (
+									<Button
+										{...props}
+										flex={1}
+										color="cyan"
+										variant="outline"
+										loading={isFileUploading}
+										leftSection={<IconVideo />}
+									>
+										Video
+									</Button>
+								)}
+							</FileButton>
+						</Group>
+					</>
+				) : (
+					<Text c="red" size="sm">
+						Please set the S3 variables required to enable file uploading
+					</Text>
+				)}
+			</Stack>
+		</Modal>
+	);
 };
 
 const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
@@ -2028,6 +2453,7 @@ const styles = {
 
 const restTimerOptions = [180, 300, 480, "Custom"];
 
+
 const TimerAndStopwatchDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -2374,3 +2800,4 @@ const ReorderDrawerExerciseElement = (props: {
 		</Draggable>
 	);
 };
+

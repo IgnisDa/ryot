@@ -2,16 +2,16 @@ import { Flex, NumberInput, rem } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import type { WorkoutSetStatistic } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
-import { isNumber } from "@ryot/ts-utils";
 import clsx from "clsx";
+import { isNumber } from "@ryot/ts-utils";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
 import { useCurrentWorkout, useGetSetAtIndex } from "~/lib/state/fitness";
-import {
+import { 
 	ACTIVE_WORKOUT_REPS_TARGET,
 	ACTIVE_WORKOUT_WEIGHT_TARGET,
-	OnboardingTourStepTargets,
-	useOnboardingTour,
+	OnboardingTourStepTargets, 
+	useOnboardingTour 
 } from "~/lib/state/general";
 
 export const StatInput = (props: {
