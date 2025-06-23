@@ -41,6 +41,7 @@ import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+import { DisplaySetStatistics } from "~/components/fitness";
 import {
 	FitnessAction,
 	PRO_REQUIRED_MESSAGE,
@@ -62,7 +63,6 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import { DisplaySetStatistics } from "../../fitness";
 import { StatInput } from "../StatDisplayAndInput";
 import { formatTimerDuration } from "../utils";
 import {
