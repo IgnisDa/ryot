@@ -7,7 +7,6 @@ import {
 	Avatar,
 	Box,
 	Button,
-	Collapse,
 	Container,
 	Divider,
 	Drawer,
@@ -20,20 +19,16 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
-	Progress,
 	RingProgress,
 	ScrollArea,
 	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
-	Table,
 	Text,
 	TextInput,
 	Textarea,
 	ThemeIcon,
-	Transition,
-	UnstyledButton,
 	rem,
 	useMantineTheme,
 } from "@mantine/core";
@@ -48,13 +43,10 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
-	type ExerciseDetailsQuery,
 	ExerciseLot,
 	GetPresignedS3UrlDocument,
 	SetLot,
-	type UserExerciseDetailsQuery,
 	UserUnitSystem,
-	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -62,61 +54,55 @@ import {
 	isNumber,
 	isString,
 	parseParameters,
-	snakeCase,
-	sortBy,
-	startCase,
 	sum,
 } from "@ryot/ts-utils";
 import {
 	IconCamera,
-	IconCheck,
 	IconChevronUp,
 	IconClipboard,
 	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
 	IconDropletHalf2Filled,
-	IconHeartSpark,
 	IconLayersIntersect,
 	IconLibraryPhoto,
 	IconPhoto,
 	IconReorder,
 	IconReplace,
-	IconStopwatch,
 	IconTrash,
 	IconVideo,
-	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { useInterval, useOnClickOutside } from "usehooks-ts";
+import { useInterval } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
-import {
-	DisplaySetStatistics,
-	ExerciseHistory,
-	displayWeightWithUnit,
-} from "~/components/fitness";
+import { ExerciseHistory, displayWeightWithUnit } from "~/components/fitness";
 import {
 	RestTimer,
 	WorkoutDurationTimer,
 } from "~/components/fitness/RestTimer";
+import { SetDisplay } from "~/components/fitness/StatDisplay";
 import {
-	StatDisplay,
-	StatInput,
-} from "~/components/fitness/StatDisplayAndInput";
+	DEFAULT_SET_TIMEOUT_DELAY,
+	type FuncStartTimer,
+	focusOnExercise,
+	getProgressOfExercise,
+	usePerformTasksAfterSetConfirmed,
+} from "~/components/fitness/StatDisplay/hooks";
+import { StatDisplay } from "~/components/fitness/StatDisplayAndInput";
 import { TimerAndStopwatchDrawer } from "~/components/fitness/TimerAndStopwatchDrawer";
-import { formatTimerDuration, styles } from "~/components/fitness/utils";
+import { styles } from "~/components/fitness/utils";
 import {
 	FitnessAction,
 	FitnessEntity,
@@ -126,7 +112,6 @@ import {
 	convertEnumToSelectData,
 	dayjsLib,
 	getExerciseDetailsPath,
-	getSetColor,
 	getSurroundingElements,
 	openConfirmationModal,
 	postMessageToServiceWorker,
@@ -143,9 +128,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
-	type CurrentWorkoutTimer,
 	type Exercise,
-	type InProgressWorkout,
 	type Superset,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
@@ -157,7 +140,6 @@ import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
-	useGetSetAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 import {
@@ -165,8 +147,6 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
-
-const DEFAULT_SET_TIMEOUT_DELAY = 800;
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
@@ -191,108 +171,6 @@ const deleteUploadedAsset = (key: string) => {
 		method: "POST",
 		body: formData,
 	});
-};
-
-const getNextSetInWorkout = (
-	currentSetIdx: number,
-	currentExerciseIdx: number,
-	currentWorkout: InProgressWorkout,
-) => {
-	const currentExercise = currentWorkout.exercises[currentExerciseIdx];
-	const partOfSuperset = currentWorkout.supersets.find((superset) =>
-		superset.exercises.includes(currentExercise.identifier),
-	);
-	const areAllSetsConfirmed = currentExercise.sets.every((s) => s.confirmedAt);
-	if (partOfSuperset) {
-		const sortedExercises = sortBy(partOfSuperset.exercises, (s) =>
-			currentWorkout.exercises.findIndex((e) => e.identifier === s),
-		);
-		const nextExerciseWithIncompleteSets = currentWorkout.exercises.find(
-			(e) =>
-				e.identifier !== currentExercise.identifier &&
-				sortedExercises.includes(e.identifier) &&
-				e.sets.some((s) => !s.confirmedAt),
-		);
-		if (nextExerciseWithIncompleteSets) {
-			const exerciseIdx = currentWorkout.exercises.findIndex(
-				(e) => e.identifier === nextExerciseWithIncompleteSets.identifier,
-			);
-			const setIdx = nextExerciseWithIncompleteSets.sets.findIndex(
-				(s) => !s.confirmedAt,
-			);
-			return { exerciseIdx, setIdx: setIdx, wasLastSet: areAllSetsConfirmed };
-		}
-	}
-	if (areAllSetsConfirmed) {
-		for (
-			let i = currentExerciseIdx + 1;
-			i < currentWorkout.exercises.length;
-			i++
-		) {
-			const exerciseProgress =
-				getProgressOfExercise(currentWorkout, i) !== "complete";
-			if (exerciseProgress)
-				return {
-					setIdx: 0,
-					exerciseIdx: i,
-					wasLastSet: true,
-				};
-		}
-	}
-	const isLastSetOfLastExercise =
-		currentExerciseIdx === currentWorkout.exercises.length - 1 &&
-		currentSetIdx ===
-			currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
-	if (isLastSetOfLastExercise) return { wasLastSet: true };
-	return {
-		wasLastSet: false,
-		setIdx: currentSetIdx + 1,
-		exerciseIdx: currentExerciseIdx,
-	};
-};
-
-type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];
-type UserExerciseDetails = UserExerciseDetailsQuery["userExerciseDetails"];
-
-const usePerformTasksAfterSetConfirmed = () => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-
-	const performTask = async (setIdx: number, exerciseIdx: number) => {
-		const exerciseId = currentWorkout?.exercises[exerciseIdx].exerciseId;
-		if (!exerciseId) return;
-		const exerciseDetails = await queryClient.ensureQueryData(
-			getExerciseDetailsQuery(exerciseId),
-		);
-		const userExerciseDetails = await queryClient.ensureQueryData(
-			getUserExerciseDetailsQuery(exerciseId),
-		);
-		let exerciseIdxToFocusOn = undefined;
-		setCurrentWorkout((cw) =>
-			produce(cw, (draft) => {
-				if (!draft) return;
-				const currentExercise = draft.exercises[exerciseIdx];
-				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
-				exerciseIdxToFocusOn = nextSet.exerciseIdx;
-				if (nextSet.wasLastSet) {
-					currentExercise.isCollapsed = true;
-					if (isNumber(nextSet.exerciseIdx)) {
-						const nextExercise = draft.exercises[nextSet.exerciseIdx];
-						const nextExerciseHasDetailsToShow =
-							nextExercise &&
-							exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-						if (nextExerciseHasDetailsToShow) {
-							nextExercise.isCollapsed = false;
-						}
-					}
-				}
-			}),
-		);
-		if (isNumber(exerciseIdxToFocusOn)) {
-			focusOnExercise(exerciseIdxToFocusOn);
-		}
-	};
-
-	return performTask;
 };
 
 export default function Page() {
@@ -1137,26 +1015,6 @@ const EditSupersetExerciseButton = (props: {
 	);
 };
 
-type FuncStartTimer = (
-	duration: number,
-	triggeredBy: { exerciseIdentifier: string; setIdentifier: string },
-) => void;
-
-const focusOnExercise = (idx: number) => {
-	setTimeout(() => {
-		const exercise = document.getElementById(idx.toString());
-		exercise?.scrollIntoView({ behavior: "smooth" });
-	}, DEFAULT_SET_TIMEOUT_DELAY);
-};
-
-const exerciseHasDetailsToShow = (
-	details?: ExerciseDetails,
-	userDetails?: UserExerciseDetails,
-) => {
-	const images = getExerciseImages(details);
-	return (images.length || 0) > 0 || (userDetails?.history?.length || 0) > 0;
-};
-
 const UploadAssetsModal = (props: {
 	closeModal: () => void;
 	modalOpenedBy: string | null | undefined;
@@ -1324,15 +1182,6 @@ const UploadAssetsModal = (props: {
 			</Stack>
 		</Modal>
 	);
-};
-
-const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
-	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
-	return isCompleted
-		? ("complete" as const)
-		: cw.exercises[index].sets.some((s) => s.confirmedAt)
-			? ("in-progress" as const)
-			: ("not-started" as const);
 };
 
 const ExerciseDisplay = (props: {
@@ -1745,6 +1594,7 @@ const ExerciseDisplay = (props: {
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}
 									key={`${exercise.identifier}-${idx}`}
+									isCreatingTemplate={isCreatingTemplate}
 									isWorkoutPaused={props.isWorkoutPaused}
 									openTimerDrawer={props.openTimerDrawer}
 									toBeDisplayedColumns={toBeDisplayedColumns}
@@ -1822,657 +1672,6 @@ const DisplayExerciseSetRestTimer = (props: {
 							1000,
 					)}
 				</Text>
-			}
-		/>
-	);
-};
-
-const getGlobalSetIndex = (
-	setIdx: number,
-	exerciseIdx: number,
-	currentWorkout: InProgressWorkout,
-) => {
-	const exerciseId = currentWorkout.exercises[exerciseIdx].exerciseId;
-	let globalIndex = 0;
-	for (let i = 0; i < currentWorkout.exercises.length; i++) {
-		if (i === exerciseIdx) break;
-		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
-			globalIndex += currentWorkout.exercises[i].sets.length;
-		}
-	}
-	globalIndex += setIdx;
-	return globalIndex;
-};
-
-const SetDisplay = (props: {
-	setIdx: number;
-	repsCol: boolean;
-	weightCol: boolean;
-	exerciseIdx: number;
-	durationCol: boolean;
-	distanceCol: boolean;
-	stopTimer: () => void;
-	isWorkoutPaused: boolean;
-	startTimer: FuncStartTimer;
-	openTimerDrawer: () => void;
-	toBeDisplayedColumns: number;
-}) => {
-	const { isCreatingTemplate } = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
-	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
-	const [parent] = useAutoAnimate();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	invariant(currentWorkout);
-	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
-	invariant(exercise);
-	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
-	invariant(set);
-	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
-	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
-	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
-	const [value, setValue] = useDebouncedState(set.note || "", 500);
-	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
-	);
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
-
-	const playCheckSound = () => {
-		const sound = new Howl({ src: ["/check.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
-	};
-
-	const closeRpeModal = () => setIsRpeModalOpen(false);
-
-	useDidUpdate(() => {
-		if (isString(value))
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.exercises[props.exerciseIdx].sets[props.setIdx].note = value;
-				}),
-			);
-	}, [value]);
-
-	const { data: previousSetData } = useQuery({
-		enabled: !!userExerciseDetails,
-		queryKey: [
-			"previousSetData",
-			`exercise-${props.exerciseIdx}`,
-			`set-${props.setIdx}`,
-			userExerciseDetails?.history,
-		],
-		queryFn: async () => {
-			const globalSetIndex = getGlobalSetIndex(
-				props.setIdx,
-				props.exerciseIdx,
-				currentWorkout,
-			);
-
-			const allPreviousSets: WorkoutSetStatistic[] = [];
-
-			for (const history of userExerciseDetails?.history || []) {
-				if (allPreviousSets.length > globalSetIndex) break;
-				const workout = await getWorkoutDetails(history.workoutId);
-				const exercise = workout.details.information.exercises[history.idx];
-				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
-			}
-
-			return allPreviousSets[globalSetIndex];
-		},
-	});
-
-	const didCurrentSetActivateTimer =
-		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
-		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
-	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
-	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const isOnboardingTourStep =
-		isOnboardingTourInProgress &&
-		set.confirmedAt === null &&
-		props.exerciseIdx === 0 &&
-		props.setIdx === 0;
-
-	return (
-		<>
-			<Modal
-				opened={isRpeModalOpen}
-				withCloseButton={false}
-				onClose={closeRpeModal}
-				title={
-					<Group justify="space-between" gap="xl">
-						<Text>Rate of Perceived Exertion</Text>
-						<Button
-							variant="outline"
-							size="compact-xs"
-							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
-						>
-							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
-						</Button>
-					</Group>
-				}
-			>
-				<Stack>
-					<Group>
-						<NumberInput
-							min={0}
-							max={10}
-							flex={1}
-							value={set.rpe ?? undefined}
-							onChange={(v) => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const value = isNumber(v) ? v : null;
-										const currentSet =
-											draft.exercises[props.exerciseIdx].sets[props.setIdx];
-										currentSet.rpe = value;
-									}),
-								);
-							}}
-						/>
-					</Group>
-					<Button fullWidth variant="outline" onClick={closeRpeModal}>
-						Done
-					</Button>
-					<Collapse in={isRpeDetailsOpen}>
-						<Stack gap="xs">
-							<Text size="xs">
-								Your rate of perceived exertion (RPE) refers to how hard you
-								think you're pushing yourself during exercise. It's subjective,
-								which means that you decide how hard you feel you're working
-								during physical activity.
-								<Anchor
-									ml={2}
-									size="xs"
-									target="_blank"
-									href="https://my.clevelandclinic.org/health/articles/17450-rated-perceived-exertion-rpe-scale"
-								>
-									Source.
-								</Anchor>
-							</Text>
-							<Table
-								p={0}
-								fz="xs"
-								withRowBorders
-								withTableBorder
-								withColumnBorders
-								data={{
-									head: ["Rating", "Perceived Exertion Level"],
-									body: [
-										["0", "No exertion (at rest)"],
-										["1", "Very light"],
-										["2 to 3", "Light"],
-										["4 to 5", "Moderate (somewhat hard)"],
-										["6 to 7", "High (vigorous)"],
-										["8 to 9", "Very hard"],
-										["10", "Maximum effort (highest possible)"],
-									],
-								}}
-							/>
-						</Stack>
-					</Collapse>
-				</Stack>
-			</Modal>
-			<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
-				<Flex justify="space-between" align="center" py={4}>
-					<Menu>
-						<Menu.Target>
-							<UnstyledButton
-								w="5%"
-								onClick={() => {
-									if (isOnboardingTourStep) advanceOnboardingTourStep();
-								}}
-								className={clsx(
-									isOnboardingTourStep &&
-										OnboardingTourStepTargets.OpenSetMenuDetails,
-								)}
-							>
-								<Text mt={2} fw="bold" c={getSetColor(set.lot)} ta="center">
-									{match(set.lot)
-										.with(SetLot.Normal, () => props.setIdx + 1)
-										.otherwise(() => set.lot.at(0))}
-								</Text>
-							</UnstyledButton>
-						</Menu.Target>
-						<Menu.Dropdown px={0}>
-							<Menu.Label>Set type</Menu.Label>
-							{Object.values(SetLot).map((lot) => (
-								<Menu.Item
-									key={lot}
-									disabled={set.lot === lot}
-									fz="xs"
-									leftSection={
-										<Text fw="bold" fz="xs" w={10} c={getSetColor(lot)}>
-											{lot.at(0)}
-										</Text>
-									}
-									onClick={async () => {
-										const restTime = await getRestTimerForSet(
-											lot,
-											currentWorkout.exercises[props.exerciseIdx].exerciseId,
-											userPreferences.fitness.exercises.setRestTimers,
-										);
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												const currentSet =
-													draft.exercises[props.exerciseIdx].sets[props.setIdx];
-												currentSet.lot = lot;
-												if (!hasRestTimerOfThisSetElapsed && restTime)
-													currentSet.restTimer = { duration: restTime };
-											}),
-										);
-									}}
-								>
-									{startCase(snakeCase(lot))}
-								</Menu.Item>
-							))}
-							<Menu.Divider />
-							<Menu.Label>Actions</Menu.Label>
-							<Menu.Item
-								fz="xs"
-								leftSection={<IconClipboard size={14} />}
-								onClick={() => {
-									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											color: "red",
-											message: PRO_REQUIRED_MESSAGE,
-										});
-										return;
-									}
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											const hasNote = !!set.note;
-											let currentSetNote =
-												draft.exercises[props.exerciseIdx].sets[props.setIdx]
-													.note;
-											if (!hasNote) currentSetNote = true;
-											else currentSetNote = undefined;
-											draft.exercises[props.exerciseIdx].sets[
-												props.setIdx
-											].note = currentSetNote;
-										}),
-									);
-								}}
-							>
-								{!set.note ? "Add" : "Remove"} note
-							</Menu.Item>
-							<Menu.Item
-								fz="xs"
-								leftSection={<IconZzz size={14} />}
-								onClick={() => {
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											const hasRestTimer = !!set.restTimer;
-											if (hasRestTimer)
-												draft.exercises[props.exerciseIdx].sets[
-													props.setIdx
-												].restTimer = undefined;
-											else
-												draft.exercises[props.exerciseIdx].sets[
-													props.setIdx
-												].restTimer = { duration: 60 };
-										}),
-									);
-								}}
-							>
-								{!set.restTimer ? "Add" : "Remove"} timer
-							</Menu.Item>
-							<Menu.Item
-								fz="xs"
-								leftSection={<IconHeartSpark size={14} />}
-								onClick={() => setIsRpeModalOpen(true)}
-							>
-								Adjust RPE
-							</Menu.Item>
-							<Menu.Item
-								fz="xs"
-								color="red"
-								leftSection={<IconTrash size={14} />}
-								onClick={() => {
-									const deleteCurrentSet = () => {
-										setCurrentWorkout(
-											produce(currentWorkout, (draft) => {
-												draft.exercises[props.exerciseIdx].sets.splice(
-													props.setIdx,
-													1,
-												);
-											}),
-										);
-									};
-									match(set.confirmedAt)
-										.with(null, deleteCurrentSet)
-										.otherwise(() =>
-											openConfirmationModal(
-												"Are you sure you want to delete this set?",
-												deleteCurrentSet,
-											),
-										);
-								}}
-							>
-								Delete set
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-					<Box
-						ta="center"
-						w={`${(isCreatingTemplate ? 95 : 85) / props.toBeDisplayedColumns}%`}
-					>
-						{previousSetData ? (
-							<Box
-								style={{ cursor: "pointer" }}
-								onClick={() => {
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											const idxToTarget = set.confirmedAt
-												? props.setIdx + 1
-												: props.setIdx;
-											const setToTarget =
-												draft.exercises[props.exerciseIdx].sets[idxToTarget];
-											if (setToTarget) setToTarget.statistic = previousSetData;
-										}),
-									);
-								}}
-							>
-								<DisplaySetStatistics
-									hideExtras
-									centerText
-									lot={exercise.lot}
-									statistic={previousSetData}
-									unitSystem={exercise.unitSystem}
-								/>
-							</Box>
-						) : (
-							"—"
-						)}
-					</Box>
-					{props.durationCol ? (
-						<StatInput
-							inputStep={0.1}
-							stat="duration"
-							setIdx={props.setIdx}
-							exerciseIdx={props.exerciseIdx}
-						/>
-					) : null}
-					{props.distanceCol ? (
-						<StatInput
-							inputStep={0.01}
-							stat="distance"
-							setIdx={props.setIdx}
-							exerciseIdx={props.exerciseIdx}
-						/>
-					) : null}
-					{props.weightCol ? (
-						<StatInput
-							stat="weight"
-							setIdx={props.setIdx}
-							exerciseIdx={props.exerciseIdx}
-						/>
-					) : null}
-					{props.repsCol ? (
-						<StatInput
-							stat="reps"
-							setIdx={props.setIdx}
-							exerciseIdx={props.exerciseIdx}
-						/>
-					) : null}
-					<Group
-						w="10%"
-						justify="center"
-						style={isCreatingTemplate ? { display: "none" } : undefined}
-					>
-						<Transition
-							mounted
-							duration={200}
-							timingFunction="ease-in-out"
-							transition={{
-								in: {},
-								out: {},
-								transitionProperty: "all",
-							}}
-						>
-							{(style) =>
-								set.displayRestTimeTrigger ? (
-									<ActionIcon
-										color="blue"
-										style={style}
-										variant="outline"
-										onClick={() => {
-											invariant(set.restTimer);
-											props.startTimer(set.restTimer.duration, {
-												setIdentifier: set.identifier,
-												exerciseIdentifier: exercise.identifier,
-											});
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const currentExercise =
-														draft.exercises[props.exerciseIdx];
-													const currentSet = currentExercise.sets[props.setIdx];
-													currentSet.displayRestTimeTrigger = false;
-													currentSet.restTimerStartedAt =
-														dayjsLib().toISOString();
-												}),
-											);
-										}}
-									>
-										<IconStopwatch />
-									</ActionIcon>
-								) : (
-									<ActionIcon
-										color="green"
-										style={style}
-										variant={set.confirmedAt ? "filled" : "outline"}
-										className={clsx(
-											isOnboardingTourStep &&
-												OnboardingTourStepTargets.ConfirmSetForExercise,
-										)}
-										disabled={
-											!match(exercise.lot)
-												.with(ExerciseLot.Reps, () =>
-													isString(set.statistic.reps),
-												)
-												.with(ExerciseLot.Duration, () =>
-													isString(set.statistic.duration),
-												)
-												.with(
-													ExerciseLot.RepsAndDuration,
-													() =>
-														isString(set.statistic.reps) &&
-														isString(set.statistic.duration),
-												)
-												.with(
-													ExerciseLot.DistanceAndDuration,
-													() =>
-														isString(set.statistic.distance) &&
-														isString(set.statistic.duration),
-												)
-												.with(
-													ExerciseLot.RepsAndWeight,
-													() =>
-														isString(set.statistic.reps) &&
-														isString(set.statistic.weight),
-												)
-												.with(
-													ExerciseLot.RepsAndDurationAndDistance,
-													() =>
-														isString(set.statistic.reps) &&
-														isString(set.statistic.duration) &&
-														isString(set.statistic.distance),
-												)
-												.exhaustive()
-										}
-										onClick={async () => {
-											playCheckSound();
-											const newConfirmed = !set.confirmedAt;
-											if (isOnboardingTourStep && newConfirmed)
-												advanceOnboardingTourStep();
-
-											if (
-												!newConfirmed &&
-												currentTimer?.triggeredBy?.exerciseIdentifier ===
-													exercise.identifier &&
-												currentTimer?.triggeredBy?.setIdentifier ===
-													set.identifier
-											)
-												props.stopTimer();
-											if (set.restTimer && newConfirmed && !promptForRestTimer)
-												props.startTimer(set.restTimer.duration, {
-													setIdentifier: set.identifier,
-													exerciseIdentifier: exercise.identifier,
-												});
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													if (props.isWorkoutPaused)
-														draft.durations.push({
-															from: dayjsLib().toISOString(),
-														});
-													const currentExercise =
-														draft.exercises[props.exerciseIdx];
-													const currentSet = currentExercise.sets[props.setIdx];
-													currentSet.confirmedAt = newConfirmed
-														? currentWorkout.currentAction ===
-															FitnessAction.UpdateWorkout
-															? true
-															: dayjsLib().toISOString()
-														: null;
-													currentExercise.scrollMarginRemoved = true;
-													if (
-														newConfirmed &&
-														promptForRestTimer &&
-														set.restTimer
-													)
-														currentSet.displayRestTimeTrigger = true;
-												}),
-											);
-											if (newConfirmed && !promptForRestTimer) {
-												await performTasksAfterSetConfirmed(
-													props.setIdx,
-													props.exerciseIdx,
-												);
-											}
-										}}
-									>
-										<IconCheck />
-									</ActionIcon>
-								)
-							}
-						</Transition>
-					</Group>
-				</Flex>
-				{set.note ? (
-					<TextInput
-						my={4}
-						size="xs"
-						defaultValue={isString(set.note) ? set.note : ""}
-						onChange={(v) => setValue(v.currentTarget.value)}
-					/>
-				) : undefined}
-				<Box mx="xs" mt="xs" ref={parent}>
-					{set.restTimer && !didCurrentSetActivateTimer ? (
-						<Divider
-							labelPosition="center"
-							size={hasRestTimerOfThisSetElapsed ? undefined : "lg"}
-							color={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
-							opacity={hasRestTimerOfThisSetElapsed ? 0.5 : undefined}
-							style={{
-								cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer",
-							}}
-							onClick={() => {
-								if (hasRestTimerOfThisSetElapsed) return;
-								setIsEditingRestTimer(true);
-							}}
-							label={
-								isEditingRestTimer ? (
-									<EditSetRestTimer
-										setIdx={props.setIdx}
-										exerciseIdx={props.exerciseIdx}
-										defaultDuration={set.restTimer.duration}
-										onClickOutside={() => setIsEditingRestTimer(false)}
-									/>
-								) : (
-									<Text
-										size={hasRestTimerOfThisSetElapsed ? "xs" : "sm"}
-										c={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
-										fw={hasRestTimerOfThisSetElapsed ? undefined : "bold"}
-									>
-										{formatTimerDuration(set.restTimer.duration * 1000)}
-									</Text>
-								)
-							}
-						/>
-					) : null}
-					{didCurrentSetActivateTimer ? (
-						<DisplaySetRestTimer
-							currentTimer={currentTimer}
-							onClick={props.openTimerDrawer}
-						/>
-					) : null}
-				</Box>
-			</Paper>
-		</>
-	);
-};
-
-const EditSetRestTimer = (props: {
-	setIdx: number;
-	exerciseIdx: number;
-	defaultDuration: number;
-	onClickOutside: () => void;
-}) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const editRestTimerRef = useRef<HTMLInputElement>(null);
-
-	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
-
-	useDidUpdate(() => {
-		if (currentWorkout && value)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					const exercise = draft.exercises[props.exerciseIdx];
-					exercise.sets[props.setIdx].restTimer = { duration: value };
-				}),
-			);
-	}, [value]);
-
-	useEffect(() => {
-		editRestTimerRef.current?.select();
-	}, [editRestTimerRef]);
-
-	useOnClickOutside(editRestTimerRef, props.onClickOutside);
-
-	if (!currentWorkout) return null;
-
-	return (
-		<NumberInput
-			size="xs"
-			suffix="s"
-			w={rem(80)}
-			// This will be fixed when https://github.com/mantinedev/mantine/pull/6997 is merged
-			ref={editRestTimerRef}
-			value={props.defaultDuration}
-			onChange={(v) => {
-				if (!v) return;
-				setValue(Number.parseInt(v.toString()));
-			}}
-		/>
-	);
-};
-
-const DisplaySetRestTimer = (props: {
-	onClick: () => void;
-	currentTimer: CurrentWorkoutTimer;
-}) => {
-	forceUpdateEverySecond();
-
-	return (
-		<Progress
-			onClick={props.onClick}
-			transitionDuration={300}
-			style={{ cursor: "pointer" }}
-			value={
-				(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
-					100) /
-				props.currentTimer.totalTime
 			}
 		/>
 	);
