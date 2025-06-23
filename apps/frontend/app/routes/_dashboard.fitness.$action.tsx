@@ -50,6 +50,7 @@ import {
 	CreateOrUpdateUserWorkoutTemplateDocument,
 	type ExerciseDetailsQuery,
 	ExerciseLot,
+	GetPresignedS3UrlDocument,
 	SetLot,
 	type UserExerciseDetailsQuery,
 	UserUnitSystem,
@@ -109,13 +110,6 @@ import {
 	ExerciseHistory,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { StatDisplay } from "~/components/fitness/StatDisplay";
-import { RestTimer } from "~/components/fitness/RestTimer";
-import { WorkoutDurationTimer } from "~/components/fitness/WorkoutDurationTimer";
-import { StatInput } from "~/components/fitness/StatInput";
-import { AssetDisplay } from "~/components/fitness/AssetDisplay";
-import { NoteInput } from "~/components/fitness/NoteInput";
-import { formatTimerDuration, getStopwatchMilliSeconds } from "~/components/fitness/utils";
 import {
 	FitnessAction,
 	FitnessEntity,
@@ -142,6 +136,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
+	type CurrentWorkoutStopwatch,
 	type CurrentWorkoutTimer,
 	type Exercise,
 	type InProgressWorkout,
@@ -161,6 +156,8 @@ import {
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 import {
+	ACTIVE_WORKOUT_REPS_TARGET,
+	ACTIVE_WORKOUT_WEIGHT_TARGET,
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
@@ -479,11 +476,7 @@ export default function Page() {
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
-									<WorkoutDurationTimer 
-										isWorkoutPaused={isWorkoutPaused} 
-										isCreatingTemplate={loaderData.isCreatingTemplate}
-										isUpdatingWorkout={loaderData.isUpdatingWorkout}
-									/>
+									<WorkoutDurationTimer isWorkoutPaused={isWorkoutPaused} />
 									<StatDisplay
 										name="Exercises"
 										value={
@@ -849,10 +842,222 @@ const NameAndOtherInputs = (props: {
 	);
 };
 
+const StatDisplay = (props: {
+	name: string;
+	value: string;
+	isHidden?: boolean;
+	onClick?: () => void;
+	highlightValue?: boolean;
+}) => {
+	return (
+		<Box
+			mx="auto"
+			onClick={props.onClick}
+			style={{
+				display: props.isHidden ? "none" : undefined,
+				cursor: props.onClick ? "pointer" : undefined,
+			}}
+		>
+			<Text
+				ta="center"
+				fz={{ md: "xl" }}
+				c={props.highlightValue ? "red" : undefined}
+			>
+				{props.value}
+			</Text>
+			<Text c="dimmed" size="sm" ta="center">
+				{props.name}
+			</Text>
+		</Box>
+	);
+};
 
+const formatTimerDuration = (duration: number) =>
+	dayjsLib.duration(duration).format("mm:ss");
 
+const RestTimer = () => {
+	const [currentWorkout] = useCurrentWorkout();
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
+	const [currentStopwatch] = useCurrentWorkoutStopwatchAtom();
+	invariant(currentWorkout);
 
+	forceUpdateEverySecond();
 
+	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
+
+	return match(currentWorkout.timerDrawerLot)
+		.with("timer", () =>
+			currentTimer
+				? formatTimerDuration(
+						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt),
+					)
+				: "Timer",
+		)
+		.with("stopwatch", () =>
+			currentStopwatch
+				? formatTimerDuration(stopwatchMilliSeconds)
+				: "Stopwatch",
+		)
+		.exhaustive();
+};
+
+const WorkoutDurationTimer = (props: { isWorkoutPaused: boolean }) => {
+	const { isCreatingTemplate, isUpdatingWorkout } =
+		useLoaderData<typeof loader>();
+	const [value, setValue] = useState(0);
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+
+	useInterval(() => setValue((v) => v + 1), 1000);
+
+	const seconds = useMemo(() => {
+		let total = 0;
+		for (const duration of currentWorkout?.durations || []) {
+			total += dayjsLib(duration.to).diff(duration.from) / 1000;
+		}
+		return total;
+	}, [value, currentWorkout]);
+
+	if (!currentWorkout) return null;
+
+	let format = "mm:ss";
+	if (seconds > 3600) format = `H:${format}`;
+
+	return (
+		<StatDisplay
+			name="Duration"
+			highlightValue={props.isWorkoutPaused}
+			isHidden={isCreatingTemplate || isUpdatingWorkout}
+			value={dayjsLib.duration(seconds, "second").format(format)}
+			onClick={() => {
+				setCurrentWorkout(
+					produce(currentWorkout, (draft) => {
+						const currentDurations = draft.durations;
+						if (Object.keys(currentDurations.at(-1) || {}).length === 2) {
+							currentDurations.push({ from: dayjsLib().toISOString() });
+						} else {
+							currentDurations[currentDurations.length - 1].to =
+								dayjsLib().toISOString();
+						}
+					}),
+				);
+			}}
+		/>
+	);
+};
+
+const StatInput = (props: {
+	setIdx: number;
+	inputStep?: number;
+	exerciseIdx: number;
+	stat: keyof WorkoutSetStatistic;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
+	invariant(set);
+	const [value, setValue] = useDebouncedState<string | number | undefined>(
+		isString(set.statistic[props.stat])
+			? Number(set.statistic[props.stat])
+			: undefined,
+		500,
+	);
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
+
+	const weightStepTourClassName =
+		isOnboardingTourInProgress && props.stat === "weight" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddWeightToExercise
+			: undefined;
+
+	const repsStepTourClassName =
+		isOnboardingTourInProgress && props.stat === "reps" && props.setIdx === 0
+			? OnboardingTourStepTargets.AddRepsToExercise
+			: undefined;
+
+	useDidUpdate(() => {
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const val = isString(value) ? null : value?.toString();
+					const draftSet =
+						draft.exercises[props.exerciseIdx].sets[props.setIdx];
+					draftSet.statistic[props.stat] = val;
+					if (val === null) draftSet.confirmedAt = null;
+					if (weightStepTourClassName && val === ACTIVE_WORKOUT_WEIGHT_TARGET)
+						advanceOnboardingTourStep();
+					if (repsStepTourClassName && val === ACTIVE_WORKOUT_REPS_TARGET)
+						advanceOnboardingTourStep();
+				}),
+			);
+	}, [value]);
+
+	return currentWorkout ? (
+		<Flex style={{ flex: 1 }} justify="center">
+			<NumberInput
+				size="xs"
+				required
+				hideControls
+				step={props.inputStep}
+				onChange={(v) => setValue(v)}
+				onFocus={(e) => e.target.select()}
+				className={clsx(weightStepTourClassName, repsStepTourClassName)}
+				styles={{
+					input: { fontSize: 15, width: rem(72), textAlign: "center" },
+				}}
+				value={
+					isString(set.statistic[props.stat])
+						? Number(set.statistic[props.stat])
+						: undefined
+				}
+				decimalScale={
+					isNumber(props.inputStep)
+						? Math.log10(1 / props.inputStep)
+						: undefined
+				}
+			/>
+		</Flex>
+	) : null;
+};
+
+const AssetDisplay = (props: {
+	s3Key: string;
+	type: "video" | "image";
+	removeAsset: () => void;
+}) => {
+	const srcUrlQuery = useQuery({
+		queryKey: queryFactory.miscellaneous.presignedS3Url(props.s3Key).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(GetPresignedS3UrlDocument, { key: props.s3Key })
+				.then((v) => v.getPresignedS3Url),
+	});
+
+	return (
+		<Box pos="relative">
+			{props.type === "video" ? (
+				<Link to={srcUrlQuery.data ?? ""} target="_blank">
+					<Avatar size="lg" name="Video" />
+				</Link>
+			) : (
+				<Avatar src={srcUrlQuery.data} size="lg" />
+			)}
+			<ActionIcon
+				top={0}
+				size="xs"
+				left={-12}
+				color="red"
+				pos="absolute"
+				onClick={() => {
+					openConfirmationModal(
+						"Are you sure you want to remove this video?",
+						() => props.removeAsset(),
+					);
+				}}
+			>
+				<IconTrash />
+			</ActionIcon>
+		</Box>
+	);
+};
 
 const DisplaySupersetModal = ({
 	onClose,
@@ -2453,6 +2658,16 @@ const styles = {
 
 const restTimerOptions = [180, 300, 480, "Custom"];
 
+const getStopwatchMilliSeconds = (
+	currentStopwatch: CurrentWorkoutStopwatch,
+) => {
+	if (!currentStopwatch) return 0;
+	let total = 0;
+	for (const duration of currentStopwatch) {
+		total += dayjsLib(duration.to).diff(duration.from);
+	}
+	return total;
+};
 
 const TimerAndStopwatchDrawer = (props: {
 	opened: boolean;
@@ -2801,3 +3016,56 @@ const ReorderDrawerExerciseElement = (props: {
 	);
 };
 
+const NoteInput = (props: {
+	note: string;
+	noteIdx: number;
+	exerciseIdx: number;
+}) => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [value, setValue] = useDebouncedState(props.note, 500);
+
+	useDidUpdate(() => {
+		if (currentWorkout)
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
+				}),
+			);
+	}, [value]);
+
+	return (
+		<Flex align="center" gap="xs">
+			<Textarea
+				autosize
+				size="xs"
+				minRows={1}
+				maxRows={4}
+				style={{ flexGrow: 1 }}
+				placeholder="Add a note"
+				defaultValue={props.note}
+				onChange={(e) => setValue(e.currentTarget.value)}
+			/>
+			<ActionIcon
+				color="red"
+				onClick={() => {
+					openConfirmationModal(
+						"This note will be deleted. Are you sure you want to continue?",
+						() => {
+							if (currentWorkout)
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										draft.exercises[props.exerciseIdx].notes.splice(
+											props.noteIdx,
+											1,
+										);
+									}),
+								);
+						},
+					);
+				}}
+			>
+				<IconTrash size={20} />
+			</ActionIcon>
+		</Flex>
+	);
+};
