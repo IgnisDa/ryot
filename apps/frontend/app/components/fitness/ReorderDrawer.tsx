@@ -13,7 +13,6 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import {
 	type Exercise,
-	type InProgressWorkout,
 	getExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
@@ -34,11 +33,11 @@ const focusOnExercise = (idx: number) => {
 	}, 800);
 };
 
-const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {
-	const isCompleted = cw.exercises[index].sets.every((s) => s.confirmedAt);
+const getProgressOfExercise = (cw: any, index: number) => {
+	const isCompleted = cw.exercises[index].sets.every((s: any) => s.confirmedAt);
 	return isCompleted
 		? ("complete" as const)
-		: cw.exercises[index].sets.some((s) => s.confirmedAt)
+		: cw.exercises[index].sets.some((s: any) => s.confirmedAt)
 			? ("in-progress" as const)
 			: ("not-started" as const);
 };
