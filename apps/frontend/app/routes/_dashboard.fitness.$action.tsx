@@ -72,9 +72,6 @@ import {
 	IconCheck,
 	IconChevronUp,
 	IconClipboard,
-	IconDeviceWatch,
-	IconDeviceWatchCancel,
-	IconDeviceWatchPause,
 	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
@@ -110,6 +107,12 @@ import {
 	ExerciseHistory,
 	displayWeightWithUnit,
 } from "~/components/fitness";
+import { TimerAndStopwatchDrawer } from "~/components/fitness/TimerAndStopwatchDrawer";
+import {
+	formatTimerDuration,
+	getStopwatchMilliSeconds,
+	styles,
+} from "~/components/fitness/utils";
 import {
 	FitnessAction,
 	FitnessEntity,
@@ -136,7 +139,6 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
-	type CurrentWorkoutStopwatch,
 	type CurrentWorkoutTimer,
 	type Exercise,
 	type InProgressWorkout,
@@ -871,9 +873,6 @@ const StatDisplay = (props: {
 		</Box>
 	);
 };
-
-const formatTimerDuration = (duration: number) =>
-	dayjsLib.duration(duration).format("mm:ss");
 
 const RestTimer = () => {
 	const [currentWorkout] = useCurrentWorkout();
@@ -2644,257 +2643,6 @@ const DisplaySetRestTimer = (props: {
 				props.currentTimer.totalTime
 			}
 		/>
-	);
-};
-
-const styles = {
-	body: {
-		height: "80%",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-};
-
-const restTimerOptions = [180, 300, 480, "Custom"];
-
-const getStopwatchMilliSeconds = (
-	currentStopwatch: CurrentWorkoutStopwatch,
-) => {
-	if (!currentStopwatch) return 0;
-	let total = 0;
-	for (const duration of currentStopwatch) {
-		total += dayjsLib(duration.to).diff(duration.from);
-	}
-	return total;
-};
-
-const TimerAndStopwatchDrawer = (props: {
-	opened: boolean;
-	onClose: () => void;
-	stopTimer: () => void;
-	pauseOrResumeTimer: () => void;
-	startTimer: (duration: number) => void;
-}) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
-	const [currentStopwatch, setCurrentStopwatch] =
-		useCurrentWorkoutStopwatchAtom();
-
-	invariant(currentWorkout);
-
-	forceUpdateEverySecond();
-
-	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
-	const isStopwatchPaused = Boolean(currentStopwatch?.at(-1)?.to);
-
-	return (
-		<Drawer
-			size="md"
-			position="bottom"
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			styles={{ body: { ...styles.body, height: "100%" } }}
-		>
-			<Stack align="center">
-				{!currentTimer && !currentStopwatch ? (
-					<>
-						{restTimerOptions.map((option) => (
-							<Button
-								w={160}
-								key={option}
-								size="compact-xl"
-								variant="outline"
-								onClick={() => {
-									if (isNumber(option)) props.startTimer(option);
-									else {
-										const input = prompt("Enter duration in seconds");
-										if (!input) return;
-										const intInput = Number.parseInt(input);
-										if (intInput) props.startTimer(intInput);
-										else alert("Invalid input");
-									}
-								}}
-							>
-								{isNumber(option) ? `${option / 60} minutes` : option}
-							</Button>
-						))}
-						<Divider w="150%" />
-						<Button
-							w={160}
-							size="compact-xl"
-							variant="outline"
-							onClick={() => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										draft.timerDrawerLot = "stopwatch";
-									}),
-								);
-								setCurrentStopwatch([{ from: dayjsLib().toISOString() }]);
-							}}
-						>
-							Stopwatch
-						</Button>
-					</>
-				) : null}
-				{currentStopwatch ? (
-					<>
-						<Button
-							color="orange"
-							variant="outline"
-							leftSection={<IconDeviceWatchCancel />}
-							onClick={() => {
-								setCurrentStopwatch(null);
-								props.onClose();
-							}}
-						>
-							Cancel
-						</Button>
-						<RingProgress
-							roundCaps
-							size={300}
-							thickness={6}
-							sections={[]}
-							rootColor={isStopwatchPaused ? "gray" : "orange"}
-							label={
-								<Text ta="center" fz={64}>
-									{formatTimerDuration(stopwatchMilliSeconds)}
-								</Text>
-							}
-						/>
-						<Button
-							color="orange"
-							variant="outline"
-							leftSection={
-								isStopwatchPaused ? (
-									<IconDeviceWatch />
-								) : (
-									<IconDeviceWatchPause />
-								)
-							}
-							onClick={() => {
-								setCurrentStopwatch(
-									produce(currentStopwatch, (draft) => {
-										if (Object.keys(draft.at(-1) || {}).length === 2) {
-											draft.push({ from: dayjsLib().toISOString() });
-										} else {
-											draft[draft.length - 1].to = dayjsLib().toISOString();
-										}
-									}),
-								);
-							}}
-						>
-							{isStopwatchPaused ? "Resume" : "Pause"}
-						</Button>
-					</>
-				) : null}
-				{currentTimer ? (
-					<>
-						<Group gap="xl">
-							<Button
-								color="orange"
-								onClick={() => {
-									setCurrentTimer(
-										produce(currentTimer, (draft) => {
-											if (draft) {
-												draft.willEndAt = dayjsLib(draft.willEndAt)
-													.subtract(30, "seconds")
-													.toISOString();
-												draft.totalTime -= 30;
-											}
-										}),
-									);
-								}}
-								size="compact-lg"
-								variant="outline"
-								disabled={
-									dayjsLib(currentTimer.willEndAt).diff(
-										currentTimer.wasPausedAt,
-										"seconds",
-									) <= 30
-								}
-							>
-								-30 sec
-							</Button>
-							<Button
-								color="orange"
-								size="compact-lg"
-								variant="outline"
-								onClick={() => {
-									setCurrentTimer(
-										produce(currentTimer, (draft) => {
-											if (draft) {
-												draft.willEndAt = dayjsLib(draft.willEndAt)
-													.add(30, "seconds")
-													.toISOString();
-												draft.totalTime += 30;
-											}
-										}),
-									);
-								}}
-							>
-								+30 sec
-							</Button>
-						</Group>
-						<RingProgress
-							roundCaps
-							size={300}
-							thickness={8}
-							sections={[
-								{
-									color: currentTimer.wasPausedAt ? "gray" : "orange",
-									value:
-										(dayjsLib(currentTimer.willEndAt).diff(
-											currentTimer.wasPausedAt,
-											"seconds",
-										) *
-											100) /
-										currentTimer.totalTime,
-								},
-							]}
-							label={
-								<>
-									<Text ta="center" fz={64}>
-										{formatTimerDuration(
-											dayjsLib(currentTimer.willEndAt).diff(
-												currentTimer.wasPausedAt,
-											),
-										)}
-									</Text>
-									<Text ta="center" c="dimmed" fz="lg" mt="-md">
-										{formatTimerDuration(currentTimer.totalTime * 1000)}
-									</Text>
-								</>
-							}
-						/>
-						<Group gap="xl">
-							<Button
-								color="orange"
-								variant="outline"
-								size="compact-lg"
-								onClick={() => {
-									props.pauseOrResumeTimer();
-								}}
-							>
-								{currentTimer.wasPausedAt ? "Resume" : "Pause"}
-							</Button>
-							<Button
-								color="orange"
-								variant="outline"
-								size="compact-lg"
-								onClick={() => {
-									props.onClose();
-									props.stopTimer();
-								}}
-							>
-								Skip
-							</Button>
-						</Group>
-					</>
-				) : null}
-			</Stack>
-		</Drawer>
 	);
 };
 
