@@ -178,7 +178,6 @@ async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingServi
         entity_id: String,
         collection_id: String,
         entity_lot: EntityLot,
-        created_on: DateTimeUtc,
         last_updated_on: DateTimeUtc,
     }
     let all_cte = CollectionToEntity::find()
@@ -186,7 +185,6 @@ async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingServi
         .column(collection_to_entity::Column::Id)
         .column(collection_to_entity::Column::EntityId)
         .column(collection_to_entity::Column::EntityLot)
-        .column(collection_to_entity::Column::CreatedOn)
         .column(collection_to_entity::Column::CollectionId)
         .column(collection_to_entity::Column::LastUpdatedOn)
         .inner_join(Collection)
@@ -196,8 +194,8 @@ async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingServi
         .await?;
     let mut to_delete = vec![];
     for cte in all_cte {
-        let delta = cte.last_updated_on - cte.created_on;
-        if delta.num_days().abs() > ss.config.media.monitoring_remove_after_days {
+        let delta = Utc::now() - cte.last_updated_on;
+        if delta.num_days() > ss.config.media.monitoring_remove_after_days {
             to_delete.push(cte);
         }
     }
