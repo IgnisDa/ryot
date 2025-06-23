@@ -111,7 +111,10 @@ import {
 	RestTimer,
 	WorkoutDurationTimer,
 } from "~/components/fitness/RestTimer";
-import { StatDisplay, StatInput } from "~/components/fitness/StatDisplay";
+import {
+	StatDisplay,
+	StatInput,
+} from "~/components/fitness/StatDisplayAndInput";
 import { TimerAndStopwatchDrawer } from "~/components/fitness/TimerAndStopwatchDrawer";
 import { formatTimerDuration, styles } from "~/components/fitness/utils";
 import {

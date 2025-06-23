@@ -10,7 +10,7 @@ import {
 	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
-import { StatDisplay } from "./StatDisplay";
+import { StatDisplay } from "./StatDisplayAndInput";
 import { formatTimerDuration, getStopwatchMilliSeconds } from "./utils";
 
 export const RestTimer = () => {
