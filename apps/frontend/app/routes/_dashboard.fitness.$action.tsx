@@ -16,7 +16,6 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
-	Progress,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -27,7 +26,6 @@ import {
 	TextInput,
 	Transition,
 	UnstyledButton,
-	rem,
 	useMantineTheme,
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate, useDisclosure } from "@mantine/hooks";
@@ -71,13 +69,13 @@ import clsx from "clsx";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { useInterval, useOnClickOutside } from "usehooks-ts";
+import { useInterval } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
@@ -87,6 +85,8 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { DisplayExerciseSetRestTimer } from "~/components/fitness/DisplayExerciseSetRestTimer";
+import { DisplaySetRestTimer } from "~/components/fitness/DisplaySetRestTimer";
+import { EditSetRestTimer } from "~/components/fitness/EditSetRestTimer";
 import { NameAndOtherInputs } from "~/components/fitness/NameAndOtherInputs";
 import { NoteInput } from "~/components/fitness/NoteInput";
 import { ReorderDrawer } from "~/components/fitness/ReorderDrawer";
@@ -118,14 +118,12 @@ import {
 	sendNotificationToServiceWorker,
 } from "~/lib/common";
 import {
-	forceUpdateEverySecond,
 	useApplicationEvents,
 	useCoreDetails,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import {
-	type CurrentWorkoutTimer,
 	type InProgressWorkout,
 	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
@@ -1779,70 +1777,5 @@ const SetDisplay = (props: {
 				</Box>
 			</Paper>
 		</>
-	);
-};
-
-const EditSetRestTimer = (props: {
-	setIdx: number;
-	exerciseIdx: number;
-	defaultDuration: number;
-	onClickOutside: () => void;
-}) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const editRestTimerRef = useRef<HTMLInputElement>(null);
-
-	const [value, setValue] = useDebouncedState(props.defaultDuration, 500);
-
-	useDidUpdate(() => {
-		if (currentWorkout && value)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					const exercise = draft.exercises[props.exerciseIdx];
-					exercise.sets[props.setIdx].restTimer = { duration: value };
-				}),
-			);
-	}, [value]);
-
-	useEffect(() => {
-		editRestTimerRef.current?.select();
-	}, [editRestTimerRef]);
-
-	useOnClickOutside(editRestTimerRef, props.onClickOutside);
-
-	if (!currentWorkout) return null;
-
-	return (
-		<NumberInput
-			size="xs"
-			suffix="s"
-			w={rem(80)}
-			// This will be fixed when https://github.com/mantinedev/mantine/pull/6997 is merged
-			ref={editRestTimerRef}
-			value={props.defaultDuration}
-			onChange={(v) => {
-				if (!v) return;
-				setValue(Number.parseInt(v.toString()));
-			}}
-		/>
-	);
-};
-
-const DisplaySetRestTimer = (props: {
-	onClick: () => void;
-	currentTimer: CurrentWorkoutTimer;
-}) => {
-	forceUpdateEverySecond();
-
-	return (
-		<Progress
-			onClick={props.onClick}
-			transitionDuration={300}
-			style={{ cursor: "pointer" }}
-			value={
-				(dayjsLib(props.currentTimer.willEndAt).diff(dayjsLib(), "seconds") *
-					100) /
-				props.currentTimer.totalTime
-			}
-		/>
 	);
 };
