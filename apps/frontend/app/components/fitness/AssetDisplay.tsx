@@ -3,7 +3,11 @@ import { GetPresignedS3UrlDocument } from "@ryot/generated/graphql/backend/graph
 import { IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { clientGqlService, openConfirmationModal, queryFactory } from "~/lib/common";
+import {
+	clientGqlService,
+	openConfirmationModal,
+	queryFactory,
+} from "~/lib/common";
 
 export const AssetDisplay = (props: {
 	s3Key: string;
