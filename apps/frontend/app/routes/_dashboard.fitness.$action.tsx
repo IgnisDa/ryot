@@ -17,6 +17,7 @@ import {
 	NumberInput,
 	Paper,
 	Progress,
+	RingProgress,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -86,7 +87,6 @@ import {
 	ExerciseHistory,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { DisplayExerciseSetRestTimer } from "~/components/fitness/DisplayExerciseSetRestTimer";
 import { NameAndOtherInputs } from "~/components/fitness/NameAndOtherInputs";
 import { NoteInput } from "~/components/fitness/NoteInput";
 import { ReorderDrawer } from "~/components/fitness/ReorderDrawer";
@@ -97,10 +97,7 @@ import { DisplaySupersetModal } from "~/components/fitness/SupersetModals";
 import { TimerAndStopwatchDrawer } from "~/components/fitness/TimerAndStopwatchDrawer";
 import { UploadAssetsModal } from "~/components/fitness/UploadAssetsModal";
 import { WorkoutDurationTimer } from "~/components/fitness/WorkoutDurationTimer";
-import {
-	formatTimerDuration,
-	getGlobalSetIndex,
-} from "~/components/fitness/utils";
+import { formatTimerDuration } from "~/components/fitness/utils";
 import {
 	FitnessAction,
 	FitnessEntity,
@@ -1211,6 +1208,62 @@ const ExerciseDisplay = (props: {
 			</Paper>
 		</>
 	);
+};
+
+const DisplayExerciseSetRestTimer = (props: {
+	openTimerDrawer: () => void;
+}) => {
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
+	forceUpdateEverySecond();
+
+	if (!currentTimer) return null;
+
+	return (
+		<RingProgress
+			size={30}
+			roundCaps
+			thickness={2}
+			style={{ cursor: "pointer" }}
+			onClick={props.openTimerDrawer}
+			sections={[
+				{
+					value:
+						(dayjsLib(currentTimer.willEndAt).diff(
+							currentTimer.wasPausedAt,
+							"seconds",
+						) *
+							100) /
+						currentTimer.totalTime,
+					color: "blue",
+				},
+			]}
+			label={
+				<Text ta="center" size="xs">
+					{Math.floor(
+						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) /
+							1000,
+					)}
+				</Text>
+			}
+		/>
+	);
+};
+
+const getGlobalSetIndex = (
+	setIdx: number,
+	exerciseIdx: number,
+	currentWorkout: InProgressWorkout,
+) => {
+	const exerciseId = currentWorkout.exercises[exerciseIdx].exerciseId;
+	let globalIndex = 0;
+	for (let i = 0; i < currentWorkout.exercises.length; i++) {
+		if (i === exerciseIdx) break;
+		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
+			globalIndex += currentWorkout.exercises[i].sets.length;
+		}
+	}
+	globalIndex += setIdx;
+	return globalIndex;
 };
 
 const SetDisplay = (props: {
