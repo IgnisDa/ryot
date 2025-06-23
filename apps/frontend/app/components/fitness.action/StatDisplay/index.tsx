@@ -1,19 +1,12 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
-	Anchor,
 	Box,
-	Button,
-	Collapse,
 	Divider,
 	Flex,
 	Group,
 	Menu,
-	Modal,
-	NumberInput,
 	Paper,
-	Stack,
-	Table,
 	Text,
 	TextInput,
 	Transition,
@@ -26,7 +19,7 @@ import {
 	SetLot,
 	type WorkoutSetStatistic,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber, isString, snakeCase, startCase } from "@ryot/ts-utils";
+import { isString, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconClipboard,
@@ -65,6 +58,7 @@ import {
 } from "~/lib/state/general";
 import { StatInput } from "../StatDisplayAndInput";
 import { formatTimerDuration } from "../utils";
+import { RpeModal } from "./RpeModal";
 import {
 	type FuncStartTimer,
 	getGlobalSetIndex,
@@ -98,7 +92,6 @@ export const SetDisplay = (props: {
 	invariant(set);
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
-	const [isRpeDetailsOpen, setIsRpeDetailsOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const { data: userExerciseDetails } = useQuery(
@@ -164,84 +157,13 @@ export const SetDisplay = (props: {
 
 	return (
 		<>
-			<Modal
-				opened={isRpeModalOpen}
-				withCloseButton={false}
+			<RpeModal
+				currentRpe={set.rpe}
+				setIdx={props.setIdx}
 				onClose={closeRpeModal}
-				title={
-					<Group justify="space-between" gap="xl">
-						<Text>Rate of Perceived Exertion</Text>
-						<Button
-							variant="outline"
-							size="compact-xs"
-							onClick={() => setIsRpeDetailsOpen(!isRpeDetailsOpen)}
-						>
-							{isRpeDetailsOpen ? "Hide" : "Show"} instructions
-						</Button>
-					</Group>
-				}
-			>
-				<Stack>
-					<Group>
-						<NumberInput
-							min={0}
-							max={10}
-							flex={1}
-							value={set.rpe ?? undefined}
-							onChange={(v) => {
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										const value = isNumber(v) ? v : null;
-										const currentSet =
-											draft.exercises[props.exerciseIdx].sets[props.setIdx];
-										currentSet.rpe = value;
-									}),
-								);
-							}}
-						/>
-					</Group>
-					<Button fullWidth variant="outline" onClick={closeRpeModal}>
-						Done
-					</Button>
-					<Collapse in={isRpeDetailsOpen}>
-						<Stack gap="xs">
-							<Text size="xs">
-								Your rate of perceived exertion (RPE) refers to how hard you
-								think you're pushing yourself during exercise. It's subjective,
-								which means that you decide how hard you feel you're working
-								during physical activity.
-								<Anchor
-									ml={2}
-									size="xs"
-									target="_blank"
-									href="https://my.clevelandclinic.org/health/articles/17450-rated-perceived-exertion-rpe-scale"
-								>
-									Source.
-								</Anchor>
-							</Text>
-							<Table
-								p={0}
-								fz="xs"
-								withRowBorders
-								withTableBorder
-								withColumnBorders
-								data={{
-									head: ["Rating", "Perceived Exertion Level"],
-									body: [
-										["0", "No exertion (at rest)"],
-										["1", "Very light"],
-										["2 to 3", "Light"],
-										["4 to 5", "Moderate (somewhat hard)"],
-										["6 to 7", "High (vigorous)"],
-										["8 to 9", "Very hard"],
-										["10", "Maximum effort (highest possible)"],
-									],
-								}}
-							/>
-						</Stack>
-					</Collapse>
-				</Stack>
-			</Modal>
+				opened={isRpeModalOpen}
+				exerciseIdx={props.exerciseIdx}
+			/>
 			<Paper id={`${props.exerciseIdx}-${props.setIdx}`}>
 				<Flex justify="space-between" align="center" py={4}>
 					<Menu>
