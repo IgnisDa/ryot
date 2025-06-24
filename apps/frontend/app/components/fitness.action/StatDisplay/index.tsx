@@ -57,14 +57,12 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { StatInput } from "../StatDisplayAndInput";
+import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
 import { RpeModal } from "./RpeModal";
-import {
-	type FuncStartTimer,
-	getGlobalSetIndex,
-	usePerformTasksAfterSetConfirmed,
-} from "./hooks";
+import { getGlobalSetIndex } from "./functions";
 import { DisplaySetRestTimer, EditSetRestTimer } from "./support";
+import { usePerformTasksAfterSetConfirmed } from "../hooks";
 
 export const SetDisplay = (props: {
 	setIdx: number;

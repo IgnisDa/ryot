@@ -12,30 +12,7 @@ import {
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
-
-export const DEFAULT_SET_TIMEOUT_DELAY = 800;
-
-export type FuncStartTimer = (
-	duration: number,
-	triggeredBy: { exerciseIdentifier: string; setIdentifier: string },
-) => void;
-
-export const getGlobalSetIndex = (
-	setIdx: number,
-	exerciseIdx: number,
-	currentWorkout: InProgressWorkout,
-) => {
-	const exerciseId = currentWorkout.exercises[exerciseIdx].exerciseId;
-	let globalIndex = 0;
-	for (let i = 0; i < currentWorkout.exercises.length; i++) {
-		if (i === exerciseIdx) break;
-		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
-			globalIndex += currentWorkout.exercises[i].sets.length;
-		}
-	}
-	globalIndex += setIdx;
-	return globalIndex;
-};
+import { DEFAULT_SET_TIMEOUT_DELAY } from "./constants";
 
 export const focusOnExercise = (idx: number) => {
 	setTimeout(() => {

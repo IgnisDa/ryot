@@ -93,15 +93,15 @@ import {
 	WorkoutDurationTimer,
 } from "~/components/fitness.action/RestTimer";
 import { SetDisplay } from "~/components/fitness.action/StatDisplay";
+import { StatDisplay } from "~/components/fitness.action/StatDisplayAndInput";
+import { TimerAndStopwatchDrawer } from "~/components/fitness.action/TimerAndStopwatchDrawer";
+import { DEFAULT_SET_TIMEOUT_DELAY } from "~/components/fitness.action/constants";
 import {
-	DEFAULT_SET_TIMEOUT_DELAY,
-	type FuncStartTimer,
 	focusOnExercise,
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
-} from "~/components/fitness.action/StatDisplay/hooks";
-import { StatDisplay } from "~/components/fitness.action/StatDisplayAndInput";
-import { TimerAndStopwatchDrawer } from "~/components/fitness.action/TimerAndStopwatchDrawer";
+} from "~/components/fitness.action/hooks";
+import type { FuncStartTimer } from "~/components/fitness.action/types";
 import { styles } from "~/components/fitness.action/utils";
 import {
 	FitnessAction,

@@ -1,0 +1,1 @@
+export const DEFAULT_SET_TIMEOUT_DELAY = 800;
