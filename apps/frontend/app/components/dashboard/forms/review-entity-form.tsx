@@ -36,7 +36,6 @@ import { withQuery } from "ufo";
 import {
 	ThreePointSmileyRating,
 	convertDecimalToThreePointSmiley,
-	convertThreePointSmileyToDecimal,
 	refreshEntityDetails,
 } from "~/lib/common";
 import {
@@ -46,6 +45,7 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
+import { convertThreePointSmileyToDecimal } from "../utils";
 
 export const ReviewEntityForm = ({
 	closeReviewEntityModal,
