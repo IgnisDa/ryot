@@ -14,11 +14,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	ExerciseLot,
-	SetLot,
-	type WorkoutSetStatistic,
-} from "@ryot/generated/graphql/backend/graphql";
+import { ExerciseLot, SetLot } from "@ryot/generated/graphql/backend/graphql";
 import { isString, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
@@ -28,7 +24,6 @@ import {
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import { useState } from "react";
@@ -45,8 +40,6 @@ import {
 import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getRestTimerForSet,
-	getUserExerciseDetailsQuery,
-	getWorkoutDetails,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
@@ -57,12 +50,12 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { StatInput } from "../StatDisplayAndInput";
+import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
 import { RpeModal } from "./RpeModal";
-import { getGlobalSetIndex } from "./functions";
+import { usePreviousSetData } from "./functions";
 import { DisplaySetRestTimer, EditSetRestTimer } from "./support";
-import { usePerformTasksAfterSetConfirmed } from "../hooks";
 
 export const SetDisplay = (props: {
 	setIdx: number;
@@ -92,8 +85,11 @@ export const SetDisplay = (props: {
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set.note || "", 500);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
+	const { data: previousSetData } = usePreviousSetData(
+		props.setIdx,
+		props.exerciseIdx,
+		currentWorkout,
+		exercise.exerciseId,
 	);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
@@ -113,34 +109,6 @@ export const SetDisplay = (props: {
 				}),
 			);
 	}, [value]);
-
-	const { data: previousSetData } = useQuery({
-		enabled: !!userExerciseDetails,
-		queryKey: [
-			"previousSetData",
-			`exercise-${props.exerciseIdx}`,
-			`set-${props.setIdx}`,
-			userExerciseDetails?.history,
-		],
-		queryFn: async () => {
-			const globalSetIndex = getGlobalSetIndex(
-				props.setIdx,
-				props.exerciseIdx,
-				currentWorkout,
-			);
-
-			const allPreviousSets: WorkoutSetStatistic[] = [];
-
-			for (const history of userExerciseDetails?.history || []) {
-				if (allPreviousSets.length > globalSetIndex) break;
-				const workout = await getWorkoutDetails(history.workoutId);
-				const exercise = workout.details.information.exercises[history.idx];
-				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
-			}
-
-			return allPreviousSets[globalSetIndex];
-		},
-	});
 
 	const didCurrentSetActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
