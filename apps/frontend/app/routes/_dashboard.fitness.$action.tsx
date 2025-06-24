@@ -1,6 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
 	Anchor,
@@ -11,16 +10,10 @@ import {
 	Divider,
 	Drawer,
 	FileButton,
-	Flex,
-	FocusTrap,
 	Group,
-	Image,
-	Menu,
 	Modal,
 	NumberInput,
 	Paper,
-	RingProgress,
-	ScrollArea,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -30,7 +23,6 @@ import {
 	Textarea,
 	ThemeIcon,
 	rem,
-	useMantineTheme,
 } from "@mantine/core";
 import {
 	type UseListStateHandlers,
@@ -43,10 +35,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
-	ExerciseLot,
 	GetPresignedS3UrlDocument,
-	SetLot,
-	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	changeCase,
@@ -58,17 +47,10 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconCamera,
-	IconChevronUp,
-	IconClipboard,
-	IconDotsVertical,
 	IconDroplet,
 	IconDropletFilled,
 	IconDropletHalf2Filled,
-	IconLayersIntersect,
 	IconLibraryPhoto,
-	IconPhoto,
-	IconReorder,
-	IconReplace,
 	IconTrash,
 	IconVideo,
 } from "@tabler/icons-react";
@@ -86,13 +68,12 @@ import { match } from "ts-pattern";
 import { useInterval } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
-import { ProRequiredAlert } from "~/components/common";
-import { ExerciseHistory, displayWeightWithUnit } from "~/components/fitness";
+import { displayWeightWithUnit } from "~/components/fitness";
+import { ExerciseDisplay } from "~/components/fitness.action/ExerciseDisplay";
 import {
 	RestTimer,
 	WorkoutDurationTimer,
 } from "~/components/fitness.action/RestTimer";
-import { SetDisplay } from "~/components/fitness.action/StatDisplay";
 import { StatDisplay } from "~/components/fitness.action/StatDisplayAndInput";
 import { TimerAndStopwatchDrawer } from "~/components/fitness.action/TimerAndStopwatchDrawer";
 import { DEFAULT_SET_TIMEOUT_DELAY } from "~/components/fitness.action/constants";
@@ -101,18 +82,14 @@ import {
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
 } from "~/components/fitness.action/hooks";
-import type { FuncStartTimer } from "~/components/fitness.action/types";
-import { styles } from "~/components/fitness.action/utils";
+import { deleteUploadedAsset, styles } from "~/components/fitness.action/utils";
 import {
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	clientSideFileUpload,
-	convertEnumToSelectData,
 	dayjsLib,
-	getExerciseDetailsPath,
-	getSurroundingElements,
 	openConfirmationModal,
 	postMessageToServiceWorker,
 	queryClient,
@@ -120,7 +97,6 @@ import {
 	sendNotificationToServiceWorker,
 } from "~/lib/common";
 import {
-	forceUpdateEverySecond,
 	useApplicationEvents,
 	useCoreDetails,
 	useGetMantineColors,
@@ -130,16 +106,10 @@ import {
 import {
 	type Exercise,
 	type Superset,
-	convertHistorySetToCurrentSet,
 	currentWorkoutToCreateWorkoutInput,
 	getExerciseDetailsQuery,
-	getExerciseImages,
-	getRestTimerForSet,
-	getUserExerciseDetailsQuery,
-	getWorkoutDetails,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
-	useGetExerciseAtIndex,
 	useMeasurementsDrawerOpen,
 } from "~/lib/state/fitness";
 import {
@@ -162,15 +132,6 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 
 export const meta = ({ data }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
-};
-
-const deleteUploadedAsset = (key: string) => {
-	const formData = new FormData();
-	formData.append("key", key);
-	fetch($path("/actions", { intent: "deleteS3Asset" }), {
-		method: "POST",
-		body: formData,
-	});
 };
 
 export default function Page() {
@@ -575,6 +536,7 @@ export default function Page() {
 										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={openReorderDrawer}
+										isCreatingTemplate={loaderData.isCreatingTemplate}
 										openSupersetModal={(s) => setSupersetModalOpened(s)}
 										setOpenAssetsModal={() =>
 											setAssetsModalOpened(ex.identifier)
@@ -1184,499 +1146,6 @@ const UploadAssetsModal = (props: {
 	);
 };
 
-const ExerciseDisplay = (props: {
-	exerciseIdx: number;
-	stopTimer: () => void;
-	isWorkoutPaused: boolean;
-	startTimer: FuncStartTimer;
-	openTimerDrawer: () => void;
-	openSupersetModal: (s: string) => void;
-	setOpenAssetsModal: (identifier: string) => void;
-	reorderDrawerToggle: (exerciseIdentifier: string | null) => void;
-}) => {
-	const { isCreatingTemplate } = useLoaderData<typeof loader>();
-	const theme = useMantineTheme();
-	const userPreferences = useUserPreferences();
-	const navigate = useNavigate();
-	const [parent] = useAutoAnimate();
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	invariant(currentWorkout);
-	const [currentTimer, _] = useCurrentWorkoutTimerAtom();
-	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
-	invariant(exercise);
-	const coreDetails = useCoreDetails();
-	const { data: exerciseDetails } = useQuery(
-		getExerciseDetailsQuery(exercise.exerciseId),
-	);
-	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exercise.exerciseId),
-	);
-	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
-	const [
-		isDetailsModalOpen,
-		{ open: openDetailsModal, close: closeDetailsModal },
-	] = useDisclosure(false);
-
-	const playAddSetSound = () => {
-		const sound = new Howl({ src: ["/add-set.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
-	};
-
-	const selectedUnitSystem = exercise.unitSystem;
-	const exerciseHistory = userExerciseDetails?.history;
-	const isOnboardingTourStep =
-		isOnboardingTourInProgress && props.exerciseIdx === 0;
-	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
-		.with(ExerciseLot.Reps, () => [false, false, false, true])
-		.with(ExerciseLot.Duration, () => [true, false, false, false])
-		.with(ExerciseLot.RepsAndWeight, () => [false, false, true, true])
-		.with(ExerciseLot.RepsAndDuration, () => [true, false, false, true])
-		.with(ExerciseLot.DistanceAndDuration, () => [true, true, false, false])
-		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
-			true,
-			true,
-			false,
-			true,
-		])
-		.exhaustive();
-	const toBeDisplayedColumns =
-		[durationCol, distanceCol, weightCol, repsCol].filter(Boolean).length + 1;
-
-	const exerciseProgress = getProgressOfExercise(
-		currentWorkout,
-		props.exerciseIdx,
-	);
-	const partOfSuperset = currentWorkout.supersets.find((s) =>
-		s.exercises.includes(exercise.identifier),
-	);
-	const images = getExerciseImages(exerciseDetails);
-
-	const didExerciseActivateTimer =
-		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier;
-
-	const toggleExerciseCollapse = () => {
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				draft.exercises[props.exerciseIdx].isCollapsed = !exercise.isCollapsed;
-			}),
-		);
-	};
-
-	return (
-		<>
-			<Modal
-				size="lg"
-				opened={isDetailsModalOpen}
-				onClose={closeDetailsModal}
-				title={
-					<Group gap={4} wrap="nowrap">
-						<Text>Exercise details for</Text>
-						<Anchor
-							component={Link}
-							to={getExerciseDetailsPath(exercise.exerciseId)}
-						>
-							{exerciseDetails?.name || "..."}
-						</Anchor>
-					</Group>
-				}
-			>
-				<FocusTrap.InitialFocus />
-				<Stack>
-					<Select
-						size="sm"
-						label="Unit system"
-						allowDeselect={false}
-						value={selectedUnitSystem}
-						data={convertEnumToSelectData(UserUnitSystem)}
-						onChange={(v) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									draft.exercises[props.exerciseIdx].unitSystem =
-										v as UserUnitSystem;
-								}),
-							);
-						}}
-					/>
-					<ScrollArea type="scroll">
-						<Group wrap="nowrap">
-							{images.map((i) => (
-								<Image key={i} src={i} h={200} w={350} radius="md" />
-							))}
-						</Group>
-					</ScrollArea>
-					{coreDetails.isServerKeyValidated ? (
-						<Carousel
-							slideGap="md"
-							withControls={false}
-							style={{ userSelect: "none" }}
-							emblaOptions={{ align: "start" }}
-							onSlideChange={setActiveHistoryIdx}
-							slideSize={{ base: "100%", md: "50%" }}
-						>
-							{exerciseHistory?.map((history, idx) => (
-								<Carousel.Slide key={`${history.workoutId}-${history.idx}`}>
-									{getSurroundingElements(
-										exerciseHistory,
-										activeHistoryIdx,
-									).includes(idx) ? (
-										<ExerciseHistory
-											hideExerciseDetails
-											hideExtraDetailsButton
-											exerciseIdx={history.idx}
-											entityId={history.workoutId}
-											entityType={FitnessEntity.Workouts}
-											onCopyButtonClick={async () => {
-												if (!coreDetails.isServerKeyValidated) {
-													notifications.show({
-														color: "red",
-														message:
-															"Ryot Pro required to copy sets from other workouts",
-													});
-													return;
-												}
-												const workout = await getWorkoutDetails(
-													history.workoutId,
-												);
-												openConfirmationModal(
-													`Are you sure you want to copy all sets from "${workout.details.name}"?`,
-													() => {
-														const sets =
-															workout.details.information.exercises[history.idx]
-																.sets;
-														const converted = sets.map((set) =>
-															convertHistorySetToCurrentSet(set),
-														);
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																draft.exercises[props.exerciseIdx].sets.push(
-																	...converted,
-																);
-															}),
-														);
-													},
-												);
-											}}
-										/>
-									) : null}
-								</Carousel.Slide>
-							))}
-						</Carousel>
-					) : (
-						<ProRequiredAlert
-							alertText={`${PRO_REQUIRED_MESSAGE}: inline workout history.`}
-						/>
-					)}
-				</Stack>
-			</Modal>
-			<Paper
-				pl="sm"
-				radius={0}
-				ml={{ base: "-md", md: 0 }}
-				id={props.exerciseIdx.toString()}
-				pr={{ base: 4, md: "xs", lg: "sm" }}
-				style={{
-					scrollMargin: exercise.scrollMarginRemoved ? "10px" : "60px",
-					borderLeft: partOfSuperset
-						? `3px solid ${theme.colors[partOfSuperset.color][6]}`
-						: undefined,
-				}}
-			>
-				<Stack ref={parent}>
-					<Menu shadow="md" width={200} position="left-end">
-						<Group justify="space-between" pos="relative" wrap="nowrap">
-							<Anchor
-								c="blue"
-								fw="bold"
-								lineClamp={1}
-								onClick={(e) => {
-									e.preventDefault();
-									openDetailsModal();
-								}}
-							>
-								{exerciseDetails?.name || "Loading..."}
-							</Anchor>
-							<Group wrap="nowrap" mr={-10}>
-								{didExerciseActivateTimer ? (
-									<DisplayExerciseSetRestTimer
-										openTimerDrawer={props.openTimerDrawer}
-									/>
-								) : null}
-								<ActionIcon
-									variant="transparent"
-									style={{
-										transition: "rotate 0.3s",
-										rotate: exercise.isCollapsed ? "180deg" : undefined,
-									}}
-									color={match(exerciseProgress)
-										.with("complete", () => "green")
-										.with("in-progress", () => "blue")
-										.otherwise(() => undefined)}
-									onClick={() => toggleExerciseCollapse()}
-								>
-									<IconChevronUp />
-								</ActionIcon>
-								<Menu.Target>
-									<ActionIcon
-										color="blue"
-										onClick={() => {
-											if (isOnboardingTourStep) advanceOnboardingTourStep();
-										}}
-										className={clsx(
-											isOnboardingTourStep &&
-												OnboardingTourStepTargets.OpenExerciseMenuDetails,
-										)}
-									>
-										<IconDotsVertical size={20} />
-									</ActionIcon>
-								</Menu.Target>
-							</Group>
-						</Group>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconClipboard size={14} />}
-								rightSection={
-									exercise.notes.length > 0 ? exercise.notes.length : null
-								}
-								onClick={() => {
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											draft.exercises[props.exerciseIdx].notes.push("");
-										}),
-									);
-								}}
-							>
-								Add note
-							</Menu.Item>
-							<Menu.Item
-								leftSection={<IconLayersIntersect size={14} />}
-								onClick={() => props.openSupersetModal(exercise.identifier)}
-							>
-								{partOfSuperset ? "Edit" : "Create"} superset
-							</Menu.Item>
-							<Menu.Item
-								leftSection={<IconPhoto size={14} />}
-								style={isCreatingTemplate ? { display: "none" } : undefined}
-								onClick={() => props.setOpenAssetsModal(exercise.identifier)}
-								rightSection={
-									exercise.images.length > 0 ? exercise.images.length : null
-								}
-							>
-								Images
-							</Menu.Item>
-							<Menu.Item
-								leftSection={<IconReplace size={14} />}
-								onClick={() => {
-									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											message: PRO_REQUIRED_MESSAGE,
-											color: "red",
-										});
-										return;
-									}
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											draft.replacingExerciseIdx = props.exerciseIdx;
-										}),
-									);
-									navigate($path("/fitness/exercises/list"));
-								}}
-							>
-								Replace exercise
-							</Menu.Item>
-							<Menu.Item
-								leftSection={<IconReorder size={14} />}
-								onClick={() => props.reorderDrawerToggle(exercise.identifier)}
-							>
-								Reorder
-							</Menu.Item>
-							<Menu.Item
-								color="red"
-								leftSection={<IconTrash size={14} />}
-								onClick={() => {
-									openConfirmationModal(
-										`This removes '${exerciseDetails?.name}' and all its sets from your workout. You can not undo this action. Are you sure you want to continue?`,
-										() => {
-											const assets = [...exercise.images, ...exercise.videos];
-											for (const asset of assets) deleteUploadedAsset(asset);
-
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const idx = draft.supersets.findIndex((s) =>
-														s.exercises.includes(exercise.identifier),
-													);
-													if (idx !== -1) {
-														if (draft.supersets[idx].exercises.length === 2)
-															draft.supersets.splice(idx, 1);
-														else
-															draft.supersets[idx].exercises = draft.supersets[
-																idx
-															].exercises.filter(
-																(e) => e !== exercise.identifier,
-															);
-													}
-													draft.exercises.splice(props.exerciseIdx, 1);
-												}),
-											);
-										},
-									);
-								}}
-							>
-								Remove
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-					{exercise.isCollapsed ? null : (
-						<Stack ref={parent}>
-							{exercise.notes.map((note, idx) => (
-								<NoteInput
-									note={note}
-									noteIdx={idx}
-									exerciseIdx={props.exerciseIdx}
-									key={`${exercise.identifier}-${idx}`}
-								/>
-							))}
-							<Flex justify="space-between" align="center">
-								<Text size="xs" w="5%" ta="center">
-									SET
-								</Text>
-								<Text
-									size="xs"
-									ta="center"
-									w={`${(isCreatingTemplate ? 95 : 85) / toBeDisplayedColumns}%`}
-								>
-									PREVIOUS
-								</Text>
-								{durationCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
-										DURATION (MIN)
-									</Text>
-								) : null}
-								{distanceCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
-										DISTANCE (
-										{match(selectedUnitSystem)
-											.with(UserUnitSystem.Metric, () => "KM")
-											.with(UserUnitSystem.Imperial, () => "MI")
-											.exhaustive()}
-										)
-									</Text>
-								) : null}
-								{weightCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
-										WEIGHT (
-										{match(selectedUnitSystem)
-											.with(UserUnitSystem.Metric, () => "KG")
-											.with(UserUnitSystem.Imperial, () => "LB")
-											.exhaustive()}
-										)
-									</Text>
-								) : null}
-								{repsCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
-										REPS
-									</Text>
-								) : null}
-								<Box
-									w="10%"
-									style={isCreatingTemplate ? { display: "none" } : undefined}
-								/>
-							</Flex>
-							{exercise.sets.map((_, idx) => (
-								<SetDisplay
-									setIdx={idx}
-									repsCol={repsCol}
-									weightCol={weightCol}
-									distanceCol={distanceCol}
-									durationCol={durationCol}
-									stopTimer={props.stopTimer}
-									startTimer={props.startTimer}
-									exerciseIdx={props.exerciseIdx}
-									key={`${exercise.identifier}-${idx}`}
-									isCreatingTemplate={isCreatingTemplate}
-									isWorkoutPaused={props.isWorkoutPaused}
-									openTimerDrawer={props.openTimerDrawer}
-									toBeDisplayedColumns={toBeDisplayedColumns}
-								/>
-							))}
-							<Button
-								size="compact-xs"
-								variant="transparent"
-								onClick={async () => {
-									playAddSetSound();
-									const setLot = SetLot.Normal;
-									const restTimer = await getRestTimerForSet(
-										setLot,
-										exercise.exerciseId,
-										userPreferences.fitness.exercises.setRestTimers,
-									);
-									setCurrentWorkout(
-										produce(currentWorkout, (draft) => {
-											const currentSet =
-												draft.exercises[props.exerciseIdx].sets.at(-1);
-											draft.exercises[props.exerciseIdx].sets.push({
-												lot: setLot,
-												confirmedAt: null,
-												identifier: randomUUID(),
-												statistic: currentSet?.statistic ?? {},
-												restTimer: restTimer
-													? { duration: restTimer }
-													: undefined,
-											});
-										}),
-									);
-								}}
-							>
-								Add set
-							</Button>
-						</Stack>
-					)}
-				</Stack>
-			</Paper>
-		</>
-	);
-};
-
-const DisplayExerciseSetRestTimer = (props: {
-	openTimerDrawer: () => void;
-}) => {
-	const [currentTimer] = useCurrentWorkoutTimerAtom();
-	forceUpdateEverySecond();
-
-	if (!currentTimer) return null;
-
-	return (
-		<RingProgress
-			size={30}
-			roundCaps
-			thickness={2}
-			style={{ cursor: "pointer" }}
-			onClick={props.openTimerDrawer}
-			sections={[
-				{
-					value:
-						(dayjsLib(currentTimer.willEndAt).diff(
-							currentTimer.wasPausedAt,
-							"seconds",
-						) *
-							100) /
-						currentTimer.totalTime,
-					color: "blue",
-				},
-			]}
-			label={
-				<Text ta="center" size="xs">
-					{Math.floor(
-						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) /
-							1000,
-					)}
-				</Text>
-			}
-		/>
-	);
-};
-
 const ReorderDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
@@ -1792,59 +1261,5 @@ const ReorderDrawerExerciseElement = (props: {
 				</Paper>
 			)}
 		</Draggable>
-	);
-};
-
-const NoteInput = (props: {
-	note: string;
-	noteIdx: number;
-	exerciseIdx: number;
-}) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [value, setValue] = useDebouncedState(props.note, 500);
-
-	useDidUpdate(() => {
-		if (currentWorkout)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
-				}),
-			);
-	}, [value]);
-
-	return (
-		<Flex align="center" gap="xs">
-			<Textarea
-				autosize
-				size="xs"
-				minRows={1}
-				maxRows={4}
-				style={{ flexGrow: 1 }}
-				placeholder="Add a note"
-				defaultValue={props.note}
-				onChange={(e) => setValue(e.currentTarget.value)}
-			/>
-			<ActionIcon
-				color="red"
-				onClick={() => {
-					openConfirmationModal(
-						"This note will be deleted. Are you sure you want to continue?",
-						() => {
-							if (currentWorkout)
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										draft.exercises[props.exerciseIdx].notes.splice(
-											props.noteIdx,
-											1,
-										);
-									}),
-								);
-						},
-					);
-				}}
-			>
-				<IconTrash size={20} />
-			</ActionIcon>
-		</Flex>
 	);
 };
