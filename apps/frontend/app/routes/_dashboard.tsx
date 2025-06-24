@@ -21,8 +21,6 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { upperFirst, useDisclosure } from "@mantine/hooks";
-import { MediaLot, UserLot } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconCalendar,
@@ -33,10 +31,8 @@ import {
 	IconGraph,
 	IconHome2,
 	IconLogout,
-	IconMoon,
 	IconSettings,
 	IconStretching,
-	IconSun,
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import Cookies from "js-cookie";
@@ -52,13 +48,19 @@ import {
 } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
-import { joinURL, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { AddEntityToCollectionsForm } from "~/components/dashboard/forms/add-entity-to-collections-form";
 import { CreateMeasurementForm } from "~/components/dashboard/forms/create-measurement-form";
 import { ReviewEntityForm } from "~/components/dashboard/forms/review-entity-form";
 import { MetadataProgressUpdateForm } from "~/components/dashboard/modals/metadata-progress-update-forms";
 import { Footer } from "~/components/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/dashboard/navigation/links-group";
+import {
+	getFitnessLinks,
+	getMediaLinks,
+	getSettingsLinks,
+	getThemeIcon,
+} from "~/components/dashboard/navigation/navigation-config";
 import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
 import {
 	FitnessAction,
@@ -177,77 +179,13 @@ export default function Layout() {
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
-	const mediaLinks = [
-		...userPreferences.featuresEnabled.media.specific.map((f) => {
-			return {
-				label: changeCase(f),
-				link: $path("/media/:action/:lot", { action: "list", lot: f }),
-				tourControlTarget:
-					isOnboardingTourInProgress && f === MediaLot.Movie
-						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToMoviesSection}`
-						: undefined,
-			};
-		}),
-		userPreferences.featuresEnabled.media.groups
-			? {
-					label: "Groups",
-					link: $path("/media/groups/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.people
-			? {
-					label: "People",
-					link: $path("/media/people/:action", { action: "list" }),
-				}
-			: undefined,
-		userPreferences.featuresEnabled.media.genres
-			? {
-					label: "Genres",
-					link: $path("/media/genre/list"),
-				}
-			: undefined,
-	].filter((link) => link !== undefined);
-	const Icon = loaderData.currentColorScheme === "dark" ? IconSun : IconMoon;
-	const fitnessLinks = [
-		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
-			.filter(([v, _]) => !["enabled"].includes(v))
-			.map(([name, enabled]) => ({ name, enabled }))
-			?.filter((f) => f.enabled)
-			.map((f) => ({
-				label: changeCase(f.name.toString()),
-				link: joinURL("/fitness", f.name, "list"),
-				tourControlTarget:
-					isOnboardingTourInProgress && f.name === "workouts"
-						? OnboardingTourStepTargets.OpenWorkoutsSection
-						: f.name === "templates"
-							? OnboardingTourStepTargets.ClickOnTemplatesSidebarSection
-							: f.name === "measurements"
-								? OnboardingTourStepTargets.ClickOnMeasurementSidebarSection
-								: undefined,
-			})) || []),
-		{ label: "Exercises", link: $path("/fitness/exercises/list") },
-	].filter((link) => link !== undefined);
-	const settingsLinks = [
-		{
-			label: "Preferences",
-			link: $path("/settings/preferences"),
-			tourControlTarget: OnboardingTourStepTargets.OpenSettingsPreferences,
-		},
-		{
-			label: "Imports and Exports",
-			link: $path("/settings/imports-and-exports"),
-		},
-		{
-			label: "Profile and Sharing",
-			link: $path("/settings/profile-and-sharing"),
-		},
-		{ label: "Integrations", link: $path("/settings/integrations") },
-		{ label: "Notifications", link: $path("/settings/notifications") },
-		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },
-		userDetails.lot === UserLot.Admin
-			? { label: "Users", link: $path("/settings/users") }
-			: undefined,
-	].filter((link) => link !== undefined);
+	const mediaLinks = getMediaLinks(userPreferences, isOnboardingTourInProgress);
+	const Icon = getThemeIcon(loaderData.currentColorScheme);
+	const fitnessLinks = getFitnessLinks(
+		userPreferences,
+		isOnboardingTourInProgress,
+	);
+	const settingsLinks = getSettingsLinks(userDetails);
 
 	return (
 		<>
