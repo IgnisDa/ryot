@@ -651,10 +651,15 @@ const ConsumedMetadataDisplay = (props: {
 		inViewport,
 	);
 
+	const images = [
+		...(metadataDetails?.assets.remoteImages || []),
+		...(metadataDetails?.assets.s3Images || []),
+	];
+
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>
 			<Tooltip label={metadataDetails?.title}>
-				<Avatar src={metadataDetails?.assets.remoteImages.at(0)} />
+				<Avatar src={images.at(0)} />
 			</Tooltip>
 		</Link>
 	);
