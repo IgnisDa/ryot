@@ -666,14 +666,7 @@ pub async fn generic_metadata(
     let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
         return Err(Error::new("The record does not exist".to_owned()));
     };
-    transform_entity_assets(&mut meta.assets, ss).await?;
-    let genres = meta
-        .find_related(Genre)
-        .order_by_asc(genre::Column::Name)
-        .into_model::<GenreListItem>()
-        .all(&ss.db)
-        .await
-        .unwrap();
+
     #[derive(Debug, FromQueryResult)]
     struct PartialCreator {
         id: String,
@@ -682,6 +675,14 @@ pub async fn generic_metadata(
         assets: EntityAssets,
         character: Option<String>,
     }
+    transform_entity_assets(&mut meta.assets, ss).await?;
+    let genres = meta
+        .find_related(Genre)
+        .order_by_asc(genre::Column::Name)
+        .into_model::<GenreListItem>()
+        .all(&ss.db)
+        .await
+        .unwrap();
     let crts = MetadataToPerson::find()
         .expr(Expr::col(Asterisk))
         .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
@@ -700,6 +701,15 @@ pub async fn generic_metadata(
         .into_model::<PartialCreator>()
         .all(&ss.db)
         .await?;
+    let suggestions = MetadataToMetadata::find()
+        .select_only()
+        .column(metadata_to_metadata::Column::ToMetadataId)
+        .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
+        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
+
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();
     for cr in crts {
         let creator = MetadataCreator {
@@ -749,14 +759,6 @@ pub async fn generic_metadata(
         .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
         .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
         .collect_vec();
-    let suggestions = MetadataToMetadata::find()
-        .select_only()
-        .column(metadata_to_metadata::Column::ToMetadataId)
-        .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
-        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
-        .into_tuple::<String>()
-        .all(&ss.db)
-        .await?;
     Ok(MetadataBaseData {
         genres,
         creators,
