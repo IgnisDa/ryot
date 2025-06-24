@@ -315,6 +315,7 @@ export default function Page() {
 							/>
 							<Stack ref={parent}>
 								<NameAndOtherInputs
+									isCreatingTemplate={loaderData.isCreatingTemplate}
 									openAssetsModal={() => setAssetsModalOpened(null)}
 								/>
 								<Group>
@@ -591,9 +592,9 @@ export default function Page() {
 }
 
 const NameAndOtherInputs = (props: {
+	isCreatingTemplate: boolean;
 	openAssetsModal: () => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	invariant(currentWorkout);
@@ -674,7 +675,7 @@ const NameAndOtherInputs = (props: {
 				label={
 					<Group justify="space-between" mr="xs">
 						<Text size="sm">Name</Text>
-						{!loaderData.isCreatingTemplate ? (
+						{!props.isCreatingTemplate ? (
 							<Anchor
 								size="xs"
 								onClick={() => setIsCaloriesBurntModalOpen(true)}
