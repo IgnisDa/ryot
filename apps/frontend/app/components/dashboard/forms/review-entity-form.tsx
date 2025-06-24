@@ -33,6 +33,7 @@ import { useState } from "react";
 import { Form } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { convertThreePointSmileyToDecimal } from "~/components/dashboard/utils";
 import {
 	ThreePointSmileyRating,
 	convertDecimalToThreePointSmiley,
@@ -45,7 +46,6 @@ import {
 	useUserPreferences,
 } from "~/lib/hooks";
 import { useReviewEntity } from "~/lib/state/media";
-import { convertThreePointSmileyToDecimal } from "../utils";
 
 export const ReviewEntityForm = ({
 	closeReviewEntityModal,
