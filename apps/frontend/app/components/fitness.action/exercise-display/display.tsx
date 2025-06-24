@@ -52,7 +52,7 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { getProgressOfExercise } from "../hooks";
-import { SetDisplay } from "../set-display";
+import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";
 import { deleteUploadedAsset } from "../utils";
 import { ExerciseDetailsModal } from "./details-modal";
