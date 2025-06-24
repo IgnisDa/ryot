@@ -19,7 +19,6 @@ import {
 	List,
 	Loader,
 	Modal,
-	MultiSelect,
 	NumberInput,
 	Rating,
 	ScrollArea,
@@ -27,22 +26,18 @@ import {
 	Select,
 	Slider,
 	Stack,
-	Switch,
 	Text,
-	TextInput,
 	Textarea,
 	ThemeIcon,
-	Title,
 	Tooltip,
 	UnstyledButton,
 	rem,
 	useMantineTheme,
 } from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
-import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
+import { DateTimePicker } from "@mantine/dates";
+import { upperFirst, useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	CollectionExtraInformationLot,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -53,8 +48,7 @@ import {
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
-import { AddEntityToCollectionDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, groupBy, isNumber } from "@ryot/ts-utils";
+import { changeCase, isNumber } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconBook,
@@ -78,10 +72,9 @@ import {
 	IconStretching,
 	IconSun,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import Cookies from "js-cookie";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type ReactNode, useState } from "react";
 import Joyride from "react-joyride";
 import {
 	Form,
@@ -94,20 +87,15 @@ import {
 	useRevalidator,
 	useRouteError,
 } from "react-router";
-import { Fragment } from "react/jsx-runtime";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
-import { MultiSelectCreatable } from "~/components/common";
+import { AddEntityToCollectionsForm } from "~/components/dashboard/forms/add-entity-to-collections-form";
 import { CreateMeasurementForm } from "~/components/dashboard/forms/create-measurement-form";
 import { Footer } from "~/components/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/dashboard/navigation/links-group";
-import type {
-	Collection,
-	History,
-	InProgress,
-} from "~/components/dashboard/types";
+import type { History, InProgress } from "~/components/dashboard/types";
 import { WatchTimes } from "~/components/dashboard/types";
 import {
 	convertThreePointSmileyToDecimal,
@@ -119,10 +107,8 @@ import {
 	LOGO_IMAGE_URL,
 	ThreePointSmileyRating,
 	Verb,
-	clientGqlService,
 	convertDecimalToThreePointSmiley,
 	convertTimestampToUtcString,
-	dayjsLib,
 	forcedDashboardPath,
 	getVerb,
 	refreshEntityDetails,
@@ -134,7 +120,6 @@ import {
 	useGetWatchProviders,
 	useIsFitnessActionActive,
 	useMetadataDetails,
-	useNonHiddenUserCollections,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserPreferences,
@@ -1915,255 +1900,6 @@ const ReviewEntityForm = ({
 				</Box>
 				<Button mt="md" type="submit" w="100%">
 					{entityToReview.existingReview?.id ? "Update" : "Submit"}
-				</Button>
-			</Stack>
-		</Form>
-	);
-};
-
-const AddEntityToCollectionsForm = ({
-	closeAddEntityToCollectionsModal,
-}: {
-	closeAddEntityToCollectionsModal: () => void;
-}) => {
-	const userDetails = useUserDetails();
-	const collections = useNonHiddenUserCollections();
-	const events = useApplicationEvents();
-	const revalidator = useRevalidator();
-	const [addEntityToCollectionData] = useAddEntityToCollections();
-
-	const [selectedCollections, selectedCollectionsHandlers] = useListState<
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		Collection & { userExtraInformationData: any }
-	>([]);
-
-	const selectData = Object.entries(
-		groupBy(collections, (c) =>
-			c.creator.id === userDetails.id ? "You" : c.creator.name,
-		),
-	).map(([g, items]) => ({
-		group: g,
-		items: items.map((c) => ({
-			label: c.name,
-			value: c.id.toString(),
-			disabled: addEntityToCollectionData?.alreadyInCollections?.includes(
-				c.id.toString(),
-			),
-		})),
-	}));
-
-	const mutation = useMutation({
-		mutationFn: async () => {
-			if (!addEntityToCollectionData) return [];
-			const payload = selectedCollections.map((col) => ({
-				entityId: addEntityToCollectionData.entityId,
-				entityLot: addEntityToCollectionData.entityLot,
-				collectionName: col.name,
-				creatorUserId: col.creator.id,
-				information: col.userExtraInformationData,
-			}));
-			return Promise.all(
-				payload.map((item) =>
-					clientGqlService.request(AddEntityToCollectionDocument, {
-						input: item,
-					}),
-				),
-			);
-		},
-	});
-
-	if (!addEntityToCollectionData) return null;
-
-	const handleCollectionChange = (ids: string[]) => {
-		for (const id of ids) {
-			if (!selectedCollections.some((c) => c.id === id)) {
-				const col = collections.find((c) => c.id === id);
-				if (col)
-					selectedCollectionsHandlers.append({
-						...col,
-						userExtraInformationData: {},
-					});
-			}
-		}
-		for (let i = selectedCollections.length - 1; i >= 0; i--) {
-			if (!ids.includes(selectedCollections[i].id))
-				selectedCollectionsHandlers.remove(i);
-		}
-	};
-
-	const handleCustomFieldChange = (
-		colId: string,
-		field: string,
-		value: unknown,
-	) => {
-		const idx = selectedCollections.findIndex((c) => c.id === colId);
-		if (idx !== -1) {
-			selectedCollectionsHandlers.setItemProp(idx, "userExtraInformationData", {
-				...selectedCollections[idx].userExtraInformationData,
-				[field]: value,
-			});
-		}
-	};
-
-	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		await mutation.mutateAsync();
-		refreshEntityDetails(addEntityToCollectionData.entityId);
-		revalidator.revalidate();
-		closeAddEntityToCollectionsModal();
-		events.addToCollection(addEntityToCollectionData.entityLot);
-	};
-
-	return (
-		<Form onSubmit={handleSubmit}>
-			<Stack>
-				<Title order={3}>Select collections</Title>
-				<MultiSelect
-					searchable
-					data={selectData}
-					nothingFoundMessage="Nothing found..."
-					onChange={(v) => handleCollectionChange(v)}
-					value={selectedCollections.map((c) => c.id)}
-				/>
-				{selectedCollections.map((selectedCollection) => (
-					<Fragment key={selectedCollection.id}>
-						{selectedCollection.informationTemplate?.map((template) => (
-							<Fragment key={template.name}>
-								{match(template.lot)
-									.with(CollectionExtraInformationLot.String, () => (
-										<TextInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || ""
-											}
-											onChange={(e) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													e.currentTarget.value,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Boolean, () => (
-										<Switch
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											checked={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] === "true"
-											}
-											onChange={(e) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													e.currentTarget.checked ? "true" : "false",
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Number, () => (
-										<NumberInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || ""
-											}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													v,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Date, () => (
-										<DateInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || null
-											}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													v,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.DateTime, () => (
-										<DateTimePicker
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || null
-											}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													dayjsLib(v).toISOString(),
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.StringArray, () => (
-										<MultiSelectCreatable
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											data={template.possibleValues || []}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || []
-											}
-											setValue={(newValue) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													newValue,
-												)
-											}
-										/>
-									))
-									.exhaustive()}
-							</Fragment>
-						))}
-					</Fragment>
-				))}
-				<Button
-					type="submit"
-					variant="outline"
-					loading={mutation.isPending}
-					disabled={selectedCollections.length === 0 || mutation.isPending}
-				>
-					Set
-				</Button>
-				<Button
-					color="red"
-					variant="outline"
-					onClick={closeAddEntityToCollectionsModal}
-				>
-					Cancel
 				</Button>
 			</Stack>
 		</Form>
