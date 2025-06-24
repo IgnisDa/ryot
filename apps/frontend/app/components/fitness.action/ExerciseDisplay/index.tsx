@@ -12,15 +12,13 @@ import {
 	Menu,
 	Modal,
 	Paper,
-	RingProgress,
 	ScrollArea,
 	Select,
 	Stack,
 	Text,
-	Textarea,
 	useMantineTheme,
 } from "@mantine/core";
-import { useDebouncedState, useDidUpdate, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	ExerciseLot,
@@ -52,16 +50,11 @@ import {
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
 	convertEnumToSelectData,
-	dayjsLib,
 	getExerciseDetailsPath,
 	getSurroundingElements,
 	openConfirmationModal,
 } from "~/lib/common";
-import {
-	forceUpdateEverySecond,
-	useCoreDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	convertHistorySetToCurrentSet,
 	getExerciseDetailsQuery,
@@ -81,99 +74,8 @@ import { SetDisplay } from "../StatDisplay";
 import { getProgressOfExercise } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import { deleteUploadedAsset } from "../utils";
-
-const NoteInput = (props: {
-	note: string;
-	noteIdx: number;
-	exerciseIdx: number;
-}) => {
-	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [value, setValue] = useDebouncedState(props.note, 500);
-
-	useDidUpdate(() => {
-		if (currentWorkout)
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
-				}),
-			);
-	}, [value]);
-
-	return (
-		<Flex align="center" gap="xs">
-			<Textarea
-				autosize
-				size="xs"
-				minRows={1}
-				maxRows={4}
-				style={{ flexGrow: 1 }}
-				placeholder="Add a note"
-				defaultValue={props.note}
-				onChange={(e) => setValue(e.currentTarget.value)}
-			/>
-			<ActionIcon
-				color="red"
-				onClick={() => {
-					openConfirmationModal(
-						"This note will be deleted. Are you sure you want to continue?",
-						() => {
-							if (currentWorkout)
-								setCurrentWorkout(
-									produce(currentWorkout, (draft) => {
-										draft.exercises[props.exerciseIdx].notes.splice(
-											props.noteIdx,
-											1,
-										);
-									}),
-								);
-						},
-					);
-				}}
-			>
-				<IconTrash size={20} />
-			</ActionIcon>
-		</Flex>
-	);
-};
-
-const DisplayExerciseSetRestTimer = (props: {
-	openTimerDrawer: () => void;
-}) => {
-	const [currentTimer] = useCurrentWorkoutTimerAtom();
-	forceUpdateEverySecond();
-
-	if (!currentTimer) return null;
-
-	return (
-		<RingProgress
-			size={30}
-			roundCaps
-			thickness={2}
-			style={{ cursor: "pointer" }}
-			onClick={props.openTimerDrawer}
-			sections={[
-				{
-					value:
-						(dayjsLib(currentTimer.willEndAt).diff(
-							currentTimer.wasPausedAt,
-							"seconds",
-						) *
-							100) /
-						currentTimer.totalTime,
-					color: "blue",
-				},
-			]}
-			label={
-				<Text ta="center" size="xs">
-					{Math.floor(
-						dayjsLib(currentTimer.willEndAt).diff(currentTimer.wasPausedAt) /
-							1000,
-					)}
-				</Text>
-			}
-		/>
-	);
-};
+import { DisplayExerciseSetRestTimer } from "./DisplayExerciseSetRestTimer";
+import { NoteInput } from "./NoteInput";
 
 export const ExerciseDisplay = (props: {
 	exerciseIdx: number;
