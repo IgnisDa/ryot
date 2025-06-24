@@ -51,12 +51,12 @@ import {
 import { StatInput } from "../StatDisplayAndInput";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
-import { RpeModal } from "./RpeModal";
 import {
 	isSetConfirmationDisabled,
 	usePreviousSetData,
 	useSetConfirmationHandler,
 } from "./functions";
+import { RpeModal } from "./rpe-modal";
 import { DisplaySetRestTimer, EditSetRestTimer } from "./support";
 
 export const SetDisplay = (props: {

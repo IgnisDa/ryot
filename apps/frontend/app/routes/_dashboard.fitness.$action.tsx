@@ -69,7 +69,6 @@ import { useInterval } from "usehooks-ts";
 import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import { displayWeightWithUnit } from "~/components/fitness";
-import { ExerciseDisplay } from "~/components/fitness.action/ExerciseDisplay";
 import {
 	RestTimer,
 	WorkoutDurationTimer,
@@ -77,6 +76,7 @@ import {
 import { StatDisplay } from "~/components/fitness.action/StatDisplayAndInput";
 import { TimerAndStopwatchDrawer } from "~/components/fitness.action/TimerAndStopwatchDrawer";
 import { DEFAULT_SET_TIMEOUT_DELAY } from "~/components/fitness.action/constants";
+import { ExerciseDisplay } from "~/components/fitness.action/exercise-display";
 import {
 	focusOnExercise,
 	getProgressOfExercise,

@@ -51,13 +51,13 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import { SetDisplay } from "../StatDisplay";
 import { getProgressOfExercise } from "../hooks";
+import { SetDisplay } from "../stat-display";
 import type { FuncStartTimer } from "../types";
 import { deleteUploadedAsset } from "../utils";
-import { DisplayExerciseSetRestTimer } from "./DisplayExerciseSetRestTimer";
-import { ExerciseDetailsModal } from "./ExerciseDetailsModal";
-import { NoteInput } from "./NoteInput";
+import { ExerciseDetailsModal } from "./details-modal";
+import { NoteInput } from "./note-input";
+import { DisplayExerciseSetRestTimer } from "./set-rest-timer";
 
 export const ExerciseDisplay = (props: {
 	exerciseIdx: number;
