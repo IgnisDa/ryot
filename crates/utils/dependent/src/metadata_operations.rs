@@ -756,7 +756,7 @@ pub async fn generic_metadata(
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
-    transform_entity_assets(&mut meta.assets, &ss).await?;
+    transform_entity_assets(&mut meta.assets, ss).await?;
     Ok(MetadataBaseData {
         genres,
         creators,
