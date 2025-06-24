@@ -11,6 +11,7 @@ use database_models::{
         MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
+use database_utils::transform_entity_assets;
 use dependent_models::MetadataBaseData;
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
 use itertools::Itertools;
@@ -755,6 +756,7 @@ pub async fn generic_metadata(
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
+    transform_entity_assets(&mut meta.assets, &ss).await?;
     Ok(MetadataBaseData {
         genres,
         creators,

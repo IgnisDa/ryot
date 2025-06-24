@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use async_graphql::Result;
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
 use nanoid::nanoid;
@@ -27,8 +28,9 @@ impl FileStorageService {
             .is_ok()
     }
 
-    pub async fn get_presigned_url(&self, key: String) -> String {
-        self.s3_client
+    pub async fn get_presigned_url(&self, key: String) -> Result<String> {
+        let url = self
+            .s3_client
             .get_object()
             .bucket(&self.bucket_name)
             .key(key)
@@ -36,10 +38,10 @@ impl FileStorageService {
                 PresigningConfig::expires_in(Duration::try_minutes(90).unwrap().to_std().unwrap())
                     .unwrap(),
             )
-            .await
-            .unwrap()
+            .await?
             .uri()
-            .to_string()
+            .to_string();
+        Ok(url)
     }
 
     pub async fn delete_object(&self, key: String) -> bool {

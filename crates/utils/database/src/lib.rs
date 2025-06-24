@@ -130,11 +130,11 @@ pub async fn user_workout_details(
         entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
     let details = {
         if let Some(ref mut assets) = e.information.assets {
-            transform_entity_assets(assets, ss).await;
+            transform_entity_assets(assets, ss).await?;
         }
         for exercise in e.information.exercises.iter_mut() {
             if let Some(ref mut assets) = exercise.assets {
-                transform_entity_assets(assets, ss).await;
+                transform_entity_assets(assets, ss).await?;
             }
         }
         e
@@ -423,17 +423,21 @@ pub fn get_enabled_users_query() -> Select<User> {
     )
 }
 
-pub async fn transform_entity_assets(assets: &mut EntityAssets, ss: &Arc<SupportingService>) {
+pub async fn transform_entity_assets(
+    assets: &mut EntityAssets,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
     for image in assets.s3_images.iter_mut() {
         *image = ss
             .file_storage_service
             .get_presigned_url(image.clone())
-            .await;
+            .await?;
     }
     for video in assets.s3_videos.iter_mut() {
         *video = ss
             .file_storage_service
             .get_presigned_url(video.clone())
-            .await;
+            .await?;
     }
+    Ok(())
 }

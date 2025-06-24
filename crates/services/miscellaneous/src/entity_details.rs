@@ -33,7 +33,7 @@ pub async fn person_details(
         .one(&ss.db)
         .await?
         .unwrap();
-    transform_entity_assets(&mut details.assets, ss).await;
+    transform_entity_assets(&mut details.assets, ss).await?;
     let metadata_associations = MetadataToPerson::find()
         .filter(metadata_to_person::Column::PersonId.eq(&person_id))
         .order_by_asc(metadata_to_person::Column::Index)
@@ -129,7 +129,7 @@ pub async fn metadata_group_details(
         .one(&ss.db)
         .await?
         .unwrap();
-    transform_entity_assets(&mut model.assets, ss).await;
+    transform_entity_assets(&mut model.assets, ss).await?;
     Ok(MetadataGroupDetails {
         details: model,
         contents: vec![],
@@ -142,7 +142,7 @@ pub async fn metadata_details(
 ) -> Result<GraphqlMetadataDetails> {
     let (
         MetadataBaseData {
-            mut model,
+            model,
             genres,
             creators,
             suggestions,
@@ -168,8 +168,6 @@ pub async fn metadata_details(
     }
 
     let watch_providers = model.watch_providers.unwrap_or_default();
-
-    transform_entity_assets(&mut model.assets, ss).await;
 
     let resp = GraphqlMetadataDetails {
         group,
