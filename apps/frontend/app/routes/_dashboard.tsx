@@ -25,7 +25,6 @@ import {
 	ScrollArea,
 	SegmentedControl,
 	Select,
-	SimpleGrid,
 	Slider,
 	Stack,
 	Switch,
@@ -44,7 +43,6 @@ import { upperFirst, useDisclosure, useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CollectionExtraInformationLot,
-	CreateUserMeasurementDocument,
 	EntityLot,
 	MediaLot,
 	type MetadataDetailsQuery,
@@ -52,12 +50,11 @@ import {
 	type MetadataProgressUpdateCommonInput,
 	type MetadataProgressUpdateInput,
 	UserLot,
-	type UserMeasurementInput,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import { AddEntityToCollectionDocument } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, groupBy, isNumber, snakeCase } from "@ryot/ts-utils";
+import { changeCase, groupBy, isNumber } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconBook,
@@ -103,6 +100,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { MultiSelectCreatable } from "~/components/common";
+import { CreateMeasurementForm } from "~/components/dashboard/forms/create-measurement-form";
 import { Footer } from "~/components/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/dashboard/navigation/links-group";
 import type {
@@ -2169,122 +2167,5 @@ const AddEntityToCollectionsForm = ({
 				</Button>
 			</Stack>
 		</Form>
-	);
-};
-
-const CreateMeasurementForm = (props: {
-	closeMeasurementModal: () => void;
-}) => {
-	const revalidator = useRevalidator();
-	const events = useApplicationEvents();
-	const userPreferences = useUserPreferences();
-
-	const [input, setInput] = useState<UserMeasurementInput>({
-		name: "",
-		comment: "",
-		timestamp: new Date().toISOString(),
-		information: {
-			statistics: [],
-			assets: {
-				s3Images: [],
-				s3Videos: [],
-				remoteVideos: [],
-				remoteImages: [],
-			},
-		},
-	});
-
-	const createMeasurementMutation = useMutation({
-		mutationFn: () =>
-			clientGqlService.request(CreateUserMeasurementDocument, { input }),
-	});
-
-	return (
-		<Stack>
-			<DateTimePicker
-				required
-				label="Timestamp"
-				value={new Date(input.timestamp)}
-				onChange={(v) =>
-					setInput(
-						produce(input, (draft) => {
-							draft.timestamp = v
-								? new Date(v).toISOString()
-								: new Date().toISOString();
-						}),
-					)
-				}
-			/>
-			<TextInput
-				label="Name"
-				value={input.name ?? ""}
-				onChange={(e) =>
-					setInput(
-						produce(input, (draft) => {
-							draft.name = e.target.value;
-						}),
-					)
-				}
-			/>
-			<SimpleGrid cols={2} style={{ alignItems: "end" }}>
-				{userPreferences.fitness.measurements.statistics.map(({ name }) => (
-					<NumberInput
-						key={name}
-						decimalScale={3}
-						label={changeCase(snakeCase(name))}
-						value={
-							input.information.statistics.find((s) => s.name === name)?.value
-						}
-						onChange={(v) => {
-							setInput(
-								produce(input, (draft) => {
-									const idx = draft.information.statistics.findIndex(
-										(s) => s.name === name,
-									);
-									if (idx !== -1) {
-										draft.information.statistics[idx].value = v.toString();
-									} else {
-										draft.information.statistics.push({
-											name,
-											value: v.toString(),
-										});
-									}
-								}),
-							);
-						}}
-					/>
-				))}
-			</SimpleGrid>
-			<Textarea
-				label="Comment"
-				value={input.comment ?? ""}
-				onChange={(e) =>
-					setInput(
-						produce(input, (draft) => {
-							draft.comment = e.target.value;
-						}),
-					)
-				}
-			/>
-			<Button
-				loading={createMeasurementMutation.isPending}
-				disabled={
-					createMeasurementMutation.isPending ||
-					!input.information.statistics.some((s) => s.value)
-				}
-				onClick={async () => {
-					events.createMeasurement();
-					await createMeasurementMutation.mutateAsync();
-					revalidator.revalidate();
-					notifications.show({
-						color: "green",
-						message: "Your measurement has been created",
-					});
-					props.closeMeasurementModal();
-				}}
-			>
-				Submit
-			</Button>
-		</Stack>
 	);
 };
