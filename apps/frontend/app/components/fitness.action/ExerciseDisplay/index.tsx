@@ -1,19 +1,13 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { Carousel } from "@mantine/carousel";
 import {
 	ActionIcon,
 	Anchor,
 	Box,
 	Button,
 	Flex,
-	FocusTrap,
 	Group,
-	Image,
 	Menu,
-	Modal,
 	Paper,
-	ScrollArea,
-	Select,
 	Stack,
 	Text,
 	useMantineTheme,
@@ -38,30 +32,17 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
-import { ProRequiredAlert } from "~/components/common";
-import { ExerciseHistory } from "~/components/fitness";
-import {
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	convertEnumToSelectData,
-	getExerciseDetailsPath,
-	getSurroundingElements,
-	openConfirmationModal,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE, openConfirmationModal } from "~/lib/common";
 import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
-	convertHistorySetToCurrentSet,
 	getExerciseDetailsQuery,
-	getExerciseImages,
 	getRestTimerForSet,
 	getUserExerciseDetailsQuery,
-	getWorkoutDetails,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
@@ -75,6 +56,7 @@ import { getProgressOfExercise } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import { deleteUploadedAsset } from "../utils";
 import { DisplayExerciseSetRestTimer } from "./DisplayExerciseSetRestTimer";
+import { ExerciseDetailsModal } from "./ExerciseDetailsModal";
 import { NoteInput } from "./NoteInput";
 
 export const ExerciseDisplay = (props: {
@@ -104,7 +86,6 @@ export const ExerciseDisplay = (props: {
 	const { data: userExerciseDetails } = useQuery(
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
-	const [activeHistoryIdx, setActiveHistoryIdx] = useState(0);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 	const [
@@ -118,7 +99,6 @@ export const ExerciseDisplay = (props: {
 	};
 
 	const selectedUnitSystem = exercise.unitSystem;
-	const exerciseHistory = userExerciseDetails?.history;
 	const isOnboardingTourStep =
 		isOnboardingTourInProgress && props.exerciseIdx === 0;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
@@ -144,7 +124,6 @@ export const ExerciseDisplay = (props: {
 	const partOfSuperset = currentWorkout.supersets.find((s) =>
 		s.exercises.includes(exercise.identifier),
 	);
-	const images = getExerciseImages(exerciseDetails);
 
 	const didExerciseActivateTimer =
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier;
@@ -159,110 +138,16 @@ export const ExerciseDisplay = (props: {
 
 	return (
 		<>
-			<Modal
-				size="lg"
+			<ExerciseDetailsModal
 				opened={isDetailsModalOpen}
 				onClose={closeDetailsModal}
-				title={
-					<Group gap={4} wrap="nowrap">
-						<Text>Exercise details for</Text>
-						<Anchor
-							component={Link}
-							to={getExerciseDetailsPath(exercise.exerciseId)}
-						>
-							{exerciseDetails?.name || "..."}
-						</Anchor>
-					</Group>
-				}
-			>
-				<FocusTrap.InitialFocus />
-				<Stack>
-					<Select
-						size="sm"
-						label="Unit system"
-						allowDeselect={false}
-						value={selectedUnitSystem}
-						data={convertEnumToSelectData(UserUnitSystem)}
-						onChange={(v) => {
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									draft.exercises[props.exerciseIdx].unitSystem =
-										v as UserUnitSystem;
-								}),
-							);
-						}}
-					/>
-					<ScrollArea type="scroll">
-						<Group wrap="nowrap">
-							{images.map((i) => (
-								<Image key={i} src={i} h={200} w={350} radius="md" />
-							))}
-						</Group>
-					</ScrollArea>
-					{coreDetails.isServerKeyValidated ? (
-						<Carousel
-							slideGap="md"
-							withControls={false}
-							style={{ userSelect: "none" }}
-							emblaOptions={{ align: "start" }}
-							onSlideChange={setActiveHistoryIdx}
-							slideSize={{ base: "100%", md: "50%" }}
-						>
-							{exerciseHistory?.map((history, idx) => (
-								<Carousel.Slide key={`${history.workoutId}-${history.idx}`}>
-									{getSurroundingElements(
-										exerciseHistory,
-										activeHistoryIdx,
-									).includes(idx) ? (
-										<ExerciseHistory
-											hideExerciseDetails
-											hideExtraDetailsButton
-											exerciseIdx={history.idx}
-											entityId={history.workoutId}
-											entityType={FitnessEntity.Workouts}
-											onCopyButtonClick={async () => {
-												if (!coreDetails.isServerKeyValidated) {
-													notifications.show({
-														color: "red",
-														message:
-															"Ryot Pro required to copy sets from other workouts",
-													});
-													return;
-												}
-												const workout = await getWorkoutDetails(
-													history.workoutId,
-												);
-												openConfirmationModal(
-													`Are you sure you want to copy all sets from "${workout.details.name}"?`,
-													() => {
-														const sets =
-															workout.details.information.exercises[history.idx]
-																.sets;
-														const converted = sets.map((set) =>
-															convertHistorySetToCurrentSet(set),
-														);
-														setCurrentWorkout(
-															produce(currentWorkout, (draft) => {
-																draft.exercises[props.exerciseIdx].sets.push(
-																	...converted,
-																);
-															}),
-														);
-													},
-												);
-											}}
-										/>
-									) : null}
-								</Carousel.Slide>
-							))}
-						</Carousel>
-					) : (
-						<ProRequiredAlert
-							alertText={`${PRO_REQUIRED_MESSAGE}: inline workout history.`}
-						/>
-					)}
-				</Stack>
-			</Modal>
+				exerciseIdx={props.exerciseIdx}
+				exerciseId={exercise.exerciseId}
+				exerciseDetails={exerciseDetails}
+				exerciseName={exerciseDetails?.name}
+				selectedUnitSystem={selectedUnitSystem}
+				userExerciseDetails={userExerciseDetails}
+			/>
 			<Paper
 				pl="sm"
 				radius={0}
