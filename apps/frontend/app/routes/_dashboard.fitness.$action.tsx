@@ -8,7 +8,6 @@ import {
 	Skeleton,
 	Stack,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserWorkoutDocument,
@@ -29,18 +28,16 @@ import { z } from "zod";
 import { displayWeightWithUnit } from "~/components/fitness";
 import {
 	DEFAULT_SET_TIMEOUT_DELAY,
-	DisplaySupersetModal,
 	ExerciseDisplay,
 	NameAndOtherInputs,
-	ReorderDrawer,
 	RestTimer,
 	StatDisplay,
-	TimerAndStopwatchDrawer,
-	UploadAssetsModal,
 	WorkoutDurationTimer,
+	WorkoutModals,
 	deleteUploadedAsset,
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
+	useWorkoutModals,
 } from "~/components/fitness.action";
 import {
 	FitnessAction,
@@ -95,25 +92,21 @@ export default function Page() {
 	const navigate = useNavigate();
 	const [isSaveBtnLoading, setIsSaveBtnLoading] = useState(false);
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
-	const [
-		timerDrawerOpened,
-		{
-			open: openTimerDrawer,
-			close: closeTimerDrawer,
-			toggle: toggleTimerDrawer,
-		},
-	] = useDisclosure(false);
-	const [supersetWithExerciseIdentifier, setSupersetModalOpened] = useState<
-		string | null
-	>(null);
-	const [isReorderDrawerOpened, setIsReorderDrawerOpened] = useState<
-		string | null
-	>();
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
-	const [assetsModalOpened, setAssetsModalOpened] = useState<
-		string | null | undefined
-	>(undefined);
+	const {
+		assetsModalOpened,
+		setAssetsModalOpened,
+		timerDrawerOpened,
+		openTimerDrawer,
+		closeTimerDrawer,
+		toggleTimerDrawer,
+		isReorderDrawerOpened,
+		setIsReorderDrawerOpened,
+		openReorderDrawer,
+		supersetWithExerciseIdentifier,
+		setSupersetModalOpened,
+	} = useWorkoutModals();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const { advanceOnboardingTourStep, isOnboardingTourInProgress } =
@@ -230,13 +223,6 @@ export default function Page() {
 		}
 		setCurrentTimer(RESET);
 	};
-	const openReorderDrawer = (exerciseIdentifier: string | null) => {
-		setIsReorderDrawerOpened(exerciseIdentifier);
-		if (!exerciseIdentifier) return;
-		setTimeout(() => {
-			setIsReorderDrawerOpened((val) => (val === undefined ? undefined : null));
-		}, 4000);
-	};
 
 	return (
 		<Container size="sm">
@@ -244,26 +230,21 @@ export default function Page() {
 				<ClientOnly>
 					{() => (
 						<>
-							<UploadAssetsModal
-								modalOpenedBy={assetsModalOpened}
-								closeModal={() => setAssetsModalOpened(undefined)}
-							/>
-							<TimerAndStopwatchDrawer
+							<WorkoutModals
 								stopTimer={stopTimer}
 								startTimer={startTimer}
-								opened={timerDrawerOpened}
-								onClose={closeTimerDrawer}
+								assetsModalOpened={assetsModalOpened}
+								setAssetsModalOpened={setAssetsModalOpened}
+								timerDrawerOpened={timerDrawerOpened}
+								openTimerDrawer={openTimerDrawer}
+								closeTimerDrawer={closeTimerDrawer}
+								toggleTimerDrawer={toggleTimerDrawer}
+								isReorderDrawerOpened={isReorderDrawerOpened}
+								setIsReorderDrawerOpened={setIsReorderDrawerOpened}
+								supersetWithExerciseIdentifier={supersetWithExerciseIdentifier}
+								setSupersetModalOpened={setSupersetModalOpened}
 								pauseOrResumeTimer={pauseOrResumeTimer}
-							/>
-							<ReorderDrawer
-								key={currentWorkout.exercises.toString()}
-								exerciseToReorder={isReorderDrawerOpened}
-								opened={isReorderDrawerOpened !== undefined}
-								onClose={() => setIsReorderDrawerOpened(undefined)}
-							/>
-							<DisplaySupersetModal
-								supersetWith={supersetWithExerciseIdentifier}
-								onClose={() => setSupersetModalOpened(null)}
+								currentWorkoutExercises={currentWorkout.exercises}
 							/>
 							<Stack ref={parent}>
 								<NameAndOtherInputs
