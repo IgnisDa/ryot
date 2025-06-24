@@ -14,7 +14,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { ExerciseLot, SetLot } from "@ryot/generated/graphql/backend/graphql";
+import { SetLot } from "@ryot/generated/graphql/backend/graphql";
 import { isString, snakeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
@@ -54,7 +54,7 @@ import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
 import { RpeModal } from "./RpeModal";
-import { usePreviousSetData } from "./functions";
+import { isSetConfirmationDisabled, usePreviousSetData } from "./functions";
 import { DisplaySetRestTimer, EditSetRestTimer } from "./support";
 
 export const SetDisplay = (props: {
@@ -378,45 +378,14 @@ export const SetDisplay = (props: {
 										color="green"
 										style={style}
 										variant={set.confirmedAt ? "filled" : "outline"}
+										disabled={isSetConfirmationDisabled(
+											exercise.lot,
+											set.statistic,
+										)}
 										className={clsx(
 											isOnboardingTourStep &&
 												OnboardingTourStepTargets.ConfirmSetForExercise,
 										)}
-										disabled={
-											!match(exercise.lot)
-												.with(ExerciseLot.Reps, () =>
-													isString(set.statistic.reps),
-												)
-												.with(ExerciseLot.Duration, () =>
-													isString(set.statistic.duration),
-												)
-												.with(
-													ExerciseLot.RepsAndDuration,
-													() =>
-														isString(set.statistic.reps) &&
-														isString(set.statistic.duration),
-												)
-												.with(
-													ExerciseLot.DistanceAndDuration,
-													() =>
-														isString(set.statistic.distance) &&
-														isString(set.statistic.duration),
-												)
-												.with(
-													ExerciseLot.RepsAndWeight,
-													() =>
-														isString(set.statistic.reps) &&
-														isString(set.statistic.weight),
-												)
-												.with(
-													ExerciseLot.RepsAndDurationAndDistance,
-													() =>
-														isString(set.statistic.reps) &&
-														isString(set.statistic.duration) &&
-														isString(set.statistic.distance),
-												)
-												.exhaustive()
-										}
 										onClick={async () => {
 											playCheckSound();
 											const newConfirmed = !set.confirmedAt;

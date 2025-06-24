@@ -1,4 +1,8 @@
-import type { WorkoutSetStatistic } from "@ryot/generated/graphql/backend/graphql";
+import {
+	ExerciseLot,
+	type WorkoutSetStatistic,
+} from "@ryot/generated/graphql/backend/graphql";
+import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import {
 	type InProgressWorkout,
@@ -60,4 +64,32 @@ export const usePreviousSetData = (
 			return allPreviousSets[globalSetIndex];
 		},
 	});
+};
+
+export const isSetConfirmationDisabled = (
+	exerciseLot: ExerciseLot,
+	setStatistic: WorkoutSetStatistic,
+): boolean => {
+	switch (exerciseLot) {
+		case ExerciseLot.Reps:
+			return !isString(setStatistic.reps);
+		case ExerciseLot.Duration:
+			return !isString(setStatistic.duration);
+		case ExerciseLot.RepsAndDuration:
+			return !isString(setStatistic.reps) || !isString(setStatistic.duration);
+		case ExerciseLot.DistanceAndDuration:
+			return (
+				!isString(setStatistic.distance) || !isString(setStatistic.duration)
+			);
+		case ExerciseLot.RepsAndWeight:
+			return !isString(setStatistic.reps) || !isString(setStatistic.weight);
+		case ExerciseLot.RepsAndDurationAndDistance:
+			return (
+				!isString(setStatistic.reps) ||
+				!isString(setStatistic.duration) ||
+				!isString(setStatistic.distance)
+			);
+		default:
+			return false;
+	}
 };
