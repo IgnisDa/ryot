@@ -2,19 +2,15 @@ import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
-	Anchor,
 	AppShell,
 	Box,
 	Burger,
 	Button,
 	Center,
-	Code,
-	Container,
 	Drawer,
 	Flex,
 	Group,
 	Image,
-	List,
 	Modal,
 	ScrollArea,
 	Stack,
@@ -49,12 +45,10 @@ import {
 	Form,
 	Link,
 	Outlet,
-	isRouteErrorResponse,
 	useLoaderData,
 	useLocation,
 	useNavigate,
 	useRevalidator,
-	useRouteError,
 } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -65,10 +59,7 @@ import { ReviewEntityForm } from "~/components/dashboard/forms/review-entity-for
 import { MetadataProgressUpdateForm } from "~/components/dashboard/modals/metadata-progress-update-forms";
 import { Footer } from "~/components/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/dashboard/navigation/links-group";
-import {
-	desktopSidebarCollapsedCookie,
-	discordLink,
-} from "~/components/dashboard/utils";
+import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
@@ -152,83 +143,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		onboardingTourCompletedCookie,
 	};
 };
-
-export function ErrorBoundary() {
-	const error = useRouteError() as Error;
-	const message = isRouteErrorResponse(error)
-		? error.data.message
-		: error.message;
-
-	return (
-		<Container size="sm" py={{ base: 100, md: 200 }}>
-			<Stack p={{ base: "sm", md: "xl" }}>
-				<Text c="red" fz={{ base: 30, md: 40 }}>
-					We encountered an error
-				</Text>
-				{message ? (
-					<Code mah={100} c="pink">
-						{message}
-					</Code>
-				) : null}
-				<Group wrap="nowrap">
-					<Button
-						fullWidth
-						color="green"
-						variant="outline"
-						onClick={() => window.location.reload()}
-					>
-						Reload
-					</Button>
-					<Form
-						replace
-						method="POST"
-						style={{ width: "100%" }}
-						action={$path("/actions", { intent: "logout" })}
-					>
-						<Button type="submit" variant="outline" color="blue" fullWidth>
-							Logout
-						</Button>
-					</Form>
-				</Group>
-				{isRouteErrorResponse(error) ? null : (
-					<>
-						<Text>This could be due to several reasons:</Text>
-						<List>
-							<List.Item>Your login session has expired/revoked.</List.Item>
-							<List.Item>
-								You don't have permission to perform this action.
-							</List.Item>
-							<List.Item>There was a backend server error.</List.Item>
-						</List>
-						<Text>
-							In most cases, logging out and then logging back in should fix the
-							issue.
-						</Text>
-						<Text>
-							If the error still persists please contact the developer on{" "}
-							<Anchor
-								target="_blank"
-								href={discordLink}
-								rel="noreferrer noopener"
-							>
-								Discord
-							</Anchor>{" "}
-							or create an issue on{" "}
-							<Anchor
-								target="_blank"
-								rel="noreferrer noopener"
-								href="https://github.com/ignisda/ryot/issues"
-							>
-								Github
-							</Anchor>
-							.
-						</Text>
-					</>
-				)}
-			</Stack>
-		</Container>
-	);
-}
 
 export default function Layout() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -715,3 +629,5 @@ export default function Layout() {
 		</>
 	);
 }
+
+export { ErrorBoundary } from "~/components/dashboard/error-boundary";
