@@ -48,7 +48,7 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import { StatInput } from "../StatDisplayAndInput";
+import { StatInput } from "../stat-display-and-input";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
 import {

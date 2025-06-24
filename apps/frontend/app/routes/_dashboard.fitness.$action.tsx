@@ -52,12 +52,6 @@ import { match } from "ts-pattern";
 import { useInterval } from "usehooks-ts";
 import { z } from "zod";
 import { displayWeightWithUnit } from "~/components/fitness";
-import {
-	RestTimer,
-	WorkoutDurationTimer,
-} from "~/components/fitness.action/RestTimer";
-import { StatDisplay } from "~/components/fitness.action/StatDisplayAndInput";
-import { TimerAndStopwatchDrawer } from "~/components/fitness.action/TimerAndStopwatchDrawer";
 import { DEFAULT_SET_TIMEOUT_DELAY } from "~/components/fitness.action/constants";
 import { ExerciseDisplay } from "~/components/fitness.action/exercise-display";
 import {
@@ -65,7 +59,13 @@ import {
 	usePerformTasksAfterSetConfirmed,
 } from "~/components/fitness.action/hooks";
 import { ReorderDrawer } from "~/components/fitness.action/reorder";
+import {
+	RestTimer,
+	WorkoutDurationTimer,
+} from "~/components/fitness.action/rest-timer";
+import { StatDisplay } from "~/components/fitness.action/stat-display-and-input";
 import { DisplaySupersetModal } from "~/components/fitness.action/supersets";
+import { TimerAndStopwatchDrawer } from "~/components/fitness.action/timer-and-stopwatch-drawer";
 import { deleteUploadedAsset } from "~/components/fitness.action/utils";
 import {
 	FitnessAction,
