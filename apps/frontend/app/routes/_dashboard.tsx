@@ -10,7 +10,6 @@ import {
 	Center,
 	Checkbox,
 	Code,
-	Collapse,
 	Container,
 	Drawer,
 	Flex,
@@ -64,7 +63,6 @@ import {
 	IconBook,
 	IconBrandPagekit,
 	IconCalendar,
-	IconChevronRight,
 	IconChevronsLeft,
 	IconChevronsRight,
 	IconClock,
@@ -84,7 +82,6 @@ import {
 	IconSun,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -92,7 +89,6 @@ import Joyride from "react-joyride";
 import {
 	Form,
 	Link,
-	NavLink,
 	Outlet,
 	isRouteErrorResponse,
 	useLoaderData,
@@ -108,11 +104,11 @@ import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { MultiSelectCreatable } from "~/components/common";
 import { Footer } from "~/components/dashboard/navigation/footer";
+import { LinksGroup } from "~/components/dashboard/navigation/links-group";
 import type {
 	Collection,
 	History,
 	InProgress,
-	LinksGroupProps,
 } from "~/components/dashboard/types";
 import { WatchTimes } from "~/components/dashboard/types";
 import {
@@ -781,72 +777,6 @@ export default function Layout() {
 		</>
 	);
 }
-
-const LinksGroup = (props: LinksGroupProps) => {
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	const hasLinks = Array.isArray(props.links);
-	const linkItems = (hasLinks ? props.links || [] : []).map((link) => (
-		<NavLink
-			to={link.link}
-			key={link.label}
-			className={clsx(classes.link, link.tourControlTarget)}
-			onClick={() => {
-				props.toggle();
-				advanceOnboardingTourStep();
-			}}
-		>
-			{({ isActive }) => (
-				<span style={isActive ? { textDecoration: "underline" } : undefined}>
-					{link.label}
-				</span>
-			)}
-		</NavLink>
-	));
-
-	return (
-		<Box>
-			<UnstyledButton<typeof Link>
-				component={!hasLinks ? Link : undefined}
-				// biome-ignore lint/suspicious/noExplicitAny: required here
-				to={!hasLinks ? props.href : (undefined as any)}
-				className={clsx(classes.control, props.tourControlTarget)}
-				onClick={() => {
-					advanceOnboardingTourStep();
-					if (hasLinks) {
-						props.setOpened(!props.opened);
-						return;
-					}
-					props.toggle();
-				}}
-			>
-				<Group justify="space-between" gap={0}>
-					<Box style={{ display: "flex", alignItems: "center" }}>
-						<ThemeIcon variant="light" size={30}>
-							<props.icon size={17.6} />
-						</ThemeIcon>
-						<Box ml="md">{props.label}</Box>
-					</Box>
-					{hasLinks ? (
-						<ClientOnly>
-							{() => (
-								<IconChevronRight
-									size={16}
-									stroke={1.5}
-									className={classes.chevron}
-									style={{
-										transform: props.opened ? "rotate(90deg)" : "none",
-									}}
-								/>
-							)}
-						</ClientOnly>
-					) : null}
-				</Group>
-			</UnstyledButton>
-			{hasLinks ? <Collapse in={props.opened}>{linkItems}</Collapse> : null}
-		</Box>
-	);
-};
 
 const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
