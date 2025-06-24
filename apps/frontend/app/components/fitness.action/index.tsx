@@ -10,3 +10,4 @@ export * from "./constants";
 export * from "./hooks";
 export * from "./reorder";
 export * from "./modals";
+export * from "./header";
