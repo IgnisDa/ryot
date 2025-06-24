@@ -52,10 +52,8 @@ import {
 	type MetadataProgressUpdateChange,
 	type MetadataProgressUpdateCommonInput,
 	type MetadataProgressUpdateInput,
-	type UserCollectionsListQuery,
 	UserLot,
 	type UserMeasurementInput,
-	type UserMetadataDetailsQuery,
 	UserReviewScale,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -89,7 +87,7 @@ import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
 import Cookies from "js-cookie";
-import { type FC, type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import Joyride from "react-joyride";
 import {
 	Form,
@@ -109,6 +107,19 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { joinURL, withQuery } from "ufo";
 import { MultiSelectCreatable } from "~/components/common";
+import { Footer } from "~/components/dashboard/navigation/footer";
+import type {
+	Collection,
+	History,
+	InProgress,
+	LinksGroupProps,
+} from "~/components/dashboard/types";
+import { WatchTimes } from "~/components/dashboard/types";
+import {
+	convertThreePointSmileyToDecimal,
+	desktopSidebarCollapsedCookie,
+	discordLink,
+} from "~/components/dashboard/utils";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
@@ -125,7 +136,6 @@ import {
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
-	useCoreDetails,
 	useDeployBulkMetadataProgressUpdate,
 	useGetWatchProviders,
 	useIsFitnessActionActive,
@@ -159,9 +169,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-
-const discordLink = "https://discord.gg/D9XTg2a7R8";
-const desktopSidebarCollapsedCookie = "DesktopSidebarCollapsed";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
@@ -775,18 +782,6 @@ export default function Layout() {
 	);
 }
 
-interface LinksGroupProps {
-	// biome-ignore lint/suspicious/noExplicitAny: required here
-	icon: FC<any>;
-	label: string;
-	href?: string;
-	opened: boolean;
-	toggle: () => void;
-	tourControlTarget?: string;
-	setOpened: (v: boolean) => void;
-	links?: Array<{ label: string; link: string; tourControlTarget?: string }>;
-}
-
 const LinksGroup = (props: LinksGroupProps) => {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
@@ -853,42 +848,6 @@ const LinksGroup = (props: LinksGroupProps) => {
 	);
 };
 
-const Footer = () => {
-	const coreDetails = useCoreDetails();
-
-	return (
-		<Flex gap={80} justify="center">
-			{!coreDetails.isServerKeyValidated ? (
-				<Anchor href={coreDetails.websiteUrl} target="_blank">
-					<Text c="red" fw="bold">
-						Ryot Pro
-					</Text>
-				</Anchor>
-			) : null}
-			<Anchor href={discordLink} target="_blank">
-				<Text c="indigo" fw="bold">
-					Discord
-				</Text>
-			</Anchor>
-			<Text c="grape" fw="bold" visibleFrom="md">
-				{coreDetails.version}
-			</Text>
-			<Anchor href={coreDetails.repositoryLink} target="_blank">
-				<Text c="orange" fw="bold">
-					Github
-				</Text>
-			</Anchor>
-		</Flex>
-	);
-};
-
-enum WatchTimes {
-	JustCompletedNow = "Just Completed Now",
-	IDontRemember = "I don't remember",
-	CustomDate = "Custom Date",
-	JustStartedIt = "Just Started It",
-}
-
 const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
 }: {
@@ -930,9 +889,6 @@ const MetadataProgressUpdateForm = ({
 		/>
 	);
 };
-
-type InProgress = UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
-type History = UserMetadataDetailsQuery["userMetadataDetails"]["history"];
 
 const MetadataInProgressUpdateForm = ({
 	onSubmit,
@@ -1736,13 +1692,6 @@ const MetadataNewProgressUpdateForm = ({
 	);
 };
 
-const convertThreePointSmileyToDecimal = (rating: ThreePointSmileyRating) =>
-	match(rating)
-		.with(ThreePointSmileyRating.Happy, () => 100)
-		.with(ThreePointSmileyRating.Neutral, () => 66.66)
-		.with(ThreePointSmileyRating.Sad, () => 33.33)
-		.exhaustive();
-
 const ReviewEntityForm = ({
 	closeReviewEntityModal,
 }: {
@@ -2043,9 +1992,6 @@ const ReviewEntityForm = ({
 		</Form>
 	);
 };
-
-type Collection =
-	UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
 const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsModal,
