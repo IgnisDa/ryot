@@ -106,21 +106,19 @@ export const isSetConfirmationDisabled = (
 	}
 };
 
-export const useSetConfirmationHandler = (
-	setIdx: number,
-	exerciseIdx: number,
-	props: {
-		stopTimer: () => void;
-		startTimer: FuncStartTimer;
-		isWorkoutPaused: boolean;
-	},
-) => {
+export const useSetConfirmationHandler = (props: {
+	setIdx: number;
+	exerciseIdx: number;
+	stopTimer: () => void;
+	startTimer: FuncStartTimer;
+	isWorkoutPaused: boolean;
+}) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
 	const userPreferences = useUserPreferences();
-	const exercise = useGetExerciseAtIndex(exerciseIdx);
+	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const set = useGetSetAtIndex(exerciseIdx, setIdx);
+	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
@@ -133,8 +131,8 @@ export const useSetConfirmationHandler = (
 	const isOnboardingTourStep =
 		isOnboardingTourInProgress &&
 		set?.confirmedAt === null &&
-		exerciseIdx === 0 &&
-		setIdx === 0;
+		props.exerciseIdx === 0 &&
+		props.setIdx === 0;
 
 	return async () => {
 		if (!currentWorkout || !exercise || !set) return;
@@ -168,8 +166,8 @@ export const useSetConfirmationHandler = (
 						from: dayjsLib().toISOString(),
 					});
 				}
-				const currentExercise = draft.exercises[exerciseIdx];
-				const currentSet = currentExercise.sets[setIdx];
+				const currentExercise = draft.exercises[props.exerciseIdx];
+				const currentSet = currentExercise.sets[props.setIdx];
 				currentSet.confirmedAt = newConfirmed
 					? currentWorkout.currentAction === FitnessAction.UpdateWorkout
 						? true
@@ -183,7 +181,7 @@ export const useSetConfirmationHandler = (
 		);
 
 		if (newConfirmed && !promptForRestTimer) {
-			await performTasksAfterSetConfirmed(setIdx, exerciseIdx);
+			await performTasksAfterSetConfirmed(props.setIdx, props.exerciseIdx);
 		}
 	};
 };

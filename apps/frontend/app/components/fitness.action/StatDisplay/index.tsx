@@ -95,15 +95,13 @@ export const SetDisplay = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const handleSetConfirmation = useSetConfirmationHandler(
-		props.setIdx,
-		props.exerciseIdx,
-		{
-			stopTimer: props.stopTimer,
-			startTimer: props.startTimer,
-			isWorkoutPaused: props.isWorkoutPaused,
-		},
-	);
+	const handleSetConfirmation = useSetConfirmationHandler({
+		setIdx: props.setIdx,
+		stopTimer: props.stopTimer,
+		startTimer: props.startTimer,
+		exerciseIdx: props.exerciseIdx,
+		isWorkoutPaused: props.isWorkoutPaused,
+	});
 
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
