@@ -666,6 +666,7 @@ pub async fn generic_metadata(
     let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
         return Err(Error::new("The record does not exist".to_owned()));
     };
+    transform_entity_assets(&mut meta.assets, ss).await?;
     let genres = meta
         .find_related(Genre)
         .order_by_asc(genre::Column::Name)
@@ -756,7 +757,6 @@ pub async fn generic_metadata(
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
-    transform_entity_assets(&mut meta.assets, ss).await?;
     Ok(MetadataBaseData {
         genres,
         creators,
