@@ -31,7 +31,6 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { DisplaySetStatistics } from "~/components/fitness";
 import {
-	FitnessAction,
 	PRO_REQUIRED_MESSAGE,
 	dayjsLib,
 	getSetColor,
@@ -50,11 +49,14 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { StatInput } from "../StatDisplayAndInput";
-import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
 import { RpeModal } from "./RpeModal";
-import { isSetConfirmationDisabled, usePreviousSetData } from "./functions";
+import {
+	isSetConfirmationDisabled,
+	usePreviousSetData,
+	useSetConfirmationHandler,
+} from "./functions";
 import { DisplaySetRestTimer, EditSetRestTimer } from "./support";
 
 export const SetDisplay = (props: {
@@ -84,7 +86,6 @@ export const SetDisplay = (props: {
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set.note || "", 500);
-	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const { data: previousSetData } = usePreviousSetData(
 		props.setIdx,
 		props.exerciseIdx,
@@ -94,10 +95,15 @@ export const SetDisplay = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const playCheckSound = () => {
-		const sound = new Howl({ src: ["/check.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
-	};
+	const handleSetConfirmation = useSetConfirmationHandler(
+		props.setIdx,
+		props.exerciseIdx,
+		{
+			stopTimer: props.stopTimer,
+			startTimer: props.startTimer,
+			isWorkoutPaused: props.isWorkoutPaused,
+		},
+	);
 
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
@@ -114,7 +120,6 @@ export const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
-	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const isOnboardingTourStep =
 		isOnboardingTourInProgress &&
 		set.confirmedAt === null &&
@@ -377,6 +382,7 @@ export const SetDisplay = (props: {
 									<ActionIcon
 										color="green"
 										style={style}
+										onClick={handleSetConfirmation}
 										variant={set.confirmedAt ? "filled" : "outline"}
 										disabled={isSetConfirmationDisabled(
 											exercise.lot,
@@ -386,56 +392,6 @@ export const SetDisplay = (props: {
 											isOnboardingTourStep &&
 												OnboardingTourStepTargets.ConfirmSetForExercise,
 										)}
-										onClick={async () => {
-											playCheckSound();
-											const newConfirmed = !set.confirmedAt;
-											if (isOnboardingTourStep && newConfirmed)
-												advanceOnboardingTourStep();
-
-											if (
-												!newConfirmed &&
-												currentTimer?.triggeredBy?.exerciseIdentifier ===
-													exercise.identifier &&
-												currentTimer?.triggeredBy?.setIdentifier ===
-													set.identifier
-											)
-												props.stopTimer();
-											if (set.restTimer && newConfirmed && !promptForRestTimer)
-												props.startTimer(set.restTimer.duration, {
-													setIdentifier: set.identifier,
-													exerciseIdentifier: exercise.identifier,
-												});
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													if (props.isWorkoutPaused)
-														draft.durations.push({
-															from: dayjsLib().toISOString(),
-														});
-													const currentExercise =
-														draft.exercises[props.exerciseIdx];
-													const currentSet = currentExercise.sets[props.setIdx];
-													currentSet.confirmedAt = newConfirmed
-														? currentWorkout.currentAction ===
-															FitnessAction.UpdateWorkout
-															? true
-															: dayjsLib().toISOString()
-														: null;
-													currentExercise.scrollMarginRemoved = true;
-													if (
-														newConfirmed &&
-														promptForRestTimer &&
-														set.restTimer
-													)
-														currentSet.displayRestTimeTrigger = true;
-												}),
-											);
-											if (newConfirmed && !promptForRestTimer) {
-												await performTasksAfterSetConfirmed(
-													props.setIdx,
-													props.exerciseIdx,
-												);
-											}
-										}}
 									>
 										<IconCheck />
 									</ActionIcon>

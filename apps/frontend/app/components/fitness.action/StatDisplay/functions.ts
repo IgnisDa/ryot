@@ -4,11 +4,23 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
+import { FitnessAction, dayjsLib } from "~/lib/common";
+import { useUserPreferences } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
 } from "~/lib/state/fitness";
+import {
+	useCurrentWorkout,
+	useCurrentWorkoutTimerAtom,
+	useGetExerciseAtIndex,
+	useGetSetAtIndex,
+} from "~/lib/state/fitness";
+import { useOnboardingTour } from "~/lib/state/general";
+import { usePerformTasksAfterSetConfirmed } from "../hooks";
+import type { FuncStartTimer } from "../types";
 
 export const getGlobalSetIndex = (
 	setIdx: number,
@@ -92,4 +104,86 @@ export const isSetConfirmationDisabled = (
 		default:
 			return false;
 	}
+};
+
+export const useSetConfirmationHandler = (
+	setIdx: number,
+	exerciseIdx: number,
+	props: {
+		stopTimer: () => void;
+		startTimer: FuncStartTimer;
+		isWorkoutPaused: boolean;
+	},
+) => {
+	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
+	const [currentTimer] = useCurrentWorkoutTimerAtom();
+	const userPreferences = useUserPreferences();
+	const exercise = useGetExerciseAtIndex(exerciseIdx);
+	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
+	const set = useGetSetAtIndex(exerciseIdx, setIdx);
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
+
+	const playCheckSound = () => {
+		const sound = new Howl({ src: ["/check.mp3"] });
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+	};
+
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress &&
+		set?.confirmedAt === null &&
+		exerciseIdx === 0 &&
+		setIdx === 0;
+
+	return async () => {
+		if (!currentWorkout || !exercise || !set) return;
+
+		playCheckSound();
+		const newConfirmed = !set.confirmedAt;
+
+		if (isOnboardingTourStep && newConfirmed) {
+			advanceOnboardingTourStep();
+		}
+
+		if (
+			!newConfirmed &&
+			currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
+			currentTimer?.triggeredBy?.setIdentifier === set.identifier
+		) {
+			props.stopTimer();
+		}
+
+		if (set.restTimer && newConfirmed && !promptForRestTimer) {
+			props.startTimer(set.restTimer.duration, {
+				setIdentifier: set.identifier,
+				exerciseIdentifier: exercise.identifier,
+			});
+		}
+
+		setCurrentWorkout(
+			produce(currentWorkout, (draft) => {
+				if (props.isWorkoutPaused) {
+					draft.durations.push({
+						from: dayjsLib().toISOString(),
+					});
+				}
+				const currentExercise = draft.exercises[exerciseIdx];
+				const currentSet = currentExercise.sets[setIdx];
+				currentSet.confirmedAt = newConfirmed
+					? currentWorkout.currentAction === FitnessAction.UpdateWorkout
+						? true
+						: dayjsLib().toISOString()
+					: null;
+				currentExercise.scrollMarginRemoved = true;
+				if (newConfirmed && promptForRestTimer && set.restTimer) {
+					currentSet.displayRestTimeTrigger = true;
+				}
+			}),
+		);
+
+		if (newConfirmed && !promptForRestTimer) {
+			await performTasksAfterSetConfirmed(setIdx, exerciseIdx);
+		}
+	};
 };
