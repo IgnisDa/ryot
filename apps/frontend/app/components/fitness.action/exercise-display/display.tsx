@@ -32,6 +32,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { produce } from "immer";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -93,9 +94,9 @@ export const ExerciseDisplay = (props: {
 		{ open: openDetailsModal, close: closeDetailsModal },
 	] = useDisclosure(false);
 
+	const addSetSound = useMemo(() => new Howl({ src: ["/add-set.mp3"] }), []);
 	const playAddSetSound = () => {
-		const sound = new Howl({ src: ["/add-set.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) addSetSound.play();
 	};
 
 	const selectedUnitSystem = exercise.unitSystem;

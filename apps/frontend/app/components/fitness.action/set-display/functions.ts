@@ -5,6 +5,7 @@ import {
 import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
+import { useMemo } from "react";
 import { FitnessAction, dayjsLib } from "~/lib/common";
 import { useUserPreferences } from "~/lib/hooks";
 import {
@@ -122,9 +123,9 @@ export const useSetConfirmationHandler = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
+	const checkSound = useMemo(() => new Howl({ src: ["/check.mp3"] }), []);
 	const playCheckSound = () => {
-		const sound = new Howl({ src: ["/check.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) checkSound.play();
 	};
 
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;

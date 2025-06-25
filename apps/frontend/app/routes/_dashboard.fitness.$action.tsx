@@ -4,7 +4,7 @@ import { changeCase, isString, parseParameters } from "@ryot/ts-utils";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -135,9 +135,12 @@ export default function Page() {
 		}
 	}, 1000);
 
+	const timerCompleteSound = useMemo(
+		() => new Howl({ src: ["/timer-completed.mp3"] }),
+		[],
+	);
 	const playCompleteTimerSound = () => {
-		const sound = new Howl({ src: ["/timer-completed.mp3"] });
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) timerCompleteSound.play();
 		if (document.visibilityState === "visible") return;
 		sendNotificationToServiceWorker(
 			"Timer completed",
