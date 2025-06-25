@@ -13,10 +13,12 @@ import { $path } from "safe-routes";
 import { discordLink } from "~/components/dashboard/utils";
 
 export function ErrorBoundary() {
-	const error = useRouteError() as Error;
+	const error = useRouteError();
 	const message = isRouteErrorResponse(error)
 		? error.data.message
-		: error.message;
+		: error instanceof Error
+			? error.message
+			: String(error);
 
 	return (
 		<Container size="sm" py={{ base: 100, md: 200 }}>
