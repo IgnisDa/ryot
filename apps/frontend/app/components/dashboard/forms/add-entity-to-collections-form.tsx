@@ -30,9 +30,9 @@ import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
 
 export const AddEntityToCollectionsForm = ({
-	closeAddEntityToCollectionsModal,
+	closeAddEntityToCollectionsDrawer,
 }: {
-	closeAddEntityToCollectionsModal: () => void;
+	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
@@ -118,7 +118,7 @@ export const AddEntityToCollectionsForm = ({
 		await mutation.mutateAsync();
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		revalidator.revalidate();
-		closeAddEntityToCollectionsModal();
+		closeAddEntityToCollectionsDrawer();
 		events.addToCollection(addEntityToCollectionData.entityLot);
 	};
 
@@ -269,7 +269,7 @@ export const AddEntityToCollectionsForm = ({
 				<Button
 					color="red"
 					variant="outline"
-					onClick={closeAddEntityToCollectionsModal}
+					onClick={closeAddEntityToCollectionsDrawer}
 				>
 					Cancel
 				</Button>

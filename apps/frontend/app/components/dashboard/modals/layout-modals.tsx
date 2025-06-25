@@ -16,8 +16,8 @@ interface LayoutModalsProps {
 }
 
 export function LayoutModals({
-	isOnLastOnboardingTourStep,
 	completeOnboardingTour,
+	isOnLastOnboardingTourStep,
 }: LayoutModalsProps) {
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
@@ -79,7 +79,7 @@ export function LayoutModals({
 				opened={addEntityToCollectionsData !== null}
 			>
 				<AddEntityToCollectionsForm
-					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsDrawer}
+					closeAddEntityToCollectionsDrawer={closeAddEntityToCollectionsDrawer}
 				/>
 			</Drawer>
 			<Drawer
