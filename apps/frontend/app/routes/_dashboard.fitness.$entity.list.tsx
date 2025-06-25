@@ -210,7 +210,7 @@ export default function Page() {
 									() => FitnessAction.CreateTemplate,
 								)
 								.exhaustive();
-							await advanceOnboardingTourStep();
+							advanceOnboardingTourStep();
 							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>

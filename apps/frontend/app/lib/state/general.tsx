@@ -157,10 +157,14 @@ export const useOnboardingTour = () => {
 		navigate(forcedDashboardPath);
 	};
 
-	const advanceOnboardingTourStep = async (input?: {
+	type AdvanceOnboardingTourStep = {
 		collapseSidebar?: true;
 		skipSecondarySteps?: true;
-	}) => {
+	};
+
+	const advanceOnboardingTourStep = async (
+		input?: AdvanceOnboardingTourStep,
+	) => {
 		if (!isOnboardingTourInProgress) return;
 
 		setTourState(
