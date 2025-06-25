@@ -4,6 +4,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
+import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
 import { FitnessAction, dayjsLib } from "~/lib/common";

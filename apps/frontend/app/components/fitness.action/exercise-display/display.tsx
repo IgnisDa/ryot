@@ -31,6 +31,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
+import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
