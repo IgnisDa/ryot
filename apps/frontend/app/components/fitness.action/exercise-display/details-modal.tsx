@@ -10,7 +10,6 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
 import {
 	type ExerciseDetailsQuery,
 	type UserExerciseDetailsQuery,
@@ -125,14 +124,6 @@ export const ExerciseDetailsModal = ({
 										entityId={history.workoutId}
 										entityType={FitnessEntity.Workouts}
 										onCopyButtonClick={async () => {
-											if (!coreDetails.isServerKeyValidated) {
-												notifications.show({
-													color: "red",
-													message:
-														"Ryot Pro required to copy sets from other workouts",
-												});
-												return;
-											}
 											const workout = await getWorkoutDetails(
 												history.workoutId,
 											);
