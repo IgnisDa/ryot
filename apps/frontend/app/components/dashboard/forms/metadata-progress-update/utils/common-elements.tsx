@@ -44,10 +44,7 @@ interface CustomDatePickerProps {
 	onDateChange: (date: Date | null) => void;
 }
 
-export const CustomDatePicker = ({
-	selectedDate,
-	onDateChange,
-}: CustomDatePickerProps) => {
+export const CustomDatePicker = ({ onDateChange }: CustomDatePickerProps) => {
 	return (
 		<DateTimePicker
 			required
