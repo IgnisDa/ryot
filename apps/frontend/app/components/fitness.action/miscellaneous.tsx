@@ -193,6 +193,12 @@ export const UploadAssetsModal = (props: {
 
 	if (!currentWorkout) return null;
 
+	const exerciseIdx = currentWorkout.exercises.findIndex(
+		(e) => e.identifier === props.modalOpenedBy,
+	);
+	const exercise =
+		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
+
 	const afterFileSelected = async (
 		file: File | null,
 		type: "image" | "video",
@@ -228,12 +234,6 @@ export const UploadAssetsModal = (props: {
 			setIsFileUploading(false);
 		}
 	};
-
-	const exerciseIdx = currentWorkout.exercises.findIndex(
-		(e) => e.identifier === props.modalOpenedBy,
-	);
-	const exercise =
-		exerciseIdx !== -1 ? currentWorkout.exercises[exerciseIdx] : null;
 
 	const { data: exerciseDetails } = useQuery({
 		...getExerciseDetailsQuery(exercise?.exerciseId || ""),
