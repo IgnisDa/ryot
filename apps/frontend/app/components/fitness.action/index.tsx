@@ -1,4 +1,3 @@
-export * from "./constants";
 export * from "./exercise-display/display";
 export * from "./header";
 export * from "./hooks";

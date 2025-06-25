@@ -12,13 +12,13 @@ import {
 	getUserExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
-import { DEFAULT_SET_TIMEOUT_DELAY } from "./constants";
+import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "./utils";
 
 export const focusOnExercise = (idx: number) => {
 	setTimeout(() => {
 		const exercise = document.getElementById(idx.toString());
 		exercise?.scrollIntoView({ behavior: "smooth" });
-	}, DEFAULT_SET_TIMEOUT_DELAY);
+	}, DEFAULT_SET_TIMEOUT_DELAY_MS);
 };
 
 export const getProgressOfExercise = (cw: InProgressWorkout, index: number) => {

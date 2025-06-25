@@ -11,7 +11,7 @@ import { $path } from "safe-routes";
 import { useInterval } from "usehooks-ts";
 import { z } from "zod";
 import {
-	DEFAULT_SET_TIMEOUT_DELAY,
+	DEFAULT_SET_TIMEOUT_DELAY_MS,
 	ExerciseDisplay,
 	WorkoutHeader,
 	WorkoutModals,
@@ -130,7 +130,7 @@ export default function Page() {
 				}
 				playCompleteTimerSound();
 				stopTimer();
-				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY);
+				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY_MS);
 			}
 		}
 	}, 1000);
