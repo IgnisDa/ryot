@@ -31,11 +31,14 @@ export const LinksGroup = (props: LinksGroupProps) => {
 
 	return (
 		<Box>
-			<UnstyledButton<typeof Link>
-				component={!hasLinks ? Link : undefined}
-				// biome-ignore lint/suspicious/noExplicitAny: required here
-				to={!hasLinks ? props.href : (undefined as any)}
+			<UnstyledButton
 				className={clsx(classes.control, props.tourControlTarget)}
+				{...(!hasLinks
+					? {
+							component: Link,
+							to: props.href || "",
+						}
+					: { to: "" })}
 				onClick={() => {
 					advanceOnboardingTourStep();
 					if (hasLinks) {
