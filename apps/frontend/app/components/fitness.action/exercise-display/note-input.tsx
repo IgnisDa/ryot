@@ -20,7 +20,13 @@ export const NoteInput = (props: {
 					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
 				}),
 			);
-	}, [value]);
+	}, [
+		value,
+		props.noteIdx,
+		currentWorkout,
+		setCurrentWorkout,
+		props.exerciseIdx,
+	]);
 
 	return (
 		<Flex align="center" gap="xs">
