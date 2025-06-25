@@ -34,11 +34,13 @@ export const ReorderDrawer = (props: {
 		const newOrder = exerciseElements.map((e) => e.identifier);
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
-				// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-				produce(currentWorkout, (draft: any) => {
-					draft.exercises = exerciseElements.map((de) =>
-						// biome-ignore lint/suspicious/noExplicitAny: weird errors otherwise
-						draft.exercises.find((e: any) => e.identifier === de.identifier),
+				produce(currentWorkout, (draft) => {
+					if (!draft) return;
+					draft.exercises = exerciseElements.map(
+						(de) =>
+							draft.exercises.find(
+								(e) => e.identifier === de.identifier,
+							) as Exercise,
 					);
 				}),
 			);
