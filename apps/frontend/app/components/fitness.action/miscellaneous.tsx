@@ -171,7 +171,7 @@ const AssetDisplay = (props: {
 				pos="absolute"
 				onClick={() => {
 					openConfirmationModal(
-						"Are you sure you want to remove this video?",
+						`Are you sure you want to remove this ${props.type}?`,
 						() => props.removeAsset(),
 					);
 				}}
