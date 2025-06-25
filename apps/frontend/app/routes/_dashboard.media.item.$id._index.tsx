@@ -1,74 +1,48 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
-	ActionIcon,
 	Alert,
 	Anchor,
-	Avatar,
 	Box,
 	Button,
 	Container,
-	Divider,
-	Drawer,
 	Flex,
-	FocusTrap,
 	Group,
 	Image,
-	Indicator,
-	Input,
 	Menu,
-	Modal,
-	NumberInput,
 	Paper,
 	ScrollArea,
-	Select,
 	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
-	Title,
-	Tooltip,
 } from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
-import { useDidUpdate, useDisclosure, useInViewport } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
+import { useDisclosure } from "@mantine/hooks";
 import {
 	DeleteSeenItemDocument,
 	DeployUpdateMetadataJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
-	EntityRemoteVideoSource,
 	MediaLot,
 	MediaSource,
 	MergeMetadataDocument,
 	MetadataDetailsDocument,
-	type MetadataDetailsQuery,
 	type MetadataProgressUpdateChange,
-	type PodcastEpisode,
 	SeenState,
 	UpdateSeenItemDocument,
 	UserMetadataDetailsDocument,
-	type UserMetadataDetailsQuery,
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	changeCase,
 	formatDateToNaiveDate,
 	formatQuantityWithCompactNotation,
 	getActionIntent,
 	humanizeDuration,
-	isInteger,
-	isNumber,
-	isString,
 	parseParameters,
 	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
 import {
 	IconAlertCircle,
-	IconBubble,
 	IconBulb,
-	IconEdit,
 	IconInfoCircle,
 	IconMessageCircle2,
 	IconMovie,
@@ -77,16 +51,11 @@ import {
 	IconStarFilled,
 	IconUser,
 	IconVideo,
-	IconX,
 } from "@tabler/icons-react";
-import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import {
-	Fragment,
 	type ReactNode,
-	type RefObject,
 	forwardRef,
 	useCallback,
-	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -104,29 +73,35 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	BaseEntityDisplay,
 	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import {
-	PRO_REQUIRED_MESSAGE,
+	DisplayPodcastEpisode,
+	DisplayShowSeason,
+	DisplayShowSeasonEpisodesModal,
+	HistoryItem,
+	JUST_WATCH_URL,
+	METADATA_LOTS_WITH_GRANULAR_UPDATES,
+	MergeMetadataModal,
+	MetadataCreator,
+	VideoIframe,
+} from "~/components/media-item";
+import {
 	Verb,
 	clientGqlService,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
-	refreshEntityDetails,
 	reviewYellow,
 	zodDateTimeString,
 } from "~/lib/common";
 import {
 	useConfirmSubmit,
-	useCoreDetails,
 	useDeployBulkMetadataProgressUpdate,
 	useGetRandomMantineColor,
-	useGetWatchProviders,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -141,14 +116,12 @@ import {
 } from "~/lib/state/media";
 import {
 	MetadataIdSchema,
+	MetadataSpecificsSchema,
 	createToastHeaders,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { MetadataSpecificsSchema } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
-
-const JUST_WATCH_URL = "https://www.justwatch.com";
 
 const searchParamsSchema = z
 	.object({ defaultTab: z.string().optional() })
@@ -251,23 +224,11 @@ const mergeMetadataSchema = z.object({
 const editSeenItem = z.object({
 	seenId: z.string(),
 	reviewId: z.string().optional(),
+	manualTimeSpent: z.string().optional(),
 	startedOn: zodDateTimeString.optional(),
 	finishedOn: zodDateTimeString.optional(),
-	manualTimeSpent: z.string().optional(),
 	providerWatchedOn: z.string().optional(),
 });
-
-const METADATA_LOTS_WITH_GRANULAR_UPDATES = [
-	MediaLot.Show,
-	MediaLot.Anime,
-	MediaLot.Manga,
-	MediaLot.Podcast,
-];
-
-type MetadataDetails = MetadataDetailsQuery["metadataDetails"];
-type UserMetadataDetails = UserMetadataDetailsQuery["userMetadataDetails"];
-type Season = NonNullable<MetadataDetails["showSpecifics"]>["seasons"][number];
-type SeasonProgress = NonNullable<UserMetadataDetails["showProgress"]>[number];
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -570,7 +531,7 @@ export default function Page() {
 						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
 							{getVerb(Verb.Read, loaderData.metadataDetails.lot)}
-							ing{" "}
+							ting{" "}
 							{inProgress.podcastExtraInformation
 								? `EP-${inProgress.podcastExtraInformation.episode}`
 								: inProgress.showExtraInformation
@@ -894,7 +855,7 @@ export default function Page() {
 																Verb.Read,
 																loaderData.metadataDetails.lot,
 															)}
-															ing it
+															ting it
 														</Menu.Item>
 													) : null}
 													<Menu.Item
@@ -1211,802 +1172,3 @@ export default function Page() {
 		</>
 	);
 }
-
-const VideoIframe = (props: {
-	videoId: string;
-	videoSource: EntityRemoteVideoSource;
-}) => {
-	const [isMounted, setIsMounted] = useState(false);
-	const { ref, inViewport } = useInViewport();
-
-	useDidUpdate(() => {
-		if (inViewport) setIsMounted(true);
-	}, [inViewport]);
-
-	return (
-		<Box ref={ref}>
-			{isMounted ? (
-				<iframe
-					width="100%"
-					height={200}
-					src={
-						match(props.videoSource)
-							.with(
-								EntityRemoteVideoSource.Youtube,
-								() => "https://www.youtube.com/embed/",
-							)
-							.with(
-								EntityRemoteVideoSource.Dailymotion,
-								() => "https://www.dailymotion.com/embed/video/",
-							)
-							.exhaustive() + props.videoId
-					}
-					title="Video player"
-					allowFullScreen
-				/>
-			) : null}
-		</Box>
-	);
-};
-
-const DisplayShowSeasonEpisodesModal = (props: {
-	metadataDetails: MetadataDetails;
-	openedShowSeason: number | undefined;
-	userMetadataDetails: UserMetadataDetails;
-	setOpenedShowSeason: (v: number | undefined) => void;
-}) => {
-	const title = useMemo(() => {
-		const showSpecifics = props.metadataDetails.showSpecifics;
-		return isNumber(props.openedShowSeason) && showSpecifics
-			? getShowSeasonDisplayName(showSpecifics.seasons[props.openedShowSeason])
-			: "";
-	}, [props.openedShowSeason]);
-
-	return (
-		<Drawer
-			title={title}
-			opened={props.openedShowSeason !== undefined}
-			onClose={() => props.setOpenedShowSeason(undefined)}
-		>
-			{isNumber(props.openedShowSeason) ? (
-				<DisplayShowSeasonEpisodes
-					metadataDetails={props.metadataDetails}
-					openedShowSeason={props.openedShowSeason}
-					setOpenedShowSeason={props.setOpenedShowSeason}
-					userMetadataDetails={props.userMetadataDetails}
-				/>
-			) : null}
-		</Drawer>
-	);
-};
-
-const DisplayShowSeasonEpisodes = (props: {
-	openedShowSeason: number;
-	metadataDetails: MetadataDetails;
-	userMetadataDetails: UserMetadataDetails;
-	setOpenedShowSeason: (v: number | undefined) => void;
-}) => {
-	const season =
-		props.metadataDetails.showSpecifics?.seasons[props.openedShowSeason];
-	const seasonProgress =
-		props.userMetadataDetails.showProgress?.[props.openedShowSeason];
-
-	return isNumber(props.openedShowSeason) && season ? (
-		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">
-			{season.episodes.length > 0 ? (
-				<Virtuoso
-					data={season.episodes}
-					itemContent={(episodeIdx, episode) => (
-						<DisplayShowEpisode
-							episode={episode}
-							episodeIdx={episodeIdx}
-							seasonNumber={season.seasonNumber}
-							seasonIdx={props.openedShowSeason}
-							metadataDetails={props.metadataDetails}
-							episodeProgress={seasonProgress?.episodes[episodeIdx]}
-							beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
-						/>
-					)}
-				/>
-			) : (
-				<Text>No episodes found</Text>
-			)}
-		</Stack>
-	) : null;
-};
-
-const MetadataCreator = (props: {
-	id?: string;
-	name: string;
-	image?: string | null;
-	character?: string | null;
-}) => {
-	return (
-		<BaseEntityDisplay
-			image={props.image || undefined}
-			title={`${props.name} ${props.character ? `as ${props.character}` : ""}`}
-			link={
-				props.id ? $path("/media/people/item/:id", { id: props.id }) : undefined
-			}
-		/>
-	);
-};
-
-type History =
-	UserMetadataDetailsQuery["userMetadataDetails"]["history"][number];
-
-// DEV: Needs to be done because dayjs calculates the second duration of month based on the
-// current calendar month, which messes up the value calculated by humanize-duration-ts.
-const SECONDS_IN_MONTH = 2629800;
-const POSSIBLE_DURATION_UNITS = ["mo", "d", "h", "min"] as const;
-
-const convertSecondsToDuration = (totalSeconds?: string | null) => {
-	if (!totalSeconds) return {};
-	const seconds = Number(totalSeconds);
-	const mo = Math.floor(seconds / SECONDS_IN_MONTH);
-	const remainingSeconds = seconds - mo * SECONDS_IN_MONTH;
-	const remainingDuration = dayjsLib.duration(remainingSeconds, "seconds");
-	const d = Math.floor(remainingDuration.asDays());
-	const h = Math.floor(remainingDuration.subtract(d, "day").asHours());
-	const min = Math.floor(
-		remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes(),
-	);
-	return {
-		mo: mo || undefined,
-		d: d || undefined,
-		h: h || undefined,
-		min: min || undefined,
-	};
-};
-
-type DurationInput = {
-	[K in (typeof POSSIBLE_DURATION_UNITS)[number]]?: number;
-};
-
-const convertDurationToSeconds = (duration: DurationInput) => {
-	let total = 0;
-	total += (duration.mo || 0) * SECONDS_IN_MONTH;
-	total += dayjsLib.duration(duration.d || 0, "days").asSeconds();
-	total += dayjsLib.duration(duration.h || 0, "hours").asSeconds();
-	total += dayjsLib.duration(duration.min || 0, "minutes").asSeconds();
-	return total;
-};
-
-const EditHistoryItemModal = (props: {
-	seen: History;
-	opened: boolean;
-	onClose: () => void;
-	metadataDetails: MetadataDetails;
-	userMetadataDetails: UserMetadataDetails;
-}) => {
-	const userDetails = useUserDetails();
-	const reviewsByThisCurrentUser = props.userMetadataDetails.reviews.filter(
-		(r) => r.postedBy.id === userDetails.id,
-	);
-	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
-		props.seen;
-	const coreDetails = useCoreDetails();
-	const isNotCompleted = props.seen.state !== SeenState.Completed;
-	const watchProviders = useGetWatchProviders(props.metadataDetails.lot);
-	const [manualTimeSpentValue, setManualTimeSpentValue] =
-		useState<DurationInput>(convertSecondsToDuration(manualTimeSpent));
-	const manualTimeSpentInSeconds =
-		convertDurationToSeconds(manualTimeSpentValue);
-
-	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-		>
-			<FocusTrap.InitialFocus />
-			<Form
-				replace
-				method="POST"
-				onSubmit={props.onClose}
-				action={withQuery(".", { intent: "editSeenItem" })}
-			>
-				<input hidden name="seenId" defaultValue={id} />
-				<Stack>
-					<Title order={3}>Edit history record</Title>
-					<DateTimePicker
-						label="Start Date & Time"
-						name="startedOn"
-						defaultValue={startedOn ? new Date(startedOn) : undefined}
-						disabled={isNotCompleted}
-					/>
-					<DateTimePicker
-						label="End Date & Time"
-						name="finishedOn"
-						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
-						disabled={isNotCompleted}
-					/>
-					<Select
-						data={watchProviders}
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							props.metadataDetails.lot,
-						)} it?`}
-						name="providerWatchedOn"
-						defaultValue={providerWatchedOn}
-						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
-					/>
-					<Tooltip
-						label={PRO_REQUIRED_MESSAGE}
-						disabled={coreDetails.isServerKeyValidated}
-					>
-						<Select
-							clearable
-							searchable
-							limit={5}
-							name="reviewId"
-							disabled={!coreDetails.isServerKeyValidated}
-							label="Associate with a review"
-							defaultValue={props.seen.reviewId}
-							data={reviewsByThisCurrentUser.map((r) => ({
-								label: [
-									r.textOriginal
-										? `${r.textOriginal.slice(0, 20)}...`
-										: undefined,
-									r.rating,
-									`(${r.id})`,
-								]
-									.filter(Boolean)
-									.join(" • "),
-								value: r.id,
-							}))}
-						/>
-					</Tooltip>
-					<Input.Wrapper
-						label="Time spent"
-						description="How much time did you actually spend on this media?"
-					>
-						<Tooltip
-							label={PRO_REQUIRED_MESSAGE}
-							disabled={coreDetails.isServerKeyValidated}
-						>
-							<Group wrap="nowrap" mt="xs">
-								{POSSIBLE_DURATION_UNITS.map((input) => (
-									<NumberInput
-										key={input}
-										rightSectionWidth={36}
-										defaultValue={manualTimeSpentValue[input]}
-										disabled={!coreDetails.isServerKeyValidated}
-										rightSection={<Text size="xs">{input}</Text>}
-										onChange={(v) => {
-											setManualTimeSpentValue((prev) => ({
-												...prev,
-												[input]: v,
-											}));
-										}}
-									/>
-								))}
-								{manualTimeSpentInSeconds > 0 ? (
-									<input
-										hidden
-										readOnly
-										name="manualTimeSpent"
-										value={manualTimeSpentInSeconds}
-									/>
-								) : null}
-							</Group>
-						</Tooltip>
-					</Input.Wrapper>
-					<Button variant="outline" type="submit">
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-const MergeMetadataModal = (props: {
-	opened: boolean;
-	metadataId: string;
-	onClose: () => void;
-}) => {
-	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-			centered
-		>
-			<Form
-				replace
-				method="POST"
-				action={withQuery(".", { intent: "mergeMetadata" })}
-			>
-				<input hidden name="mergeFrom" defaultValue={props.metadataId} />
-				<Stack>
-					<Title order={3}>Merge media</Title>
-					<Text>
-						This will move all your history, reviews, and collections from the
-						source media to the destination media. This action is irreversible.
-					</Text>
-					<TextInput label="Destination media ID" name="mergeInto" required />
-					<Button type="submit" onClick={props.onClose}>
-						Submit
-					</Button>
-				</Stack>
-			</Form>
-		</Modal>
-	);
-};
-
-const HistoryItem = (props: {
-	index: number;
-	history: History;
-	setTab: (tab: string) => void;
-	metadataDetails: MetadataDetails;
-	userMetadataDetails: UserMetadataDetails;
-	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
-	reviewsVirtuosoRef: RefObject<VirtuosoHandle>;
-}) => {
-	const coreDetails = useCoreDetails();
-	const submit = useConfirmSubmit();
-	const [opened, { open, close }] = useDisclosure(false);
-	const showExtraInformation = props.history.showExtraInformation
-		? props.metadataDetails.showSpecifics?.seasons
-				.find(
-					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
-				)
-				?.episodes.find(
-					(e) =>
-						e.episodeNumber === props.history.showExtraInformation?.episode,
-				)
-		: null;
-	const scrollToVirtuosoElement = (
-		ref: RefObject<VirtuosoHandle>,
-		tab: string,
-		index?: number,
-	) => {
-		if (!coreDetails.isServerKeyValidated) {
-			notifications.show({
-				color: "red",
-				message: PRO_REQUIRED_MESSAGE,
-			});
-			return;
-		}
-		props.setTab(tab);
-		if (!isNumber(index)) return;
-		setTimeout(() => {
-			const current = ref.current;
-			current?.scrollToIndex({ index, behavior: "smooth", align: "start" });
-		}, 500);
-	};
-	const displayShowExtraInformation = showExtraInformation
-		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
-		: null;
-	const podcastExtraInformation = props.history.podcastExtraInformation
-		? props.metadataDetails.podcastSpecifics?.episodes.find(
-				(e) => e.number === props.history.podcastExtraInformation?.episode,
-			)
-		: null;
-	const displayPodcastExtraInformation = podcastExtraInformation ? (
-		<Anchor
-			onClick={() =>
-				scrollToVirtuosoElement(
-					props.podcastVirtuosoRef,
-					"podcastEpisodes",
-					props.metadataDetails.podcastSpecifics?.episodes.findIndex(
-						(e) => e.number === podcastExtraInformation.number,
-					),
-				)
-			}
-		>
-			EP-{props.history.podcastExtraInformation?.episode}:{" "}
-			{podcastExtraInformation.title}
-		</Anchor>
-	) : null;
-	const displayAnimeExtraInformation = isNumber(
-		props.history.animeExtraInformation?.episode,
-	)
-		? `EP-${props.history.animeExtraInformation.episode}`
-		: null;
-	const displayMangaExtraInformation = (() => {
-		const { chapter, volume } = props.history.mangaExtraInformation || {};
-
-		if (chapter != null) {
-			const chapterNum = isString(chapter)
-				? Number.parseFloat(chapter)
-				: chapter;
-
-			if (!Number.isNaN(chapterNum)) {
-				const isWholeNumber = isInteger(chapterNum);
-				return `CH-${isWholeNumber ? Math.floor(chapterNum) : chapterNum}`;
-			}
-		}
-
-		if (isNumber(volume)) return `VOL-${volume}`;
-
-		return null;
-	})();
-	const watchedOnInformation = props.history.providerWatchedOn;
-
-	const filteredDisplayInformation = [
-		watchedOnInformation,
-		displayShowExtraInformation,
-		displayPodcastExtraInformation,
-		displayAnimeExtraInformation,
-		displayMangaExtraInformation,
-	].filter((s) => s !== null);
-	const displayAllInformation =
-		filteredDisplayInformation.length > 0
-			? filteredDisplayInformation
-					.map<ReactNode>((s, i) => <Fragment key={i.toString()}>{s}</Fragment>)
-					.reduce((prev, curr) => [prev, " • ", curr])
-			: null;
-
-	const timeSpentInMilliseconds =
-		(props.history.manualTimeSpent
-			? Number(props.history.manualTimeSpent)
-			: 0) * 1000;
-	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
-	const isLessThanAnHour =
-		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
-	if (isLessThanAnHour) units?.push("m");
-
-	return (
-		<>
-			<Flex
-				mb="sm"
-				mt={props.index === 0 ? undefined : "sm"}
-				key={props.history.id}
-				gap={{ base: "xs", md: "lg", xl: "xl" }}
-				data-seen-id={props.history.id}
-				data-seen-num-times-updated={props.history.numTimesUpdated}
-			>
-				<Flex direction="column" justify="center">
-					<Form
-						replace
-						method="POST"
-						action={withQuery(".", { intent: "deleteSeenItem" })}
-					>
-						<input hidden name="seenId" defaultValue={props.history.id} />
-						<ActionIcon
-							color="red"
-							type="submit"
-							onClick={(e) => {
-								const form = e.currentTarget.form;
-								e.preventDefault();
-								openConfirmationModal(
-									"Are you sure you want to delete this record from history?",
-									() => {
-										submit(form);
-										refreshEntityDetails(props.metadataDetails.id);
-									},
-								);
-							}}
-						>
-							<IconX size={20} />
-						</ActionIcon>
-					</Form>
-					<ActionIcon color="blue" onClick={open}>
-						<IconEdit size={20} />
-					</ActionIcon>
-				</Flex>
-				<Stack gap={4}>
-					<Flex gap="lg" align="center">
-						<Text fw="bold">
-							{changeCase(props.history.state)}{" "}
-							{props.history.progress !== "100"
-								? `(${Number(props.history.progress).toFixed(2)}%)`
-								: null}
-						</Text>
-						{props.history.reviewId ? (
-							<ActionIcon
-								size="xs"
-								color="blue"
-								onClick={() => {
-									scrollToVirtuosoElement(
-										props.reviewsVirtuosoRef,
-										"reviews",
-										props.userMetadataDetails.reviews.findIndex(
-											(r) => r.id === props.history.reviewId,
-										),
-									);
-								}}
-							>
-								<IconBubble />
-							</ActionIcon>
-						) : null}
-						{displayAllInformation ? (
-							<Text c="dimmed" size="sm" lineClamp={1}>
-								{displayAllInformation}
-							</Text>
-						) : null}
-					</Flex>
-					<SimpleGrid
-						spacing="md"
-						verticalSpacing={2}
-						cols={{ base: 1, md: 2 }}
-					>
-						<Flex gap="xs">
-							<Text size="sm">Started:</Text>
-							<Text size="sm" fw="bold">
-								{props.history.startedOn
-									? dayjsLib(props.history.startedOn).format("L")
-									: "N/A"}
-							</Text>
-						</Flex>
-						<Flex gap="xs">
-							<Text size="sm">Ended:</Text>
-							<Text size="sm" fw="bold">
-								{props.history.finishedOn
-									? dayjsLib(props.history.finishedOn).format("L")
-									: "N/A"}
-							</Text>
-						</Flex>
-						{timeSpentInMilliseconds ? (
-							<Flex gap="xs">
-								<Text size="sm">Time:</Text>
-								<Text size="sm" fw="bold">
-									{humanizeDuration(timeSpentInMilliseconds, {
-										round: true,
-										units,
-									})}
-								</Text>
-							</Flex>
-						) : null}
-						<Flex gap="xs">
-							<Text size="sm">Updated:</Text>
-							<Text size="sm" fw="bold">
-								{dayjsLib(props.history.lastUpdatedOn).format("L")}
-							</Text>
-						</Flex>
-					</SimpleGrid>
-				</Stack>
-			</Flex>
-			<EditHistoryItemModal
-				opened={opened}
-				onClose={close}
-				seen={props.history}
-				metadataDetails={props.metadataDetails}
-				userMetadataDetails={props.userMetadataDetails}
-			/>
-		</>
-	);
-};
-
-const DisplaySeasonOrEpisodeDetails = (props: {
-	name: string;
-	children: ReactNode;
-	runtime?: number | null;
-	endDate?: string | null;
-	overview?: string | null;
-	displayIndicator: number;
-	onNameClick?: () => void;
-	startDate?: string | null;
-	id?: number | string | null;
-	numEpisodes?: number | null;
-	posterImages: Array<string>;
-	publishDate?: string | null;
-}) => {
-	const [parent] = useAutoAnimate();
-	const filteredElements = [
-		props.runtime
-			? humanizeDuration(
-					dayjsLib.duration(props.runtime, "minutes").asMilliseconds(),
-					{ units: ["h", "m"] },
-				)
-			: null,
-		props.publishDate ? dayjsLib(props.publishDate).format("ll") : null,
-		props.numEpisodes ? `${props.numEpisodes} episodes` : null,
-		props.startDate && props.endDate
-			? `${dayjsLib(props.startDate).format("MM/YYYY")} to ${dayjsLib(
-					props.endDate,
-				).format("MM/YYYY")}`
-			: null,
-	].filter((s) => s !== null);
-	const display =
-		filteredElements.length > 0
-			? filteredElements
-					.map<ReactNode>((s, i) => (
-						<Text size="xs" key={i.toString()} c="dimmed">
-							{s}
-						</Text>
-					))
-					.reduce((prev, curr) => [prev, " • ", curr])
-			: null;
-
-	const isSeen = props.displayIndicator >= 1;
-
-	const DisplayDetails = () => (
-		<>
-			{props.onNameClick ? (
-				<Anchor onClick={props.onNameClick} lineClamp={2} display="inline">
-					{props.name}
-				</Anchor>
-			) : (
-				<Text lineClamp={2}>{props.name}</Text>
-			)}
-			{display ? (
-				<Flex align="center" gap={4}>
-					{display}
-				</Flex>
-			) : null}
-		</>
-	);
-
-	return (
-		<Stack data-episode-id={props.id} ref={parent}>
-			<Flex align="center" gap="sm" justify={{ md: "space-between" }}>
-				<Group wrap="nowrap">
-					<Indicator
-						size={16}
-						offset={7}
-						color="cyan"
-						disabled={!isSeen}
-						position="bottom-end"
-						style={{ zIndex: 0 }}
-						label={
-							props.displayIndicator === 1
-								? "Seen"
-								: `Seen × ${props.displayIndicator}`
-						}
-					>
-						<Avatar
-							size="lg"
-							radius="xl"
-							name={props.name}
-							src={props.posterImages[0]}
-							imageProps={{ loading: "lazy" }}
-						/>
-					</Indicator>
-					<Box visibleFrom="md" ml="sm">
-						<DisplayDetails />
-					</Box>
-				</Group>
-				<Box flex={0} ml={{ base: "md", md: 0 }}>
-					{props.children}
-				</Box>
-			</Flex>
-			<Box hiddenFrom="md">
-				<DisplayDetails />
-			</Box>
-			{props.overview ? (
-				<Text
-					size="sm"
-					c="dimmed"
-					lineClamp={5}
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: generated on the backend securely
-					dangerouslySetInnerHTML={{ __html: props.overview }}
-				/>
-			) : null}
-		</Stack>
-	);
-};
-
-const getShowSeasonDisplayName = (season: Season) =>
-	`${season.seasonNumber}. ${season.name}`;
-
-const DisplayShowSeason = (props: {
-	season: Season;
-	seasonIdx: number;
-	metadataId: string;
-	openSeasonModal: () => void;
-	userMetadataDetails: UserMetadataDetails;
-}) => {
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-
-	const seasonProgress =
-		props.userMetadataDetails.showProgress?.[props.seasonIdx];
-	const numTimesSeen = seasonProgress?.timesSeen || 0;
-	const isSeen = numTimesSeen > 0;
-
-	return (
-		<Box my={props.seasonIdx !== 0 ? "md" : undefined}>
-			<DisplaySeasonOrEpisodeDetails
-				{...props.season}
-				displayIndicator={numTimesSeen}
-				numEpisodes={props.season.episodes.length}
-				onNameClick={() => props.openSeasonModal()}
-				name={getShowSeasonDisplayName(props.season)}
-				endDate={props.season.episodes.at(-1)?.publishDate}
-				startDate={props.season.episodes.at(0)?.publishDate}
-				runtime={props.season.episodes
-					.map((e) => e.runtime || 0)
-					.reduce((i, a) => i + a, 0)}
-			>
-				{props.season.episodes.length > 0 ? (
-					<Button
-						variant={isSeen ? "default" : "outline"}
-						size="xs"
-						color="blue"
-						onClick={() => {
-							setMetadataToUpdate({
-								showAllEpisodesBefore: true,
-								metadataId: props.metadataId,
-								showSeasonNumber: props.season.seasonNumber,
-								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
-							});
-						}}
-					>
-						{isSeen ? "Watch again" : "Mark as seen"}
-					</Button>
-				) : null}
-			</DisplaySeasonOrEpisodeDetails>
-		</Box>
-	);
-};
-
-const DisplayShowEpisode = (props: {
-	seasonIdx: number;
-	episodeIdx: number;
-	seasonNumber: number;
-	beforeOpenModal?: () => void;
-	metadataDetails: MetadataDetails;
-	episode: Season["episodes"][number];
-	episodeProgress?: SeasonProgress["episodes"][number];
-}) => {
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
-
-	return (
-		<Box my="lg" ml="md">
-			<DisplaySeasonOrEpisodeDetails
-				{...props.episode}
-				key={props.episode.episodeNumber}
-				name={`${props.episode.episodeNumber}. ${props.episode.name}`}
-				publishDate={props.episode.publishDate}
-				displayIndicator={numTimesEpisodeSeen}
-			>
-				<Button
-					size="xs"
-					color="blue"
-					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
-					onClick={() => {
-						if (props.beforeOpenModal) props.beforeOpenModal();
-						setMetadataToUpdate({
-							metadataId: props.metadataDetails.id,
-							showSeasonNumber: props.seasonNumber,
-							showEpisodeNumber: props.episode.episodeNumber,
-						});
-					}}
-				>
-					{numTimesEpisodeSeen > 0 ? "Rewatch this" : "Mark as seen"}
-				</Button>
-			</DisplaySeasonOrEpisodeDetails>
-		</Box>
-	);
-};
-
-const DisplayPodcastEpisode = (props: {
-	index: number;
-	episode: PodcastEpisode;
-	metadataDetails: MetadataDetails;
-	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
-}) => {
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const numTimesEpisodeSeen =
-		props.podcastProgress?.[props.index]?.timesSeen || 0;
-
-	return (
-		<Box my={props.index !== 0 ? "md" : undefined}>
-			{props.index !== 0 ? <Divider mb="md" /> : null}
-			<DisplaySeasonOrEpisodeDetails
-				{...props.episode}
-				name={props.episode.title}
-				posterImages={[props.episode.thumbnail || ""]}
-				publishDate={props.episode.publishDate}
-				displayIndicator={numTimesEpisodeSeen}
-			>
-				<Button
-					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
-					color="blue"
-					onClick={() => {
-						setMetadataToUpdate({
-							metadataId: props.metadataDetails.id,
-							podcastEpisodeNumber: props.episode.number,
-						});
-					}}
-				>
-					{numTimesEpisodeSeen > 0 ? "Re-listen this" : "Mark as listened"}
-				</Button>
-			</DisplaySeasonOrEpisodeDetails>
-		</Box>
-	);
-};
