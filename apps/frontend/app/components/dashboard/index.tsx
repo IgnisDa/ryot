@@ -3,7 +3,7 @@ export * from "./forms/add-entity-to-collections-form";
 export * from "./forms/create-measurement-form";
 export * from "./forms/review-entity-form";
 export * from "./modals/layout-modals";
-export * from "./modals/metadata-progress-update-forms";
+export * from "./forms/metadata-progress-update";
 export * from "./navigation/footer";
 export * from "./navigation/links-group";
 export * from "./navigation/navigation-config";
