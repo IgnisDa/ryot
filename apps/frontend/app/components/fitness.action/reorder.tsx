@@ -55,7 +55,8 @@ export const ReorderDrawer = (props: {
 		>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
-					const reorderedExerciseDestinationIndex = destination?.index || 0;
+					if (!destination) return;
+					const reorderedExerciseDestinationIndex = destination.index;
 					exerciseElementsHandlers.reorder({
 						from: source.index,
 						to: reorderedExerciseDestinationIndex,
