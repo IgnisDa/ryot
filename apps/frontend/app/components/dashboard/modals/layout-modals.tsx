@@ -1,8 +1,10 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
-import { AddEntityToCollectionsForm } from "~/components/dashboard/forms/add-entity-to-collections-form";
-import { CreateMeasurementForm } from "~/components/dashboard/forms/create-measurement-form";
-import { ReviewEntityForm } from "~/components/dashboard/forms/review-entity-form";
-import { MetadataProgressUpdateForm } from "~/components/dashboard/modals/metadata-progress-update-forms";
+import {
+	AddEntityToCollectionsForm,
+	CreateMeasurementForm,
+	MetadataProgressUpdateForm,
+	ReviewEntityForm,
+} from "~/components/dashboard";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	useAddEntityToCollections,
