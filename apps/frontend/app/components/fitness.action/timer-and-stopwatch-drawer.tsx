@@ -64,6 +64,11 @@ export const TimerAndStopwatchDrawer = (props: {
 								size="compact-xl"
 								variant="outline"
 								onClick={() => {
+									setCurrentWorkout(
+										produce(currentWorkout, (draft) => {
+											draft.timerDrawerLot = "timer";
+										}),
+									);
 									if (isNumber(option)) props.startTimer(option);
 									else {
 										const input = prompt("Enter duration in seconds");
