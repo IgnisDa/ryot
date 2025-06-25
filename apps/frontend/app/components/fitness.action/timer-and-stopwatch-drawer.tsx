@@ -44,6 +44,12 @@ export const TimerAndStopwatchDrawer = (props: {
 
 	const stopwatchMilliSeconds = getStopwatchMilliSeconds(currentStopwatch);
 	const isStopwatchPaused = Boolean(currentStopwatch?.at(-1)?.to);
+	const isTimerTooShortToReduce = currentTimer
+		? dayjsLib(currentTimer.willEndAt).diff(
+				currentTimer.wasPausedAt,
+				"seconds",
+			) <= 30
+		: false;
 
 	return (
 		<Drawer
@@ -156,6 +162,9 @@ export const TimerAndStopwatchDrawer = (props: {
 						<Group gap="xl">
 							<Button
 								color="orange"
+								size="compact-lg"
+								variant="outline"
+								disabled={isTimerTooShortToReduce}
 								onClick={() => {
 									setCurrentTimer(
 										produce(currentTimer, (draft) => {
@@ -168,14 +177,6 @@ export const TimerAndStopwatchDrawer = (props: {
 										}),
 									);
 								}}
-								size="compact-lg"
-								variant="outline"
-								disabled={
-									dayjsLib(currentTimer.willEndAt).diff(
-										currentTimer.wasPausedAt,
-										"seconds",
-									) <= 30
-								}
 							>
 								-30 sec
 							</Button>
