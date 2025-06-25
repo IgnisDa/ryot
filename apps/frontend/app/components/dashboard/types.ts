@@ -2,7 +2,7 @@ import type {
 	UserCollectionsListQuery,
 	UserMetadataDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import type { FC, ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { ThreePointSmileyRating } from "~/lib/common";
 
 export enum WatchTimes {
@@ -13,14 +13,13 @@ export enum WatchTimes {
 }
 
 export interface LinksGroupProps {
-	// biome-ignore lint/suspicious/noExplicitAny: required here
-	icon: FC<any>;
 	label: string;
 	href?: string;
 	opened: boolean;
 	toggle: () => void;
 	tourControlTarget?: string;
 	setOpened: (v: boolean) => void;
+	icon: ComponentType<{ size?: number | string }>;
 	links?: Array<{ label: string; link: string; tourControlTarget?: string }>;
 }
 
