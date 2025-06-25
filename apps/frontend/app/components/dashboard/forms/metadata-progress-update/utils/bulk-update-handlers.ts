@@ -279,6 +279,7 @@ export const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 					currentEpisode.seasonNumber === 0 &&
 					selectedEpisode.seasonNumber !== 0
 				) {
+					// Skip special episodes (season 0) unless the target is also in season 0
 					continue;
 				}
 
