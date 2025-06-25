@@ -86,7 +86,17 @@ export const StatInput = (props: {
 						advanceOnboardingTourStep();
 				}),
 			);
-	}, [value]);
+	}, [
+		value,
+		props.stat,
+		props.setIdx,
+		currentWorkout,
+		setCurrentWorkout,
+		props.exerciseIdx,
+		repsStepTourClassName,
+		weightStepTourClassName,
+		advanceOnboardingTourStep,
+	]);
 
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
