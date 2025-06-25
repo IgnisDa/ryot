@@ -7,13 +7,10 @@ import {
 	Burger,
 	Button,
 	Center,
-	Drawer,
 	Flex,
 	Group,
 	Image,
-	Modal,
 	ScrollArea,
-	Stack,
 	Text,
 	Tooltip,
 	UnstyledButton,
@@ -49,10 +46,7 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
-import { AddEntityToCollectionsForm } from "~/components/dashboard/forms/add-entity-to-collections-form";
-import { CreateMeasurementForm } from "~/components/dashboard/forms/create-measurement-form";
-import { ReviewEntityForm } from "~/components/dashboard/forms/review-entity-form";
-import { MetadataProgressUpdateForm } from "~/components/dashboard/modals/metadata-progress-update-forms";
+import { LayoutModals } from "~/components/dashboard/modals/layout-modals";
 import { Footer } from "~/components/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/dashboard/navigation/links-group";
 import {
@@ -73,17 +67,11 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
-import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
 } from "~/lib/state/general";
-import {
-	useAddEntityToCollections,
-	useMetadataProgressUpdate,
-	useReviewEntity,
-} from "~/lib/state/media";
 import {
 	getCookieValue,
 	getCoreDetails,
@@ -160,17 +148,6 @@ export default function Layout() {
 	const theme = useMantineTheme();
 	const navigate = useNavigate();
 	const location = useLocation();
-	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
-	const [entityToReview, setEntityToReview] = useReviewEntity();
-	const closeReviewEntityModal = () => setEntityToReview(null);
-	const [addEntityToCollectionsData, setAddEntityToCollectionsData] =
-		useAddEntityToCollections();
-	const closeAddEntityToCollectionsDrawer = () =>
-		setAddEntityToCollectionsData(null);
-	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
-		useMeasurementsDrawerOpen();
-	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const {
 		onboardingTourSteps,
 		completeOnboardingTour,
@@ -247,65 +224,10 @@ export default function Layout() {
 					</Affix>
 				</Tooltip>
 			) : null}
-			<Modal
-				centered
-				withCloseButton={false}
-				opened={metadataToUpdate !== null}
-				onClose={closeMetadataProgressUpdateModal}
-			>
-				<MetadataProgressUpdateForm
-					closeMetadataProgressUpdateModal={closeMetadataProgressUpdateModal}
-				/>
-			</Modal>
-			<Modal
-				centered
-				withCloseButton={false}
-				onClose={completeOnboardingTour}
-				opened={isOnLastOnboardingTourStep}
-				title="You've completed the onboarding tour!"
-			>
-				<Stack>
-					<Text>
-						These are just the basics to get you up and running. Ryot has a lot
-						more to offer and I encourage you to explore the app and see what it
-						can do for you.
-					</Text>
-					<Text size="sm" c="dimmed">
-						You can restart the tour at any time from the profile settings.
-					</Text>
-					<Button variant="outline" onClick={completeOnboardingTour}>
-						Start using Ryot!
-					</Button>
-				</Stack>
-			</Modal>
-			<Modal
-				centered
-				withCloseButton={false}
-				opened={entityToReview !== null}
-				onClose={() => setEntityToReview(null)}
-				title={`Reviewing "${entityToReview?.entityTitle}"`}
-			>
-				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
-			</Modal>
-			<Drawer
-				withCloseButton={false}
-				onClose={closeAddEntityToCollectionsDrawer}
-				opened={addEntityToCollectionsData !== null}
-			>
-				<AddEntityToCollectionsForm
-					closeAddEntityToCollectionsModal={closeAddEntityToCollectionsDrawer}
-				/>
-			</Drawer>
-			<Drawer
-				title="Add new measurement"
-				opened={measurementsDrawerOpen}
-				onClose={closeMeasurementsDrawer}
-			>
-				<CreateMeasurementForm
-					closeMeasurementModal={closeMeasurementsDrawer}
-				/>
-			</Drawer>
-
+			<LayoutModals
+				isOnLastOnboardingTourStep={isOnLastOnboardingTourStep}
+				completeOnboardingTour={completeOnboardingTour}
+			/>
 			<AppShell
 				w="100%"
 				padding={0}
