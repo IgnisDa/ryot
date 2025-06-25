@@ -264,6 +264,11 @@ const METADATA_LOTS_WITH_GRANULAR_UPDATES = [
 	MediaLot.Podcast,
 ];
 
+type MetadataDetails = MetadataDetailsQuery["metadataDetails"];
+type UserMetadataDetails = UserMetadataDetailsQuery["userMetadataDetails"];
+type Season = NonNullable<MetadataDetails["showSpecifics"]>["seasons"][number];
+type SeasonProgress = NonNullable<UserMetadataDetails["showProgress"]>[number];
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
@@ -407,6 +412,8 @@ export default function Page() {
 			<DisplayShowSeasonEpisodesModal
 				openedShowSeason={openedShowSeason}
 				setOpenedShowSeason={setOpenedShowSeason}
+				metadataDetails={loaderData.metadataDetails}
+				userMetadataDetails={loaderData.userMetadataDetails}
 			/>
 			<Container>
 				<MediaDetailsLayout
@@ -1050,6 +1057,8 @@ export default function Page() {
 												history={history}
 												reviewsVirtuosoRef={reviewsVirtuosoRef}
 												podcastVirtuosoRef={podcastVirtuosoRef}
+												metadataDetails={loaderData.metadataDetails}
+												userMetadataDetails={loaderData.userMetadataDetails}
 											/>
 										)}
 									/>
@@ -1068,6 +1077,8 @@ export default function Page() {
 											season={season}
 											seasonIdx={seasonIdx}
 											key={season.seasonNumber}
+											metadataId={loaderData.metadataId}
+											userMetadataDetails={loaderData.userMetadataDetails}
 											openSeasonModal={() => setOpenedShowSeason(seasonIdx)}
 										/>
 									)}
@@ -1087,6 +1098,7 @@ export default function Page() {
 											podcastProgress={
 												loaderData.userMetadataDetails.podcastProgress
 											}
+											metadataDetails={loaderData.metadataDetails}
 										/>
 									)}
 								/>
@@ -1238,12 +1250,13 @@ const VideoIframe = (props: {
 };
 
 const DisplayShowSeasonEpisodesModal = (props: {
+	metadataDetails: MetadataDetails;
 	openedShowSeason: number | undefined;
+	userMetadataDetails: UserMetadataDetails;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const title = useMemo(() => {
-		const showSpecifics = loaderData.metadataDetails.showSpecifics;
+		const showSpecifics = props.metadataDetails.showSpecifics;
 		return isNumber(props.openedShowSeason) && showSpecifics
 			? getShowSeasonDisplayName(showSpecifics.seasons[props.openedShowSeason])
 			: "";
@@ -1257,8 +1270,10 @@ const DisplayShowSeasonEpisodesModal = (props: {
 		>
 			{isNumber(props.openedShowSeason) ? (
 				<DisplayShowSeasonEpisodes
+					metadataDetails={props.metadataDetails}
 					openedShowSeason={props.openedShowSeason}
 					setOpenedShowSeason={props.setOpenedShowSeason}
+					userMetadataDetails={props.userMetadataDetails}
 				/>
 			) : null}
 		</Drawer>
@@ -1267,13 +1282,14 @@ const DisplayShowSeasonEpisodesModal = (props: {
 
 const DisplayShowSeasonEpisodes = (props: {
 	openedShowSeason: number;
+	metadataDetails: MetadataDetails;
+	userMetadataDetails: UserMetadataDetails;
 	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const season =
-		loaderData.metadataDetails.showSpecifics?.seasons[props.openedShowSeason];
+		props.metadataDetails.showSpecifics?.seasons[props.openedShowSeason];
 	const seasonProgress =
-		loaderData.userMetadataDetails.showProgress?.[props.openedShowSeason];
+		props.userMetadataDetails.showProgress?.[props.openedShowSeason];
 
 	return isNumber(props.openedShowSeason) && season ? (
 		<Stack h={{ base: "80vh", md: "90vh" }} gap="xs">
@@ -1286,6 +1302,7 @@ const DisplayShowSeasonEpisodes = (props: {
 							episodeIdx={episodeIdx}
 							seasonNumber={season.seasonNumber}
 							seasonIdx={props.openedShowSeason}
+							metadataDetails={props.metadataDetails}
 							episodeProgress={seasonProgress?.episodes[episodeIdx]}
 							beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
 						/>
@@ -1356,21 +1373,21 @@ const convertDurationToSeconds = (duration: DurationInput) => {
 };
 
 const EditHistoryItemModal = (props: {
+	seen: History;
 	opened: boolean;
 	onClose: () => void;
-	seen: History;
+	metadataDetails: MetadataDetails;
+	userMetadataDetails: UserMetadataDetails;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
-	const reviewsByThisCurrentUser =
-		loaderData.userMetadataDetails.reviews.filter(
-			(r) => r.postedBy.id === userDetails.id,
-		);
+	const reviewsByThisCurrentUser = props.userMetadataDetails.reviews.filter(
+		(r) => r.postedBy.id === userDetails.id,
+	);
 	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
 		props.seen;
 	const coreDetails = useCoreDetails();
 	const isNotCompleted = props.seen.state !== SeenState.Completed;
-	const watchProviders = useGetWatchProviders(loaderData.metadataDetails.lot);
+	const watchProviders = useGetWatchProviders(props.metadataDetails.lot);
 	const [manualTimeSpentValue, setManualTimeSpentValue] =
 		useState<DurationInput>(convertSecondsToDuration(manualTimeSpent));
 	const manualTimeSpentInSeconds =
@@ -1409,7 +1426,7 @@ const EditHistoryItemModal = (props: {
 						data={watchProviders}
 						label={`Where did you ${getVerb(
 							Verb.Read,
-							loaderData.metadataDetails.lot,
+							props.metadataDetails.lot,
 						)} it?`}
 						name="providerWatchedOn"
 						defaultValue={providerWatchedOn}
@@ -1523,15 +1540,16 @@ const HistoryItem = (props: {
 	index: number;
 	history: History;
 	setTab: (tab: string) => void;
+	metadataDetails: MetadataDetails;
+	userMetadataDetails: UserMetadataDetails;
 	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
 	reviewsVirtuosoRef: RefObject<VirtuosoHandle>;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
-		? loaderData.metadataDetails.showSpecifics?.seasons
+		? props.metadataDetails.showSpecifics?.seasons
 				.find(
 					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
 				)
@@ -1563,7 +1581,7 @@ const HistoryItem = (props: {
 		? `S${props.history.showExtraInformation?.season}-E${props.history.showExtraInformation?.episode}: ${showExtraInformation.name}`
 		: null;
 	const podcastExtraInformation = props.history.podcastExtraInformation
-		? loaderData.metadataDetails.podcastSpecifics?.episodes.find(
+		? props.metadataDetails.podcastSpecifics?.episodes.find(
 				(e) => e.number === props.history.podcastExtraInformation?.episode,
 			)
 		: null;
@@ -1573,7 +1591,7 @@ const HistoryItem = (props: {
 				scrollToVirtuosoElement(
 					props.podcastVirtuosoRef,
 					"podcastEpisodes",
-					loaderData.metadataDetails.podcastSpecifics?.episodes.findIndex(
+					props.metadataDetails.podcastSpecifics?.episodes.findIndex(
 						(e) => e.number === podcastExtraInformation.number,
 					),
 				)
@@ -1658,7 +1676,7 @@ const HistoryItem = (props: {
 									"Are you sure you want to delete this record from history?",
 									() => {
 										submit(form);
-										refreshEntityDetails(loaderData.metadataId);
+										refreshEntityDetails(props.metadataDetails.id);
 									},
 								);
 							}}
@@ -1686,7 +1704,7 @@ const HistoryItem = (props: {
 									scrollToVirtuosoElement(
 										props.reviewsVirtuosoRef,
 										"reviews",
-										loaderData.userMetadataDetails.reviews.findIndex(
+										props.userMetadataDetails.reviews.findIndex(
 											(r) => r.id === props.history.reviewId,
 										),
 									);
@@ -1746,6 +1764,8 @@ const HistoryItem = (props: {
 				opened={opened}
 				onClose={close}
 				seen={props.history}
+				metadataDetails={props.metadataDetails}
+				userMetadataDetails={props.userMetadataDetails}
 			/>
 		</>
 	);
@@ -1860,26 +1880,20 @@ const DisplaySeasonOrEpisodeDetails = (props: {
 	);
 };
 
-type Season = NonNullable<
-	MetadataDetailsQuery["metadataDetails"]["showSpecifics"]
->["seasons"][number];
-type SeasonProgress = NonNullable<
-	UserMetadataDetailsQuery["userMetadataDetails"]["showProgress"]
->[number];
-
 const getShowSeasonDisplayName = (season: Season) =>
 	`${season.seasonNumber}. ${season.name}`;
 
 const DisplayShowSeason = (props: {
 	season: Season;
 	seasonIdx: number;
+	metadataId: string;
 	openSeasonModal: () => void;
+	userMetadataDetails: UserMetadataDetails;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 
 	const seasonProgress =
-		loaderData.userMetadataDetails.showProgress?.[props.seasonIdx];
+		props.userMetadataDetails.showProgress?.[props.seasonIdx];
 	const numTimesSeen = seasonProgress?.timesSeen || 0;
 	const isSeen = numTimesSeen > 0;
 
@@ -1904,10 +1918,10 @@ const DisplayShowSeason = (props: {
 						color="blue"
 						onClick={() => {
 							setMetadataToUpdate({
-								metadataId: loaderData.metadataId,
+								showAllEpisodesBefore: true,
+								metadataId: props.metadataId,
 								showSeasonNumber: props.season.seasonNumber,
 								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
-								showAllEpisodesBefore: true,
 							});
 						}}
 					>
@@ -1924,10 +1938,10 @@ const DisplayShowEpisode = (props: {
 	episodeIdx: number;
 	seasonNumber: number;
 	beforeOpenModal?: () => void;
+	metadataDetails: MetadataDetails;
 	episode: Season["episodes"][number];
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 
@@ -1947,7 +1961,7 @@ const DisplayShowEpisode = (props: {
 					onClick={() => {
 						if (props.beforeOpenModal) props.beforeOpenModal();
 						setMetadataToUpdate({
-							metadataId: loaderData.metadataId,
+							metadataId: props.metadataDetails.id,
 							showSeasonNumber: props.seasonNumber,
 							showEpisodeNumber: props.episode.episodeNumber,
 						});
@@ -1963,9 +1977,9 @@ const DisplayShowEpisode = (props: {
 const DisplayPodcastEpisode = (props: {
 	index: number;
 	episode: PodcastEpisode;
+	metadataDetails: MetadataDetails;
 	podcastProgress: UserMetadataDetailsQuery["userMetadataDetails"]["podcastProgress"];
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen =
 		props.podcastProgress?.[props.index]?.timesSeen || 0;
@@ -1985,7 +1999,7 @@ const DisplayPodcastEpisode = (props: {
 					color="blue"
 					onClick={() => {
 						setMetadataToUpdate({
-							metadataId: loaderData.metadataId,
+							metadataId: props.metadataDetails.id,
 							podcastEpisodeNumber: props.episode.number,
 						});
 					}}
