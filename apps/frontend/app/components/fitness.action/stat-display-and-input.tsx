@@ -95,7 +95,6 @@ export const StatInput = (props: {
 		props.exerciseIdx,
 		repsStepTourClassName,
 		weightStepTourClassName,
-		advanceOnboardingTourStep,
 	]);
 
 	return currentWorkout ? (
