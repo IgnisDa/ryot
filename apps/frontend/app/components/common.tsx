@@ -114,6 +114,7 @@ import {
 	getSurroundingElements,
 	openConfirmationModal,
 	redirectToQueryParam,
+	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
@@ -263,7 +264,13 @@ export const MediaDetailsLayout = (props: {
 						isPartialData ? (
 							<Loader size="sm" />
 						) : (
-							<ActionIcon size="sm" onClick={() => revalidator.revalidate()}>
+							<ActionIcon
+								size="sm"
+								onClick={() => {
+									refreshEntityDetails(props.partialDetailsFetcher.entityId);
+									revalidator.revalidate();
+								}}
+							>
 								<IconRefresh />
 							</ActionIcon>
 						)
