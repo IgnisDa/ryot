@@ -184,7 +184,7 @@ export const AddEntityToCollectionsForm = ({
 											value={
 												selectedCollection.userExtraInformationData[
 													template.name
-												] || ""
+												]
 											}
 											onChange={(v) =>
 												handleCustomFieldChange(
@@ -203,7 +203,7 @@ export const AddEntityToCollectionsForm = ({
 											value={
 												selectedCollection.userExtraInformationData[
 													template.name
-												] || null
+												]
 											}
 											onChange={(v) =>
 												handleCustomFieldChange(
@@ -222,7 +222,7 @@ export const AddEntityToCollectionsForm = ({
 											value={
 												selectedCollection.userExtraInformationData[
 													template.name
-												] || null
+												]
 											}
 											onChange={(v) =>
 												handleCustomFieldChange(
@@ -242,7 +242,7 @@ export const AddEntityToCollectionsForm = ({
 											value={
 												selectedCollection.userExtraInformationData[
 													template.name
-												] || []
+												]
 											}
 											setValue={(newValue) =>
 												handleCustomFieldChange(
