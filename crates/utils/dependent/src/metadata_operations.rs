@@ -632,10 +632,12 @@ pub async fn commit_person(
     match Person::find()
         .filter(person::Column::Source.eq(data.source))
         .filter(person::Column::Identifier.eq(&data.identifier))
-        .filter(match data.source_specifics.clone() {
-            None => person::Column::SourceSpecifics.is_null(),
-            Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
-        })
+        .filter(
+            match data.source_specifics.clone() == Some(PersonSourceSpecifics::default()) {
+                true => person::Column::SourceSpecifics.is_null(),
+                false => person::Column::SourceSpecifics.eq(data.source_specifics.clone()),
+            },
+        )
         .one(&ss.db)
         .await?
         .map(|p| StringIdObject { id: p.id })
