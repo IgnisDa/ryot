@@ -62,3 +62,6 @@
   with already exists, then the same change should be applied to the migration where this
   table was first created. We need to do this so that new instances of Ryot can have the
   same table structure right off the bat.
+- We try to keep the code files below 500 lines. If a file is larger than that, consider
+  splitting it into smaller files (using functions, components, etc.) to improve
+  readability.

@@ -57,11 +57,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import {
-	DebouncedSearchInput,
-	ExpireCacheKeyButton,
-	ProRequiredAlert,
-} from "~/components/common";
+import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
@@ -260,9 +256,6 @@ export default function Page() {
 							<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 						</Modal>
 					</Flex>
-					<ExpireCacheKeyButton
-						action={{ cacheId: loaderData.userCollectionsList.cacheId }}
-					/>
 				</Group>
 				<Group wrap="nowrap">
 					<DebouncedSearchInput

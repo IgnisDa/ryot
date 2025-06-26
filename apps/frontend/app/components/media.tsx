@@ -106,12 +106,17 @@ export const PartialMetadataDisplay = (props: {
 		props.metadataId,
 	);
 
+	const images = [
+		...(metadataDetails?.assets.remoteImages || []),
+		...(metadataDetails?.assets.s3Images || []),
+	];
+
 	return (
 		<BaseEntityDisplay
+			image={images.at(0)}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
 			hasInteracted={userMetadataDetails?.hasInteracted}
-			image={metadataDetails?.assets.remoteImages.at(0) || undefined}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>
 	);
@@ -249,16 +254,21 @@ export const MetadataDisplayItem = (props: {
 		</Tooltip>
 	);
 
+	const images = [
+		...(metadataDetails?.assets.remoteImages || []),
+		...(metadataDetails?.assets.s3Images || []),
+	];
+
 	return (
 		<BaseMediaDisplayItem
 			innerRef={ref}
+			imageUrl={images.at(0)}
 			altName={props.altName}
 			progress={currentProgress}
 			nameRight={props.nameRight}
 			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
-			imageUrl={metadataDetails?.assets.remoteImages.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&

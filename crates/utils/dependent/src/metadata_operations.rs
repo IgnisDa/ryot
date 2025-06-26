@@ -11,8 +11,10 @@ use database_models::{
         MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
+use database_utils::transform_entity_assets;
 use dependent_models::MetadataBaseData;
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
@@ -665,13 +667,7 @@ pub async fn generic_metadata(
     let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
         return Err(Error::new("The record does not exist".to_owned()));
     };
-    let genres = meta
-        .find_related(Genre)
-        .order_by_asc(genre::Column::Name)
-        .into_model::<GenreListItem>()
-        .all(&ss.db)
-        .await
-        .unwrap();
+
     #[derive(Debug, FromQueryResult)]
     struct PartialCreator {
         id: String,
@@ -680,24 +676,43 @@ pub async fn generic_metadata(
         assets: EntityAssets,
         character: Option<String>,
     }
-    let crts = MetadataToPerson::find()
-        .expr(Expr::col(Asterisk))
-        .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
-        .join(
-            JoinType::Join,
-            metadata_to_person::Relation::Person
-                .def()
-                .on_condition(|left, right| {
-                    Condition::all().add(
-                        Expr::col((left, metadata_to_person::Column::PersonId))
-                            .equals((right, person::Column::Id)),
-                    )
-                }),
-        )
-        .order_by_asc(metadata_to_person::Column::Index)
-        .into_model::<PartialCreator>()
-        .all(&ss.db)
-        .await?;
+    let (genres, crts, suggestions, _) = try_join!(
+        meta.find_related(Genre)
+            .order_by_asc(genre::Column::Name)
+            .into_model::<GenreListItem>()
+            .all(&ss.db)
+            .map_err(|_| Error::new("Failed to fetch genres".to_owned())),
+        MetadataToPerson::find()
+            .expr(Expr::col(Asterisk))
+            .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
+            .join(
+                JoinType::Join,
+                metadata_to_person::Relation::Person
+                    .def()
+                    .on_condition(|left, right| {
+                        Condition::all().add(
+                            Expr::col((left, metadata_to_person::Column::PersonId))
+                                .equals((right, person::Column::Id)),
+                        )
+                    }),
+            )
+            .order_by_asc(metadata_to_person::Column::Index)
+            .into_model::<PartialCreator>()
+            .all(&ss.db)
+            .map_err(|_| Error::new("Failed to fetch creators".to_owned())),
+        MetadataToMetadata::find()
+            .select_only()
+            .column(metadata_to_metadata::Column::ToMetadataId)
+            .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
+            .filter(
+                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion)
+            )
+            .into_tuple::<String>()
+            .all(&ss.db)
+            .map_err(|_| Error::new("Failed to fetch suggestions".to_owned())),
+        transform_entity_assets(&mut meta.assets, ss),
+    )?;
+
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();
     for cr in crts {
         let creator = MetadataCreator {
@@ -747,14 +762,6 @@ pub async fn generic_metadata(
         .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
         .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
         .collect_vec();
-    let suggestions = MetadataToMetadata::find()
-        .select_only()
-        .column(metadata_to_metadata::Column::ToMetadataId)
-        .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
-        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
-        .into_tuple::<String>()
-        .all(&ss.db)
-        .await?;
     Ok(MetadataBaseData {
         genres,
         creators,

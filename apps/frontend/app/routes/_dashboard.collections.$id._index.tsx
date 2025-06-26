@@ -53,7 +53,6 @@ import {
 	BulkEditingAffix,
 	DebouncedSearchInput,
 	DisplayCollectionEntity,
-	DisplayListDetailsAndRefresh,
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -238,10 +237,6 @@ export default function Page() {
 										<FiltersModalForm />
 									</FiltersModal>
 								</Group>
-								<DisplayListDetailsAndRefresh
-									total={details.results.details.total}
-									cacheId={loaderData.collectionContents.cacheId}
-								/>
 								{details.results.items.length > 0 ? (
 									<ApplicationGrid>
 										{details.results.items.map((lm) => {
@@ -446,11 +441,6 @@ const RecommendationsSection = () => {
 			/>
 			{recommendations.data ? (
 				<>
-					<DisplayListDetailsAndRefresh
-						total={
-							recommendations.data?.collectionRecommendations.details.total
-						}
-					/>
 					<ApplicationGrid>
 						{recommendations.data.collectionRecommendations.items.map((r) => (
 							<MetadataDisplayItem

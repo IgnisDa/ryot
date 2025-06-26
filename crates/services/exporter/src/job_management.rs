@@ -51,7 +51,7 @@ impl JobManager {
                 .service
                 .file_storage_service
                 .get_presigned_url(key.clone())
-                .await;
+                .await?;
             let metadata = self
                 .service
                 .file_storage_service

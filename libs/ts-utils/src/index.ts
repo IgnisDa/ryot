@@ -22,7 +22,6 @@ import mergeWith from "lodash/mergeWith";
 import omitBy from "lodash/omitBy";
 import pickBy from "lodash/pickBy";
 import reverse from "lodash/reverse";
-import set from "lodash/set";
 import snakeCase from "lodash/snakeCase";
 import sortBy from "lodash/sortBy";
 import startCase from "lodash/startCase";
@@ -152,7 +151,6 @@ export {
 	omitBy,
 	pickBy,
 	reverse,
-	set,
 	snakeCase,
 	sortBy,
 	startCase,

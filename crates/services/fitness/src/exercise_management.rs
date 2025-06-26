@@ -36,7 +36,7 @@ pub async fn exercise_details(
     match maybe_exercise {
         None => Err(Error::new("Exercise with the given ID could not be found.")),
         Some(mut e) => {
-            transform_entity_assets(&mut e.attributes.assets, ss).await;
+            transform_entity_assets(&mut e.attributes.assets, ss).await?;
             Ok(e)
         }
     }

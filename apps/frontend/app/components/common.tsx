@@ -77,7 +77,6 @@ import {
 	IconMoodSad,
 	IconPlus,
 	IconRefresh,
-	IconRotateClockwise,
 	IconScaleOutline,
 	IconSearch,
 	IconServer,
@@ -95,7 +94,6 @@ import {
 	Form,
 	Link,
 	useFetcher,
-	useLocation,
 	useNavigate,
 	useRevalidator,
 } from "react-router";
@@ -113,7 +111,7 @@ import {
 	getMetadataIcon,
 	getSurroundingElements,
 	openConfirmationModal,
-	redirectToQueryParam,
+	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
@@ -263,7 +261,13 @@ export const MediaDetailsLayout = (props: {
 						isPartialData ? (
 							<Loader size="sm" />
 						) : (
-							<ActionIcon size="sm" onClick={() => revalidator.revalidate()}>
+							<ActionIcon
+								size="sm"
+								onClick={() => {
+									refreshEntityDetails(props.partialDetailsFetcher.entityId);
+									revalidator.revalidate();
+								}}
+							>
 								<IconRefresh />
 							</ActionIcon>
 						)
@@ -1439,6 +1443,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 	cacheId?: string;
 	className?: string;
 	rightSection?: ReactNode;
+	isRandomSortOrderSelected?: boolean;
 }) => {
 	const submit = useConfirmSubmit();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
@@ -1452,14 +1457,12 @@ export const DisplayListDetailsAndRefresh = (props: {
 				item{props.total === 1 ? "" : "s"} found
 				{props.rightSection}
 			</Box>
-			{props.cacheId ? (
+			{props.cacheId && props.isRandomSortOrderSelected ? (
 				<Form
 					replace
 					method="POST"
-					onSubmit={(e) => submit(e)}
-					action={withQuery($path("/actions"), {
-						intent: "expireCacheKey",
-					})}
+					onSubmit={submit}
+					action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
 				>
 					<input type="hidden" name="cacheId" value={props.cacheId} />
 					<Button
@@ -1483,40 +1486,6 @@ export type ExpireCacheKeyButtonProps = {
 		cacheId: string;
 		confirmationText?: string;
 	};
-};
-
-export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
-	const submit = useConfirmSubmit();
-	const location = useLocation();
-
-	const action = props.action;
-
-	return (
-		<Form
-			replace
-			method="POST"
-			action={withQuery($path("/actions"), {
-				intent: "expireCacheKey",
-				[redirectToQueryParam]: location.pathname,
-			})}
-		>
-			<input type="hidden" name="cacheId" value={action.cacheId} />
-			<ActionIcon
-				type="submit"
-				variant="subtle"
-				onClick={(e) => {
-					if (!action.confirmationText) return;
-					const form = e.currentTarget.form;
-					if (form) {
-						e.preventDefault();
-						openConfirmationModal(action.confirmationText, () => submit(form));
-					}
-				}}
-			>
-				<IconRotateClockwise />
-			</ActionIcon>
-		</Form>
-	);
 };
 
 export const BulkEditingAffix = (props: {

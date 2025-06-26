@@ -2272,6 +2272,7 @@ dependencies = [
 name = "file-storage-service"
 version = "0.1.0"
 dependencies = [
+ "async-graphql",
  "aws-sdk-s3",
  "chrono",
  "nanoid",
