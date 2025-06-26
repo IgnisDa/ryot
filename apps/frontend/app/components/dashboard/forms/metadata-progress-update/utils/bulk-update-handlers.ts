@@ -1,9 +1,9 @@
 import { notifications } from "@mantine/notifications";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import { isNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
-import { isNumber } from "@ryot/ts-utils";
 
 export const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 	const {

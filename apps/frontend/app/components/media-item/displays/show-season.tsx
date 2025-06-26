@@ -1,4 +1,5 @@
 import { Box, Button } from "@mantine/core";
+import { sum } from "@ryot/ts-utils";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { Season, UserMetadataDetails } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
@@ -30,9 +31,7 @@ export const DisplayShowSeason = (props: {
 				name={getShowSeasonDisplayName(props.season)}
 				endDate={props.season.episodes.at(-1)?.publishDate}
 				startDate={props.season.episodes.at(0)?.publishDate}
-				runtime={props.season.episodes
-					.map((e) => e.runtime || 0)
-					.reduce((i, a) => i + a, 0)}
+				runtime={sum(props.season.episodes.map((e) => e.runtime || 0))}
 			>
 				{props.season.episodes.length > 0 ? (
 					<Button
