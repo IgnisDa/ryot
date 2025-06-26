@@ -1,6 +1,7 @@
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_models::EntityAssets;
+use common_models::PersonSourceSpecifics;
 use common_models::StringIdObject;
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, ryot_log};
 use database_models::{
@@ -645,13 +646,18 @@ pub async fn commit_person(
             if let Some(i) = data.image.clone() {
                 assets.remote_images = vec![i];
             }
+            let source_specifics =
+                match data.source_specifics == Some(PersonSourceSpecifics::default()) {
+                    true => ActiveValue::Set(None),
+                    false => ActiveValue::Set(data.source_specifics),
+                };
             let person = person::ActiveModel {
                 assets: ActiveValue::Set(assets),
                 name: ActiveValue::Set(data.name),
                 source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
                 identifier: ActiveValue::Set(data.identifier),
-                source_specifics: ActiveValue::Set(data.source_specifics),
+                source_specifics,
                 ..Default::default()
             };
             let person = person.insert(&ss.db).await?;
