@@ -1460,10 +1460,8 @@ export const DisplayListDetailsAndRefresh = (props: {
 				<Form
 					replace
 					method="POST"
-					onSubmit={(e) => submit(e)}
-					action={withQuery($path("/actions"), {
-						intent: "expireCacheKey",
-					})}
+					onSubmit={submit}
+					action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
 				>
 					<input type="hidden" name="cacheId" value={props.cacheId} />
 					<Button
