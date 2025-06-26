@@ -86,16 +86,7 @@ export const StatInput = (props: {
 						advanceOnboardingTourStep();
 				}),
 			);
-	}, [
-		value,
-		props.stat,
-		props.setIdx,
-		currentWorkout,
-		setCurrentWorkout,
-		props.exerciseIdx,
-		repsStepTourClassName,
-		weightStepTourClassName,
-	]);
+	}, [value, props.stat, props.setIdx, props.exerciseIdx]);
 
 	return currentWorkout ? (
 		<Flex style={{ flex: 1 }} justify="center">
