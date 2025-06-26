@@ -3,6 +3,7 @@ import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
+import { isNumber } from "@ryot/ts-utils";
 
 export const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 	const {
@@ -92,13 +93,9 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 		metadataToUpdate.mangaAllChaptersOrVolumesBefore
 	) {
 		const latestHistoryItem = history[0];
-		const isValidNumber = (value: unknown): boolean => {
-			const num = Number(value);
-			return !Number.isNaN(num) && Number.isFinite(num);
-		};
 
-		const hasValidChapter = isValidNumber(metadataToUpdate.mangaChapterNumber);
-		const hasValidVolume = isValidNumber(metadataToUpdate.mangaVolumeNumber);
+		const hasValidChapter = isNumber(metadataToUpdate.mangaChapterNumber);
+		const hasValidVolume = isNumber(metadataToUpdate.mangaVolumeNumber);
 
 		if (
 			(hasValidChapter && hasValidVolume) ||
