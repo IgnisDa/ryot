@@ -1,6 +1,7 @@
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_models::EntityAssets;
+use common_models::PersonSourceSpecifics;
 use common_models::StringIdObject;
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, ryot_log};
 use database_models::{
@@ -631,9 +632,12 @@ pub async fn commit_person(
     match Person::find()
         .filter(person::Column::Source.eq(data.source))
         .filter(person::Column::Identifier.eq(&data.identifier))
-        .filter(match data.source_specifics.clone() {
+        .filter(match &data.source_specifics {
             None => person::Column::SourceSpecifics.is_null(),
-            Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
+            Some(specifics) if *specifics == PersonSourceSpecifics::default() => {
+                person::Column::SourceSpecifics.is_null()
+            }
+            Some(specifics) => person::Column::SourceSpecifics.eq(Some(specifics.clone())),
         })
         .one(&ss.db)
         .await?
@@ -645,13 +649,20 @@ pub async fn commit_person(
             if let Some(i) = data.image.clone() {
                 assets.remote_images = vec![i];
             }
+            let source_specifics = match &data.source_specifics {
+                None => ActiveValue::Set(None),
+                Some(specifics) if *specifics == PersonSourceSpecifics::default() => {
+                    ActiveValue::Set(None)
+                }
+                Some(specifics) => ActiveValue::Set(Some(specifics.clone())),
+            };
             let person = person::ActiveModel {
+                source_specifics,
                 assets: ActiveValue::Set(assets),
                 name: ActiveValue::Set(data.name),
                 source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
                 identifier: ActiveValue::Set(data.identifier),
-                source_specifics: ActiveValue::Set(data.source_specifics),
                 ..Default::default()
             };
             let person = person.insert(&ss.db).await?;
