@@ -654,12 +654,12 @@ pub async fn commit_person(
                     false => ActiveValue::Set(data.source_specifics),
                 };
             let person = person::ActiveModel {
+                source_specifics,
                 assets: ActiveValue::Set(assets),
                 name: ActiveValue::Set(data.name),
                 source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
                 identifier: ActiveValue::Set(data.identifier),
-                source_specifics,
                 ..Default::default()
             };
             let person = person.insert(&ss.db).await?;
