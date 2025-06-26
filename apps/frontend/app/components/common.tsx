@@ -77,7 +77,6 @@ import {
 	IconMoodSad,
 	IconPlus,
 	IconRefresh,
-	IconRotateClockwise,
 	IconScaleOutline,
 	IconSearch,
 	IconServer,
@@ -95,7 +94,6 @@ import {
 	Form,
 	Link,
 	useFetcher,
-	useLocation,
 	useNavigate,
 	useRevalidator,
 } from "react-router";
@@ -113,7 +111,6 @@ import {
 	getMetadataIcon,
 	getSurroundingElements,
 	openConfirmationModal,
-	redirectToQueryParam,
 	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
@@ -1490,40 +1487,6 @@ export type ExpireCacheKeyButtonProps = {
 		cacheId: string;
 		confirmationText?: string;
 	};
-};
-
-export const ExpireCacheKeyButton = (props: ExpireCacheKeyButtonProps) => {
-	const submit = useConfirmSubmit();
-	const location = useLocation();
-
-	const action = props.action;
-
-	return (
-		<Form
-			replace
-			method="POST"
-			action={withQuery($path("/actions"), {
-				intent: "expireCacheKey",
-				[redirectToQueryParam]: location.pathname,
-			})}
-		>
-			<input type="hidden" name="cacheId" value={action.cacheId} />
-			<ActionIcon
-				type="submit"
-				variant="subtle"
-				onClick={(e) => {
-					if (!action.confirmationText) return;
-					const form = e.currentTarget.form;
-					if (form) {
-						e.preventDefault();
-						openConfirmationModal(action.confirmationText, () => submit(form));
-					}
-				}}
-			>
-				<IconRotateClockwise />
-			</ActionIcon>
-		</Form>
-	);
 };
 
 export const BulkEditingAffix = (props: {
