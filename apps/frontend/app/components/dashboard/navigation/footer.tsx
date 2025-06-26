@@ -8,13 +8,17 @@ export const Footer = () => {
 	return (
 		<Flex gap={80} justify="center">
 			{!coreDetails.isServerKeyValidated ? (
-				<Anchor href={coreDetails.websiteUrl} target="_blank">
+				<Anchor
+					target="_blank"
+					rel="noopener noreferrer"
+					href={coreDetails.websiteUrl}
+				>
 					<Text c="red" fw="bold">
 						Ryot Pro
 					</Text>
 				</Anchor>
 			) : null}
-			<Anchor href={discordLink} target="_blank">
+			<Anchor href={discordLink} target="_blank" rel="noopener noreferrer">
 				<Text c="indigo" fw="bold">
 					Discord
 				</Text>
@@ -22,7 +26,11 @@ export const Footer = () => {
 			<Text c="grape" fw="bold" visibleFrom="md">
 				{coreDetails.version}
 			</Text>
-			<Anchor href={coreDetails.repositoryLink} target="_blank">
+			<Anchor
+				target="_blank"
+				rel="noopener noreferrer"
+				href={coreDetails.repositoryLink}
+			>
 				<Text c="orange" fw="bold">
 					Github
 				</Text>
