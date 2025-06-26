@@ -1443,6 +1443,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 	cacheId?: string;
 	className?: string;
 	rightSection?: ReactNode;
+	isRandomSortOrderSelected?: boolean;
 }) => {
 	const submit = useConfirmSubmit();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
@@ -1456,7 +1457,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 				item{props.total === 1 ? "" : "s"} found
 				{props.rightSection}
 			</Box>
-			{props.cacheId ? (
+			{props.cacheId && props.isRandomSortOrderSelected ? (
 				<Form
 					replace
 					method="POST"

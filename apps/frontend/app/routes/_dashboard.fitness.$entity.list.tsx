@@ -241,6 +241,10 @@ export default function Page() {
 					<DisplayListDetailsAndRefresh
 						cacheId={loaderData.displayData.cacheId}
 						total={loaderData.displayData.details.total}
+						isRandomSortOrderSelected={
+							loaderData.query.sortBy ===
+							UserTemplatesOrWorkoutsListSortBy.Random
+						}
 					/>
 					{loaderData.displayData.items.length > 0 ? (
 						loaderData.displayData.items.map((entityId, index) => (

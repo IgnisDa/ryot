@@ -288,6 +288,9 @@ export default function Page() {
 						<DisplayListDetailsAndRefresh
 							cacheId={loaderData.userExercisesList.cacheId}
 							total={loaderData.userExercisesList.response.details.total}
+							isRandomSortOrderSelected={
+								loaderData.query.sortBy === ExerciseSortBy.Random
+							}
 							rightSection={
 								allowAddingExerciseToWorkout ? (
 									<>

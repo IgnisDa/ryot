@@ -289,6 +289,10 @@ export default function Page() {
 							<DisplayListDetailsAndRefresh
 								cacheId={loaderData.list.list.cacheId}
 								total={loaderData.list.list.response.details.total}
+								isRandomSortOrderSelected={
+									loaderData.list.url.sortBy ===
+									PersonAndMetadataGroupsSortBy.Random
+								}
 							/>
 							{loaderData.list.list.response.details.total > 0 ? (
 								<ApplicationGrid>
