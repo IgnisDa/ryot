@@ -629,14 +629,15 @@ pub async fn commit_person(
     data: CommitPersonInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
-    let is_source_specifics_empty =
-        data.source_specifics.clone() == Some(PersonSourceSpecifics::default());
     match Person::find()
         .filter(person::Column::Source.eq(data.source))
         .filter(person::Column::Identifier.eq(&data.identifier))
-        .filter(match is_source_specifics_empty {
-            true => person::Column::SourceSpecifics.is_null(),
-            false => person::Column::SourceSpecifics.eq(data.source_specifics.clone()),
+        .filter(match &data.source_specifics {
+            None => person::Column::SourceSpecifics.is_null(),
+            Some(specifics) if *specifics == PersonSourceSpecifics::default() => {
+                person::Column::SourceSpecifics.is_null()
+            }
+            Some(specifics) => person::Column::SourceSpecifics.eq(Some(specifics.clone())),
         })
         .one(&ss.db)
         .await?
@@ -648,9 +649,12 @@ pub async fn commit_person(
             if let Some(i) = data.image.clone() {
                 assets.remote_images = vec![i];
             }
-            let source_specifics = match is_source_specifics_empty {
-                true => ActiveValue::Set(None),
-                false => ActiveValue::Set(data.source_specifics),
+            let source_specifics = match &data.source_specifics {
+                None => ActiveValue::Set(None),
+                Some(specifics) if *specifics == PersonSourceSpecifics::default() => {
+                    ActiveValue::Set(None)
+                }
+                Some(specifics) => ActiveValue::Set(Some(specifics.clone())),
             };
             let person = person::ActiveModel {
                 source_specifics,
