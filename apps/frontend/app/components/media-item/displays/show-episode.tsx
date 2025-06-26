@@ -20,9 +20,9 @@ export const DisplayShowEpisode = (props: {
 			<DisplaySeasonOrEpisodeDetails
 				{...props.episode}
 				key={props.episode.episodeNumber}
-				name={`${props.episode.episodeNumber}. ${props.episode.name}`}
-				publishDate={props.episode.publishDate}
 				displayIndicator={numTimesEpisodeSeen}
+				publishDate={props.episode.publishDate}
+				name={`${props.episode.episodeNumber}. ${props.episode.name}`}
 			>
 				<Button
 					size="xs"

@@ -21,6 +21,8 @@ export const VideoIframe = (props: {
 				<iframe
 					width="100%"
 					height={200}
+					allowFullScreen
+					title="Video player"
 					src={
 						match(props.videoSource)
 							.with(
@@ -33,8 +35,6 @@ export const VideoIframe = (props: {
 							)
 							.exhaustive() + props.videoId
 					}
-					title="Video player"
-					allowFullScreen
 				/>
 			) : null}
 		</Box>

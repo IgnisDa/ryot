@@ -14,9 +14,9 @@ export const convertSecondsToDuration = (totalSeconds?: string | null) => {
 		remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes(),
 	);
 	return {
-		mo: mo || undefined,
 		d: d || undefined,
 		h: h || undefined,
+		mo: mo || undefined,
 		min: min || undefined,
 	};
 };

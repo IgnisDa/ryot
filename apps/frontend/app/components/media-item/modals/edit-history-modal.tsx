@@ -70,26 +70,26 @@ export const EditHistoryItemModal = (props: {
 				<Stack>
 					<Title order={3}>Edit history record</Title>
 					<DateTimePicker
-						label="Start Date & Time"
 						name="startedOn"
-						defaultValue={startedOn ? new Date(startedOn) : undefined}
+						label="Start Date & Time"
 						disabled={isNotCompleted}
+						defaultValue={startedOn ? new Date(startedOn) : undefined}
 					/>
 					<DateTimePicker
-						label="End Date & Time"
 						name="finishedOn"
-						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
+						label="End Date & Time"
 						disabled={isNotCompleted}
+						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 					/>
 					<Select
 						data={watchProviders}
+						name="providerWatchedOn"
+						defaultValue={providerWatchedOn}
+						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 						label={`Where did you ${getVerb(
 							Verb.Read,
 							props.metadataDetails.lot,
 						)} it?`}
-						name="providerWatchedOn"
-						defaultValue={providerWatchedOn}
-						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 					/>
 					<Tooltip
 						label={PRO_REQUIRED_MESSAGE}
@@ -97,12 +97,12 @@ export const EditHistoryItemModal = (props: {
 					>
 						<Select
 							clearable
-							searchable
 							limit={5}
+							searchable
 							name="reviewId"
-							disabled={!coreDetails.isServerKeyValidated}
 							label="Associate with a review"
 							defaultValue={props.seen.reviewId}
+							disabled={!coreDetails.isServerKeyValidated}
 							data={reviewsByThisCurrentUser.map((r) => ({
 								label: [
 									r.textOriginal

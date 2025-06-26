@@ -9,10 +9,10 @@ export const MergeMetadataModal = (props: {
 }) => {
 	return (
 		<Modal
+			centered
 			opened={props.opened}
 			onClose={props.onClose}
 			withCloseButton={false}
-			centered
 		>
 			<Form
 				replace

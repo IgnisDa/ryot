@@ -148,10 +148,10 @@ export const HistoryItem = (props: {
 		<>
 			<Flex
 				mb="sm"
-				mt={props.index === 0 ? undefined : "sm"}
 				key={props.history.id}
-				gap={{ base: "xs", md: "lg", xl: "xl" }}
 				data-seen-id={props.history.id}
+				gap={{ base: "xs", md: "lg", xl: "xl" }}
+				mt={props.index === 0 ? undefined : "sm"}
 				data-seen-num-times-updated={props.history.numTimesUpdated}
 			>
 				<Flex direction="column" justify="center">

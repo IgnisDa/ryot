@@ -36,9 +36,9 @@ export const DisplayShowSeason = (props: {
 			>
 				{props.season.episodes.length > 0 ? (
 					<Button
-						variant={isSeen ? "default" : "outline"}
 						size="xs"
 						color="blue"
+						variant={isSeen ? "default" : "outline"}
 						onClick={() => {
 							setMetadataToUpdate({
 								showAllEpisodesBefore: true,

@@ -20,13 +20,13 @@ export const DisplayPodcastEpisode = (props: {
 			<DisplaySeasonOrEpisodeDetails
 				{...props.episode}
 				name={props.episode.title}
-				posterImages={[props.episode.thumbnail || ""]}
-				publishDate={props.episode.publishDate}
 				displayIndicator={numTimesEpisodeSeen}
+				publishDate={props.episode.publishDate}
+				posterImages={[props.episode.thumbnail || ""]}
 			>
 				<Button
-					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					color="blue"
+					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					onClick={() => {
 						setMetadataToUpdate({
 							metadataId: props.metadataDetails.id,
