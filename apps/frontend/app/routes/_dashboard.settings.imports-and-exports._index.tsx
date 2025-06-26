@@ -465,6 +465,7 @@ export default function Page() {
 																	<Indicator
 																		inline
 																		size={12}
+																		zIndex={0}
 																		offset={-3}
 																		processing={isInProgress}
 																		color={
