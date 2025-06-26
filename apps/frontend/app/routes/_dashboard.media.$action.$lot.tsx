@@ -53,7 +53,6 @@ import { Link, useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { z } from "zod";
 import {
 	ApplicationGrid,
@@ -231,7 +230,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			] as const;
 		})
 		.exhaustive();
-	const url = new URL(request.url);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		totalResults,
@@ -247,7 +245,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		totalPages,
 		cookieName,
 		mediaSearch,
-		url: withoutHost(url.href),
 		[pageQueryParam]: Number(query[pageQueryParam]),
 	};
 };
