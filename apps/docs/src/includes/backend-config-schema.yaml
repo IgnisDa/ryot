@@ -182,6 +182,12 @@ server:
   # @envvar SERVER_GRAPHQL_PLAYGROUND_ENABLED
   graphql_playground_enabled: true
 
+  # The importer related settings.
+  importer:
+    # The client ID for the Trakt importer.
+    # @envvar SERVER_IMPORTER_TRAKT_CLIENT_ID
+    trakt_client_id: ""
+
   # Whether this is a demo instance.
   # @envvar SERVER_IS_DEMO_INSTANCE
   is_demo_instance: false
