@@ -49,7 +49,7 @@ export const useOpenedSidebarLinks = () => {
 };
 
 export const TOUR_EXERCISE_TARGET_ID = "Leg Press";
-export const TOUR_MOVIE_TARGET_ID = "three body";
+export const TOUR_METADATA_TARGET_ID = "three body";
 export const ACTIVE_WORKOUT_WEIGHT_TARGET = "20";
 export const ACTIVE_WORKOUT_REPS_TARGET = "10";
 
@@ -60,11 +60,11 @@ export enum OnboardingTourStepTargets {
 	SearchAudiobook = "tour-step-search-audiobook",
 	AddAudiobookToWatchlist = "tour-step-add-audiobook-to-watchlist",
 	OpenMetadataProgressForm = "tour-step-open-metadata-progress-form",
-	AddAudiobookToWatchedHistory = "tour-step-add-movie-to-watched-history",
-	GoToAudiobooksSectionAgain = "tour-step-go-to-movies-section-again",
+	AddAudiobookToWatchedHistory = "tour-step-add-audiobook-to-watched-history",
+	GoToAudiobooksSectionAgain = "tour-step-go-to-audiobooks-section-again",
 	MetadataDetailsActionsTab = "tour-step-metadata-details-actions-tab",
-	GoBackToAudiobooksSection = "tour-step-go-back-to-movies-section",
-	ShowAudiobooksListPage = "tour-step-show-movies-list-page",
+	GoBackToAudiobooksSection = "tour-step-go-back-to-audiobooks-section",
+	ShowAudiobooksListPage = "tour-step-show-audiobooks-list-page",
 	OpenFitnessSidebar = "tour-step-open-fitness-sidebar",
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
 	AddNewWorkout = "tour-step-add-new-workout",
@@ -119,10 +119,10 @@ export const useOnboardingTour = () => {
 	const startOnboardingTour = async () => {
 		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
 			draft.featuresEnabled.media.enabled = true;
-			const isMoviesEnabled = draft.featuresEnabled.media.specific.findIndex(
+			const isFeatureEnabled = draft.featuresEnabled.media.specific.findIndex(
 				(l) => l === MediaLot.AudioBook,
 			);
-			if (isMoviesEnabled === -1)
+			if (isFeatureEnabled === -1)
 				draft.featuresEnabled.media.specific.push(MediaLot.AudioBook);
 
 			draft.featuresEnabled.fitness.enabled = true;
@@ -228,7 +228,7 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.Welcome,
 				content:
-					"Welcome to Ryot! Let's get started by adding a movie to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+					"Welcome to Ryot! Let's get started by adding an audiobook to your watchlist. Click on the media section in the sidebar to see what all you can track.",
 			},
 			{
 				target: OnboardingTourStepTargets.FirstSidebar,
@@ -242,7 +242,7 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTargets.SearchAudiobook,
-				content: `You can find any movie here. Let us proceed by searching for "${TOUR_MOVIE_TARGET_ID}".`,
+				content: `You can find any audiobook here. Let us proceed by searching for "${TOUR_METADATA_TARGET_ID}".`,
 			},
 			{
 				target: OnboardingTourStepTargets.AddAudiobookToWatchlist,

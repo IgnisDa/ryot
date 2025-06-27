@@ -87,7 +87,7 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
-	TOUR_MOVIE_TARGET_ID,
+	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
 import {
@@ -453,7 +453,7 @@ export default function Page() {
 									tourControl={{
 										target: OnboardingTourStepTargets.SearchAudiobook,
 										onQueryChange: (query) => {
-											if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
+											if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
 												advanceOnboardingTourStep();
 											}
 										},
