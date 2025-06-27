@@ -507,6 +507,7 @@ impl AppConfig {
         cl.server.smtp.user = gt();
         cl.server.smtp.password = gt();
         cl.server.smtp.mailbox = gt();
+        cl.server.importer.trakt_client_id = gt();
         cl.server.oidc.client_id = gt();
         cl.server.oidc.client_secret = gt();
         cl.server.oidc.issuer_url = gt();
