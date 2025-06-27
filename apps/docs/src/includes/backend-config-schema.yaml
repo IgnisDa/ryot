@@ -184,7 +184,7 @@ server:
 
   # The importer related settings.
   importer:
-    # The client ID for the Trakt importer.
+    # The client ID for the Trakt importer. **Required** to enable Trakt importer.
     # @envvar SERVER_IMPORTER_TRAKT_CLIENT_ID
     trakt_client_id: ""
 

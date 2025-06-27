@@ -352,7 +352,7 @@ pub struct OidcConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_IMPORTER_")]
 pub struct ImporterConfig {
-    /// The client ID for the Trakt importer.
+    /// The client ID for the Trakt importer. **Required** to enable Trakt importer.
     #[setting(default = default_trakt_client_id)]
     pub trakt_client_id: String,
 }
