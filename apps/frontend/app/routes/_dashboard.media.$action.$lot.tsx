@@ -87,7 +87,7 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
-	TOUR_MOVIE_TARGET_ID,
+	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
 import {
@@ -285,7 +285,7 @@ export default function Page() {
 			defaultFilters.mineCollections,
 		);
 	const isEligibleForNextTourStep =
-		loaderData.lot === MediaLot.Movie && isOnboardingTourInProgress;
+		loaderData.lot === MediaLot.AudioBook && isOnboardingTourInProgress;
 
 	return (
 		<>
@@ -335,7 +335,7 @@ export default function Page() {
 						<Tabs.Tab
 							value="search"
 							leftSection={<IconSearch size={24} />}
-							className={OnboardingTourStepTargets.GoToMoviesSection}
+							className={OnboardingTourStepTargets.GoToAudiobooksSection}
 						>
 							<Text>Search</Text>
 						</Tabs.Tab>
@@ -384,7 +384,6 @@ export default function Page() {
 							<DisplayListDetailsAndRefresh
 								cacheId={loaderData.mediaList.list.cacheId}
 								total={loaderData.mediaList.list.response.details.total}
-								className={OnboardingTourStepTargets.RefreshMoviesListPage}
 								isRandomSortOrderSelected={
 									loaderData.mediaList.url.sortBy === MediaSortBy.Random
 								}
@@ -395,7 +394,7 @@ export default function Page() {
 								<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 							) : loaderData.mediaList.list.response.details.total > 0 ? (
 								<ApplicationGrid
-									className={OnboardingTourStepTargets.ShowMoviesListPage}
+									className={OnboardingTourStepTargets.ShowAudiobooksListPage}
 								>
 									{loaderData.mediaList.list.response.items.map((item) => {
 										const becItem = {
@@ -452,9 +451,9 @@ export default function Page() {
 										loaderData.lot.toLowerCase(),
 									).toLowerCase()}s`}
 									tourControl={{
-										target: OnboardingTourStepTargets.SearchMovie,
+										target: OnboardingTourStepTargets.SearchAudiobook,
 										onQueryChange: (query) => {
-											if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
+											if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
 												advanceOnboardingTourStep();
 											}
 										},
@@ -535,7 +534,7 @@ const MediaSearchItem = (props: {
 		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
 
 	const tourControlOne = props.isFirstItem
-		? OnboardingTourStepTargets.AddMovieToWatchlist
+		? OnboardingTourStepTargets.AddAudiobookToWatchlist
 		: undefined;
 
 	const tourControlTwo = props.isFirstItem
@@ -543,7 +542,7 @@ const MediaSearchItem = (props: {
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
-		? OnboardingTourStepTargets.GoToMoviesSectionAgain
+		? OnboardingTourStepTargets.GoToAudiobooksSectionAgain
 		: undefined;
 
 	return (
@@ -551,7 +550,7 @@ const MediaSearchItem = (props: {
 			<MetadataDisplayItem
 				metadataId={props.item}
 				shouldHighlightNameIfInteracted
-				imageClassName={OnboardingTourStepTargets.GoToMoviesSectionAgain}
+				imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
 				onImageClickBehavior={async () => {
 					if (tourControlThree) advanceOnboardingTourStep();
 				}}

@@ -1,6 +1,8 @@
 # Trakt
 
-You can import from either a public Trakt user or a public Trakt list.
+You can import from either a public Trakt user or a public Trakt list. If you are on a
+self-hosted instance, you need to set up the Trakt client ID in the environment variables
+as described in the [guide](../guides/trakt.md).
 
 ## User
 

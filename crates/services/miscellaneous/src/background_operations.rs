@@ -171,6 +171,7 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     Ok(())
 }
 
+// FIXME: Remove this in the next major version
 async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingService>) -> Result<()> {
     #[derive(Debug, FromQueryResult)]
     struct CustomQueryResponse {

@@ -130,10 +130,7 @@ import {
 	type BulkAddEntities,
 	useBulkEditCollection,
 } from "~/lib/state/collection";
-import {
-	type OnboardingTourStepTargets,
-	useOnboardingTour,
-} from "~/lib/state/general";
+import type { OnboardingTourStepTargets } from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -1441,12 +1438,10 @@ const UnstyledLink = (props: { children: ReactNode; to: string }) => {
 export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId?: string;
-	className?: string;
 	rightSection?: ReactNode;
 	isRandomSortOrderSelected?: boolean;
 }) => {
 	const submit = useConfirmSubmit();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -1469,8 +1464,6 @@ export const DisplayListDetailsAndRefresh = (props: {
 						size="xs"
 						type="submit"
 						variant="subtle"
-						className={props.className}
-						onClick={() => advanceOnboardingTourStep()}
 						leftSection={<IconArrowsShuffle size={20} />}
 					>
 						Refresh

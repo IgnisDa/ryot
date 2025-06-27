@@ -4,7 +4,6 @@ use common_utils::{APPLICATION_JSON_HEADER, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
-use env_utils::TRAKT_CLIENT_ID;
 use itertools::Itertools;
 use media_models::{
     CreateOrUpdateCollectionInput, DeployTraktImportInput, DeployTraktImportListInput,
@@ -66,14 +65,14 @@ struct ListResponse {
     items: Vec<ListItemResponse>,
 }
 
-pub async fn import(input: DeployTraktImportInput) -> Result<ImportResult> {
+pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<ImportResult> {
     let mut failed = vec![];
 
     let client = get_base_http_client(Some(vec![
         (CONTENT_TYPE, APPLICATION_JSON_HEADER.clone()),
         (
             HeaderName::from_static("trakt-api-key"),
-            HeaderValue::from_static(TRAKT_CLIENT_ID),
+            HeaderValue::from_str(client_id).unwrap(),
         ),
         (
             HeaderName::from_static("trakt-api-version"),

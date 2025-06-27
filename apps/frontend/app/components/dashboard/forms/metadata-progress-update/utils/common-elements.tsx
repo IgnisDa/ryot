@@ -90,7 +90,7 @@ export const SubmitButton = ({ disabled, onClick }: SubmitButtonProps) => {
 		<Button
 			variant="outline"
 			disabled={disabled}
-			className={OnboardingTourStepTargets.AddMovieToWatchedHistory}
+			className={OnboardingTourStepTargets.AddAudiobookToWatchedHistory}
 			onClick={() => {
 				onClick();
 				advanceOnboardingTourStep();

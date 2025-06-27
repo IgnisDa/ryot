@@ -100,7 +100,13 @@ impl ImporterService {
                 )
                 .await
             }
-            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await,
+            ImportSource::Trakt => {
+                trakt::import(
+                    input.trakt.unwrap(),
+                    self.0.config.server.importer.trakt_client_id.as_str(),
+                )
+                .await
+            }
             ImportSource::Movary => movary::import(input.movary.unwrap()).await,
             ImportSource::Storygraph => {
                 storygraph::import(
