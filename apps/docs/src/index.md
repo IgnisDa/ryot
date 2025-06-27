@@ -36,15 +36,16 @@ volumes:
   postgres_storage:
 ```
 
-If you would like to run the pro version, please check [below](#upgrading-to-pro). To see
-the features of the pro version, check the
-<a :href="`${variables.mainWebsiteUrl}/features`" target="_blank">features page</a>.
+Some providers (eg: TMDB for movies, IGDB for video games) need access tokens. Please visit
+the [configuration](./configuration.md) page for more information.
 
 ## Upgrading to Pro
 
-To upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
-You can get a key by purchasing it from the
-<a :href="variables.mainWebsiteUrl" target="_blank">website</a>.
+To see the features of the pro version, check the <a
+:href="`${variables.mainWebsiteUrl}/features`" target="_blank">features page</a>. To
+upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
+You can get a key by purchasing it from the <a :href="variables.mainWebsiteUrl"
+target="_blank">website</a>.
 
 Once you have the key, you can set it in the `docker-compose.yml` file:
 
