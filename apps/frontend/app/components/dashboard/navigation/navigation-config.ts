@@ -17,8 +17,8 @@ export const getMediaLinks = (
 				label: changeCase(f),
 				link: $path("/media/:action/:lot", { action: "list", lot: f }),
 				tourControlTarget:
-					isOnboardingTourInProgress && f === MediaLot.Movie
-						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToMoviesSection}`
+					isOnboardingTourInProgress && f === MediaLot.AudioBook
+						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToAudiobooksSection}`
 						: undefined,
 			};
 		}),

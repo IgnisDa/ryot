@@ -49,23 +49,22 @@ export const useOpenedSidebarLinks = () => {
 };
 
 export const TOUR_EXERCISE_TARGET_ID = "Leg Press";
-export const TOUR_MOVIE_TARGET_ID = "avengers";
+export const TOUR_MOVIE_TARGET_ID = "three body";
 export const ACTIVE_WORKOUT_WEIGHT_TARGET = "20";
 export const ACTIVE_WORKOUT_REPS_TARGET = "10";
 
 export enum OnboardingTourStepTargets {
 	Welcome = "tour-step-welcome",
 	FirstSidebar = "tour-step-first-sidebar",
-	// TODO: Change this books or audiobooks or music
-	GoToMoviesSection = "tour-step-go-to-movies-section",
-	SearchMovie = "tour-step-search-movie",
-	AddMovieToWatchlist = "tour-step-add-movie-to-watchlist",
+	GoToAudiobooksSection = "tour-step-go-to-audiobooks-section",
+	SearchAudiobook = "tour-step-search-audiobook",
+	AddAudiobookToWatchlist = "tour-step-add-audiobook-to-watchlist",
 	OpenMetadataProgressForm = "tour-step-open-metadata-progress-form",
-	AddMovieToWatchedHistory = "tour-step-add-movie-to-watched-history",
-	GoToMoviesSectionAgain = "tour-step-go-to-movies-section-again",
+	AddAudiobookToWatchedHistory = "tour-step-add-movie-to-watched-history",
+	GoToAudiobooksSectionAgain = "tour-step-go-to-movies-section-again",
 	MetadataDetailsActionsTab = "tour-step-metadata-details-actions-tab",
-	GoBackToMoviesSection = "tour-step-go-back-to-movies-section",
-	ShowMoviesListPage = "tour-step-show-movies-list-page",
+	GoBackToAudiobooksSection = "tour-step-go-back-to-movies-section",
+	ShowAudiobooksListPage = "tour-step-show-movies-list-page",
 	OpenFitnessSidebar = "tour-step-open-fitness-sidebar",
 	OpenWorkoutsSection = "tour-step-open-workouts-section",
 	AddNewWorkout = "tour-step-add-new-workout",
@@ -121,10 +120,10 @@ export const useOnboardingTour = () => {
 		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
 			draft.featuresEnabled.media.enabled = true;
 			const isMoviesEnabled = draft.featuresEnabled.media.specific.findIndex(
-				(l) => l === MediaLot.Movie,
+				(l) => l === MediaLot.AudioBook,
 			);
 			if (isMoviesEnabled === -1)
-				draft.featuresEnabled.media.specific.push(MediaLot.Movie);
+				draft.featuresEnabled.media.specific.push(MediaLot.AudioBook);
 
 			draft.featuresEnabled.fitness.enabled = true;
 			draft.featuresEnabled.fitness.workouts = true;
@@ -234,54 +233,53 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.FirstSidebar,
 				content:
-					"Now, click on the movies section to start tracking your favorite movies.",
+					"Now, click on the audiobooks section to start tracking some audiobooks.",
 			},
 			{
-				target: OnboardingTourStepTargets.GoToMoviesSection,
+				target: OnboardingTourStepTargets.GoToAudiobooksSection,
 				content:
-					"Let's start by adding a movie to your watchlist. Click on the search tab to search for a movie.",
+					"Let's start by adding an audiobook to your watchlist. Click on the search tab to search for an audiobook.",
 			},
 			{
-				target: OnboardingTourStepTargets.SearchMovie,
+				target: OnboardingTourStepTargets.SearchAudiobook,
 				content: `You can find any movie here. Let us proceed by searching for "${TOUR_MOVIE_TARGET_ID}".`,
 			},
 			{
-				target: OnboardingTourStepTargets.AddMovieToWatchlist,
+				target: OnboardingTourStepTargets.AddAudiobookToWatchlist,
 				content:
-					"Now, add this movie to your watchlist. Note: you can remove it later.",
+					"Now, add this audiobook to your watchlist. Note: you can remove it later.",
 			},
 			{
 				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
 				content:
-					"Great! You've added your first movie to your watchlist. Now, let's add it to your watched history.",
+					"Great! You've added your first audiobook to your watchlist. Now, let's add it to your history.",
 			},
 			{
-				target: OnboardingTourStepTargets.AddMovieToWatchedHistory,
-				content:
-					"Select a desired date that you watched the movie and click on the 'Submit' button.",
+				target: OnboardingTourStepTargets.AddAudiobookToWatchedHistory,
+				content: "Click on the 'Submit' button to record your progress.",
 			},
 			{
-				target: OnboardingTourStepTargets.GoToMoviesSectionAgain,
+				target: OnboardingTourStepTargets.GoToAudiobooksSectionAgain,
 				content:
-					"Great! Now, let's view some more details about the movie. Click on the movies section to continue.",
+					"Great! Now, let's view some more details about the audiobook. Click on the audiobooks section to continue.",
 			},
 			{
 				target: OnboardingTourStepTargets.MetadataDetailsActionsTab,
 				content:
-					"The most important tab is the 'Actions' tab. Here you can add the movie to your collection, mark it as watched, etc.",
+					"The most important tab is the 'Actions' tab. Here you can add the audiobook to your collection, mark it as listened, etc.",
 			},
 			{
-				target: OnboardingTourStepTargets.GoBackToMoviesSection,
+				target: OnboardingTourStepTargets.GoBackToAudiobooksSection,
 				content:
-					"Great! Let's go back to the movies section and see your library.",
+					"Great! Let's go back to the audiobooks section and see your library.",
 			},
 			{
-				target: OnboardingTourStepTargets.ShowMoviesListPage,
+				target: OnboardingTourStepTargets.ShowAudiobooksListPage,
 				content: (
 					<Stack>
 						<Text>
-							Here are all the movies in your library. Click on the next button
-							to continue to the fitness section.
+							Here are all the audiobooks in your library. Click on the next
+							button to continue to the fitness section.
 						</Text>
 						<Button.Group>
 							<Button
