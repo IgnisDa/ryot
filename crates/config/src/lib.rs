@@ -147,6 +147,7 @@ pub struct DatabaseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 pub struct ExerciseConfig {}
 
+// FIXME: Remove this in the next major version
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {
