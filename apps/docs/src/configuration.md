@@ -10,7 +10,6 @@ Ryot serves the final configuration loaded at the `/backend/config` endpoint as 
 
 | Environment variable                 | Description                                                                                                                       |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                               | The port to listen on. Defaults to `8000`.                                                                                        |
 | `TZ`                                 | Timezone to be used for cron jobs. Accepts values according to the IANA database. Defaults to `GMT`.                              |
 | `DISABLE_TELEMETRY`                  | Disables telemetry collection using [Umami](https://umami.is). Defaults to `false`.                                               |
 | `DATABASE_URL`                       | The Postgres database connection string.                                                                                          |
