@@ -475,6 +475,11 @@ const DisplayCollection = (props: {
 					{props.collection.isDefault ? (
 						<Text lineClamp={1} mt="auto" ta="right" c="dimmed" size="xs">
 							System created
+							{props.collection.collaborators.find(
+								(c) => c.collaborator.id === userDetails.id,
+							)?.extraInformation?.isHidden
+								? ", Hidden"
+								: ""}
 						</Text>
 					) : null}
 				</Stack>
