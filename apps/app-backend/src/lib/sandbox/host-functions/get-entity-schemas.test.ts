@@ -11,6 +11,7 @@ const listedEntitySchema: ListedEntitySchema = {
 	id: "schema_1",
 	isBuiltin: false,
 	accentColor: "blue",
+	searchProviders: [],
 	trackerId: "tracker_1",
 	propertiesSchema: { title: { type: "string" } },
 };
