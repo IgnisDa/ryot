@@ -77,6 +77,38 @@ describe("getGeneratedPropertyFieldConfig", () => {
 		).toBeNull();
 	});
 
+	it("returns select config for enum properties", () => {
+		expect(
+			getGeneratedPropertyFieldConfig("status", {
+				type: "enum",
+				label: "Status",
+				validation: { required: true },
+				options: ["draft", "published", "archived"],
+			}),
+		).toEqual({
+			kind: "select",
+			required: true,
+			label: "Status",
+			placeholder: "Select Status",
+			options: ["draft", "published", "archived"],
+		});
+	});
+
+	it("returns multiselect config for enum-array properties", () => {
+		expect(
+			getGeneratedPropertyFieldConfig("genres", {
+				label: "Genres",
+				type: "enum-array",
+				options: ["fiction", "non-fiction", "mystery"],
+			}),
+		).toEqual({
+			required: false,
+			label: "Genres",
+			kind: "multiselect",
+			options: ["fiction", "non-fiction", "mystery"],
+		});
+	});
+
 	it("can fall back unsupported property types to text fields", () => {
 		expect(
 			getGeneratedPropertyFieldConfig(
