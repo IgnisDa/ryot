@@ -1,6 +1,6 @@
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
-import { dayjs } from "@ryot/ts-utils";
 import type { Client } from "./auth";
+import { type PollOptions, pollUntil } from "./polling";
 import { findBuiltinTracker } from "./trackers";
 
 type EnqueueEntitySearchBody = NonNullable<
@@ -16,18 +16,6 @@ type EnqueueEntityImportBody = NonNullable<
 
 type PollEntityImportResponse =
 	paths["/entity-schemas/import/{jobId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
-
-export interface PollEntitySearchOptions {
-	timeoutMs?: number;
-	intervalMs?: number;
-}
-
-export interface PollEntityImportOptions {
-	timeoutMs?: number;
-	intervalMs?: number;
-}
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export type AppPropertyDefinition = {
 	type: string;
@@ -178,39 +166,22 @@ export async function pollEntitySearchResult(
 	client: Client,
 	cookies: string,
 	jobId: string,
-	options: PollEntitySearchOptions = {},
+	options: PollOptions = {},
 ) {
-	const { intervalMs = 500, timeoutMs = 30_000 } = options;
-	const deadline = dayjs().add(timeoutMs, "millisecond");
-
-	for (;;) {
-		const { data, response } = await client.GET(
-			"/entity-schemas/search/{jobId}",
-			{
-				params: { path: { jobId } },
-				headers: { Cookie: cookies },
-			},
-		);
-
-		if (response.status !== 200 || !data?.data) {
-			throw new Error(`Failed to poll entity search result '${jobId}'`);
-		}
-
-		const result: PollEntitySearchResponse = data.data;
-		if (result.status !== "pending") {
-			return result;
-		}
-
-		const remainingMs = deadline.diff(dayjs());
-		if (remainingMs <= 0) {
-			break;
-		}
-
-		await delay(Math.min(intervalMs, remainingMs));
-	}
-
-	throw new Error(
-		`Entity search job '${jobId}' did not reach a terminal state within ${timeoutMs}ms`,
+	return pollUntil(
+		`entity search job '${jobId}'`,
+		async () => {
+			const { data, response } = await client.GET(
+				"/entity-schemas/search/{jobId}",
+				{ params: { path: { jobId } }, headers: { Cookie: cookies } },
+			);
+			if (response.status !== 200 || !data?.data) {
+				throw new Error(`Failed to poll entity search result '${jobId}'`);
+			}
+			const result: PollEntitySearchResponse = data.data;
+			return result.status !== "pending" ? result : null;
+		},
+		options,
 	);
 }
 
@@ -235,35 +206,21 @@ export async function pollEntityImportResult(
 	client: Client,
 	cookies: string,
 	jobId: string,
-	options: PollEntityImportOptions = {},
+	options: PollOptions = {},
 ) {
-	const { intervalMs = 500, timeoutMs = 30_000 } = options;
-	const deadline = dayjs().add(timeoutMs, "millisecond");
-
-	for (;;) {
-		const { data, response } = await client.GET(
-			"/entity-schemas/import/{jobId}",
-			{ params: { path: { jobId } }, headers: { Cookie: cookies } },
-		);
-
-		if (response.status !== 200 || !data?.data) {
-			throw new Error(`Failed to poll entity import result '${jobId}'`);
-		}
-
-		const result: PollEntityImportResponse = data.data;
-		if (result.status !== "pending") {
-			return result;
-		}
-
-		const remainingMs = deadline.diff(dayjs());
-		if (remainingMs <= 0) {
-			break;
-		}
-
-		await delay(Math.min(intervalMs, remainingMs));
-	}
-
-	throw new Error(
-		`Entity import job '${jobId}' did not reach a terminal state within ${timeoutMs}ms`,
+	return pollUntil(
+		`entity import job '${jobId}'`,
+		async () => {
+			const { data, response } = await client.GET(
+				"/entity-schemas/import/{jobId}",
+				{ params: { path: { jobId } }, headers: { Cookie: cookies } },
+			);
+			if (response.status !== 200 || !data?.data) {
+				throw new Error(`Failed to poll entity import result '${jobId}'`);
+			}
+			const result: PollEntityImportResponse = data.data;
+			return result.status !== "pending" ? result : null;
+		},
+		options,
 	);
 }
