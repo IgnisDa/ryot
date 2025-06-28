@@ -11,6 +11,7 @@ import {
 
 const recentActivitySelection = {
 	id: event.id,
+	entityId: entity.id,
 	entityName: entity.name,
 	entityImage: entity.image,
 	occurredAt: event.createdAt,
@@ -130,6 +131,7 @@ export const listRecentActivityEventsForUser = async (input: {
 		return [
 			{
 				id: row.id,
+				entityId: row.entityId,
 				eventSchemaSlug: row.eventSchemaSlug,
 				rating: toNullableRating(row.properties),
 				occurredAt: resolveOccurredAt({
