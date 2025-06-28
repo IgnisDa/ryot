@@ -5,13 +5,12 @@ import { db } from "~/lib/db";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
-import type { PreparedQueryContext } from "./preparer";
+import { buildQueryContext, type PreparedQueryContext } from "./preparer";
 import {
 	buildEventFirstCte,
 	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 } from "./query-ctes";
 import type {
-	QueryEngineContext,
 	QueryEngineTimeSeriesResponse,
 	TimeSeriesQueryEngineRequest,
 } from "./schemas";
@@ -53,13 +52,11 @@ export const executeTimeSeriesQuery = async (input: {
 	context: PreparedQueryContext;
 	request: TimeSeriesQueryEngineRequest;
 }): Promise<QueryEngineTimeSeriesResponse> => {
-	const queryContext: QueryEngineContext = {
-		userId: input.userId,
+	const queryContext = buildQueryContext(input.userId, input.context, {
 		eventJoinMap: new Map(),
-		schemaMap: input.context.schemaMap,
 		eventSchemaMap: input.context.eventSchemaMap,
 		entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
-	};
+	});
 
 	const bucketInterval = buildBucketInterval(input.request.bucket);
 	const alignedDateRange = alignDateRangeToBucket({

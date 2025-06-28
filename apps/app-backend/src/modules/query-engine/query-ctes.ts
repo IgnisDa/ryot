@@ -7,6 +7,8 @@ export {
 export { buildEventFirstCte } from "./event-query-ctes";
 export { buildPaginatedQuerySql } from "./paginated-query-sql";
 export {
+	ENTITY_CTE_ALIASES,
+	EVENT_CTE_ALIASES,
 	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 	getEventJoinCteName,
 	type PaginationConfig,
