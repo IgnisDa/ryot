@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -32,12 +32,12 @@ Follow the fixture and test patterns established in `tests/src/fixtures/entity-s
 
 ## Acceptance criteria
 
-- [ ] `tests/src/fixtures/sandbox.ts` exists and exports `enqueueSandboxScript` and `pollSandboxResult`.
-- [ ] Both helpers are re-exported from `tests/src/fixtures/index.ts`.
-- [ ] All 9 test scenarios exist in `tests/src/tests/sandbox.test.ts` and pass.
-- [ ] The `getEntitySchemas` test creates real data and asserts on it — it does not use hardcoded IDs.
-- [ ] Cross-user and unauthenticated tests verify access control at the HTTP response level.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `tests/`.
+- [x] `tests/src/fixtures/sandbox.ts` exists and exports `enqueueSandboxScript` and `pollSandboxResult`.
+- [x] Both helpers are re-exported from `tests/src/fixtures/index.ts`.
+- [x] All 9 test scenarios exist in `tests/src/tests/sandbox.test.ts` and pass.
+- [x] The `getEntitySchemas` test creates real data and asserts on it — it does not use hardcoded IDs.
+- [x] Cross-user and unauthenticated tests verify access control at the HTTP response level.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `tests/`.
 
 ## Blocked by
 
