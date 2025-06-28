@@ -51,6 +51,7 @@ export class SandboxService {
 				code: options.code,
 				userId: options.userId,
 				context: options.context,
+				scriptId: options.scriptId,
 				apiFunctionDescriptors: options.apiFunctionDescriptors,
 			},
 			{ jobId },
