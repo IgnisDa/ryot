@@ -36,16 +36,16 @@ describe("parseFieldPath", () => {
 
 	it("parses event column references (3 segments, no @)", () => {
 		expect(parseFieldPath("event.review.createdAt")).toEqual({
-			type: "event",
 			joinKey: "review",
+			type: "event-join",
 			path: ["createdAt"],
 		});
 	});
 
 	it("parses event schema property references (properties keyword)", () => {
 		expect(parseFieldPath("event.review.properties.rating")).toEqual({
-			type: "event",
 			joinKey: "review",
+			type: "event-join",
 			path: ["properties", "rating"],
 		});
 	});

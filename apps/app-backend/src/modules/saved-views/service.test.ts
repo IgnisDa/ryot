@@ -104,6 +104,33 @@ describe("createSavedView", () => {
 			createSavedView({ userId: "user_1", body: createSavedViewBody() }, deps),
 		).rejects.toThrow("Database connection lost");
 	});
+
+	it("returns validation before persisting unsupported saved view query modes", async () => {
+		let wasPersisted = false;
+		const deps = createSavedViewDeps({
+			prepareForValidation: async () => {
+				throw new QueryEngineValidationError(
+					"Saved view display configuration only supports entity mode queries",
+				);
+			},
+			createSavedViewForUser: async () => {
+				wasPersisted = true;
+				return createListedSavedView();
+			},
+		});
+
+		const result = await createSavedView(
+			{ userId: "user_1", body: createSavedViewBody() },
+			deps,
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message:
+				"Saved view display configuration only supports entity mode queries",
+		});
+		expect(wasPersisted).toBe(false);
+	});
 });
 
 describe("updateSavedView", () => {

@@ -6,7 +6,10 @@ import {
 	nullableViewExpressionSchema,
 	viewExpressionSchema,
 } from "~/lib/views/expression";
-import { nullableViewPredicateSchema } from "~/lib/views/filtering";
+import {
+	nullableViewPredicateSchema,
+	viewPredicateSchema,
+} from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
@@ -99,27 +102,99 @@ export const relationshipFilterArraySchema = z
 	.array(relationshipFilterSchema)
 	.default([]);
 
-const createSavedViewQueryDefinitionSchema = (
+export const timeSeriesMetricSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("count") }).strict(),
+	z
+		.object({ type: z.literal("sum"), expression: viewExpressionSchema })
+		.strict(),
+]);
+
+export const aggregateExpressionSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("count") }).strict(),
+	z
+		.object({ predicate: viewPredicateSchema, type: z.literal("countWhere") })
+		.strict(),
+	z
+		.object({ type: z.literal("sum"), expression: viewExpressionSchema })
+		.strict(),
+	z
+		.object({ type: z.literal("avg"), expression: viewExpressionSchema })
+		.strict(),
+	z
+		.object({ type: z.literal("min"), expression: viewExpressionSchema })
+		.strict(),
+	z
+		.object({ type: z.literal("max"), expression: viewExpressionSchema })
+		.strict(),
+	z
+		.object({ type: z.literal("countBy"), groupBy: viewExpressionSchema })
+		.strict(),
+]);
+
+export const aggregationFieldSchema = z
+	.object({
+		key: nonEmptyTrimmedStringSchema,
+		aggregation: aggregateExpressionSchema,
+	})
+	.strict();
+
+export const aggregationFieldArraySchema = z
+	.array(aggregationFieldSchema)
+	.refine(
+		(fields) =>
+			new Set(fields.map((field) => field.key)).size === fields.length,
+		"Aggregation keys must be unique",
+	)
+	.min(1, "At least one aggregation is required");
+
+const createSavedViewQueryDefinitionBaseSchema = (
 	scope: typeof storedSavedViewScopeSchema,
 ) =>
 	z.object({
 		scope,
-		sort: sortDefinitionSchema,
 		computedFields: computedFieldArraySchema,
 		eventJoins: eventJoinDefinitionArraySchema,
 		relationships: relationshipFilterArraySchema,
 		filter: nullableViewPredicateSchema.default(null),
 	});
 
-export const savedViewQueryDefinitionSchema =
-	createSavedViewQueryDefinitionSchema(scopeSchema);
+const createEntitySavedViewQueryDefinitionSchema = (
+	scope: typeof storedSavedViewScopeSchema,
+) =>
+	createSavedViewQueryDefinitionBaseSchema(scope)
+		.extend({ sort: sortDefinitionSchema, mode: z.literal("entities") })
+		.strict();
 
-export const storedSavedViewQueryDefinitionSchema =
-	createSavedViewQueryDefinitionSchema(storedSavedViewScopeSchema);
+const createLegacyEntitySavedViewQueryDefinitionSchema = (
+	scope: typeof storedSavedViewScopeSchema,
+) =>
+	createSavedViewQueryDefinitionBaseSchema(scope)
+		.extend({ sort: sortDefinitionSchema })
+		.strict()
+		.transform((definition) => ({ ...definition, mode: "entities" as const }));
+
+export const entitySavedViewQueryDefinitionSchema =
+	createEntitySavedViewQueryDefinitionSchema(scopeSchema);
+
+export const savedViewQueryDefinitionSchema = z.union([
+	entitySavedViewQueryDefinitionSchema,
+	createLegacyEntitySavedViewQueryDefinitionSchema(scopeSchema),
+]);
+
+export const storedEntitySavedViewQueryDefinitionSchema =
+	createEntitySavedViewQueryDefinitionSchema(storedSavedViewScopeSchema);
+
+export const storedSavedViewQueryDefinitionSchema = z.union([
+	storedEntitySavedViewQueryDefinitionSchema,
+	createLegacyEntitySavedViewQueryDefinitionSchema(storedSavedViewScopeSchema),
+]);
 
 export type SavedViewQueryDefinition = z.infer<
 	typeof savedViewQueryDefinitionSchema
 >;
+export type AggregateExpression = z.infer<typeof aggregateExpressionSchema>;
+export type AggregationField = z.infer<typeof aggregationFieldSchema>;
+export type TimeSeriesMetric = z.infer<typeof timeSeriesMetricSchema>;
 
 export const listedSavedViewSchema = z.object({
 	id: z.string(),
@@ -129,10 +204,10 @@ export const listedSavedViewSchema = z.object({
 	isBuiltin: z.boolean(),
 	isDisabled: z.boolean(),
 	sortOrder: sortOrderSchema,
+	...iconAndAccentColorFields,
 	trackerId: z.string().nullable(),
 	queryDefinition: savedViewQueryDefinitionSchema,
 	displayConfiguration: displayConfigurationSchema,
-	...iconAndAccentColorFields,
 });
 
 export const listSavedViewsResponseSchema = listDataSchema(
