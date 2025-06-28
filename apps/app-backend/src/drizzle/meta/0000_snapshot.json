@@ -1,5 +1,5 @@
 {
-	"id": "ce002d30-1239-4998-b588-6c5492584918",
+	"id": "d9eee513-b147-4fe0-a518-b4f87056d397",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -58,19 +58,19 @@
 				},
 				"access_token_expires_at": {
 					"name": "access_token_expires_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": false
 				},
 				"refresh_token_expires_at": {
 					"name": "refresh_token_expires_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": false
 				},
 				"created_at": {
 					"name": "created_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -83,7 +83,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true
 				}
@@ -168,12 +168,6 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"expires_at": {
-					"name": "expires_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"id": {
 					"name": "id",
 					"type": "text",
@@ -186,39 +180,15 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"last_request": {
-					"name": "last_request",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"refill_interval": {
 					"name": "refill_interval",
 					"type": "integer",
 					"primaryKey": false,
 					"notNull": false
 				},
-				"last_refill_at": {
-					"name": "last_refill_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"reference_id": {
 					"name": "reference_id",
 					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"updated_at": {
-					"name": "updated_at",
-					"type": "timestamp",
 					"primaryKey": false,
 					"notNull": true
 				},
@@ -257,12 +227,42 @@
 					"notNull": true,
 					"default": "'default'"
 				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"last_request": {
+					"name": "last_request",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"last_refill_at": {
+					"name": "last_refill_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"rate_limit_time_window": {
 					"name": "rate_limit_time_window",
 					"type": "integer",
 					"primaryKey": false,
 					"notNull": false,
 					"default": 86400000
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true
 				}
 			},
 			"indexes": {
@@ -341,19 +341,26 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"properties": {
 					"name": "properties",
 					"type": "jsonb",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "'{}'::jsonb"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"populated_at": {
+					"name": "populated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -381,7 +388,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -572,19 +579,19 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -600,7 +607,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -650,11 +657,12 @@
 			"name": "entity_schema_script",
 			"schema": "",
 			"columns": {
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"entity_schema_id": {
 					"name": "entity_schema_id",
@@ -668,16 +676,15 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -751,19 +758,19 @@
 			"name": "event",
 			"schema": "",
 			"columns": {
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"properties": {
 					"name": "properties",
 					"type": "jsonb",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "'{}'::jsonb"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -791,7 +798,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -916,19 +923,19 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -950,7 +957,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1027,23 +1034,181 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
-		"public.relationship": {
-			"name": "relationship",
+		"public.event_schema_trigger": {
+			"name": "event_schema_trigger",
 			"schema": "",
 			"columns": {
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_active": {
+					"name": "is_active",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"is_builtin": {
+					"name": "is_builtin",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
 				"created_at": {
 					"name": "created_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
 				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"event_schema_id": {
+					"name": "event_schema_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"sandbox_script_id": {
+					"name": "sandbox_script_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"event_schema_trigger_user_id_idx": {
+					"name": "event_schema_trigger_user_id_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"event_schema_trigger_event_schema_id_idx": {
+					"name": "event_schema_trigger_event_schema_id_idx",
+					"columns": [
+						{
+							"expression": "event_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"event_schema_trigger_builtin_unique": {
+					"name": "event_schema_trigger_builtin_unique",
+					"columns": [
+						{
+							"expression": "event_schema_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "sandbox_script_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"event_schema_trigger\".\"user_id\" is null",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"event_schema_trigger_user_id_user_id_fk": {
+					"name": "event_schema_trigger_user_id_user_id_fk",
+					"tableFrom": "event_schema_trigger",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"event_schema_trigger_event_schema_id_event_schema_id_fk": {
+					"name": "event_schema_trigger_event_schema_id_event_schema_id_fk",
+					"tableFrom": "event_schema_trigger",
+					"tableTo": "event_schema",
+					"columnsFrom": ["event_schema_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"event_schema_trigger_sandbox_script_id_sandbox_script_id_fk": {
+					"name": "event_schema_trigger_sandbox_script_id_sandbox_script_id_fk",
+					"tableFrom": "event_schema_trigger",
+					"tableTo": "sandbox_script",
+					"columnsFrom": ["sandbox_script_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"event_schema_trigger_user_unique": {
+					"name": "event_schema_trigger_user_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "event_schema_id", "sandbox_script_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.relationship": {
+			"name": "relationship",
+			"schema": "",
+			"columns": {
 				"properties": {
 					"name": "properties",
 					"type": "jsonb",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "'{}'::jsonb"
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -1243,19 +1408,19 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -1283,7 +1448,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1421,19 +1586,19 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"is_builtin": {
 					"name": "is_builtin",
 					"type": "boolean",
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -1449,7 +1614,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1529,19 +1694,19 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"sort_order": {
 					"name": "sort_order",
 					"type": "integer",
 					"primaryKey": false,
 					"notNull": true,
 					"default": 0
+				},
+				"is_builtin": {
+					"name": "is_builtin",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
 				},
 				"is_disabled": {
 					"name": "is_disabled",
@@ -1550,12 +1715,12 @@
 					"notNull": true,
 					"default": false
 				},
-				"is_builtin": {
-					"name": "is_builtin",
-					"type": "boolean",
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
-					"default": false
+					"default": "now()"
 				},
 				"tracker_id": {
 					"name": "tracker_id",
@@ -1577,7 +1742,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1671,20 +1836,20 @@
 				},
 				"expires_at": {
 					"name": "expires_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true
 				},
@@ -1776,13 +1941,6 @@
 					"notNull": true,
 					"default": "'{}'::jsonb"
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"sort_order": {
 					"name": "sort_order",
 					"type": "integer",
@@ -1804,6 +1962,13 @@
 					"notNull": true,
 					"default": false
 				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
 				"user_id": {
 					"name": "user_id",
 					"type": "text",
@@ -1818,7 +1983,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1870,7 +2035,7 @@
 			"columns": {
 				"created_at": {
 					"name": "created_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1895,7 +2060,7 @@
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -1999,13 +2164,6 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
 				"email_verified": {
 					"name": "email_verified",
 					"type": "boolean",
@@ -2013,9 +2171,16 @@
 					"notNull": true,
 					"default": false
 				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
@@ -2059,20 +2224,20 @@
 				},
 				"expires_at": {
 					"name": "expires_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
 				},
 				"updated_at": {
 					"name": "updated_at",
-					"type": "timestamp",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
