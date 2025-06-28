@@ -1,6 +1,9 @@
 import { z } from "@hono/zod-openapi";
-import type { AppSchema } from "@ryot/ts-utils";
+import { type AppSchema, normalizeSlug } from "@ryot/ts-utils";
 import { type Job, Worker } from "bullmq";
+import { and, eq, isNull } from "drizzle-orm";
+import { db } from "~/lib/db";
+import { entity, entitySchema } from "~/lib/db/schema";
 import { personStubSchema } from "~/lib/media/book";
 import { personPropertiesSchema } from "~/lib/media/person";
 import { getQueues } from "~/lib/queue";
@@ -57,6 +60,30 @@ const processPersonStubs = async (input: {
 		return;
 	}
 
+	const [mediaEntityRow] = await db
+		.select({ entitySchemaSlug: entitySchema.slug })
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(and(eq(entity.id, input.mediaEntityId), isNull(entity.userId)))
+		.limit(1);
+
+	if (!mediaEntityRow) {
+		// Entity was removed after the job was queued; skip silently.
+		return;
+	}
+
+	const personToMediaSlug = normalizeSlug(
+		`person to ${mediaEntityRow.entitySchemaSlug}`,
+	);
+	const mediaRelSchema =
+		await getBuiltinRelationshipSchemaBySlug(personToMediaSlug);
+
+	if (!mediaRelSchema) {
+		throw new Error(
+			`No person relationship schema seeded for media type "${mediaEntityRow.entitySchemaSlug}" (slug: "${personToMediaSlug}") — check bootstrap manifests`,
+		);
+	}
+
 	for (const rawStub of rawPeople) {
 		const stubResult = personStubSchema.safeParse(rawStub);
 		if (!stubResult.success) {
@@ -82,30 +109,22 @@ const processPersonStubs = async (input: {
 			typeof existingOrCreated.properties === "object" &&
 			!("populatedAt" in existingOrCreated.properties);
 
-		const roleSlug = stub.role.toLowerCase().replace(/\s+/g, "_");
+		const roleSlug = normalizeSlug(stub.role);
 
-		const roleSchema = await getBuiltinRelationshipSchemaBySlug(roleSlug);
-
-		if (!roleSchema) {
-			console.warn(
-				`[media-worker] Skipping person relationship: no builtin schema for role slug "${roleSlug}" (raw: "${stub.role}")`,
-			);
-			continue;
-		}
-
-		const relProperties: Record<string, unknown> = {};
+		const extraProperties: Record<string, unknown> = {};
 		if (stub.character !== undefined) {
-			relProperties.character = stub.character;
+			extraProperties.character = stub.character;
 		}
 		if (stub.order !== undefined) {
-			relProperties.order = stub.order;
+			extraProperties.order = stub.order;
 		}
 
 		await upsertPersonRelationship({
-			properties: relProperties,
-			relationshipSchemaId: roleSchema.id,
+			role: roleSlug,
+			extraProperties,
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,
+			relationshipSchemaId: mediaRelSchema.id,
 		});
 
 		if (isNew) {

@@ -229,7 +229,7 @@ describe("createEvent", () => {
 		expect(createdEvent.properties).toEqual({ rating: 4 });
 	});
 
-	it("upserts in_library before creating an event for a global entity", async () => {
+	it("upserts in-library before creating an event for a global entity", async () => {
 		const calls: Array<{
 			userId: string;
 			mediaEntityId: string;
@@ -262,7 +262,7 @@ describe("createEvent", () => {
 		]);
 	});
 
-	it("still succeeds for a global entity when in_library already exists", async () => {
+	it("still succeeds for a global entity when in-library already exists", async () => {
 		let upsertCalls = 0;
 
 		const result = await createEvent(
@@ -284,7 +284,7 @@ describe("createEvent", () => {
 		expect(upsertCalls).toBe(1);
 	});
 
-	it("does not upsert in_library for a user-owned entity", async () => {
+	it("does not upsert in-library for a user-owned entity", async () => {
 		let upsertCalls = 0;
 
 		const result = await createEvent(
@@ -326,7 +326,7 @@ describe("createEvent", () => {
 		});
 	});
 
-	it("does not upsert in_library when payload validation fails for a global entity", async () => {
+	it("does not upsert in-library when payload validation fails for a global entity", async () => {
 		let upsertCalls = 0;
 
 		const result = await createEvent(
