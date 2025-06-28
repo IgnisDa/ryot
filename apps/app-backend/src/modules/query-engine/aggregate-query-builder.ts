@@ -1,9 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import type {
-	QueryEngineEventJoinLike,
-	QueryEngineReferenceContext,
-} from "~/lib/views/reference";
+import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
+import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
@@ -18,6 +16,7 @@ import type {
 	QueryEngineAggregateResponse,
 	ResolvedDisplayValue,
 } from "./schemas";
+import { sanitizeIdentifier } from "./sql-expression-helpers";
 
 type AggregateRow = Record<string, unknown>;
 
@@ -28,13 +27,14 @@ const buildCountByAggregationExpression = (input: {
 		type: "countBy";
 	};
 }) => {
+	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
 	const groupByExpression = input.compiler.compile(input.expression.groupBy);
 
 	return sql`coalesce((
 		select jsonb_object_agg(gk, gc)
 		from (
 			select (${groupByExpression})::text as gk, count(*)::integer as gc
-			from ${sql.raw(input.alias)}
+			from ${sql.raw(safeAlias)}
 			group by gk
 		) sub
 		where gk is not null
@@ -46,10 +46,7 @@ const buildAggregationExpression = (input: {
 	compiler: ReturnType<typeof createScalarExpressionCompiler>;
 	aggregation: AggregateQueryEngineRequest["aggregations"][number]["aggregation"];
 	computedFields: AggregateQueryEngineRequest["computedFields"];
-	context: QueryEngineReferenceContext<
-		QueryEngineSchemaRow,
-		QueryEngineEventJoinLike
-	>;
+	context: QueryEngineContext;
 }) => {
 	if (input.aggregation.type === "count") {
 		return sql`to_jsonb(count(*)::integer)`;
@@ -123,10 +120,7 @@ export const executeAggregateQuery = async (input: {
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 }): Promise<QueryEngineAggregateResponse> => {
-	const context: QueryEngineReferenceContext<
-		QueryEngineSchemaRow,
-		QueryEngineEventJoinLike
-	> = {
+	const context: QueryEngineContext = {
 		userId: input.userId,
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
@@ -167,7 +161,7 @@ export const executeAggregateQuery = async (input: {
 				aggregation: aggregationField.aggregation,
 			});
 
-			return sql`${expression} as ${sql.raw(columnName)}`;
+			return sql`${expression} as ${sql.raw(sanitizeIdentifier(columnName, "column alias"))}`;
 		},
 	);
 	const filterClause = filterWhereClause ?? sql`true`;
