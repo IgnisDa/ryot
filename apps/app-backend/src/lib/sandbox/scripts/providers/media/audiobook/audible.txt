@@ -1,0 +1,310 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Audible returned invalid JSON");
+  }
+}
+
+function toTitleCase(value) {
+  const words = value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word.length > 0);
+
+  return words
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function parseReleaseYear(releaseDate) {
+  if (typeof releaseDate !== "string" || !releaseDate.trim()) {
+    return null;
+  }
+
+  const match = releaseDate.match(/(\d{4})/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  return Number.isFinite(year) && year > 0 ? year : null;
+}
+
+const LOCALE_SUFFIX_MAP = {
+  AU: "com.au",
+  CA: "ca",
+  DE: "de",
+  ES: "es",
+  FR: "fr",
+  GB: "co.uk",
+  IN: "co.in",
+  IT: "it",
+  JP: "co.jp",
+  UK: "co.uk",
+  US: "com",
+};
+
+async function getAudibleLocale() {
+  const prefsResult = await getUserPreferences();
+  if (!prefsResult?.success) {
+    return "com";
+  }
+
+  const providers = prefsResult?.data?.languages?.providers;
+  if (!Array.isArray(providers)) {
+    return "com";
+  }
+
+  const audiblePref = providers.find(
+    (p) => p && typeof p === "object" && p.source === "audible",
+  );
+  const lang =
+    audiblePref &&
+    typeof audiblePref.preferredLanguage === "string" &&
+    audiblePref.preferredLanguage.trim()
+      ? audiblePref.preferredLanguage.trim().toUpperCase()
+      : "US";
+
+  return LOCALE_SUFFIX_MAP[lang] ?? "com";
+}
+
+const PAGE_SIZE = 20;
+
+driver("search", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : PAGE_SIZE;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const localeSuffix = await getAudibleLocale();
+  const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+
+  const params = new URLSearchParams({
+    title: query,
+    num_results: String(pageSize),
+    page: String(currentPage - 1),
+    response_groups: "media,product_attrs",
+    products_sort_by: "Relevance",
+  });
+
+  const response = await httpCall("GET", `${baseUrl}?${params.toString()}`);
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Audible search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const totalItems =
+    typeof payload?.total_results === "number" &&
+    Number.isFinite(payload.total_results)
+      ? payload.total_results
+      : 0;
+
+  const products = Array.isArray(payload?.products) ? payload.products : [];
+  const items = products
+    .map((product) => {
+      const identifier =
+        typeof product?.asin === "string" ? product.asin.trim() : "";
+      if (!identifier) {
+        return null;
+      }
+
+      const title =
+        typeof product?.title === "string" ? product.title : "";
+      const publishYear = parseReleaseYear(product?.release_date);
+      const imageUrl =
+        product?.product_images?.["500"] ??
+        product?.product_images?.["2400"] ??
+        null;
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: imageUrl } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const localeSuffix = await getAudibleLocale();
+  const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+
+  const params = new URLSearchParams({
+    response_groups:
+      "contributors,category_ladders,media,product_attrs,product_extended_attrs,series,rating",
+    image_sizes: "2400",
+  });
+
+  const response = await httpCall(
+    "GET",
+    `${baseUrl}/${identifier}?${params.toString()}`,
+  );
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Audible details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  const product = payload?.product;
+  if (!product || typeof product !== "object") {
+    throw new Error("Audible returned no product data");
+  }
+
+  const title = typeof product.title === "string" ? product.title : "";
+  if (!title) {
+    throw new Error("Audible product is missing title");
+  }
+
+  const imageUrl =
+    product?.product_images?.["2400"] ??
+    product?.product_images?.["500"] ??
+    null;
+  const remoteImages = imageUrl ? [imageUrl] : [];
+
+  const publishYear = parseReleaseYear(product?.release_date);
+
+  const runtime =
+    typeof product?.runtime_length_min === "number" &&
+    Number.isFinite(product.runtime_length_min)
+      ? Math.trunc(product.runtime_length_min)
+      : null;
+
+  const description =
+    product?.publisher_summary ?? product?.merchandising_summary ?? null;
+
+  const isNsfw =
+    typeof product?.is_adult_product === "boolean"
+      ? product.is_adult_product
+      : null;
+
+  const ratingData = product?.rating?.overall_distribution;
+  const numReviews =
+    typeof product?.rating?.num_reviews === "number"
+      ? product.rating.num_reviews
+      : 0;
+  const providerRating =
+    numReviews > 0 && ratingData?.display_average_rating != null
+      ? Number(ratingData.display_average_rating)
+      : null;
+
+  const genreSet = new Set();
+  const categoryLadders = Array.isArray(product?.category_ladders)
+    ? product.category_ladders
+    : [];
+  for (const ladder of categoryLadders) {
+    const steps = Array.isArray(ladder?.ladder) ? ladder.ladder : [];
+    for (const step of steps) {
+      const name = typeof step?.name === "string" ? step.name.trim() : "";
+      for (const part of name.split(" & ")) {
+        const genre = toTitleCase(part.trim());
+        if (genre) {
+          genreSet.add(genre);
+        }
+      }
+    }
+  }
+
+  // Contributors (authors and narrators) with an ASIN become linked person stubs.
+  // Those without an ASIN are stored as freeCreators.
+  const people = [];
+  const freeCreators = [];
+
+  const authors = Array.isArray(product?.authors) ? product.authors : [];
+  for (const author of authors) {
+    if (!author || typeof author !== "object") {
+      continue;
+    }
+    const name = typeof author.name === "string" ? author.name.trim() : "";
+    const asin = typeof author.asin === "string" ? author.asin.trim() : "";
+    if (!name) {
+      continue;
+    }
+    if (asin) {
+      people.push({
+        role: "Author",
+        name,
+        identifier: asin,
+        scriptSlug: "person.audible",
+      });
+    } else {
+      freeCreators.push({ role: "Author", name });
+    }
+  }
+
+  // Narrators with an ASIN become linked person stubs; those without go into freeCreators.
+  const narrators = Array.isArray(product?.narrators) ? product.narrators : [];
+  for (const narrator of narrators) {
+    if (!narrator || typeof narrator !== "object") {
+      continue;
+    }
+    const name =
+      typeof narrator.name === "string" ? narrator.name.trim() : "";
+    const asin =
+      typeof narrator.asin === "string" ? narrator.asin.trim() : "";
+    if (!name) {
+      continue;
+    }
+    if (asin) {
+      people.push({
+        role: "Narrator",
+        name,
+        identifier: asin,
+        scriptSlug: "person.audible",
+      });
+    } else {
+      freeCreators.push({ role: "Narrator", name });
+    }
+  }
+
+  const sourceUrl = `https://www.audible.${localeSuffix}/pd/${identifier}`;
+
+  return {
+    name: title,
+    externalId: identifier,
+    properties: {
+      people,
+      freeCreators,
+      runtime,
+      publishYear,
+      description,
+      isNsfw,
+      providerRating,
+      genres: [...genreSet],
+      sourceUrl,
+      assets: { remoteImages },
+    },
+  };
+});
