@@ -18,7 +18,10 @@ export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 
 export const defaultUserPreferences: UserPreferences = {
 	languages: {
-		providers: [{ source: "audible", preferredLanguage: "US" }],
+		providers: [
+			{ source: "audible", preferredLanguage: "US" },
+			{ source: "anilist", preferredLanguage: "user_preferred" },
+		],
 	},
 };
 
