@@ -32,7 +32,6 @@ import {
 	UserReviewScale,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	formatDateToNaiveDate,
 	formatQuantityWithCompactNotation,
 	getActionIntent,
 	humanizeDuration,
@@ -92,6 +91,7 @@ import {
 import {
 	Verb,
 	clientGqlService,
+	convertTimestampToUtcString,
 	dayjsLib,
 	getVerb,
 	openConfirmationModal,
@@ -843,7 +843,7 @@ export default function Page() {
 															onClick={() =>
 																changeProgress({
 																	createNewInProgress: {
-																		startedOn: formatDateToNaiveDate(
+																		startedOn: convertTimestampToUtcString(
 																			new Date(),
 																		),
 																	},
