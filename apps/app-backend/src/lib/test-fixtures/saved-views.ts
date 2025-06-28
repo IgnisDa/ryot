@@ -1,3 +1,4 @@
+import { createEntityColumnExpression } from "@ryot/ts-utils/src/view-language";
 import {
 	createCreatedAt,
 	createUpdatedAt,
@@ -11,7 +12,6 @@ import type {
 	SavedViewServiceDeps,
 	UpdateSavedViewBody,
 } from "~/modules/saved-views";
-import { buildEntityColumnExpression } from "~/modules/saved-views/constants";
 
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,
@@ -19,7 +19,7 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	entitySchemaSlugs: ["books"],
 	sort: {
 		direction: "asc",
-		expression: buildEntityColumnExpression("books", "name"),
+		expression: createEntityColumnExpression("books", "name"),
 	},
 };
 
@@ -29,7 +29,7 @@ const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] 
 			columns: [
 				{
 					label: "Name",
-					expression: buildEntityColumnExpression("books", "name"),
+					expression: createEntityColumnExpression("books", "name"),
 				},
 			],
 		},
@@ -37,15 +37,15 @@ const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] 
 			calloutProperty: null,
 			primarySubtitleProperty: null,
 			secondarySubtitleProperty: null,
-			titleProperty: buildEntityColumnExpression("books", "name"),
-			imageProperty: buildEntityColumnExpression("books", "image"),
+			titleProperty: createEntityColumnExpression("books", "name"),
+			imageProperty: createEntityColumnExpression("books", "image"),
 		},
 		list: {
 			calloutProperty: null,
 			primarySubtitleProperty: null,
 			secondarySubtitleProperty: null,
-			titleProperty: buildEntityColumnExpression("books", "name"),
-			imageProperty: buildEntityColumnExpression("books", "image"),
+			titleProperty: createEntityColumnExpression("books", "name"),
+			imageProperty: createEntityColumnExpression("books", "image"),
 		},
 	};
 
