@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { calculatePagination, mapQueryRowToItem } from "./query-builder";
+import { calculatePagination, mapQueryRowToItem } from "./paginated-query-sql";
 
 describe("calculatePagination", () => {
 	it("calculates the first page correctly", () => {

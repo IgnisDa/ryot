@@ -2,16 +2,20 @@ import type { RuntimeRef } from "@ryot/ts-utils";
 import type { QueryEngineRequest } from "~/modules/query-engine";
 import type { DisplayConfiguration } from "~/modules/saved-views";
 import {
+	buildComputedFieldMap,
+	getComputedFieldDependencies,
 	getComputedFieldOrThrow,
 	prepareComputedFields,
 } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
 import {
+	assertComparableExpression,
 	assertNumericExpression,
 	assertSortableExpression,
 	inferViewExpressionType,
 } from "./expression-analysis";
+import type { ViewPredicate } from "./filtering";
 import { validateViewPredicateAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
@@ -80,13 +84,18 @@ const getEventPropertyDefinition = (
 const validateEventReference = (
 	reference: Extract<RuntimeRef, { type: "event" }>,
 	eventSchemaMap: Map<string, QueryEngineEventSchemaLike[]>,
+	requireSchemaSlug: boolean,
 	validBuiltins: ReadonlySet<string>,
 ): void => {
 	if (reference.path[0] === "properties") {
 		const propertyPath = reference.path.slice(1);
 		if (!reference.eventSchemaSlug) {
-			// Without a schema slug the property path cannot be validated — we accept
-			// it and rely on SQL-level null results for unknown paths.
+			if (requireSchemaSlug) {
+				throw new QueryEngineValidationError(
+					"Primary event property references in this context must specify eventSchemaSlug",
+				);
+			}
+
 			return;
 		}
 
@@ -152,6 +161,13 @@ const validateEventSchemaReference = (
 	}
 };
 
+const isPrimaryEventMode = <
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
+>(
+	context: QueryEngineReferenceContext<TSchema, TJoin>,
+) => context.supportsPrimaryEventRefs === true;
+
 export const validateRuntimeReferenceAgainstSchemas = (
 	reference: RuntimeRef,
 	context: QueryEngineReferenceContext<
@@ -165,6 +181,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			"Computed field references are not allowed in this context",
 		);
 	}
+
+	const primaryEventMode = isPrimaryEventMode(context);
 
 	if (reference.type === "entity") {
 		const schema = getSchemaForReference(context.schemaMap, reference);
@@ -186,12 +204,15 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				"Entity reference path must not be empty",
 			);
 		}
+		if (column === "image") {
+			return;
+		}
 		if (!validBuiltins.has(column)) {
 			throw new QueryEngineValidationError(
 				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
 			);
 		}
-		if (!getEntityColumnPropertyDefinition(column) && column !== "image") {
+		if (!getEntityColumnPropertyDefinition(column)) {
 			throw new QueryEngineValidationError(
 				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
 			);
@@ -200,7 +221,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 	}
 
 	if (reference.type === "event-aggregate") {
-		if (context.supportsPrimaryEventRefs) {
+		if (primaryEventMode) {
 			throw new QueryEngineValidationError(
 				"event-aggregate references are not supported in this query mode",
 			);
@@ -256,32 +277,37 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				`Entity schema column 'entity-schema.${reference.path.join(".")}' does not support nested paths`,
 			);
 		}
-		if (!validBuiltins.has(column)) {
-			throw new QueryEngineValidationError(
-				`Entity schema column 'entity-schema.${column}' is not valid in this context`,
-			);
-		}
 		if (!getEntitySchemaColumnPropertyDefinition(column)) {
 			throw new QueryEngineValidationError(
 				`Unsupported entity schema column 'entity-schema.${column}'`,
+			);
+		}
+		if (!validBuiltins.has(column)) {
+			throw new QueryEngineValidationError(
+				`Entity schema column 'entity-schema.${column}' is not valid in this context`,
 			);
 		}
 		return;
 	}
 
 	if (reference.type === "event") {
-		if (!context.supportsPrimaryEventRefs || !context.eventSchemaMap) {
+		if (!primaryEventMode || !context.eventSchemaMap) {
 			throw new QueryEngineValidationError(
 				"Primary event references are not supported in this query mode",
 			);
 		}
 
-		validateEventReference(reference, context.eventSchemaMap, validBuiltins);
+		validateEventReference(
+			reference,
+			context.eventSchemaMap,
+			context.requirePrimaryEventSchemaSlug ?? false,
+			validBuiltins,
+		);
 		return;
 	}
 
 	if (reference.type === "event-schema") {
-		if (!context.supportsPrimaryEventRefs || !context.eventSchemaMap) {
+		if (!primaryEventMode || !context.eventSchemaMap) {
 			throw new QueryEngineValidationError(
 				"Primary event schema references are not supported in this query mode",
 			);
@@ -310,6 +336,134 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			`Unsupported event join column 'event.${reference.joinKey}.${column}'`,
 		);
 	}
+};
+
+const collectComputedFieldChain = (
+	expression: ViewExpression,
+	computedFieldMap: Map<string, ViewComputedField>,
+	seen = new Set<string>(),
+): ViewComputedField[] => {
+	if (expression.type === "literal") {
+		return [];
+	}
+
+	if (expression.type === "reference") {
+		if (expression.reference.type !== "computed-field") {
+			return [];
+		}
+
+		const field = getComputedFieldOrThrow(
+			computedFieldMap,
+			expression.reference.key,
+		);
+		if (seen.has(field.key)) {
+			return [];
+		}
+
+		seen.add(field.key);
+		return [
+			field,
+			...collectComputedFieldsInExpression(
+				field.expression,
+				computedFieldMap,
+				seen,
+			),
+		];
+	}
+
+	return collectComputedFieldsInExpression(expression, computedFieldMap, seen);
+};
+
+const collectComputedFieldsInExpression = (
+	expression: ViewExpression,
+	computedFieldMap: Map<string, ViewComputedField>,
+	seen = new Set<string>(),
+): ViewComputedField[] => {
+	const dependencies = getComputedFieldDependencies(expression);
+	return dependencies.flatMap((key) => {
+		if (seen.has(key)) {
+			return [];
+		}
+
+		const field = getComputedFieldOrThrow(computedFieldMap, key);
+		seen.add(key);
+		return [
+			field,
+			...collectComputedFieldsInExpression(
+				field.expression,
+				computedFieldMap,
+				seen,
+			),
+		];
+	});
+};
+
+const withPrimaryEventSchemaSlugRequirement = <
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
+>(
+	context: QueryEngineReferenceContext<TSchema, TJoin>,
+) => ({
+	...context,
+	requirePrimaryEventSchemaSlug: true,
+});
+
+const validateStrictPrimaryEventRefsInExpression = (
+	expression: ViewExpression,
+	context: QueryEngineReferenceContext<
+		ValidationSchemaRow,
+		ValidationEventJoinRow
+	>,
+	validBuiltins: ReadonlySet<string>,
+	computedFieldMap: Map<string, ViewComputedField>,
+) => {
+	const strictContext = context.requirePrimaryEventSchemaSlug
+		? context
+		: withPrimaryEventSchemaSlugRequirement(context);
+	validateExpressionAgainstSchemas(
+		expression,
+		strictContext,
+		validBuiltins,
+		computedFieldMap,
+	);
+
+	for (const computedField of collectComputedFieldChain(
+		expression,
+		computedFieldMap,
+	)) {
+		validateExpressionAgainstSchemas(
+			computedField.expression,
+			strictContext,
+			validBuiltins,
+			computedFieldMap,
+		);
+	}
+};
+
+const validateStrictPrimaryEventRefsInPredicate = (
+	predicate: ViewPredicate,
+	context: QueryEngineReferenceContext<
+		ValidationSchemaRow,
+		ValidationEventJoinRow
+	>,
+	validBuiltins: ReadonlySet<string>,
+	computedFields: ViewComputedField[] | undefined,
+) => {
+	const strictContext = withPrimaryEventSchemaSlugRequirement(context);
+	const computedFieldMap = buildComputedFieldMap(computedFields);
+	validateViewPredicateAgainstSchemas({
+		context: strictContext,
+		predicate,
+		computedFields,
+		validBuiltins,
+		validateExpression: (expression) =>
+			validateStrictPrimaryEventRefsInExpression(
+				expression,
+				strictContext,
+				validBuiltins,
+				computedFieldMap,
+			),
+	});
 };
 
 export const validateExpressionAgainstSchemas = (
@@ -387,6 +541,20 @@ export const validateExpressionAgainstSchemas = (
 			predicate: expression.condition,
 			computedFields: [...computedFieldMap.values()],
 			validBuiltins,
+			validateExpression: (predicateExpression) =>
+				context.requirePrimaryEventSchemaSlug
+					? validateStrictPrimaryEventRefsInExpression(
+							predicateExpression,
+							context,
+							validBuiltins,
+							computedFieldMap,
+						)
+					: validateExpressionAgainstSchemas(
+							predicateExpression,
+							context,
+							validBuiltins,
+							computedFieldMap,
+						),
 		});
 		validateExpressionAgainstSchemas(
 			expression.whenTrue,
@@ -467,6 +635,12 @@ const validateEntityQueryEngineReferences = (
 		sortFilterBuiltins,
 		computedFieldMap,
 	);
+	validateStrictPrimaryEventRefsInExpression(
+		request.sort.expression,
+		context,
+		sortFilterBuiltins,
+		computedFieldMap,
+	);
 	assertSortableExpression(
 		inferViewExpressionType({
 			context,
@@ -476,12 +650,12 @@ const validateEntityQueryEngineReferences = (
 	);
 
 	if (request.filter) {
-		validateViewPredicateAgainstSchemas({
+		validateStrictPrimaryEventRefsInPredicate(
+			request.filter,
 			context,
-			predicate: request.filter,
-			computedFields: request.computedFields,
-			validBuiltins: sortFilterBuiltins,
-		});
+			sortFilterBuiltins,
+			request.computedFields,
+		);
 	}
 
 	for (const field of request.fields) {
@@ -508,12 +682,12 @@ const validateAggregateQueryEngineReferences = (
 	});
 
 	if (request.filter) {
-		validateViewPredicateAgainstSchemas({
+		validateStrictPrimaryEventRefsInPredicate(
+			request.filter,
 			context,
-			predicate: request.filter,
-			validBuiltins: sortFilterBuiltins,
-			computedFields: request.computedFields,
-		});
+			sortFilterBuiltins,
+			request.computedFields,
+		);
 	}
 
 	for (const field of request.aggregations) {
@@ -529,6 +703,13 @@ const validateAggregateQueryEngineReferences = (
 				predicate: aggregation.predicate,
 				validBuiltins: sortFilterBuiltins,
 				computedFields: request.computedFields,
+				validateExpression: (expression) =>
+					validateExpressionAgainstSchemas(
+						expression,
+						context,
+						sortFilterBuiltins,
+						computedFieldMap,
+					),
 			});
 			continue;
 		}
@@ -539,6 +720,20 @@ const validateAggregateQueryEngineReferences = (
 				context,
 				sortFilterBuiltins,
 				computedFieldMap,
+			);
+			validateStrictPrimaryEventRefsInExpression(
+				aggregation.groupBy,
+				context,
+				sortFilterBuiltins,
+				computedFieldMap,
+			);
+			assertComparableExpression(
+				inferViewExpressionType({
+					context,
+					computedFieldMap,
+					expression: aggregation.groupBy,
+				}),
+				"countBy",
 			);
 			continue;
 		}
@@ -591,6 +786,12 @@ const validateEventsQueryEngineReferences = (
 		eventsSortFilterBuiltins,
 		computedFieldMap,
 	);
+	validateStrictPrimaryEventRefsInExpression(
+		request.sort.expression,
+		context,
+		eventsSortFilterBuiltins,
+		computedFieldMap,
+	);
 	assertSortableExpression(
 		inferViewExpressionType({
 			context,
@@ -600,12 +801,12 @@ const validateEventsQueryEngineReferences = (
 	);
 
 	if (request.filter) {
-		validateViewPredicateAgainstSchemas({
+		validateStrictPrimaryEventRefsInPredicate(
+			request.filter,
 			context,
-			predicate: request.filter,
-			computedFields: request.computedFields,
-			validBuiltins: eventsSortFilterBuiltins,
-		});
+			eventsSortFilterBuiltins,
+			request.computedFields,
+		);
 	}
 
 	for (const field of request.fields) {
@@ -638,16 +839,22 @@ const validateTimeSeriesQueryEngineReferences = (
 	});
 
 	if (request.filter) {
-		validateViewPredicateAgainstSchemas({
+		validateStrictPrimaryEventRefsInPredicate(
+			request.filter,
 			context,
-			predicate: request.filter,
-			computedFields: request.computedFields,
-			validBuiltins: timeSeriesSortFilterBuiltins,
-		});
+			timeSeriesSortFilterBuiltins,
+			request.computedFields,
+		);
 	}
 
 	if (request.metric.type === "sum") {
 		validateExpressionAgainstSchemas(
+			request.metric.expression,
+			context,
+			timeSeriesSortFilterBuiltins,
+			computedFieldMap,
+		);
+		validateStrictPrimaryEventRefsInExpression(
 			request.metric.expression,
 			context,
 			timeSeriesSortFilterBuiltins,
@@ -697,6 +904,12 @@ export const validateSavedViewDisplayConfiguration = (
 	>,
 	computedFields?: ViewComputedField[],
 ): void => {
+	if (isPrimaryEventMode(context)) {
+		throw new QueryEngineValidationError(
+			"Saved view display configuration only supports entity-mode queries",
+		);
+	}
+
 	const computedFieldMap = validateComputedFields({
 		context,
 		computedFields,
