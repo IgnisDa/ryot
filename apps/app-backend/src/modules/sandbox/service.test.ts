@@ -22,8 +22,8 @@ describe("enqueueSandbox", () => {
 	it("returns not found when the script is missing", async () => {
 		const result = await enqueueSandbox(
 			{
-				body: { kind: "script", scriptId: "script_1" },
 				userId: "user_1",
+				body: { kind: "script", driverName: "search", scriptId: "script_1" },
 			},
 			{
 				getSandboxJobByIdForUser: async () => null,
@@ -40,7 +40,10 @@ describe("enqueueSandbox", () => {
 
 	it("returns not found when the script belongs to a different user", async () => {
 		const result = await enqueueSandbox(
-			{ userId: "user_1", body: { kind: "script", scriptId: "script_1" } },
+			{
+				userId: "user_1",
+				body: { kind: "script", driverName: "search", scriptId: "script_1" },
+			},
 			{
 				getSandboxJobByIdForUser: async () => null,
 				getSandboxScriptForUser: async () => undefined,
@@ -63,6 +66,7 @@ describe("enqueueSandbox", () => {
 				body: {
 					kind: "script",
 					scriptId: "script_1",
+					driverName: "search",
 					context: { source: "test" },
 				},
 			},
@@ -101,7 +105,12 @@ describe("enqueueSandbox", () => {
 		const result = await enqueueSandbox(
 			{
 				userId: "user_1",
-				body: { kind: "code", code: "return 1;", context: { source: "test" } },
+				body: {
+					kind: "code",
+					driverName: "main",
+					context: { source: "test" },
+					code: 'driver("main", async function() { return 1; });',
+				},
 			},
 			{
 				enqueueSandboxJob: async (input) => {
@@ -116,8 +125,9 @@ describe("enqueueSandbox", () => {
 		expect(result).toEqual({ data: { jobId: "job_1" } });
 		expect(queuedInput).toMatchObject({
 			userId: "user_1",
-			code: "return 1;",
+			driverName: "main",
 			context: { source: "test" },
+			code: 'driver("main", async function() { return 1; });',
 			apiFunctionDescriptors: [
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
@@ -168,7 +178,7 @@ describe("getSandboxResult", () => {
 				getSandboxScriptForUser: async () => undefined,
 				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
 				getSandboxJobByIdForUser: async () => ({
-					jobData: { code: "run()", userId: "user_1" },
+					jobData: { code: "run()", driverName: "main", userId: "user_1" },
 					job: {
 						data: {},
 						getState: async () => "completed",
@@ -195,7 +205,7 @@ describe("getSandboxResult", () => {
 				getSandboxScriptForUser: async () => undefined,
 				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
 				getSandboxJobByIdForUser: async () => ({
-					jobData: { code: "run()", userId: "user_1" },
+					jobData: { code: "run()", driverName: "main", userId: "user_1" },
 					job: {
 						data: {},
 						returnvalue: { nope: true },
