@@ -7,10 +7,10 @@ import {
 	literalExpression,
 } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
-import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildPredicateClause } from "./predicate-clause-builder";
+import type { QueryEngineContext } from "./schemas";
 
 const dialect = new PgDialect();
 const smartphoneSchema = createSmartphoneSchema();

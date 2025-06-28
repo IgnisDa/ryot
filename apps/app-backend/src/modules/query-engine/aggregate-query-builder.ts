@@ -1,19 +1,18 @@
 import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
-import type { QueryEngineEventJoinLike } from "~/lib/views/reference";
-import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
+import type { PreparedQueryContext } from "./preparer";
 import {
 	buildBaseEntitiesCte,
 	buildJoinedEntitiesCte,
 	buildLatestEventJoinCte,
-	type QueryEngineSchemaRow,
 } from "./query-ctes";
 import type {
 	AggregateQueryEngineRequest,
 	QueryEngineAggregateResponse,
+	QueryEngineContext,
 	ResolvedDisplayValue,
 } from "./schemas";
 import { sanitizeIdentifier } from "./sql-expression-helpers";
@@ -113,40 +112,36 @@ export const mapAggregateValue = (input: {
 
 export const executeAggregateQuery = async (input: {
 	userId: string;
-	relationshipSchemaIds: string[];
+	context: PreparedQueryContext;
 	request: AggregateQueryEngineRequest;
-	runtimeSchemas: QueryEngineSchemaRow[];
-	eventJoins: QueryEngineEventJoinLike[];
-	schemaMap: Map<string, QueryEngineSchemaRow>;
-	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 }): Promise<QueryEngineAggregateResponse> => {
-	const context: QueryEngineContext = {
+	const queryContext: QueryEngineContext = {
 		userId: input.userId,
-		schemaMap: input.schemaMap,
-		eventJoinMap: input.eventJoinMap,
+		schemaMap: input.context.schemaMap,
+		eventJoinMap: input.context.eventJoinMap,
 	};
 	const baseEntitiesCte = buildBaseEntitiesCte({
 		userId: input.userId,
-		relationshipSchemaIds: input.relationshipSchemaIds,
-		entitySchemaIds: input.runtimeSchemas.map((schema) => schema.id),
+		relationshipSchemaIds: input.context.relationshipSchemaIds,
+		entitySchemaIds: input.context.runtimeSchemas.map((schema) => schema.id),
 	});
-	const latestEventJoinCtes = input.eventJoins.map((join) => {
+	const latestEventJoinCtes = input.context.eventJoins.map((join) => {
 		return buildLatestEventJoinCte({ join, userId: input.userId });
 	});
-	const joinedEntitiesCte = buildJoinedEntitiesCte(input.eventJoins);
+	const joinedEntitiesCte = buildJoinedEntitiesCte(input.context.eventJoins);
 	const filterWhereClause = buildFilterWhereClause({
-		context,
+		context: queryContext,
 		alias: "joined_entities",
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
 	const getTypeInfo = createExpressionTypeResolver({
-		context,
+		context: queryContext,
 		computedFields: input.request.computedFields,
 	});
 	const compiler = createScalarExpressionCompiler({
-		context,
 		getTypeInfo,
+		context: queryContext,
 		alias: "filtered_entities",
 		computedFields: input.request.computedFields,
 	});
@@ -154,11 +149,11 @@ export const executeAggregateQuery = async (input: {
 		(aggregationField, index) => {
 			const columnName = `aggregation_${index}`;
 			const expression = buildAggregationExpression({
-				context,
 				compiler,
+				context: queryContext,
 				alias: "filtered_entities",
-				computedFields: input.request.computedFields,
 				aggregation: aggregationField.aggregation,
+				computedFields: input.request.computedFields,
 			});
 
 			return sql`${expression} as ${sql.raw(sanitizeIdentifier(columnName, "column alias"))}`;
@@ -188,8 +183,8 @@ export const executeAggregateQuery = async (input: {
 			values: input.request.aggregations.map((aggregationField, index) => {
 				return mapAggregateValue({
 					key: aggregationField.key,
-					value: row[`aggregation_${index}`] ?? null,
 					type: aggregationField.aggregation.type,
+					value: row[`aggregation_${index}`] ?? null,
 				});
 			}),
 		},
