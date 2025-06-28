@@ -106,14 +106,16 @@ type SavedViewDisplayConfigInput = {
 	grid: {
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
-		badgeProperty: string[] | null;
-		subtitleProperty: string[] | null;
+		calloutProperty: string[] | null;
+		primarySubtitleProperty: string[] | null;
+		secondarySubtitleProperty: string[] | null;
 	};
 	list: {
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
-		badgeProperty: string[] | null;
-		subtitleProperty: string[] | null;
+		calloutProperty: string[] | null;
+		primarySubtitleProperty: string[] | null;
+		secondarySubtitleProperty: string[] | null;
 	};
 	table: { columns: SavedViewTableColumn[] };
 };
@@ -627,10 +629,13 @@ async function createSavedView(
 				toExpression(displayConfiguration.grid.imageProperty) ?? null,
 			titleProperty:
 				toExpression(displayConfiguration.grid.titleProperty) ?? null,
-			badgeProperty:
-				toExpression(displayConfiguration.grid.badgeProperty) ?? null,
-			subtitleProperty:
-				toExpression(displayConfiguration.grid.subtitleProperty) ?? null,
+			calloutProperty:
+				toExpression(displayConfiguration.grid.calloutProperty) ?? null,
+			primarySubtitleProperty:
+				toExpression(displayConfiguration.grid.primarySubtitleProperty) ?? null,
+			secondarySubtitleProperty:
+				toExpression(displayConfiguration.grid.secondarySubtitleProperty) ??
+				null,
 		},
 		list: {
 			...displayConfiguration.list,
@@ -638,10 +643,13 @@ async function createSavedView(
 				toExpression(displayConfiguration.list.imageProperty) ?? null,
 			titleProperty:
 				toExpression(displayConfiguration.list.titleProperty) ?? null,
-			badgeProperty:
-				toExpression(displayConfiguration.list.badgeProperty) ?? null,
-			subtitleProperty:
-				toExpression(displayConfiguration.list.subtitleProperty) ?? null,
+			calloutProperty:
+				toExpression(displayConfiguration.list.calloutProperty) ?? null,
+			primarySubtitleProperty:
+				toExpression(displayConfiguration.list.primarySubtitleProperty) ?? null,
+			secondarySubtitleProperty:
+				toExpression(displayConfiguration.list.secondarySubtitleProperty) ??
+				null,
 		},
 		table: {
 			columns: displayConfiguration.table.columns.map((column) => ({
@@ -820,19 +828,22 @@ function schemaField(schemaSlug: string, property: string) {
 function cardConfig(
 	imageProperty: string[] | null,
 	titleProperty: string[] | null,
-	badgeProperty: string[] | null,
-	subtitleProperty: string[] | null,
+	calloutProperty: string[] | null,
+	primarySubtitleProperty: string[] | null,
+	secondarySubtitleProperty: string[] | null = null,
 ): {
 	imageProperty: string[] | null;
 	titleProperty: string[] | null;
-	badgeProperty: string[] | null;
-	subtitleProperty: string[] | null;
+	calloutProperty: string[] | null;
+	primarySubtitleProperty: string[] | null;
+	secondarySubtitleProperty: string[] | null;
 } {
 	return {
 		imageProperty,
 		titleProperty,
-		badgeProperty,
-		subtitleProperty,
+		calloutProperty,
+		primarySubtitleProperty,
+		secondarySubtitleProperty,
 	};
 }
 
@@ -854,8 +865,9 @@ function displayConfiguration(
 	grid: {
 		imageProperty: string[] | null;
 		titleProperty: string[] | null;
-		badgeProperty: string[] | null;
-		subtitleProperty: string[] | null;
+		calloutProperty: string[] | null;
+		primarySubtitleProperty: string[] | null;
+		secondarySubtitleProperty: string[] | null;
 	},
 	columns: SavedViewTableColumn[],
 	list = grid,

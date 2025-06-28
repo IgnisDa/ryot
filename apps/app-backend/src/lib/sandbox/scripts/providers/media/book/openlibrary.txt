@@ -121,12 +121,13 @@ driver("search", async function(context) {
 
       return {
         externalId,
-        badgeProperty: { kind: "null", value: null },
+        calloutProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
-        subtitleProperty:
+        primarySubtitleProperty:
           publishYear === null
             ? { kind: "null", value: null }
             : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
         imageProperty:
           imageUrl === null
             ? { kind: "null", value: null }

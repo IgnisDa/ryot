@@ -345,9 +345,9 @@ export function SearchResultRow(props: {
 						>
 							{props.entityName}
 						</Badge>
-						{props.item.subtitleProperty.kind === "number" ? (
+						{props.item.primarySubtitleProperty.kind === "number" ? (
 							<Text fz="xs" c={t.textMuted}>
-								{props.item.subtitleProperty.value}
+								{props.item.primarySubtitleProperty.value}
 							</Text>
 						) : null}
 						<Text fz="xs" c={t.textMuted}>
