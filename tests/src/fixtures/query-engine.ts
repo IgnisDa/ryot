@@ -2,6 +2,10 @@ import type { paths } from "@ryot/generated/openapi/app-backend";
 import { type Client, createAuthenticatedClient } from "./auth";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
+import type {
+	CardDisplayConfigurationInput,
+	DisplayConfigurationInput,
+} from "./saved-views";
 import { createTracker } from "./trackers";
 import {
 	type ExpressionInput,
@@ -31,23 +35,9 @@ export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields"> & {
 	fields: RuntimeField[];
 };
 
-type GridDisplayConfiguration = {
-	calloutProperty: ExpressionInput | null;
-	titleProperty: ExpressionInput | null;
-	imageProperty: ExpressionInput | null;
-	primarySubtitleProperty: ExpressionInput | null;
-	secondarySubtitleProperty?: ExpressionInput | null;
-};
-
-type ListDisplayConfiguration = GridDisplayConfiguration;
-
-type TableDisplayConfiguration = {
-	columns: Array<{
-		label: string;
-		property?: string[];
-		expression?: ExpressionInput;
-	}>;
-};
+type GridDisplayConfiguration = CardDisplayConfigurationInput;
+type ListDisplayConfiguration = CardDisplayConfigurationInput;
+type TableDisplayConfiguration = DisplayConfigurationInput["table"];
 
 type RuntimeFieldsInput =
 	| {
@@ -151,15 +141,15 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 	return [
 		{
 			key: "image",
-			expression: toRequiredExpression(config.imageProperty),
+			expression: toRequiredExpression(config.imageProperty ?? null),
 		},
 		{
 			key: "title",
-			expression: toRequiredExpression(config.titleProperty),
+			expression: toRequiredExpression(config.titleProperty ?? null),
 		},
 		{
 			key: "primarySubtitle",
-			expression: toRequiredExpression(config.primarySubtitleProperty),
+			expression: toRequiredExpression(config.primarySubtitleProperty ?? null),
 		},
 		{
 			key: "secondarySubtitle",
@@ -169,7 +159,7 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 		},
 		{
 			key: "callout",
-			expression: toRequiredExpression(config.calloutProperty),
+			expression: toRequiredExpression(config.calloutProperty ?? null),
 		},
 	];
 }

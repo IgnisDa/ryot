@@ -26,6 +26,7 @@ import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import { useEventSchemasQuery } from "~/features/event-schemas/hooks";
 import { useApiClient } from "~/hooks/api";
 import { getErrorMessage } from "~/lib/errors";
+import type { SearchResultItem } from "./model";
 import {
 	createBacklogEventPayload,
 	createLogEventPayload,
@@ -37,7 +38,6 @@ import {
 	SearchResultRow,
 	type SearchResultRowActionState,
 } from "./search-result-row";
-import type { SearchResultItem } from "./use-search";
 import { isCancelledEntitySearchError, useEntitySearch } from "./use-search";
 
 export function SearchEntityModalTitle(props: {
