@@ -1,9 +1,14 @@
 import { generateId } from "better-auth";
+import type { Job } from "bullmq";
 import { getQueues } from "../queue";
 import { BridgeServer } from "./bridge";
 import { defaultMaxHeapMB, defaultTimeoutMs } from "./constants";
 import { hostFunctionRegistry } from "./function-registry";
-import { type SandboxRunJobData, sandboxRunJobName } from "./jobs";
+import {
+	type SandboxRunJobData,
+	sandboxRunJobData,
+	sandboxRunJobName,
+} from "./jobs";
 import { RunnerFileManager } from "./runner";
 import type {
 	HostFunctionFactory,
@@ -39,9 +44,8 @@ export class SandboxService {
 
 	async enqueue(options: SandboxEnqueueOptions) {
 		const jobId = generateId();
-		const queues = getQueues();
 
-		await queues.sandboxScriptQueue.add(
+		await this.getQueue().add(
 			sandboxRunJobName,
 			{
 				code: options.code,
@@ -53,6 +57,23 @@ export class SandboxService {
 		);
 
 		return { jobId };
+	}
+
+	async getJobByIdForUser(input: {
+		jobId: string;
+		userId: string;
+	}): Promise<SandboxJobLookupResult | null> {
+		const job = await this.getQueue().getJob(input.jobId);
+		if (!job) {
+			return null;
+		}
+
+		const jobData = sandboxRunJobData.safeParse(job.data);
+		if (!jobData.success || jobData.data.userId !== input.userId) {
+			return null;
+		}
+
+		return { job, jobData: jobData.data };
 	}
 
 	async executeQueuedRun(jobData: SandboxRunJobData) {
@@ -217,6 +238,10 @@ export class SandboxService {
 
 		return apiFunctions;
 	}
+
+	private getQueue() {
+		return getQueues().sandboxScriptQueue;
+	}
 }
 
 type SandboxExecutionOptions = Pick<
@@ -224,4 +249,14 @@ type SandboxExecutionOptions = Pick<
 	"code" | "context" | "maxHeapMB" | "timeoutMs"
 > & {
 	apiFunctions?: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
+};
+
+type SandboxJobLookupResult = {
+	jobData: SandboxRunJobData;
+	job: {
+		data: unknown;
+		returnvalue: unknown;
+		failedReason?: string;
+		getState: Job["getState"];
+	};
 };

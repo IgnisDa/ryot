@@ -7,9 +7,8 @@ import {
 	jsonBody,
 	successResponse,
 } from "~/lib/openapi";
-import { getQueues } from "~/lib/queue";
 import { getSandboxService } from "~/lib/sandbox";
-import { sandboxRunJobData, sandboxRunJobResult } from "~/lib/sandbox/jobs";
+import { sandboxRunJobResult } from "~/lib/sandbox/jobs";
 import type { ApiFunctionDescriptor } from "~/lib/sandbox/types";
 import {
 	enqueueSandboxBody,
@@ -80,30 +79,25 @@ export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const params = c.req.valid("param");
 
-		const job = await getQueues().sandboxScriptQueue.getJob(params.jobId);
-		if (!job) {
+		const foundJob = await getSandboxService().getJobByIdForUser({
+			userId: user.id,
+			jobId: params.jobId,
+		});
+		if (!foundJob) {
 			return c.json(
 				sandboxJobNotFoundResult.body,
 				sandboxJobNotFoundResult.status,
 			);
 		}
 
-		const jobData = sandboxRunJobData.safeParse(job.data);
-		if (!jobData.success || jobData.data.userId !== user.id) {
-			return c.json(
-				sandboxJobNotFoundResult.body,
-				sandboxJobNotFoundResult.status,
-			);
-		}
-
-		const state = await job.getState();
+		const state = await foundJob.job.getState();
 		if (state === "completed") {
-			const result = sandboxRunJobResult.safeParse(job.returnvalue);
+			const result = sandboxRunJobResult.safeParse(foundJob.job.returnvalue);
 			if (!result.success) {
 				return c.json(
 					successResponse({
-						error: sandboxJobResultUnavailableMessage,
 						status: "failed",
+						error: sandboxJobResultUnavailableMessage,
 					}),
 					200,
 				);
@@ -124,7 +118,7 @@ export const sandboxApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(
 				successResponse({
 					status: "failed",
-					error: job.failedReason || "Sandbox job failed",
+					error: foundJob.job.failedReason || "Sandbox job failed",
 				}),
 				200,
 			);
