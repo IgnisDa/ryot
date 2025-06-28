@@ -167,7 +167,10 @@ export const MetadataNewProgressUpdateForm = ({
 					onChange={handleProviderChange}
 				/>
 			) : null}
-			<SubmitButton disabled={selectedDate === null} onClick={handleSubmit} />
+			<SubmitButton
+				onClick={handleSubmit}
+				disabled={watchTime === WatchTimes.CustomDate && selectedDate === null}
+			/>
 		</Stack>
 	);
 };

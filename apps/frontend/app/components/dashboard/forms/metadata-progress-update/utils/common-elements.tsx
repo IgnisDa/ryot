@@ -11,8 +11,8 @@ import { WatchTimes } from "../../../types";
 
 interface WatchTimeSelectProps {
 	value: WatchTimes;
-	onChange: (value: WatchTimes) => void;
 	metadataLot: MediaLot;
+	onChange: (value: WatchTimes) => void;
 }
 
 export const WatchTimeSelect = ({
@@ -23,6 +23,7 @@ export const WatchTimeSelect = ({
 	return (
 		<Select
 			value={value}
+			onChange={(v) => onChange(v as WatchTimes)}
 			label={`When did you ${getVerb(Verb.Read, metadataLot)} it?`}
 			data={Object.values(WatchTimes).filter((v) =>
 				[
@@ -34,7 +35,6 @@ export const WatchTimeSelect = ({
 					? v !== WatchTimes.JustStartedIt
 					: true,
 			)}
-			onChange={(v) => onChange(v as WatchTimes)}
 		/>
 	);
 };
@@ -70,10 +70,10 @@ export const ProviderSelect = ({
 
 	return (
 		<Select
+			onChange={onChange}
 			data={watchProviders}
 			name="providerWatchedOn"
 			label={`Where did you ${getVerb(Verb.Read, metadataLot)} it?`}
-			onChange={onChange}
 		/>
 	);
 };
