@@ -4,19 +4,12 @@ import {
 	builtinMediaEntitySchemaSlugs,
 	builtinMediaEventSchemaSlugs,
 } from "~/lib/media/constants";
-import { dataSchema, itemDataSchema } from "~/lib/openapi";
+import { itemDataSchema } from "~/lib/openapi";
 import {
-	createIdParamsSchema,
-	nonEmptyStringSchema,
 	nullableIntSchema,
 	nullableNumberSchema,
 	nullableStringSchema,
 } from "~/lib/zod/base";
-import { listedEntitySchema } from "~/modules/entities";
-import {
-	sandboxFailedResultSchema,
-	sandboxPendingResultSchema,
-} from "~/modules/sandbox";
 
 const builtinMediaEntitySchemaSlugSchema = z.enum(
 	builtinMediaEntitySchemaSlugs,
@@ -191,34 +184,4 @@ export type BuiltInMediaOverviewLibraryResponse = z.infer<
 
 export type BuiltInMediaOverviewResponse = z.infer<
 	typeof builtInMediaOverviewDataSchema
->;
-
-export const importMediaBody = z.object({
-	scriptId: nonEmptyStringSchema,
-	identifier: nonEmptyStringSchema,
-	entitySchemaId: nonEmptyStringSchema,
-});
-
-export const importMediaResponseSchema = dataSchema(
-	z.object({ jobId: nonEmptyStringSchema }),
-);
-
-export const mediaImportJobParams = createIdParamsSchema("jobId");
-
-const mediaImportCompletedResultSchema = z.object({
-	status: z.literal("completed"),
-	data: listedEntitySchema,
-});
-
-export const mediaImportResultResponseSchema = dataSchema(
-	z.discriminatedUnion("status", [
-		sandboxFailedResultSchema,
-		sandboxPendingResultSchema,
-		mediaImportCompletedResultSchema,
-	]),
-);
-
-export type ImportMediaBody = z.infer<typeof importMediaBody>;
-export type MediaImportResult = z.infer<
-	typeof mediaImportResultResponseSchema.shape.data
 >;
