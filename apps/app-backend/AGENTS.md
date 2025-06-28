@@ -39,6 +39,8 @@ The backend powers a self-hosted personal tracking product. Favor explicit valid
 
 - Keep runtime schemas, persisted JSON structures, and TypeScript types aligned.
 - Extend existing types from `src/lib/db/schema/tables.ts` or module `schemas.ts` instead of cloning shapes.
+- Always use `timestamp({ withTimezone: true })` for all timestamp columns; never use bare `timestamp()`.
+- Date values stored inside JSONB columns must always be ISO 8601 UTC strings (e.g. `"2024-01-15T12:00:00.000Z"`). Use `dayjs().toISOString()` or `z.iso.datetime()` validation to enforce this.
 
 ### Testing
 

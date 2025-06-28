@@ -63,10 +63,10 @@ export const tracker = pgTable(
 		icon: text().notNull(),
 		accentColor: text().notNull(),
 		config: jsonb().notNull().default({}),
-		createdAt: timestamp().defaultNow().notNull(),
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -74,7 +74,7 @@ export const tracker = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -93,14 +93,14 @@ export const entitySchema = pgTable(
 		icon: text().notNull(),
 		accentColor: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -114,7 +114,7 @@ export const entitySchema = pgTable(
 export const trackerEntitySchema = pgTable(
 	"tracker_entity_schema",
 	{
-		createdAt: timestamp().defaultNow().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		trackerId: text()
 			.notNull()
 			.references(() => tracker.id, { onDelete: "cascade" }),
@@ -125,7 +125,7 @@ export const trackerEntitySchema = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -148,8 +148,8 @@ export const eventSchema = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
 			.notNull()
@@ -158,7 +158,7 @@ export const eventSchema = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -183,14 +183,14 @@ export const sandboxScript = pgTable(
 		name: text().notNull(),
 		code: text().notNull(),
 		metadata: jsonb().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -204,18 +204,18 @@ export const sandboxScript = pgTable(
 export const entitySchemaScript = pgTable(
 	"entity_schema_script",
 	{
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
 		sandboxScriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),
-		createdAt: timestamp().defaultNow().notNull(),
-		updatedAt: timestamp()
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -238,9 +238,9 @@ export const entity = pgTable(
 		externalId: text(),
 		name: text().notNull(),
 		image: jsonb().$type<ImageSchemaType>(),
-		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
-		populatedAt: timestamp().defaultNow().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		populatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
 			.notNull()
@@ -252,7 +252,7 @@ export const entity = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -278,8 +278,8 @@ export const entity = pgTable(
 export const event = pgTable(
 	"event",
 	{
-		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -293,7 +293,7 @@ export const event = pgTable(
 		entityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -312,8 +312,8 @@ export const relationshipSchema = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		propertiesSchema: jsonb().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		sourceEntitySchemaId: text().references(() => entitySchema.id, {
 			onDelete: "cascade",
@@ -325,7 +325,7 @@ export const relationshipSchema = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -348,8 +348,8 @@ export const relationshipSchema = pgTable(
 export const relationship = pgTable(
 	"relationship",
 	{
-		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		sourceEntityId: text()
 			.notNull()
@@ -390,9 +390,9 @@ export const eventSchemaTrigger = pgTable(
 	"event_schema_trigger",
 	{
 		name: text().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		isActive: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		eventSchemaId: text()
 			.notNull()
@@ -404,7 +404,7 @@ export const eventSchemaTrigger = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
@@ -431,10 +431,10 @@ export const savedView = pgTable(
 		accentColor: text().notNull(),
 		queryDefinition: jsonb().notNull(),
 		displayConfiguration: jsonb().notNull(),
-		createdAt: timestamp().defaultNow().notNull(),
 		sortOrder: integer().notNull().default(0),
-		isDisabled: boolean().notNull().default(false),
 		isBuiltin: boolean().default(false).notNull(),
+		isDisabled: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
 		id: text()
 			.primaryKey()
@@ -442,7 +442,7 @@ export const savedView = pgTable(
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp()
+		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
