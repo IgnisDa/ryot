@@ -308,10 +308,48 @@ export const event = pgTable(
 	],
 );
 
+export const relationshipSchema = pgTable(
+	"relationship_schema",
+	{
+		slug: text().notNull(),
+		name: text().notNull(),
+		propertiesSchema: jsonb().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		isBuiltin: boolean().notNull().default(false),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		sourceEntitySchemaId: text().references(() => entitySchema.id, {
+			onDelete: "cascade",
+		}),
+		targetEntitySchemaId: text().references(() => entitySchema.id, {
+			onDelete: "cascade",
+		}),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
+			.notNull(),
+	},
+	(table) => [
+		index("relationship_schema_user_id_idx").on(table.userId),
+		index("relationship_schema_source_entity_schema_id_idx").on(
+			table.sourceEntitySchemaId,
+		),
+		index("relationship_schema_target_entity_schema_id_idx").on(
+			table.targetEntitySchemaId,
+		),
+		unique("relationship_schema_user_slug_unique").on(table.userId, table.slug),
+		uniqueIndex("relationship_schema_builtin_slug_unique")
+			.on(table.slug)
+			.where(sql`${table.userId} is null`),
+	],
+);
+
 export const relationship = pgTable(
 	"relationship",
 	{
-		relType: text().notNull(),
 		createdAt: timestamp().defaultNow().notNull(),
 		properties: jsonb().notNull().default({}),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -321,24 +359,31 @@ export const relationship = pgTable(
 		targetEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
+		relationshipSchemaId: text()
+			.notNull()
+			.references(() => relationshipSchema.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
-		index("relationship_rel_type_idx").on(table.relType),
+		index("relationship_schema_id_idx").on(table.relationshipSchemaId),
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),
-		unique("relationship_user_source_target_rel_type_unique").on(
+		unique("relationship_user_source_target_schema_unique").on(
 			table.userId,
 			table.sourceEntityId,
 			table.targetEntityId,
-			table.relType,
+			table.relationshipSchemaId,
 		),
-		uniqueIndex("relationship_global_source_target_rel_type_unique")
-			.on(table.sourceEntityId, table.targetEntityId, table.relType)
+		uniqueIndex("relationship_global_source_target_schema_unique")
+			.on(
+				table.sourceEntityId,
+				table.targetEntityId,
+				table.relationshipSchemaId,
+			)
 			.where(isNull(table.userId)),
 	],
 );

@@ -50,19 +50,30 @@ async function insertLibraryMembership(input: {
 			throw new Error(`Missing library entity for user '${input.userId}'`);
 		}
 
+		const schemaResult = await pg.query<{ id: string }>(
+			`select id from relationship_schema
+			 where slug = 'in_library' and user_id is null
+			 limit 1`,
+		);
+		const inLibrarySchemaId = schemaResult.rows[0]?.id;
+		if (!inLibrarySchemaId) {
+			throw new Error("Missing in_library relationship schema");
+		}
+
 		await pg.query(
 			`insert into relationship (
 				id,
 				user_id,
-				rel_type,
+				relationship_schema_id,
 				properties,
 				source_entity_id,
 				target_entity_id
-			) values ($1, $2, 'in_library', $3::jsonb, $4, $5)
-			on conflict (user_id, source_entity_id, target_entity_id, rel_type) do nothing`,
+			) values ($1, $2, $3, $4::jsonb, $5, $6)
+			on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
 			[
 				crypto.randomUUID(),
 				input.userId,
+				inLibrarySchemaId,
 				JSON.stringify({}),
 				input.mediaEntityId,
 				libraryEntityId,

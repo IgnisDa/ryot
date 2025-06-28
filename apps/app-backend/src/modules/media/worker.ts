@@ -18,6 +18,7 @@ import {
 	upsertPersonRelationship,
 } from "~/modules/entities/repository";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
+import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 import {
 	createApiFunctionDescriptors,
 	getBuiltinSandboxScriptBySlug,
@@ -56,11 +57,6 @@ const processPersonStubs = async (input: {
 		return;
 	}
 
-	const scriptCache = new Map<
-		string,
-		Awaited<ReturnType<typeof getBuiltinSandboxScriptBySlug>>
-	>();
-
 	for (const rawStub of rawPeople) {
 		const stubResult = personStubSchema.safeParse(rawStub);
 		if (!stubResult.success) {
@@ -69,13 +65,7 @@ const processPersonStubs = async (input: {
 
 		const stub = stubResult.data;
 
-		let personScript: Awaited<ReturnType<typeof getBuiltinSandboxScriptBySlug>>;
-		if (scriptCache.has(stub.scriptSlug)) {
-			personScript = scriptCache.get(stub.scriptSlug);
-		} else {
-			personScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
-			scriptCache.set(stub.scriptSlug, personScript);
-		}
+		const personScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
 		if (!personScript) {
 			continue;
 		}
@@ -92,7 +82,17 @@ const processPersonStubs = async (input: {
 			typeof existingOrCreated.properties === "object" &&
 			!("populatedAt" in existingOrCreated.properties);
 
-		const relType = stub.role.toLowerCase().replace(/\s+/g, "_");
+		const roleSlug = stub.role.toLowerCase().replace(/\s+/g, "_");
+
+		const roleSchema = await getBuiltinRelationshipSchemaBySlug(roleSlug);
+
+		if (!roleSchema) {
+			console.warn(
+				`[media-worker] Skipping person relationship: no builtin schema for role slug "${roleSlug}" (raw: "${stub.role}")`,
+			);
+			continue;
+		}
+
 		const relProperties: Record<string, unknown> = {};
 		if (stub.character !== undefined) {
 			relProperties.character = stub.character;
@@ -102,8 +102,8 @@ const processPersonStubs = async (input: {
 		}
 
 		await upsertPersonRelationship({
-			relType,
 			properties: relProperties,
+			relationshipSchemaId: roleSchema.id,
 			targetEntityId: input.mediaEntityId,
 			sourceEntityId: existingOrCreated.id,
 		});
