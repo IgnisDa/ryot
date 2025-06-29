@@ -390,8 +390,8 @@ export function getSurroundingElements<T>(
 }
 
 const mediaQueryKeys = createQueryKeys("media", {
-	metadataDetails: (metadataId?: string, ensureUpdated?: boolean) => ({
-		queryKey: ["metadataDetails", metadataId, ensureUpdated],
+	metadataDetails: (metadataId?: string) => ({
+		queryKey: ["metadataDetails", metadataId],
 	}),
 	userMetadataDetails: (metadataId?: string) => ({
 		queryKey: ["userMetadataDetails", metadataId],
@@ -459,17 +459,13 @@ export const queryFactory = mergeQueryKeys(
 	miscellaneousQueryKeys,
 );
 
-export const getMetadataDetailsQuery = (
-	metadataId?: string,
-	ensureUpdated?: boolean,
-) =>
+export const getMetadataDetailsQuery = (metadataId?: string) =>
 	queryOptions({
-		queryKey: queryFactory.media.metadataDetails(metadataId, ensureUpdated)
-			.queryKey,
+		queryKey: queryFactory.media.metadataDetails(metadataId).queryKey,
 		queryFn: metadataId
 			? () =>
 					clientGqlService
-						.request(MetadataDetailsDocument, { metadataId, ensureUpdated })
+						.request(MetadataDetailsDocument, { metadataId })
 						.then((data) => data.metadataDetails)
 			: skipToken,
 	});

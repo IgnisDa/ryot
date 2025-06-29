@@ -42,9 +42,7 @@ export const useMetadataProgressUpdate = () => {
 		setIsLoading(true);
 		if (draft && determineNext) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
-				queryClient.ensureQueryData(
-					getMetadataDetailsQuery(draft.metadataId, true),
-				),
+				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
 				queryClient.ensureQueryData(
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
