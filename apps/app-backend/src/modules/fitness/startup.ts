@@ -35,7 +35,7 @@ export const dispatchExerciseSeedJob = async () => {
 	await getQueues().fitnessQueue.add(
 		exerciseSeedJobName,
 		{},
-		{ jobId: "exercise-seed-initial" },
+		{ jobId: "exercise-seed-initial", removeOnComplete: true },
 	);
 	console.info("Exercise seed job dispatched");
 };
