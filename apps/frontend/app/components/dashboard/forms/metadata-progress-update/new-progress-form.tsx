@@ -33,7 +33,8 @@ export const MetadataNewProgressUpdateForm = ({
 }: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
 	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+	const [startDate, setStartDate] = useState<Date | null>(null);
+	const [finishDate, setFinishDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
@@ -42,7 +43,8 @@ export const MetadataNewProgressUpdateForm = ({
 	);
 
 	const handleSubmit = async () => {
-		const selectedDateFormatted = convertTimestampToUtcString(selectedDate);
+		const startDateFormatted = convertTimestampToUtcString(startDate);
+		const finishDateFormatted = convertTimestampToUtcString(finishDate);
 		const currentDateFormatted = convertTimestampToUtcString(new Date());
 		const common: MetadataProgressUpdateCommonInput = {
 			showSeasonNumber: metadataToUpdate.showSeasonNumber,
@@ -63,7 +65,7 @@ export const MetadataNewProgressUpdateForm = ({
 			metadataToUpdate,
 			metadataDetails,
 			currentDateFormatted,
-			selectedDateFormatted,
+			selectedDateFormatted: finishDateFormatted,
 		});
 
 		const change: MetadataProgressUpdateChange = match(watchTime)
@@ -81,18 +83,39 @@ export const MetadataNewProgressUpdateForm = ({
 					},
 				},
 			}))
-			.with(WatchTimes.CustomDate, () => {
-				if (!selectedDateFormatted)
-					throw new Error("Selected date is undefined");
-
-				return {
-					createNewCompleted: {
-						finishedOnDate: {
-							...common,
-							timestamp: selectedDateFormatted,
+			.with(WatchTimes.CustomDates, () => {
+				if (startDateFormatted && finishDateFormatted) {
+					return {
+						createNewCompleted: {
+							startedAndFinishedOnDate: {
+								...common,
+								startedOn: startDateFormatted,
+								timestamp: finishDateFormatted,
+							},
 						},
-					},
-				};
+					};
+				}
+				if (startDateFormatted) {
+					return {
+						createNewCompleted: {
+							startedOnDate: {
+								...common,
+								timestamp: startDateFormatted,
+							},
+						},
+					};
+				}
+				if (finishDateFormatted) {
+					return {
+						createNewCompleted: {
+							finishedOnDate: {
+								...common,
+								timestamp: finishDateFormatted,
+							},
+						},
+					};
+				}
+				throw new Error("At least one date must be provided for CustomDates");
 			})
 			.with(WatchTimes.IDontRemember, () => ({
 				createNewCompleted: { withoutDates: common },
@@ -110,12 +133,18 @@ export const MetadataNewProgressUpdateForm = ({
 	const handleWatchTimeChange = (newWatchTime: WatchTimes) => {
 		setWatchTime(newWatchTime);
 		match(newWatchTime)
-			.with(WatchTimes.JustCompletedNow, () => setSelectedDate(new Date()))
+			.with(WatchTimes.JustCompletedNow, () => {
+				setStartDate(null);
+				setFinishDate(new Date());
+			})
 			.with(
 				WatchTimes.IDontRemember,
-				WatchTimes.CustomDate,
+				WatchTimes.CustomDates,
 				WatchTimes.JustStartedIt,
-				() => setSelectedDate(null),
+				() => {
+					setStartDate(null);
+					setFinishDate(null);
+				},
 			)
 			.run();
 	};
@@ -155,10 +184,12 @@ export const MetadataNewProgressUpdateForm = ({
 				onChange={handleWatchTimeChange}
 				metadataLot={metadataDetails.lot}
 			/>
-			{watchTime === WatchTimes.CustomDate ? (
+			{watchTime === WatchTimes.CustomDates ? (
 				<CustomDatePicker
-					selectedDate={selectedDate}
-					onDateChange={setSelectedDate}
+					startDate={startDate}
+					finishDate={finishDate}
+					onStartDateChange={setStartDate}
+					onFinishDateChange={setFinishDate}
 				/>
 			) : null}
 			{watchTime !== WatchTimes.JustStartedIt ? (
@@ -169,7 +200,11 @@ export const MetadataNewProgressUpdateForm = ({
 			) : null}
 			<SubmitButton
 				onClick={handleSubmit}
-				disabled={watchTime === WatchTimes.CustomDate && selectedDate === null}
+				disabled={
+					watchTime === WatchTimes.CustomDates &&
+					startDate === null &&
+					finishDate === null
+				}
 			/>
 		</Stack>
 	);

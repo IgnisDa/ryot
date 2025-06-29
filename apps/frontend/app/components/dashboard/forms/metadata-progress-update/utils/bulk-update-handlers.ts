@@ -49,7 +49,7 @@ export const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 							},
 						},
 					}))
-					.with(WatchTimes.CustomDate, () => {
+					.with(WatchTimes.CustomDates, () => {
 						if (!selectedDateFormatted)
 							throw new Error("Selected date is undefined");
 						return {
@@ -136,7 +136,7 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 								},
 							},
 						}))
-						.with(WatchTimes.CustomDate, () => {
+						.with(WatchTimes.CustomDates, () => {
 							if (!selectedDateFormatted)
 								throw new Error("Selected date is undefined");
 							return {
@@ -194,7 +194,7 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 									},
 								},
 							}))
-							.with(WatchTimes.CustomDate, () => {
+							.with(WatchTimes.CustomDates, () => {
 								if (!selectedDateFormatted)
 									throw new Error("Selected date is undefined");
 								return {
@@ -301,7 +301,7 @@ export const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 								},
 							},
 						}))
-						.with(WatchTimes.CustomDate, () => {
+						.with(WatchTimes.CustomDates, () => {
 							if (!selectedDateFormatted)
 								throw new Error("Selected date is undefined");
 							return {
@@ -382,7 +382,7 @@ export const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 								},
 							},
 						}))
-						.with(WatchTimes.CustomDate, () => {
+						.with(WatchTimes.CustomDates, () => {
 							if (!selectedDateFormatted)
 								throw new Error("Selected date is undefined");
 							return {

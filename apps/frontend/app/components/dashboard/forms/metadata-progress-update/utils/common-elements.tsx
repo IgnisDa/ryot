@@ -40,20 +40,38 @@ export const WatchTimeSelect = ({
 };
 
 interface CustomDatePickerProps {
-	selectedDate: Date | null;
-	onDateChange: (date: Date | null) => void;
+	startDate: Date | null;
+	finishDate: Date | null;
+	onStartDateChange: (date: Date | null) => void;
+	onFinishDateChange: (date: Date | null) => void;
 }
 
-export const CustomDatePicker = ({ onDateChange }: CustomDatePickerProps) => {
+export const CustomDatePicker = ({
+	startDate,
+	finishDate,
+	onStartDateChange,
+	onFinishDateChange,
+}: CustomDatePickerProps) => {
 	return (
-		<DateTimePicker
-			required
-			clearable
-			dropdownType="modal"
-			maxDate={new Date()}
-			label="Enter exact date"
-			onChange={(e) => onDateChange(e ? new Date(e) : null)}
-		/>
+		<>
+			<DateTimePicker
+				clearable
+				value={startDate}
+				label="Started on"
+				dropdownType="modal"
+				maxDate={finishDate || new Date()}
+				onChange={(e) => onStartDateChange(e ? new Date(e) : null)}
+			/>
+			<DateTimePicker
+				clearable
+				value={finishDate}
+				label="Finished on"
+				dropdownType="modal"
+				maxDate={new Date()}
+				minDate={startDate || undefined}
+				onChange={(e) => onFinishDateChange(e ? new Date(e) : null)}
+			/>
+		</>
 	);
 };
 
