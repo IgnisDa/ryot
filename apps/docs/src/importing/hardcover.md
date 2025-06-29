@@ -21,8 +21,8 @@ Ryot imports data from [Hardcover](https://hardcover.app) with the following map
 
 ## Steps
 
-1. Login to your Hardcover account and go to your settings page.
-2. Look for "Export Your Data" option and download your library as a CSV file.
+1. Log in to your Hardcover account and go to your settings page.
+2. Look for the "Export Your Data" option, and download your library as a CSV file.
 3. Select "CSV Export" and then "Generate Export". Wait for the export to finish, then
    download the file.
 4. Upload this file in the input.
