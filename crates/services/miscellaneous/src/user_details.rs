@@ -35,7 +35,7 @@ pub async fn user_metadata_details(
         user_to_meta,
         is_recently_consumed,
     ) = try_join!(
-        generic_metadata(&metadata_id, ss),
+        generic_metadata(&metadata_id, ss, None),
         entity_in_collections(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
         item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
         is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db),

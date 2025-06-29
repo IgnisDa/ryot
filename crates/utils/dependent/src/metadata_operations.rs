@@ -38,10 +38,42 @@ use crate::deploy_update_metadata_job;
 use crate::details_from_provider;
 use crate::get_non_metadata_provider;
 
+async fn ensure_metadata_updated(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+    ensure_updated: Option<bool>,
+) -> Result<bool> {
+    match ensure_updated {
+        Some(true) => {
+            let mut success = false;
+            for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                let is_partial = Metadata::find_by_id(metadata_id)
+                    .select_only()
+                    .column(metadata::Column::IsPartial)
+                    .into_tuple::<bool>()
+                    .one(&ss.db)
+                    .await?
+                    .unwrap_or(true);
+                if is_partial {
+                    deploy_update_metadata_job(metadata_id, ss).await?;
+                    let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                    ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
+                    sleep_for_n_seconds(sleep_time).await;
+                } else {
+                    success = true;
+                    break;
+                }
+            }
+            Ok(success)
+        }
+        _ => Ok(true),
+    }
+}
+
 pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
     ss: &Arc<SupportingService>,
-    enable_retry: Option<bool>,
+    ensure_updated: Option<bool>,
 ) -> Result<(metadata::Model, bool)> {
     let mode = match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&data.identifier))
@@ -70,33 +102,9 @@ pub async fn commit_metadata(
             c.insert(&ss.db).await?
         }
     };
-    let was_updated_successfully = match enable_retry {
-        Some(true) => {
-            let mut success = false;
-            for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                let is_partial = Metadata::find_by_id(&mode.id)
-                    .select_only()
-                    .column(metadata::Column::IsPartial)
-                    .into_tuple::<bool>()
-                    .one(&ss.db)
-                    .await?
-                    .unwrap_or(true);
-                if is_partial {
-                    deploy_update_metadata_job(&mode.id, ss).await?;
-                    let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
-                    ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
-                    sleep_for_n_seconds(sleep_time).await;
-                } else {
-                    success = true;
-                    break;
-                }
-            }
-            success
-        }
-        _ => true,
-    };
+    let was_updated_successfully = ensure_metadata_updated(&mode.id, ss, ensure_updated).await?;
 
-    let final_metadata = match (was_updated_successfully, enable_retry) {
+    let final_metadata = match (was_updated_successfully, ensure_updated) {
         (true, Some(true)) => Metadata::find_by_id(&mode.id).one(&ss.db).await?.unwrap(),
         _ => mode,
     };
@@ -700,7 +708,9 @@ pub async fn commit_person(
 pub async fn generic_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
+    ensure_updated: Option<bool>,
 ) -> Result<MetadataBaseData> {
+    ensure_metadata_updated(metadata_id, ss, ensure_updated).await?;
     let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
         return Err(Error::new("The record does not exist".to_owned()));
     };

@@ -139,6 +139,7 @@ pub async fn metadata_group_details(
 pub async fn metadata_details(
     ss: &Arc<SupportingService>,
     metadata_id: &String,
+    ensure_updated: Option<bool>,
 ) -> Result<GraphqlMetadataDetails> {
     let (
         MetadataBaseData {
@@ -149,7 +150,7 @@ pub async fn metadata_details(
         },
         associations,
     ) = try_join!(
-        generic_metadata(metadata_id, ss),
+        generic_metadata(metadata_id, ss, ensure_updated),
         MetadataToMetadataGroup::find()
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
             .find_also_related(MetadataGroup)
