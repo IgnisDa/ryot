@@ -1,9 +1,94 @@
 import { notifications } from "@mantine/notifications";
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MediaLot,
+	type MetadataProgressUpdateCommonInput,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
+
+type MetadataFields =
+	| { animeEpisodeNumber: number }
+	| { mangaVolumeNumber: number }
+	| { mangaChapterNumber: string }
+	| { showSeasonNumber: number; showEpisodeNumber: number }
+	| { podcastEpisodeNumber: number };
+
+type CreateUpdateChangeInput = {
+	watchTime: WatchTimes;
+	currentDateFormatted: string;
+	startDateFormatted: string | null;
+	finishDateFormatted: string | null;
+	common: MetadataProgressUpdateCommonInput;
+	fields: MetadataFields;
+};
+
+const createUpdateChange = (input: CreateUpdateChangeInput) => {
+	return match(input.watchTime)
+		.with(WatchTimes.JustStartedIt, () => ({
+			createNewInProgress: {
+				...input.common,
+				...input.fields,
+				startedOn: input.currentDateFormatted,
+			},
+		}))
+		.with(WatchTimes.JustCompletedNow, () => ({
+			createNewCompleted: {
+				finishedOnDate: {
+					...input.common,
+					...input.fields,
+					timestamp: input.currentDateFormatted,
+				},
+			},
+		}))
+		.with(WatchTimes.CustomDates, () => {
+			if (input.startDateFormatted && input.finishDateFormatted) {
+				return {
+					createNewCompleted: {
+						startedAndFinishedOnDate: {
+							...input.common,
+							...input.fields,
+							startedOn: input.startDateFormatted,
+							timestamp: input.finishDateFormatted,
+						},
+					},
+				};
+			}
+			if (input.startDateFormatted) {
+				return {
+					createNewCompleted: {
+						startedOnDate: {
+							...input.common,
+							...input.fields,
+							timestamp: input.startDateFormatted,
+						},
+					},
+				};
+			}
+			if (input.finishDateFormatted) {
+				return {
+					createNewCompleted: {
+						finishedOnDate: {
+							...input.common,
+							...input.fields,
+							timestamp: input.finishDateFormatted,
+						},
+					},
+				};
+			}
+			throw new Error("At least one date must be provided for CustomDates");
+		})
+		.with(WatchTimes.IDontRemember, () => ({
+			createNewCompleted: {
+				withoutDates: {
+					...input.common,
+					...input.fields,
+				},
+			},
+		}))
+		.exhaustive();
+};
 
 const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 	const {
@@ -33,71 +118,14 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 		) {
 			updates.push({
 				metadataId: metadataToUpdate.metadataId,
-				change: match(watchTime)
-					.with(WatchTimes.JustStartedIt, () => ({
-						createNewInProgress: {
-							...common,
-							animeEpisodeNumber: i,
-							startedOn: currentDateFormatted,
-						},
-					}))
-					.with(WatchTimes.JustCompletedNow, () => ({
-						createNewCompleted: {
-							finishedOnDate: {
-								...common,
-								animeEpisodeNumber: i,
-								timestamp: currentDateFormatted,
-							},
-						},
-					}))
-					.with(WatchTimes.CustomDates, () => {
-						if (startDateFormatted && finishDateFormatted) {
-							return {
-								createNewCompleted: {
-									startedAndFinishedOnDate: {
-										...common,
-										animeEpisodeNumber: i,
-										startedOn: startDateFormatted,
-										timestamp: finishDateFormatted,
-									},
-								},
-							};
-						}
-						if (startDateFormatted) {
-							return {
-								createNewCompleted: {
-									startedOnDate: {
-										...common,
-										animeEpisodeNumber: i,
-										timestamp: startDateFormatted,
-									},
-								},
-							};
-						}
-						if (finishDateFormatted) {
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										animeEpisodeNumber: i,
-										timestamp: finishDateFormatted,
-									},
-								},
-							};
-						}
-						throw new Error(
-							"At least one date must be provided for CustomDates",
-						);
-					})
-					.with(WatchTimes.IDontRemember, () => ({
-						createNewCompleted: {
-							withoutDates: {
-								...common,
-								animeEpisodeNumber: i,
-							},
-						},
-					}))
-					.exhaustive(),
+				change: createUpdateChange({
+					watchTime,
+					currentDateFormatted,
+					startDateFormatted,
+					finishDateFormatted,
+					common,
+					fields: { animeEpisodeNumber: i },
+				}),
 			});
 		}
 	}
@@ -147,71 +175,14 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 			) {
 				updates.push({
 					metadataId: metadataToUpdate.metadataId,
-					change: match(watchTime)
-						.with(WatchTimes.JustStartedIt, () => ({
-							createNewInProgress: {
-								...common,
-								mangaVolumeNumber: i,
-								startedOn: currentDateFormatted,
-							},
-						}))
-						.with(WatchTimes.JustCompletedNow, () => ({
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									mangaVolumeNumber: i,
-									timestamp: currentDateFormatted,
-								},
-							},
-						}))
-						.with(WatchTimes.CustomDates, () => {
-							if (startDateFormatted && finishDateFormatted) {
-								return {
-									createNewCompleted: {
-										startedAndFinishedOnDate: {
-											...common,
-											mangaVolumeNumber: i,
-											startedOn: startDateFormatted,
-											timestamp: finishDateFormatted,
-										},
-									},
-								};
-							}
-							if (startDateFormatted) {
-								return {
-									createNewCompleted: {
-										startedOnDate: {
-											...common,
-											mangaVolumeNumber: i,
-											timestamp: startDateFormatted,
-										},
-									},
-								};
-							}
-							if (finishDateFormatted) {
-								return {
-									createNewCompleted: {
-										finishedOnDate: {
-											...common,
-											mangaVolumeNumber: i,
-											timestamp: finishDateFormatted,
-										},
-									},
-								};
-							}
-							throw new Error(
-								"At least one date must be provided for CustomDates",
-							);
-						})
-						.with(WatchTimes.IDontRemember, () => ({
-							createNewCompleted: {
-								withoutDates: {
-									...common,
-									mangaVolumeNumber: i,
-								},
-							},
-						}))
-						.exhaustive(),
+					change: createUpdateChange({
+						watchTime,
+						currentDateFormatted,
+						startDateFormatted,
+						finishDateFormatted,
+						common,
+						fields: { mangaVolumeNumber: i },
+					}),
 				});
 			}
 		}
@@ -231,71 +202,14 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 				if (!markedChapters.has(i)) {
 					updates.push({
 						metadataId: metadataToUpdate.metadataId,
-						change: match(watchTime)
-							.with(WatchTimes.JustStartedIt, () => ({
-								createNewInProgress: {
-									...common,
-									mangaChapterNumber: i.toString(),
-									startedOn: currentDateFormatted,
-								},
-							}))
-							.with(WatchTimes.JustCompletedNow, () => ({
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										mangaChapterNumber: i.toString(),
-										timestamp: currentDateFormatted,
-									},
-								},
-							}))
-							.with(WatchTimes.CustomDates, () => {
-								if (startDateFormatted && finishDateFormatted) {
-									return {
-										createNewCompleted: {
-											startedAndFinishedOnDate: {
-												...common,
-												mangaChapterNumber: i.toString(),
-												startedOn: startDateFormatted,
-												timestamp: finishDateFormatted,
-											},
-										},
-									};
-								}
-								if (startDateFormatted) {
-									return {
-										createNewCompleted: {
-											startedOnDate: {
-												...common,
-												mangaChapterNumber: i.toString(),
-												timestamp: startDateFormatted,
-											},
-										},
-									};
-								}
-								if (finishDateFormatted) {
-									return {
-										createNewCompleted: {
-											finishedOnDate: {
-												...common,
-												mangaChapterNumber: i.toString(),
-												timestamp: finishDateFormatted,
-											},
-										},
-									};
-								}
-								throw new Error(
-									"At least one date must be provided for CustomDates",
-								);
-							})
-							.with(WatchTimes.IDontRemember, () => ({
-								createNewCompleted: {
-									withoutDates: {
-										...common,
-										mangaChapterNumber: i.toString(),
-									},
-								},
-							}))
-							.exhaustive(),
+						change: createUpdateChange({
+							watchTime,
+							currentDateFormatted,
+							startDateFormatted,
+							finishDateFormatted,
+							common,
+							fields: { mangaChapterNumber: i.toString() },
+						}),
 					});
 				}
 			}
@@ -363,77 +277,17 @@ const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 
 				updates.push({
 					metadataId: metadataToUpdate.metadataId,
-					change: match(watchTime)
-						.with(WatchTimes.JustStartedIt, () => ({
-							createNewInProgress: {
-								...common,
-								showSeasonNumber: currentEpisode.seasonNumber,
-								showEpisodeNumber: currentEpisode.episodeNumber,
-								startedOn: currentDateFormatted,
-							},
-						}))
-						.with(WatchTimes.JustCompletedNow, () => ({
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									timestamp: currentDateFormatted,
-									showSeasonNumber: currentEpisode.seasonNumber,
-									showEpisodeNumber: currentEpisode.episodeNumber,
-								},
-							},
-						}))
-						.with(WatchTimes.CustomDates, () => {
-							if (startDateFormatted && finishDateFormatted) {
-								return {
-									createNewCompleted: {
-										startedAndFinishedOnDate: {
-											...common,
-											showSeasonNumber: currentEpisode.seasonNumber,
-											showEpisodeNumber: currentEpisode.episodeNumber,
-											startedOn: startDateFormatted,
-											timestamp: finishDateFormatted,
-										},
-									},
-								};
-							}
-							if (startDateFormatted) {
-								return {
-									createNewCompleted: {
-										startedOnDate: {
-											...common,
-											showSeasonNumber: currentEpisode.seasonNumber,
-											showEpisodeNumber: currentEpisode.episodeNumber,
-											timestamp: startDateFormatted,
-										},
-									},
-								};
-							}
-							if (finishDateFormatted) {
-								return {
-									createNewCompleted: {
-										finishedOnDate: {
-											...common,
-											showSeasonNumber: currentEpisode.seasonNumber,
-											showEpisodeNumber: currentEpisode.episodeNumber,
-											timestamp: finishDateFormatted,
-										},
-									},
-								};
-							}
-							throw new Error(
-								"At least one date must be provided for CustomDates",
-							);
-						})
-						.with(WatchTimes.IDontRemember, () => ({
-							createNewCompleted: {
-								withoutDates: {
-									...common,
-									showSeasonNumber: currentEpisode.seasonNumber,
-									showEpisodeNumber: currentEpisode.episodeNumber,
-								},
-							},
-						}))
-						.exhaustive(),
+					change: createUpdateChange({
+						watchTime,
+						currentDateFormatted,
+						startDateFormatted,
+						finishDateFormatted,
+						common,
+						fields: {
+							showSeasonNumber: currentEpisode.seasonNumber,
+							showEpisodeNumber: currentEpisode.episodeNumber,
+						},
+					}),
 				});
 			}
 		}
@@ -475,71 +329,14 @@ const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 			for (const episode of allUnseenEpisodesBefore) {
 				updates.push({
 					metadataId: metadataToUpdate.metadataId,
-					change: match(watchTime)
-						.with(WatchTimes.JustStartedIt, () => ({
-							createNewInProgress: {
-								...common,
-								podcastEpisodeNumber: episode.number,
-								startedOn: currentDateFormatted,
-							},
-						}))
-						.with(WatchTimes.JustCompletedNow, () => ({
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									timestamp: currentDateFormatted,
-									podcastEpisodeNumber: episode.number,
-								},
-							},
-						}))
-						.with(WatchTimes.CustomDates, () => {
-							if (startDateFormatted && finishDateFormatted) {
-								return {
-									createNewCompleted: {
-										startedAndFinishedOnDate: {
-											...common,
-											podcastEpisodeNumber: episode.number,
-											startedOn: startDateFormatted,
-											timestamp: finishDateFormatted,
-										},
-									},
-								};
-							}
-							if (startDateFormatted) {
-								return {
-									createNewCompleted: {
-										startedOnDate: {
-											...common,
-											podcastEpisodeNumber: episode.number,
-											timestamp: startDateFormatted,
-										},
-									},
-								};
-							}
-							if (finishDateFormatted) {
-								return {
-									createNewCompleted: {
-										finishedOnDate: {
-											...common,
-											podcastEpisodeNumber: episode.number,
-											timestamp: finishDateFormatted,
-										},
-									},
-								};
-							}
-							throw new Error(
-								"At least one date must be provided for CustomDates",
-							);
-						})
-						.with(WatchTimes.IDontRemember, () => ({
-							createNewCompleted: {
-								withoutDates: {
-									...common,
-									podcastEpisodeNumber: episode.number,
-								},
-							},
-						}))
-						.exhaustive(),
+					change: createUpdateChange({
+						watchTime,
+						currentDateFormatted,
+						startDateFormatted,
+						finishDateFormatted,
+						common,
+						fields: { podcastEpisodeNumber: episode.number },
+					}),
 				});
 			}
 		}
