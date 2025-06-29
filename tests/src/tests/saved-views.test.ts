@@ -1,17 +1,20 @@
 import { describe, expect, it } from "bun:test";
 import {
+	createComputedFieldExpression,
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+	createEventAggregateExpression,
+} from "@ryot/ts-utils";
+import {
 	buildGridRequest,
 	buildSavedViewBody,
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
-	computedFieldExpression,
 	createAuthenticatedClient,
 	createSavedView,
 	createTracker,
 	deleteSavedView,
-	entityColumnExpression,
 	entityField,
-	eventAggregateExpression,
 	executeQueryEngine,
 	findBuiltinSavedView,
 	findBuiltinSchemaBySlug,
@@ -22,7 +25,6 @@ import {
 	listSavedViews,
 	literalExpression,
 	reorderSavedViews,
-	schemaPropertyExpression,
 	seedMediaEntity,
 	updateSavedView,
 	waitForEventCount,
@@ -70,17 +72,17 @@ describe("Saved views E2E", () => {
 					columns: [
 						{
 							label: "Name",
-							expression: entityColumnExpression("collection", "name"),
+							expression: createEntityColumnExpression("collection", "name"),
 						},
 					],
 				},
 				grid: {
-					titleProperty: entityColumnExpression("collection", "name"),
-					imageProperty: entityColumnExpression("collection", "image"),
+					titleProperty: createEntityColumnExpression("collection", "name"),
+					imageProperty: createEntityColumnExpression("collection", "image"),
 				},
 				list: {
-					titleProperty: entityColumnExpression("collection", "name"),
-					imageProperty: entityColumnExpression("collection", "image"),
+					titleProperty: createEntityColumnExpression("collection", "name"),
+					imageProperty: createEntityColumnExpression("collection", "image"),
 				},
 			},
 		});
@@ -148,7 +150,7 @@ describe("Saved views E2E", () => {
 
 		const allShowsView = await getSavedView(client, cookies, "all-shows");
 		expect(allShowsView.displayConfiguration.grid.calloutProperty).toEqual(
-			eventAggregateExpression("review", ["rating"], "avg"),
+			createEventAggregateExpression("review", ["rating"], "avg"),
 		);
 
 		const { data, response } = await executeQueryEngine(
@@ -164,7 +166,7 @@ describe("Saved views E2E", () => {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression(entity.name),
-					left: entityColumnExpression("show", "name"),
+					left: createEntityColumnExpression("show", "name"),
 				},
 				displayConfiguration: {
 					...allShowsView.displayConfiguration.grid,
@@ -235,13 +237,13 @@ describe("Saved views E2E", () => {
 				entitySchemaSlugs: ["anime", "manga"],
 				sort: {
 					direction: "desc",
-					expression: entityColumnExpression("anime", "createdAt"),
+					expression: createEntityColumnExpression("anime", "createdAt"),
 				},
 				filter: {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("active"),
-					left: schemaPropertyExpression("anime", "productionStatus"),
+					left: createEntityPropertyExpression("anime", "productionStatus"),
 				},
 			},
 			displayConfiguration: {
@@ -730,16 +732,16 @@ describe("Saved views E2E", () => {
 			"Sort expressions must resolve to a sortable scalar value",
 		);
 		expect(refreshedView.queryDefinition.sort.expression).toEqual(
-			entityColumnExpression("book", "name"),
+			createEntityColumnExpression("book", "name"),
 		);
 	});
 
 	it("persists computed fields across saved view create and update flows", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const nextYearReference = computedFieldExpression("nextYear");
-		const labelReference = computedFieldExpression("label");
-		const yearBandReference = computedFieldExpression("yearBand");
-		const publishYearExpression = schemaPropertyExpression(
+		const nextYearReference = createComputedFieldExpression("nextYear");
+		const labelReference = createComputedFieldExpression("label");
+		const yearBandReference = createComputedFieldExpression("yearBand");
+		const publishYearExpression = createEntityPropertyExpression(
 			"book",
 			"publishYear",
 		);
@@ -772,7 +774,7 @@ describe("Saved views E2E", () => {
 							type: "concat",
 							values: [
 								{ type: "literal", value: "Book: " },
-								entityColumnExpression("book", "name"),
+								createEntityColumnExpression("book", "name"),
 							],
 						},
 					},
@@ -830,7 +832,7 @@ describe("Saved views E2E", () => {
 								type: "concat",
 								values: [
 									{ type: "literal", value: "Book: " },
-									entityColumnExpression("book", "name"),
+									createEntityColumnExpression("book", "name"),
 								],
 							},
 						},
@@ -900,16 +902,16 @@ describe("Saved views E2E", () => {
 			entitySchemaSlugs: ["book"],
 			sort: {
 				direction: "asc",
-				expression: entityColumnExpression("book", "name"),
+				expression: createEntityColumnExpression("book", "name"),
 			},
 			computedFields: [
 				{
 					key: "first",
-					expression: computedFieldExpression("second"),
+					expression: createComputedFieldExpression("second"),
 				},
 				{
 					key: "second",
-					expression: computedFieldExpression("first"),
+					expression: createComputedFieldExpression("first"),
 				},
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
@@ -948,12 +950,12 @@ describe("Saved views E2E", () => {
 			entitySchemaSlugs: ["book"],
 			sort: {
 				direction: "asc",
-				expression: computedFieldExpression("cover"),
+				expression: createComputedFieldExpression("cover"),
 			},
 			computedFields: [
 				{
 					key: "cover",
-					expression: entityColumnExpression("book", "image"),
+					expression: createEntityColumnExpression("book", "image"),
 				},
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
@@ -1038,7 +1040,10 @@ describe("Saved views E2E", () => {
 			entitySchemaSlugs: ["book"],
 			sort: {
 				direction: "asc",
-				expression: schemaPropertyExpression("book", "nonexistent_property"),
+				expression: createEntityPropertyExpression(
+					"book",
+					"nonexistent_property",
+				),
 			},
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
@@ -1074,7 +1079,7 @@ describe("Saved views E2E", () => {
 						calloutProperty: null,
 						primarySubtitleProperty: null,
 						secondarySubtitleProperty: null,
-						titleProperty: entityColumnExpression("book", "nam"),
+						titleProperty: createEntityColumnExpression("book", "nam"),
 					},
 					list: {
 						imageProperty: null,
@@ -1106,7 +1111,7 @@ describe("Saved views E2E", () => {
 					entitySchemaSlugs: ["does-not-exist"],
 					sort: {
 						direction: "asc",
-						expression: entityColumnExpression("does-not-exist", "name"),
+						expression: createEntityColumnExpression("does-not-exist", "name"),
 					},
 				},
 			}),
