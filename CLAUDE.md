@@ -4,6 +4,16 @@
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
   and some common commands.
+- When making changes to the code, run the following commands generously to ensure that the
+  changes you are making do not break anything:
+
+  ```bash
+  moon run frontend:typecheck # for frontend changes
+  moon run docs:build # for docs changes
+  moon run website:typecheck # for website changes
+  cargo check --workspace # for backend changes
+  ```
+
 - When running tests, compile the backend in release mode and implement the feature first,
   then always ask the user's approval before executing tests to save iteration time.
 - After adding a GraphQL query or mutation to the backend, run `moon run
@@ -65,12 +75,3 @@
 - We try to keep the code files below 500 lines. If a file is larger than that, consider
   splitting it into smaller files (using functions, components, etc.) to improve
   readability.
-- When making changes, run the following commands generously to ensure that the changes you
-  are making do not break anything:
-
-  ```bash
-  moon run frontend:typecheck # for frontend changes
-  moon run docs:build # for docs changes
-  moon run website:typecheck # for website changes
-  cargo check --workspace # for backend changes
-  ```
