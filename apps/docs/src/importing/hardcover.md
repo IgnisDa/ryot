@@ -4,7 +4,8 @@ Ryot imports data from [Hardcover](https://hardcover.app) with the following map
 
 ## Reading Status
 
-- Currently Reading → "In Progress" collection: progress isn’t imported; you can update it manually later.
+- Currently Reading → "In Progress" collection: progress isn’t imported; you can update it
+  manually later.
 - Read -> Creates a history entry (automatically adds to "Completed" collection)
 - Want to Read -> "Watchlist" collection
 
@@ -24,4 +25,4 @@ Ryot imports data from [Hardcover](https://hardcover.app) with the following map
 2. Look for the "Export Your Data" option, and download your library as a CSV file.
 3. Select "CSV Export" and then "Generate Export". Wait for the export to finish, then
    download the file.
-4. Upload this file using the import dialog in Ryot.
+4. Upload this file in the importing page on Ryot.
