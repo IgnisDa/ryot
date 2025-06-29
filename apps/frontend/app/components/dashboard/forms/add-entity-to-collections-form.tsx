@@ -16,7 +16,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type FormEvent, useCallback, useRef, useState } from "react";
+import { type FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { Form, useRevalidator } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
@@ -102,18 +102,22 @@ export const AddEntityToCollectionsForm = ({
 		Collection & { userExtraInformationData: any }
 	>([]);
 
-	const selectData = Object.entries(
-		groupBy(collections, (c) =>
-			c.creator.id === userDetails.id ? "You" : c.creator.name,
-		),
-	).map(([g, items]) => ({
-		group: g,
-		items: items.map((c) => ({
-			label: c.name,
-			value: c.id.toString(),
-			disabled: alreadyInCollections?.includes(c.id.toString()),
-		})),
-	}));
+	const selectData = useMemo(
+		() =>
+			Object.entries(
+				groupBy(collections, (c) =>
+					c.creator.id === userDetails.id ? "You" : c.creator.name,
+				),
+			).map(([g, items]) => ({
+				group: g,
+				items: items.map((c) => ({
+					label: c.name,
+					value: c.id.toString(),
+					disabled: alreadyInCollections?.includes(c.id.toString()),
+				})),
+			})),
+		[collections, userDetails.id, alreadyInCollections],
+	);
 
 	const mutation = useMutation({
 		mutationFn: async () => {
