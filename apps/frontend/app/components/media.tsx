@@ -199,7 +199,8 @@ export const MetadataDisplayItem = (props: {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
@@ -342,7 +343,10 @@ export const MetadataDisplayItem = (props: {
 						onClick={async () => {
 							setMetadataToUpdate({ metadataId: props.metadataId }, true);
 
-							if (props.bottomRightImageOverlayClassName) {
+							if (
+								isOnboardingTourInProgress &&
+								props.bottomRightImageOverlayClassName
+							) {
 								await new Promise((resolve) => setTimeout(resolve, 7000));
 								advanceOnboardingTourStep();
 							}
