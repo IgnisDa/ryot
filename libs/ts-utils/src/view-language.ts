@@ -14,10 +14,18 @@ export const eventJoinBuiltinColumns: ReadonlySet<string> = new Set([
 	"updatedAt",
 ]);
 
+export type EventAggregation = "avg" | "count" | "max" | "min" | "sum";
+
 export type RuntimeRef =
 	| { key: string; type: "computed-field" }
 	| { slug: string; path: string[]; type: "entity" }
-	| { joinKey: string; path: string[]; type: "event" };
+	| { joinKey: string; path: string[]; type: "event" }
+	| {
+			path: string[];
+			eventSchemaSlug: string;
+			type: "event-aggregate";
+			aggregation: EventAggregation;
+	  };
 
 export type RuntimeReferenceExpression = {
 	type: "reference";
@@ -38,4 +46,13 @@ export const createEntityPropertyExpression = (
 ): RuntimeReferenceExpression => ({
 	type: "reference",
 	reference: { type: "entity", slug, path: ["properties", property] },
+});
+
+export const createEventAggregateExpression = (
+	eventSchemaSlug: string,
+	path: string[],
+	aggregation: EventAggregation,
+): RuntimeReferenceExpression => ({
+	type: "reference",
+	reference: { type: "event-aggregate", eventSchemaSlug, path, aggregation },
 });

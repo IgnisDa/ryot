@@ -16,67 +16,19 @@ import {
 	createTracker,
 	entityColumnExpression,
 	entityField,
+	eventAggregateExpression,
 	executeQueryEngine,
+	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getQueryEngineFieldOrThrow,
+	insertLibraryMembership,
+	listEventSchemas,
 	literalExpression,
 	schemaPropertyExpression,
 	seedMediaEntity,
+	waitForEventCount,
 } from "../fixtures";
-import { getPgClient } from "../setup";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
-
-async function insertLibraryMembership(input: {
-	userId: string;
-	mediaEntityId: string;
-}) {
-	const pg = getPgClient();
-
-	const libraryResult = await pg.query<{ id: string }>(
-		`select e.id
-		 from entity e
-		 inner join entity_schema es on es.id = e.entity_schema_id
-		 where e.user_id = $1
-		   and es.slug = 'library'
-		   and es.user_id is null
-		 limit 1`,
-		[input.userId],
-	);
-	const libraryEntityId = libraryResult.rows[0]?.id;
-	if (!libraryEntityId) {
-		throw new Error(`Missing library entity for user '${input.userId}'`);
-	}
-
-	const schemaResult = await pg.query<{ id: string }>(
-		`select id from relationship_schema
-		 where slug = 'in-library' and user_id is null
-		 limit 1`,
-	);
-	const inLibrarySchemaId = schemaResult.rows[0]?.id;
-	if (!inLibrarySchemaId) {
-		throw new Error("Missing in-library relationship schema");
-	}
-
-	await pg.query(
-		`insert into relationship (
-				id,
-				user_id,
-				relationship_schema_id,
-				properties,
-				source_entity_id,
-				target_entity_id
-			) values ($1, $2, $3, $4::jsonb, $5, $6)
-			on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
-		[
-			crypto.randomUUID(),
-			input.userId,
-			inLibrarySchemaId,
-			JSON.stringify({}),
-			input.mediaEntityId,
-			libraryEntityId,
-		],
-	);
-}
 
 describe("Query engine E2E", () => {
 	it("includes a global media entity when the user has it in their library", async () => {
@@ -123,6 +75,134 @@ describe("Query engine E2E", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data.items.map((item) => item.name)).toEqual([entity.name]);
+	});
+
+	it("computes entity averageRating from the current user's review events only", async () => {
+		const userA = await createAuthenticatedClient();
+		const userB = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(
+			userA.client,
+			userA.cookies,
+			"show",
+		);
+		const provider = schema.providers[0];
+		if (!provider) {
+			throw new Error("No provider found");
+		}
+
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			entitySchemaId: schema.id,
+			sandboxScriptId: provider.scriptId,
+			name: `Average Rating Show ${crypto.randomUUID()}`,
+			externalId: `average-rating-show-${crypto.randomUUID()}`,
+			properties: {
+				genres: [],
+				images: [],
+				isNsfw: null,
+				sourceUrl: null,
+				showSeasons: [],
+				freeCreators: [],
+				description: null,
+				publishYear: 2016,
+				providerRating: 88.8,
+				productionStatus: "Ended",
+			},
+		});
+		await insertLibraryMembership({
+			userId: userA.userId,
+			mediaEntityId: entity.id,
+		});
+		await insertLibraryMembership({
+			userId: userB.userId,
+			mediaEntityId: entity.id,
+		});
+
+		const eventSchemas = await listEventSchemas(
+			userA.client,
+			userA.cookies,
+			schema.id,
+		);
+		const reviewEventSchemaId = eventSchemas.find(
+			(item) => item.slug === "review",
+		)?.id;
+		if (!reviewEventSchemaId) {
+			throw new Error("Missing review event schema");
+		}
+
+		const createUserAReviews = await userA.client.POST("/events", {
+			headers: { Cookie: userA.cookies },
+			body: [
+				{
+					entityId: entity.id,
+					eventSchemaId: reviewEventSchemaId,
+					properties: { rating: 2, review: "Fine" },
+				},
+				{
+					entityId: entity.id,
+					eventSchemaId: reviewEventSchemaId,
+					properties: { rating: 4, review: "Better" },
+				},
+			],
+		});
+		const createUserBReview = await userB.client.POST("/events", {
+			headers: { Cookie: userB.cookies },
+			body: [
+				{
+					entityId: entity.id,
+					eventSchemaId: reviewEventSchemaId,
+					properties: { rating: 5, review: "Excellent" },
+				},
+			],
+		});
+		expect(createUserAReviews.response.status).toBe(200);
+		expect(createUserBReview.response.status).toBe(200);
+		await waitForEventCount(userA.client, userA.cookies, entity.id, 2);
+		await waitForEventCount(userB.client, userB.cookies, entity.id, 1);
+
+		const request = buildGridRequest({
+			entitySchemaSlugs: [schema.slug],
+			relationships: [{ relationshipSchemaSlug: "in-library" }],
+			displayConfiguration: buildGridDisplayConfiguration(
+				{
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
+					calloutProperty: eventAggregateExpression(
+						"review",
+						["rating"],
+						"avg",
+					),
+				},
+				[schema.slug],
+			),
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: literalExpression(entity.name),
+				left: entityColumnExpression(schema.slug, "name"),
+			},
+		});
+
+		const userAResult = await executeQueryEngine(
+			userA.client,
+			userA.cookies,
+			request,
+		);
+		const userBResult = await executeQueryEngine(
+			userB.client,
+			userB.cookies,
+			request,
+		);
+
+		expect(userAResult.response.status).toBe(200);
+		expect(userBResult.response.status).toBe(200);
+		expect(
+			getQueryEngineFieldOrThrow(userAResult.data?.data.items[0], "callout"),
+		).toEqual({ value: 3, key: "callout", kind: "number" });
+		expect(
+			getQueryEngineFieldOrThrow(userBResult.data?.data.items[0], "callout"),
+		).toEqual({ value: 5, key: "callout", kind: "number" });
 	});
 
 	it("isolates global media entities by library membership per user", async () => {
