@@ -111,9 +111,7 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 	return exercise?.sets[setIdx];
 };
 
-export const getDefaultWorkout = (
-	fitnessEntity: FitnessAction,
-): InProgressWorkout => {
+export const getDefaultWorkout = (fitnessEntity: FitnessAction) => {
 	const date = dayjsLib().add(1, "second");
 	return {
 		images: [],
@@ -125,7 +123,7 @@ export const getDefaultWorkout = (
 		currentAction: fitnessEntity,
 		durations: [{ from: date.toISOString() }],
 		name: `${getTimeOfDay(date.hour())} Workout`,
-	};
+	} as InProgressWorkout;
 };
 
 export const getExerciseDetailsQuery = (exerciseId: string) =>
