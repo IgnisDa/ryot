@@ -6,7 +6,7 @@ use common_models::DefaultCollection;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use csv::Reader;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enum_models::{ImportSource, MediaLot};
+use enum_models::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -80,25 +80,23 @@ fn process_hardcover_record(
         Err(e) => {
             return Err(ImportFailedItem {
                 lot: Some(lot),
-                step: ImportFailStep::InputTransformation,
-                identifier: idx.to_string(),
                 error: Some(e.to_string()),
+                identifier: idx.to_string(),
+                step: ImportFailStep::InputTransformation,
             });
         }
     };
 
     ryot_log!(debug, "Processing {}/{}: {}", idx + 1, total, record.title);
 
-    // Use Hardcover Book ID as the identifier
-    let source = enum_models::MediaSource::Hardcover;
+    let source = MediaSource::Hardcover;
     let identifier = record.hardcover_book_id.clone();
 
-    // Validate that we have a valid Hardcover Book ID
     if identifier.is_empty() {
         return Err(ImportFailedItem {
             lot: Some(lot),
-            step: ImportFailStep::ItemDetailsFromSource,
             identifier: record.title.clone(),
+            step: ImportFailStep::ItemDetailsFromSource,
             error: Some("Empty Hardcover Book ID".to_string()),
         });
     }
@@ -164,7 +162,7 @@ fn process_hardcover_record(
     let mut reviews = vec![];
     if record.rating.is_some() || record.review.is_some() {
         let mut rating_review = ImportOrExportItemRating {
-            rating: record.rating.map(|r| r.saturating_mul(dec!(2))), // Convert 5-star to 10-point scale
+            rating: record.rating.map(|r| r.saturating_mul(dec!(20))), // Convert 5-star to 100-point scale
             ..Default::default()
         };
 
@@ -203,10 +201,10 @@ fn process_hardcover_record(
     Ok(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
         lot,
         source,
+        reviews,
         identifier,
         collections,
         seen_history,
-        reviews,
         source_id: record.title.clone(),
     }))
 }
