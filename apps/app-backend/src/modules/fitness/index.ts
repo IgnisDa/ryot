@@ -1,2 +1,10 @@
 export { exerciseSeedJobName } from "./jobs";
-export { createFitnessWorker } from "./worker";
+export {
+	dispatchExerciseSeedJob,
+	shouldDispatchExerciseSeedJob,
+} from "./startup";
+export {
+	buildExerciseSeedEntityValues,
+	createFitnessWorker,
+	processExerciseSeedJob,
+} from "./worker";
