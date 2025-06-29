@@ -301,12 +301,8 @@ export default function Page() {
 									variant="outline"
 									onClick={() => {
 										setAddEntityToCollectionsData({
-											entityId: loaderData.personId,
 											entityLot: EntityLot.Person,
-											alreadyInCollections:
-												loaderData.userPersonDetails.collections.map(
-													(c) => c.id,
-												),
+											entityId: loaderData.personId,
 										});
 									}}
 								>

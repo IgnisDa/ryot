@@ -110,7 +110,6 @@ export const useReviewEntity = () => {
 export type AddEntityToCollectionsData = {
 	entityId: string;
 	entityLot: EntityLot;
-	alreadyInCollections?: Array<string>;
 };
 
 export const addEntityToCollectionsAtom =

@@ -428,16 +428,13 @@ export default function Page() {
 									))
 									.exhaustive()}
 								<Menu.Item
+									leftSection={<IconArchive size={14} />}
 									onClick={() =>
 										setAddEntityToCollectionsData({
 											entityLot,
 											entityId: loaderData.entityId,
-											alreadyInCollections: loaderData.collections.map(
-												(c) => c.id,
-											),
 										})
 									}
-									leftSection={<IconArchive size={14} />}
 								>
 									Add to collection
 								</Menu.Item>

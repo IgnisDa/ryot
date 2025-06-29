@@ -12,22 +12,37 @@ import { useListState } from "@mantine/hooks";
 import {
 	AddEntityToCollectionDocument,
 	CollectionExtraInformationLot,
+	EntityLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { Form, useRevalidator } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { MultiSelectCreatable } from "~/components/common";
-import { clientGqlService, dayjsLib, refreshEntityDetails } from "~/lib/common";
+import {
+	clientGqlService,
+	dayjsLib,
+	getUserMetadataDetailsQuery,
+	getUserMetadataGroupDetailsQuery,
+	getUserPersonDetailsQuery,
+	queryClient,
+	refreshEntityDetails,
+} from "~/lib/common";
 import {
 	useApplicationEvents,
 	useNonHiddenUserCollections,
 	useUserDetails,
 } from "~/lib/hooks";
+import {
+	getUserExerciseDetailsQuery,
+	getWorkoutDetailsQuery,
+	getWorkoutTemplateDetailsQuery,
+} from "~/lib/state/fitness";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
+import invariant from "tiny-invariant";
 
 export const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsDrawer,
@@ -39,6 +54,46 @@ export const AddEntityToCollectionsForm = ({
 	const events = useApplicationEvents();
 	const revalidator = useRevalidator();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
+
+	const { data: alreadyInCollections } = useQuery({
+		queryKey: ["alreadyInCollections", addEntityToCollectionData?.entityId],
+		queryFn: async () => {
+			const entityId = addEntityToCollectionData?.entityId;
+			invariant(entityId);
+			return match(addEntityToCollectionData?.entityLot)
+				.with(EntityLot.Exercise, () =>
+					queryClient
+						.ensureQueryData(getUserExerciseDetailsQuery(entityId))
+						.then((d) => d.collections.map((c) => c.id)),
+				)
+				.with(EntityLot.Workout, () =>
+					queryClient
+						.ensureQueryData(getWorkoutDetailsQuery(entityId))
+						.then((d) => d.collections.map((c) => c.id)),
+				)
+				.with(EntityLot.WorkoutTemplate, () =>
+					queryClient
+						.ensureQueryData(getWorkoutTemplateDetailsQuery(entityId))
+						.then((d) => d.collections.map((c) => c.id)),
+				)
+				.with(EntityLot.Metadata, () =>
+					queryClient
+						.ensureQueryData(getUserMetadataDetailsQuery(entityId))
+						.then((d) => d.collections.map((c) => c.id)),
+				)
+				.with(EntityLot.MetadataGroup, () =>
+					queryClient
+						.ensureQueryData(getUserMetadataGroupDetailsQuery(entityId))
+						.then((d) => d.collections.map((c) => c.id)),
+				)
+				.with(EntityLot.Person, () =>
+					queryClient
+						.ensureQueryData(getUserPersonDetailsQuery(entityId))
+						.then((d) => d.collections.map((c) => c.id)),
+				)
+				.run();
+		},
+	});
 
 	const [selectedCollections, selectedCollectionsHandlers] = useListState<
 		// biome-ignore lint/suspicious/noExplicitAny: required here
@@ -54,9 +109,7 @@ export const AddEntityToCollectionsForm = ({
 		items: items.map((c) => ({
 			label: c.name,
 			value: c.id.toString(),
-			disabled: addEntityToCollectionData?.alreadyInCollections?.includes(
-				c.id.toString(),
-			),
+			disabled: alreadyInCollections?.includes(c.id.toString()),
 		})),
 	}));
 

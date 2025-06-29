@@ -919,12 +919,8 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setAddEntityToCollectionsData({
-												entityId: loaderData.metadataId,
 												entityLot: EntityLot.Metadata,
-												alreadyInCollections:
-													loaderData.userMetadataDetails.collections.map(
-														(c) => c.id,
-													),
+												entityId: loaderData.metadataId,
 											});
 										}}
 									>
