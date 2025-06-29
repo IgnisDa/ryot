@@ -57,8 +57,13 @@ export const AddEntityToCollectionsForm = ({
 	const revalidator = useRevalidator();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
 
+	const alreadyInCollectionsQueryKey = [
+		"alreadyInCollections",
+		addEntityToCollectionData?.entityId,
+	];
+
 	const { data: alreadyInCollections } = useQuery({
-		queryKey: ["alreadyInCollections", addEntityToCollectionData?.entityId],
+		queryKey: alreadyInCollectionsQueryKey,
 		queryFn: async () => {
 			const entityId = addEntityToCollectionData?.entityId;
 			invariant(entityId);
@@ -181,6 +186,7 @@ export const AddEntityToCollectionsForm = ({
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		await mutation.mutateAsync();
+		queryClient.invalidateQueries({ queryKey: alreadyInCollectionsQueryKey });
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		revalidator.revalidate();
 		closeAddEntityToCollectionsDrawer();
