@@ -135,7 +135,7 @@ export const MetadataNewProgressUpdateForm = ({
 	};
 
 	return (
-		<Stack ref={parent}>
+		<Stack ref={parent} gap="xs">
 			<AnimeForm
 				metadataDetails={metadataDetails}
 				metadataToUpdate={metadataToUpdate}

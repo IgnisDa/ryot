@@ -15,6 +15,7 @@ export const PodcastForm = ({
 			<Text fw="bold">Select episode</Text>
 			<Select
 				required
+				size="xs"
 				limit={50}
 				searchable
 				label="Episode"
@@ -32,6 +33,7 @@ export const PodcastForm = ({
 				}}
 			/>
 			<Checkbox
+				size="xs"
 				label="Mark all unseen episodes before this as seen"
 				defaultChecked={metadataToUpdate.podcastAllEpisodesBefore}
 				onChange={(e) => {

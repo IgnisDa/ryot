@@ -14,6 +14,7 @@ export const ShowForm = ({
 		<>
 			<Select
 				required
+				size="xs"
 				searchable
 				limit={50}
 				label="Season"
@@ -32,6 +33,7 @@ export const ShowForm = ({
 			/>
 			<Select
 				required
+				size="xs"
 				limit={50}
 				searchable
 				label="Episode"
@@ -53,6 +55,7 @@ export const ShowForm = ({
 				}
 			/>
 			<Checkbox
+				size="xs"
 				label="Mark all unseen episodes before this as seen"
 				defaultChecked={metadataToUpdate.showAllEpisodesBefore}
 				onChange={(e) => {

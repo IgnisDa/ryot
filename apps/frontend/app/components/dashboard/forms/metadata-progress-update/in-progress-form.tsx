@@ -58,7 +58,7 @@ export const MetadataInProgressUpdateForm = ({
 		.otherwise(() => [null, null]);
 
 	return (
-		<Stack mt="sm">
+		<Stack mt="xs">
 			<Group>
 				<Slider
 					min={0}
@@ -74,6 +74,7 @@ export const MetadataInProgressUpdateForm = ({
 					min={0}
 					step={1}
 					max={100}
+					size="xs"
 					hideControls
 					value={value}
 					onFocus={(e) => e.target.select()}
@@ -94,6 +95,7 @@ export const MetadataInProgressUpdateForm = ({
 							min={0}
 							step={1}
 							flex={1}
+							size="xs"
 							hideControls
 							leftSection={updateIcon}
 							max={Number(total)}

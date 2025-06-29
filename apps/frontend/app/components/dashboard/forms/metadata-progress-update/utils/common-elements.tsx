@@ -22,6 +22,7 @@ export const WatchTimeSelect = ({
 }: WatchTimeSelectProps) => {
 	return (
 		<Select
+			size="xs"
 			value={value}
 			onChange={(v) => onChange(v as WatchTimes)}
 			label={`When did you ${getVerb(Verb.Read, metadataLot)} it?`}
@@ -56,6 +57,7 @@ export const CustomDatePicker = ({
 		<>
 			<DateTimePicker
 				clearable
+				size="xs"
 				value={startDate}
 				label="Started on"
 				dropdownType="modal"
@@ -64,6 +66,7 @@ export const CustomDatePicker = ({
 			/>
 			<DateTimePicker
 				clearable
+				size="xs"
 				value={finishDate}
 				label="Finished on"
 				dropdownType="modal"
@@ -88,6 +91,7 @@ export const ProviderSelect = ({
 
 	return (
 		<Select
+			size="xs"
 			onChange={onChange}
 			data={watchProviders}
 			name="providerWatchedOn"

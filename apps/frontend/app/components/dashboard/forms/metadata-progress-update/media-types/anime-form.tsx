@@ -14,6 +14,7 @@ export const AnimeForm = ({
 		<>
 			<NumberInput
 				required
+				size="xs"
 				hideControls
 				label="Episode"
 				value={metadataToUpdate.animeEpisodeNumber?.toString()}
@@ -26,6 +27,7 @@ export const AnimeForm = ({
 				}}
 			/>
 			<Checkbox
+				size="xs"
 				label="Mark all unseen episodes before this as watched"
 				defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
 				onChange={(e) => {
