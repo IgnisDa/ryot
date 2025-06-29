@@ -1,14 +1,25 @@
 # Hardcover
 
-Ryot translates [Hardcover](https://hardcover.app/) reading statuses to collections in the
-following manner:
+Ryot imports data from [Hardcover](https://hardcover.app) with the following mappings:
 
-- Currently Reading -> "In Progress": no progress will be imported and you can manually
-  update the progress later.
-- Read -> "Completed"
-- Want to Read -> "Watchlist"
+## Reading Status
 
-Here are the steps to export your data from Hardcover:
+- Currently Reading -> "In Progress" collection: no progress will be imported and you can
+  manually update the progress later.
+- Read -> Creates a history entry (automatically adds to "Completed" collection)
+- Want to Read -> "Watchlist" collection
+
+## Additional Data
+
+- **Custom Lists**: Any lists you've created in Hardcover (like "Books That Changed My
+  Life") will be imported as collections in Ryot.
+- **Ratings & Reviews**: Your ratings, reviews, and review dates will be imported with your
+  reading history.
+- **Owned Books**: Books marked as "Owned" in Hardcover will be added to the "Owned"
+  collection.
+- **Reading Dates**: Start and finish dates will be preserved in your reading history.
+
+## Steps
 
 1. Login to your Hardcover account and go to your settings page.
 2. Look for "Export Your Data" option and download your library as a CSV file.
