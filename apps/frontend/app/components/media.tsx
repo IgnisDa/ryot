@@ -186,7 +186,6 @@ export const MetadataDisplayItem = (props: {
 	altName?: string;
 	metadataId: string;
 	topRight?: ReactNode;
-	nameRight?: ReactNode;
 	noLeftLabel?: boolean;
 	rightLabel?: ReactNode;
 	rightLabelLot?: boolean;
@@ -269,7 +268,6 @@ export const MetadataDisplayItem = (props: {
 			imageUrl={images.at(0)}
 			altName={props.altName}
 			progress={currentProgress}
-			nameRight={props.nameRight}
 			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}

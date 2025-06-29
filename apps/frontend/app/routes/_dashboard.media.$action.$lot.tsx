@@ -7,7 +7,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Menu,
 	Pagination,
 	Select,
 	Stack,
@@ -39,9 +38,7 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
-	IconBoxMultiple,
 	IconCheck,
-	IconDotsVertical,
 	IconFilter,
 	IconListCheck,
 	IconPhotoPlus,
@@ -88,7 +85,6 @@ import {
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import { useAddEntityToCollections } from "~/lib/state/media";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
@@ -519,7 +515,6 @@ const MediaSearchItem = (props: {
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
-	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const gridPacking = userPreferences.general.gridPacking;
@@ -548,28 +543,6 @@ const MediaSearchItem = (props: {
 				onImageClickBehavior={async () => {
 					if (tourControlThree) advanceOnboardingTourStep();
 				}}
-				nameRight={
-					<Menu shadow="md">
-						<Menu.Target>
-							<ActionIcon size="xs">
-								<IconDotsVertical />
-							</ActionIcon>
-						</Menu.Target>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconBoxMultiple size={14} />}
-								onClick={() => {
-									setAddEntityToCollectionsData({
-										entityId: props.item,
-										entityLot: EntityLot.Metadata,
-									});
-								}}
-							>
-								Add to collection
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-				}
 			/>
 			<Box px={4}>
 				<Button
