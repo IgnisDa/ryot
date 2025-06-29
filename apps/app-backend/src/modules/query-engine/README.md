@@ -82,7 +82,10 @@ Saved views persist the same query AST and then point display slots directly at 
         "type": "reference",
         "reference": { "type": "computed-field", "key": "label" }
       },
-      "primarySubtitleProperty": null,
+      "primarySubtitleProperty": {
+        "type": "reference",
+        "reference": { "type": "entity-schema", "path": ["name"] }
+      },
       "secondarySubtitleProperty": null,
       "calloutProperty": {
         "type": "reference",
@@ -98,7 +101,10 @@ Saved views persist the same query AST and then point display slots directly at 
         "type": "reference",
         "reference": { "type": "computed-field", "key": "label" }
       },
-      "primarySubtitleProperty": null,
+      "primarySubtitleProperty": {
+        "type": "reference",
+        "reference": { "type": "entity-schema", "path": ["name"] }
+      },
       "secondarySubtitleProperty": null,
       "calloutProperty": {
         "type": "reference",
@@ -112,6 +118,13 @@ Saved views persist the same query AST and then point display slots directly at 
           "expression": {
             "type": "reference",
             "reference": { "type": "computed-field", "key": "nextYear" }
+          }
+        },
+        {
+          "label": "Schema",
+          "expression": {
+            "type": "reference",
+            "reference": { "type": "entity-schema", "path": ["name"] }
           }
         }
       ]
@@ -360,9 +373,10 @@ Image rules:
 > API request body always uses structured `RuntimeRef` JSON objects. Each example
 > below shows both forms.
 
-All references must be explicit. There are two reference types plus computed fields:
+All references must be explicit. There are four reference types plus computed fields:
 
 - `{ "type": "entity", "slug": "...", "path": [...] }` — references an entity field
+- `{ "type": "entity-schema", "path": [...] }` — references a field on the entity's associated schema (no slug needed)
 - `{ "type": "event", "joinKey": "...", "path": [...] }` — references an event join field
 - `{ "type": "event-aggregate", "eventSchemaSlug": "...", "path": [...], "aggregation": "..." }` — aggregates across a user's events for each entity
 - `{ "type": "computed-field", "key": "..." }` — references a declared computed field
@@ -403,6 +417,29 @@ String shorthand → `RuntimeRef` JSON:
 Deep nested paths extend the array:
 
 - `entity.book.properties.metadata.source` → `{ "type": "entity", "slug": "book", "path": ["properties", "metadata", "source"] }`
+
+### Entity-Schema Built-Ins
+
+Entity schema metadata is referenceable through the `entity-schema` type. No schema slug is needed — the reference always resolves against the entity's own schema.
+
+String shorthand → `RuntimeRef` JSON:
+
+- `entity-schema.slug` → `{ "type": "entity-schema", "path": ["slug"] }`
+- `entity-schema.name` → `{ "type": "entity-schema", "path": ["name"] }`
+- `entity-schema.id` → `{ "type": "entity-schema", "path": ["id"] }`
+- `entity-schema.icon` → `{ "type": "entity-schema", "path": ["icon"] }`
+- `entity-schema.accentColor` → `{ "type": "entity-schema", "path": ["accentColor"] }`
+- `entity-schema.isBuiltin` → `{ "type": "entity-schema", "path": ["isBuiltin"] }`
+- `entity-schema.userId` → `{ "type": "entity-schema", "path": ["userId"] }`
+- `entity-schema.createdAt` → `{ "type": "entity-schema", "path": ["createdAt"] }`
+- `entity-schema.updatedAt` → `{ "type": "entity-schema", "path": ["updatedAt"] }`
+
+Notes:
+
+- `icon` and `accentColor` are display-only (not filterable or sortable).
+- `isBuiltin` returns a boolean.
+- `createdAt` and `updatedAt` return datetime values.
+- Entity-schema columns are always correct per row — no multi-schema coalesce needed.
 
 ### Event Join Built-Ins
 
@@ -580,8 +617,6 @@ Examples:
         "createdAt": "2026-03-28T10:00:00.000Z",
         "updatedAt": "2026-03-28T10:00:00.000Z",
         "externalId": null,
-        "entitySchemaId": "schema_book",
-        "entitySchemaSlug": "book",
         "sandboxScriptId": null,
         "image": {
           "kind": "remote",
@@ -597,6 +632,11 @@ Examples:
             "key": "rating",
             "kind": "number",
             "value": 5
+          },
+          {
+            "key": "schemaName",
+            "kind": "text",
+            "value": "Book"
           }
         ]
       }
@@ -834,6 +874,62 @@ Use latest review rating when present, otherwise show publish year.
 }
 ```
 
+### 5. Entity-Schema Fields
+
+Entity schema metadata (slug, name, isBuiltin, createdAt, etc.) is referenceable through the `entity-schema` reference type. No schema slug discriminator is needed — the reference resolves against the entity's associated schema.
+
+```json
+{
+  "sort": {
+    "direction": "asc",
+    "expression": {
+      "type": "reference",
+      "reference": { "type": "entity", "slug": "book", "path": ["name"] }
+    }
+  },
+  "pagination": {
+    "page": 1,
+    "limit": 20
+  },
+  "eventJoins": [],
+  "filter": {
+    "type": "comparison",
+    "operator": "eq",
+    "left": {
+      "type": "reference",
+      "reference": { "type": "entity-schema", "path": ["isBuiltin"] }
+    },
+    "right": { "type": "literal", "value": true }
+  },
+  "entitySchemaSlugs": ["book"],
+  "fields": [
+    {
+      "key": "title",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity", "slug": "book", "path": ["name"] }
+      }
+    },
+    {
+      "key": "schemaName",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-schema", "path": ["name"] }
+      }
+    },
+    {
+      "key": "schemaSlug",
+      "expression": {
+        "type": "reference",
+        "reference": { "type": "entity-schema", "path": ["slug"] }
+      }
+    }
+  ]
+}
+```
+
+Available entity-schema columns: `id`, `slug`, `name`, `icon` (display-only), `accentColor` (display-only), `isBuiltin`, `userId`, `createdAt`, `updatedAt`.
+
 ## Event Query Notes
 
 - `latestEvent` joins are per entity, not global.
@@ -865,8 +961,6 @@ Use latest review rating when present, otherwise show publish year.
         "createdAt": "2026-03-28T10:00:00.000Z",
         "updatedAt": "2026-03-28T10:00:00.000Z",
         "externalId": null,
-        "entitySchemaId": "schema_book",
-        "entitySchemaSlug": "book",
         "sandboxScriptId": null,
         "image": null,
         "fields": [
@@ -882,8 +976,6 @@ Use latest review rating when present, otherwise show publish year.
         "createdAt": "2026-03-28T10:00:00.000Z",
         "updatedAt": "2026-03-28T10:00:00.000Z",
         "externalId": null,
-        "entitySchemaId": "schema_book",
-        "entitySchemaSlug": "book",
         "sandboxScriptId": null,
         "image": null,
         "fields": [
@@ -908,6 +1000,8 @@ Use latest review rating when present, otherwise show publish year.
 - `image` is display-only, not filterable.
 - Duplicate field keys are rejected.
 - `"properties"` is a reserved first path segment meaning "navigate into the JSONB properties column". The system column set must never include a column named `properties`.
+- `entity-schema` references do not require a schema slug discriminator — they always resolve against the entity's own schema, even in multi-schema queries.
+- `icon` and `accentColor` entity-schema columns are display-only (not filterable or sortable).
 - String path notation (e.g. `entity.book.properties.author`) is documentation shorthand only. Sending a raw string path in a request body is invalid; the API requires structured `RuntimeRef` JSON objects.
 
 ## Validation Errors
