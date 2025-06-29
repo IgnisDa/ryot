@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useSetAtom } from "jotai";
 import { useState } from "react";
@@ -27,43 +28,34 @@ const options: { mode: ServerMode; label: string; subtitle: string }[] = [
 export default function Onboarding() {
 	const [url, setUrl] = useState("");
 	const setServerUrl = useSetAtom(serverUrlAtom);
-	const [loading, setLoading] = useState(false);
 	const [mode, setMode] = useState<ServerMode>("cloud");
-	const [error, setError] = useState<string | null>(null);
 
 	const resolvedUrl =
 		mode === "cloud" ? CLOUD_URL : url.trim().replace(/\/$/, "");
 
-	async function handleConnect() {
-		setError(null);
-
-		if (mode === "self-hosted") {
-			try {
-				new URL(resolvedUrl);
-			} catch {
-				setError("Please enter a valid URL");
-				return;
+	const connectMutation = useMutation({
+		mutationFn: async (targetUrl: string) => {
+			if (mode === "self-hosted") {
+				try {
+					new URL(targetUrl);
+				} catch {
+					throw new Error("Please enter a valid URL");
+				}
 			}
-		}
-
-		setLoading(true);
-		try {
-			const { error: fetchError } =
-				await createApiClient(resolvedUrl).GET("/system/health");
-			if (fetchError) {
-				setError("Could not reach the server");
-				return;
+			const { error } = await createApiClient(targetUrl).GET("/system/health");
+			if (error) {
+				throw new Error("Could not reach the server");
 			}
-			setServerUrl(resolvedUrl);
+			return targetUrl;
+		},
+		onSuccess: (targetUrl) => {
+			setServerUrl(targetUrl);
 			router.replace("/auth");
-		} catch {
-			setError("Could not reach the server");
-		} finally {
-			setLoading(false);
-		}
-	}
+		},
+	});
 
-	const isDisabled = loading || (mode === "self-hosted" && !url.trim());
+	const isDisabled =
+		connectMutation.isPending || (mode === "self-hosted" && !url.trim());
 
 	return (
 		<KeyboardAvoidingView
@@ -85,7 +77,7 @@ export default function Onboarding() {
 									key={opt.mode}
 									onPress={() => {
 										setMode(opt.mode);
-										setError(null);
+										connectMutation.reset();
 									}}
 									className={
 										selected
@@ -117,18 +109,27 @@ export default function Onboarding() {
 									autoCorrect={false}
 									autoCapitalize="none"
 									placeholder="https://ryot.yourdomain.com"
-									onSubmitEditing={() => void handleConnect()}
+									onSubmitEditing={() => connectMutation.mutate(resolvedUrl)}
 									onChangeText={(text) => {
 										setUrl(text);
-										setError(null);
+										connectMutation.reset();
 									}}
 								/>
 							</Input>
 						)}
-						{error && <Text className="text-destructive text-sm">{error}</Text>}
-						<Button disabled={isDisabled} onPress={handleConnect}>
-							{loading && <ButtonSpinner />}
-							<ButtonText>{loading ? "Connecting..." : "Continue"}</ButtonText>
+						{connectMutation.error && (
+							<Text className="text-destructive text-sm">
+								{connectMutation.error.message}
+							</Text>
+						)}
+						<Button
+							disabled={isDisabled}
+							onPress={() => connectMutation.mutate(resolvedUrl)}
+						>
+							{connectMutation.isPending && <ButtonSpinner />}
+							<ButtonText>
+								{connectMutation.isPending ? "Connecting..." : "Continue"}
+							</ButtonText>
 						</Button>
 					</Box>
 				</Box>
