@@ -57,11 +57,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	ClickableImage,
-	DisplayCollection,
-	ProRequiredAlert,
-} from "~/components/common";
+import { DisplayCollection, ProRequiredAlert } from "~/components/common";
 import {
 	ExerciseHistory,
 	WorkoutRevisionScheduledAlert,
@@ -84,6 +80,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
+import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import {
 	createToastHeaders,
@@ -230,6 +227,31 @@ const editWorkoutSchema = z.object({
 	endTime: z.string(),
 	startTime: z.string(),
 });
+
+const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
+	const [, setFullscreenImage] = useFullscreenImage();
+
+	return (
+		<Avatar.Group>
+			{props.images.map((i) => (
+				<Avatar
+					key={i}
+					src={i}
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: i })}
+				/>
+			))}
+			{props.videos.map((v) => (
+				<Avatar
+					key={v}
+					name="Video"
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: v })}
+				/>
+			))}
+		</Avatar.Group>
+	);
+};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -618,18 +640,7 @@ export default function Page() {
 						</Box>
 					) : null}
 					{hasAssets ? (
-						<Avatar.Group>
-							{images.map((i) => (
-								<ClickableImage key={i} src={i}>
-									<Avatar src={i} />
-								</ClickableImage>
-							))}
-							{videos.map((v) => (
-								<ClickableImage key={v} src={v}>
-									<Avatar name="Video" />
-								</ClickableImage>
-							))}
-						</Avatar.Group>
+						<WorkoutAssetsList images={images} videos={videos} />
 					) : null}
 					{loaderData.information.exercises.map((exercise, idx) => (
 						<ExerciseHistory

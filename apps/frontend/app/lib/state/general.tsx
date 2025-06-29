@@ -440,7 +440,6 @@ export const useOnboardingTour = () => {
 
 export type FullscreenImageData = {
 	src: string;
-	alt?: string;
 };
 
 const fullscreenImageAtom = atom<FullscreenImageData | null>(null);
