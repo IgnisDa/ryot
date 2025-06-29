@@ -101,21 +101,17 @@ fn process_hardcover_record(
         });
     }
 
-    // Handle collections
     let mut collections = vec![];
 
-    // Status-based collections
     match record.status.as_str() {
         "Currently Reading" => collections.push(DefaultCollection::InProgress.to_string()),
         "Want to Read" => collections.push(DefaultCollection::Watchlist.to_string()),
-        _ => {} // "Read" status gets handled via seen_history
+        _ => {}
     }
 
-    // Parse custom lists from Lists column
     if !record.lists.is_empty() {
         for list_entry in record.lists.split(',') {
             let list_name = list_entry.trim();
-            // Remove the (#number) suffix: "Books That Changed My Life (#4)" -> "Books That Changed My Life"
             if let Some(clean_name) = list_name.split(" (#").next() {
                 if !clean_name.is_empty() {
                     collections.push(clean_name.to_owned());
@@ -124,12 +120,10 @@ fn process_hardcover_record(
         }
     }
 
-    // Handle Owned collection
     if record.owned.to_lowercase() == "true" {
         collections.push(DefaultCollection::Owned.to_string());
     }
 
-    // Handle seen history for "Read" status or when Date Finished is present
     let mut seen_history = vec![];
     if record.status == "Read" || record.date_finished.is_some() {
         let mut seen_item = ImportOrExportMetadataItemSeen {
@@ -137,7 +131,6 @@ fn process_hardcover_record(
             ..Default::default()
         };
 
-        // Set start date if available
         if let Some(date_started) = &record.date_started {
             if !date_started.is_empty() {
                 if let Ok(date) = NaiveDate::parse_from_str(date_started, "%Y-%m-%d") {
@@ -146,7 +139,6 @@ fn process_hardcover_record(
             }
         }
 
-        // Set end date if available
         if let Some(date_finished) = &record.date_finished {
             if !date_finished.is_empty() {
                 if let Ok(date) = NaiveDate::parse_from_str(date_finished, "%Y-%m-%d") {
@@ -158,11 +150,10 @@ fn process_hardcover_record(
         seen_history.push(seen_item);
     }
 
-    // Handle rating and review
     let mut reviews = vec![];
     if record.rating.is_some() || record.review.is_some() {
         let mut rating_review = ImportOrExportItemRating {
-            rating: record.rating.map(|r| r.saturating_mul(dec!(20))), // Convert 5-star to 100-point scale
+            rating: record.rating.map(|r| r.saturating_mul(dec!(20))),
             ..Default::default()
         };
 
@@ -180,7 +171,6 @@ fn process_hardcover_record(
                     ..Default::default()
                 };
 
-                // Set review date if available
                 if let Some(review_date) = &record.review_date {
                     if !review_date.is_empty() {
                         if let Ok(datetime) =
