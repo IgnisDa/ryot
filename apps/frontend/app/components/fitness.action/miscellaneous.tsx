@@ -26,7 +26,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
-import { Link } from "react-router";
 import invariant from "tiny-invariant";
 import {
 	PRO_REQUIRED_MESSAGE,
@@ -40,6 +39,7 @@ import {
 	getExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
+import { useFullscreenImage } from "~/lib/state/general";
 import { deleteUploadedAsset } from "./utils";
 
 export const NameAndOtherInputs = (props: {
@@ -146,6 +146,7 @@ const AssetDisplay = (props: {
 	type: "video" | "image";
 	removeAsset: () => void;
 }) => {
+	const { setFullscreenImage } = useFullscreenImage();
 	const srcUrlQuery = useQuery({
 		queryKey: queryFactory.miscellaneous.presignedS3Url(props.s3Key).queryKey,
 		queryFn: () =>
@@ -157,11 +158,19 @@ const AssetDisplay = (props: {
 	return (
 		<Box pos="relative">
 			{props.type === "video" ? (
-				<Link to={srcUrlQuery.data ?? ""} target="_blank">
-					<Avatar size="lg" name="Video" />
-				</Link>
+				<Avatar
+					size="lg"
+					name="Video"
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: srcUrlQuery.data ?? "" })}
+				/>
 			) : (
-				<Avatar src={srcUrlQuery.data} size="lg" />
+				<Avatar
+					size="lg"
+					src={srcUrlQuery.data}
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: srcUrlQuery.data ?? "" })}
+				/>
 			)}
 			<ActionIcon
 				top={0}

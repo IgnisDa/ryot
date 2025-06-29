@@ -1,4 +1,5 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
+import { FullscreenImageModal } from "~/components/common";
 import {
 	AddEntityToCollectionsForm,
 	CreateMeasurementForm,
@@ -6,21 +7,14 @@ import {
 	ReviewEntityForm,
 } from "~/components/dashboard";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
+import { useOnboardingTour } from "~/lib/state/general";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
 
-interface LayoutModalsProps {
-	completeOnboardingTour: () => void;
-	isOnLastOnboardingTourStep: boolean;
-}
-
-export function LayoutModals({
-	completeOnboardingTour,
-	isOnLastOnboardingTourStep,
-}: LayoutModalsProps) {
+export function LayoutModals() {
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
@@ -32,9 +26,12 @@ export function LayoutModals({
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
+	const { completeOnboardingTour, isOnLastOnboardingTourStep } =
+		useOnboardingTour();
 
 	return (
 		<>
+			<FullscreenImageModal />
 			<Modal
 				centered
 				withCloseButton={false}

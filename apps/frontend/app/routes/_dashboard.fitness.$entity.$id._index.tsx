@@ -80,6 +80,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
+import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import {
 	createToastHeaders,
@@ -226,6 +227,31 @@ const editWorkoutSchema = z.object({
 	endTime: z.string(),
 	startTime: z.string(),
 });
+
+const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
+	const { setFullscreenImage } = useFullscreenImage();
+
+	return (
+		<Avatar.Group>
+			{props.images.map((i) => (
+				<Avatar
+					key={i}
+					src={i}
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: i })}
+				/>
+			))}
+			{props.videos.map((v) => (
+				<Avatar
+					key={v}
+					name="Video"
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: v })}
+				/>
+			))}
+		</Avatar.Group>
+	);
+};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -614,18 +640,7 @@ export default function Page() {
 						</Box>
 					) : null}
 					{hasAssets ? (
-						<Avatar.Group>
-							{images.map((i) => (
-								<Anchor key={i} href={i} target="_blank">
-									<Avatar src={i} />
-								</Anchor>
-							))}
-							{videos.map((v) => (
-								<Anchor key={v} href={v} target="_blank">
-									<Avatar name="Video" />
-								</Anchor>
-							))}
-						</Avatar.Group>
+						<WorkoutAssetsList images={images} videos={videos} />
 					) : null}
 					{loaderData.information.exercises.map((exercise, idx) => (
 						<ExerciseHistory
