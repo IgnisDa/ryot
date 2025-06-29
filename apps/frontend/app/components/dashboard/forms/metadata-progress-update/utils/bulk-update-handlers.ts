@@ -87,10 +87,10 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 		}))
 		.with(WatchTimes.CustomDates, () =>
 			createCustomDatesCompletedChange({
-				startDateFormatted: input.startDateFormatted,
-				finishDateFormatted: input.finishDateFormatted,
 				commonFields: input.common,
 				additionalFields: input.fields,
+				startDateFormatted: input.startDateFormatted,
+				finishDateFormatted: input.finishDateFormatted,
 			}),
 		)
 		.with(WatchTimes.IDontRemember, () => ({
