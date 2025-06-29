@@ -5,8 +5,12 @@ import {
 	SegmentedControl,
 	Stack,
 } from "@mantine/core";
+import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/hooks";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
+import {
+	useAddEntityToCollections,
+	useMetadataProgressUpdate,
+} from "~/lib/state/media";
 import { MetadataInProgressUpdateForm } from "./in-progress-form";
 import { MetadataNewProgressUpdateForm } from "./new-progress-form";
 
@@ -21,6 +25,7 @@ export const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
 	const [metadataToUpdate] = useMetadataProgressUpdate();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
@@ -49,6 +54,15 @@ export const MetadataProgressUpdateForm = ({
 					{ label: "Update Progress", value: Target.Progress },
 					{ label: "Add to Collection", value: Target.Collection },
 				]}
+				onChange={(value) => {
+					if (value === Target.Collection) {
+						setAddEntityToCollectionsData({
+							entityLot: EntityLot.Metadata,
+							entityId: metadataToUpdate.metadataId,
+						});
+						closeMetadataProgressUpdateModal();
+					}
+				}}
 			/>
 			<Divider />
 			{userMetadataDetails.inProgress ? (
