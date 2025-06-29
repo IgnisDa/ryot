@@ -33,6 +33,7 @@
 		"@react-aria/ssr": "3.10.0",
 		"@react-native-community/datetimepicker": "8.6.0",
 		"@ryot/generated": "workspace:*",
+		"@tanstack/react-form": "1.29.0",
 		"babel-plugin-module-resolver": "5.0.3",
 		"better-auth": "1.6.9",
 		"buffer": "6.0.3",
@@ -62,6 +63,7 @@
 		"react-native-screens": "4.23.0",
 		"react-native-svg": "15.15.3",
 		"react-native-web": "0.21.2",
-		"react-native-worklets": "0.7.4"
+		"react-native-worklets": "0.7.4",
+		"zod": "4.3.6"
 	}
 }
