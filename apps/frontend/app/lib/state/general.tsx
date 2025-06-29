@@ -236,8 +236,7 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTargets.GoToAudiobooksSection,
-				content:
-					"Let's start by clicking on the search tab to search for an audiobook.",
+				content: "Click on the search tab to search for an audiobook.",
 			},
 			{
 				target: OnboardingTourStepTargets.SearchAudiobook,
@@ -246,11 +245,12 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
 				content:
-					"Great! You've added your first audiobook to your watchlist. Now, let's add it to your history.",
+					"Great! Now, let's add this audiobook to your listening history.",
 			},
 			{
 				target: OnboardingTourStepTargets.AddAudiobookToWatchedHistory,
-				content: "Click on the 'Submit' button to record your progress.",
+				content:
+					"Notice that there is also a button to add this audiobook to collections. For now, click on the 'Submit' button to record your progress.",
 			},
 			{
 				target: OnboardingTourStepTargets.GoToAudiobooksSectionAgain,
