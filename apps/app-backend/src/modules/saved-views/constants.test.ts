@@ -31,7 +31,7 @@ describe("createDefaultDisplayConfiguration", () => {
 		expect(displayConfiguration.grid.primarySubtitleProperty).toEqual(
 			createTransformExpression(
 				"titleCase",
-				createEntityPropertyExpression("exercise", "lot"),
+				createEntityPropertyExpression("exercise", "kind"),
 			),
 		);
 		expect(displayConfiguration.grid.secondarySubtitleProperty).toEqual(
