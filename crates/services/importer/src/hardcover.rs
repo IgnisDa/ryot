@@ -153,6 +153,7 @@ fn process_hardcover_record(
     let mut reviews = vec![];
     if record.rating.is_some() || record.review.is_some() {
         let mut rating_review = ImportOrExportItemRating {
+            // Hardcover uses a 0-5 rating scale, convert to 0-100
             rating: record.rating.map(|r| r.saturating_mul(dec!(20))),
             ..Default::default()
         };
