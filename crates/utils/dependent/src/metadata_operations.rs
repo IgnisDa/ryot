@@ -216,11 +216,6 @@ pub async fn update_metadata(
     }
     let mut result = UpdateMediaEntityResult::default();
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
-    Metadata::update_many()
-        .filter(metadata::Column::Id.eq(metadata_id))
-        .col_expr(metadata::Column::IsPartial, Expr::value(false))
-        .exec(&ss.db)
-        .await?;
     let maybe_details =
         details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
     match maybe_details {
