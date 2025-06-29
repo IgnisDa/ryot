@@ -101,7 +101,7 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 		.exhaustive();
 };
 
-const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
+const handleAnimeBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Anime &&
 		context.metadataToUpdate.animeAllEpisodesBefore &&
@@ -130,7 +130,7 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
+const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Manga &&
 		context.metadataToUpdate.mangaAllChaptersOrVolumesBefore
@@ -206,7 +206,7 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
+const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Show &&
 		context.metadataToUpdate.showAllEpisodesBefore &&
@@ -270,7 +270,7 @@ const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
+const handlePodcastBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Podcast &&
 		context.metadataToUpdate.podcastAllEpisodesBefore &&
@@ -308,7 +308,7 @@ const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-export const processBulkUpdates = (context: BulkUpdateContext): void => {
+export const processBulkUpdates = (context: BulkUpdateContext) => {
 	handleAnimeBulkUpdates(context);
 	handleMangaBulkUpdates(context);
 	handleShowBulkUpdates(context);
