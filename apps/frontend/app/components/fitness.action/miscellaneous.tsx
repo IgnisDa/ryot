@@ -146,7 +146,7 @@ const AssetDisplay = (props: {
 	type: "video" | "image";
 	removeAsset: () => void;
 }) => {
-	const [, setFullscreenImage] = useFullscreenImage();
+	const { setFullscreenImage } = useFullscreenImage();
 	const srcUrlQuery = useQuery({
 		queryKey: queryFactory.miscellaneous.presignedS3Url(props.s3Key).queryKey,
 		queryFn: () =>

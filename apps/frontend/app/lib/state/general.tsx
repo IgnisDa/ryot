@@ -445,5 +445,6 @@ export type FullscreenImageData = {
 const fullscreenImageAtom = atom<FullscreenImageData | null>(null);
 
 export const useFullscreenImage = () => {
-	return useAtom(fullscreenImageAtom);
+	const [fullscreenImage, setFullscreenImage] = useAtom(fullscreenImageAtom);
+	return { fullscreenImage, setFullscreenImage };
 };

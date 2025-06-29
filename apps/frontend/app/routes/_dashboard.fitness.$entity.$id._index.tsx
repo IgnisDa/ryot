@@ -229,7 +229,7 @@ const editWorkoutSchema = z.object({
 });
 
 const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
-	const [, setFullscreenImage] = useFullscreenImage();
+	const { setFullscreenImage } = useFullscreenImage();
 
 	return (
 		<Avatar.Group>

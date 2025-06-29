@@ -1690,24 +1690,20 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 }
 
 export const FullscreenImageModal = () => {
-	const [imageData, setImageData] = useFullscreenImage();
+	const { fullscreenImage, setFullscreenImage } = useFullscreenImage();
 
 	return (
 		<Modal
 			fullScreen
 			zIndex={1000}
-			opened={!!imageData}
-			onClose={() => setImageData(null)}
+			opened={!!fullscreenImage}
+			onClose={() => setFullscreenImage(null)}
 		>
-			{imageData && (
+			{fullscreenImage && (
 				<Image
-					src={imageData.src}
 					alt="Fullscreen image"
-					style={{
-						maxHeight: "90vh",
-						maxWidth: "90vw",
-						objectFit: "contain",
-					}}
+					src={fullscreenImage.src}
+					style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain" }}
 				/>
 			)}
 		</Modal>

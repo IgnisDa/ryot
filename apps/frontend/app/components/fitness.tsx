@@ -513,7 +513,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 };
 
 const ExerciseImagesList = (props: { images: string[] }) => {
-	const [, setFullscreenImage] = useFullscreenImage();
+	const { setFullscreenImage } = useFullscreenImage();
 
 	return (
 		<Avatar.Group>
