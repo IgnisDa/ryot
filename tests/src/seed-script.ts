@@ -1450,543 +1450,132 @@ async function getMediaLifecycleEventSchemas(
 	return { backlog, complete, progress, review };
 }
 
-// ─── Media data generators ──────────────────────────────────────────────────
+// ─── Media seeding helpers ──────────────────────────────────────────────────
 
-const MOVIE_ADJECTIVES = [
-	"Dark",
-	"Lost",
-	"Silent",
-	"Final",
-	"Last",
-	"Golden",
-	"Iron",
-	"Hidden",
-	"Brave",
-	"Electric",
-	"Midnight",
-	"Crimson",
-	"Frozen",
-	"Broken",
-	"Eternal",
-];
-const MOVIE_NOUNS = [
-	"City",
-	"Storm",
-	"Hour",
-	"Kingdom",
-	"Warriors",
-	"Shadow",
-	"Horizon",
-	"Dawn",
-	"Night",
-	"Star",
-	"Dream",
-	"Hunt",
-	"Road",
-	"Signal",
-	"Legacy",
-];
+const MEDIA_ENTITY_SCHEMA_SLUGS = [
+	"anime",
+	"audiobook",
+	"book",
+	"comic-book",
+	"manga",
+	"movie",
+	"music",
+	"podcast",
+	"show",
+	"video-game",
+	"visual-novel",
+] as const;
 
-function generateMovieData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	const prefixes = ["The", "A", ""];
-	const prefix = randomChoice(prefixes);
-	const adj = randomChoice(MOVIE_ADJECTIVES);
-	const noun = randomChoice(MOVIE_NOUNS);
-	const name = prefix ? `${prefix} ${adj} ${noun}` : `${adj} ${noun}`;
-	return {
-		name,
-		properties: {
-			runtime: randomInt(80, 200),
-			publishYear: randomInt(1970, 2024),
-		},
-	};
+type MediaEntitySchemaSlug = (typeof MEDIA_ENTITY_SCHEMA_SLUGS)[number];
+
+const MEDIA_SEARCH_QUERIES: Record<
+	MediaEntitySchemaSlug,
+	{ query: string; pages: number[] }
+> = {
+	anime: { query: "naruto", pages: [1, 2] },
+	audiobook: { query: "thinking", pages: [1, 2] },
+	book: { query: "the lord", pages: [1, 2] },
+	"comic-book": { query: "batman", pages: [1, 2] },
+	manga: { query: "one piece", pages: [1, 2] },
+	movie: { query: "star", pages: [1, 2] },
+	music: { query: "rock", pages: [1, 2] },
+	podcast: { query: "daily", pages: [1, 2] },
+	show: { query: "breaking", pages: [1, 2] },
+	"video-game": { query: "zelda", pages: [1, 2] },
+	"visual-novel": { query: "fate", pages: [1, 2] },
+};
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const SHOW_FIRST_WORDS = [
-	"Breaking",
-	"Better",
-	"Stranger",
-	"True",
-	"Dark",
-	"Sharp",
-	"Narcos",
-	"Ozark",
-	"Lost",
-	"Fleabag",
-	"Succession",
-	"Severance",
-	"Andor",
-	"Yellowstone",
-	"Shogun",
-];
-const SHOW_SECOND_WORDS = [
-	"Call",
-	"Things",
-	"Detective",
-	"Blood",
-	"Lies",
-	"Valley",
-	"Point",
-	"House",
-	"Road",
-	"Reality",
-	"Ground",
-	"Blue",
-	"Objects",
-	"Sky",
-	"Line",
-];
-
-function generateShowData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	return {
-		name: `${randomChoice(SHOW_FIRST_WORDS)} ${randomChoice(SHOW_SECOND_WORDS)}`,
-		properties: { publishYear: randomInt(1990, 2024) },
-	};
-}
-
-const BOOK_ADJECTIVES = [
-	"Beautiful",
-	"Hidden",
-	"Broken",
-	"Silent",
-	"Endless",
-	"Golden",
-	"Last",
-	"Final",
-	"Dark",
-	"Ancient",
-	"Sacred",
-	"Forgotten",
-	"Eternal",
-	"Burning",
-];
-const BOOK_NOUNS = [
-	"World",
-	"Garden",
-	"House",
-	"Light",
-	"Story",
-	"Heart",
-	"Mountain",
-	"Ocean",
-	"Forest",
-	"Dream",
-	"Path",
-	"Truth",
-	"Fire",
-	"Wind",
-];
-
-function generateBookData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	const subjects = [
-		"Art",
-		"Science",
-		"History",
-		"Theory",
-		"Power",
-		"Secret",
-		"Way",
-		"Path",
-	];
-	const nameFns: Array<() => string> = [
-		() =>
-			`The ${randomChoice(subjects)} of ${randomChoice(BOOK_ADJECTIVES)} ${randomChoice(BOOK_NOUNS)}`,
-		() =>
-			`${faker.person.lastName()}'s ${randomChoice(["Journey", "Legacy", "Burden", "Promise", "Choice"])}`,
-		() => `${randomChoice(BOOK_ADJECTIVES)} ${randomChoice(BOOK_NOUNS)}`,
-		() =>
-			`${randomChoice(["How", "Why", "When", "Where"])} ${randomChoice(BOOK_NOUNS)} ${randomChoice(["Matter", "End", "Begin", "Fail", "Survive"])}`,
-	];
-	return {
-		name: randomChoice(nameFns)(),
-		properties: {
-			pages: randomInt(100, 800),
-			publishYear: randomInt(1900, 2024),
-		},
-	};
-}
-
-const ANIME_TITLES = [
-	"Attack on Hollow",
-	"My Hero Generation",
-	"Demon Slayer Chronicles",
-	"One Punch Legend",
-	"Fullmetal Brotherhood",
-	"Death Note Reborn",
-	"Sword Art Genesis",
-	"Dragon Ball Zenith",
-	"Naruto Shippuden Rising",
-	"Evangelion Redux",
-	"Your Name Forever",
-	"Howl's Moving Legacy",
-	"Spirited Away 2",
-	"Princess Mononoke Returns",
-	"Hunter x Hunter Next",
-	"Bleach Thousand Year",
-	"Tokyo Ghoul Origins",
-	"Black Clover Rising",
-	"Fairy Tail Next",
-	"Code Geass: Awakening",
-	"Vinland Saga Rising",
-	"JoJo's Next Adventure",
-	"Re: Zero Season 3",
-	"Overlord VI",
-	"Shield Hero Returns",
-	"No Game No Life 2",
-	"Konosuba Returns",
-	"Goblin Slayer Chronicles",
-	"Made in Abyss Sequel",
-	"Demon King's Realm",
-];
-
-function generateAnimeData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	return {
-		name: randomChoice(ANIME_TITLES),
-		properties: { publishYear: randomInt(1990, 2024) },
-	};
-}
-
-const MANGA_TITLES = [
-	"Chainsaw Dawn",
-	"Spy Academy",
-	"Jujutsu Awakening",
-	"Berserk Legacy",
-	"One Piece Chronicles",
-	"Vagabond Returns",
-	"Vinland Chronicles",
-	"Kingdom Rise",
-	"Goodnight Punpun Remake",
-	"20th Century Children",
-	"Monster Origins",
-	"Pluto Rising",
-	"Uzumaki Returns",
-	"Dungeon Delver Chronicles",
-	"Blue Period Rising",
-	"Biomega Origins",
-	"Holyland Chronicles",
-	"Battle Angel Alita EX",
-	"Claymore Chronicles",
-	"Gantz Origins",
-	"Dorohedoro Sequel",
-	"Kaiju No 9",
-	"The Iceblade Sorcerer",
-	"Dragon Head Chronicles",
-	"Akira Reborn",
-	"I Am a Hero 2",
-	"Goodnight Academia",
-	"Prophecy of Kurosagi",
-	"Oyasumi Realm",
-	"Oyasumi Chronicles",
-];
-
-function generateMangaData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	return {
-		name: randomChoice(MANGA_TITLES),
-		properties: { publishYear: randomInt(1990, 2024) },
-	};
-}
-
-function generateAudiobookData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	const nameFns: Array<() => string> = [
-		() =>
-			`${faker.company.name()}: ${randomChoice(["Inside Out", "A History", "Untold", "Reimagined"])}`,
-		() =>
-			`The ${randomChoice(["Complete", "Unabridged", "Essential", "Definitive"])} Guide to ${randomChoice(BOOK_NOUNS)}`,
-		() =>
-			`${faker.person.fullName()}: ${randomChoice(["A Memoir", "My Story", "The Journey", "An Autobiography"])}`,
-		() =>
-			`${randomChoice(BOOK_ADJECTIVES)} ${randomChoice(BOOK_NOUNS)}: A ${randomChoice(["Novel", "Story", "Journey", "Memoir"])}`,
-	];
-	return {
-		name: randomChoice(nameFns)(),
-		properties: {
-			runtime: randomInt(120, 2400),
-			publishYear: randomInt(2000, 2024),
-		},
-	};
-}
-
-const PODCAST_NAMES = [
-	"Tech Talk Daily",
-	"Mind the Gap",
-	"Future Forward",
-	"The Deep Dive",
-	"Startup Stories",
-	"Science Weekly",
-	"True Crime Files",
-	"Health Unlocked",
-	"Money Matters",
-	"Creative Minds",
-	"Political Lens",
-	"Philosophy Hour",
-	"History Unfolded",
-	"AI Today",
-	"Crypto Corner",
-	"Space Explorers",
-	"The Growth Show",
-	"Design Matters",
-	"Code & Coffee",
-	"The Morning Briefing",
-	"Mindset Matters",
-	"The Innovation Lab",
-	"Culture Shift",
-	"The Fact Check",
-	"Leadership Today",
-	"The Wanderer",
-	"Career Pivot",
-	"The Big Idea",
-	"Mental Health Now",
-	"The Sports Analyst",
-];
-
-function generatePodcastData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	return {
-		name: randomChoice(PODCAST_NAMES),
-		properties: { publishYear: randomInt(2010, 2024) },
-	};
-}
-
-const GAME_ADJECTIVES = [
-	"Dark",
-	"Final",
-	"Last",
-	"Ancient",
-	"Fallen",
-	"Rising",
-	"Lost",
-	"Hidden",
-	"Cyber",
-	"Neon",
-	"Blood",
-	"Shadow",
-	"Iron",
-	"Storm",
-	"Void",
-];
-const GAME_NOUNS = [
-	"Kingdom",
-	"Realm",
-	"Souls",
-	"Legacy",
-	"Empire",
-	"Chronicle",
-	"Age",
-	"Frontier",
-	"Horizon",
-	"Protocol",
-	"Genesis",
-	"Exodus",
-	"Saga",
-	"War",
-	"Quest",
-];
-
-function generateVideoGameData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	const nameFns: Array<() => string> = [
-		() => `${randomChoice(GAME_ADJECTIVES)} ${randomChoice(GAME_NOUNS)}`,
-		() =>
-			`${randomChoice(GAME_ADJECTIVES)} ${randomChoice(GAME_NOUNS)} ${randomInt(2, 6)}`,
-		() =>
-			`${faker.person.lastName()}: ${randomChoice(GAME_ADJECTIVES)} ${randomChoice(GAME_NOUNS)}`,
-		() =>
-			`${randomChoice(GAME_NOUNS)} of ${randomChoice(GAME_ADJECTIVES)} ${randomChoice(["Lands", "Realms", "Stars", "Ages"])}`,
-	];
-	return {
-		name: randomChoice(nameFns)(),
-		properties: { publishYear: randomInt(1995, 2024) },
-	};
-}
-
-const VN_TITLES = [
-	"Memories of a Distant Shore",
-	"When Petals Fall",
-	"The Last Goodbye",
-	"Echoes in the Rain",
-	"Until the Stars Go Out",
-	"A Summer's Promise",
-	"Crimson Threads",
-	"The Weight of Yesterday",
-	"Fragments of Tomorrow",
-	"Where the Wind Carries You",
-	"Beneath Silver Skies",
-	"The Forgotten Garden",
-	"Beyond the Horizon",
-	"Letters Never Sent",
-	"The Warmth of a Lie",
-	"Scattered Petals",
-	"When Clocks Stand Still",
-	"The Labyrinth of Hearts",
-	"Aurora's Last Light",
-	"Whispers in the Dark",
-	"The Carousel of Time",
-	"Crimson Promise",
-	"Fading Into Blue",
-	"Of Stardust and Silence",
-	"The Weight of Wings",
-	"Autumn's End",
-	"Voices From Below",
-	"Where Dreams Dissolve",
-	"The Lantern's Glow",
-	"One Last Summer",
-];
-
-function generateVisualNovelData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	return {
-		name: randomChoice(VN_TITLES),
-		properties: { publishYear: randomInt(2000, 2024) },
-	};
-}
-
-const MUSIC_ADJECTIVES = [
-	"Electric",
-	"Acoustic",
-	"Midnight",
-	"Golden",
-	"Silver",
-	"Crystal",
-	"Neon",
-	"Lost",
-	"Broken",
-	"Endless",
-	"Blue",
-	"Deep",
-	"Wild",
-	"Distant",
-];
-const MUSIC_NOUNS = [
-	"Soul",
-	"Heart",
-	"Mind",
-	"Sky",
-	"Ocean",
-	"Fire",
-	"Rain",
-	"Nights",
-	"Dreams",
-	"Sessions",
-	"Tapes",
-	"Waves",
-	"Echoes",
-	"Visions",
-];
-
-function generateMusicData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	const nameFns: Array<() => string> = [
-		() => `${randomChoice(MUSIC_ADJECTIVES)} ${randomChoice(MUSIC_NOUNS)}`,
-		() =>
-			`${faker.person.lastName()} ${randomChoice(["Live", "Unplugged", "Reimagined", "Revisited", "Acoustic"])}`,
-		() =>
-			`${randomChoice(["Vol.", "Chapter", "Part"])} ${randomInt(1, 4)}: ${randomChoice(MUSIC_ADJECTIVES)} ${randomChoice(MUSIC_NOUNS)}`,
-		() =>
-			`${faker.color.human()} ${randomChoice(["Sessions", "Tapes", "Recordings", "Nights"])}`,
-	];
-	return {
-		name: randomChoice(nameFns)(),
-		properties: { publishYear: randomInt(1960, 2024) },
-	};
-}
-
-const COMIC_TITLES = [
-	"The Dark Guardian",
-	"Captain Justice Returns",
-	"Iron Knight Chronicles",
-	"Black Phantom Rising",
-	"Doctor Strangely: Origins",
-	"The Amazing Adventurer",
-	"Daredevil Reborn",
-	"The Crimson Punisher",
-	"Thor's Legacy",
-	"Wolverine: First Blood",
-	"Scarlet Queen Rising",
-	"Vision Reimagined",
-	"Moon Knight Chronicles",
-	"The Sharpshooter",
-	"She-Hulk at Law",
-	"Ms. Marvel Returns",
-	"Captain Alpha First",
-	"Black Panther Rising",
-	"Storm's Fury Unleashed",
-	"Bishop Chronicles",
-	"Cable Origins",
-	"Shadow Knight's Promise",
-	"Rogue Unleashed",
-	"Steel Cyclops",
-	"Iceman Melts Down",
-	"Nightcrawler Chronicles",
-	"Emerald Guardian",
-	"Silver Archer",
-	"Flame Titan",
-	"Aqua Knight",
-];
-
-function generateComicBookData(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	return {
-		name: randomChoice(COMIC_TITLES),
-		properties: { publishYear: randomInt(1950, 2024) },
-	};
-}
-
-function generateMediaData(slug: string): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
-	const generators: Record<
-		string,
-		() => { name: string; properties: Record<string, unknown> }
-	> = {
-		anime: generateAnimeData,
-		book: generateBookData,
-		manga: generateMangaData,
-		movie: generateMovieData,
-		music: generateMusicData,
-		show: generateShowData,
-		podcast: generatePodcastData,
-		audiobook: generateAudiobookData,
-		"comic-book": generateComicBookData,
-		"video-game": generateVideoGameData,
-		"visual-novel": generateVisualNovelData,
-	};
-	const generator = generators[slug];
-	if (generator) {
-		return generator();
+async function pollSearchJob(
+	apiClient: APIClient,
+	jobId: string,
+): Promise<Array<{ identifier: string }>> {
+	const client = apiClient.getClient();
+	const startedAt = Date.now();
+	while (true) {
+		apiClient.incrementRequestCount();
+		const { data, response } = await client.GET(
+			"/entity-schemas/search/{jobId}",
+			{ params: { path: { jobId } } },
+		);
+		if (!response.ok || !data?.data) {
+			throw new Error(`Failed to poll search job ${jobId}`);
+		}
+		if (data.data.status === "pending") {
+			if (Date.now() - startedAt > 60000) {
+				throw new Error(`Search job ${jobId} timed out`);
+			}
+			await sleep(500);
+			continue;
+		}
+		if (data.data.status === "failed") {
+			throw new Error(`Search job failed: ${data.data.error}`);
+		}
+		const value = (data.data as { status: "completed"; value: unknown })
+			.value as { items?: Array<{ identifier: string }> };
+		return value?.items ?? [];
 	}
-	return {
-		name: faker.lorem.words(3),
-		properties: { publishYear: randomInt(2000, 2024) },
-	};
+}
+
+async function searchMediaPage(
+	apiClient: APIClient,
+	scriptId: string,
+	query: string,
+	page: number,
+): Promise<Array<{ identifier: string }>> {
+	const client = apiClient.getClient();
+	apiClient.incrementRequestCount();
+	const { data, response } = await client.POST("/entity-schemas/search", {
+		body: { scriptId, context: { query, page, pageSize: 10 } },
+	});
+	if (!response.ok || !data?.data) {
+		throw new Error(`Failed to enqueue search for "${query}" page ${page}`);
+	}
+	return pollSearchJob(apiClient, data.data.jobId);
+}
+
+async function importMediaEntity(
+	apiClient: APIClient,
+	scriptId: string,
+	identifier: string,
+	entitySchemaId: string,
+): Promise<SeedEntity | null> {
+	const client = apiClient.getClient();
+	apiClient.incrementRequestCount();
+	const { data: importData, response: importResp } = await client.POST(
+		"/entity-schemas/import",
+		{ body: { scriptId, identifier, entitySchemaId } },
+	);
+	if (!importResp.ok || !importData?.data) {
+		return null;
+	}
+	const jobId = importData.data.jobId;
+	const startedAt = Date.now();
+	while (true) {
+		apiClient.incrementRequestCount();
+		const { data: pollData, response: pollResp } = await client.GET(
+			"/entity-schemas/import/{jobId}",
+			{ params: { path: { jobId } } },
+		);
+		if (!pollResp.ok || !pollData?.data) {
+			return null;
+		}
+		const status = pollData.data.status;
+		if (status === "pending") {
+			if (Date.now() - startedAt > 60000) {
+				return null;
+			}
+			await sleep(500);
+			continue;
+		}
+		if (status === "failed") {
+			return null;
+		}
+		return (pollData.data as { status: "completed"; data: SeedEntity }).data;
+	}
 }
 
 // ─── Media seeding ──────────────────────────────────────────────────────────
@@ -1999,36 +1588,70 @@ async function seedMedia(client: APIClient) {
 		`  Found builtin tracker: ${builtinTracker.name} (${builtinTracker.id})`,
 	);
 
-	const schemas = await listMediaEntitySchemas(client, builtinTracker.id);
-	console.log(`  Found ${schemas.length} media entity schemas`);
+	const allSchemas = await listMediaEntitySchemas(client, builtinTracker.id);
+	const schemas = allSchemas.filter((s) =>
+		(MEDIA_ENTITY_SCHEMA_SLUGS as readonly string[]).includes(s.slug),
+	);
+	console.log(
+		`  Found ${schemas.length} media entity schemas to seed (of ${allSchemas.length} total)`,
+	);
 
 	let totalEntities = 0;
 	let totalEvents = 0;
 	const allEntities: SeedEntity[] = [];
 
 	for (const schema of schemas) {
-		console.log(`\n  Processing: ${schema.name} (${schema.slug})...`);
+		const slug = schema.slug as MediaEntitySchemaSlug;
+		console.log(`\n  Processing: ${schema.name} (${slug})...`);
 		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
 
-		const entityCount = randomInt(23, 28);
-		const entities: SeedEntity[] = [];
-
-		for (let i = 0; i < entityCount; i++) {
-			const { name, properties } = generateMediaData(schema.slug);
-			const entity = await createEntity(
-				client,
-				name,
-				schema.id,
-				properties,
-				generateImageUrl(name, 400, 600),
-			);
-			entities.push(entity);
+		const scriptId = schema.providers[0]?.scriptId;
+		if (!scriptId) {
+			console.log("    No provider available, skipping");
+			continue;
 		}
 
-		console.log(`    Created ${entities.length} entities`);
+		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
+		const identifiers: string[] = [];
+		for (const page of searchConfig.pages) {
+			try {
+				const items = await searchMediaPage(
+					client,
+					scriptId,
+					searchConfig.query,
+					page,
+				);
+				for (const item of items) {
+					if (!identifiers.includes(item.identifier)) {
+						identifiers.push(item.identifier);
+					}
+				}
+				console.log(
+					`    Search "${searchConfig.query}" page ${page}: ${items.length} results`,
+				);
+			} catch (err) {
+				console.log(`    Search page ${page} failed: ${err}`);
+			}
+		}
+		console.log(`    Collected ${identifiers.length} unique identifiers`);
+
+		const entities: SeedEntity[] = [];
+		for (const identifier of identifiers) {
+			const entity = await importMediaEntity(
+				client,
+				scriptId,
+				identifier,
+				schema.id,
+			);
+			if (entity) {
+				entities.push(entity);
+			}
+		}
+		console.log(`    Imported ${entities.length} entities`);
 
 		// ~28% backlog (up-next), ~20% in-progress (continue),
 		// ~24% completed unrated (rate-these), ~28% completed + reviewed
+		const entityCount = entities.length;
 		const backlogCount = Math.ceil(entityCount * 0.28);
 		const progressCount = Math.ceil(entityCount * 0.2);
 		const completeNoReviewCount = Math.ceil(entityCount * 0.24);
