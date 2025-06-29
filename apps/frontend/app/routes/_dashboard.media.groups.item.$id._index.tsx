@@ -10,7 +10,7 @@ import {
 	Text,
 } from "@mantine/core";
 import {
-	DeployUpdateMetadataGroupJobDocument,
+	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
@@ -65,8 +65,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			),
 		]);
 	if (metadataGroupDetails.details.isPartial)
-		await serverGqlService.request(DeployUpdateMetadataGroupJobDocument, {
-			metadataGroupId,
+		await serverGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId: metadataGroupId,
+			entityLot: EntityLot.MetadataGroup,
 		});
 	return {
 		query,

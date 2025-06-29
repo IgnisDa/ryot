@@ -11,7 +11,7 @@ import {
 	Text,
 } from "@mantine/core";
 import {
-	DeployUpdatePersonJobDocument,
+	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	PersonDetailsDocument,
 	UserPersonDetailsDocument,
@@ -66,8 +66,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		}),
 	]);
 	if (personDetails.details.isPartial)
-		await serverGqlService.request(DeployUpdatePersonJobDocument, {
-			personId,
+		await serverGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId: personId,
+			entityLot: EntityLot.Person,
 		});
 	return { query, personId, userPersonDetails, personDetails };
 };

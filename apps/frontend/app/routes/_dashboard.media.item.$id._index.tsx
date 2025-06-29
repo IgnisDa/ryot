@@ -18,7 +18,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
 	DeleteSeenItemDocument,
-	DeployUpdateMetadataJobDocument,
+	DeployUpdateMediaEntityJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	MediaLot,
@@ -144,8 +144,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		),
 	]);
 	if (metadataDetails.isPartial)
-		await serverGqlService.request(DeployUpdateMetadataJobDocument, {
-			metadataId,
+		await serverGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId: metadataId,
+			entityLot: EntityLot.Metadata,
 		});
 	return { query, metadataId, metadataDetails, userMetadataDetails };
 };
