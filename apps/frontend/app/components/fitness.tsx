@@ -264,7 +264,7 @@ export const ExerciseHistory = (props: {
 	);
 
 	const images = getExerciseImages(exerciseDetails);
-	const hasExtraDetailsToShow = images.length > 0 || exercise.total;
+	const hasExtraDetailsToShow = images.length > 0 || exercise?.total;
 
 	return (
 		<Paper
