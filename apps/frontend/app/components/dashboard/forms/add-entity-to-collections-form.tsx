@@ -17,6 +17,7 @@ import {
 import { groupBy } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
+import { useMemo } from "react";
 import { Form, useRevalidator } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
@@ -132,6 +133,46 @@ export const AddEntityToCollectionsForm = ({
 			);
 		},
 	});
+
+	const areRequiredFieldsFilled = useMemo(() => {
+		return selectedCollections.every((collection) => {
+			if (!collection.informationTemplate) return true;
+
+			return collection.informationTemplate.every((template) => {
+				if (!template.required) return true;
+
+				const value = collection.userExtraInformationData[template.name];
+
+				return match(template.lot)
+					.with(
+						CollectionExtraInformationLot.String,
+						() => typeof value === "string" && value.trim() !== "",
+					)
+					.with(
+						CollectionExtraInformationLot.Number,
+						() => typeof value === "number" && !Number.isNaN(value),
+					)
+					.with(
+						CollectionExtraInformationLot.Date,
+						() =>
+							value instanceof Date ||
+							(typeof value === "string" && value !== ""),
+					)
+					.with(
+						CollectionExtraInformationLot.DateTime,
+						() =>
+							value instanceof Date ||
+							(typeof value === "string" && value !== ""),
+					)
+					.with(
+						CollectionExtraInformationLot.StringArray,
+						() => Array.isArray(value) && value.length > 0,
+					)
+					.with(CollectionExtraInformationLot.Boolean, () => true)
+					.exhaustive();
+			});
+		});
+	}, [selectedCollections]);
 
 	if (!addEntityToCollectionData) return null;
 
@@ -315,7 +356,11 @@ export const AddEntityToCollectionsForm = ({
 					type="submit"
 					variant="outline"
 					loading={mutation.isPending}
-					disabled={selectedCollections.length === 0 || mutation.isPending}
+					disabled={
+						selectedCollections.length === 0 ||
+						!areRequiredFieldsFilled ||
+						mutation.isPending
+					}
 				>
 					Set
 				</Button>
