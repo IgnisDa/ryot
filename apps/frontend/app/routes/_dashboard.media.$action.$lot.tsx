@@ -18,7 +18,6 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
-	GridPacking,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -69,16 +68,9 @@ import {
 	getLot,
 	getStartTimeFromRange,
 	pageQueryParam,
-	refreshEntityDetails,
 	zodCollectionFilter,
 } from "~/lib/common";
-import {
-	useAppSearchParam,
-	useApplicationEvents,
-	useCoreDetails,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
@@ -512,18 +504,7 @@ const MediaSearchItem = (props: {
 	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
-	const userDetails = useUserDetails();
-	const userPreferences = useUserPreferences();
-	const events = useApplicationEvents();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	const gridPacking = userPreferences.general.gridPacking;
-	const buttonSize =
-		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
-
-	const tourControlOne = props.isFirstItem
-		? OnboardingTourStepTargets.AddAudiobookToWatchlist
-		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? OnboardingTourStepTargets.OpenMetadataProgressForm
@@ -534,47 +515,15 @@ const MediaSearchItem = (props: {
 		: undefined;
 
 	return (
-		<Box>
-			<MetadataDisplayItem
-				metadataId={props.item}
-				shouldHighlightNameIfInteracted
-				bottomRightImageOverlayClassName={tourControlTwo}
-				imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
-				onImageClickBehavior={async () => {
-					if (tourControlThree) advanceOnboardingTourStep();
-				}}
-			/>
-			<Box px={4}>
-				<Button
-					w="100%"
-					variant="outline"
-					size={buttonSize}
-					className={tourControlOne}
-					onClick={async () => {
-						const form = new FormData();
-						form.append("entityId", props.item);
-						form.append("entityLot", EntityLot.Metadata);
-						form.append("creatorUserId", userDetails.id);
-						form.append("collectionName", "Watchlist");
-						await fetch(
-							$path("/actions", { intent: "addEntityToCollection" }),
-							{
-								body: form,
-								method: "POST",
-								credentials: "include",
-							},
-						);
-						events.addToCollection(EntityLot.Metadata);
-						refreshEntityDetails(props.item);
-						if (tourControlOne) {
-							advanceOnboardingTourStep();
-						}
-					}}
-				>
-					Add to watchlist
-				</Button>
-			</Box>
-		</Box>
+		<MetadataDisplayItem
+			metadataId={props.item}
+			shouldHighlightNameIfInteracted
+			bottomRightImageOverlayClassName={tourControlTwo}
+			imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
+			onImageClickBehavior={async () => {
+				if (tourControlThree) advanceOnboardingTourStep();
+			}}
+		/>
 	);
 };
 

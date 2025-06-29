@@ -58,7 +58,6 @@ export enum OnboardingTourStepTargets {
 	FirstSidebar = "tour-step-first-sidebar",
 	GoToAudiobooksSection = "tour-step-go-to-audiobooks-section",
 	SearchAudiobook = "tour-step-search-audiobook",
-	AddAudiobookToWatchlist = "tour-step-add-audiobook-to-watchlist",
 	OpenMetadataProgressForm = "tour-step-open-metadata-progress-form",
 	AddAudiobookToWatchedHistory = "tour-step-add-audiobook-to-watched-history",
 	GoToAudiobooksSectionAgain = "tour-step-go-to-audiobooks-section-again",
@@ -228,7 +227,7 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.Welcome,
 				content:
-					"Welcome to Ryot! Let's get started by adding an audiobook to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+					"Welcome to Ryot! Let's get started by adding an audiobook to your history. Click on the media section in the sidebar to see what all you can track.",
 			},
 			{
 				target: OnboardingTourStepTargets.FirstSidebar,
@@ -238,16 +237,11 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.GoToAudiobooksSection,
 				content:
-					"Let's start by adding an audiobook to your watchlist. Click on the search tab to search for an audiobook.",
+					"Let's start by clicking on the search tab to search for an audiobook.",
 			},
 			{
 				target: OnboardingTourStepTargets.SearchAudiobook,
 				content: `You can find any audiobook here. Let us proceed by searching for "${TOUR_METADATA_TARGET_ID}".`,
-			},
-			{
-				target: OnboardingTourStepTargets.AddAudiobookToWatchlist,
-				content:
-					"Now, add this audiobook to your watchlist. Note: you can remove it later.",
 			},
 			{
 				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
