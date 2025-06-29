@@ -6,11 +6,7 @@ use common_models::{
     BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
     StringIdObject,
 };
-use database_models::{
-    metadata,
-    prelude::{MetadataGroup, Person, User},
-    user,
-};
+use database_models::{metadata, prelude::User, user};
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
@@ -24,6 +20,7 @@ use dependent_utils::{
     update_metadata_group_and_notify_users, update_person_and_notify_users,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };
+use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
@@ -55,10 +52,6 @@ pub struct MiscellaneousService(pub Arc<SupportingService>);
 impl MiscellaneousService {
     pub async fn core_details(&self) -> Result<CoreDetails> {
         self.0.core_details().await
-    }
-
-    pub async fn deploy_update_metadata_job(&self, metadata_id: &String) -> Result<bool> {
-        deploy_update_metadata_job(metadata_id, &self.0).await
     }
 
     pub async fn metadata_details(&self, metadata_id: &String) -> Result<GraphqlMetadataDetails> {
@@ -158,26 +151,28 @@ impl MiscellaneousService {
         progress_operations::update_seen_item(&self.0, &user_id, input).await
     }
 
-    pub async fn deploy_update_person_job(&self, person_id: String) -> Result<bool> {
-        let person = Person::find_by_id(person_id)
-            .one(&self.0.db)
-            .await
-            .unwrap()
-            .unwrap();
-        deploy_update_person_job(&person.id, &self.0).await?;
-        Ok(true)
-    }
-
-    pub async fn deploy_update_metadata_group_job(
+    pub async fn deploy_update_media_entity_job(
         &self,
-        metadata_group_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
     ) -> Result<bool> {
-        let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
-            .one(&self.0.db)
-            .await
-            .unwrap()
-            .unwrap();
-        deploy_update_metadata_group_job(&metadata_group.id, &self.0).await?;
+        match entity_lot {
+            EntityLot::Metadata => {
+                deploy_update_metadata_job(&entity_id, &self.0).await?;
+            }
+            EntityLot::Person => {
+                deploy_update_person_job(&entity_id, &self.0).await?;
+            }
+            EntityLot::MetadataGroup => {
+                deploy_update_metadata_group_job(&entity_id, &self.0).await?;
+            }
+            _ => {
+                return Err(async_graphql::Error::new(format!(
+                    "Entity type {:?} is not supported for update jobs",
+                    entity_lot
+                )));
+            }
+        }
         Ok(true)
     }
 

@@ -3698,6 +3698,7 @@ dependencies = [
  "async-graphql",
  "common-models",
  "dependent-models",
+ "enum-models",
  "media-models",
  "miscellaneous-service",
  "traits",
