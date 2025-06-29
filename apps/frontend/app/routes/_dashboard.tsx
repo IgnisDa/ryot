@@ -150,9 +150,7 @@ export default function Layout() {
 	const location = useLocation();
 	const {
 		onboardingTourSteps,
-		completeOnboardingTour,
 		isOnboardingTourInProgress,
-		isOnLastOnboardingTourStep,
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
@@ -224,10 +222,7 @@ export default function Layout() {
 					</Affix>
 				</Tooltip>
 			) : null}
-			<LayoutModals
-				completeOnboardingTour={completeOnboardingTour}
-				isOnLastOnboardingTourStep={isOnLastOnboardingTourStep}
-			/>
+			<LayoutModals />
 			<AppShell
 				w="100%"
 				padding={0}
