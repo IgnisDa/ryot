@@ -8,7 +8,7 @@ import type { ThreePointSmileyRating } from "~/lib/common";
 export enum WatchTimes {
 	JustCompletedNow = "Just Completed Now",
 	IDontRemember = "I don't remember",
-	CustomDate = "Custom Date",
+	CustomDates = "Custom Dates",
 	JustStartedIt = "Just Started It",
 }
 

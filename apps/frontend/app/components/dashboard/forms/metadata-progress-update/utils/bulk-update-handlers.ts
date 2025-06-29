@@ -1,101 +1,146 @@
 import { notifications } from "@mantine/notifications";
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MediaLot,
+	type MetadataProgressUpdateCommonInput,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
 
-export const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		selectedDateFormatted,
-		common,
-		updates,
-	} = context;
+export const createCustomDatesCompletedChange = (params: {
+	startDateFormatted: string | null;
+	additionalFields?: MetadataFields;
+	finishDateFormatted: string | null;
+	commonFields: MetadataProgressUpdateCommonInput;
+}) => {
+	if (params.startDateFormatted && params.finishDateFormatted) {
+		return {
+			createNewCompleted: {
+				startedAndFinishedOnDate: {
+					...params.commonFields,
+					...(params.additionalFields || {}),
+					startedOn: params.startDateFormatted,
+					timestamp: params.finishDateFormatted,
+				},
+			},
+		};
+	}
+	if (params.startDateFormatted) {
+		return {
+			createNewCompleted: {
+				startedOnDate: {
+					...params.commonFields,
+					...(params.additionalFields || {}),
+					timestamp: params.startDateFormatted,
+				},
+			},
+		};
+	}
+	if (params.finishDateFormatted) {
+		return {
+			createNewCompleted: {
+				finishedOnDate: {
+					...params.commonFields,
+					...(params.additionalFields || {}),
+					timestamp: params.finishDateFormatted,
+				},
+			},
+		};
+	}
+	throw new Error("At least one date must be provided for CustomDates");
+};
 
+type MetadataFields =
+	| { mangaVolumeNumber: number }
+	| { animeEpisodeNumber: number }
+	| { mangaChapterNumber: string }
+	| { podcastEpisodeNumber: number }
+	| { showSeasonNumber: number; showEpisodeNumber: number };
+
+type CreateUpdateChangeInput = {
+	watchTime: WatchTimes;
+	fields: MetadataFields;
+	currentDateFormatted: string;
+	startDateFormatted: string | null;
+	finishDateFormatted: string | null;
+	common: MetadataProgressUpdateCommonInput;
+};
+
+const createUpdateChange = (input: CreateUpdateChangeInput) => {
+	return match(input.watchTime)
+		.with(WatchTimes.JustStartedIt, () => ({
+			createNewInProgress: {
+				...input.common,
+				...input.fields,
+				startedOn: input.currentDateFormatted,
+			},
+		}))
+		.with(WatchTimes.JustCompletedNow, () => ({
+			createNewCompleted: {
+				finishedOnDate: {
+					...input.common,
+					...input.fields,
+					timestamp: input.currentDateFormatted,
+				},
+			},
+		}))
+		.with(WatchTimes.CustomDates, () =>
+			createCustomDatesCompletedChange({
+				commonFields: input.common,
+				additionalFields: input.fields,
+				startDateFormatted: input.startDateFormatted,
+				finishDateFormatted: input.finishDateFormatted,
+			}),
+		)
+		.with(WatchTimes.IDontRemember, () => ({
+			createNewCompleted: {
+				withoutDates: { ...input.common, ...input.fields },
+			},
+		}))
+		.exhaustive();
+};
+
+const handleAnimeBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		metadataDetails.lot === MediaLot.Anime &&
-		metadataToUpdate.animeAllEpisodesBefore &&
-		metadataToUpdate.animeEpisodeNumber
+		context.metadataDetails.lot === MediaLot.Anime &&
+		context.metadataToUpdate.animeAllEpisodesBefore &&
+		context.metadataToUpdate.animeEpisodeNumber
 	) {
-		const latestHistoryItem = history[0];
+		const latestHistoryItem = context.history[0];
 		const lastSeenEpisode =
 			latestHistoryItem?.animeExtraInformation?.episode || 0;
 		for (
 			let i = lastSeenEpisode + 1;
-			i < metadataToUpdate.animeEpisodeNumber;
+			i < context.metadataToUpdate.animeEpisodeNumber;
 			i++
 		) {
-			updates.push({
-				metadataId: metadataToUpdate.metadataId,
-				change: match(watchTime)
-					.with(WatchTimes.JustStartedIt, () => ({
-						createNewInProgress: {
-							...common,
-							animeEpisodeNumber: i,
-							startedOn: currentDateFormatted,
-						},
-					}))
-					.with(WatchTimes.JustCompletedNow, () => ({
-						createNewCompleted: {
-							finishedOnDate: {
-								...common,
-								animeEpisodeNumber: i,
-								timestamp: currentDateFormatted,
-							},
-						},
-					}))
-					.with(WatchTimes.CustomDate, () => {
-						if (!selectedDateFormatted)
-							throw new Error("Selected date is undefined");
-						return {
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									animeEpisodeNumber: i,
-									timestamp: selectedDateFormatted,
-								},
-							},
-						};
-					})
-					.with(WatchTimes.IDontRemember, () => ({
-						createNewCompleted: {
-							withoutDates: {
-								...common,
-								animeEpisodeNumber: i,
-							},
-						},
-					}))
-					.exhaustive(),
+			context.updates.push({
+				metadataId: context.metadataToUpdate.metadataId,
+				change: createUpdateChange({
+					common: context.common,
+					watchTime: context.watchTime,
+					fields: { animeEpisodeNumber: i },
+					startDateFormatted: context.startDateFormatted,
+					finishDateFormatted: context.finishDateFormatted,
+					currentDateFormatted: context.currentDateFormatted,
+				}),
 			});
 		}
 	}
 };
 
-export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		selectedDateFormatted,
-		common,
-		updates,
-	} = context;
-
+const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		metadataDetails.lot === MediaLot.Manga &&
-		metadataToUpdate.mangaAllChaptersOrVolumesBefore
+		context.metadataDetails.lot === MediaLot.Manga &&
+		context.metadataToUpdate.mangaAllChaptersOrVolumesBefore
 	) {
-		const latestHistoryItem = history[0];
+		const latestHistoryItem = context.history[0];
 
-		const hasValidChapter = isNumber(metadataToUpdate.mangaChapterNumber);
-		const hasValidVolume = isNumber(metadataToUpdate.mangaVolumeNumber);
+		const hasValidChapter = isNumber(
+			context.metadataToUpdate.mangaChapterNumber,
+		);
+		const hasValidVolume = isNumber(context.metadataToUpdate.mangaVolumeNumber);
 
 		if (
 			(hasValidChapter && hasValidVolume) ||
@@ -109,64 +154,33 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 			return;
 		}
 
-		if (metadataToUpdate.mangaVolumeNumber) {
+		if (context.metadataToUpdate.mangaVolumeNumber) {
 			const lastSeenVolume =
 				latestHistoryItem?.mangaExtraInformation?.volume || 0;
 			for (
 				let i = lastSeenVolume + 1;
-				i < metadataToUpdate.mangaVolumeNumber;
+				i < context.metadataToUpdate.mangaVolumeNumber;
 				i++
 			) {
-				updates.push({
-					metadataId: metadataToUpdate.metadataId,
-					change: match(watchTime)
-						.with(WatchTimes.JustStartedIt, () => ({
-							createNewInProgress: {
-								...common,
-								mangaVolumeNumber: i,
-								startedOn: currentDateFormatted,
-							},
-						}))
-						.with(WatchTimes.JustCompletedNow, () => ({
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									mangaVolumeNumber: i,
-									timestamp: currentDateFormatted,
-								},
-							},
-						}))
-						.with(WatchTimes.CustomDate, () => {
-							if (!selectedDateFormatted)
-								throw new Error("Selected date is undefined");
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										mangaVolumeNumber: i,
-										timestamp: selectedDateFormatted,
-									},
-								},
-							};
-						})
-						.with(WatchTimes.IDontRemember, () => ({
-							createNewCompleted: {
-								withoutDates: {
-									...common,
-									mangaVolumeNumber: i,
-								},
-							},
-						}))
-						.exhaustive(),
+				context.updates.push({
+					metadataId: context.metadataToUpdate.metadataId,
+					change: createUpdateChange({
+						common: context.common,
+						watchTime: context.watchTime,
+						fields: { mangaVolumeNumber: i },
+						startDateFormatted: context.startDateFormatted,
+						finishDateFormatted: context.finishDateFormatted,
+						currentDateFormatted: context.currentDateFormatted,
+					}),
 				});
 			}
 		}
 
-		if (metadataToUpdate.mangaChapterNumber) {
-			const targetChapter = Number(metadataToUpdate.mangaChapterNumber);
+		if (context.metadataToUpdate.mangaChapterNumber) {
+			const targetChapter = Number(context.metadataToUpdate.mangaChapterNumber);
 			const markedChapters = new Set();
 
-			for (const historyItem of history) {
+			for (const historyItem of context.history) {
 				const chapter = Number(historyItem?.mangaExtraInformation?.chapter);
 				if (!Number.isNaN(chapter) && chapter < targetChapter) {
 					markedChapters.add(chapter);
@@ -175,47 +189,16 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 
 			for (let i = 1; i < targetChapter; i++) {
 				if (!markedChapters.has(i)) {
-					updates.push({
-						metadataId: metadataToUpdate.metadataId,
-						change: match(watchTime)
-							.with(WatchTimes.JustStartedIt, () => ({
-								createNewInProgress: {
-									...common,
-									mangaChapterNumber: i.toString(),
-									startedOn: currentDateFormatted,
-								},
-							}))
-							.with(WatchTimes.JustCompletedNow, () => ({
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										mangaChapterNumber: i.toString(),
-										timestamp: currentDateFormatted,
-									},
-								},
-							}))
-							.with(WatchTimes.CustomDate, () => {
-								if (!selectedDateFormatted)
-									throw new Error("Selected date is undefined");
-								return {
-									createNewCompleted: {
-										finishedOnDate: {
-											...common,
-											mangaChapterNumber: i.toString(),
-											timestamp: selectedDateFormatted,
-										},
-									},
-								};
-							})
-							.with(WatchTimes.IDontRemember, () => ({
-								createNewCompleted: {
-									withoutDates: {
-										...common,
-										mangaChapterNumber: i.toString(),
-									},
-								},
-							}))
-							.exhaustive(),
+					context.updates.push({
+						metadataId: context.metadataToUpdate.metadataId,
+						change: createUpdateChange({
+							common: context.common,
+							watchTime: context.watchTime,
+							fields: { mangaChapterNumber: i.toString() },
+							startDateFormatted: context.startDateFormatted,
+							finishDateFormatted: context.finishDateFormatted,
+							currentDateFormatted: context.currentDateFormatted,
+						}),
 					});
 				}
 			}
@@ -223,34 +206,23 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-export const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		selectedDateFormatted,
-		common,
-		updates,
-	} = context;
-
+const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		metadataDetails.lot === MediaLot.Show &&
-		metadataToUpdate.showAllEpisodesBefore &&
-		metadataToUpdate.showSeasonNumber &&
-		metadataToUpdate.showEpisodeNumber
+		context.metadataDetails.lot === MediaLot.Show &&
+		context.metadataToUpdate.showAllEpisodesBefore &&
+		context.metadataToUpdate.showSeasonNumber &&
+		context.metadataToUpdate.showEpisodeNumber
 	) {
-		const latestHistoryItem = history[0];
+		const latestHistoryItem = context.history[0];
 		const allEpisodesInShow =
-			metadataDetails.showSpecifics?.seasons.flatMap((s) =>
+			context.metadataDetails.showSpecifics?.seasons.flatMap((s) =>
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
 		const selectedEpisodeIndex = allEpisodesInShow.findIndex(
 			(e) =>
-				e.seasonNumber === metadataToUpdate.showSeasonNumber &&
-				e.episodeNumber === metadataToUpdate.showEpisodeNumber,
+				e.seasonNumber === context.metadataToUpdate.showSeasonNumber &&
+				e.episodeNumber === context.metadataToUpdate.showEpisodeNumber,
 		);
 
 		const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
@@ -276,82 +248,39 @@ export const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 					currentEpisode.seasonNumber === 0 &&
 					selectedEpisode.seasonNumber !== 0
 				) {
-					// Skip special episodes (season 0) unless the target is also in season 0
 					continue;
 				}
 
-				updates.push({
-					metadataId: metadataToUpdate.metadataId,
-					change: match(watchTime)
-						.with(WatchTimes.JustStartedIt, () => ({
-							createNewInProgress: {
-								...common,
-								showSeasonNumber: currentEpisode.seasonNumber,
-								showEpisodeNumber: currentEpisode.episodeNumber,
-								startedOn: currentDateFormatted,
-							},
-						}))
-						.with(WatchTimes.JustCompletedNow, () => ({
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									timestamp: currentDateFormatted,
-									showSeasonNumber: currentEpisode.seasonNumber,
-									showEpisodeNumber: currentEpisode.episodeNumber,
-								},
-							},
-						}))
-						.with(WatchTimes.CustomDate, () => {
-							if (!selectedDateFormatted)
-								throw new Error("Selected date is undefined");
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										timestamp: selectedDateFormatted,
-										showSeasonNumber: currentEpisode.seasonNumber,
-										showEpisodeNumber: currentEpisode.episodeNumber,
-									},
-								},
-							};
-						})
-						.with(WatchTimes.IDontRemember, () => ({
-							createNewCompleted: {
-								withoutDates: {
-									...common,
-									showSeasonNumber: currentEpisode.seasonNumber,
-									showEpisodeNumber: currentEpisode.episodeNumber,
-								},
-							},
-						}))
-						.exhaustive(),
+				context.updates.push({
+					metadataId: context.metadataToUpdate.metadataId,
+					change: createUpdateChange({
+						common: context.common,
+						watchTime: context.watchTime,
+						startDateFormatted: context.startDateFormatted,
+						finishDateFormatted: context.finishDateFormatted,
+						currentDateFormatted: context.currentDateFormatted,
+						fields: {
+							showSeasonNumber: currentEpisode.seasonNumber,
+							showEpisodeNumber: currentEpisode.episodeNumber,
+						},
+					}),
 				});
 			}
 		}
 	}
 };
 
-export const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		selectedDateFormatted,
-		common,
-		updates,
-	} = context;
-
+const handlePodcastBulkUpdates = (context: BulkUpdateContext) => {
 	if (
-		metadataDetails.lot === MediaLot.Podcast &&
-		metadataToUpdate.podcastAllEpisodesBefore &&
-		metadataToUpdate.podcastEpisodeNumber
+		context.metadataDetails.lot === MediaLot.Podcast &&
+		context.metadataToUpdate.podcastAllEpisodesBefore &&
+		context.metadataToUpdate.podcastEpisodeNumber
 	) {
-		const latestHistoryItem = history[0];
-		const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
+		const latestHistoryItem = context.history[0];
+		const podcastSpecifics =
+			context.metadataDetails.podcastSpecifics?.episodes || [];
 		const selectedEpisode = podcastSpecifics.find(
-			(e) => e.number === metadataToUpdate.podcastEpisodeNumber,
+			(e) => e.number === context.metadataToUpdate.podcastEpisodeNumber,
 		);
 
 		if (selectedEpisode) {
@@ -363,54 +292,23 @@ export const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 			);
 
 			for (const episode of allUnseenEpisodesBefore) {
-				updates.push({
-					metadataId: metadataToUpdate.metadataId,
-					change: match(watchTime)
-						.with(WatchTimes.JustStartedIt, () => ({
-							createNewInProgress: {
-								...common,
-								podcastEpisodeNumber: episode.number,
-								startedOn: currentDateFormatted,
-							},
-						}))
-						.with(WatchTimes.JustCompletedNow, () => ({
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									timestamp: currentDateFormatted,
-									podcastEpisodeNumber: episode.number,
-								},
-							},
-						}))
-						.with(WatchTimes.CustomDate, () => {
-							if (!selectedDateFormatted)
-								throw new Error("Selected date is undefined");
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										timestamp: selectedDateFormatted,
-										podcastEpisodeNumber: episode.number,
-									},
-								},
-							};
-						})
-						.with(WatchTimes.IDontRemember, () => ({
-							createNewCompleted: {
-								withoutDates: {
-									...common,
-									podcastEpisodeNumber: episode.number,
-								},
-							},
-						}))
-						.exhaustive(),
+				context.updates.push({
+					metadataId: context.metadataToUpdate.metadataId,
+					change: createUpdateChange({
+						common: context.common,
+						watchTime: context.watchTime,
+						startDateFormatted: context.startDateFormatted,
+						fields: { podcastEpisodeNumber: episode.number },
+						finishDateFormatted: context.finishDateFormatted,
+						currentDateFormatted: context.currentDateFormatted,
+					}),
 				});
 			}
 		}
 	}
 };
 
-export const processBulkUpdates = (context: BulkUpdateContext): void => {
+export const processBulkUpdates = (context: BulkUpdateContext) => {
 	handleAnimeBulkUpdates(context);
 	handleMangaBulkUpdates(context);
 	handleShowBulkUpdates(context);

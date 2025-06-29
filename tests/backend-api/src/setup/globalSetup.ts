@@ -8,7 +8,7 @@ import {
 // We store the started services in a closure to make them available to the teardown function.
 let services: StartedServices | undefined;
 
-export async function setup(): Promise<() => Promise<void>> {
+export async function setup() {
 	console.log("[GlobalSetup] Starting all services for tests...");
 	try {
 		services = await startAllServices();
