@@ -33,20 +33,22 @@ export type UpdateProgressData = {
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
 const getUpdateMetadata = async (metadataId: string) => {
-	const getData = () =>
-		queryClient.ensureQueryData(getMetadataDetailsQuery(metadataId));
+	const meta = await queryClient.ensureQueryData(
+		getMetadataDetailsQuery(metadataId),
+	);
+	if (!meta.isPartial) return meta;
 
-	const meta = await getData();
-	if (meta.isPartial) {
-		await clientGqlService.request(MetadataDetailsDocument, {
+	const { metadataDetails } = await clientGqlService.request(
+		MetadataDetailsDocument,
+		{
 			metadataId,
 			ensureUpdated: true,
-		});
-		queryClient.invalidateQueries({
-			queryKey: getMetadataDetailsQuery(metadataId).queryKey,
-		});
-	}
-	return getData();
+		},
+	);
+	await queryClient.invalidateQueries({
+		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
+	});
+	return metadataDetails;
 };
 
 export const useMetadataProgressUpdate = () => {
