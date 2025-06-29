@@ -9,49 +9,57 @@
 - After adding a GraphQL query or mutation to the backend, run `moon run
   generated:backend-graphql` so that the frontend can use the new query or mutation.
 - Do not add code comments unless strictly necessary.
-- When adding code, attributes should be ordered by line length (ascending). For example:
+- Order attributes by line length (ascending), then alphabetically if equal length.
 
   ```tsx
+  // Wrong
   <TextInput
     label="New Password (Generated)"
     value={resetPassword}
     readOnly
     description="This is the new password for the user"
   />
-  ```
 
-  It should be:
-
-  ```tsx
+  // Correct
   <TextInput
     readOnly
     value={resetPassword}
     label="New Password (Generated)"
     description="This is the new password for the user"
   />
-  ```
 
-  Another example in Rust:
+  // Wrong
+  func({
+    a: value,
+    c: yetAnotherValue,
+    b: anotherValue,
+    d: someValue,
+  })
+
+  // Correct
+  func({
+    a: value,
+    d: someValue,
+    b: anotherValue,
+    c: yetAnotherValue,
+  })
+  ```
 
   ```rs
-  #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+  // Wrong
   pub struct PersonDetailsGroupedByRole {
       pub items: Vec<PersonDetailsItemWithCharacter>,
+      pub num: u32,
       pub name: String,
   }
-  ```
 
-  It should be:
-
-  ```rs
-  #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+  // Correct
   pub struct PersonDetailsGroupedByRole {
+      pub num: u32,
       pub name: String,
       pub items: Vec<PersonDetailsItemWithCharacter>,
   }
   ```
-
-  When lengths are equal, the attributes should be arranged alphabetically.
 
 - The migration files should be named `m<YYYYMMDD>_changes_for_issue_<number>`. Read other
   migration files for examples.
