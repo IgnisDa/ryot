@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { apiSuccess } from "~/lib/sandbox/types";
 import type { SandboxRunJobData } from "./jobs";
 import { SandboxService } from "./service";
 
@@ -42,7 +41,6 @@ describe("SandboxService.executeQueuedRun", () => {
 					context: { page: 2 },
 					apiFunctionDescriptors: [
 						{ context: {}, functionKey: "getAppConfigValue" },
-						{ context: {}, functionKey: "getUserConfigValue" },
 					],
 				}),
 			),
@@ -67,17 +65,7 @@ describe("SandboxService.executeQueuedRun", () => {
 				>;
 			}
 		).apiFunctions;
-		expect(Object.keys(apiFunctions).sort()).toEqual([
-			"getAppConfigValue",
-			"getUserConfigValue",
-		]);
-		const getUserConfigValue = apiFunctions.getUserConfigValue;
-		expect(getUserConfigValue).toBeDefined();
-		if (!getUserConfigValue) {
-			throw new Error("Expected getUserConfigValue to be bound");
-		}
-
-		expect(getUserConfigValue("pageSize")).resolves.toEqual(apiSuccess(20));
+		expect(Object.keys(apiFunctions).sort()).toEqual(["getAppConfigValue"]);
 	});
 
 	it("throws before execute when a descriptor uses an unknown function key", async () => {

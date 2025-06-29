@@ -1,6 +1,5 @@
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
 import { getEntitySchemas } from "./host-functions/get-entity-schemas";
-import { getUserConfigValue } from "./host-functions/get-user-config-value";
 import { httpCall } from "./host-functions/http-call";
 import type { HostFunction, HostFunctionFactory } from "./types";
 
@@ -16,5 +15,4 @@ export const hostFunctionRegistry = {
 	httpCall: createHostFunctionFactory(httpCall),
 	getEntitySchemas: createHostFunctionFactory(getEntitySchemas),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
-	getUserConfigValue: createHostFunctionFactory(getUserConfigValue),
 } satisfies Record<string, HostFunctionFactory>;
