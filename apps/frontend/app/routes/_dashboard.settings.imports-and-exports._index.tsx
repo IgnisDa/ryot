@@ -91,6 +91,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.OpenScale,
 					ImportSource.Goodreads,
+					ImportSource.Hardcover,
 					ImportSource.Storygraph,
 					() => ({
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
@@ -286,6 +287,7 @@ export default function Page() {
 												ImportSource.Imdb,
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
+												ImportSource.Hardcover,
 												ImportSource.Storygraph,
 												() => (
 													<>
