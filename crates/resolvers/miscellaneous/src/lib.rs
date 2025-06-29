@@ -41,9 +41,10 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: String,
+        ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_details(&metadata_id).await
+        service.metadata_details(&metadata_id, ensure_updated).await
     }
 
     /// Get details about a creator present in the database.
