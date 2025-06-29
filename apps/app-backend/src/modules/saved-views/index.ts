@@ -2,7 +2,6 @@ export {
 	createDefaultDisplayConfiguration,
 	createDefaultQueryDefinition,
 } from "./constants";
-export { getSavedViewByIdForUser } from "./repository";
 export type {
 	CreateSavedViewBody,
 	DisplayConfiguration,
