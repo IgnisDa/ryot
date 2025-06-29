@@ -31,8 +31,9 @@ export interface BulkUpdateContext {
 	history: History;
 	watchTime: WatchTimes;
 	currentDateFormatted: string;
+	startDateFormatted: string | null;
+	finishDateFormatted: string | null;
 	metadataToUpdate: UpdateProgressData;
-	selectedDateFormatted: string | null;
 	updates: MetadataProgressUpdateInput[];
 	common: MetadataProgressUpdateCommonInput;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];

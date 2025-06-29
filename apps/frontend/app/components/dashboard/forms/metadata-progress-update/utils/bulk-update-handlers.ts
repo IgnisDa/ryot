@@ -12,7 +12,8 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 		history,
 		watchTime,
 		currentDateFormatted,
-		selectedDateFormatted,
+		startDateFormatted,
+		finishDateFormatted,
 		common,
 		updates,
 	} = context;
@@ -50,17 +51,43 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 						},
 					}))
 					.with(WatchTimes.CustomDates, () => {
-						if (!selectedDateFormatted)
-							throw new Error("Selected date is undefined");
-						return {
-							createNewCompleted: {
-								finishedOnDate: {
-									...common,
-									animeEpisodeNumber: i,
-									timestamp: selectedDateFormatted,
+						if (startDateFormatted && finishDateFormatted) {
+							return {
+								createNewCompleted: {
+									startedAndFinishedOnDate: {
+										...common,
+										animeEpisodeNumber: i,
+										startedOn: startDateFormatted,
+										timestamp: finishDateFormatted,
+									},
 								},
-							},
-						};
+							};
+						}
+						if (startDateFormatted) {
+							return {
+								createNewCompleted: {
+									startedOnDate: {
+										...common,
+										animeEpisodeNumber: i,
+										timestamp: startDateFormatted,
+									},
+								},
+							};
+						}
+						if (finishDateFormatted) {
+							return {
+								createNewCompleted: {
+									finishedOnDate: {
+										...common,
+										animeEpisodeNumber: i,
+										timestamp: finishDateFormatted,
+									},
+								},
+							};
+						}
+						throw new Error(
+							"At least one date must be provided for CustomDates",
+						);
 					})
 					.with(WatchTimes.IDontRemember, () => ({
 						createNewCompleted: {
@@ -83,7 +110,8 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 		history,
 		watchTime,
 		currentDateFormatted,
-		selectedDateFormatted,
+		startDateFormatted,
+		finishDateFormatted,
 		common,
 		updates,
 	} = context;
@@ -137,17 +165,43 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 							},
 						}))
 						.with(WatchTimes.CustomDates, () => {
-							if (!selectedDateFormatted)
-								throw new Error("Selected date is undefined");
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										mangaVolumeNumber: i,
-										timestamp: selectedDateFormatted,
+							if (startDateFormatted && finishDateFormatted) {
+								return {
+									createNewCompleted: {
+										startedAndFinishedOnDate: {
+											...common,
+											mangaVolumeNumber: i,
+											startedOn: startDateFormatted,
+											timestamp: finishDateFormatted,
+										},
 									},
-								},
-							};
+								};
+							}
+							if (startDateFormatted) {
+								return {
+									createNewCompleted: {
+										startedOnDate: {
+											...common,
+											mangaVolumeNumber: i,
+											timestamp: startDateFormatted,
+										},
+									},
+								};
+							}
+							if (finishDateFormatted) {
+								return {
+									createNewCompleted: {
+										finishedOnDate: {
+											...common,
+											mangaVolumeNumber: i,
+											timestamp: finishDateFormatted,
+										},
+									},
+								};
+							}
+							throw new Error(
+								"At least one date must be provided for CustomDates",
+							);
 						})
 						.with(WatchTimes.IDontRemember, () => ({
 							createNewCompleted: {
@@ -195,17 +249,43 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 								},
 							}))
 							.with(WatchTimes.CustomDates, () => {
-								if (!selectedDateFormatted)
-									throw new Error("Selected date is undefined");
-								return {
-									createNewCompleted: {
-										finishedOnDate: {
-											...common,
-											mangaChapterNumber: i.toString(),
-											timestamp: selectedDateFormatted,
+								if (startDateFormatted && finishDateFormatted) {
+									return {
+										createNewCompleted: {
+											startedAndFinishedOnDate: {
+												...common,
+												mangaChapterNumber: i.toString(),
+												startedOn: startDateFormatted,
+												timestamp: finishDateFormatted,
+											},
 										},
-									},
-								};
+									};
+								}
+								if (startDateFormatted) {
+									return {
+										createNewCompleted: {
+											startedOnDate: {
+												...common,
+												mangaChapterNumber: i.toString(),
+												timestamp: startDateFormatted,
+											},
+										},
+									};
+								}
+								if (finishDateFormatted) {
+									return {
+										createNewCompleted: {
+											finishedOnDate: {
+												...common,
+												mangaChapterNumber: i.toString(),
+												timestamp: finishDateFormatted,
+											},
+										},
+									};
+								}
+								throw new Error(
+									"At least one date must be provided for CustomDates",
+								);
 							})
 							.with(WatchTimes.IDontRemember, () => ({
 								createNewCompleted: {
@@ -230,7 +310,8 @@ const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 		history,
 		watchTime,
 		currentDateFormatted,
-		selectedDateFormatted,
+		startDateFormatted,
+		finishDateFormatted,
 		common,
 		updates,
 	} = context;
@@ -302,18 +383,46 @@ const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 							},
 						}))
 						.with(WatchTimes.CustomDates, () => {
-							if (!selectedDateFormatted)
-								throw new Error("Selected date is undefined");
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										timestamp: selectedDateFormatted,
-										showSeasonNumber: currentEpisode.seasonNumber,
-										showEpisodeNumber: currentEpisode.episodeNumber,
+							if (startDateFormatted && finishDateFormatted) {
+								return {
+									createNewCompleted: {
+										startedAndFinishedOnDate: {
+											...common,
+											showSeasonNumber: currentEpisode.seasonNumber,
+											showEpisodeNumber: currentEpisode.episodeNumber,
+											startedOn: startDateFormatted,
+											timestamp: finishDateFormatted,
+										},
 									},
-								},
-							};
+								};
+							}
+							if (startDateFormatted) {
+								return {
+									createNewCompleted: {
+										startedOnDate: {
+											...common,
+											showSeasonNumber: currentEpisode.seasonNumber,
+											showEpisodeNumber: currentEpisode.episodeNumber,
+											timestamp: startDateFormatted,
+										},
+									},
+								};
+							}
+							if (finishDateFormatted) {
+								return {
+									createNewCompleted: {
+										finishedOnDate: {
+											...common,
+											showSeasonNumber: currentEpisode.seasonNumber,
+											showEpisodeNumber: currentEpisode.episodeNumber,
+											timestamp: finishDateFormatted,
+										},
+									},
+								};
+							}
+							throw new Error(
+								"At least one date must be provided for CustomDates",
+							);
 						})
 						.with(WatchTimes.IDontRemember, () => ({
 							createNewCompleted: {
@@ -338,7 +447,8 @@ const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 		history,
 		watchTime,
 		currentDateFormatted,
-		selectedDateFormatted,
+		startDateFormatted,
+		finishDateFormatted,
 		common,
 		updates,
 	} = context;
@@ -383,17 +493,43 @@ const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 							},
 						}))
 						.with(WatchTimes.CustomDates, () => {
-							if (!selectedDateFormatted)
-								throw new Error("Selected date is undefined");
-							return {
-								createNewCompleted: {
-									finishedOnDate: {
-										...common,
-										timestamp: selectedDateFormatted,
-										podcastEpisodeNumber: episode.number,
+							if (startDateFormatted && finishDateFormatted) {
+								return {
+									createNewCompleted: {
+										startedAndFinishedOnDate: {
+											...common,
+											podcastEpisodeNumber: episode.number,
+											startedOn: startDateFormatted,
+											timestamp: finishDateFormatted,
+										},
 									},
-								},
-							};
+								};
+							}
+							if (startDateFormatted) {
+								return {
+									createNewCompleted: {
+										startedOnDate: {
+											...common,
+											podcastEpisodeNumber: episode.number,
+											timestamp: startDateFormatted,
+										},
+									},
+								};
+							}
+							if (finishDateFormatted) {
+								return {
+									createNewCompleted: {
+										finishedOnDate: {
+											...common,
+											podcastEpisodeNumber: episode.number,
+											timestamp: finishDateFormatted,
+										},
+									},
+								};
+							}
+							throw new Error(
+								"At least one date must be provided for CustomDates",
+							);
 						})
 						.with(WatchTimes.IDontRemember, () => ({
 							createNewCompleted: {

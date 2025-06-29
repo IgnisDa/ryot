@@ -62,10 +62,11 @@ export const MetadataNewProgressUpdateForm = ({
 			watchTime,
 			common,
 			updates,
-			metadataToUpdate,
 			metadataDetails,
+			metadataToUpdate,
+			startDateFormatted,
+			finishDateFormatted,
 			currentDateFormatted,
-			selectedDateFormatted: finishDateFormatted,
 		});
 
 		const change: MetadataProgressUpdateChange = match(watchTime)
