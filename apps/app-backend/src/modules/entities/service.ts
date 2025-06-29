@@ -204,19 +204,15 @@ export const createEntity = async (
 		return entitySchemaIdResult;
 	}
 
-	const foundEntitySchema = resolveCustomEntitySchemaAccess(
-		await deps.getEntitySchemaScopeForUser({
-			entitySchemaId: entitySchemaIdResult.data,
-			userId: input.userId,
-		}),
-	);
-	if (!("entitySchema" in foundEntitySchema)) {
-		return serviceError(
-			foundEntitySchema.error === "not_found" ? "not_found" : "validation",
-			foundEntitySchema.error === "not_found"
-				? entitySchemaNotFoundError
-				: customEntitySchemaError,
-		);
+	const scope = await deps.getEntitySchemaScopeForUser({
+		userId: input.userId,
+		entitySchemaId: entitySchemaIdResult.data,
+	});
+	if (!scope) {
+		return serviceError("not_found", entitySchemaNotFoundError);
+	}
+	if (scope.isBuiltin && !hasExternalId) {
+		return serviceError("validation", customEntitySchemaError);
 	}
 
 	const provenance =
@@ -244,8 +240,7 @@ export const createEntity = async (
 		name: input.body.name,
 		image: input.body.image,
 		properties: input.body.properties,
-		propertiesSchema: foundEntitySchema.entitySchema
-			.propertiesSchema as AppSchema,
+		propertiesSchema: scope.propertiesSchema as AppSchema,
 	});
 	if ("error" in entityInput) {
 		return entityInput;
