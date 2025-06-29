@@ -1,6 +1,8 @@
 import {
-	type EntityLot,
+	DeployUpdateMediaEntityJobDocument,
+	EntityLot,
 	MediaLot,
+	MetadataDetailsDocument,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
@@ -8,9 +10,11 @@ import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import {
+	clientGqlService,
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
+	queryFactory,
 } from "~/lib/common";
 
 export type UpdateProgressData = {
@@ -47,6 +51,28 @@ export const useMetadataProgressUpdate = () => {
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
+			if (metadataDetails.isPartial) {
+				await clientGqlService.request(DeployUpdateMediaEntityJobDocument, {
+					entityId: draft.metadataId,
+					entityLot: EntityLot.Metadata,
+				});
+				while (true) {
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+					const updatedDetails = await clientGqlService
+						.request(MetadataDetailsDocument, { metadataId: draft.metadataId })
+						.then((data) => data.metadataDetails);
+					if (!updatedDetails.isPartial) {
+						queryClient.invalidateQueries({
+							queryKey: queryFactory.media.metadataDetails(draft.metadataId)
+								.queryKey,
+						});
+						queryClient.ensureQueryData(
+							getUserMetadataDetailsQuery(draft.metadataId),
+						);
+						break;
+					}
+				}
+			}
 			const nextEntry = userMetadataDetails?.nextEntry;
 			if (nextEntry) {
 				match(metadataDetails.lot)
