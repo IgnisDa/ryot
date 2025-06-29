@@ -1,281 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
-	createEntity,
-	findBuiltinTracker,
-	listEntitySchemas,
-	listEventSchemas,
-	seedMediaEntity,
+	createBuiltinMediaLifecycleFixture,
+	createEventTestFixture,
+	createRuleEventFixture,
 	waitForEventCount,
 } from "../fixtures";
 
-async function setupEventFixture(
-	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
-		? T
-		: never,
-) {
-	const { client: apiClient, cookies } = client;
-
-	const trackerResult = await apiClient.POST("/trackers", {
-		headers: { Cookie: cookies },
-		body: {
-			icon: "book",
-			accentColor: "#FF0000",
-			name: `Events Test Tracker ${crypto.randomUUID()}`,
-		},
-	});
-	if (trackerResult.response.status !== 200 || !trackerResult.data?.data?.id) {
-		throw new Error("Failed to create tracker");
-	}
-	const trackerId = trackerResult.data.data.id;
-
-	const schemaResult = await apiClient.POST("/entity-schemas", {
-		headers: { Cookie: cookies },
-		body: {
-			trackerId,
-			icon: "book",
-			name: "Test Item",
-			accentColor: "#00FF00",
-			slug: `item-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { title: { type: "string" as const, label: "Title" } },
-			},
-		},
-	});
-	if (schemaResult.response.status !== 200 || !schemaResult.data?.data?.id) {
-		throw new Error("Failed to create entity schema");
-	}
-	const entitySchemaId = schemaResult.data.data.id;
-
-	const eventSchemaResult = await apiClient.POST("/event-schemas", {
-		headers: { Cookie: cookies },
-		body: {
-			entitySchemaId,
-			name: "Finished",
-			slug: `finished-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: {
-					rating: {
-						label: "Rating",
-						type: "number" as const,
-						validation: { required: true as const },
-					},
-				},
-			},
-		},
-	});
-	if (
-		eventSchemaResult.response.status !== 200 ||
-		!eventSchemaResult.data?.data?.id
-	) {
-		throw new Error("Failed to create event schema");
-	}
-	const eventSchemaId = eventSchemaResult.data.data.id;
-
-	const entityResult = await apiClient.POST("/entities", {
-		headers: { Cookie: cookies },
-		body: {
-			image: null,
-			entitySchemaId,
-			name: "Test Book",
-			properties: { title: "Test" },
-		},
-	});
-	if (entityResult.response.status !== 200 || !entityResult.data?.data?.id) {
-		throw new Error("Failed to create entity");
-	}
-	const entityId = entityResult.data.data.id;
-
-	return { apiClient, cookies, entityId, eventSchemaId };
-}
-
-async function setupRuleEventFixture(
-	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
-		? T
-		: never,
-) {
-	const { client: apiClient, cookies } = client;
-
-	const trackerResult = await apiClient.POST("/trackers", {
-		headers: { Cookie: cookies },
-		body: {
-			icon: "book",
-			accentColor: "#FF0000",
-			name: `Rules Test Tracker ${crypto.randomUUID()}`,
-		},
-	});
-	if (trackerResult.response.status !== 200 || !trackerResult.data?.data?.id) {
-		throw new Error("Failed to create tracker");
-	}
-	const trackerId = trackerResult.data.data.id;
-
-	const schemaResult = await apiClient.POST("/entity-schemas", {
-		headers: { Cookie: cookies },
-		body: {
-			trackerId,
-			icon: "book",
-			name: "Rule Test Item",
-			accentColor: "#00FF00",
-			slug: `rule-item-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: { title: { type: "string" as const, label: "Title" } },
-			},
-		},
-	});
-	if (schemaResult.response.status !== 200 || !schemaResult.data?.data?.id) {
-		throw new Error("Failed to create entity schema");
-	}
-	const entitySchemaId = schemaResult.data.data.id;
-
-	const eventSchemaResult = await apiClient.POST("/event-schemas", {
-		headers: { Cookie: cookies },
-		body: {
-			entitySchemaId,
-			name: "Progress Log",
-			slug: `progress-log-${crypto.randomUUID()}`,
-			propertiesSchema: {
-				fields: {
-					progressPercent: {
-						type: "number" as const,
-						label: "Progress Percent",
-					},
-					status: {
-						type: "string" as const,
-						label: "Status",
-						validation: { required: true as const },
-					},
-				},
-				rules: [
-					{
-						path: ["progressPercent"],
-						kind: "validation" as const,
-						validation: { required: true as const },
-						when: {
-							path: ["status"],
-							value: "completed",
-							operator: "eq" as const,
-						},
-					},
-				],
-			},
-		},
-	});
-	if (
-		eventSchemaResult.response.status !== 200 ||
-		!eventSchemaResult.data?.data?.id
-	) {
-		throw new Error("Failed to create rule event schema");
-	}
-	const eventSchemaId = eventSchemaResult.data.data.id;
-
-	const entity = await createEntity(apiClient, cookies, {
-		image: null,
-		entitySchemaId,
-		name: "Rule Test Book",
-		properties: { title: "Rule Test" },
-	});
-
-	return { apiClient, cookies, entityId: entity.id, eventSchemaId };
-}
-
-async function setupBuiltinMediaLifecycleFixture(
-	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
-		? T
-		: never,
-) {
-	const { client: apiClient, cookies, userId } = client;
-	const builtinTracker = await findBuiltinTracker(apiClient, cookies);
-	const schemas = await listEntitySchemas(apiClient, cookies, {
-		trackerId: builtinTracker.id,
-	});
-	const bookSchema = schemas.find((schema) => schema.slug === "book");
-
-	if (!bookSchema) {
-		throw new Error("Missing built-in book schema");
-	}
-
-	const provider = bookSchema.providers[0];
-	if (!provider) {
-		throw new Error("Missing built-in book provider");
-	}
-
-	const eventSchemas = await listEventSchemas(
-		apiClient,
-		cookies,
-		bookSchema.id,
-	);
-	const backlogEventSchema = eventSchemas.find(
-		(schema) => schema.slug === "backlog",
-	);
-	if (!backlogEventSchema) {
-		throw new Error("Missing built-in backlog event schema");
-	}
-
-	const progressEventSchema = eventSchemas.find(
-		(schema) => schema.slug === "progress",
-	);
-	if (!progressEventSchema) {
-		throw new Error("Missing built-in progress event schema");
-	}
-
-	const completeEventSchema = eventSchemas.find(
-		(schema) => schema.slug === "complete",
-	);
-	if (!completeEventSchema) {
-		throw new Error("Missing built-in complete event schema");
-	}
-
-	const reviewEventSchema = eventSchemas.find(
-		(schema) => schema.slug === "review",
-	);
-	if (!reviewEventSchema) {
-		throw new Error("Missing built-in review event schema");
-	}
-
-	const otherSchema = schemas.find((schema) => schema.slug === "anime");
-	if (!otherSchema) {
-		throw new Error("Missing built-in anime schema");
-	}
-
-	const otherEventSchemas = await listEventSchemas(
-		apiClient,
-		cookies,
-		otherSchema.id,
-	);
-	const mismatchedBacklogEventSchema = otherEventSchemas.find(
-		(schema) => schema.slug === "backlog",
-	);
-	if (!mismatchedBacklogEventSchema) {
-		throw new Error("Missing mismatched backlog event schema");
-	}
-
-	const entity = await seedMediaEntity({
-		userId,
-		image: null,
-		properties: {},
-		entitySchemaId: bookSchema.id,
-		externalId: `book-${crypto.randomUUID()}`,
-		name: `Built-in Book ${crypto.randomUUID()}`,
-		sandboxScriptId: provider.scriptId,
-	});
-
-	return {
-		cookies,
-		apiClient,
-		entityId: entity.id,
-		reviewEventSchemaId: reviewEventSchema.id,
-		backlogEventSchemaId: backlogEventSchema.id,
-		completeEventSchemaId: completeEventSchema.id,
-		progressEventSchemaId: progressEventSchema.id,
-		mismatchedEventSchemaId: mismatchedBacklogEventSchema.id,
-	};
-}
-
 describe("Events bulk POST", () => {
 	it("creates multiple events and returns the count", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, eventSchemaId } =
-			await setupEventFixture(auth);
+		const { client: apiClient, cookies } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(
+			apiClient,
+			cookies,
+		);
 
 		const result = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -315,9 +53,11 @@ describe("Events bulk POST", () => {
 	});
 
 	it("enforces conditional required rules end to end", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, eventSchemaId } =
-			await setupRuleEventFixture(auth);
+		const { client: apiClient, cookies } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createRuleEventFixture(
+			apiClient,
+			cookies,
+		);
 
 		const optionalResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -365,9 +105,11 @@ describe("Events bulk POST", () => {
 	});
 
 	it("persists events and they appear in the list", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, eventSchemaId } =
-			await setupEventFixture(auth);
+		const { client: apiClient, cookies } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(
+			apiClient,
+			cookies,
+		);
 
 		await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -382,9 +124,13 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates repeated built-in backlog events and lists them", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, backlogEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
+		const {
+			client: apiClient,
+			cookies,
+			userId,
+		} = await createAuthenticatedClient();
+		const { entityId, backlogEventSchemaId } =
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -407,9 +153,13 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates built-in progress events with rounded values and no completion side effects", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, progressEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
+		const {
+			client: apiClient,
+			cookies,
+			userId,
+		} = await createAuthenticatedClient();
+		const { entityId, progressEventSchemaId } =
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -444,9 +194,13 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates repeated built-in complete events without relying on progress", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, completeEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
+		const {
+			client: apiClient,
+			cookies,
+			userId,
+		} = await createAuthenticatedClient();
+		const { entityId, completeEventSchemaId } =
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
@@ -486,9 +240,13 @@ describe("Events bulk POST", () => {
 	});
 
 	it("creates repeated built-in review events before completion exists", async () => {
-		const auth = await createAuthenticatedClient();
-		const { apiClient, cookies, entityId, reviewEventSchemaId } =
-			await setupBuiltinMediaLifecycleFixture(auth);
+		const {
+			client: apiClient,
+			cookies,
+			userId,
+		} = await createAuthenticatedClient();
+		const { entityId, reviewEventSchemaId } =
+			await createBuiltinMediaLifecycleFixture(apiClient, cookies, userId);
 
 		const createResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
