@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
-	createCompletePropertiesSchema,
+	createBuiltinBacklogEventDeps,
+	createBuiltinCompleteEventDeps,
+	createBuiltinProgressEventDeps,
+	createBuiltinReviewEventDeps,
 	createEventBody,
 	createEventCreateScope,
 	createEventDeps,
@@ -401,18 +404,7 @@ describe("createEvent", () => {
 		const createdEvent = expectDataResult(
 			await createEvent(
 				{ userId: "user_1", body: createEventBody({ properties: {} }) },
-				createEventDeps({
-					getEventCreateScopeForUser: async (input) =>
-						createEventCreateScope({
-							isBuiltin: true,
-							entityId: input.entityId,
-							entitySchemaSlug: "book",
-							eventSchemaSlug: "backlog",
-							eventSchemaName: "Backlog",
-							propertiesSchema: { fields: {} },
-							eventSchemaId: input.eventSchemaId,
-						}),
-				}),
+				createBuiltinBacklogEventDeps(),
 			),
 		);
 
@@ -427,18 +419,7 @@ describe("createEvent", () => {
 					userId: "user_1",
 					body: createEventBody({ properties: { progressPercent: 25.555 } }),
 				},
-				createEventDeps({
-					getEventCreateScopeForUser: async (input) =>
-						createEventCreateScope({
-							isBuiltin: true,
-							entityId: input.entityId,
-							entitySchemaSlug: "book",
-							eventSchemaName: "Progress",
-							eventSchemaSlug: "progress",
-							eventSchemaId: input.eventSchemaId,
-							propertiesSchema: createProgressPercentPropertiesSchema(),
-						}),
-				}),
+				createBuiltinProgressEventDeps(),
 			),
 		);
 
@@ -455,18 +436,7 @@ describe("createEvent", () => {
 						properties: { completionMode: "just_now" },
 					}),
 				},
-				createEventDeps({
-					getEventCreateScopeForUser: async (input) =>
-						createEventCreateScope({
-							isBuiltin: true,
-							entityId: input.entityId,
-							entitySchemaSlug: "book",
-							eventSchemaName: "Complete",
-							eventSchemaSlug: "complete",
-							eventSchemaId: input.eventSchemaId,
-							propertiesSchema: createCompletePropertiesSchema(),
-						}),
-				}),
+				createBuiltinCompleteEventDeps(),
 			),
 		);
 
@@ -481,32 +451,21 @@ describe("createEvent", () => {
 					userId: "user_1",
 					body: createEventBody({
 						properties: {
-							completionMode: "custom_timestamps",
 							startedOn: "2026-03-20T12:00:00Z",
 							completedOn: "2026-03-27T18:30:00Z",
+							completionMode: "custom_timestamps",
 						},
 					}),
 				},
-				createEventDeps({
-					getEventCreateScopeForUser: async (input) =>
-						createEventCreateScope({
-							isBuiltin: true,
-							entityId: input.entityId,
-							entitySchemaSlug: "book",
-							eventSchemaName: "Complete",
-							eventSchemaSlug: "complete",
-							eventSchemaId: input.eventSchemaId,
-							propertiesSchema: createCompletePropertiesSchema(),
-						}),
-				}),
+				createBuiltinCompleteEventDeps(),
 			),
 		);
 
 		expect(createdEvent.eventSchemaSlug).toBe("complete");
 		expect(createdEvent.properties).toEqual({
-			completionMode: "custom_timestamps",
 			startedOn: "2026-03-20T12:00:00Z",
 			completedOn: "2026-03-27T18:30:00Z",
+			completionMode: "custom_timestamps",
 		});
 	});
 
@@ -518,18 +477,7 @@ describe("createEvent", () => {
 					properties: { completionMode: "custom_timestamps" },
 				}),
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Complete",
-						eventSchemaSlug: "complete",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createCompletePropertiesSchema(),
-					}),
-			}),
+			createBuiltinCompleteEventDeps(),
 		);
 
 		expect(result).toEqual({
@@ -549,18 +497,7 @@ describe("createEvent", () => {
 					},
 				}),
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Complete",
-						eventSchemaSlug: "complete",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createCompletePropertiesSchema(),
-					}),
-			}),
+			createBuiltinCompleteEventDeps(),
 		);
 
 		expect(result).toEqual({
@@ -577,18 +514,7 @@ describe("createEvent", () => {
 					properties: { completionMode: "later" },
 				}),
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Complete",
-						eventSchemaSlug: "complete",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createCompletePropertiesSchema(),
-					}),
-			}),
+			createBuiltinCompleteEventDeps(),
 		);
 
 		expect(result).toEqual({
@@ -603,18 +529,7 @@ describe("createEvent", () => {
 				userId: "user_1",
 				body: createEventBody({ properties: { progressPercent: 100 } }),
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Progress",
-						eventSchemaSlug: "progress",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createProgressPercentPropertiesSchema(),
-					}),
-			}),
+			createBuiltinProgressEventDeps(),
 		);
 
 		expect(result).toEqual({
@@ -632,18 +547,7 @@ describe("createEvent", () => {
 					createEventBody({ properties: { progressPercent: 65.678 } }),
 				],
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Progress",
-						eventSchemaSlug: "progress",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createProgressPercentPropertiesSchema(),
-					}),
-			}),
+			createBuiltinProgressEventDeps(),
 		);
 
 		expect(result).toEqual({ data: { count: 2 } });
@@ -663,18 +567,7 @@ describe("createEvent", () => {
 					}),
 				],
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Complete",
-						eventSchemaSlug: "complete",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createCompletePropertiesSchema(),
-					}),
-			}),
+			createBuiltinCompleteEventDeps(),
 		);
 
 		expect(result).toEqual({ data: { count: 2 } });
@@ -689,18 +582,7 @@ describe("createEvent", () => {
 						properties: { review: "Loved it", rating: 5 },
 					}),
 				},
-				createEventDeps({
-					getEventCreateScopeForUser: async (input) =>
-						createEventCreateScope({
-							isBuiltin: true,
-							entityId: input.entityId,
-							entitySchemaSlug: "book",
-							eventSchemaName: "Review",
-							eventSchemaSlug: "review",
-							eventSchemaId: input.eventSchemaId,
-							propertiesSchema: createReviewPropertiesSchema(),
-						}),
-				}),
+				createBuiltinReviewEventDeps(),
 			),
 		);
 
@@ -714,18 +596,7 @@ describe("createEvent", () => {
 				userId: "user_1",
 				body: createEventBody({ properties: { rating: 6 } }),
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Review",
-						eventSchemaSlug: "review",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createReviewPropertiesSchema(),
-					}),
-			}),
+			createBuiltinReviewEventDeps(),
 		);
 
 		expect(result).toEqual({
@@ -745,18 +616,7 @@ describe("createEvent", () => {
 					}),
 				],
 			},
-			createEventDeps({
-				getEventCreateScopeForUser: async (input) =>
-					createEventCreateScope({
-						isBuiltin: true,
-						entityId: input.entityId,
-						entitySchemaSlug: "book",
-						eventSchemaName: "Review",
-						eventSchemaSlug: "review",
-						eventSchemaId: input.eventSchemaId,
-						propertiesSchema: createReviewPropertiesSchema(),
-					}),
-			}),
+			createBuiltinReviewEventDeps(),
 		);
 
 		expect(result).toEqual({ data: { count: 2 } });
