@@ -42,9 +42,10 @@ const getUpdateMetadata = async (metadataId: string) => {
 			metadataId,
 			ensureUpdated: true,
 		});
-		queryClient.invalidateQueries({
-			queryKey: getMetadataDetailsQuery(metadataId).queryKey,
-		});
+		queryClient.setQueryData(
+			getMetadataDetailsQuery(metadataId).queryKey,
+			meta,
+		);
 	}
 	return getData();
 };
