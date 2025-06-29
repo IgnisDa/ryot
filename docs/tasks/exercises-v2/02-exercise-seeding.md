@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -27,14 +27,14 @@ See the **Seeding Architecture**, **GitHub Category → Lot Mapping**, **Exercis
 
 ## Acceptance criteria
 
-- [ ] Starting the app from a clean DB triggers the seed job exactly once.
-- [ ] After seeding, ~900 exercise entities exist in the `entity` table with `user_id = NULL`.
-- [ ] Each entity has a correctly populated `name`, `image` (first GitHub image or null), and `properties` (lot, level, source, muscles, instructions, images).
-- [ ] Exercises are queryable via `POST /query-engine` with `entitySchemaSlugs: ["exercise"]`.
-- [ ] Filtering by `muscles`, `equipment`, `level`, `force`, `mechanic`, and `lot` via the query engine returns correct results.
-- [ ] Restarting the app does not trigger a second seed run and does not create duplicate entities.
-- [ ] An exercise with an unrecognized GitHub category is skipped with a warning; remaining exercises are still seeded.
-- [ ] `bun run typecheck` passes with no errors.
+- [x] Starting the app from a clean DB triggers the seed job exactly once.
+- [x] After seeding, ~900 exercise entities exist in the `entity` table with `user_id = NULL`.
+- [x] Each entity has a correctly populated `name`, `image` (first GitHub image or null), and `properties` (lot, level, source, muscles, instructions, images).
+- [x] Exercises are queryable via `POST /query-engine` with `entitySchemaSlugs: ["exercise"]`.
+- [x] Filtering by `muscles`, `equipment`, `level`, `force`, `mechanic`, and `lot` via the query engine returns correct results.
+- [x] Restarting the app does not trigger a second seed run and does not create duplicate entities.
+- [x] An exercise with an unrecognized GitHub category is skipped with a warning; remaining exercises are still seeded.
+- [x] `bun run typecheck` passes with no errors.
 
 ## User stories addressed
 
