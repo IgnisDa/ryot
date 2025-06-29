@@ -66,13 +66,11 @@ import {
 import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
-	Verb,
 	clientGqlService,
 	convertEnumToSelectData,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
-	getVerb,
 	pageQueryParam,
 	refreshEntityDetails,
 	zodCollectionFilter,
@@ -90,10 +88,7 @@ import {
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import {
-	useAddEntityToCollections,
-	useMetadataProgressUpdate,
-} from "~/lib/state/media";
+import { useAddEntityToCollections } from "~/lib/state/media";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
@@ -521,11 +516,9 @@ const MediaSearchItem = (props: {
 	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const userDetails = useUserDetails();
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
@@ -550,6 +543,7 @@ const MediaSearchItem = (props: {
 			<MetadataDisplayItem
 				metadataId={props.item}
 				shouldHighlightNameIfInteracted
+				bottomRightImageOverlayClassName={tourControlTwo}
 				imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
 				onImageClickBehavior={async () => {
 					if (tourControlThree) advanceOnboardingTourStep();
@@ -580,21 +574,6 @@ const MediaSearchItem = (props: {
 			<Box px={4}>
 				<Button
 					w="100%"
-					variant="outline"
-					size={buttonSize}
-					className={tourControlTwo}
-					onClick={async () => {
-						setMetadataToUpdate({ metadataId: props.item });
-						if (tourControlTwo) {
-							advanceOnboardingTourStep();
-						}
-					}}
-				>
-					Mark as {getVerb(Verb.Read, loaderData.lot)}
-				</Button>
-				<Button
-					w="100%"
-					mt="xs"
 					variant="outline"
 					size={buttonSize}
 					className={tourControlOne}
