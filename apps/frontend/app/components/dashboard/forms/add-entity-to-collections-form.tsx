@@ -19,6 +19,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { Form, useRevalidator } from "react-router";
 import { Fragment } from "react/jsx-runtime";
+import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { MultiSelectCreatable } from "~/components/common";
 import {
@@ -42,7 +43,6 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
-import invariant from "tiny-invariant";
 
 export const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsDrawer,
