@@ -4,6 +4,7 @@ import {
 	computedExpression,
 	createSmartphoneSchema,
 	schemaPropertyExpression,
+	transformExpression,
 } from "~/lib/test-fixtures";
 import type { ViewExpression } from "~/lib/views/expression";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
@@ -126,5 +127,68 @@ describe("createScalarExpressionCompiler", () => {
 		).toThrow(
 			"Image expressions are display-only and cannot be compiled for sort or filter usage",
 		);
+	});
+
+	describe("transform expressions", () => {
+		it("compiles titleCase transform using initcap with separator normalization", () => {
+			const compiler = createScalarExpressionCompiler({
+				context,
+				alias: "entities",
+			});
+
+			const query = dialect.sqlToQuery(
+				compiler.compile(
+					transformExpression(
+						"titleCase",
+						schemaPropertyExpression("smartphones", "nameplate"),
+					),
+				),
+			);
+
+			expect(query.sql).toContain("initcap(");
+			expect(query.sql).toContain("replace(");
+			expect(query.sql).toContain("'_'");
+			expect(query.sql).toContain("' '");
+		});
+
+		it("compiles kebabCase transform using lower with separator normalization", () => {
+			const compiler = createScalarExpressionCompiler({
+				context,
+				alias: "entities",
+			});
+
+			const query = dialect.sqlToQuery(
+				compiler.compile(
+					transformExpression(
+						"kebabCase",
+						schemaPropertyExpression("smartphones", "nameplate"),
+					),
+				),
+			);
+
+			expect(query.sql).toContain("lower(");
+			expect(query.sql).toContain("replace(");
+			expect(query.sql).toContain("'-'");
+		});
+
+		it("rejects image expressions inside transforms", () => {
+			const compiler = createScalarExpressionCompiler({
+				context,
+				alias: "entities",
+			});
+
+			const imageTransform: ViewExpression = {
+				type: "transform",
+				name: "titleCase",
+				expression: {
+					type: "reference",
+					reference: { type: "entity", path: ["image"], slug: "smartphones" },
+				},
+			};
+
+			expect(() => compiler.compile(imageTransform)).toThrow(
+				"Image expressions are display-only",
+			);
+		});
 	});
 });

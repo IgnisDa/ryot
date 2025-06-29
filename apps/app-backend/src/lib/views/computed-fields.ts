@@ -59,7 +59,8 @@ const collectExpressionDependencies = (
 	if (
 		expression.type === "round" ||
 		expression.type === "floor" ||
-		expression.type === "integer"
+		expression.type === "integer" ||
+		expression.type === "transform"
 	) {
 		collectExpressionDependencies(expression.expression, dependencies);
 		return dependencies;
