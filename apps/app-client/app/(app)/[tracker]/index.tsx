@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { useAtomValue } from "jotai";
-import { View } from "react-native";
 import { gridStyles, PageHeader } from "@/components/spine/page-header";
+import { Box } from "@/components/ui/box";
 import { trackersAtom } from "@/lib/navigation";
 
 export default function TrackerScreen() {
@@ -11,14 +11,15 @@ export default function TrackerScreen() {
 
 	return (
 		<PageHeader eyebrow={name} title="Entries">
-			<View style={gridStyles.grid}>
+			<Box className={gridStyles.grid}>
 				{Array.from({ length: 6 }).map((_, i) => (
-					<View
+					<Box
 						key={i}
-						style={[gridStyles.card, { opacity: 0.85 - i * 0.08 }]}
+						className={gridStyles.card}
+						style={{ opacity: 0.85 - i * 0.08 }}
 					/>
 				))}
-			</View>
+			</Box>
 		</PageHeader>
 	);
 }
