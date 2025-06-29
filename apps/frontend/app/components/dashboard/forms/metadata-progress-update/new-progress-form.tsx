@@ -16,7 +16,10 @@ import { AnimeForm } from "./media-types/anime-form";
 import { MangaForm } from "./media-types/manga-form";
 import { PodcastForm } from "./media-types/podcast-form";
 import { ShowForm } from "./media-types/show-form";
-import { processBulkUpdates } from "./utils/bulk-update-handlers";
+import {
+	createCustomDatesCompletedChange,
+	processBulkUpdates,
+} from "./utils/bulk-update-handlers";
 import {
 	CustomDatePicker,
 	ProviderSelect,
@@ -84,40 +87,13 @@ export const MetadataNewProgressUpdateForm = ({
 					},
 				},
 			}))
-			.with(WatchTimes.CustomDates, () => {
-				if (startDateFormatted && finishDateFormatted) {
-					return {
-						createNewCompleted: {
-							startedAndFinishedOnDate: {
-								...common,
-								startedOn: startDateFormatted,
-								timestamp: finishDateFormatted,
-							},
-						},
-					};
-				}
-				if (startDateFormatted) {
-					return {
-						createNewCompleted: {
-							startedOnDate: {
-								...common,
-								timestamp: startDateFormatted,
-							},
-						},
-					};
-				}
-				if (finishDateFormatted) {
-					return {
-						createNewCompleted: {
-							finishedOnDate: {
-								...common,
-								timestamp: finishDateFormatted,
-							},
-						},
-					};
-				}
-				throw new Error("At least one date must be provided for CustomDates");
-			})
+			.with(WatchTimes.CustomDates, () =>
+				createCustomDatesCompletedChange({
+					startDateFormatted,
+					finishDateFormatted,
+					commonFields: common,
+				}),
+			)
 			.with(WatchTimes.IDontRemember, () => ({
 				createNewCompleted: { withoutDates: common },
 			}))

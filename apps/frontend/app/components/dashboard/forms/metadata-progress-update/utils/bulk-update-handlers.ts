@@ -8,6 +8,49 @@ import { match } from "ts-pattern";
 import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
 
+export const createCustomDatesCompletedChange = (params: {
+	startDateFormatted: string | null;
+	additionalFields?: MetadataFields;
+	finishDateFormatted: string | null;
+	commonFields: MetadataProgressUpdateCommonInput;
+}) => {
+	if (params.startDateFormatted && params.finishDateFormatted) {
+		return {
+			createNewCompleted: {
+				startedAndFinishedOnDate: {
+					...params.commonFields,
+					...(params.additionalFields || {}),
+					startedOn: params.startDateFormatted,
+					timestamp: params.finishDateFormatted,
+				},
+			},
+		};
+	}
+	if (params.startDateFormatted) {
+		return {
+			createNewCompleted: {
+				startedOnDate: {
+					...params.commonFields,
+					...(params.additionalFields || {}),
+					timestamp: params.startDateFormatted,
+				},
+			},
+		};
+	}
+	if (params.finishDateFormatted) {
+		return {
+			createNewCompleted: {
+				finishedOnDate: {
+					...params.commonFields,
+					...(params.additionalFields || {}),
+					timestamp: params.finishDateFormatted,
+				},
+			},
+		};
+	}
+	throw new Error("At least one date must be provided for CustomDates");
+};
+
 type MetadataFields =
 	| { mangaVolumeNumber: number }
 	| { animeEpisodeNumber: number }
@@ -42,43 +85,14 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 				},
 			},
 		}))
-		.with(WatchTimes.CustomDates, () => {
-			if (input.startDateFormatted && input.finishDateFormatted) {
-				return {
-					createNewCompleted: {
-						startedAndFinishedOnDate: {
-							...input.common,
-							...input.fields,
-							startedOn: input.startDateFormatted,
-							timestamp: input.finishDateFormatted,
-						},
-					},
-				};
-			}
-			if (input.startDateFormatted) {
-				return {
-					createNewCompleted: {
-						startedOnDate: {
-							...input.common,
-							...input.fields,
-							timestamp: input.startDateFormatted,
-						},
-					},
-				};
-			}
-			if (input.finishDateFormatted) {
-				return {
-					createNewCompleted: {
-						finishedOnDate: {
-							...input.common,
-							...input.fields,
-							timestamp: input.finishDateFormatted,
-						},
-					},
-				};
-			}
-			throw new Error("At least one date must be provided for CustomDates");
-		})
+		.with(WatchTimes.CustomDates, () =>
+			createCustomDatesCompletedChange({
+				startDateFormatted: input.startDateFormatted,
+				finishDateFormatted: input.finishDateFormatted,
+				commonFields: input.common,
+				additionalFields: input.fields,
+			}),
+		)
 		.with(WatchTimes.IDontRemember, () => ({
 			createNewCompleted: {
 				withoutDates: { ...input.common, ...input.fields },
