@@ -123,11 +123,11 @@ export const AddEntityToCollectionsForm = ({
 		mutationFn: async () => {
 			if (!addEntityToCollectionData) return [];
 			const payload = selectedCollections.map((col) => ({
-				entityId: addEntityToCollectionData.entityId,
-				entityLot: addEntityToCollectionData.entityLot,
 				collectionName: col.name,
 				creatorUserId: col.creator.id,
 				information: col.userExtraInformationData,
+				entityId: addEntityToCollectionData.entityId,
+				entityLot: addEntityToCollectionData.entityLot,
 			}));
 			return Promise.all(
 				payload.map((input) =>
