@@ -2196,14 +2196,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-utils",
- "database-models",
- "dependent-utils",
- "enum-models",
  "reqwest",
  "sea-orm",
  "serde",
  "serde_json",
- "supporting-service",
  "tracing",
 ]
 

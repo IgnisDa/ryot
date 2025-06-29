@@ -8,7 +8,6 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use media_models::{
     ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
@@ -70,7 +69,7 @@ pub async fn yank_progress(
             {
                 let lot = MediaLot::Podcast;
                 let source = MediaSource::Itunes;
-                let (_metadata, _) = commit_metadata(
+                let (podcast, _) = commit_metadata(
                     PartialMetadataWithoutId {
                         lot,
                         source,
@@ -78,11 +77,10 @@ pub async fn yank_progress(
                         ..Default::default()
                     },
                     ss,
-                    None,
+                    Some(true),
                 )
                 .await
                 .unwrap();
-                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
                 if let Some(episode) = podcast
                     .podcast_specifics
                     .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))

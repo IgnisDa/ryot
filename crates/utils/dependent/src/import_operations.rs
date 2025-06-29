@@ -175,7 +175,7 @@ where
                 )
                 .await
                 {
-                    Ok((m, success)) => (m.id, success),
+                    Ok((metadata, success)) => (metadata.id, success),
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
                             error: Some(e.message),

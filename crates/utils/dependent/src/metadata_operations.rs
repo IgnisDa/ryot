@@ -22,8 +22,8 @@ use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, GenreListItem, MediaAssociatedPersonStateChanges,
-    MetadataCreator, MetadataCreatorGroupedByRole, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, UniqueMediaIdentifier, UpdateMediaEntityResult,
+    MetadataCreator, MetadataCreatorGroupedByRole, PartialMetadataPerson, PartialMetadataWithoutId,
+    UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use nanoid::nanoid;
 use sea_orm::{
@@ -42,7 +42,7 @@ pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
     ss: &Arc<SupportingService>,
     enable_retry: Option<bool>,
-) -> Result<(PartialMetadata, bool)> {
+) -> Result<(metadata::Model, bool)> {
     let mode = match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&data.identifier))
         .filter(metadata::Column::Lot.eq(data.lot))
@@ -70,21 +70,11 @@ pub async fn commit_metadata(
             c.insert(&ss.db).await?
         }
     };
-    let model = PartialMetadata {
-        id: mode.id,
-        lot: mode.lot,
-        image: data.image,
-        title: mode.title,
-        source: mode.source,
-        identifier: mode.identifier,
-        publish_year: mode.publish_year,
-    };
-
     let was_updated_successfully = match enable_retry {
         Some(true) => {
             let mut success = false;
             for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                let is_partial = Metadata::find_by_id(&model.id)
+                let is_partial = Metadata::find_by_id(&mode.id)
                     .select_only()
                     .column(metadata::Column::IsPartial)
                     .into_tuple::<bool>()
@@ -92,7 +82,7 @@ pub async fn commit_metadata(
                     .await?
                     .unwrap_or(true);
                 if is_partial {
-                    deploy_update_metadata_job(&model.id, ss).await?;
+                    deploy_update_metadata_job(&mode.id, ss).await?;
                     let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
                     ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
                     sleep_for_n_seconds(sleep_time).await;
@@ -106,7 +96,12 @@ pub async fn commit_metadata(
         _ => true,
     };
 
-    Ok((model, was_updated_successfully))
+    let final_metadata = match (was_updated_successfully, enable_retry) {
+        (true, Some(true)) => Metadata::find_by_id(&mode.id).one(&ss.db).await?.unwrap(),
+        _ => mode,
+    };
+
+    Ok((final_metadata, was_updated_successfully))
 }
 
 pub async fn change_metadata_associations(
