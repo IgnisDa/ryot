@@ -9,19 +9,19 @@ import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
 
 type MetadataFields =
-	| { animeEpisodeNumber: number }
 	| { mangaVolumeNumber: number }
+	| { animeEpisodeNumber: number }
 	| { mangaChapterNumber: string }
-	| { showSeasonNumber: number; showEpisodeNumber: number }
-	| { podcastEpisodeNumber: number };
+	| { podcastEpisodeNumber: number }
+	| { showSeasonNumber: number; showEpisodeNumber: number };
 
 type CreateUpdateChangeInput = {
 	watchTime: WatchTimes;
+	fields: MetadataFields;
 	currentDateFormatted: string;
 	startDateFormatted: string | null;
 	finishDateFormatted: string | null;
 	common: MetadataProgressUpdateCommonInput;
-	fields: MetadataFields;
 };
 
 const createUpdateChange = (input: CreateUpdateChangeInput) => {
@@ -81,50 +81,35 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 		})
 		.with(WatchTimes.IDontRemember, () => ({
 			createNewCompleted: {
-				withoutDates: {
-					...input.common,
-					...input.fields,
-				},
+				withoutDates: { ...input.common, ...input.fields },
 			},
 		}))
 		.exhaustive();
 };
 
 const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		startDateFormatted,
-		finishDateFormatted,
-		common,
-		updates,
-	} = context;
-
 	if (
-		metadataDetails.lot === MediaLot.Anime &&
-		metadataToUpdate.animeAllEpisodesBefore &&
-		metadataToUpdate.animeEpisodeNumber
+		context.metadataDetails.lot === MediaLot.Anime &&
+		context.metadataToUpdate.animeAllEpisodesBefore &&
+		context.metadataToUpdate.animeEpisodeNumber
 	) {
-		const latestHistoryItem = history[0];
+		const latestHistoryItem = context.history[0];
 		const lastSeenEpisode =
 			latestHistoryItem?.animeExtraInformation?.episode || 0;
 		for (
 			let i = lastSeenEpisode + 1;
-			i < metadataToUpdate.animeEpisodeNumber;
+			i < context.metadataToUpdate.animeEpisodeNumber;
 			i++
 		) {
-			updates.push({
-				metadataId: metadataToUpdate.metadataId,
+			context.updates.push({
+				metadataId: context.metadataToUpdate.metadataId,
 				change: createUpdateChange({
-					watchTime,
-					currentDateFormatted,
-					startDateFormatted,
-					finishDateFormatted,
-					common,
+					common: context.common,
+					watchTime: context.watchTime,
 					fields: { animeEpisodeNumber: i },
+					startDateFormatted: context.startDateFormatted,
+					finishDateFormatted: context.finishDateFormatted,
+					currentDateFormatted: context.currentDateFormatted,
 				}),
 			});
 		}
@@ -132,26 +117,16 @@ const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 };
 
 const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		startDateFormatted,
-		finishDateFormatted,
-		common,
-		updates,
-	} = context;
-
 	if (
-		metadataDetails.lot === MediaLot.Manga &&
-		metadataToUpdate.mangaAllChaptersOrVolumesBefore
+		context.metadataDetails.lot === MediaLot.Manga &&
+		context.metadataToUpdate.mangaAllChaptersOrVolumesBefore
 	) {
-		const latestHistoryItem = history[0];
+		const latestHistoryItem = context.history[0];
 
-		const hasValidChapter = isNumber(metadataToUpdate.mangaChapterNumber);
-		const hasValidVolume = isNumber(metadataToUpdate.mangaVolumeNumber);
+		const hasValidChapter = isNumber(
+			context.metadataToUpdate.mangaChapterNumber,
+		);
+		const hasValidVolume = isNumber(context.metadataToUpdate.mangaVolumeNumber);
 
 		if (
 			(hasValidChapter && hasValidVolume) ||
@@ -165,33 +140,33 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 			return;
 		}
 
-		if (metadataToUpdate.mangaVolumeNumber) {
+		if (context.metadataToUpdate.mangaVolumeNumber) {
 			const lastSeenVolume =
 				latestHistoryItem?.mangaExtraInformation?.volume || 0;
 			for (
 				let i = lastSeenVolume + 1;
-				i < metadataToUpdate.mangaVolumeNumber;
+				i < context.metadataToUpdate.mangaVolumeNumber;
 				i++
 			) {
-				updates.push({
-					metadataId: metadataToUpdate.metadataId,
+				context.updates.push({
+					metadataId: context.metadataToUpdate.metadataId,
 					change: createUpdateChange({
-						watchTime,
-						currentDateFormatted,
-						startDateFormatted,
-						finishDateFormatted,
-						common,
+						common: context.common,
+						watchTime: context.watchTime,
 						fields: { mangaVolumeNumber: i },
+						startDateFormatted: context.startDateFormatted,
+						finishDateFormatted: context.finishDateFormatted,
+						currentDateFormatted: context.currentDateFormatted,
 					}),
 				});
 			}
 		}
 
-		if (metadataToUpdate.mangaChapterNumber) {
-			const targetChapter = Number(metadataToUpdate.mangaChapterNumber);
+		if (context.metadataToUpdate.mangaChapterNumber) {
+			const targetChapter = Number(context.metadataToUpdate.mangaChapterNumber);
 			const markedChapters = new Set();
 
-			for (const historyItem of history) {
+			for (const historyItem of context.history) {
 				const chapter = Number(historyItem?.mangaExtraInformation?.chapter);
 				if (!Number.isNaN(chapter) && chapter < targetChapter) {
 					markedChapters.add(chapter);
@@ -200,15 +175,15 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 
 			for (let i = 1; i < targetChapter; i++) {
 				if (!markedChapters.has(i)) {
-					updates.push({
-						metadataId: metadataToUpdate.metadataId,
+					context.updates.push({
+						metadataId: context.metadataToUpdate.metadataId,
 						change: createUpdateChange({
-							watchTime,
-							currentDateFormatted,
-							startDateFormatted,
-							finishDateFormatted,
-							common,
+							common: context.common,
+							watchTime: context.watchTime,
 							fields: { mangaChapterNumber: i.toString() },
+							startDateFormatted: context.startDateFormatted,
+							finishDateFormatted: context.finishDateFormatted,
+							currentDateFormatted: context.currentDateFormatted,
 						}),
 					});
 				}
@@ -218,34 +193,22 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 };
 
 const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		startDateFormatted,
-		finishDateFormatted,
-		common,
-		updates,
-	} = context;
-
 	if (
-		metadataDetails.lot === MediaLot.Show &&
-		metadataToUpdate.showAllEpisodesBefore &&
-		metadataToUpdate.showSeasonNumber &&
-		metadataToUpdate.showEpisodeNumber
+		context.metadataDetails.lot === MediaLot.Show &&
+		context.metadataToUpdate.showAllEpisodesBefore &&
+		context.metadataToUpdate.showSeasonNumber &&
+		context.metadataToUpdate.showEpisodeNumber
 	) {
-		const latestHistoryItem = history[0];
+		const latestHistoryItem = context.history[0];
 		const allEpisodesInShow =
-			metadataDetails.showSpecifics?.seasons.flatMap((s) =>
+			context.metadataDetails.showSpecifics?.seasons.flatMap((s) =>
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
 		const selectedEpisodeIndex = allEpisodesInShow.findIndex(
 			(e) =>
-				e.seasonNumber === metadataToUpdate.showSeasonNumber &&
-				e.episodeNumber === metadataToUpdate.showEpisodeNumber,
+				e.seasonNumber === context.metadataToUpdate.showSeasonNumber &&
+				e.episodeNumber === context.metadataToUpdate.showEpisodeNumber,
 		);
 
 		const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
@@ -271,18 +234,17 @@ const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 					currentEpisode.seasonNumber === 0 &&
 					selectedEpisode.seasonNumber !== 0
 				) {
-					// Skip special episodes (season 0) unless the target is also in season 0
 					continue;
 				}
 
-				updates.push({
-					metadataId: metadataToUpdate.metadataId,
+				context.updates.push({
+					metadataId: context.metadataToUpdate.metadataId,
 					change: createUpdateChange({
-						watchTime,
-						currentDateFormatted,
-						startDateFormatted,
-						finishDateFormatted,
-						common,
+						common: context.common,
+						watchTime: context.watchTime,
+						startDateFormatted: context.startDateFormatted,
+						finishDateFormatted: context.finishDateFormatted,
+						currentDateFormatted: context.currentDateFormatted,
 						fields: {
 							showSeasonNumber: currentEpisode.seasonNumber,
 							showEpisodeNumber: currentEpisode.episodeNumber,
@@ -295,27 +257,16 @@ const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 };
 
 const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
-	const {
-		metadataDetails,
-		metadataToUpdate,
-		history,
-		watchTime,
-		currentDateFormatted,
-		startDateFormatted,
-		finishDateFormatted,
-		common,
-		updates,
-	} = context;
-
 	if (
-		metadataDetails.lot === MediaLot.Podcast &&
-		metadataToUpdate.podcastAllEpisodesBefore &&
-		metadataToUpdate.podcastEpisodeNumber
+		context.metadataDetails.lot === MediaLot.Podcast &&
+		context.metadataToUpdate.podcastAllEpisodesBefore &&
+		context.metadataToUpdate.podcastEpisodeNumber
 	) {
-		const latestHistoryItem = history[0];
-		const podcastSpecifics = metadataDetails.podcastSpecifics?.episodes || [];
+		const latestHistoryItem = context.history[0];
+		const podcastSpecifics =
+			context.metadataDetails.podcastSpecifics?.episodes || [];
 		const selectedEpisode = podcastSpecifics.find(
-			(e) => e.number === metadataToUpdate.podcastEpisodeNumber,
+			(e) => e.number === context.metadataToUpdate.podcastEpisodeNumber,
 		);
 
 		if (selectedEpisode) {
@@ -327,15 +278,15 @@ const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 			);
 
 			for (const episode of allUnseenEpisodesBefore) {
-				updates.push({
-					metadataId: metadataToUpdate.metadataId,
+				context.updates.push({
+					metadataId: context.metadataToUpdate.metadataId,
 					change: createUpdateChange({
-						watchTime,
-						currentDateFormatted,
-						startDateFormatted,
-						finishDateFormatted,
-						common,
+						common: context.common,
+						watchTime: context.watchTime,
+						startDateFormatted: context.startDateFormatted,
 						fields: { podcastEpisodeNumber: episode.number },
+						finishDateFormatted: context.finishDateFormatted,
+						currentDateFormatted: context.currentDateFormatted,
 					}),
 				});
 			}
