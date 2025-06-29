@@ -16,8 +16,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { FormEvent } from "react";
-import { useMemo } from "react";
+import { type FormEvent, useCallback, useRef, useState } from "react";
 import { Form, useRevalidator } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
@@ -50,6 +49,8 @@ export const AddEntityToCollectionsForm = ({
 }: {
 	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
+	const formRef = useRef<HTMLFormElement>(null);
+	const [isFormValid, setIsFormValid] = useState(true);
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
@@ -125,54 +126,18 @@ export const AddEntityToCollectionsForm = ({
 				information: col.userExtraInformationData,
 			}));
 			return Promise.all(
-				payload.map((item) =>
-					clientGqlService.request(AddEntityToCollectionDocument, {
-						input: item,
-					}),
+				payload.map((input) =>
+					clientGqlService.request(AddEntityToCollectionDocument, { input }),
 				),
 			);
 		},
 	});
 
-	const areRequiredFieldsFilled = useMemo(() => {
-		return selectedCollections.every((collection) => {
-			if (!collection.informationTemplate) return true;
-
-			return collection.informationTemplate.every((template) => {
-				if (!template.required) return true;
-
-				const value = collection.userExtraInformationData[template.name];
-
-				return match(template.lot)
-					.with(
-						CollectionExtraInformationLot.String,
-						() => typeof value === "string" && value.trim() !== "",
-					)
-					.with(
-						CollectionExtraInformationLot.Number,
-						() => typeof value === "number" && !Number.isNaN(value),
-					)
-					.with(
-						CollectionExtraInformationLot.Date,
-						() =>
-							value instanceof Date ||
-							(typeof value === "string" && value !== ""),
-					)
-					.with(
-						CollectionExtraInformationLot.DateTime,
-						() =>
-							value instanceof Date ||
-							(typeof value === "string" && value !== ""),
-					)
-					.with(
-						CollectionExtraInformationLot.StringArray,
-						() => Array.isArray(value) && value.length > 0,
-					)
-					.with(CollectionExtraInformationLot.Boolean, () => true)
-					.exhaustive();
-			});
-		});
-	}, [selectedCollections]);
+	const checkFormValidity = useCallback(() => {
+		if (formRef.current) {
+			setIsFormValid(formRef.current.checkValidity());
+		}
+	}, []);
 
 	if (!addEntityToCollectionData) return null;
 
@@ -191,6 +156,7 @@ export const AddEntityToCollectionsForm = ({
 			if (!ids.includes(selectedCollections[i].id))
 				selectedCollectionsHandlers.remove(i);
 		}
+		setTimeout(checkFormValidity, 0);
 	};
 
 	const handleCustomFieldChange = (
@@ -205,6 +171,7 @@ export const AddEntityToCollectionsForm = ({
 				[field]: value,
 			});
 		}
+		setTimeout(checkFormValidity, 0);
 	};
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -217,7 +184,7 @@ export const AddEntityToCollectionsForm = ({
 	};
 
 	return (
-		<Form onSubmit={handleSubmit}>
+		<Form ref={formRef} onSubmit={handleSubmit}>
 			<Stack>
 				<Title order={3}>Select collections</Title>
 				<MultiSelect
@@ -358,7 +325,7 @@ export const AddEntityToCollectionsForm = ({
 					loading={mutation.isPending}
 					disabled={
 						selectedCollections.length === 0 ||
-						!areRequiredFieldsFilled ||
+						!isFormValid ||
 						mutation.isPending
 					}
 				>
