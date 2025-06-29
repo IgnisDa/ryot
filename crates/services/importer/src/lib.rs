@@ -29,6 +29,7 @@ mod anilist;
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
+mod hardcover;
 mod hevy;
 mod igdb;
 mod imdb;
@@ -139,6 +140,7 @@ impl ImporterService {
             ImportSource::OpenScale => {
                 open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
             }
+            ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
         };

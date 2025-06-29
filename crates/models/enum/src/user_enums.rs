@@ -135,6 +135,7 @@ pub enum ImportSource {
     OpenScale,
     StrongApp,
     Goodreads,
+    Hardcover,
     Storygraph,
     Myanimelist,
     GenericJson,
