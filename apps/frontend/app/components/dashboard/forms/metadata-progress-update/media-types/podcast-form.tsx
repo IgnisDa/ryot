@@ -1,14 +1,13 @@
 import { Checkbox, Select, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const PodcastForm = ({
-	metadataDetails,
-	metadataToUpdate,
-	setMetadataToUpdate,
-}: MediaFormProps) => {
-	if (metadataDetails.lot !== MediaLot.Podcast) return null;
+export const PodcastForm = ({ metadataDetails }: MediaFormProps) => {
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	if (metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate)
+		return null;
 
 	return (
 		<>

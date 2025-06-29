@@ -19,17 +19,20 @@ import {
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { useDeployBulkMetadataProgressUpdate } from "~/lib/hooks";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MetadataInProgressFormProps } from "./utils/form-types";
 
 export const MetadataInProgressUpdateForm = ({
 	onSubmit,
 	inProgress,
 	metadataDetails,
-	metadataToUpdate,
 }: MetadataInProgressFormProps) => {
+	const [metadataToUpdate] = useMetadataProgressUpdate();
 	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
 		metadataDetails.title,
 	);
+
+	if (!metadataToUpdate) return null;
 
 	const total =
 		metadataDetails.audioBookSpecifics?.runtime ||

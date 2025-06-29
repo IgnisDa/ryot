@@ -1,14 +1,12 @@
 import { Checkbox, NumberInput } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const AnimeForm = ({
-	metadataDetails,
-	metadataToUpdate,
-	setMetadataToUpdate,
-}: MediaFormProps) => {
-	if (metadataDetails.lot !== MediaLot.Anime) return null;
+export const AnimeForm = ({ metadataDetails }: MediaFormProps) => {
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	if (metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate) return null;
 
 	return (
 		<>
