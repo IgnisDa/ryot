@@ -41,7 +41,7 @@ const DB_USER = "testuser";
 const DB_PASSWORD = "testpassword";
 const DB_NAME = "testdb";
 
-async function createMinioBucket(endpoint: string): Promise<void> {
+async function createMinioBucket(endpoint: string) {
 	const s3Client = new S3Client({
 		endpoint,
 		region: "us-east-1",
@@ -107,7 +107,7 @@ async function waitForHealthCheck(
 	url: string,
 	maxRetries = 10,
 	retryDelay = 500,
-): Promise<void> {
+) {
 	for (let i = 0; i < maxRetries; i++) {
 		try {
 			const response = await fetch(url);
@@ -211,7 +211,7 @@ async function startBackendProcess(
 	});
 }
 
-export async function startAllServices(): Promise<StartedServices> {
+export async function startAllServices() {
 	const network = await new Network().start();
 
 	console.log("[Orchestrator] Starting containers in parallel...");
@@ -283,9 +283,7 @@ export async function startAllServices(): Promise<StartedServices> {
 	};
 }
 
-export async function stopAllServices(
-	services: StartedServices | undefined,
-): Promise<void> {
+export async function stopAllServices(services: StartedServices | undefined) {
 	if (!services) {
 		return;
 	}
