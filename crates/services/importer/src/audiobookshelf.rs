@@ -176,6 +176,7 @@ async fn process_item(
                                     ..Default::default()
                                 },
                                 services.ss,
+                                None,
                             )
                             .await
                             .map_err(|e| ImportFailedItem {
@@ -183,7 +184,8 @@ async fn process_item(
                                 error: Some(e.message),
                                 step: ImportFailStep::ItemDetailsFromSource,
                                 ..Default::default()
-                            })?;
+                            })
+                            .map(|(metadata, _)| metadata)?;
                             let podcast = get_updated_podcast_metadata(&itunes_id, services.ss)
                                 .await
                                 .map_err(|e| ImportFailedItem {

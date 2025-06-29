@@ -70,7 +70,7 @@ pub async fn yank_progress(
             {
                 let lot = MediaLot::Podcast;
                 let source = MediaSource::Itunes;
-                commit_metadata(
+                let (_metadata, _) = commit_metadata(
                     PartialMetadataWithoutId {
                         lot,
                         source,
@@ -78,6 +78,7 @@ pub async fn yank_progress(
                         ..Default::default()
                     },
                     ss,
+                    None,
                 )
                 .await
                 .unwrap();
