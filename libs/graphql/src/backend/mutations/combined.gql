@@ -141,16 +141,11 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
 	deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMetadataJob($metadataId: String!) {
-	deployUpdateMetadataJob(metadataId: $metadataId)
-}
-
-mutation DeployUpdatePersonJob($personId: String!) {
-	deployUpdatePersonJob(personId: $personId)
-}
-
-mutation DeployUpdateMetadataGroupJob($metadataGroupId: String!) {
-	deployUpdateMetadataGroupJob(metadataGroupId: $metadataGroupId)
+mutation DeployUpdateMediaEntityJob(
+	$entityId: String!
+	$entityLot: EntityLot!
+) {
+	deployUpdateMediaEntityJob(entityId: $entityId, entityLot: $entityLot)
 }
 
 mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
