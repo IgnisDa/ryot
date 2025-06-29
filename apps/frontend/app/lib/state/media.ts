@@ -1,6 +1,7 @@
 import {
 	type EntityLot,
 	MediaLot,
+	MetadataDetailsDocument,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
@@ -8,6 +9,7 @@ import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import {
+	clientGqlService,
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
@@ -30,6 +32,23 @@ export type UpdateProgressData = {
 
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);
 
+const getUpdateMetadata = async (metadataId: string) => {
+	const getData = () =>
+		queryClient.ensureQueryData(getMetadataDetailsQuery(metadataId));
+
+	const meta = await getData();
+	if (meta.isPartial) {
+		await clientGqlService.request(MetadataDetailsDocument, {
+			metadataId,
+			ensureUpdated: true,
+		});
+		queryClient.invalidateQueries({
+			queryKey: getMetadataDetailsQuery(metadataId).queryKey,
+		});
+	}
+	return getData();
+};
+
 export const useMetadataProgressUpdate = () => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [metadataProgress, _setMetadataProgress] = useAtom(
@@ -42,7 +61,7 @@ export const useMetadataProgressUpdate = () => {
 		setIsLoading(true);
 		if (draft && determineNext) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
-				queryClient.ensureQueryData(getMetadataDetailsQuery(draft.metadataId)),
+				getUpdateMetadata(draft.metadataId),
 				queryClient.ensureQueryData(
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
