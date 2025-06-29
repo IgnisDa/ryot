@@ -1,4 +1,5 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
+import { FullscreenImageModal } from "~/components/common";
 import {
 	AddEntityToCollectionsForm,
 	CreateMeasurementForm,
@@ -35,6 +36,7 @@ export function LayoutModals({
 
 	return (
 		<>
+			<FullscreenImageModal />
 			<Modal
 				centered
 				withCloseButton={false}

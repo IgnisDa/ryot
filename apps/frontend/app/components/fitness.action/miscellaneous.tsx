@@ -26,8 +26,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
-import { Link } from "react-router";
 import invariant from "tiny-invariant";
+import { ClickableImage } from "~/components/common";
 import {
 	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
@@ -156,13 +156,13 @@ const AssetDisplay = (props: {
 
 	return (
 		<Box pos="relative">
-			{props.type === "video" ? (
-				<Link to={srcUrlQuery.data ?? ""} target="_blank">
+			<ClickableImage src={srcUrlQuery.data ?? ""}>
+				{props.type === "video" ? (
 					<Avatar size="lg" name="Video" />
-				</Link>
-			) : (
-				<Avatar src={srcUrlQuery.data} size="lg" />
-			)}
+				) : (
+					<Avatar src={srcUrlQuery.data} size="lg" />
+				)}
+			</ClickableImage>
 			<ActionIcon
 				top={0}
 				size="xs"

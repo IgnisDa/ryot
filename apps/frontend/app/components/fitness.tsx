@@ -45,7 +45,7 @@ import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { BaseMediaDisplayItem } from "~/components/common";
+import { BaseMediaDisplayItem, ClickableImage } from "~/components/common";
 import {
 	FitnessEntity,
 	dayjsLib,
@@ -383,9 +383,9 @@ export const ExerciseHistory = (props: {
 						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
 							<Avatar.Group>
 								{exercise.assets.s3Images.map((i) => (
-									<Anchor key={i} href={i} target="_blank">
+									<ClickableImage key={i} src={i}>
 										<Avatar src={i} />
-									</Anchor>
+									</ClickableImage>
 								))}
 							</Avatar.Group>
 						) : null}

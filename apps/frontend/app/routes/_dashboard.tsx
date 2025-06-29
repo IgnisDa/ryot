@@ -225,8 +225,8 @@ export default function Layout() {
 				</Tooltip>
 			) : null}
 			<LayoutModals
-				isOnLastOnboardingTourStep={isOnLastOnboardingTourStep}
 				completeOnboardingTour={completeOnboardingTour}
+				isOnLastOnboardingTourStep={isOnLastOnboardingTourStep}
 			/>
 			<AppShell
 				w="100%"

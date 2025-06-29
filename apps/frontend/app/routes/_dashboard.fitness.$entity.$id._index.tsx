@@ -57,7 +57,11 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollection, ProRequiredAlert } from "~/components/common";
+import {
+	ClickableImage,
+	DisplayCollection,
+	ProRequiredAlert,
+} from "~/components/common";
 import {
 	ExerciseHistory,
 	WorkoutRevisionScheduledAlert,
@@ -616,14 +620,14 @@ export default function Page() {
 					{hasAssets ? (
 						<Avatar.Group>
 							{images.map((i) => (
-								<Anchor key={i} href={i} target="_blank">
+								<ClickableImage key={i} src={i}>
 									<Avatar src={i} />
-								</Anchor>
+								</ClickableImage>
 							))}
 							{videos.map((v) => (
-								<Anchor key={v} href={v} target="_blank">
+								<ClickableImage key={v} src={v}>
 									<Avatar name="Video" />
-								</Anchor>
+								</ClickableImage>
 							))}
 						</Avatar.Group>
 					) : null}

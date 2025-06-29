@@ -131,6 +131,7 @@ import {
 	useBulkEditCollection,
 } from "~/lib/state/collection";
 import type { OnboardingTourStepTargets } from "~/lib/state/general";
+import { useFullscreenImage } from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
@@ -1687,3 +1688,48 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 		</Combobox>
 	);
 }
+
+export const ClickableImage = (props: {
+	src: string;
+	alt?: string;
+	name?: string;
+	children: ReactNode;
+	size?: string | number;
+}) => {
+	const [, setFullscreenImage] = useFullscreenImage();
+
+	return (
+		<Box
+			style={{ cursor: "pointer" }}
+			data-component="ClickableImage"
+			onClick={() => setFullscreenImage({ src: props.src, alt: props.alt })}
+		>
+			{props.children}
+		</Box>
+	);
+};
+
+export const FullscreenImageModal = () => {
+	const [imageData, setImageData] = useFullscreenImage();
+
+	return (
+		<Modal
+			fullScreen
+			zIndex={1000}
+			opened={!!imageData}
+			onClose={() => setImageData(null)}
+		>
+			{imageData && (
+				<Image
+					src={imageData.src}
+					alt={imageData.alt || "Fullscreen image"}
+					style={{
+						maxHeight: "90vh",
+						maxWidth: "90vw",
+						objectFit: "contain",
+					}}
+				/>
+			)}
+		</Modal>
+	);
+};

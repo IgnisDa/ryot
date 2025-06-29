@@ -8,7 +8,7 @@ import {
 import { cloneDeep, isNumber } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useAtom } from "jotai";
+import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
@@ -436,4 +436,15 @@ export const useOnboardingTour = () => {
 		isOnboardingTourInProgress,
 		currentOnboardingTourStepIndex: tourState?.currentStepIndex,
 	};
+};
+
+export type FullscreenImageData = {
+	src: string;
+	alt?: string;
+};
+
+const fullscreenImageAtom = atom<FullscreenImageData | null>(null);
+
+export const useFullscreenImage = () => {
+	return useAtom(fullscreenImageAtom);
 };
