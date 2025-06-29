@@ -5,7 +5,7 @@ import { match } from "ts-pattern";
 import { WatchTimes } from "../../../types";
 import type { BulkUpdateContext } from "./form-types";
 
-export const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
+const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 	const {
 		metadataDetails,
 		metadataToUpdate,
@@ -76,7 +76,7 @@ export const handleAnimeBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
+const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 	const {
 		metadataDetails,
 		metadataToUpdate,
@@ -223,7 +223,7 @@ export const handleMangaBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-export const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
+const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 	const {
 		metadataDetails,
 		metadataToUpdate,
@@ -331,7 +331,7 @@ export const handleShowBulkUpdates = (context: BulkUpdateContext): void => {
 	}
 };
 
-export const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
+const handlePodcastBulkUpdates = (context: BulkUpdateContext): void => {
 	const {
 		metadataDetails,
 		metadataToUpdate,
