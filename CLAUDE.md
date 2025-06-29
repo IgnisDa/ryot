@@ -65,3 +65,12 @@
 - We try to keep the code files below 500 lines. If a file is larger than that, consider
   splitting it into smaller files (using functions, components, etc.) to improve
   readability.
+- When making changes, run the following commands generously to ensure that the changes you
+  are making do not break anything:
+
+  ```bash
+  moon run frontend:typecheck # for frontend changes
+  moon run docs:build # for docs changes
+  moon run website:typecheck # for website changes
+  cargo check --workspace # for backend changes
+  ```
