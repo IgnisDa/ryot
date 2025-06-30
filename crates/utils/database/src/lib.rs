@@ -13,7 +13,10 @@ use database_models::{
     },
     review, seen, user, user_to_entity, workout,
 };
-use dependent_models::{CollectionToEntityDetails, UserWorkoutDetails, UserWorkoutTemplateDetails};
+use dependent_models::{
+    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
+};
 use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
@@ -79,7 +82,7 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
     let details = entity_in_collections_with_details(db, user_id, entity_id, entity_lot).await?;
     Ok(details
         .into_iter()
-        .map(|d| (d.collection, d.id))
+        .map(|d| (d.details.collection, d.id))
         .collect_vec())
 }
 
@@ -88,7 +91,7 @@ pub async fn entity_in_collections_with_details(
     user_id: &String,
     entity_id: &String,
     entity_lot: EntityLot,
-) -> Result<Vec<CollectionToEntityDetails>> {
+) -> Result<Vec<GraphqlCollectionToEntityDetails>> {
     let user_collections = Collection::find()
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -108,12 +111,14 @@ pub async fn entity_in_collections_with_details(
         .unwrap();
     let resp = mtc
         .into_iter()
-        .map(|(cte, col)| CollectionToEntityDetails {
+        .map(|(cte, col)| GraphqlCollectionToEntityDetails {
             id: cte.id,
-            collection: col.unwrap(),
-            created_on: cte.created_on,
-            information: cte.information,
-            last_updated_on: cte.last_updated_on,
+            details: CollectionToEntityDetails {
+                collection: col.unwrap(),
+                created_on: cte.created_on,
+                information: cte.information,
+                last_updated_on: cte.last_updated_on,
+            },
         })
         .collect_vec();
     Ok(resp)

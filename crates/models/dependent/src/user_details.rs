@@ -18,11 +18,16 @@ use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct CollectionToEntityDetails {
-    pub id: Uuid,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
     pub collection: collection::Model,
     pub information: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlCollectionToEntityDetails {
+    pub id: Uuid,
+    pub details: CollectionToEntityDetails,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
@@ -76,7 +81,7 @@ pub struct UserPersonDetails {
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
-    pub collections: Vec<CollectionToEntityDetails>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(SimpleObject)]
@@ -85,7 +90,7 @@ pub struct UserMetadataGroupDetails {
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
-    pub collections: Vec<CollectionToEntityDetails>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(SimpleObject)]
@@ -107,7 +112,7 @@ pub struct UserMetadataDetails {
     /// The seen item if it is in progress.
     pub in_progress: Option<seen::Model>,
     /// The collections in which this media is present.
-    pub collections: Vec<CollectionToEntityDetails>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     /// The next episode/chapter of this media.
     pub next_entry: Option<UserMediaNextEntry>,
     /// The reasons why this metadata is related to this user
@@ -122,13 +127,13 @@ pub struct UserMetadataDetails {
 pub struct UserWorkoutDetails {
     pub details: workout::Model,
     pub metadata_consumed: Vec<String>,
-    pub collections: Vec<CollectionToEntityDetails>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserExerciseDetails {
     pub reviews: Vec<ReviewItem>,
-    pub collections: Vec<CollectionToEntityDetails>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     pub details: Option<user_to_entity::Model>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
 }
@@ -136,7 +141,7 @@ pub struct UserExerciseDetails {
 #[derive(Debug, SimpleObject, Clone, Serialize, Deserialize)]
 pub struct UserWorkoutTemplateDetails {
     pub details: workout_template::Model,
-    pub collections: Vec<CollectionToEntityDetails>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(async_graphql::InputObject, Clone, Debug, Deserialize, Serialize)]

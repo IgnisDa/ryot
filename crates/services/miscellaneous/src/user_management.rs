@@ -85,7 +85,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 entity_in_collections_with_details(&ss.db, &user_id, &entity_id, entity_lot)
                     .await?
                     .into_iter()
-                    .map(|c| c.collection.id)
+                    .map(|c| c.details.collection.id)
                     .collect_vec();
             if Review::find()
                 .filter(review::Column::UserId.eq(&ute.user_id))

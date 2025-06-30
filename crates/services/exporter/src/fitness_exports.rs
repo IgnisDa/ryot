@@ -60,7 +60,7 @@ impl FitnessExports {
                     collections: details
                         .collections
                         .into_iter()
-                        .map(|c| c.collection.name)
+                        .map(|c| c.details.collection.name)
                         .collect(),
                 };
                 writer.serialize_value(&exp)?;
@@ -128,7 +128,7 @@ impl FitnessExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.collection.name)
+                .map(|c| c.details.collection.name)
                 .collect_vec();
                 if reviews.is_empty() && collections.is_empty() {
                     continue;
@@ -187,7 +187,7 @@ impl FitnessExports {
                     collections: details
                         .collections
                         .into_iter()
-                        .map(|c| c.collection.name)
+                        .map(|c| c.details.collection.name)
                         .collect(),
                 };
                 writer.serialize_value(&exp).unwrap();

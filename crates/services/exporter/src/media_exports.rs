@@ -103,7 +103,7 @@ impl MediaExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.collection.name)
+                .map(|c| c.details.collection.name)
                 .collect();
                 let exp = ImportOrExportMetadataItem {
                     reviews,
@@ -170,7 +170,7 @@ impl MediaExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.collection.name)
+                .map(|c| c.details.collection.name)
                 .collect();
                 let exp = ImportOrExportMetadataGroupItem {
                     reviews,
@@ -230,7 +230,7 @@ impl MediaExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.collection.name)
+                .map(|c| c.details.collection.name)
                 .collect();
                 let exp = ImportOrExportPersonItem {
                     reviews,
