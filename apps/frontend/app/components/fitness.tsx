@@ -265,6 +265,7 @@ export const ExerciseHistory = (props: {
 	);
 
 	const images = getExerciseImages(exerciseDetails);
+	const hasExtraDetailsToShow = Boolean(images.length > 0 || exercise?.total);
 
 	return (
 		<Paper
@@ -304,7 +305,7 @@ export const ExerciseHistory = (props: {
 										? workoutDetails.details.name
 										: exerciseDetails.name}
 								</Anchor>
-								{!props.hideExtraDetailsButton ? (
+								{hasExtraDetailsToShow && !props.hideExtraDetailsButton ? (
 									<ActionIcon onClick={toggle} variant="transparent">
 										<IconInfoCircle size={18} />
 									</ActionIcon>
@@ -365,7 +366,7 @@ export const ExerciseHistory = (props: {
 										</>
 									) : null}
 								</SimpleGrid>
-								{!props.hideExerciseDetails && exerciseDetails ? (
+								{!props.hideExerciseDetails ? (
 									<ScrollArea type="scroll">
 										<Flex gap="lg">
 											{images.map((i) => (

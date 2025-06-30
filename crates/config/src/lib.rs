@@ -7,14 +7,17 @@ use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN, TRAKT_CLIENT_I
 use schematic::{Config, ConfigEnum, ConfigLoader, HandlerError, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
 
+// FIXME: Remove this in the next major version
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_string()))
 }
 
+// FIXME: Remove this in the next major version
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_MAL_CLIENT_ID.to_string()))
 }
 
+// FIXME: Remove this in the next major version
 fn default_trakt_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(TRAKT_CLIENT_ID.to_string()))
 }
