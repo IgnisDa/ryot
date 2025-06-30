@@ -8,7 +8,6 @@ import {
 	ScrollArea,
 	Select,
 	Stack,
-	Text,
 } from "@mantine/core";
 import {
 	type ExerciseDetailsQuery,
@@ -70,12 +69,13 @@ export const ExerciseDetailsModal = ({
 			opened={opened}
 			onClose={onClose}
 			title={
-				<Group gap={4} wrap="nowrap">
-					<Text>Exercise details for</Text>
-					<Anchor component={Link} to={getExerciseDetailsPath(exerciseId)}>
-						{exerciseName || "..."}
-					</Anchor>
-				</Group>
+				<Anchor
+					fw="bold"
+					component={Link}
+					to={getExerciseDetailsPath(exerciseId)}
+				>
+					{exerciseName || "..."}
+				</Anchor>
 			}
 		>
 			<FocusTrap.InitialFocus />
