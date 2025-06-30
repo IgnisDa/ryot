@@ -8,7 +8,7 @@ use database_utils::{
     entity_in_collections_with_details, item_reviews, user_workout_details,
     user_workout_template_details,
 };
-use dependent_models::UserTemplatesOrWorkoutsListInput;
+use dependent_models::{ImportOrExportExerciseItem, UserTemplatesOrWorkoutsListInput};
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
 use dependent_utils::{
     user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
@@ -16,7 +16,6 @@ use dependent_utils::{
 use enum_models::EntityLot;
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use itertools::Itertools;
-use media_models::ImportOrExportExerciseItem;
 use sea_orm::EntityTrait;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;

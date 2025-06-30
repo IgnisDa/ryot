@@ -4,13 +4,13 @@ use async_graphql::Result;
 use common_models::ChangeCollectionToEntityInput;
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use importer_models::ImportFailedItem;
 use importer_models::{ImportDetails, ImportFailStep, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    ImportOrExportMetadataItem, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
