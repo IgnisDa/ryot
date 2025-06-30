@@ -12,11 +12,12 @@ use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
+use schematic::Schematic;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+#[derive(Debug, Schematic, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct CollectionToEntityDetails {
     pub id: Uuid,
     pub created_on: DateTimeUtc,
