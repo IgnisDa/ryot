@@ -30,8 +30,8 @@ async fn create_collection_and_add_entity_to_it(
     entity_id: String,
     entity_lot: EntityLot,
     collection_name: String,
-    information: Option<serde_json::Value>,
     ss: &Arc<SupportingService>,
+    information: Option<serde_json::Value>,
     import_failed_set: &mut Vec<ImportFailedItem>,
 ) {
     if let Err(e) = collection_operations::create_or_update_collection(
@@ -58,6 +58,7 @@ async fn create_collection_and_add_entity_to_it(
             collection_name: collection_name.clone(),
             entity_id: entity_id.clone(),
             entity_lot,
+            information,
             ..Default::default()
         },
         ss,
@@ -229,8 +230,9 @@ where
                         user_id,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                        col,
+                        col.collection.name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -285,8 +287,9 @@ where
                         user_id,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                        col,
+                        col.collection.name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -339,8 +342,9 @@ where
                         user_id,
                         db_person_id.clone(),
                         EntityLot::Person,
-                        col,
+                        col.collection.name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -402,8 +406,9 @@ where
                                 user_id,
                                 workout_id.clone(),
                                 EntityLot::Workout,
-                                col,
+                                col.collection.name,
                                 ss,
+                                col.information,
                                 &mut import.failed,
                             )
                             .await;
