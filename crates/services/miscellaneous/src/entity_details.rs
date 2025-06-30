@@ -22,6 +22,7 @@ use media_models::{
 };
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect,
 };
 use supporting_service::SupportingService;
 
@@ -125,14 +126,22 @@ pub async fn metadata_group_details(
     ss: &Arc<SupportingService>,
     metadata_group_id: String,
 ) -> Result<MetadataGroupDetails> {
-    let mut model = MetadataGroup::find_by_id(metadata_group_id)
+    let mut model = MetadataGroup::find_by_id(&metadata_group_id)
         .one(&ss.db)
         .await?
         .unwrap();
     transform_entity_assets(&mut model.assets, ss).await?;
+    let contents = MetadataToMetadataGroup::find()
+        .select_only()
+        .column(metadata_to_metadata_group::Column::MetadataId)
+        .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(metadata_group_id))
+        .order_by_asc(metadata_to_metadata_group::Column::Part)
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
     Ok(MetadataGroupDetails {
+        contents,
         details: model,
-        contents: vec![],
     })
 }
 
