@@ -119,7 +119,6 @@ export default function Page() {
 							<DisplayCollection
 								col={col}
 								key={col.id}
-								creatorUserId={col.userId}
 								entityLot={EntityLot.MetadataGroup}
 								entityId={loaderData.metadataGroupId}
 							/>
@@ -193,7 +192,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userMetadataGroupDetails.collections.map(
-												(c) => c.name,
+												(c) => c.details.collection.name,
 											)}
 											formValue={loaderData.metadataGroupId}
 											entityLot={EntityLot.MetadataGroup}

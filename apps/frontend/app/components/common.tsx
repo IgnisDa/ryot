@@ -43,6 +43,7 @@ import {
 	useListState,
 } from "@mantine/hooks";
 import {
+	type CollectionToEntityDetailsPartFragment,
 	type EntityAssets,
 	EntityLot,
 	GridPacking,
@@ -1024,14 +1025,13 @@ export const DisplayCollectionEntity = (props: {
 export const DisplayCollection = (props: {
 	entityId: string;
 	entityLot: EntityLot;
-	creatorUserId: string;
-	col: { id: string; name: string };
+	col: CollectionToEntityDetailsPartFragment;
 }) => {
-	const color = useGetRandomMantineColor(props.col.name);
+	const color = useGetRandomMantineColor(props.col.details.collection.name);
 	const submit = useConfirmSubmit();
 
 	return (
-		<Badge key={props.col.id} color={color}>
+		<Badge key={props.col.details.collection.id} color={color}>
 			<Form
 				method="POST"
 				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
@@ -1042,19 +1042,24 @@ export const DisplayCollection = (props: {
 						truncate
 						style={{ all: "unset", cursor: "pointer" }}
 						to={$path("/collections/:id", {
-							id: props.col.id,
+							id: props.col.details.collection.id,
 						})}
 					>
-						{props.col.name}
+						{props.col.details.collection.name}
 					</Anchor>
 					<input readOnly hidden name="entityId" value={props.entityId} />
 					<input readOnly hidden name="entityLot" value={props.entityLot} />
-					<input readOnly hidden name="collectionName" value={props.col.name} />
+					<input
+						readOnly
+						hidden
+						name="collectionName"
+						value={props.col.details.collection.name}
+					/>
 					<input
 						readOnly
 						hidden
 						name="creatorUserId"
-						value={props.creatorUserId}
+						value={props.col.details.collection.userId}
 					/>
 					<ActionIcon
 						size={16}

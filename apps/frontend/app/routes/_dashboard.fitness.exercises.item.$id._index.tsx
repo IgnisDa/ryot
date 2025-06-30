@@ -269,7 +269,6 @@ export default function Page() {
 								<DisplayCollection
 									col={col}
 									key={col.id}
-									creatorUserId={col.userId}
 									entityLot={EntityLot.Exercise}
 									entityId={loaderData.exerciseDetails.id}
 								/>

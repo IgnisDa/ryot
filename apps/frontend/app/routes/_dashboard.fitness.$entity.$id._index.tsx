@@ -481,7 +481,6 @@ export default function Page() {
 									col={col}
 									key={col.id}
 									entityLot={entityLot}
-									creatorUserId={col.userId}
 									entityId={loaderData.entityId}
 								/>
 							))}

@@ -155,7 +155,6 @@ export default function Page() {
 							<DisplayCollection
 								col={col}
 								key={col.id}
-								creatorUserId={col.userId}
 								entityLot={EntityLot.Person}
 								entityId={loaderData.personId}
 							/>
@@ -315,7 +314,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userPersonDetails.collections.map(
-												(c) => c.name,
+												(c) => c.details.collection.name,
 											)}
 											formValue={loaderData.personId}
 											entityLot={EntityLot.Person}
