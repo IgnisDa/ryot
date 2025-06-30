@@ -3,11 +3,11 @@ use std::{collections::HashMap, fs, sync::Arc};
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 use media_models::{
     DeployJsonImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    ImportOrExportMetadataItemSeen,
 };
 use nest_struct::nest_struct;
 use rust_decimal::Decimal;

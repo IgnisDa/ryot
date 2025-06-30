@@ -2,10 +2,11 @@ use async_graphql::Result;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{DeployGenericCsvImportInput, ImportOrExportMetadataItem};
+use media_models::DeployGenericCsvImportInput;
 pub use providers::tmdb::NonMediaTmdbService;
 use serde::Deserialize;
 

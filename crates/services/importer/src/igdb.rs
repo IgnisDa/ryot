@@ -1,9 +1,10 @@
 use async_graphql::Result;
 use csv::Reader;
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{DeployIgdbImportInput, ImportOrExportMetadataItem};
+use media_models::DeployIgdbImportInput;
 use serde::Deserialize;
 
 use super::{ImportFailStep, ImportFailedItem};

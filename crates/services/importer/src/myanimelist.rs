@@ -5,13 +5,12 @@ use std::{
 
 use async_graphql::Result;
 use common_utils::{convert_naive_to_utc, convert_string_to_date};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use flate2::bufread::GzDecoder;
 use itertools::Itertools;
 use media_models::{
-    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMetadataItem,
-    ImportOrExportMetadataItemSeen,
+    DeployMalImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
 };
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;

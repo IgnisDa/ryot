@@ -5,12 +5,12 @@ use chrono::{NaiveDate, NaiveDateTime};
 use common_models::DefaultCollection;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use csv::Reader;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    ImportOrExportMetadataItemSeen,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
