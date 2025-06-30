@@ -111,6 +111,7 @@ pub struct ImportOrExportMetadataItem {
     pub identifier: String,
     /// The source of media.
     pub source: MediaSource,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
     pub collections: Vec<String>,
     /// The review history for the user.
@@ -132,6 +133,7 @@ pub struct ImportOrExportMetadataGroupItem {
     pub identifier: String,
     /// The source of media.
     pub source: MediaSource,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
     pub collections: Vec<String>,
     /// The review history for the user.
@@ -149,6 +151,7 @@ pub struct ImportOrExportPersonItem {
     pub identifier: String,
     /// The source of data.
     pub source: MediaSource,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
     pub collections: Vec<String>,
     /// The review history for the user.
@@ -166,6 +169,7 @@ pub struct ImportOrExportExerciseItem {
     pub id: String,
     /// The name of the exercise.
     pub name: String,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
     pub collections: Vec<String>,
     /// The review history for the user.

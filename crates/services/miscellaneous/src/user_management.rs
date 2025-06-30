@@ -11,7 +11,7 @@ use database_models::{
     prelude::{Collection, Review, UserToEntity},
     review, user, user_to_entity,
 };
-use database_utils::{entity_in_collections, get_enabled_users_query};
+use database_utils::{entity_in_collections_with_details, get_enabled_users_query};
 use dependent_utils::{expire_user_metadata_list_cache, is_metadata_finished_by_user};
 use enum_models::{EntityLot, UserToMediaReason};
 use itertools::Itertools;
@@ -82,10 +82,10 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             };
 
             let collections_part_of =
-                entity_in_collections(&ss.db, &user_id, &entity_id, entity_lot)
+                entity_in_collections_with_details(&ss.db, &user_id, &entity_id, entity_lot)
                     .await?
                     .into_iter()
-                    .map(|c| c.id)
+                    .map(|c| c.collection.id)
                     .collect_vec();
             if Review::find()
                 .filter(review::Column::UserId.eq(&ute.user_id))

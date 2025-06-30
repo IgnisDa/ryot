@@ -18,14 +18,16 @@ use strum::Display;
 pub struct ImportOrExportWorkoutItem {
     /// The details of the workout.
     pub details: workout::Model,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
     pub collections: Vec<String>,
 }
 
 #[derive(Debug, async_graphql::SimpleObject, Clone, Serialize, Deserialize, Schematic)]
 pub struct ImportOrExportWorkoutTemplateItem {
-    pub details: workout_template::Model,
     pub collections: Vec<String>,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
+    pub details: workout_template::Model,
 }
 
 /// Complete export of the user.
