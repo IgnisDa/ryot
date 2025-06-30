@@ -186,7 +186,7 @@ export const AddEntityToCollectionsForm = ({
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		await mutation.mutateAsync();
-		queryClient.invalidateQueries({ queryKey: alreadyInCollectionsQueryKey });
+		queryClient.removeQueries({ queryKey: alreadyInCollectionsQueryKey });
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		revalidator.revalidate();
 		closeAddEntityToCollectionsDrawer();
