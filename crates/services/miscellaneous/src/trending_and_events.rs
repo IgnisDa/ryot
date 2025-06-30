@@ -39,7 +39,7 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
                 Err(_) => continue,
             };
             for item in media {
-                if let Ok(metadata) = commit_metadata(item, ss).await {
+                if let Ok((metadata, _)) = commit_metadata(item, ss, None).await {
                     trending_ids.insert(metadata.id);
                 }
             }

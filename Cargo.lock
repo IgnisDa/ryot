@@ -2196,14 +2196,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-utils",
- "database-models",
- "dependent-utils",
- "enum-models",
  "reqwest",
  "sea-orm",
  "serde",
  "serde_json",
- "supporting-service",
  "tracing",
 ]
 
@@ -3241,7 +3237,6 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
- "env-utils",
  "external-models",
  "external-utils",
  "fitness-models",
@@ -3698,6 +3693,7 @@ dependencies = [
  "async-graphql",
  "common-models",
  "dependent-models",
+ "enum-models",
  "media-models",
  "miscellaneous-service",
  "traits",

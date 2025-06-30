@@ -16,7 +16,10 @@ import { AnimeForm } from "./media-types/anime-form";
 import { MangaForm } from "./media-types/manga-form";
 import { PodcastForm } from "./media-types/podcast-form";
 import { ShowForm } from "./media-types/show-form";
-import { processBulkUpdates } from "./utils/bulk-update-handlers";
+import {
+	createCustomDatesCompletedChange,
+	processBulkUpdates,
+} from "./utils/bulk-update-handlers";
 import {
 	CustomDatePicker,
 	ProviderSelect,
@@ -29,11 +32,11 @@ export const MetadataNewProgressUpdateForm = ({
 	history,
 	onSubmit,
 	metadataDetails,
-	metadataToUpdate,
 }: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [startDate, setStartDate] = useState<Date | null>(null);
+	const [finishDate, setFinishDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
@@ -42,7 +45,10 @@ export const MetadataNewProgressUpdateForm = ({
 	);
 
 	const handleSubmit = async () => {
-		const selectedDateFormatted = convertTimestampToUtcString(selectedDate);
+		if (!metadataToUpdate) return;
+
+		const startDateFormatted = convertTimestampToUtcString(startDate);
+		const finishDateFormatted = convertTimestampToUtcString(finishDate);
 		const currentDateFormatted = convertTimestampToUtcString(new Date());
 		const common: MetadataProgressUpdateCommonInput = {
 			showSeasonNumber: metadataToUpdate.showSeasonNumber,
@@ -60,10 +66,11 @@ export const MetadataNewProgressUpdateForm = ({
 			watchTime,
 			common,
 			updates,
-			metadataToUpdate,
 			metadataDetails,
+			metadataToUpdate,
+			startDateFormatted,
+			finishDateFormatted,
 			currentDateFormatted,
-			selectedDateFormatted,
 		});
 
 		const change: MetadataProgressUpdateChange = match(watchTime)
@@ -81,19 +88,13 @@ export const MetadataNewProgressUpdateForm = ({
 					},
 				},
 			}))
-			.with(WatchTimes.CustomDate, () => {
-				if (!selectedDateFormatted)
-					throw new Error("Selected date is undefined");
-
-				return {
-					createNewCompleted: {
-						finishedOnDate: {
-							...common,
-							timestamp: selectedDateFormatted,
-						},
-					},
-				};
-			})
+			.with(WatchTimes.CustomDates, () =>
+				createCustomDatesCompletedChange({
+					startDateFormatted,
+					finishDateFormatted,
+					commonFields: common,
+				}),
+			)
 			.with(WatchTimes.IDontRemember, () => ({
 				createNewCompleted: { withoutDates: common },
 			}))
@@ -110,15 +111,23 @@ export const MetadataNewProgressUpdateForm = ({
 	const handleWatchTimeChange = (newWatchTime: WatchTimes) => {
 		setWatchTime(newWatchTime);
 		match(newWatchTime)
-			.with(WatchTimes.JustCompletedNow, () => setSelectedDate(new Date()))
+			.with(WatchTimes.JustCompletedNow, () => {
+				setStartDate(null);
+				setFinishDate(new Date());
+			})
 			.with(
 				WatchTimes.IDontRemember,
-				WatchTimes.CustomDate,
+				WatchTimes.CustomDates,
 				WatchTimes.JustStartedIt,
-				() => setSelectedDate(null),
+				() => {
+					setStartDate(null);
+					setFinishDate(null);
+				},
 			)
 			.run();
 	};
+
+	if (!metadataToUpdate) return null;
 
 	const handleProviderChange = (provider: string | null) => {
 		setMetadataToUpdate(
@@ -129,36 +138,22 @@ export const MetadataNewProgressUpdateForm = ({
 	};
 
 	return (
-		<Stack ref={parent}>
-			<AnimeForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
-			<MangaForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
-			<ShowForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
-			<PodcastForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
+		<Stack ref={parent} gap="xs">
+			<AnimeForm metadataDetails={metadataDetails} />
+			<MangaForm metadataDetails={metadataDetails} />
+			<ShowForm metadataDetails={metadataDetails} />
+			<PodcastForm metadataDetails={metadataDetails} />
 			<WatchTimeSelect
 				value={watchTime}
 				onChange={handleWatchTimeChange}
 				metadataLot={metadataDetails.lot}
 			/>
-			{watchTime === WatchTimes.CustomDate ? (
+			{watchTime === WatchTimes.CustomDates ? (
 				<CustomDatePicker
-					selectedDate={selectedDate}
-					onDateChange={setSelectedDate}
+					startDate={startDate}
+					finishDate={finishDate}
+					onStartDateChange={setStartDate}
+					onFinishDateChange={setFinishDate}
 				/>
 			) : null}
 			{watchTime !== WatchTimes.JustStartedIt ? (
@@ -169,7 +164,11 @@ export const MetadataNewProgressUpdateForm = ({
 			) : null}
 			<SubmitButton
 				onClick={handleSubmit}
-				disabled={watchTime === WatchTimes.CustomDate && selectedDate === null}
+				disabled={
+					watchTime === WatchTimes.CustomDates &&
+					startDate === null &&
+					finishDate === null
+				}
 			/>
 		</Stack>
 	);

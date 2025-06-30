@@ -8,7 +8,7 @@ import {
 import { cloneDeep, isNumber } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useAtom } from "jotai";
+import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import Cookies from "js-cookie";
 import type { ReactNode } from "react";
@@ -58,7 +58,6 @@ export enum OnboardingTourStepTargets {
 	FirstSidebar = "tour-step-first-sidebar",
 	GoToAudiobooksSection = "tour-step-go-to-audiobooks-section",
 	SearchAudiobook = "tour-step-search-audiobook",
-	AddAudiobookToWatchlist = "tour-step-add-audiobook-to-watchlist",
 	OpenMetadataProgressForm = "tour-step-open-metadata-progress-form",
 	AddAudiobookToWatchedHistory = "tour-step-add-audiobook-to-watched-history",
 	GoToAudiobooksSectionAgain = "tour-step-go-to-audiobooks-section-again",
@@ -228,7 +227,7 @@ export const useOnboardingTour = () => {
 			{
 				target: OnboardingTourStepTargets.Welcome,
 				content:
-					"Welcome to Ryot! Let's get started by adding an audiobook to your watchlist. Click on the media section in the sidebar to see what all you can track.",
+					"Welcome to Ryot! Let's get started by adding an audiobook to your history. Click on the media section in the sidebar to see what all you can track.",
 			},
 			{
 				target: OnboardingTourStepTargets.FirstSidebar,
@@ -237,26 +236,21 @@ export const useOnboardingTour = () => {
 			},
 			{
 				target: OnboardingTourStepTargets.GoToAudiobooksSection,
-				content:
-					"Let's start by adding an audiobook to your watchlist. Click on the search tab to search for an audiobook.",
+				content: "Click on the search tab to search for an audiobook.",
 			},
 			{
 				target: OnboardingTourStepTargets.SearchAudiobook,
 				content: `You can find any audiobook here. Let us proceed by searching for "${TOUR_METADATA_TARGET_ID}".`,
 			},
 			{
-				target: OnboardingTourStepTargets.AddAudiobookToWatchlist,
-				content:
-					"Now, add this audiobook to your watchlist. Note: you can remove it later.",
-			},
-			{
 				target: OnboardingTourStepTargets.OpenMetadataProgressForm,
 				content:
-					"Great! You've added your first audiobook to your watchlist. Now, let's add it to your history.",
+					"Great! Now, let's add this audiobook to your listening history.",
 			},
 			{
 				target: OnboardingTourStepTargets.AddAudiobookToWatchedHistory,
-				content: "Click on the 'Submit' button to record your progress.",
+				content:
+					"Notice that there is also a button to add this audiobook to collections. For now, click on the 'Submit' button to record your progress.",
 			},
 			{
 				target: OnboardingTourStepTargets.GoToAudiobooksSectionAgain,
@@ -436,4 +430,15 @@ export const useOnboardingTour = () => {
 		isOnboardingTourInProgress,
 		currentOnboardingTourStepIndex: tourState?.currentStepIndex,
 	};
+};
+
+export type FullscreenImageData = {
+	src: string;
+};
+
+const fullscreenImageAtom = atom<FullscreenImageData | null>(null);
+
+export const useFullscreenImage = () => {
+	const [fullscreenImage, setFullscreenImage] = useAtom(fullscreenImageAtom);
+	return { fullscreenImage, setFullscreenImage };
 };

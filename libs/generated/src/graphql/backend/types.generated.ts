@@ -1374,12 +1374,8 @@ export type MutationRoot = {
   deployExportJob: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
   deployImportJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a metadata group's details. */
-  deployUpdateMetadataGroupJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a media item's metadata. */
-  deployUpdateMetadataJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a person's metadata. */
-  deployUpdatePersonJob: Scalars['Boolean']['output'];
+  /** Deploy a job to update a media entity's metadata. */
+  deployUpdateMediaEntityJob: Scalars['Boolean']['output'];
   /**
    * Use this mutation to call a function that needs to be tested for implementation.
    * It is only available in development mode.
@@ -1569,18 +1565,9 @@ export type MutationRootDeployImportJobArgs = {
 };
 
 
-export type MutationRootDeployUpdateMetadataGroupJobArgs = {
-  metadataGroupId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeployUpdateMetadataJobArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeployUpdatePersonJobArgs = {
-  personId: Scalars['String']['input'];
+export type MutationRootDeployUpdateMediaEntityJobArgs = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
 };
 
 
@@ -1997,6 +1984,7 @@ export type QueryRootGetPresignedS3UrlArgs = {
 
 
 export type QueryRootMetadataDetailsArgs = {
+  ensureUpdated?: InputMaybe<Scalars['Boolean']['input']>;
   metadataId: Scalars['String']['input'];
 };
 

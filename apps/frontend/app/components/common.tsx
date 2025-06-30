@@ -130,6 +130,7 @@ import {
 	type BulkAddEntities,
 	useBulkEditCollection,
 } from "~/lib/state/collection";
+import { useFullscreenImage } from "~/lib/state/general";
 import type { OnboardingTourStepTargets } from "~/lib/state/general";
 import { useReviewEntity } from "~/lib/state/media";
 import type { action } from "~/routes/actions";
@@ -354,7 +355,6 @@ export const BaseMediaDisplayItem = (props: {
 	altName?: string;
 	progress?: string;
 	isLoading: boolean;
-	nameRight?: ReactNode;
 	imageClassName?: string;
 	imageUrl?: string | null;
 	highlightName?: boolean;
@@ -502,7 +502,6 @@ export const BaseMediaDisplayItem = (props: {
 						>
 							{props.altName ?? props.name}
 						</Text>
-						{props.nameRight}
 					</Flex>
 				</Flex>
 			)}
@@ -1687,3 +1686,24 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 		</Combobox>
 	);
 }
+
+export const FullscreenImageModal = () => {
+	const { fullscreenImage, setFullscreenImage } = useFullscreenImage();
+
+	return (
+		<Modal
+			fullScreen
+			zIndex={1000}
+			opened={!!fullscreenImage}
+			onClose={() => setFullscreenImage(null)}
+		>
+			{fullscreenImage && (
+				<Image
+					alt="Fullscreen image"
+					src={fullscreenImage.src}
+					style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain" }}
+				/>
+			)}
+		</Modal>
+	);
+};

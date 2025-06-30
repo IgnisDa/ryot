@@ -243,8 +243,12 @@ pub fn get_focused_workout_summary_with_exercises(
     let mut equipments = HashMap::new();
 
     for (idx, ex) in exercises.iter().enumerate() {
-        let exercise = db_exercises.iter().find(|e| e.id == ex.id)
-            .ok_or_else(|| Error::new(format!("Exercise with ID {} not found in fetched data", ex.id)))?;
+        let exercise = db_exercises.iter().find(|e| e.id == ex.id).ok_or_else(|| {
+            Error::new(format!(
+                "Exercise with ID {} not found in fetched data",
+                ex.id
+            ))
+        })?;
         lots.entry(exercise.lot).or_insert(vec![]).push(idx);
         levels.entry(exercise.level).or_insert(vec![]).push(idx);
         if let Some(force) = exercise.force {

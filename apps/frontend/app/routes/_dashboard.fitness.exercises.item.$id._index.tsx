@@ -583,10 +583,6 @@ export default function Page() {
 											setAddEntityToCollectionsData({
 												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
-												alreadyInCollections:
-													loaderData.userExerciseDetails.collections.map(
-														(c) => c.id,
-													),
 											});
 										}}
 									>

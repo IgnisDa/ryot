@@ -53,6 +53,7 @@ import {
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 
@@ -185,18 +186,20 @@ export const MetadataDisplayItem = (props: {
 	altName?: string;
 	metadataId: string;
 	topRight?: ReactNode;
-	nameRight?: ReactNode;
 	noLeftLabel?: boolean;
 	rightLabel?: ReactNode;
 	rightLabelLot?: boolean;
 	imageClassName?: string;
 	rightLabelHistory?: boolean;
 	shouldHighlightNameIfInteracted?: boolean;
+	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
@@ -265,7 +268,6 @@ export const MetadataDisplayItem = (props: {
 			imageUrl={images.at(0)}
 			altName={props.altName}
 			progress={currentProgress}
-			nameRight={props.nameRight}
 			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
@@ -335,9 +337,18 @@ export const MetadataDisplayItem = (props: {
 						color="blue"
 						size="compact-md"
 						variant="transparent"
-						onClick={() =>
-							setMetadataToUpdate({ metadataId: props.metadataId }, true)
-						}
+						className={props.bottomRightImageOverlayClassName}
+						onClick={async () => {
+							setMetadataToUpdate({ metadataId: props.metadataId }, true);
+
+							if (
+								isOnboardingTourInProgress &&
+								props.bottomRightImageOverlayClassName
+							) {
+								await new Promise((resolve) => setTimeout(resolve, 7000));
+								advanceOnboardingTourStep();
+							}
+						}}
 					>
 						<IconPlayerPlay size={20} />
 					</ActionIcon>

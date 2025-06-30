@@ -7,7 +7,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Menu,
 	Pagination,
 	Select,
 	Stack,
@@ -19,7 +18,6 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
-	GridPacking,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -39,9 +37,7 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
-	IconBoxMultiple,
 	IconCheck,
-	IconDotsVertical,
 	IconFilter,
 	IconListCheck,
 	IconPhotoPlus,
@@ -66,34 +62,21 @@ import {
 import { MetadataDisplayItem } from "~/components/media";
 import {
 	ApplicationTimeRange,
-	Verb,
 	clientGqlService,
 	convertEnumToSelectData,
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
-	getVerb,
 	pageQueryParam,
-	refreshEntityDetails,
 	zodCollectionFilter,
 } from "~/lib/common";
-import {
-	useAppSearchParam,
-	useApplicationEvents,
-	useCoreDetails,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import {
-	useAddEntityToCollections,
-	useMetadataProgressUpdate,
-} from "~/lib/state/media";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
@@ -521,21 +504,7 @@ const MediaSearchItem = (props: {
 	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const userDetails = useUserDetails();
-	const userPreferences = useUserPreferences();
-	const events = useApplicationEvents();
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	const gridPacking = userPreferences.general.gridPacking;
-	const buttonSize =
-		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
-
-	const tourControlOne = props.isFirstItem
-		? OnboardingTourStepTargets.AddAudiobookToWatchlist
-		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? OnboardingTourStepTargets.OpenMetadataProgressForm
@@ -546,83 +515,15 @@ const MediaSearchItem = (props: {
 		: undefined;
 
 	return (
-		<Box>
-			<MetadataDisplayItem
-				metadataId={props.item}
-				shouldHighlightNameIfInteracted
-				imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
-				onImageClickBehavior={async () => {
-					if (tourControlThree) advanceOnboardingTourStep();
-				}}
-				nameRight={
-					<Menu shadow="md">
-						<Menu.Target>
-							<ActionIcon size="xs">
-								<IconDotsVertical />
-							</ActionIcon>
-						</Menu.Target>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconBoxMultiple size={14} />}
-								onClick={() => {
-									setAddEntityToCollectionsData({
-										entityId: props.item,
-										entityLot: EntityLot.Metadata,
-									});
-								}}
-							>
-								Add to collection
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-				}
-			/>
-			<Box px={4}>
-				<Button
-					w="100%"
-					variant="outline"
-					size={buttonSize}
-					className={tourControlTwo}
-					onClick={async () => {
-						setMetadataToUpdate({ metadataId: props.item });
-						if (tourControlTwo) {
-							advanceOnboardingTourStep();
-						}
-					}}
-				>
-					Mark as {getVerb(Verb.Read, loaderData.lot)}
-				</Button>
-				<Button
-					w="100%"
-					mt="xs"
-					variant="outline"
-					size={buttonSize}
-					className={tourControlOne}
-					onClick={async () => {
-						const form = new FormData();
-						form.append("entityId", props.item);
-						form.append("entityLot", EntityLot.Metadata);
-						form.append("creatorUserId", userDetails.id);
-						form.append("collectionName", "Watchlist");
-						await fetch(
-							$path("/actions", { intent: "addEntityToCollection" }),
-							{
-								body: form,
-								method: "POST",
-								credentials: "include",
-							},
-						);
-						events.addToCollection(EntityLot.Metadata);
-						refreshEntityDetails(props.item);
-						if (tourControlOne) {
-							advanceOnboardingTourStep();
-						}
-					}}
-				>
-					Add to watchlist
-				</Button>
-			</Box>
-		</Box>
+		<MetadataDisplayItem
+			metadataId={props.item}
+			shouldHighlightNameIfInteracted
+			bottomRightImageOverlayClassName={tourControlTwo}
+			imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
+			onImageClickBehavior={async () => {
+				if (tourControlThree) advanceOnboardingTourStep();
+			}}
+		/>
 	);
 };
 

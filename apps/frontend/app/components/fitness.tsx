@@ -60,6 +60,7 @@ import {
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
+import { useFullscreenImage } from "~/lib/state/general";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -382,13 +383,7 @@ export const ExerciseHistory = (props: {
 							</Text>
 						))}
 						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
-							<Avatar.Group>
-								{exercise.assets.s3Images.map((i) => (
-									<Anchor key={i} href={i} target="_blank">
-										<Avatar src={i} />
-									</Anchor>
-								))}
-							</Avatar.Group>
+							<ExerciseImagesList images={exercise.assets.s3Images} />
 						) : null}
 					</Stack>
 					{exercise.sets.map((set, idx) => (
@@ -515,6 +510,23 @@ export const WorkoutTemplateDisplayItem = (props: {
 				right: "Template",
 			}}
 		/>
+	);
+};
+
+const ExerciseImagesList = (props: { images: string[] }) => {
+	const { setFullscreenImage } = useFullscreenImage();
+
+	return (
+		<Avatar.Group>
+			{props.images.map((i) => (
+				<Avatar
+					key={i}
+					src={i}
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: i })}
+				/>
+			))}
+		</Avatar.Group>
 	);
 };
 
