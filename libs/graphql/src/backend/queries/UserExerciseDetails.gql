@@ -1,7 +1,7 @@
 query UserExerciseDetails($exerciseId: String!) {
 	userExerciseDetails(exerciseId: $exerciseId) {
 		collections {
-			...CollectionPart
+			...CollectionToEntityDetailsPart
 		}
 		reviews {
 			...ReviewItemPart

@@ -22,7 +22,7 @@ query UserMetadataDetails($metadataId: String!) {
 			...SeenPart
 		}
 		collections {
-			...CollectionPart
+			...CollectionToEntityDetailsPart
 		}
 		showProgress {
 			timesSeen
