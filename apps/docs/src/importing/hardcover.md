@@ -1,6 +1,6 @@
 # Hardcover
 
-Ryot imports data from [Hardcover](https://hardcover.app) with the following mappings:
+Ryot can import data from [Hardcover](https://hardcover.app).
 
 ## Reading Status
 
