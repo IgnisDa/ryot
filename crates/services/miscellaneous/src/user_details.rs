@@ -7,7 +7,7 @@ use database_models::{
     prelude::{Metadata, Seen},
     seen,
 };
-use database_utils::{entity_in_collections, item_reviews};
+use database_utils::{entity_in_collections_with_details, item_reviews};
 use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails};
 use dependent_utils::generic_metadata;
 use dependent_utils::{get_entity_recently_consumed, is_metadata_finished_by_user};
@@ -36,7 +36,7 @@ pub async fn user_metadata_details(
         is_recently_consumed,
     ) = try_join!(
         generic_metadata(&metadata_id, ss, None),
-        entity_in_collections(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
+        entity_in_collections_with_details(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
         item_reviews(&user_id, &metadata_id, EntityLot::Metadata, true, ss),
         is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db),
         Metadata::find_by_id(&metadata_id)
@@ -190,7 +190,7 @@ pub async fn user_person_details(
 ) -> Result<UserPersonDetails> {
     let (reviews, collections, is_recently_consumed, person_meta) = try_join!(
         item_reviews(&user_id, &person_id, EntityLot::Person, true, ss),
-        entity_in_collections(&ss.db, &user_id, &person_id, EntityLot::Person),
+        entity_in_collections_with_details(&ss.db, &user_id, &person_id, EntityLot::Person),
         get_entity_recently_consumed(&user_id, &person_id, EntityLot::Person, ss),
         get_user_to_entity_association(&ss.db, &user_id, &person_id, EntityLot::Person)
     )?;
@@ -210,7 +210,7 @@ pub async fn user_metadata_group_details(
     metadata_group_id: String,
 ) -> Result<UserMetadataGroupDetails> {
     let (collections, reviews, is_recently_consumed, metadata_group_meta) = try_join!(
-        entity_in_collections(
+        entity_in_collections_with_details(
             &ss.db,
             &user_id,
             &metadata_group_id,

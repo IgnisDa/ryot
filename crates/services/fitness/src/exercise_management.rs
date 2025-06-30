@@ -7,7 +7,7 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::{
-    entity_in_collections, item_reviews, schedule_user_for_workout_revision,
+    entity_in_collections_with_details, item_reviews, schedule_user_for_workout_revision,
     transform_entity_assets,
 };
 use dependent_models::{
@@ -48,7 +48,8 @@ pub async fn user_exercise_details(
     exercise_id: String,
 ) -> Result<UserExerciseDetails> {
     let collections =
-        entity_in_collections(&ss.db, &user_id, &exercise_id, EntityLot::Exercise).await?;
+        entity_in_collections_with_details(&ss.db, &user_id, &exercise_id, EntityLot::Exercise)
+            .await?;
     let reviews = item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, ss).await?;
     let mut resp = UserExerciseDetails {
         collections,

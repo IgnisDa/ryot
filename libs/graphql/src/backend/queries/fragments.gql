@@ -139,6 +139,16 @@ fragment CollectionPart on Collection {
 	userId
 }
 
+fragment CollectionToEntityDetailsPart on CollectionToEntityDetails {
+	id
+	createdOn
+	lastUpdatedOn
+	information
+	collection {
+		...CollectionPart
+	}
+}
+
 fragment ReviewItemPart on ReviewItem {
 	id
 	rating

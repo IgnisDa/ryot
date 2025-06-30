@@ -1,15 +1,18 @@
+use common_models::PersonSourceSpecifics;
 use database_models::exercise;
 use database_models::{user_measurement, workout, workout_template};
+use enum_models::{MediaLot, MediaSource};
 use fitness_models::UserWorkoutInput;
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, ImportOrExportExerciseItem, ImportOrExportMetadataGroupItem,
-    ImportOrExportMetadataItem, ImportOrExportPersonItem,
+    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
 };
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
+
+use crate::CollectionToEntityDetails;
 
 /// Details about a specific exercise item that needs to be exported.
 #[skip_serializing_none]
@@ -18,14 +21,90 @@ use strum::Display;
 pub struct ImportOrExportWorkoutItem {
     /// The details of the workout.
     pub details: workout::Model,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
     pub collections: Vec<String>,
 }
 
 #[derive(Debug, async_graphql::SimpleObject, Clone, Serialize, Deserialize, Schematic)]
 pub struct ImportOrExportWorkoutTemplateItem {
-    pub details: workout_template::Model,
     pub collections: Vec<String>,
+    // TODO: Return CollectionToEntityDetails instead of just collection names
+    pub details: workout_template::Model,
+}
+
+/// Details about a specific media item that needs to be imported or exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportMetadataItem {
+    /// The type of media.
+    pub lot: MediaLot,
+    /// An string to help identify it in the original source.
+    pub source_id: String,
+    /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
+    pub identifier: String,
+    /// The source of media.
+    pub source: MediaSource,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
+    /// The seen history for the user.
+    pub seen_history: Vec<ImportOrExportMetadataItemSeen>,
+}
+
+/// Details about a specific media group item that needs to be imported or exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportMetadataGroupItem {
+    /// Name of the group.
+    pub title: String,
+    /// The type of media.
+    pub lot: MediaLot,
+    /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
+    pub identifier: String,
+    /// The source of media.
+    pub source: MediaSource,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
+}
+
+/// Details about a specific creator item that needs to be exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportPersonItem {
+    /// The name of the creator.
+    pub name: String,
+    /// The provider identifier.
+    pub identifier: String,
+    /// The source of data.
+    pub source: MediaSource,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
+    /// The source specific data.
+    pub source_specifics: Option<PersonSourceSpecifics>,
+}
+
+/// Details about a specific exercise item that needs to be exported.
+#[skip_serializing_none]
+#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
+#[serde(rename_all = "snake_case")]
+pub struct ImportOrExportExerciseItem {
+    /// The unique identifier of the exercise.
+    pub id: String,
+    /// The name of the exercise.
+    pub name: String,
+    /// The review history for the user.
+    pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
 }
 
 /// Complete export of the user.

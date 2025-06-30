@@ -5,7 +5,8 @@ use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::prelude::Exercise;
 use database_utils::{
-    entity_in_collections, item_reviews, user_workout_details, user_workout_template_details,
+    entity_in_collections_with_details, item_reviews, user_workout_details,
+    user_workout_template_details,
 };
 use dependent_models::UserTemplatesOrWorkoutsListInput;
 use dependent_models::{ImportOrExportWorkoutItem, ImportOrExportWorkoutTemplateItem};
@@ -56,7 +57,11 @@ impl FitnessExports {
                 let details = user_workout_details(user_id, workout_id, &self.service).await?;
                 let exp = ImportOrExportWorkoutItem {
                     details: details.details,
-                    collections: details.collections.into_iter().map(|c| c.name).collect(),
+                    collections: details
+                        .collections
+                        .into_iter()
+                        .map(|c| c.collection.name)
+                        .collect(),
                 };
                 writer.serialize_value(&exp)?;
             }
@@ -115,7 +120,7 @@ impl FitnessExports {
                 .into_iter()
                 .map(ExportUtilities::get_review_export_item)
                 .collect_vec();
-                let collections = entity_in_collections(
+                let collections = entity_in_collections_with_details(
                     &self.service.db,
                     user_id,
                     &exercise_id,
@@ -123,7 +128,7 @@ impl FitnessExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.name)
+                .map(|c| c.collection.name)
                 .collect_vec();
                 if reviews.is_empty() && collections.is_empty() {
                     continue;
@@ -179,7 +184,11 @@ impl FitnessExports {
                         .await?;
                 let exp = ImportOrExportWorkoutTemplateItem {
                     details: details.details,
-                    collections: details.collections.into_iter().map(|c| c.name).collect(),
+                    collections: details
+                        .collections
+                        .into_iter()
+                        .map(|c| c.collection.name)
+                        .collect(),
                 };
                 writer.serialize_value(&exp).unwrap();
             }

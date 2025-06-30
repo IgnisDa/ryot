@@ -7,7 +7,7 @@ use database_models::{
     prelude::{Metadata, MetadataGroup, Person, Seen},
     seen,
 };
-use database_utils::{entity_in_collections, item_reviews};
+use database_utils::{entity_in_collections_with_details, item_reviews};
 use dependent_models::{UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput};
 use dependent_utils::{user_metadata_groups_list, user_metadata_list, user_people_list};
 use enum_models::EntityLot;
@@ -95,12 +95,16 @@ impl MediaExports {
                         .into_iter()
                         .map(ExportUtilities::get_review_export_item)
                         .collect();
-                let collections =
-                    entity_in_collections(&self.service.db, user_id, &m.id, EntityLot::Metadata)
-                        .await?
-                        .into_iter()
-                        .map(|c| c.name)
-                        .collect();
+                let collections = entity_in_collections_with_details(
+                    &self.service.db,
+                    user_id,
+                    &m.id,
+                    EntityLot::Metadata,
+                )
+                .await?
+                .into_iter()
+                .map(|c| c.collection.name)
+                .collect();
                 let exp = ImportOrExportMetadataItem {
                     reviews,
                     lot: m.lot,
@@ -158,7 +162,7 @@ impl MediaExports {
                 .into_iter()
                 .map(ExportUtilities::get_review_export_item)
                 .collect();
-                let collections = entity_in_collections(
+                let collections = entity_in_collections_with_details(
                     &self.service.db,
                     user_id,
                     &m.id,
@@ -166,7 +170,7 @@ impl MediaExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.name)
+                .map(|c| c.collection.name)
                 .collect();
                 let exp = ImportOrExportMetadataGroupItem {
                     reviews,
@@ -218,12 +222,16 @@ impl MediaExports {
                     .into_iter()
                     .map(ExportUtilities::get_review_export_item)
                     .collect();
-                let collections =
-                    entity_in_collections(&self.service.db, user_id, &p.id, EntityLot::Person)
-                        .await?
-                        .into_iter()
-                        .map(|c| c.name)
-                        .collect();
+                let collections = entity_in_collections_with_details(
+                    &self.service.db,
+                    user_id,
+                    &p.id,
+                    EntityLot::Person,
+                )
+                .await?
+                .into_iter()
+                .map(|c| c.collection.name)
+                .collect();
                 let exp = ImportOrExportPersonItem {
                     reviews,
                     collections,
