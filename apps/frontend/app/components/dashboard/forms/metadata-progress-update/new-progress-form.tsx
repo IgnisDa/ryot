@@ -32,10 +32,9 @@ export const MetadataNewProgressUpdateForm = ({
 	history,
 	onSubmit,
 	metadataDetails,
-	metadataToUpdate,
 }: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
 	const [startDate, setStartDate] = useState<Date | null>(null);
 	const [finishDate, setFinishDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
@@ -46,6 +45,8 @@ export const MetadataNewProgressUpdateForm = ({
 	);
 
 	const handleSubmit = async () => {
+		if (!metadataToUpdate) return;
+
 		const startDateFormatted = convertTimestampToUtcString(startDate);
 		const finishDateFormatted = convertTimestampToUtcString(finishDate);
 		const currentDateFormatted = convertTimestampToUtcString(new Date());
@@ -126,6 +127,8 @@ export const MetadataNewProgressUpdateForm = ({
 			.run();
 	};
 
+	if (!metadataToUpdate) return null;
+
 	const handleProviderChange = (provider: string | null) => {
 		setMetadataToUpdate(
 			produce(metadataToUpdate, (draft) => {
@@ -135,27 +138,11 @@ export const MetadataNewProgressUpdateForm = ({
 	};
 
 	return (
-		<Stack ref={parent}>
-			<AnimeForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
-			<MangaForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
-			<ShowForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
-			<PodcastForm
-				metadataDetails={metadataDetails}
-				metadataToUpdate={metadataToUpdate}
-				setMetadataToUpdate={setMetadataToUpdate}
-			/>
+		<Stack ref={parent} gap="xs">
+			<AnimeForm metadataDetails={metadataDetails} />
+			<MangaForm metadataDetails={metadataDetails} />
+			<ShowForm metadataDetails={metadataDetails} />
+			<PodcastForm metadataDetails={metadataDetails} />
 			<WatchTimeSelect
 				value={watchTime}
 				onChange={handleWatchTimeChange}

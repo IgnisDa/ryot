@@ -58,7 +58,7 @@ ORDER BY RANDOM() LIMIT 10;
         ryot_log!(debug, "Media items: {:?}", media_items);
         for item in media_items {
             update_metadata_and_notify_users(&item.metadata_id, ss).await?;
-            let generic = generic_metadata(&item.metadata_id, ss).await?;
+            let generic = generic_metadata(&item.metadata_id, ss, None).await?;
             data.extend(generic.suggestions);
         }
         cc.set_key(

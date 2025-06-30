@@ -1,14 +1,12 @@
 import { Checkbox, Group, Input, NumberInput, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const MangaForm = ({
-	metadataDetails,
-	metadataToUpdate,
-	setMetadataToUpdate,
-}: MediaFormProps) => {
-	if (metadataDetails.lot !== MediaLot.Manga) return null;
+export const MangaForm = ({ metadataDetails }: MediaFormProps) => {
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	if (metadataDetails.lot !== MediaLot.Manga || !metadataToUpdate) return null;
 
 	return (
 		<>
@@ -18,6 +16,7 @@ export const MangaForm = ({
 			>
 				<Group wrap="nowrap">
 					<NumberInput
+						size="xs"
 						hideControls
 						description="Chapter"
 						value={metadataToUpdate.mangaChapterNumber?.toString()}
@@ -34,6 +33,7 @@ export const MangaForm = ({
 						OR
 					</Text>
 					<NumberInput
+						size="xs"
 						hideControls
 						description="Volume"
 						value={metadataToUpdate.mangaVolumeNumber?.toString()}
@@ -48,6 +48,7 @@ export const MangaForm = ({
 				</Group>
 			</Input.Wrapper>
 			<Checkbox
+				size="xs"
 				label="Mark all unread volumes/chapters before this as watched"
 				defaultChecked={metadataToUpdate.mangaAllChaptersOrVolumesBefore}
 				onChange={(e) => {

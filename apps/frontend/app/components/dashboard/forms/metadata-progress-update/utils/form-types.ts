@@ -8,7 +8,6 @@ import type { History, InProgress, WatchTimes } from "../../../types";
 
 export interface MetadataProgressFormProps {
 	onSubmit: () => void;
-	metadataToUpdate: UpdateProgressData;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }
 
@@ -22,8 +21,6 @@ export interface MetadataNewProgressFormProps
 }
 
 export interface MediaFormProps {
-	metadataToUpdate: UpdateProgressData;
-	setMetadataToUpdate: (data: UpdateProgressData) => void;
 	metadataDetails: MetadataDetailsQuery["metadataDetails"];
 }
 

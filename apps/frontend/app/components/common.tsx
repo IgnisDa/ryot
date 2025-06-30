@@ -355,7 +355,6 @@ export const BaseMediaDisplayItem = (props: {
 	altName?: string;
 	progress?: string;
 	isLoading: boolean;
-	nameRight?: ReactNode;
 	imageClassName?: string;
 	imageUrl?: string | null;
 	highlightName?: boolean;
@@ -503,7 +502,6 @@ export const BaseMediaDisplayItem = (props: {
 						>
 							{props.altName ?? props.name}
 						</Text>
-						{props.nameRight}
 					</Flex>
 				</Flex>
 			)}

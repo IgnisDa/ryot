@@ -53,12 +53,13 @@ pub async fn metadata_search(
                 identifier: i.identifier.clone(),
             },
             ss,
+            None,
         )
     });
     let metadata_items = try_join_all(promises)
         .await?
         .into_iter()
-        .map(|i| i.id)
+        .map(|(metadata, _)| metadata.id)
         .collect_vec();
     let response = SearchResults {
         items: metadata_items,

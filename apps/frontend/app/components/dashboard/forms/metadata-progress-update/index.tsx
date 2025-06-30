@@ -1,8 +1,23 @@
-import { Center, Loader } from "@mantine/core";
+import {
+	Center,
+	Divider,
+	Loader,
+	SegmentedControl,
+	Stack,
+} from "@mantine/core";
+import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/hooks";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
+import {
+	useAddEntityToCollections,
+	useMetadataProgressUpdate,
+} from "~/lib/state/media";
 import { MetadataInProgressUpdateForm } from "./in-progress-form";
 import { MetadataNewProgressUpdateForm } from "./new-progress-form";
+
+enum Target {
+	Progress = "progress",
+	Collection = "collection",
+}
 
 export const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal,
@@ -10,6 +25,7 @@ export const MetadataProgressUpdateForm = ({
 	closeMetadataProgressUpdateModal: () => void;
 }) => {
 	const [metadataToUpdate] = useMetadataProgressUpdate();
+	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
 	const { data: metadataDetails } = useMetadataDetails(
 		metadataToUpdate?.metadataId,
@@ -29,19 +45,39 @@ export const MetadataProgressUpdateForm = ({
 		closeMetadataProgressUpdateModal();
 	};
 
-	return userMetadataDetails.inProgress ? (
-		<MetadataInProgressUpdateForm
-			onSubmit={onSubmit}
-			metadataDetails={metadataDetails}
-			metadataToUpdate={metadataToUpdate}
-			inProgress={userMetadataDetails.inProgress}
-		/>
-	) : (
-		<MetadataNewProgressUpdateForm
-			onSubmit={onSubmit}
-			metadataDetails={metadataDetails}
-			metadataToUpdate={metadataToUpdate}
-			history={userMetadataDetails.history}
-		/>
+	return (
+		<Stack gap="lg">
+			<SegmentedControl
+				fullWidth
+				defaultValue={Target.Progress}
+				data={[
+					{ label: "Update Progress", value: Target.Progress },
+					{ label: "Add to Collection", value: Target.Collection },
+				]}
+				onChange={(value) => {
+					if (value === Target.Collection) {
+						setAddEntityToCollectionsData({
+							entityLot: EntityLot.Metadata,
+							entityId: metadataToUpdate.metadataId,
+						});
+						closeMetadataProgressUpdateModal();
+					}
+				}}
+			/>
+			<Divider />
+			{userMetadataDetails.inProgress ? (
+				<MetadataInProgressUpdateForm
+					onSubmit={onSubmit}
+					metadataDetails={metadataDetails}
+					inProgress={userMetadataDetails.inProgress}
+				/>
+			) : (
+				<MetadataNewProgressUpdateForm
+					onSubmit={onSubmit}
+					metadataDetails={metadataDetails}
+					history={userMetadataDetails.history}
+				/>
+			)}
+		</Stack>
 	);
 };

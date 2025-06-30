@@ -1,20 +1,20 @@
 import { Checkbox, Select, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const PodcastForm = ({
-	metadataDetails,
-	metadataToUpdate,
-	setMetadataToUpdate,
-}: MediaFormProps) => {
-	if (metadataDetails.lot !== MediaLot.Podcast) return null;
+export const PodcastForm = ({ metadataDetails }: MediaFormProps) => {
+	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	if (metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate)
+		return null;
 
 	return (
 		<>
 			<Text fw="bold">Select episode</Text>
 			<Select
 				required
+				size="xs"
 				limit={50}
 				searchable
 				label="Episode"
@@ -32,6 +32,7 @@ export const PodcastForm = ({
 				}}
 			/>
 			<Checkbox
+				size="xs"
 				label="Mark all unseen episodes before this as seen"
 				defaultChecked={metadataToUpdate.podcastAllEpisodesBefore}
 				onChange={(e) => {
