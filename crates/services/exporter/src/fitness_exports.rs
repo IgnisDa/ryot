@@ -56,11 +56,7 @@ impl FitnessExports {
                 let details = user_workout_details(user_id, workout_id, &self.service).await?;
                 let exp = ImportOrExportWorkoutItem {
                     details: details.details,
-                    collections: details
-                        .collections
-                        .into_iter()
-                        .map(|c| c.details.collection.name)
-                        .collect(),
+                    collections: details.collections.into_iter().map(|c| c.details).collect(),
                 };
                 writer.serialize_value(&exp)?;
             }
@@ -127,7 +123,7 @@ impl FitnessExports {
                 )
                 .await?
                 .into_iter()
-                .map(|c| c.details.collection.name)
+                .map(|c| c.details)
                 .collect_vec();
                 if reviews.is_empty() && collections.is_empty() {
                     continue;
@@ -183,11 +179,7 @@ impl FitnessExports {
                         .await?;
                 let exp = ImportOrExportWorkoutTemplateItem {
                     details: details.details,
-                    collections: details
-                        .collections
-                        .into_iter()
-                        .map(|c| c.details.collection.name)
-                        .collect(),
+                    collections: details.collections.into_iter().map(|c| c.details).collect(),
                 };
                 writer.serialize_value(&exp).unwrap();
             }

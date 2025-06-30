@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::Display;
 
+use crate::user_details::CollectionToEntityDetails;
+
 /// Details about a specific exercise item that needs to be exported.
 #[skip_serializing_none]
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
@@ -19,16 +21,14 @@ use strum::Display;
 pub struct ImportOrExportWorkoutItem {
     /// The details of the workout.
     pub details: workout::Model,
-    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
-    pub collections: Vec<String>,
+    pub collections: Vec<CollectionToEntityDetails>,
 }
 
 #[derive(Debug, async_graphql::SimpleObject, Clone, Serialize, Deserialize, Schematic)]
 pub struct ImportOrExportWorkoutTemplateItem {
-    pub collections: Vec<String>,
-    // TODO: Return CollectionToEntityDetails instead of just collection names
     pub details: workout_template::Model,
+    pub collections: Vec<CollectionToEntityDetails>,
 }
 
 /// Details about a specific media item that needs to be imported or exported.
@@ -44,9 +44,8 @@ pub struct ImportOrExportMetadataItem {
     pub identifier: String,
     /// The source of media.
     pub source: MediaSource,
-    // TODO: Return CollectionToEntityDetails instead of just collection names
     /// The collections this entity was added to.
-    pub collections: Vec<String>,
+    pub collections: Vec<CollectionToEntityDetails>,
     /// The review history for the user.
     pub reviews: Vec<ImportOrExportItemRating>,
     /// The seen history for the user.
@@ -66,11 +65,10 @@ pub struct ImportOrExportMetadataGroupItem {
     pub identifier: String,
     /// The source of media.
     pub source: MediaSource,
-    // TODO: Return CollectionToEntityDetails instead of just collection names
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
     /// The review history for the user.
     pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
 }
 
 /// Details about a specific creator item that needs to be exported.
@@ -84,11 +82,10 @@ pub struct ImportOrExportPersonItem {
     pub identifier: String,
     /// The source of data.
     pub source: MediaSource,
-    // TODO: Return CollectionToEntityDetails instead of just collection names
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
     /// The review history for the user.
     pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
     /// The source specific data.
     pub source_specifics: Option<PersonSourceSpecifics>,
 }
@@ -102,11 +99,10 @@ pub struct ImportOrExportExerciseItem {
     pub id: String,
     /// The name of the exercise.
     pub name: String,
-    // TODO: Return CollectionToEntityDetails instead of just collection names
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
     /// The review history for the user.
     pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
 }
 
 /// Complete export of the user.
