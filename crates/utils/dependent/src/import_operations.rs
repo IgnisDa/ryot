@@ -30,6 +30,7 @@ async fn create_collection_and_add_entity_to_it(
     entity_id: String,
     entity_lot: EntityLot,
     collection_name: String,
+    information: Option<serde_json::Value>,
     ss: &Arc<SupportingService>,
     import_failed_set: &mut Vec<ImportFailedItem>,
 ) {
