@@ -10,7 +10,16 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, SimpleObject, Schematic,
+    Eq,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    DeriveEntityModel,
 )]
 #[sea_orm(table_name = "collection")]
 #[graphql(name = "Collection")]
