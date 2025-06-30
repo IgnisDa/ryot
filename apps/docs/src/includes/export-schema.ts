@@ -2,6 +2,38 @@
 
 /* eslint-disable */
 
+export type CollectionExtraInformationLot = 'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array';
+
+export interface CollectionExtraInformation {
+	defaultValue: string | null;
+	description: string;
+	/**
+	 * @default 'string'
+	 * @type {'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array'}
+	 */
+	lot: CollectionExtraInformationLot;
+	name: string;
+	possibleValues: string[] | null;
+	required: boolean | null;
+}
+
+export interface Model {
+	createdOn: string;
+	description: string | null;
+	id: string;
+	informationTemplate: CollectionExtraInformation[] | null;
+	lastUpdatedOn: string;
+	name: string;
+	userId: string;
+}
+
+export interface CollectionToEntityDetails {
+	collection: Model;
+	createdOn: string;
+	information: unknown | null;
+	lastUpdatedOn: string;
+}
+
 export interface IdAndNamedObject {
 	id: string;
 	name: string;
@@ -58,7 +90,7 @@ export interface ImportOrExportItemRating {
 /** Details about a specific exercise item that needs to be exported. */
 export interface ImportOrExportExerciseItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The unique identifier of the exercise. */
 	id: string;
 	/** The name of the exercise. */
@@ -147,7 +179,7 @@ export type MediaSource = 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anil
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
 	/**
@@ -175,7 +207,7 @@ export interface ImportOrExportMetadataItem {
 /** Details about a specific media group item that needs to be imported or exported. */
 export interface ImportOrExportMetadataGroupItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
 	/**
@@ -207,7 +239,7 @@ export interface PersonSourceSpecifics {
 /** Details about a specific creator item that needs to be exported. */
 export interface ImportOrExportPersonItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The provider identifier. */
 	identifier: string;
 	/** The name of the creator. */
@@ -404,7 +436,7 @@ export interface WorkoutTemplate {
 }
 
 export interface ImportOrExportWorkoutTemplateItem {
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	details: WorkoutTemplate;
 }
 
@@ -424,7 +456,7 @@ export interface Workout {
 /** Details about a specific exercise item that needs to be exported. */
 export interface ImportOrExportWorkoutItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The details of the workout. */
 	details: Workout;
 }
