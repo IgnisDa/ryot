@@ -248,7 +248,6 @@ export type CollectionToEntityDetails = {
   __typename?: 'CollectionToEntityDetails';
   collection: Collection;
   createdOn: Scalars['DateTime']['output'];
-  id: Scalars['UUID']['output'];
   information?: Maybe<Scalars['JSON']['output']>;
   lastUpdatedOn: Scalars['DateTime']['output'];
 };
@@ -801,6 +800,12 @@ export type GraphqlCalendarEvent = {
   metadataText: Scalars['String']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
+};
+
+export type GraphqlCollectionToEntityDetails = {
+  __typename?: 'GraphqlCollectionToEntityDetails';
+  details: CollectionToEntityDetails;
+  id: Scalars['UUID']['output'];
 };
 
 export type GraphqlMetadataDetails = {
@@ -2427,7 +2432,7 @@ export type UserDetailsResult = User | UserDetailsError;
 
 export type UserExerciseDetails = {
   __typename?: 'UserExerciseDetails';
-  collections: Array<CollectionToEntityDetails>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   details?: Maybe<UserToEntity>;
   history?: Maybe<Array<UserToExerciseHistoryExtraInformation>>;
   reviews: Array<ReviewItem>;
@@ -2694,7 +2699,7 @@ export type UserMetadataDetails = {
   /** The average rating of this media in this service. */
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   /** The collections in which this media is present. */
-  collections: Array<CollectionToEntityDetails>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   /** Whether this media has been interacted with */
   hasInteracted: Scalars['Boolean']['output'];
   /** The seen history of this media. */
@@ -2735,7 +2740,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
-  collections: Array<CollectionToEntityDetails>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
@@ -2793,7 +2798,7 @@ export type UserPeopleListInput = {
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
-  collections: Array<CollectionToEntityDetails>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
@@ -2925,7 +2930,7 @@ export type UserUpcomingCalendarEventInput = {
 
 export type UserWorkoutDetails = {
   __typename?: 'UserWorkoutDetails';
-  collections: Array<CollectionToEntityDetails>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   details: Workout;
   metadataConsumed: Array<Scalars['String']['output']>;
 };
@@ -2958,7 +2963,7 @@ export type UserWorkoutSetRecord = {
 
 export type UserWorkoutTemplateDetails = {
   __typename?: 'UserWorkoutTemplateDetails';
-  collections: Array<CollectionToEntityDetails>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   details: WorkoutTemplate;
 };
 

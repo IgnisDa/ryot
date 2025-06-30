@@ -139,13 +139,15 @@ fragment CollectionPart on Collection {
 	userId
 }
 
-fragment CollectionToEntityDetailsPart on CollectionToEntityDetails {
+fragment CollectionToEntityDetailsPart on GraphqlCollectionToEntityDetails {
 	id
-	createdOn
-	lastUpdatedOn
-	information
-	collection {
-		...CollectionPart
+	details {
+		createdOn
+		lastUpdatedOn
+		information
+		collection {
+			...CollectionPart
+		}
 	}
 }
 
