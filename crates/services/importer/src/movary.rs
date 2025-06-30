@@ -3,7 +3,8 @@ use chrono::NaiveDate;
 use common_models::DefaultCollection;
 use common_utils::convert_naive_to_utc;
 use csv::Reader;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use database_models::collection;
+use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use media_models::{
     DeployMovaryImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -90,7 +91,13 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
             lot,
             source,
             identifier: record.tmdb_id.to_string(),
-            collections: vec![DefaultCollection::Watchlist.to_string()],
+            collections: vec![CollectionToEntityDetails {
+                collection: collection::Model {
+                    name: DefaultCollection::Watchlist.to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
             ..Default::default()
         })
     }

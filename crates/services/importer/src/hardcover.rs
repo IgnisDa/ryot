@@ -5,7 +5,10 @@ use chrono::{NaiveDate, NaiveDateTime};
 use common_models::DefaultCollection;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use csv::Reader;
-use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use database_models::collection;
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -188,6 +191,17 @@ fn process_hardcover_record(
 
         reviews.push(rating_review);
     }
+
+    let collections = collections
+        .into_iter()
+        .map(|name| CollectionToEntityDetails {
+            collection: collection::Model {
+                name,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .collect();
 
     Ok(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
         lot,

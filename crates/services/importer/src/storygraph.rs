@@ -3,7 +3,8 @@ use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use database_models::collection;
+use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
 use itertools::Itertools;
@@ -134,6 +135,17 @@ pub async fn import(
         if let Some(t) = record.tags {
             collections.extend(t.split(", ").map(|d| d.to_case(Case::Title)))
         }
+        let collections = collections
+            .into_iter()
+            .map(|name| CollectionToEntityDetails {
+                collection: collection::Model {
+                    name,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .collect();
+
         media.push(ImportOrExportMetadataItem {
             lot,
             source,

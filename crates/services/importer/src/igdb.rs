@@ -1,6 +1,7 @@
 use async_graphql::Result;
 use csv::Reader;
-use dependent_models::ImportOrExportMetadataItem;
+use database_models::collection;
+use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -43,7 +44,13 @@ pub async fn import(input: DeployIgdbImportInput) -> Result<ImportResult> {
             source,
             identifier: record.id,
             source_id: record.game,
-            collections: vec![collection.clone()],
+            collections: vec![CollectionToEntityDetails {
+                collection: collection::Model {
+                    name: collection.clone(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
             ..Default::default()
         }));
     }

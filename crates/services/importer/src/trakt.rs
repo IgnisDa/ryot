@@ -2,7 +2,8 @@ use application_utils::get_base_http_client;
 use async_graphql::Result;
 use common_utils::{APPLICATION_JSON_HEADER, ryot_log};
 use convert_case::{Case, Casing};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use database_models::collection;
+use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -108,7 +109,13 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
             for item in items.iter() {
                 match process_item(item) {
                     Ok(mut d) => {
-                        d.collections.push(collection.clone());
+                        d.collections.push(CollectionToEntityDetails {
+                            collection: collection::Model {
+                                name: collection.clone(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        });
                         completed.push(ImportCompletedItem::Metadata(d));
                     }
                     Err(e) => failed.push(e),
@@ -148,7 +155,13 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 for item in items.iter() {
                     match process_item(item) {
                         Ok(mut d) => {
-                            d.collections.push("Owned".to_string());
+                            d.collections.push(CollectionToEntityDetails {
+                                collection: collection::Model {
+                                    name: "Owned".to_string(),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            });
                             completed.push(d);
                         }
                         Err(e) => failed.push(e),
@@ -182,7 +195,13 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                 for i in l.items.iter() {
                     match process_item(i) {
                         Ok(mut d) => {
-                            d.collections.push(l.name.to_case(Case::Title));
+                            d.collections.push(CollectionToEntityDetails {
+                                collection: collection::Model {
+                                    name: l.name.to_case(Case::Title),
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            });
                             completed.push(d)
                         }
                         Err(d) => failed.push(d),

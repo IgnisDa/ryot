@@ -5,7 +5,8 @@ use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use dependent_models::ImportOrExportMetadataItem;
+use database_models::collection;
+use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
@@ -177,6 +178,17 @@ async fn process_book_record(
             ..Default::default()
         });
     }
+
+    let collections = collections
+        .into_iter()
+        .map(|name| CollectionToEntityDetails {
+            collection: collection::Model {
+                name,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .collect();
 
     Ok(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
         lot,

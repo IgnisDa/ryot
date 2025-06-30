@@ -2,7 +2,8 @@ use anyhow::Result;
 use application_utils::get_base_http_client;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
-use dependent_models::ImportOrExportMetadataItem;
+use database_models::collection;
+use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use external_models::plex as plex_models;
@@ -61,7 +62,13 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
                 source_id: item.key,
                 source: MediaSource::Tmdb,
                 identifier: tmdb_id.to_string(),
-                collections: vec![DefaultCollection::Owned.to_string()],
+                collections: vec![CollectionToEntityDetails {
+                    collection: collection::Model {
+                        name: DefaultCollection::Owned.to_string(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }],
                 ..Default::default()
             }));
         }

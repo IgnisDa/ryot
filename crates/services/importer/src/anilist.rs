@@ -3,7 +3,10 @@ use std::{collections::HashMap, fs, sync::Arc};
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
-use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use database_models::collection;
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 use media_models::{
     DeployJsonImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
@@ -115,12 +118,24 @@ pub async fn import(
             match lot {
                 MediaLot::Anime => {
                     if let Some(list) = anime_custom_lists.get(in_list) {
-                        to_push_item.collections.push(list.clone());
+                        to_push_item.collections.push(CollectionToEntityDetails {
+                            collection: collection::Model {
+                                name: list.clone(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        });
                     }
                 }
                 MediaLot::Manga => {
                     if let Some(list) = manga_custom_lists.get(in_list) {
-                        to_push_item.collections.push(list.clone());
+                        to_push_item.collections.push(CollectionToEntityDetails {
+                            collection: collection::Model {
+                                name: list.clone(),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        });
                     }
                 }
                 _ => unreachable!(),
@@ -173,7 +188,13 @@ pub async fn import(
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source: MediaSource::Anilist,
-            collections: vec!["Favorite".to_string()],
+            collections: vec![CollectionToEntityDetails {
+                collection: collection::Model {
+                    name: "Favorite".to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
             identifier: favorite.favourite_id.to_string(),
             ..Default::default()
         }));
