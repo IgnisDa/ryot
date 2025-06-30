@@ -6,7 +6,6 @@ Ryot can import data from [Hardcover](https://hardcover.app).
 
 - Currently Reading → "In Progress" collection: progress isn’t imported; you can update it
   manually later.
-- Read -> Creates a history entry (automatically adds to "Completed" collection)
 - Want to Read -> "Watchlist" collection
 
 ## Additional Data
