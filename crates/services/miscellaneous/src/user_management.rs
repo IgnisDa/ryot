@@ -14,7 +14,6 @@ use database_models::{
 use database_utils::{entity_in_collections_with_details, get_enabled_users_query};
 use dependent_utils::{expire_user_metadata_list_cache, is_metadata_finished_by_user};
 use enum_models::{EntityLot, UserToMediaReason};
-use itertools::Itertools;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
     QueryFilter, QuerySelect,
@@ -81,12 +80,30 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 continue;
             };
 
-            let collections_part_of =
+            let collections =
                 entity_in_collections_with_details(&ss.db, &user_id, &entity_id, entity_lot)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.details.collection.id)
-                    .collect_vec();
+                    .await?;
+
+            let mut is_in_collection = false;
+            let mut is_monitoring = false;
+            let mut is_watchlist = false;
+            let mut is_owned = false;
+            let mut has_reminder = false;
+
+            for collection in collections {
+                let collection_id = &collection.details.collection.id;
+                is_in_collection = true;
+                if collection_id == monitoring_collection_id {
+                    is_monitoring = true;
+                } else if collection_id == watchlist_collection_id {
+                    is_watchlist = true;
+                } else if collection_id == owned_collection_id {
+                    is_owned = true;
+                } else if collection_id == reminder_collection_id {
+                    has_reminder = true;
+                }
+            }
+
             if Review::find()
                 .filter(review::Column::UserId.eq(&ute.user_id))
                 .filter(
@@ -101,11 +118,6 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             {
                 new_reasons.insert(UserToMediaReason::Reviewed);
             }
-            let is_in_collection = !collections_part_of.is_empty();
-            let is_monitoring = collections_part_of.contains(monitoring_collection_id);
-            let is_watchlist = collections_part_of.contains(watchlist_collection_id);
-            let is_owned = collections_part_of.contains(owned_collection_id);
-            let has_reminder = collections_part_of.contains(reminder_collection_id);
             if is_in_collection {
                 new_reasons.insert(UserToMediaReason::Collection);
             }
