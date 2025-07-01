@@ -1558,7 +1558,7 @@ export const BulkEditingAffix = (props: {
 			notifications.show({
 				color: "green",
 				title: "Success",
-				message: `Removed ${entities.length} item${entities.length === 1 ? "" : "s"} from collection`,
+				message: `Removing ${entities.length} item${entities.length === 1 ? "" : "s"} from collection`,
 			});
 		} else {
 			await addEntitiesToCollection.mutateAsync({
@@ -1569,11 +1569,11 @@ export const BulkEditingAffix = (props: {
 			notifications.show({
 				color: "green",
 				title: "Success",
-				message: `Added ${entities.length} item${entities.length === 1 ? "" : "s"} to collection`,
+				message: `Adding ${entities.length} item${entities.length === 1 ? "" : "s"} to collection`,
 			});
 		}
 
-		bulkEditingCollectionState.stop(true);
+		bulkEditingCollectionState.stop();
 	};
 
 	const handleConfirmBulkAction = () => {

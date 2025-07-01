@@ -1,4 +1,3 @@
-import { notifications } from "@mantine/notifications";
 import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -47,16 +46,7 @@ export const useBulkEditCollection = () => {
 		state: bec
 			? {
 					data: bec,
-					stop: (showNotification?: boolean) => {
-						if (showNotification)
-							notifications.show({
-								title: "Success",
-								message:
-									bec.action === "remove"
-										? "Items will be removed from the collection"
-										: "Items will be added to the collection",
-								color: "green",
-							});
+					stop: () => {
 						setBec(null);
 						navigate(bec.locationStartedFrom);
 					},
