@@ -3,12 +3,12 @@ import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	AddEntitiesToCollectionDocument,
+	type ChangeCollectionToEntitiesInput,
 	DeployBulkMetadataProgressUpdateDocument,
 	type EntityLot,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
 	RemoveEntitiesFromCollectionDocument,
-	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
@@ -305,20 +305,12 @@ export const useAddEntitiesToCollection = () => {
 	const revalidator = useRevalidator();
 
 	const mutation = useMutation({
-		mutationFn: async (input: {
-			creatorUserId: string;
-			collectionName: string;
-			entities: {
-				entityId: string;
-				entityLot: EntityLot;
-				information?: Scalars["JSON"]["input"];
-			}[];
-		}) => {
+		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(AddEntitiesToCollectionDocument, {
 				input: {
+					entities: input.entities,
 					creatorUserId: input.creatorUserId,
 					collectionName: input.collectionName,
-					entities: input.entities,
 				},
 			});
 		},
@@ -339,16 +331,12 @@ export const useRemoveEntitiesFromCollection = () => {
 	const revalidator = useRevalidator();
 
 	const mutation = useMutation({
-		mutationFn: async (input: {
-			creatorUserId: string;
-			collectionName: string;
-			entities: { entityId: string; entityLot: EntityLot }[];
-		}) => {
+		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(RemoveEntitiesFromCollectionDocument, {
 				input: {
+					entities: input.entities,
 					creatorUserId: input.creatorUserId,
 					collectionName: input.collectionName,
-					entities: input.entities,
 				},
 			});
 		},
