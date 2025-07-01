@@ -192,7 +192,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userMetadataGroupDetails.collections.map(
-												(c) => c.details.collection.name,
+												(c) => c.details.collectionName,
 											)}
 											formValue={loaderData.metadataGroupId}
 											entityLot={EntityLot.MetadataGroup}

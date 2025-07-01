@@ -932,7 +932,7 @@ export default function Page() {
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
 												inCollections={loaderData.userMetadataDetails.collections.map(
-													(c) => c.details.collection.name,
+													(c) => c.details.collectionName,
 												)}
 												formValue={loaderData.metadataId}
 												entityLot={EntityLot.Metadata}

@@ -126,7 +126,7 @@ export const DisplayCollectionToEntity = (props: {
 	entityLot: EntityLot;
 	col: CollectionToEntityDetailsPartFragment;
 }) => {
-	const color = useGetRandomMantineColor(props.col.details.collection.name);
+	const color = useGetRandomMantineColor(props.col.details.collectionName);
 	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
 	const [opened, { open, close }] = useDisclosure(false);
 
@@ -136,8 +136,8 @@ export const DisplayCollectionToEntity = (props: {
 			() => {
 				removeEntitiesFromCollection.mutate(
 					{
-						collectionName: props.col.details.collection.name,
-						creatorUserId: props.col.details.collection.userId,
+						collectionName: props.col.details.collectionName,
+						creatorUserId: props.col.details.collectionId,
 						entities: [
 							{ entityId: props.entityId, entityLot: props.entityLot },
 						],
@@ -158,14 +158,14 @@ export const DisplayCollectionToEntity = (props: {
 
 	return (
 		<>
-			<Badge key={props.col.details.collection.id} color={color}>
+			<Badge key={props.col.details.collectionId} color={color}>
 				<Flex gap={2}>
 					<Text
 						truncate
 						onClick={open}
 						style={{ all: "unset", cursor: "pointer" }}
 					>
-						{props.col.details.collection.name}
+						{props.col.details.collectionName}
 					</Text>
 					<ActionIcon
 						size={16}
@@ -183,10 +183,10 @@ export const DisplayCollectionToEntity = (props: {
 					<Anchor
 						component={Link}
 						to={$path("/collections/:id", {
-							id: props.col.details.collection.id,
+							id: props.col.details.collectionId,
 						})}
 					>
-						{props.col.details.collection.name}
+						{props.col.details.collectionName}
 					</Anchor>
 				}
 			>

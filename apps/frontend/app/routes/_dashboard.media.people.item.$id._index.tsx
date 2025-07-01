@@ -314,7 +314,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userPersonDetails.collections.map(
-												(c) => c.details.collection.name,
+												(c) => c.details.collectionName,
 											)}
 											formValue={loaderData.personId}
 											entityLot={EntityLot.Person}
