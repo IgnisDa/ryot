@@ -1,5 +1,5 @@
 import {
-	AddEntityToCollectionDocument,
+	AddEntitiesToCollectionDocument,
 	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
@@ -176,18 +176,22 @@ describe("Cache related tests", () => {
 
 		const firstMetadataId = searchResult[0];
 		const addToCollectionResult = await client.request(
-			AddEntityToCollectionDocument,
+			AddEntitiesToCollectionDocument,
 			{
 				input: {
 					creatorUserId: userId,
-					entityId: firstMetadataId,
 					collectionName: "Watchlist",
-					entityLot: EntityLot.Metadata,
+					entities: [
+						{
+							entityId: firstMetadataId,
+							entityLot: EntityLot.Metadata,
+						},
+					],
 				},
 			},
 			getAuthHeaders(),
 		);
-		expect(addToCollectionResult.addEntityToCollection).toBe(true);
+		expect(addToCollectionResult.addEntitiesToCollection).toBe(true);
 		await waitFor(4000);
 
 		const afterAdd = await getUserMetadataList(url, userApiKey);

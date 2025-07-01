@@ -2,12 +2,12 @@ import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	AddEntityToCollectionDocument,
+	AddEntitiesToCollectionDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	type EntityLot,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
-	RemoveEntityFromCollectionDocument,
+	RemoveEntitiesFromCollectionDocument,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -314,17 +314,13 @@ export const useAddEntitiesToCollection = () => {
 				information?: Scalars["JSON"]["input"];
 			}[];
 		}) => {
-			for (const entity of input.entities) {
-				await clientGqlService.request(AddEntityToCollectionDocument, {
-					input: {
-						entityId: entity.entityId,
-						entityLot: entity.entityLot,
-						information: entity.information,
-						creatorUserId: input.creatorUserId,
-						collectionName: input.collectionName,
-					},
-				});
-			}
+			await clientGqlService.request(AddEntitiesToCollectionDocument, {
+				input: {
+					creatorUserId: input.creatorUserId,
+					collectionName: input.collectionName,
+					entities: input.entities,
+				},
+			});
 		},
 		onSuccess: () => {
 			notifications.show({
@@ -348,16 +344,13 @@ export const useRemoveEntitiesFromCollection = () => {
 			collectionName: string;
 			entities: { entityId: string; entityLot: EntityLot }[];
 		}) => {
-			for (const entity of input.entities) {
-				await clientGqlService.request(RemoveEntityFromCollectionDocument, {
-					input: {
-						entityId: entity.entityId,
-						entityLot: entity.entityLot,
-						creatorUserId: input.creatorUserId,
-						collectionName: input.collectionName,
-					},
-				});
-			}
+			await clientGqlService.request(RemoveEntitiesFromCollectionDocument, {
+				input: {
+					creatorUserId: input.creatorUserId,
+					collectionName: input.collectionName,
+					entities: input.entities,
+				},
+			});
 		},
 		onSuccess: () => {
 			notifications.show({
