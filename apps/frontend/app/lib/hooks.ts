@@ -315,11 +315,6 @@ export const useAddEntitiesToCollection = () => {
 			});
 		},
 		onSuccess: () => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Added to collection",
-			});
 			revalidator.revalidate();
 		},
 	});
@@ -341,11 +336,6 @@ export const useRemoveEntitiesFromCollection = () => {
 			});
 		},
 		onSuccess: () => {
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Removed from collection",
-			});
 			revalidator.revalidate();
 		},
 	});

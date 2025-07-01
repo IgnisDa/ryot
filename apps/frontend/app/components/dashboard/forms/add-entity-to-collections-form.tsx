@@ -42,6 +42,7 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
+import { notifications } from "@mantine/notifications";
 
 export const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsDrawer,
@@ -167,21 +168,26 @@ export const AddEntityToCollectionsForm = ({
 		e.preventDefault();
 		if (!addEntityToCollectionData) return;
 
-		const promises = selectedCollections.map((col) =>
-			addEntitiesToCollection.mutateAsync({
-				collectionName: col.name,
-				creatorUserId: col.creator.id,
-				entities: [
-					{
-						information: col.userExtraInformationData,
-						entityId: addEntityToCollectionData.entityId,
-						entityLot: addEntityToCollectionData.entityLot,
-					},
-				],
-			}),
+		await Promise.all(
+			selectedCollections.map((col) =>
+				addEntitiesToCollection.mutateAsync({
+					collectionName: col.name,
+					creatorUserId: col.creator.id,
+					entities: [
+						{
+							information: col.userExtraInformationData,
+							entityId: addEntityToCollectionData.entityId,
+							entityLot: addEntityToCollectionData.entityLot,
+						},
+					],
+				}),
+			),
 		);
-
-		await Promise.all(promises);
+		notifications.show({
+			color: "green",
+			title: "Added to collection",
+			message: `Entity added to ${selectedCollections.length} collection(s)`,
+		});
 		queryClient.removeQueries({ queryKey: alreadyInCollectionsQueryKey });
 		refreshEntityDetails(addEntityToCollectionData.entityId);
 		closeAddEntityToCollectionsDrawer();

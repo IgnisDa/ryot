@@ -42,6 +42,7 @@ import {
 	useDisclosure,
 	useListState,
 } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	type CollectionToEntityDetailsPartFragment,
 	type EntityAssets,
@@ -1037,11 +1038,24 @@ export const DisplayCollectionToEntity = (props: {
 		openConfirmationModal(
 			"Are you sure you want to remove this media from this collection?",
 			() => {
-				removeEntitiesFromCollection.mutate({
-					collectionName: props.col.details.collection.name,
-					creatorUserId: props.col.details.collection.userId,
-					entities: [{ entityId: props.entityId, entityLot: props.entityLot }],
-				});
+				removeEntitiesFromCollection.mutate(
+					{
+						collectionName: props.col.details.collection.name,
+						creatorUserId: props.col.details.collection.userId,
+						entities: [
+							{ entityId: props.entityId, entityLot: props.entityLot },
+						],
+					},
+					{
+						onSuccess: () => {
+							notifications.show({
+								color: "green",
+								title: "Success",
+								message: "Removed from collection",
+							});
+						},
+					},
+				);
 			},
 		);
 	};
@@ -1541,11 +1555,21 @@ export const BulkEditingAffix = (props: {
 				collectionName: collection.name,
 				creatorUserId: collection.creatorUserId,
 			});
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: `Removed ${entities.length} item${entities.length === 1 ? "" : "s"} from collection`,
+			});
 		} else {
 			await addEntitiesToCollection.mutateAsync({
 				entities,
 				collectionName: collection.name,
 				creatorUserId: collection.creatorUserId,
+			});
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: `Added ${entities.length} item${entities.length === 1 ? "" : "s"} to collection`,
 			});
 		}
 
