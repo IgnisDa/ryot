@@ -123,8 +123,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				{
 					input: {
 						...submission,
-						collectionName: submission.collectionName,
 						creatorUserId: submission.creatorUserId,
+						collectionName: submission.collectionName,
 					},
 				},
 			);
