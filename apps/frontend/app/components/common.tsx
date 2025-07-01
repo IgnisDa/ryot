@@ -1499,6 +1499,15 @@ export const BulkEditingAffix = (props: {
 		bulkEditingCollectionState.stop(true);
 	};
 
+	const handleConfirmBulkAction = () => {
+		const { action, collection, entities } = bulkEditingCollectionState.data;
+		const actionText = action === "remove" ? "remove" : "add";
+		const itemCount = entities.length;
+		const message = `Are you sure you want to ${actionText} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
+
+		openConfirmationModal(message, handleBulkAction);
+	};
+
 	const isLoading =
 		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
 
@@ -1529,7 +1538,7 @@ export const BulkEditingAffix = (props: {
 						<Button
 							size="xs"
 							loading={isLoading}
-							onClick={handleBulkAction}
+							onClick={handleConfirmBulkAction}
 							disabled={bulkEditingCollectionState.data.entities.length === 0}
 							color={
 								bulkEditingCollectionState.data.action === "remove"
