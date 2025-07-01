@@ -8,6 +8,7 @@ import {
 } from "@mantine/core";
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionExtraInformationLot,
 	EntityLot,
@@ -42,7 +43,6 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import type { Collection } from "../types";
-import { notifications } from "@mantine/notifications";
 
 export const AddEntityToCollectionsForm = ({
 	closeAddEntityToCollectionsDrawer,
