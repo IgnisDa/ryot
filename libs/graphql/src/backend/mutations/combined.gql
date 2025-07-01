@@ -22,8 +22,10 @@ mutation LoginUser($input: AuthUserInput!) {
 	}
 }
 
-mutation AddEntityToCollection($input: ChangeCollectionToEntityInput!) {
-	addEntityToCollection(input: $input)
+mutation DeployAddEntitiesToCollectionJob(
+	$input: ChangeCollectionToEntitiesInput!
+) {
+	deployAddEntitiesToCollectionJob(input: $input)
 }
 
 mutation CreateCustomExercise($input: ExerciseInput!) {
@@ -100,6 +102,15 @@ mutation DeleteUser($toDeleteUserId: String!) {
 	deleteUser(toDeleteUserId: $toDeleteUserId)
 }
 
+mutation ResetUser($toResetUserId: String!) {
+	resetUser(toResetUserId: $toResetUserId) {
+		__typename
+		... on UserResetResponse {
+			password
+		}
+	}
+}
+
 mutation DeleteUserIntegration($integrationId: String!) {
 	deleteUserIntegration(integrationId: $integrationId)
 }
@@ -132,16 +143,11 @@ mutation DeployImportJob($input: DeployImportJobInput!) {
 	deployImportJob(input: $input)
 }
 
-mutation DeployUpdateMetadataJob($metadataId: String!) {
-	deployUpdateMetadataJob(metadataId: $metadataId)
-}
-
-mutation DeployUpdatePersonJob($personId: String!) {
-	deployUpdatePersonJob(personId: $personId)
-}
-
-mutation DeployUpdateMetadataGroupJob($metadataGroupId: String!) {
-	deployUpdateMetadataGroupJob(metadataGroupId: $metadataGroupId)
+mutation DeployUpdateMediaEntityJob(
+	$entityId: String!
+	$entityLot: EntityLot!
+) {
+	deployUpdateMediaEntityJob(entityId: $entityId, entityLot: $entityLot)
 }
 
 mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
@@ -185,10 +191,10 @@ mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
 	}
 }
 
-mutation RemoveEntityFromCollection($input: ChangeCollectionToEntityInput!) {
-	removeEntityFromCollection(input: $input) {
-		id
-	}
+mutation DeployRemoveEntitiesFromCollectionJob(
+	$input: ChangeCollectionToEntitiesInput!
+) {
+	deployRemoveEntitiesFromCollectionJob(input: $input)
 }
 
 mutation TestUserNotificationPlatforms {

@@ -20,9 +20,9 @@ import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
-	data,
 	Form,
 	Link,
+	data,
 	redirect,
 	useLoaderData,
 	useRouteLoaderData,
@@ -51,7 +51,8 @@ import {
 	sendEmail,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { contactEmail, startUrl } from "~/lib/utils";
+import { contactEmail } from "~/lib/utils";
+import { startUrl } from "~/lib/utils";
 import type { loader as rootLoader } from "../root";
 import type { Route } from "./+types/_index";
 

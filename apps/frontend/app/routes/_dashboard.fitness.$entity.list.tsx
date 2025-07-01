@@ -23,9 +23,9 @@ import {
 	type UserTemplatesOrWorkoutsListInput,
 	UserTemplatesOrWorkoutsListSortBy,
 	UserWorkoutDetailsDocument,
-	UserWorkoutsListDocument,
 	UserWorkoutTemplateDetailsDocument,
 	UserWorkoutTemplatesListDocument,
+	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -61,18 +61,18 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import {
+	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
-	WorkoutRevisionScheduledAlert,
 } from "~/components/fitness";
 import {
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
 	FitnessAction,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
+	convertEnumToSelectData,
+	dayjsLib,
 	pageQueryParam,
 } from "~/lib/common";
 import {
@@ -210,7 +210,7 @@ export default function Page() {
 									() => FitnessAction.CreateTemplate,
 								)
 								.exhaustive();
-							await advanceOnboardingTourStep();
+							advanceOnboardingTourStep();
 							startWorkout(getDefaultWorkout(action), action);
 						}}
 					>
@@ -241,6 +241,10 @@ export default function Page() {
 					<DisplayListDetailsAndRefresh
 						cacheId={loaderData.displayData.cacheId}
 						total={loaderData.displayData.details.total}
+						isRandomSortOrderSelected={
+							loaderData.query.sortBy ===
+							UserTemplatesOrWorkoutsListSortBy.Random
+						}
 					/>
 					{loaderData.displayData.items.length > 0 ? (
 						loaderData.displayData.items.map((entityId, index) => (

@@ -23,7 +23,6 @@ import {
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
-	type WorkoutSetPersonalBest,
 	type UserWorkoutDetailsQuery,
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
@@ -46,10 +45,10 @@ import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { BaseMediaDisplayItem } from "~/components/common";
+import { BaseEntityDisplayItem } from "~/components/common";
 import {
-	dayjsLib,
 	FitnessEntity,
+	dayjsLib,
 	getExerciseDetailsPath,
 	getSetColor,
 } from "~/lib/common";
@@ -61,6 +60,7 @@ import {
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
+import { useFullscreenImage } from "~/lib/state/general";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,
@@ -165,17 +165,6 @@ export const DisplaySetStatistics = (props: {
 	);
 };
 
-const DisplayPersonalBest = (props: {
-	personalBest: WorkoutSetPersonalBest;
-}) => {
-	const color = useGetRandomMantineColor(props.personalBest);
-	return (
-		<Badge size="xs" color={color} variant="light">
-			{startCase(props.personalBest)}
-		</Badge>
-	);
-};
-
 type Exercise =
 	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
 type Set = Exercise["sets"][number];
@@ -216,9 +205,14 @@ export const DisplaySet = (props: {
 						</Popover.Target>
 						<Popover.Dropdown style={{ pointerEvents: "none" }} p={4}>
 							<Flex>
-								{props.set.personalBests.map((pb) => (
-									<DisplayPersonalBest key={pb} personalBest={pb} />
-								))}
+								{props.set.personalBests.map((pb) => {
+									const color = useGetRandomMantineColor(pb);
+									return (
+										<Badge key={pb} size="xs" color={color} variant="light">
+											{startCase(pb)}
+										</Badge>
+									);
+								})}
 							</Flex>
 						</Popover.Dropdown>
 					</Popover>
@@ -271,6 +265,7 @@ export const ExerciseHistory = (props: {
 	);
 
 	const images = getExerciseImages(exerciseDetails);
+	const hasExtraDetailsToShow = Boolean(images.length > 0 || exercise?.total);
 
 	return (
 		<Paper
@@ -310,7 +305,7 @@ export const ExerciseHistory = (props: {
 										? workoutDetails.details.name
 										: exerciseDetails.name}
 								</Anchor>
-								{!props.hideExtraDetailsButton ? (
+								{hasExtraDetailsToShow && !props.hideExtraDetailsButton ? (
 									<ActionIcon onClick={toggle} variant="transparent">
 										<IconInfoCircle size={18} />
 									</ActionIcon>
@@ -371,7 +366,7 @@ export const ExerciseHistory = (props: {
 										</>
 									) : null}
 								</SimpleGrid>
-								{!props.hideExerciseDetails && exerciseDetails ? (
+								{!props.hideExerciseDetails ? (
 									<ScrollArea type="scroll">
 										<Flex gap="lg">
 											{images.map((i) => (
@@ -388,13 +383,7 @@ export const ExerciseHistory = (props: {
 							</Text>
 						))}
 						{exercise.assets && exercise.assets.s3Images.length > 0 ? (
-							<Avatar.Group>
-								{exercise.assets.s3Images.map((i) => (
-									<Anchor key={i} href={i} target="_blank">
-										<Avatar src={i} />
-									</Anchor>
-								))}
-							</Avatar.Group>
+							<ExerciseImagesList images={exercise.assets.s3Images} />
 						) : null}
 					</Stack>
 					{exercise.sets.map((set, idx) => (
@@ -449,7 +438,7 @@ export const ExerciseDisplayItem = (props: {
 	const images = getExerciseImages(exerciseDetails);
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
@@ -477,7 +466,7 @@ export const WorkoutDisplayItem = (props: {
 	);
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
@@ -506,7 +495,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 	} = useQuery(getWorkoutTemplateDetailsQuery(props.workoutTemplateId));
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}
@@ -521,6 +510,23 @@ export const WorkoutTemplateDisplayItem = (props: {
 				right: "Template",
 			}}
 		/>
+	);
+};
+
+const ExerciseImagesList = (props: { images: string[] }) => {
+	const { setFullscreenImage } = useFullscreenImage();
+
+	return (
+		<Avatar.Group>
+			{props.images.map((i) => (
+				<Avatar
+					key={i}
+					src={i}
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: i })}
+				/>
+			))}
+		</Avatar.Group>
 	);
 };
 

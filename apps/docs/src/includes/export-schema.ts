@@ -7,6 +7,49 @@ export interface IdAndNamedObject {
 	name: string;
 }
 
+export interface UserToCollectionExtraInformation {
+	isHidden: boolean | null;
+}
+
+export interface CollectionItemCollaboratorInformation {
+	collaborator: IdAndNamedObject;
+	extraInformation: UserToCollectionExtraInformation | null;
+}
+
+export type CollectionExtraInformationLot = 'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array';
+
+export interface CollectionExtraInformation {
+	defaultValue: string | null;
+	description: string;
+	/**
+	 * @default 'string'
+	 * @type {'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array'}
+	 */
+	lot: CollectionExtraInformationLot;
+	name: string;
+	possibleValues: string[] | null;
+	required: boolean | null;
+}
+
+export interface CollectionItem {
+	collaborators: CollectionItemCollaboratorInformation[];
+	count: number;
+	creator: IdAndNamedObject;
+	description: string | null;
+	id: string;
+	informationTemplate: CollectionExtraInformation[] | null;
+	isDefault: boolean;
+	name: string;
+}
+
+export interface CollectionToEntityDetails {
+	collectionId: string;
+	collectionName: string;
+	createdOn: string;
+	information: unknown | null;
+	lastUpdatedOn: string;
+}
+
 /** Comments left in replies to posted reviews. */
 export interface ImportOrExportItemReviewComment {
 	created_on: string;
@@ -58,7 +101,7 @@ export interface ImportOrExportItemRating {
 /** Details about a specific exercise item that needs to be exported. */
 export interface ImportOrExportExerciseItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The unique identifier of the exercise. */
 	id: string;
 	/** The name of the exercise. */
@@ -147,7 +190,7 @@ export type MediaSource = 'igdb' | 'tmdb' | 'vndb' | 'custom' | 'itunes' | 'anil
 /** Details about a specific media item that needs to be imported or exported. */
 export interface ImportOrExportMetadataItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
 	/**
@@ -175,7 +218,7 @@ export interface ImportOrExportMetadataItem {
 /** Details about a specific media group item that needs to be imported or exported. */
 export interface ImportOrExportMetadataGroupItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on. */
 	identifier: string;
 	/**
@@ -207,7 +250,7 @@ export interface PersonSourceSpecifics {
 /** Details about a specific creator item that needs to be exported. */
 export interface ImportOrExportPersonItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The provider identifier. */
 	identifier: string;
 	/** The name of the creator. */
@@ -404,7 +447,7 @@ export interface WorkoutTemplate {
 }
 
 export interface ImportOrExportWorkoutTemplateItem {
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	details: WorkoutTemplate;
 }
 
@@ -424,13 +467,15 @@ export interface Workout {
 /** Details about a specific exercise item that needs to be exported. */
 export interface ImportOrExportWorkoutItem {
 	/** The collections this entity was added to. */
-	collections: string[];
+	collections: CollectionToEntityDetails[];
 	/** The details of the workout. */
 	details: Workout;
 }
 
 /** Complete export of the user. */
 export interface CompleteExport {
+	/** Data about user's collections. */
+	collections: CollectionItem[] | null;
 	/** Data about user's exercises. */
 	exercises: ImportOrExportExerciseItem[] | null;
 	/** Data about user's measurements. */

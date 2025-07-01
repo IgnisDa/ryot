@@ -11,7 +11,6 @@ import {
 	MultiSelect,
 	NumberInput,
 	Paper,
-	rem,
 	SegmentedControl,
 	Select,
 	SimpleGrid,
@@ -22,6 +21,7 @@ import {
 	Text,
 	TextInput,
 	Title,
+	rem,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
@@ -43,12 +43,11 @@ import {
 	snakeCase,
 	startCase,
 } from "@ryot/ts-utils";
+import { IconCheckbox, IconMinus } from "@tabler/icons-react";
 import {
 	IconAlertCircle,
 	IconBellRinging,
-	IconCheckbox,
 	IconGripVertical,
-	IconMinus,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { type Draft, produce } from "immer";
@@ -58,10 +57,10 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
-	clientGqlService,
-	convertEnumToSelectData,
 	FitnessEntity,
 	PRO_REQUIRED_MESSAGE,
+	clientGqlService,
+	convertEnumToSelectData,
 } from "~/lib/common";
 import {
 	useCoreDetails,

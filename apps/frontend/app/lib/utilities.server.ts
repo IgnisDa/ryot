@@ -5,10 +5,10 @@ import {
 	CoreDetailsDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
-	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
+import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
-import { parse, type SerializeOptions, serialize } from "cookie";
+import { type SerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
 	GraphQLClient,
@@ -218,15 +218,9 @@ export const uploadFileAndGetKey = async (
 	return presignedPutS3Url.key;
 };
 
-const fileUploadToFile = async (fileUpload: FileUpload) => {
-	const bytes = await fileUpload.bytes();
-	return new File([bytes], fileUpload.name);
-};
-
 export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
-	const file = await fileUploadToFile(fileUpload);
 	const formData = new FormData();
-	formData.append("files[]", file, fileUpload.name);
+	formData.append("files[]", fileUpload, fileUpload.name);
 	const resp = await fetch(`${API_URL}/upload`, {
 		method: "POST",
 		body: formData,
@@ -238,12 +232,11 @@ export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 export const createS3FileUploader = (prefix: string) => {
 	return async (fileUpload: FileUpload) => {
 		if (!fileUpload.name) return null;
-		const file = await fileUploadToFile(fileUpload);
 		const key = await uploadFileAndGetKey(
-			file.name,
+			fileUpload.name,
 			prefix,
-			file.type,
-			await file.arrayBuffer(),
+			fileUpload.type,
+			await fileUpload.arrayBuffer(),
 		);
 		return key;
 	};

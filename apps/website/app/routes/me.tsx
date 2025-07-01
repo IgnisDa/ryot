@@ -1,7 +1,7 @@
 import {
 	CheckoutEventNames,
-	initializePaddle,
 	type Paddle,
+	initializePaddle,
 } from "@paddle/paddle-js";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import {

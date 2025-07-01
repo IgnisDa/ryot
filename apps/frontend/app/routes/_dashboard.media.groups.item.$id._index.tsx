@@ -10,7 +10,7 @@ import {
 	Text,
 } from "@mantine/core";
 import {
-	DeployUpdateMetadataGroupJobDocument,
+	DeployUpdateMediaEntityJobDocument,
 	EntityLot,
 	MetadataGroupDetailsDocument,
 	UserMetadataGroupDetailsDocument,
@@ -25,7 +25,7 @@ import {
 import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -65,8 +65,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			),
 		]);
 	if (metadataGroupDetails.details.isPartial)
-		await serverGqlService.request(DeployUpdateMetadataGroupJobDocument, {
-			metadataGroupId,
+		await serverGqlService.request(DeployUpdateMediaEntityJobDocument, {
+			entityId: metadataGroupId,
+			entityLot: EntityLot.MetadataGroup,
 		});
 	return {
 		query,
@@ -115,10 +116,9 @@ export default function Page() {
 				{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
 					<Group>
 						{loaderData.userMetadataGroupDetails.collections.map((col) => (
-							<DisplayCollection
+							<DisplayCollectionToEntity
 								col={col}
 								key={col.id}
-								creatorUserId={col.userId}
 								entityLot={EntityLot.MetadataGroup}
 								entityId={loaderData.metadataGroupId}
 							/>
@@ -178,12 +178,8 @@ export default function Page() {
 									variant="outline"
 									onClick={() => {
 										setAddEntityToCollectionsData({
-											entityId: loaderData.metadataGroupId,
 											entityLot: EntityLot.MetadataGroup,
-											alreadyInCollections:
-												loaderData.userMetadataGroupDetails.collections.map(
-													(c) => c.id,
-												),
+											entityId: loaderData.metadataGroupId,
 										});
 									}}
 								>
@@ -196,7 +192,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userMetadataGroupDetails.collections.map(
-												(c) => c.name,
+												(c) => c.details.collectionName,
 											)}
 											formValue={loaderData.metadataGroupId}
 											entityLot={EntityLot.MetadataGroup}

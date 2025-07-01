@@ -4,8 +4,8 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
 import {
-	db,
 	OAUTH_CALLBACK_URL,
+	db,
 	oauthClient,
 	websiteAuthCookie,
 } from "~/lib/config.server";

@@ -15,8 +15,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery, sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { Fragment } from "react/jsx-runtime";
 import { useLoaderData } from "react-router";
+import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";

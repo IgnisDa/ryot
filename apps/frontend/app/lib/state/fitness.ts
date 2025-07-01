@@ -27,9 +27,9 @@ import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
 import {
 	CURRENT_WORKOUT_KEY,
+	FitnessAction,
 	clientGqlService,
 	dayjsLib,
-	FitnessAction,
 	getTimeOfDay,
 	queryClient,
 	queryFactory,
@@ -111,9 +111,7 @@ export const useGetSetAtIndex = (exerciseIdx: number, setIdx: number) => {
 	return exercise?.sets[setIdx];
 };
 
-export const getDefaultWorkout = (
-	fitnessEntity: FitnessAction,
-): InProgressWorkout => {
+export const getDefaultWorkout = (fitnessEntity: FitnessAction) => {
 	const date = dayjsLib().add(1, "second");
 	return {
 		images: [],
@@ -125,7 +123,7 @@ export const getDefaultWorkout = (
 		currentAction: fitnessEntity,
 		durations: [{ from: date.toISOString() }],
 		name: `${getTimeOfDay(date.hour())} Workout`,
-	};
+	} as InProgressWorkout;
 };
 
 export const getExerciseDetailsQuery = (exerciseId: string) =>
@@ -235,7 +233,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 		},
 	};
 	for (const exercise of currentWorkout.exercises) {
-		const sets: UserWorkoutSetRecord[] = [];
+		const sets = Array<UserWorkoutSetRecord>();
 		for (const set of exercise.sets)
 			if (isCreatingTemplate || set.confirmedAt) {
 				const note = isString(set.note) ? set.note : undefined;
@@ -254,7 +252,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 				});
 			}
 		if (!isCreatingTemplate && sets.length === 0) continue;
-		const notes: string[] = [];
+		const notes = Array<string>();
 		for (const note of exercise.notes) if (note) notes.push(note);
 		input.input.exercises.push({
 			sets,

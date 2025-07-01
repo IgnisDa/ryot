@@ -435,7 +435,7 @@ query UserMetadataGroupDetails($metadataGroupId: String!) {
 			...ReviewItemPart
 		}
 		collections {
-			...CollectionPart
+			...CollectionToEntityDetailsPart
 		}
 	}
 }
@@ -446,7 +446,7 @@ query UserPersonDetails($personId: String!) {
 		averageRating
 		isRecentlyConsumed
 		collections {
-			...CollectionPart
+			...CollectionToEntityDetailsPart
 		}
 		reviews {
 			...ReviewItemPart
@@ -458,7 +458,7 @@ query UserWorkoutDetails($workoutId: String!) {
 	userWorkoutDetails(workoutId: $workoutId) {
 		metadataConsumed
 		collections {
-			...CollectionPart
+			...CollectionToEntityDetailsPart
 		}
 		details {
 			id
@@ -495,7 +495,7 @@ query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
 query UserWorkoutTemplateDetails($workoutTemplateId: String!) {
 	userWorkoutTemplateDetails(workoutTemplateId: $workoutTemplateId) {
 		collections {
-			...CollectionPart
+			...CollectionToEntityDetailsPart
 		}
 		details {
 			id

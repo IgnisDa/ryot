@@ -91,6 +91,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.OpenScale,
 					ImportSource.Goodreads,
+					ImportSource.Hardcover,
 					ImportSource.Storygraph,
 					() => ({
 						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
@@ -108,7 +109,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					strongApp: processSubmission(formData, strongAppImportFormSchema),
 				}))
 				.with(ImportSource.Trakt, () => ({
-					trakt: processSubmission(formData, usernameImportFormSchema),
+					trakt: processSubmission(formData, traktImportFormSchema),
 				}))
 				.with(ImportSource.Movary, async () => ({
 					movary: processSubmission(formData, movaryImportFormSchema),
@@ -153,6 +154,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.run();
 };
+
+const traktImportFormSchema = z.object({
+	user: z.string().optional(),
+	list: z
+		.object({
+			url: z.string(),
+			collection: z.string(),
+		})
+		.optional(),
+});
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 
@@ -276,6 +287,7 @@ export default function Page() {
 												ImportSource.Imdb,
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
+												ImportSource.Hardcover,
 												ImportSource.Storygraph,
 												() => (
 													<>
@@ -299,13 +311,35 @@ export default function Page() {
 												</>
 											))
 											.with(ImportSource.Trakt, () => (
-												<>
-													<TextInput
-														label="Username"
-														required
-														name="username"
-													/>
-												</>
+												<Tabs defaultValue="user" keepMounted={false}>
+													<Tabs.List>
+														<Tabs.Tab value="user">User</Tabs.Tab>
+														<Tabs.Tab value="list">List</Tabs.Tab>
+													</Tabs.List>
+													<Tabs.Panel value="user" mt="xs">
+														<TextInput
+															required
+															name="user"
+															label="The username of the Trakt user to import"
+														/>
+													</Tabs.Panel>
+													<Tabs.Panel value="list" mt="xs">
+														<Stack gap="xs">
+															<TextInput
+																required
+																name="list.url"
+																label="The URL of the list to import"
+																placeholder="https://trakt.tv/users/felix66/lists/trakt-movie-the-new-york-times-guide-to-the-best-1-000-movies-ever-made?sort=rank,asc"
+															/>
+															<Select
+																required
+																label="Collection"
+																name="list.collection"
+																data={userCollections.map((c) => c.name)}
+															/>
+														</Stack>
+													</Tabs.Panel>
+												</Tabs>
 											))
 											.with(ImportSource.Jellyfin, () => (
 												<>
@@ -433,6 +467,7 @@ export default function Page() {
 																	<Indicator
 																		inline
 																		size={12}
+																		zIndex={0}
 																		offset={-3}
 																		processing={isInProgress}
 																		color={

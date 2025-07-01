@@ -17,8 +17,8 @@ import {
 	Stack,
 	TagsInput,
 	Text,
-	Textarea,
 	TextInput,
+	Textarea,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -57,17 +57,13 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
 import {
-	DebouncedSearchInput,
-	ExpireCacheKeyButton,
-	ProRequiredAlert,
-} from "~/components/common";
-import {
+	PRO_REQUIRED_MESSAGE,
 	clientGqlService,
 	convertEnumToSelectData,
 	getMetadataDetailsQuery,
 	openConfirmationModal,
-	PRO_REQUIRED_MESSAGE,
 	queryClient,
 	queryFactory,
 	zodCommaDelimitedString,
@@ -260,9 +256,6 @@ export default function Page() {
 							<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
 						</Modal>
 					</Flex>
-					<ExpireCacheKeyButton
-						action={{ cacheId: loaderData.userCollectionsList.cacheId }}
-					/>
 				</Group>
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
@@ -306,13 +299,6 @@ type Collection =
 
 const IMAGES_CONTAINER_WIDTH = 250;
 
-const FallBackImage = (props: { name: string }) => {
-	const fallbackImageUrl = useFallbackImageUrl(props.name);
-	return (
-		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
-	);
-};
-
 const DisplayCollection = (props: {
 	index: number;
 	collection: Collection;
@@ -321,6 +307,7 @@ const DisplayCollection = (props: {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
+	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
 	const additionalDisplay = [];
 
 	const { data: collectionImages } = useQuery({
@@ -369,6 +356,10 @@ const DisplayCollection = (props: {
 			`${props.collection.collaborators.length - 1} collaborators`,
 		);
 
+	const FallBackImage = () => (
+		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
+	);
+
 	return (
 		<Paper
 			pr="md"
@@ -402,11 +393,11 @@ const DisplayCollection = (props: {
 								);
 							})
 						) : (
-							<FallBackImage name={props.collection.name} />
+							<FallBackImage />
 						)
 					) : (
 						<>
-							<FallBackImage name={props.collection.name} />
+							<FallBackImage />
 							<Box pos="absolute" left={0} right={0} bottom={0}>
 								<ProRequiredAlert tooltipLabel="Collage image using collection contents" />
 							</Box>
@@ -484,6 +475,11 @@ const DisplayCollection = (props: {
 					{props.collection.isDefault ? (
 						<Text lineClamp={1} mt="auto" ta="right" c="dimmed" size="xs">
 							System created
+							{props.collection.collaborators.find(
+								(c) => c.collaborator.id === userDetails.id,
+							)?.extraInformation?.isHidden
+								? ", Hidden"
+								: ""}
 						</Text>
 					) : null}
 				</Stack>

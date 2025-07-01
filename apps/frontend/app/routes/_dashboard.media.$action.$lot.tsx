@@ -7,7 +7,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	Menu,
 	Pagination,
 	Select,
 	Stack,
@@ -19,7 +18,6 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
-	GridPacking,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
@@ -39,9 +37,7 @@ import {
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
-	IconBoxMultiple,
 	IconCheck,
-	IconDotsVertical,
 	IconFilter,
 	IconListCheck,
 	IconPhotoPlus,
@@ -53,11 +49,10 @@ import { Link, useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { withoutHost } from "ufo";
 import { z } from "zod";
 import {
 	ApplicationGrid,
-	BulkEditingAffix,
+	BulkCollectionEditingAffix,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
@@ -72,29 +67,16 @@ import {
 	dayjsLib,
 	getLot,
 	getStartTimeFromRange,
-	getVerb,
 	pageQueryParam,
-	refreshEntityDetails,
-	Verb,
 	zodCollectionFilter,
 } from "~/lib/common";
-import {
-	useApplicationEvents,
-	useAppSearchParam,
-	useCoreDetails,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/hooks";
+import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
-	TOUR_MOVIE_TARGET_ID,
+	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import {
-	useAddEntityToCollections,
-	useMetadataProgressUpdate,
-} from "~/lib/state/media";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
@@ -231,7 +213,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			] as const;
 		})
 		.exhaustive();
-	const url = new URL(request.url);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		totalResults,
@@ -247,7 +228,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		totalPages,
 		cookieName,
 		mediaSearch,
-		url: withoutHost(url.href),
 		[pageQueryParam]: Number(query[pageQueryParam]),
 	};
 };
@@ -288,11 +268,11 @@ export default function Page() {
 			defaultFilters.mineCollections,
 		);
 	const isEligibleForNextTourStep =
-		loaderData.lot === MediaLot.Movie && isOnboardingTourInProgress;
+		loaderData.lot === MediaLot.AudioBook && isOnboardingTourInProgress;
 
 	return (
 		<>
-			<BulkEditingAffix
+			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (!loaderData.listInput) return [];
 					const input = cloneDeep(loaderData.listInput);
@@ -338,7 +318,7 @@ export default function Page() {
 						<Tabs.Tab
 							value="search"
 							leftSection={<IconSearch size={24} />}
-							className={OnboardingTourStepTargets.GoToMoviesSection}
+							className={OnboardingTourStepTargets.GoToAudiobooksSection}
 						>
 							<Text>Search</Text>
 						</Tabs.Tab>
@@ -387,7 +367,9 @@ export default function Page() {
 							<DisplayListDetailsAndRefresh
 								cacheId={loaderData.mediaList.list.cacheId}
 								total={loaderData.mediaList.list.response.details.total}
-								className={OnboardingTourStepTargets.RefreshMoviesListPage}
+								isRandomSortOrderSelected={
+									loaderData.mediaList.url.sortBy === MediaSortBy.Random
+								}
 							/>
 							{(loaderData.mediaList?.url.startDateRange ||
 								loaderData.mediaList?.url.endDateRange) &&
@@ -395,7 +377,7 @@ export default function Page() {
 								<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
 							) : loaderData.mediaList.list.response.details.total > 0 ? (
 								<ApplicationGrid
-									className={OnboardingTourStepTargets.ShowMoviesListPage}
+									className={OnboardingTourStepTargets.ShowAudiobooksListPage}
 								>
 									{loaderData.mediaList.list.response.items.map((item) => {
 										const becItem = {
@@ -452,9 +434,9 @@ export default function Page() {
 										loaderData.lot.toLowerCase(),
 									).toLowerCase()}s`}
 									tourControl={{
-										target: OnboardingTourStepTargets.SearchMovie,
+										target: OnboardingTourStepTargets.SearchAudiobook,
 										onQueryChange: (query) => {
-											if (query === TOUR_MOVIE_TARGET_ID.toLowerCase()) {
+											if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
 												advanceOnboardingTourStep();
 											}
 										},
@@ -522,108 +504,26 @@ const MediaSearchItem = (props: {
 	isEligibleForNextTourStep: boolean;
 	item: MetadataSearchQuery["metadataSearch"]["items"][number];
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const userDetails = useUserDetails();
-	const userPreferences = useUserPreferences();
-	const events = useApplicationEvents();
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
-	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	const gridPacking = userPreferences.general.gridPacking;
-	const buttonSize =
-		gridPacking === GridPacking.Normal ? "compact-md" : "compact-xs";
-
-	const tourControlOne = props.isFirstItem
-		? OnboardingTourStepTargets.AddMovieToWatchlist
-		: undefined;
 
 	const tourControlTwo = props.isFirstItem
 		? OnboardingTourStepTargets.OpenMetadataProgressForm
 		: undefined;
 
 	const tourControlThree = props.isFirstItem
-		? OnboardingTourStepTargets.GoToMoviesSectionAgain
+		? OnboardingTourStepTargets.GoToAudiobooksSectionAgain
 		: undefined;
 
 	return (
-		<Box>
-			<MetadataDisplayItem
-				metadataId={props.item}
-				shouldHighlightNameIfInteracted
-				imageClassName={OnboardingTourStepTargets.GoToMoviesSectionAgain}
-				onImageClickBehavior={async () => {
-					if (tourControlThree) advanceOnboardingTourStep();
-				}}
-				nameRight={
-					<Menu shadow="md">
-						<Menu.Target>
-							<ActionIcon size="xs">
-								<IconDotsVertical />
-							</ActionIcon>
-						</Menu.Target>
-						<Menu.Dropdown>
-							<Menu.Item
-								leftSection={<IconBoxMultiple size={14} />}
-								onClick={() => {
-									setAddEntityToCollectionsData({
-										entityId: props.item,
-										entityLot: EntityLot.Metadata,
-									});
-								}}
-							>
-								Add to collection
-							</Menu.Item>
-						</Menu.Dropdown>
-					</Menu>
-				}
-			/>
-			<Box px={4}>
-				<Button
-					w="100%"
-					variant="outline"
-					size={buttonSize}
-					className={tourControlTwo}
-					onClick={async () => {
-						setMetadataToUpdate({ metadataId: props.item });
-						if (tourControlTwo) {
-							advanceOnboardingTourStep();
-						}
-					}}
-				>
-					Mark as {getVerb(Verb.Read, loaderData.lot)}
-				</Button>
-				<Button
-					w="100%"
-					mt="xs"
-					variant="outline"
-					size={buttonSize}
-					className={tourControlOne}
-					onClick={async () => {
-						const form = new FormData();
-						form.append("entityId", props.item);
-						form.append("entityLot", EntityLot.Metadata);
-						form.append("creatorUserId", userDetails.id);
-						form.append("collectionName", "Watchlist");
-						await fetch(
-							$path("/actions", { intent: "addEntityToCollection" }),
-							{
-								body: form,
-								method: "POST",
-								credentials: "include",
-							},
-						);
-						events.addToCollection(EntityLot.Metadata);
-						refreshEntityDetails(props.item);
-						if (tourControlOne) {
-							advanceOnboardingTourStep();
-						}
-					}}
-				>
-					Add to watchlist
-				</Button>
-			</Box>
-		</Box>
+		<MetadataDisplayItem
+			metadataId={props.item}
+			shouldHighlightNameIfInteracted
+			bottomRightImageOverlayClassName={tourControlTwo}
+			imageClassName={OnboardingTourStepTargets.GoToAudiobooksSectionAgain}
+			onImageClickBehavior={async () => {
+				if (tourControlThree) advanceOnboardingTourStep();
+			}}
+		/>
 	);
 };
 

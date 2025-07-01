@@ -36,10 +36,10 @@ import {
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
-	pageQueryParam,
 	queryClient,
 	queryFactory,
 } from "~/lib/common";
+import { pageQueryParam } from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,

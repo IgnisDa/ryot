@@ -9,16 +9,15 @@ import {
 	ActionIcon,
 	Alert,
 	ColorSchemeScript,
-	createTheme,
 	Flex,
 	Loader,
 	MantineProvider,
+	createTheme,
 } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
-	data,
 	Links,
 	type LinksFunction,
 	type LoaderFunctionArgs,
@@ -27,6 +26,7 @@ import {
 	Outlet,
 	Scripts,
 	ScrollRestoration,
+	data,
 	useLoaderData,
 	useNavigation,
 } from "react-router";

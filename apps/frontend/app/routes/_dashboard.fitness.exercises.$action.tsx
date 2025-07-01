@@ -6,8 +6,8 @@ import {
 	MultiSelect,
 	Select,
 	Stack,
-	Textarea,
 	TextInput,
+	Textarea,
 	Title,
 } from "@mantine/core";
 import { parseFormData } from "@mjackson/form-data-parser";
@@ -33,7 +33,7 @@ import {
 } from "@ryot/ts-utils";
 import { IconPhoto } from "@tabler/icons-react";
 import { ClientError } from "graphql-request";
-import { data, Form, redirect, useLoaderData } from "react-router";
+import { Form, data, redirect, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";

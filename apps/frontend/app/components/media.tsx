@@ -33,26 +33,28 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
-	BaseMediaDisplayItem,
+	BaseEntityDisplayItem,
 	DisplayThreePointReview,
-	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
 import {
+	MEDIA_DETAILS_HEIGHT,
 	openConfirmationModal,
-	refreshEntityDetails,
 	reviewYellow,
 } from "~/lib/common";
 import {
+	useAddEntitiesToCollection,
 	useConfirmSubmit,
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useRemoveEntitiesFromCollection,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
 
@@ -106,12 +108,17 @@ export const PartialMetadataDisplay = (props: {
 		props.metadataId,
 	);
 
+	const images = [
+		...(metadataDetails?.assets.remoteImages || []),
+		...(metadataDetails?.assets.s3Images || []),
+	];
+
 	return (
 		<BaseEntityDisplay
+			image={images.at(0)}
 			extraText={props.extraText}
 			title={metadataDetails?.title || undefined}
 			hasInteracted={userMetadataDetails?.hasInteracted}
-			image={metadataDetails?.assets.remoteImages.at(0) || undefined}
 			link={$path("/media/item/:id", { id: props.metadataId })}
 		/>
 	);
@@ -180,18 +187,20 @@ export const MetadataDisplayItem = (props: {
 	altName?: string;
 	metadataId: string;
 	topRight?: ReactNode;
-	nameRight?: ReactNode;
 	noLeftLabel?: boolean;
 	rightLabel?: ReactNode;
 	rightLabelLot?: boolean;
 	imageClassName?: string;
 	rightLabelHistory?: boolean;
 	shouldHighlightNameIfInteracted?: boolean;
+	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
 	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
@@ -249,16 +258,20 @@ export const MetadataDisplayItem = (props: {
 		</Tooltip>
 	);
 
+	const images = [
+		...(metadataDetails?.assets.remoteImages || []),
+		...(metadataDetails?.assets.s3Images || []),
+	];
+
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
+			imageUrl={images.at(0)}
 			altName={props.altName}
 			progress={currentProgress}
-			nameRight={props.nameRight}
 			isLoading={isMetadataDetailsLoading}
 			imageClassName={props.imageClassName}
 			name={props.name ?? metadataDetails?.title}
-			imageUrl={metadataDetails?.assets.remoteImages.at(0)}
 			highlightImage={userMetadataDetails?.isRecentlyConsumed}
 			highlightName={
 				props.shouldHighlightNameIfInteracted &&
@@ -325,9 +338,18 @@ export const MetadataDisplayItem = (props: {
 						color="blue"
 						size="compact-md"
 						variant="transparent"
-						onClick={() =>
-							setMetadataToUpdate({ metadataId: props.metadataId }, true)
-						}
+						className={props.bottomRightImageOverlayClassName}
+						onClick={async () => {
+							setMetadataToUpdate({ metadataId: props.metadataId }, true);
+
+							if (
+								isOnboardingTourInProgress &&
+								props.bottomRightImageOverlayClassName
+							) {
+								await new Promise((resolve) => setTimeout(resolve, 7000));
+								advanceOnboardingTourStep();
+							}
+						}}
 					>
 						<IconPlayerPlay size={20} />
 					</ActionIcon>
@@ -355,7 +377,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
@@ -412,7 +434,7 @@ export const PersonDisplayItem = (props: {
 	const averageRating = userPersonDetails?.averageRating;
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
@@ -451,45 +473,43 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	inCollections: Array<string>;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
-	const action = isMonitored
-		? "removeEntityFromCollection"
-		: "addEntityToCollection";
 	const userDetails = useUserDetails();
-	const submit = useConfirmSubmit();
+	const addEntitiesToCollection = useAddEntitiesToCollection();
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
 
-	const onSubmit = (form: HTMLFormElement) => {
-		submit(form);
-		refreshEntityDetails(props.formValue);
+	const handleToggleMonitoring = () => {
+		const entityData = {
+			entityId: props.formValue,
+			entityLot: props.entityLot,
+		};
+
+		if (isMonitored) {
+			openConfirmationModal("Are you sure you want to stop monitoring?", () => {
+				removeEntitiesFromCollection.mutate({
+					collectionName: "Monitoring",
+					creatorUserId: userDetails.id,
+					entities: [entityData],
+				});
+			});
+		} else {
+			addEntitiesToCollection.mutate({
+				collectionName: "Monitoring",
+				creatorUserId: userDetails.id,
+				entities: [entityData],
+			});
+		}
 	};
 
 	return (
-		<Form
-			replace
-			method="POST"
-			action={withQuery("/actions", { intent: action })}
+		<Menu.Item
+			onClick={handleToggleMonitoring}
+			disabled={
+				addEntitiesToCollection.isPending ||
+				removeEntitiesFromCollection.isPending
+			}
 		>
-			<input hidden name="collectionName" defaultValue="Monitoring" />
-			<input readOnly hidden name="entityId" value={props.formValue} />
-			<input readOnly hidden name="entityLot" value={props.entityLot} />
-			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
-			<Menu.Item
-				type="submit"
-				onClick={async (e) => {
-					const form = e.currentTarget.form;
-					if (form) {
-						e.preventDefault();
-						if (isMonitored)
-							openConfirmationModal(
-								"Are you sure you want to stop monitoring?",
-								() => onSubmit(form),
-							);
-						else onSubmit(form);
-					}
-				}}
-			>
-				{isMonitored ? "Stop" : "Start"} monitoring
-			</Menu.Item>
-		</Form>
+			{isMonitored ? "Stop" : "Start"} monitoring
+		</Menu.Item>
 	);
 };
 

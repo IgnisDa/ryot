@@ -47,7 +47,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import {
 	ApplicationGrid,
-	BulkEditingAffix,
+	BulkCollectionEditingAffix,
 	CollectionsFilter,
 	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
@@ -203,7 +203,7 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix
+			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					if (!loaderData.listInput) return [];
 					const input = cloneDeep(loaderData.listInput);
@@ -289,6 +289,10 @@ export default function Page() {
 							<DisplayListDetailsAndRefresh
 								cacheId={loaderData.list.list.cacheId}
 								total={loaderData.list.list.response.details.total}
+								isRandomSortOrderSelected={
+									loaderData.list.url.sortBy ===
+									PersonAndMetadataGroupsSortBy.Random
+								}
 							/>
 							{loaderData.list.list.response.details.total > 0 ? (
 								<ApplicationGrid>

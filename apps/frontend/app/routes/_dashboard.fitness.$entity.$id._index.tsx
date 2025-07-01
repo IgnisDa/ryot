@@ -57,19 +57,22 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollection, ProRequiredAlert } from "~/components/common";
 import {
-	displayDistanceWithUnit,
-	displayWeightWithUnit,
+	DisplayCollectionToEntity,
+	ProRequiredAlert,
+} from "~/components/common";
+import {
 	ExerciseHistory,
 	WorkoutRevisionScheduledAlert,
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
 } from "~/components/fitness";
 import {
-	dayjsLib,
 	FitnessAction,
 	FitnessEntity,
-	openConfirmationModal,
 	PRO_REQUIRED_MESSAGE,
+	dayjsLib,
+	openConfirmationModal,
 } from "~/lib/common";
 import {
 	useConfirmSubmit,
@@ -80,6 +83,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/hooks";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
+import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
 import {
 	createToastHeaders,
@@ -226,6 +230,31 @@ const editWorkoutSchema = z.object({
 	endTime: z.string(),
 	startTime: z.string(),
 });
+
+const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
+	const { setFullscreenImage } = useFullscreenImage();
+
+	return (
+		<Avatar.Group>
+			{props.images.map((i) => (
+				<Avatar
+					key={i}
+					src={i}
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: i })}
+				/>
+			))}
+			{props.videos.map((v) => (
+				<Avatar
+					key={v}
+					name="Video"
+					style={{ cursor: "pointer" }}
+					onClick={() => setFullscreenImage({ src: v })}
+				/>
+			))}
+		</Avatar.Group>
+	);
+};
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -402,16 +431,13 @@ export default function Page() {
 									))
 									.exhaustive()}
 								<Menu.Item
+									leftSection={<IconArchive size={14} />}
 									onClick={() =>
 										setAddEntityToCollectionsData({
 											entityLot,
 											entityId: loaderData.entityId,
-											alreadyInCollections: loaderData.collections.map(
-												(c) => c.id,
-											),
 										})
 									}
-									leftSection={<IconArchive size={14} />}
 								>
 									Add to collection
 								</Menu.Item>
@@ -454,11 +480,10 @@ export default function Page() {
 					{loaderData.collections.length > 0 ? (
 						<Group>
 							{loaderData.collections.map((col) => (
-								<DisplayCollection
+								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
 									entityLot={entityLot}
-									creatorUserId={col.userId}
 									entityId={loaderData.entityId}
 								/>
 							))}
@@ -614,18 +639,7 @@ export default function Page() {
 						</Box>
 					) : null}
 					{hasAssets ? (
-						<Avatar.Group>
-							{images.map((i) => (
-								<Anchor key={i} href={i} target="_blank">
-									<Avatar src={i} />
-								</Anchor>
-							))}
-							{videos.map((v) => (
-								<Anchor key={v} href={v} target="_blank">
-									<Avatar name="Video" />
-								</Anchor>
-							))}
-						</Avatar.Group>
+						<WorkoutAssetsList images={images} videos={videos} />
 					) : null}
 					{loaderData.information.exercises.map((exercise, idx) => (
 						<ExerciseHistory
@@ -642,17 +656,24 @@ export default function Page() {
 	);
 }
 
-const ConsumedMetadataDisplay = (props: { metadataId: string }) => {
+const ConsumedMetadataDisplay = (props: {
+	metadataId: string;
+}) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: metadataDetails } = useMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);
 
+	const images = [
+		...(metadataDetails?.assets.remoteImages || []),
+		...(metadataDetails?.assets.s3Images || []),
+	];
+
 	return (
 		<Link to={$path("/media/item/:id", { id: props.metadataId })} ref={ref}>
 			<Tooltip label={metadataDetails?.title}>
-				<Avatar src={metadataDetails?.assets.remoteImages.at(0)} />
+				<Avatar src={images.at(0)} />
 			</Tooltip>
 		</Link>
 	);

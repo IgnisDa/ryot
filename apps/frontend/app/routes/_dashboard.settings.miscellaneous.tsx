@@ -13,7 +13,7 @@ import {
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
-import { data, Form } from "react-router";
+import { Form, data } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { openConfirmationModal } from "~/lib/common";

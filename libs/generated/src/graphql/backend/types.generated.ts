@@ -141,12 +141,10 @@ export type CachedUserMetadataRecommendationsResponse = {
   response: Array<Scalars['String']['output']>;
 };
 
-export type ChangeCollectionToEntityInput = {
+export type ChangeCollectionToEntitiesInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
-  information?: InputMaybe<Scalars['JSON']['input']>;
+  entities: Array<EntityToCollectionInput>;
 };
 
 export type Collection = {
@@ -242,6 +240,15 @@ export type CollectionItemCollaboratorInformation = {
 export type CollectionRecommendationsInput = {
   collectionId: Scalars['String']['input'];
   search?: InputMaybe<SearchInput>;
+};
+
+export type CollectionToEntityDetails = {
+  __typename?: 'CollectionToEntityDetails';
+  collectionId: Scalars['String']['output'];
+  collectionName: Scalars['String']['output'];
+  createdOn: Scalars['DateTime']['output'];
+  information?: Maybe<Scalars['JSON']['output']>;
+  lastUpdatedOn: Scalars['DateTime']['output'];
 };
 
 export type CoreDetails = {
@@ -484,7 +491,13 @@ export type DeployStrongAppImportInput = {
 };
 
 export type DeployTraktImportInput = {
-  username: Scalars['String']['input'];
+  list?: InputMaybe<DeployTraktImportListInput>;
+  user?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type DeployTraktImportListInput = {
+  collection: Scalars['String']['input'];
+  url: Scalars['String']['input'];
 };
 
 export type DeployUrlAndKeyImportInput = {
@@ -546,6 +559,12 @@ export enum EntityRemoteVideoSource {
   Dailymotion = 'DAILYMOTION',
   Youtube = 'YOUTUBE'
 }
+
+export type EntityToCollectionInput = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
+  information?: InputMaybe<Scalars['JSON']['input']>;
+};
 
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
@@ -788,6 +807,12 @@ export type GraphqlCalendarEvent = {
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
 };
 
+export type GraphqlCollectionToEntityDetails = {
+  __typename?: 'GraphqlCollectionToEntityDetails';
+  details: CollectionToEntityDetails;
+  id: Scalars['UUID']['output'];
+};
+
 export type GraphqlMetadataDetails = {
   __typename?: 'GraphqlMetadataDetails';
   animeSpecifics?: Maybe<AnimeSpecifics>;
@@ -925,6 +950,7 @@ export enum ImportSource {
   Audiobookshelf = 'AUDIOBOOKSHELF',
   GenericJson = 'GENERIC_JSON',
   Goodreads = 'GOODREADS',
+  Hardcover = 'HARDCOVER',
   Hevy = 'HEVY',
   Igdb = 'IGDB',
   Imdb = 'IMDB',
@@ -1312,8 +1338,6 @@ export type MusicSpecificsInput = {
 
 export type MutationRoot = {
   __typename?: 'MutationRoot';
-  /** Add a entity to a collection if it is not there, otherwise do nothing. */
-  addEntityToCollection: Scalars['Boolean']['output'];
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1356,6 +1380,8 @@ export type MutationRoot = {
   deleteUserWorkout: Scalars['Boolean']['output'];
   /** Delete a workout template. */
   deleteUserWorkoutTemplate: Scalars['Boolean']['output'];
+  /** Deploy a background job to add entities to a collection. */
+  deployAddEntitiesToCollectionJob: Scalars['Boolean']['output'];
   /** Start a background job. */
   deployBackgroundJob: Scalars['Boolean']['output'];
   /**
@@ -1367,12 +1393,10 @@ export type MutationRoot = {
   deployExportJob: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
   deployImportJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a metadata group's details. */
-  deployUpdateMetadataGroupJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a media item's metadata. */
-  deployUpdateMetadataJob: Scalars['Boolean']['output'];
-  /** Deploy a job to update a person's metadata. */
-  deployUpdatePersonJob: Scalars['Boolean']['output'];
+  /** Deploy a background job to remove entities from a collection. */
+  deployRemoveEntitiesFromCollectionJob: Scalars['Boolean']['output'];
+  /** Deploy a job to update a media entity's metadata. */
+  deployUpdateMediaEntityJob: Scalars['Boolean']['output'];
   /**
    * Use this mutation to call a function that needs to be tested for implementation.
    * It is only available in development mode.
@@ -1407,8 +1431,11 @@ export type MutationRoot = {
    * they are the first user.
    */
   registerUser: RegisterResult;
-  /** Remove an entity from a collection if it is not there, otherwise do nothing. */
-  removeEntityFromCollection: StringIdObject;
+  /**
+   * Reset a user by deleting and recreating them with the same ID. The account
+   * resetting the user must be an `Admin`.
+   */
+  resetUser: UserResetResult;
   /** Revoke an access link. */
   revokeAccessLink: Scalars['Boolean']['output'];
   /** Test all notification platforms for the currently logged in user. */
@@ -1429,11 +1456,6 @@ export type MutationRoot = {
   updateUserPreference: Scalars['Boolean']['output'];
   /** Change the details about a user's workout. */
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
-};
-
-
-export type MutationRootAddEntityToCollectionArgs = {
-  input: ChangeCollectionToEntityInput;
 };
 
 
@@ -1542,6 +1564,11 @@ export type MutationRootDeleteUserWorkoutTemplateArgs = {
 };
 
 
+export type MutationRootDeployAddEntitiesToCollectionJobArgs = {
+  input: ChangeCollectionToEntitiesInput;
+};
+
+
 export type MutationRootDeployBackgroundJobArgs = {
   jobName: BackgroundJob;
 };
@@ -1557,18 +1584,14 @@ export type MutationRootDeployImportJobArgs = {
 };
 
 
-export type MutationRootDeployUpdateMetadataGroupJobArgs = {
-  metadataGroupId: Scalars['String']['input'];
+export type MutationRootDeployRemoveEntitiesFromCollectionJobArgs = {
+  input: ChangeCollectionToEntitiesInput;
 };
 
 
-export type MutationRootDeployUpdateMetadataJobArgs = {
-  metadataId: Scalars['String']['input'];
-};
-
-
-export type MutationRootDeployUpdatePersonJobArgs = {
-  personId: Scalars['String']['input'];
+export type MutationRootDeployUpdateMediaEntityJobArgs = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
 };
 
 
@@ -1619,8 +1642,8 @@ export type MutationRootRegisterUserArgs = {
 };
 
 
-export type MutationRootRemoveEntityFromCollectionArgs = {
-  input: ChangeCollectionToEntityInput;
+export type MutationRootResetUserArgs = {
+  toResetUserId: Scalars['String']['input'];
 };
 
 
@@ -1980,6 +2003,7 @@ export type QueryRootGetPresignedS3UrlArgs = {
 
 
 export type QueryRootMetadataDetailsArgs = {
+  ensureUpdated?: InputMaybe<Scalars['Boolean']['input']>;
   metadataId: Scalars['String']['input'];
 };
 
@@ -2413,7 +2437,7 @@ export type UserDetailsResult = User | UserDetailsError;
 
 export type UserExerciseDetails = {
   __typename?: 'UserExerciseDetails';
-  collections: Array<Collection>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   details?: Maybe<UserToEntity>;
   history?: Maybe<Array<UserToExerciseHistoryExtraInformation>>;
   reviews: Array<ReviewItem>;
@@ -2680,7 +2704,7 @@ export type UserMetadataDetails = {
   /** The average rating of this media in this service. */
   averageRating?: Maybe<Scalars['Decimal']['output']>;
   /** The collections in which this media is present. */
-  collections: Array<Collection>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   /** Whether this media has been interacted with */
   hasInteracted: Scalars['Boolean']['output'];
   /** The seen history of this media. */
@@ -2721,7 +2745,7 @@ export type UserMetadataDetailsShowSeasonProgress = {
 export type UserMetadataGroupDetails = {
   __typename?: 'UserMetadataGroupDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
-  collections: Array<Collection>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
@@ -2779,7 +2803,7 @@ export type UserPeopleListInput = {
 export type UserPersonDetails = {
   __typename?: 'UserPersonDetails';
   averageRating?: Maybe<Scalars['Decimal']['output']>;
-  collections: Array<Collection>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   hasInteracted: Scalars['Boolean']['output'];
   isRecentlyConsumed: Scalars['Boolean']['output'];
   reviews: Array<ReviewItem>;
@@ -2797,6 +2821,14 @@ export type UserPreferencesInput = {
   fitness: UserFitnessPreferencesInput;
   general: UserGeneralPreferencesInput;
 };
+
+export type UserResetResponse = {
+  __typename?: 'UserResetResponse';
+  id: Scalars['String']['output'];
+  password?: Maybe<Scalars['String']['output']>;
+};
+
+export type UserResetResult = RegisterError | UserResetResponse;
 
 export enum UserReviewScale {
   OutOfFive = 'OUT_OF_FIVE',
@@ -2903,7 +2935,7 @@ export type UserUpcomingCalendarEventInput = {
 
 export type UserWorkoutDetails = {
   __typename?: 'UserWorkoutDetails';
-  collections: Array<Collection>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   details: Workout;
   metadataConsumed: Array<Scalars['String']['output']>;
 };
@@ -2936,7 +2968,7 @@ export type UserWorkoutSetRecord = {
 
 export type UserWorkoutTemplateDetails = {
   __typename?: 'UserWorkoutTemplateDetails';
-  collections: Array<Collection>;
+  collections: Array<GraphqlCollectionToEntityDetails>;
   details: WorkoutTemplate;
 };
 

@@ -14,7 +14,6 @@ import {
 	Modal,
 	NumberInput,
 	Paper,
-	rem,
 	ScrollArea,
 	Select,
 	SimpleGrid,
@@ -23,6 +22,7 @@ import {
 	Tabs,
 	Text,
 	Title,
+	rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
@@ -47,9 +47,11 @@ import {
 	IconChartPie,
 	IconCheck,
 	IconExternalLink,
+	IconMessageCircle2,
+} from "@tabler/icons-react";
+import {
 	IconHistoryToggle,
 	IconInfoCircle,
-	IconMessageCircle2,
 	IconTrophy,
 	IconUser,
 } from "@tabler/icons-react";
@@ -63,20 +65,23 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
 import {
+	DisplayCollectionToEntity,
+	ReviewItemDisplay,
+} from "~/components/common";
+import {
+	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-	ExerciseHistory,
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
 import {
+	FitnessEntity,
+	TimeSpan,
 	clientGqlService,
 	convertEnumToSelectData,
 	dayjsLib,
-	FitnessEntity,
 	getDateFromTimeSpan,
-	TimeSpan,
 } from "~/lib/common";
 import {
 	useCoreDetails,
@@ -264,10 +269,9 @@ export default function Page() {
 					{loaderData.userExerciseDetails.collections.length > 0 ? (
 						<Group id="entity-collections">
 							{loaderData.userExerciseDetails.collections.map((col) => (
-								<DisplayCollection
+								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
-									creatorUserId={col.userId}
 									entityLot={EntityLot.Exercise}
 									entityId={loaderData.exerciseDetails.id}
 								/>
@@ -581,10 +585,6 @@ export default function Page() {
 											setAddEntityToCollectionsData({
 												entityId: loaderData.exerciseId,
 												entityLot: EntityLot.Exercise,
-												alreadyInCollections:
-													loaderData.userExerciseDetails.collections.map(
-														(c) => c.id,
-													),
 											});
 										}}
 									>

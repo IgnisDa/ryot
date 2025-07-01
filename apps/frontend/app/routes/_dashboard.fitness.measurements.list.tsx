@@ -36,13 +36,13 @@ import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
+	TimeSpan,
 	convertEnumToSelectData,
 	dayjsLib,
 	generateColor,
 	getDateFromTimeSpan,
 	getStringAsciiValue,
 	openConfirmationModal,
-	TimeSpan,
 } from "~/lib/common";
 import {
 	useAppSearchParam,

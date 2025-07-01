@@ -9,7 +9,7 @@ import {
 	type EntryContext,
 	ServerRouter,
 } from "react-router";
-import { db, serverVariables, TEMP_DIRECTORY } from "./lib/config.server";
+import { TEMP_DIRECTORY, db, serverVariables } from "./lib/config.server";
 
 migrate(db, { migrationsFolder: "app/drizzle/migrations" }).catch((error) => {
 	console.error("Database migrations failed", error);

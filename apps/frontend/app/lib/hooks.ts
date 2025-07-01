@@ -2,7 +2,10 @@ import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	type ChangeCollectionToEntitiesInput,
+	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
+	DeployRemoveEntitiesFromCollectionJobDocument,
 	type EntityLot,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
@@ -10,8 +13,8 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router";
 import {
-	useNavigate,
 	useRevalidator,
 	useRouteLoaderData,
 	useSearchParams,
@@ -21,9 +24,9 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
 import {
+	type FitnessAction,
 	clientGqlService,
 	dayjsLib,
-	type FitnessAction,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
@@ -292,6 +295,41 @@ export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 			setTimeout(() => {
 				revalidator.revalidate();
 			}, 1500);
+		},
+	});
+
+	return mutation;
+};
+
+export const useAddEntitiesToCollection = () => {
+	const revalidator = useRevalidator();
+
+	const mutation = useMutation({
+		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
+			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
+				input,
+			});
+		},
+		onSuccess: () => {
+			revalidator.revalidate();
+		},
+	});
+
+	return mutation;
+};
+
+export const useRemoveEntitiesFromCollection = () => {
+	const revalidator = useRevalidator();
+
+	const mutation = useMutation({
+		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
+			await clientGqlService.request(
+				DeployRemoveEntitiesFromCollectionJobDocument,
+				{ input },
+			);
+		},
+		onSuccess: () => {
+			revalidator.revalidate();
 		},
 	});
 

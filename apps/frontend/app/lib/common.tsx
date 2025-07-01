@@ -60,6 +60,8 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
+export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
+
 type TimestampToStringResult<T> = T extends Date | string ? string : null;
 
 export const convertTimestampToUtcString = <
@@ -535,18 +537,16 @@ export const getTimeOfDay = (hours: number) => {
 
 export const refreshEntityDetails = (entityId: string) =>
 	setTimeout(async () => {
-		await Promise.all([
-			queryClient.invalidateQueries({
-				queryKey: queryFactory.media.userMetadataDetails(entityId).queryKey,
-			}),
-			queryClient.invalidateQueries({
-				queryKey:
-					queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
-			}),
-			queryClient.invalidateQueries({
-				queryKey: queryFactory.media.userPersonDetails(entityId).queryKey,
-			}),
-		]);
+		await Promise.all(
+			[
+				queryFactory.media.userMetadataDetails(entityId).queryKey,
+				queryFactory.media.metadataDetails(entityId).queryKey,
+				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
+				queryFactory.media.metadataGroupDetails(entityId).queryKey,
+				queryFactory.media.userPersonDetails(entityId).queryKey,
+				queryFactory.media.personDetails(entityId).queryKey,
+			].map((q) => queryClient.invalidateQueries({ queryKey: q })),
+		);
 	}, 1500);
 
 export const convertUtcHourToLocalHour = (
@@ -636,7 +636,9 @@ export const clientSideFileUpload = async (file: File, prefix: string) => {
 	return presignedPutS3Url.key;
 };
 
-export const convertEnumToSelectData = (value: { [id: number]: string }) =>
+export const convertEnumToSelectData = (value: {
+	[id: number]: string;
+}) =>
 	Object.values(value).map((v) => ({
 		value: v,
 		label: startCase(v.toString().toLowerCase()),

@@ -12,13 +12,13 @@ import {
 	Indicator,
 	MantineThemeProvider,
 	Pagination,
-	rem,
 	Select,
 	SimpleGrid,
 	Skeleton,
 	Stack,
 	Text,
 	Title,
+	rem,
 } from "@mantine/core";
 import {
 	type UseListStateHandlers,
@@ -288,6 +288,9 @@ export default function Page() {
 						<DisplayListDetailsAndRefresh
 							cacheId={loaderData.userExercisesList.cacheId}
 							total={loaderData.userExercisesList.response.details.total}
+							isRandomSortOrderSelected={
+								loaderData.query.sortBy === ExerciseSortBy.Random
+							}
 							rightSection={
 								allowAddingExerciseToWorkout ? (
 									<>
