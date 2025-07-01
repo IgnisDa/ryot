@@ -1050,13 +1050,13 @@ export const DisplayCollectionToEntity = (props: {
 		<>
 			<Badge key={props.col.details.collection.id} color={color}>
 				<Flex gap={2}>
-					<Anchor
+					<Text
 						truncate
 						onClick={open}
 						style={{ all: "unset", cursor: "pointer" }}
 					>
 						{props.col.details.collection.name}
-					</Anchor>
+					</Text>
 					<ActionIcon
 						size={16}
 						onClick={handleRemove}
