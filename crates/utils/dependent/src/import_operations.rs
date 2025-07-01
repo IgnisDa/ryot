@@ -1,7 +1,7 @@
 use std::{collections::HashMap, future::Future, sync::Arc};
 
 use async_graphql::Result;
-use common_models::ChangeCollectionToEntityInput;
+use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -52,13 +52,15 @@ async fn create_collection_and_add_entity_to_it(
         });
         return;
     }
-    if let Err(e) = collection_operations::add_entity_to_collection(
+    if let Err(e) = collection_operations::add_entities_to_collection(
         user_id,
-        ChangeCollectionToEntityInput {
+        ChangeCollectionToEntitiesInput {
             collection_name: collection_name.clone(),
-            entity_id: entity_id.clone(),
-            entity_lot,
-            information,
+            entities: vec![EntityToCollectionInput {
+                entity_id: entity_id.clone(),
+                entity_lot,
+                information,
+            }],
             ..Default::default()
         },
         ss,

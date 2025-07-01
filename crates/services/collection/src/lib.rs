@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use async_graphql::Result;
-use common_models::{ChangeCollectionToEntityInput, StringIdObject};
+use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
 use dependent_utils::{
-    add_entity_to_collection, create_or_update_collection, remove_entity_from_collection,
+    add_entities_to_collection, create_or_update_collection, remove_entities_from_collection,
     user_collections_list,
 };
 use media_models::CreateOrUpdateCollectionInput;
@@ -57,20 +57,20 @@ impl CollectionService {
         management_operations::delete_collection(&user_id, name, &self.0).await
     }
 
-    pub async fn add_entity_to_collection(
+    pub async fn add_entities_to_collection(
         &self,
         user_id: &String,
-        input: ChangeCollectionToEntityInput,
+        input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
-        add_entity_to_collection(user_id, input, &self.0).await
+        add_entities_to_collection(user_id, input, &self.0).await
     }
 
-    pub async fn remove_entity_from_collection(
+    pub async fn remove_entities_from_collection(
         &self,
         user_id: &String,
-        input: ChangeCollectionToEntityInput,
+        input: ChangeCollectionToEntitiesInput,
     ) -> Result<StringIdObject> {
-        remove_entity_from_collection(user_id, input, &self.0).await
+        remove_entities_from_collection(user_id, input, &self.0).await
     }
 
     pub async fn handle_entity_added_to_collection_event(

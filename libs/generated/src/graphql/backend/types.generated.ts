@@ -141,12 +141,10 @@ export type CachedUserMetadataRecommendationsResponse = {
   response: Array<Scalars['String']['output']>;
 };
 
-export type ChangeCollectionToEntityInput = {
+export type ChangeCollectionToEntitiesInput = {
   collectionName: Scalars['String']['input'];
   creatorUserId: Scalars['String']['input'];
-  entityId: Scalars['String']['input'];
-  entityLot: EntityLot;
-  information?: InputMaybe<Scalars['JSON']['input']>;
+  entities: Array<EntityToCollectionInput>;
 };
 
 export type Collection = {
@@ -560,6 +558,12 @@ export enum EntityRemoteVideoSource {
   Dailymotion = 'DAILYMOTION',
   Youtube = 'YOUTUBE'
 }
+
+export type EntityToCollectionInput = {
+  entityId: Scalars['String']['input'];
+  entityLot: EntityLot;
+  information?: InputMaybe<Scalars['JSON']['input']>;
+};
 
 export type EntityWithLot = {
   __typename?: 'EntityWithLot';
@@ -1333,8 +1337,8 @@ export type MusicSpecificsInput = {
 
 export type MutationRoot = {
   __typename?: 'MutationRoot';
-  /** Add a entity to a collection if it is not there, otherwise do nothing. */
-  addEntityToCollection: Scalars['Boolean']['output'];
+  /** Add entities to a collection if they are not there, otherwise do nothing. */
+  addEntitiesToCollection: Scalars['Boolean']['output'];
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1424,8 +1428,8 @@ export type MutationRoot = {
    * they are the first user.
    */
   registerUser: RegisterResult;
-  /** Remove an entity from a collection if it is not there, otherwise do nothing. */
-  removeEntityFromCollection: StringIdObject;
+  /** Remove entities from a collection if they are there, otherwise do nothing. */
+  removeEntitiesFromCollection: StringIdObject;
   /**
    * Reset a user by deleting and recreating them with the same ID. The account
    * resetting the user must be an `Admin`.
@@ -1454,8 +1458,8 @@ export type MutationRoot = {
 };
 
 
-export type MutationRootAddEntityToCollectionArgs = {
-  input: ChangeCollectionToEntityInput;
+export type MutationRootAddEntitiesToCollectionArgs = {
+  input: ChangeCollectionToEntitiesInput;
 };
 
 
@@ -1632,8 +1636,8 @@ export type MutationRootRegisterUserArgs = {
 };
 
 
-export type MutationRootRemoveEntityFromCollectionArgs = {
-  input: ChangeCollectionToEntityInput;
+export type MutationRootRemoveEntitiesFromCollectionArgs = {
+  input: ChangeCollectionToEntitiesInput;
 };
 
 

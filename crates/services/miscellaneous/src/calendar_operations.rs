@@ -3,7 +3,7 @@ use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbe
 use async_graphql::{Error, Result};
 use chrono::{Days, NaiveDate, Utc};
 use common_models::EntityAssets;
-use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
+use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log};
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
@@ -15,7 +15,7 @@ use database_models::{
 };
 use database_utils::user_by_id;
 use dependent_utils::{
-    get_users_monitoring_entity, remove_entity_from_collection, send_notification_for_user,
+    get_users_monitoring_entity, remove_entities_from_collection, send_notification_for_user,
 };
 use enum_models::{EntityLot, MediaLot, UserNotificationContent, UserToMediaReason};
 use futures::{TryFutureExt, TryStreamExt, try_join};
@@ -467,14 +467,16 @@ pub async fn queue_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> 
                         ),
                     )
                     .await?;
-                    remove_entity_from_collection(
+                    remove_entities_from_collection(
                         &user.user_id,
-                        ChangeCollectionToEntityInput {
+                        ChangeCollectionToEntitiesInput {
                             creator_user_id: col.user_id.clone(),
                             collection_name: DefaultCollection::Reminders.to_string(),
-                            entity_id: cte.entity_id.clone(),
-                            entity_lot: cte.entity_lot,
-                            ..Default::default()
+                            entities: vec![EntityToCollectionInput {
+                                entity_id: cte.entity_id.clone(),
+                                entity_lot: cte.entity_lot,
+                                information: None,
+                            }],
                         },
                         ss,
                     )

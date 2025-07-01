@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use collection_service::CollectionService;
-use common_models::{ChangeCollectionToEntityInput, StringIdObject};
+use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
@@ -72,26 +72,28 @@ impl CollectionMutation {
         service.create_or_update_collection(&user_id, input).await
     }
 
-    /// Add a entity to a collection if it is not there, otherwise do nothing.
-    async fn add_entity_to_collection(
+    /// Add entities to a collection if they are not there, otherwise do nothing.
+    async fn add_entities_to_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: ChangeCollectionToEntityInput,
+        input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.add_entity_to_collection(&user_id, input).await
+        service.add_entities_to_collection(&user_id, input).await
     }
 
-    /// Remove an entity from a collection if it is not there, otherwise do nothing.
-    async fn remove_entity_from_collection(
+    /// Remove entities from a collection if they are there, otherwise do nothing.
+    async fn remove_entities_from_collection(
         &self,
         gql_ctx: &Context<'_>,
-        input: ChangeCollectionToEntityInput,
+        input: ChangeCollectionToEntitiesInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.remove_entity_from_collection(&user_id, input).await
+        service
+            .remove_entities_from_collection(&user_id, input)
+            .await
     }
 
     /// Delete a collection.
