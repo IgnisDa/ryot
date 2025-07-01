@@ -37,16 +37,14 @@ import {
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
+import { openConfirmationModal, reviewYellow } from "~/lib/common";
 import {
-	openConfirmationModal,
-	refreshEntityDetails,
-	reviewYellow,
-} from "~/lib/common";
-import {
+	useAddEntitiesToCollection,
 	useConfirmSubmit,
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	usePersonDetails,
+	useRemoveEntitiesFromCollection,
 	useUserDetails,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
@@ -472,45 +470,43 @@ export const ToggleMediaMonitorMenuItem = (props: {
 	inCollections: Array<string>;
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
-	const action = isMonitored
-		? "removeEntityFromCollection"
-		: "addEntityToCollection";
 	const userDetails = useUserDetails();
-	const submit = useConfirmSubmit();
+	const addEntitiesToCollection = useAddEntitiesToCollection();
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
 
-	const onSubmit = (form: HTMLFormElement) => {
-		submit(form);
-		refreshEntityDetails(props.formValue);
+	const handleToggleMonitoring = () => {
+		const entityData = {
+			entityId: props.formValue,
+			entityLot: props.entityLot,
+		};
+
+		if (isMonitored) {
+			openConfirmationModal("Are you sure you want to stop monitoring?", () => {
+				removeEntitiesFromCollection.mutate({
+					collectionName: "Monitoring",
+					creatorUserId: userDetails.id,
+					entities: [entityData],
+				});
+			});
+		} else {
+			addEntitiesToCollection.mutate({
+				collectionName: "Monitoring",
+				creatorUserId: userDetails.id,
+				entities: [entityData],
+			});
+		}
 	};
 
 	return (
-		<Form
-			replace
-			method="POST"
-			action={withQuery("/actions", { intent: action })}
+		<Menu.Item
+			onClick={handleToggleMonitoring}
+			disabled={
+				addEntitiesToCollection.isPending ||
+				removeEntitiesFromCollection.isPending
+			}
 		>
-			<input hidden name="collectionName" defaultValue="Monitoring" />
-			<input readOnly hidden name="entityId" value={props.formValue} />
-			<input readOnly hidden name="entityLot" value={props.entityLot} />
-			<input readOnly hidden name="creatorUserId" value={userDetails.id} />
-			<Menu.Item
-				type="submit"
-				onClick={async (e) => {
-					const form = e.currentTarget.form;
-					if (form) {
-						e.preventDefault();
-						if (isMonitored)
-							openConfirmationModal(
-								"Are you sure you want to stop monitoring?",
-								() => onSubmit(form),
-							);
-						else onSubmit(form);
-					}
-				}}
-			>
-				{isMonitored ? "Stop" : "Start"} monitoring
-			</Menu.Item>
-		</Form>
+			{isMonitored ? "Stop" : "Start"} monitoring
+		</Menu.Item>
 	);
 };
 

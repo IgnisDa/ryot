@@ -116,6 +116,7 @@ import {
 	reviewYellow,
 } from "~/lib/common";
 import {
+	useAddEntitiesToCollection,
 	useAppSearchParam,
 	useConfirmSubmit,
 	useCoreDetails,
@@ -123,6 +124,7 @@ import {
 	useGetMantineColors,
 	useGetRandomMantineColor,
 	useNonHiddenUserCollections,
+	useRemoveEntitiesFromCollection,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
@@ -1028,54 +1030,42 @@ export const DisplayCollectionToEntity = (props: {
 	col: CollectionToEntityDetailsPartFragment;
 }) => {
 	const color = useGetRandomMantineColor(props.col.details.collection.name);
-	const submit = useConfirmSubmit();
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+
+	const handleRemove = () => {
+		openConfirmationModal(
+			"Are you sure you want to remove this media from this collection?",
+			() => {
+				removeEntitiesFromCollection.mutate({
+					collectionName: props.col.details.collection.name,
+					creatorUserId: props.col.details.collection.userId,
+					entities: [{ entityId: props.entityId, entityLot: props.entityLot }],
+				});
+			},
+		);
+	};
 
 	return (
 		<Badge key={props.col.details.collection.id} color={color}>
-			<Form
-				method="POST"
-				action={withQuery("/actions", { intent: "removeEntityFromCollection" })}
-			>
-				<Flex gap={2}>
-					<Anchor
-						component={Link}
-						truncate
-						style={{ all: "unset", cursor: "pointer" }}
-						to={$path("/collections/:id", {
-							id: props.col.details.collection.id,
-						})}
-					>
-						{props.col.details.collection.name}
-					</Anchor>
-					<input readOnly hidden name="entityId" value={props.entityId} />
-					<input readOnly hidden name="entityLot" value={props.entityLot} />
-					<input
-						readOnly
-						hidden
-						name="collectionName"
-						value={props.col.details.collection.name}
-					/>
-					<input
-						readOnly
-						hidden
-						name="creatorUserId"
-						value={props.col.details.collection.userId}
-					/>
-					<ActionIcon
-						size={16}
-						onClick={(e) => {
-							const form = e.currentTarget.form;
-							e.preventDefault();
-							openConfirmationModal(
-								"Are you sure you want to remove this media from this collection?",
-								() => submit(form),
-							);
-						}}
-					>
-						<IconX />
-					</ActionIcon>
-				</Flex>
-			</Form>
+			<Flex gap={2}>
+				<Anchor
+					truncate
+					component={Link}
+					style={{ all: "unset", cursor: "pointer" }}
+					to={$path("/collections/:id", {
+						id: props.col.details.collection.id,
+					})}
+				>
+					{props.col.details.collection.name}
+				</Anchor>
+				<ActionIcon
+					size={16}
+					onClick={handleRemove}
+					loading={removeEntitiesFromCollection.isPending}
+				>
+					<IconX />
+				</ActionIcon>
+			</Flex>
 		</Badge>
 	);
 };
@@ -1478,104 +1468,80 @@ export const DisplayListDetailsAndRefresh = (props: {
 	);
 };
 
-export type ExpireCacheKeyButtonProps = {
-	action: {
-		cacheId: string;
-		confirmationText?: string;
-	};
-};
-
 export const BulkEditingAffix = (props: {
 	bulkAddEntities: BulkAddEntities;
 }) => {
-	const submit = useConfirmSubmit();
 	const bulkEditingCollection = useBulkEditCollection();
+	const addEntitiesToCollection = useAddEntitiesToCollection();
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
 
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 
 	if (!bulkEditingCollectionState) return null;
 
+	const handleBulkAction = async () => {
+		const { action, collection, entities } = bulkEditingCollectionState.data;
+
+		if (action === "remove") {
+			await removeEntitiesFromCollection.mutateAsync({
+				entities,
+				collectionName: collection.name,
+				creatorUserId: collection.creatorUserId,
+			});
+		} else {
+			await addEntitiesToCollection.mutateAsync({
+				entities,
+				collectionName: collection.name,
+				creatorUserId: collection.creatorUserId,
+			});
+		}
+
+		bulkEditingCollectionState.stop(true);
+	};
+
+	const isLoading =
+		addEntitiesToCollection.isPending || removeEntitiesFromCollection.isPending;
+
 	return (
 		<Affix position={{ bottom: rem(30) }} w="100%" px="sm">
-			<Form
-				method="POST"
-				action={$path("/actions", { intent: "bulkCollectionAction" })}
-				onSubmit={(e) => {
-					submit(e);
-					bulkEditingCollectionState.stop(true);
-				}}
-			>
-				<input
-					type="hidden"
-					name="action"
-					defaultValue={bulkEditingCollectionState.data.action}
-				/>
-				<input
-					type="hidden"
-					name="collectionName"
-					defaultValue={bulkEditingCollectionState.data.collection.name}
-				/>
-				<input
-					type="hidden"
-					name="creatorUserId"
-					defaultValue={
-						bulkEditingCollectionState.data.collection.creatorUserId
-					}
-				/>
-				{bulkEditingCollectionState.data.entities.map((item, index) => (
-					<Fragment key={JSON.stringify(item)}>
-						<input
-							readOnly
-							type="hidden"
-							value={item.entityId}
-							name={`items[${index}].entityId`}
-						/>
-						<input
-							readOnly
-							type="hidden"
-							value={item.entityLot}
-							name={`items[${index}].entityLot`}
-						/>
-					</Fragment>
-				))}
-				<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
-					<Group wrap="nowrap" justify="space-between">
-						<Text fz={{ base: "xs", md: "md" }}>
-							{bulkEditingCollectionState.data.entities.length} items selected
-						</Text>
-						<Group wrap="nowrap">
-							<ActionIcon
-								size="md"
-								onClick={() => bulkEditingCollectionState.stop()}
-							>
-								<IconCancel />
-							</ActionIcon>
-							<Button
-								size="xs"
-								color="blue"
-								loading={bulkEditingCollectionState.data.isLoading}
-								onClick={() =>
-									bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
-								}
-							>
-								Select all items
-							</Button>
-							<Button
-								size="xs"
-								type="submit"
-								disabled={bulkEditingCollectionState.data.entities.length === 0}
-								color={
-									bulkEditingCollectionState.data.action === "remove"
-										? "red"
-										: "green"
-								}
-							>
-								{changeCase(bulkEditingCollectionState.data.action)}
-							</Button>
-						</Group>
+			<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
+				<Group wrap="nowrap" justify="space-between">
+					<Text fz={{ base: "xs", md: "md" }}>
+						{bulkEditingCollectionState.data.entities.length} items selected
+					</Text>
+					<Group wrap="nowrap">
+						<ActionIcon
+							size="md"
+							onClick={() => bulkEditingCollectionState.stop()}
+						>
+							<IconCancel />
+						</ActionIcon>
+						<Button
+							size="xs"
+							color="blue"
+							loading={bulkEditingCollectionState.data.isLoading}
+							onClick={() =>
+								bulkEditingCollectionState.bulkAdd(props.bulkAddEntities)
+							}
+						>
+							Select all items
+						</Button>
+						<Button
+							size="xs"
+							loading={isLoading}
+							onClick={handleBulkAction}
+							disabled={bulkEditingCollectionState.data.entities.length === 0}
+							color={
+								bulkEditingCollectionState.data.action === "remove"
+									? "red"
+									: "green"
+							}
+						>
+							{changeCase(bulkEditingCollectionState.data.action)}
+						</Button>
 					</Group>
-				</Paper>
-			</Form>
+				</Group>
+			</Paper>
 		</Affix>
 	);
 };
