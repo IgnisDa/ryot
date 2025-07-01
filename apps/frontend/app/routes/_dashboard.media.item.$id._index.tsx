@@ -65,7 +65,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	DisplayThreePointReview,
 	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
@@ -400,7 +400,7 @@ export default function Page() {
 					{loaderData.userMetadataDetails.collections.length > 0 ? (
 						<Group>
 							{loaderData.userMetadataDetails.collections.map((col) => (
-								<DisplayCollection
+								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
 									entityLot={EntityLot.Metadata}

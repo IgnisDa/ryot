@@ -1022,7 +1022,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.run();
 
-export const DisplayCollection = (props: {
+export const DisplayCollectionToEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
 	col: CollectionToEntityDetailsPartFragment;

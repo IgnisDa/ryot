@@ -25,7 +25,7 @@ import {
 import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -116,7 +116,7 @@ export default function Page() {
 				{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
 					<Group>
 						{loaderData.userMetadataGroupDetails.collections.map((col) => (
-							<DisplayCollection
+							<DisplayCollectionToEntity
 								col={col}
 								key={col.id}
 								entityLot={EntityLot.MetadataGroup}

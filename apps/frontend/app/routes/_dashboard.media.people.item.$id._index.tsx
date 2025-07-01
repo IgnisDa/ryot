@@ -30,7 +30,7 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -152,7 +152,7 @@ export default function Page() {
 				{loaderData.userPersonDetails.collections.length > 0 ? (
 					<Group>
 						{loaderData.userPersonDetails.collections.map((col) => (
-							<DisplayCollection
+							<DisplayCollectionToEntity
 								col={col}
 								key={col.id}
 								entityLot={EntityLot.Person}
