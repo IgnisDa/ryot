@@ -244,7 +244,8 @@ export type CollectionRecommendationsInput = {
 
 export type CollectionToEntityDetails = {
   __typename?: 'CollectionToEntityDetails';
-  collection: Collection;
+  collectionId: Scalars['String']['output'];
+  collectionName: Scalars['String']['output'];
   createdOn: Scalars['DateTime']['output'];
   information?: Maybe<Scalars['JSON']['output']>;
   lastUpdatedOn: Scalars['DateTime']['output'];

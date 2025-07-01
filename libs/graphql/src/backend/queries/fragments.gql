@@ -133,21 +133,14 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 	}
 }
 
-fragment CollectionPart on Collection {
-	id
-	name
-	userId
-}
-
 fragment CollectionToEntityDetailsPart on GraphqlCollectionToEntityDetails {
 	id
 	details {
 		createdOn
 		lastUpdatedOn
 		information
-		collection {
-			...CollectionPart
-		}
+		collectionId
+		collectionName
 	}
 }
 

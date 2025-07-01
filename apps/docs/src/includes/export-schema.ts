@@ -2,33 +2,9 @@
 
 /* eslint-disable */
 
-export type CollectionExtraInformationLot = 'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array';
-
-export interface CollectionExtraInformation {
-	defaultValue: string | null;
-	description: string;
-	/**
-	 * @default 'string'
-	 * @type {'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array'}
-	 */
-	lot: CollectionExtraInformationLot;
-	name: string;
-	possibleValues: string[] | null;
-	required: boolean | null;
-}
-
-export interface Model {
-	createdOn: string;
-	description: string | null;
-	id: string;
-	informationTemplate: CollectionExtraInformation[] | null;
-	lastUpdatedOn: string;
-	name: string;
-	userId: string;
-}
-
 export interface CollectionToEntityDetails {
-	collection: Model;
+	collectionId: string;
+	collectionName: string;
 	createdOn: string;
 	information: unknown | null;
 	lastUpdatedOn: string;
