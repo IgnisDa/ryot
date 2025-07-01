@@ -80,7 +80,9 @@ impl CollectionMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_add_entities_to_collection_job(&user_id, input).await
+        service
+            .deploy_add_entities_to_collection_job(&user_id, input)
+            .await
     }
 
     /// Deploy a background job to remove entities from a collection.
@@ -91,7 +93,9 @@ impl CollectionMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_remove_entities_from_collection_job(&user_id, input).await
+        service
+            .deploy_remove_entities_from_collection_job(&user_id, input)
+            .await
     }
 
     /// Delete a collection.
