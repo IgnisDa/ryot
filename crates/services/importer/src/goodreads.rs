@@ -5,7 +5,6 @@ use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use database_models::collection;
 use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
@@ -182,10 +181,7 @@ async fn process_book_record(
     let collections = collections
         .into_iter()
         .map(|name| CollectionToEntityDetails {
-            collection: collection::Model {
-                name,
-                ..Default::default()
-            },
+            collection_name: name,
             ..Default::default()
         })
         .collect();

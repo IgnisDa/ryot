@@ -2,7 +2,6 @@ use async_graphql::Result;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
-use database_models::collection;
 use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
@@ -88,10 +87,7 @@ pub async fn import(
             identifier,
             source_id: record.id,
             collections: vec![CollectionToEntityDetails {
-                collection: collection::Model {
-                    name: DefaultCollection::Watchlist.to_string(),
-                    ..Default::default()
-                },
+                collection_name: DefaultCollection::Watchlist.to_string(),
                 ..Default::default()
             }],
             ..Default::default()

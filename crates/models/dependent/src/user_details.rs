@@ -2,8 +2,8 @@ use async_graphql::{SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use database_models::{
-    collection, exercise, metadata_group::MetadataGroupWithoutId, person, seen, user,
-    user_to_entity, workout, workout_template,
+    exercise, metadata_group::MetadataGroupWithoutId, person, seen, user, user_to_entity, workout,
+    workout_template,
 };
 use enum_models::{MediaSource, UserToMediaReason};
 use fitness_models::UserToExerciseHistoryExtraInformation;
@@ -19,9 +19,10 @@ use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
+    pub collection_id: String,
+    pub collection_name: String,
     pub created_on: DateTimeUtc,
     pub last_updated_on: DateTimeUtc,
-    pub collection: collection::Model,
     pub information: Option<serde_json::Value>,
 }
 

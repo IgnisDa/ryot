@@ -91,7 +91,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             let mut has_reminder = false;
 
             for collection in collections {
-                let collection_id = &collection.details.collection.id;
+                let collection_id = &collection.details.collection_id;
                 is_in_collection = true;
                 if collection_id == monitoring_collection_id {
                     is_monitoring = true;

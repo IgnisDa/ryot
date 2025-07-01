@@ -2,7 +2,6 @@ use std::{collections::HashMap, result::Result as StdResult, sync::Arc};
 
 use async_graphql::Result;
 use common_utils::ryot_log;
-use database_models::collection;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -179,10 +178,7 @@ async fn process_item(
         let collections = collections
             .into_iter()
             .map(|name| CollectionToEntityDetails {
-                collection: collection::Model {
-                    name,
-                    ..Default::default()
-                },
+                collection_name: name,
                 ..Default::default()
             })
             .collect();

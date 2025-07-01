@@ -3,7 +3,6 @@ use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};
 use csv::Reader;
-use database_models::collection;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
@@ -138,10 +137,7 @@ pub async fn import(
         let collections = collections
             .into_iter()
             .map(|name| CollectionToEntityDetails {
-                collection: collection::Model {
-                    name,
-                    ..Default::default()
-                },
+                collection_name: name,
                 ..Default::default()
             })
             .collect();

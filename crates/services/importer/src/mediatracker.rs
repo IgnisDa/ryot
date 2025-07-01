@@ -3,7 +3,6 @@ use std::result::Result as StdResult;
 use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{USER_AGENT_STR, ryot_log};
-use database_models::collection;
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use futures::stream::{self, StreamExt};
@@ -318,10 +317,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 source,
                 identifier,
                 collections: vec![CollectionToEntityDetails {
-                    collection: collection::Model {
-                        name: list.name.clone(),
-                        ..Default::default()
-                    },
+                    collection_name: list.name.clone(),
                     ..Default::default()
                 }],
                 ..Default::default()

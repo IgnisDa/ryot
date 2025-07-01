@@ -3,7 +3,6 @@ use std::{collections::HashMap, fs, sync::Arc};
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
-use database_models::collection;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -119,10 +118,7 @@ pub async fn import(
                 MediaLot::Anime => {
                     if let Some(list) = anime_custom_lists.get(in_list) {
                         to_push_item.collections.push(CollectionToEntityDetails {
-                            collection: collection::Model {
-                                name: list.clone(),
-                                ..Default::default()
-                            },
+                            collection_name: list.clone(),
                             ..Default::default()
                         });
                     }
@@ -130,10 +126,7 @@ pub async fn import(
                 MediaLot::Manga => {
                     if let Some(list) = manga_custom_lists.get(in_list) {
                         to_push_item.collections.push(CollectionToEntityDetails {
-                            collection: collection::Model {
-                                name: list.clone(),
-                                ..Default::default()
-                            },
+                            collection_name: list.clone(),
                             ..Default::default()
                         });
                     }
@@ -189,10 +182,7 @@ pub async fn import(
             lot,
             source: MediaSource::Anilist,
             collections: vec![CollectionToEntityDetails {
-                collection: collection::Model {
-                    name: "Favorite".to_string(),
-                    ..Default::default()
-                },
+                collection_name: "Favorite".to_string(),
                 ..Default::default()
             }],
             identifier: favorite.favourite_id.to_string(),

@@ -8,7 +8,7 @@ use application_utils::get_base_http_client;
 use async_graphql::futures_util::{StreamExt, stream};
 use common_models::DefaultCollection;
 use common_utils::{ryot_log, sleep_for_n_seconds};
-use database_models::{collection, metadata, prelude::Metadata};
+use database_models::{metadata, prelude::Metadata};
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -504,10 +504,7 @@ pub async fn sync_to_owned_collection(
                         lot: MediaLot::Manga,
                         source,
                         collections: vec![CollectionToEntityDetails {
-                            collection: collection::Model {
-                                name: DefaultCollection::Owned.to_string(),
-                                ..Default::default()
-                            },
+                            collection_name: DefaultCollection::Owned.to_string(),
                             ..Default::default()
                         }],
                         ..Default::default()

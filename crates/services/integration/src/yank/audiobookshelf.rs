@@ -4,7 +4,6 @@ use anyhow::{Result, anyhow};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
-use database_models::collection;
 use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
@@ -226,10 +225,7 @@ pub async fn sync_to_owned_collection(
                     source,
                     identifier,
                     collections: vec![CollectionToEntityDetails {
-                        collection: collection::Model {
-                            name: DefaultCollection::Owned.to_string(),
-                            ..Default::default()
-                        },
+                        collection_name: DefaultCollection::Owned.to_string(),
                         ..Default::default()
                     }],
                     ..Default::default()

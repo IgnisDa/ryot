@@ -82,7 +82,16 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
     let details = entity_in_collections_with_details(db, user_id, entity_id, entity_lot).await?;
     Ok(details
         .into_iter()
-        .map(|d| (d.details.collection, d.id))
+        .map(|d| {
+            (
+                collection::Model {
+                    id: d.details.collection_id.clone(),
+                    name: d.details.collection_name.clone(),
+                    ..Default::default()
+                },
+                d.id,
+            )
+        })
         .collect_vec())
 }
 
@@ -114,7 +123,8 @@ pub async fn entity_in_collections_with_details(
         .map(|(cte, col)| GraphqlCollectionToEntityDetails {
             id: cte.id,
             details: CollectionToEntityDetails {
-                collection: col.unwrap(),
+                collection_id: col.as_ref().unwrap().id.clone(),
+                collection_name: col.as_ref().unwrap().name.clone(),
                 created_on: cte.created_on,
                 information: cte.information,
                 last_updated_on: cte.last_updated_on,

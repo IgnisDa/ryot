@@ -5,7 +5,6 @@ use chrono::{NaiveDate, NaiveDateTime};
 use common_models::DefaultCollection;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use csv::Reader;
-use database_models::collection;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
@@ -195,10 +194,7 @@ fn process_hardcover_record(
     let collections = collections
         .into_iter()
         .map(|name| CollectionToEntityDetails {
-            collection: collection::Model {
-                name,
-                ..Default::default()
-            },
+            collection_name: name,
             ..Default::default()
         })
         .collect();
