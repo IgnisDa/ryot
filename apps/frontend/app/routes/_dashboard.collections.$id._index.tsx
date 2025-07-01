@@ -50,7 +50,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationGrid,
-	BulkEditingAffix,
+	BulkCollectionEditingAffix,
 	DebouncedSearchInput,
 	DisplayCollectionEntity,
 	FiltersModal,
@@ -163,7 +163,7 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix
+			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					const input = cloneDeep(loaderData.queryInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };

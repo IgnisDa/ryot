@@ -456,7 +456,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 	);
 };
 
-export const BulkEditingAffix = (props: {
+export const BulkCollectionEditingAffix = (props: {
 	bulkAddEntities: BulkAddEntities;
 }) => {
 	const bulkEditingCollection = useBulkEditCollection();
