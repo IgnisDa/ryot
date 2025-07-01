@@ -1100,15 +1100,15 @@ export const DisplayCollectionToEntity = (props: {
 							First Added On:
 						</Text>
 						<Text size="sm">
-							{dayjsLib(props.col.details.createdOn).format("LL")}
+							{dayjsLib(props.col.details.createdOn).format("LLL")}
 						</Text>
 					</Group>
 					<Group>
 						<Text size="sm" c="dimmed">
-							Last Added On:
+							Updated On:
 						</Text>
 						<Text size="sm">
-							{dayjsLib(props.col.details.lastUpdatedOn).format("LL")}
+							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
 					{props.col.details.information && (
