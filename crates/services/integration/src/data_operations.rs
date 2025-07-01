@@ -8,7 +8,6 @@ use database_models::{
     user,
 };
 use database_utils::user_by_id;
-
 use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
 use enum_models::{IntegrationLot, IntegrationProvider};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};

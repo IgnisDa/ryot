@@ -8,7 +8,6 @@ use dependent_utils::process_import;
 use enum_models::IntegrationProvider;
 use rust_decimal_macros::dec;
 use sea_orm::EntityTrait;
-
 use traits::TraceOk;
 
 use crate::integration_operations::set_trigger_result;
