@@ -12,6 +12,7 @@ import {
 	AddEntityToCollectionDocument,
 	CollectionExtraInformationLot,
 	EntityLot,
+	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -102,8 +103,7 @@ export const AddEntityToCollectionsForm = ({
 	});
 
 	const [selectedCollections, selectedCollectionsHandlers] = useListState<
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		Collection & { userExtraInformationData: any }
+		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
 	>([]);
 
 	const selectData = useMemo(
