@@ -96,15 +96,15 @@ const blackBgStyles = {
 	padding: 2,
 } satisfies MantineStyleProp;
 
-export const BaseMediaDisplayItem = (props: {
+export const BaseEntityDisplayItem = (props: {
 	name?: string;
 	altName?: string;
 	progress?: string;
 	isLoading: boolean;
 	imageClassName?: string;
-	imageUrl?: string | null;
 	highlightName?: boolean;
 	highlightImage?: boolean;
+	imageUrl?: string | null;
 	innerRef?: Ref<HTMLDivElement>;
 	labels?: { right?: ReactNode; left?: ReactNode };
 	onImageClickBehavior: [string, (() => Promise<void>)?];

@@ -45,7 +45,7 @@ import type { ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { BaseMediaDisplayItem } from "~/components/common";
+import { BaseEntityDisplayItem } from "~/components/common";
 import {
 	FitnessEntity,
 	dayjsLib,
@@ -438,7 +438,7 @@ export const ExerciseDisplayItem = (props: {
 	const images = getExerciseImages(exerciseDetails);
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			imageUrl={images.at(0)}
 			name={exerciseDetails?.name}
@@ -466,7 +466,7 @@ export const WorkoutDisplayItem = (props: {
 	);
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
@@ -495,7 +495,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 	} = useQuery(getWorkoutTemplateDetailsQuery(props.workoutTemplateId));
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}

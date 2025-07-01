@@ -33,7 +33,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
-	BaseMediaDisplayItem,
+	BaseEntityDisplayItem,
 	DisplayThreePointReview,
 } from "~/components/common";
 import {
@@ -264,7 +264,7 @@ export const MetadataDisplayItem = (props: {
 	];
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			imageUrl={images.at(0)}
 			altName={props.altName}
@@ -377,7 +377,7 @@ export const MetadataGroupDisplayItem = (props: {
 	const averageRating = userMetadataGroupDetails?.averageRating;
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			isLoading={isMetadataDetailsLoading}
 			name={metadataDetails?.details.title}
@@ -434,7 +434,7 @@ export const PersonDisplayItem = (props: {
 	const averageRating = userPersonDetails?.averageRating;
 
 	return (
-		<BaseMediaDisplayItem
+		<BaseEntityDisplayItem
 			innerRef={ref}
 			name={personDetails?.details.name}
 			isLoading={isPersonDetailsLoading}
