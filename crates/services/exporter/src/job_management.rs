@@ -16,6 +16,7 @@ use supporting_service::SupportingService;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
+use crate::collection_exports::CollectionExports;
 use crate::export_utilities::ExportItem;
 use crate::fitness_exports::FitnessExports;
 use crate::media_exports::MediaExports;
@@ -88,6 +89,7 @@ impl JobManager {
 
         let media_exports = MediaExports::new(self.service.clone());
         let fitness_exports = FitnessExports::new(self.service.clone());
+        let collection_exports = CollectionExports::new(self.service.clone());
 
         for export in ExportItem::iter() {
             ryot_log!(debug, "Exporting {export}");
@@ -119,6 +121,11 @@ impl JobManager {
                 ExportItem::WorkoutTemplates => {
                     fitness_exports
                         .export_workout_templates(&user_id, &mut writer)
+                        .await?
+                }
+                ExportItem::Collections => {
+                    collection_exports
+                        .export_collections(&user_id, &mut writer)
                         .await?
                 }
             };

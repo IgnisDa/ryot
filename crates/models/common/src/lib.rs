@@ -402,6 +402,7 @@ pub struct YoutubeMusicSongListened {
     Clone,
     Default,
     Serialize,
+    Schematic,
     PartialEq,
     InputObject,
     Deserialize,

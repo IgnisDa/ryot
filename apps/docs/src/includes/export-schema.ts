@@ -2,17 +2,52 @@
 
 /* eslint-disable */
 
+export interface IdAndNamedObject {
+	id: string;
+	name: string;
+}
+
+export interface UserToCollectionExtraInformation {
+	isHidden: boolean | null;
+}
+
+export interface CollectionItemCollaboratorInformation {
+	collaborator: IdAndNamedObject;
+	extraInformation: UserToCollectionExtraInformation | null;
+}
+
+export type CollectionExtraInformationLot = 'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array';
+
+export interface CollectionExtraInformation {
+	defaultValue: string | null;
+	description: string;
+	/**
+	 * @default 'string'
+	 * @type {'date' | 'number' | 'string' | 'boolean' | 'date-time' | 'string-array'}
+	 */
+	lot: CollectionExtraInformationLot;
+	name: string;
+	possibleValues: string[] | null;
+	required: boolean | null;
+}
+
+export interface CollectionItem {
+	collaborators: CollectionItemCollaboratorInformation[];
+	count: number;
+	creator: IdAndNamedObject;
+	description: string | null;
+	id: string;
+	informationTemplate: CollectionExtraInformation[] | null;
+	isDefault: boolean;
+	name: string;
+}
+
 export interface CollectionToEntityDetails {
 	collectionId: string;
 	collectionName: string;
 	createdOn: string;
 	information: unknown | null;
 	lastUpdatedOn: string;
-}
-
-export interface IdAndNamedObject {
-	id: string;
-	name: string;
 }
 
 /** Comments left in replies to posted reviews. */
@@ -439,6 +474,8 @@ export interface ImportOrExportWorkoutItem {
 
 /** Complete export of the user. */
 export interface CompleteExport {
+	/** Data about user's collections. */
+	collections: CollectionItem[] | null;
 	/** Data about user's exercises. */
 	exercises: ImportOrExportExerciseItem[] | null;
 	/** Data about user's measurements. */

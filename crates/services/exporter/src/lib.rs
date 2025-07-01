@@ -4,6 +4,7 @@ use async_graphql::Result;
 use common_models::ExportJob;
 use supporting_service::SupportingService;
 
+mod collection_exports;
 mod export_utilities;
 mod fitness_exports;
 mod job_management;

@@ -5,7 +5,8 @@ use enum_models::{MediaLot, MediaSource};
 use fitness_models::UserWorkoutInput;
 use importer_models::ImportFailedItem;
 use media_models::{
-    CreateOrUpdateCollectionInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
+    CollectionItem, CreateOrUpdateCollectionInput, ImportOrExportItemRating,
+    ImportOrExportMetadataItemSeen,
 };
 use schematic::Schematic;
 use serde::{Deserialize, Serialize};
@@ -110,6 +111,8 @@ pub struct ImportOrExportExerciseItem {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
+    /// Data about user's collections.
+    pub collections: Option<Vec<CollectionItem>>,
     /// Data about user's people.
     pub people: Option<Vec<ImportOrExportPersonItem>>,
     /// Data about user's workouts.
