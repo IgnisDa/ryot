@@ -1031,6 +1031,7 @@ export const DisplayCollectionToEntity = (props: {
 }) => {
 	const color = useGetRandomMantineColor(props.col.details.collection.name);
 	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+	const [opened, { open, close }] = useDisclosure(false);
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -1046,27 +1047,79 @@ export const DisplayCollectionToEntity = (props: {
 	};
 
 	return (
-		<Badge key={props.col.details.collection.id} color={color}>
-			<Flex gap={2}>
-				<Anchor
-					truncate
-					component={Link}
-					style={{ all: "unset", cursor: "pointer" }}
-					to={$path("/collections/:id", {
-						id: props.col.details.collection.id,
-					})}
-				>
-					{props.col.details.collection.name}
-				</Anchor>
-				<ActionIcon
-					size={16}
-					onClick={handleRemove}
-					loading={removeEntitiesFromCollection.isPending}
-				>
-					<IconX />
-				</ActionIcon>
-			</Flex>
-		</Badge>
+		<>
+			<Badge key={props.col.details.collection.id} color={color}>
+				<Flex gap={2}>
+					<Anchor
+						truncate
+						onClick={open}
+						style={{ all: "unset", cursor: "pointer" }}
+					>
+						{props.col.details.collection.name}
+					</Anchor>
+					<ActionIcon
+						size={16}
+						onClick={handleRemove}
+						loading={removeEntitiesFromCollection.isPending}
+					>
+						<IconX />
+					</ActionIcon>
+				</Flex>
+			</Badge>
+			<Modal
+				opened={opened}
+				onClose={close}
+				title={
+					<Anchor
+						component={Link}
+						to={$path("/collections/:id", {
+							id: props.col.details.collection.id,
+						})}
+					>
+						{props.col.details.collection.name}
+					</Anchor>
+				}
+			>
+				<Stack>
+					<Group>
+						<Text size="sm" c="dimmed">
+							First Added On:
+						</Text>
+						<Text size="sm">
+							{dayjsLib(props.col.details.createdOn).format("LL")}
+						</Text>
+					</Group>
+					<Group>
+						<Text size="sm" c="dimmed">
+							Last Added On:
+						</Text>
+						<Text size="sm">
+							{dayjsLib(props.col.details.lastUpdatedOn).format("LL")}
+						</Text>
+					</Group>
+					{props.col.details.information && (
+						<>
+							<Divider />
+							<Text size="sm" fw={500}>
+								Additional Information:
+							</Text>
+							<Stack gap="xs">
+								{Object.entries(props.col.details.information).map(
+									([key, value]) => (
+										<Group key={key}>
+											<Text size="sm" c="dimmed">
+												{key}:
+											</Text>
+											<Text size="sm">{String(value)}</Text>
+										</Group>
+									),
+								)}
+							</Stack>
+						</>
+					)}
+				</Stack>
+			</Modal>
+		</>
 	);
 };
 
