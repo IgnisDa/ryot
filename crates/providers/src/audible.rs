@@ -197,15 +197,11 @@ impl MediaProvider for AudibleService {
         let items = data[selected_page.start..selected_page.end + 1].to_vec();
         let has_next_page = pages.page_count() > internal_page;
         Ok(SearchResults {
-            details: SearchDetails {
-                next_page: if has_next_page {
-                    Some((internal_page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
-                total: total_items.try_into().unwrap(),
-            },
             items,
+            details: SearchDetails {
+                total: total_items.try_into().unwrap(),
+                next_page: has_next_page.then(|| (internal_page + 1).try_into().unwrap()),
+            },
         })
     }
 

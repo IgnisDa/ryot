@@ -1326,35 +1326,33 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
     let maybe_settings = cc
         .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
         .await;
-    let tmdb_settings = if let Some((_id, setting)) = maybe_settings {
-        setting
-    } else {
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbImageConfiguration {
-            secure_base_url: String,
-        }
-        #[derive(Debug, Serialize, Deserialize, Clone)]
-        struct TmdbConfiguration {
-            images: TmdbImageConfiguration,
-        }
-        let rsp = client.get(format!("{}/configuration", URL)).send().await?;
-        let data_1: TmdbConfiguration = rsp.json().await?;
-        let rsp = client
-            .get(format!("{}/configuration/languages", URL))
-            .send()
-            .await?;
-        let data_2: Vec<TmdbLanguage> = rsp.json().await?;
-        let settings = TmdbSettings {
-            image_url: data_1.images.secure_base_url,
-            languages: data_2,
-        };
-        cc.set_key(
-            ApplicationCacheKey::TmdbSettings,
-            ApplicationCacheValue::TmdbSettings(settings.clone()),
-        )
-        .await
-        .ok();
-        settings
+    if let Some((_id, setting)) = maybe_settings {
+        return Ok(setting);
+    }
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    struct TmdbImageConfiguration {
+        secure_base_url: String,
+    }
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    struct TmdbConfiguration {
+        images: TmdbImageConfiguration,
+    }
+    let rsp = client.get(format!("{}/configuration", URL)).send().await?;
+    let data_1: TmdbConfiguration = rsp.json().await?;
+    let rsp = client
+        .get(format!("{}/configuration/languages", URL))
+        .send()
+        .await?;
+    let data_2: Vec<TmdbLanguage> = rsp.json().await?;
+    let settings = TmdbSettings {
+        image_url: data_1.images.secure_base_url,
+        languages: data_2,
     };
-    Ok(tmdb_settings)
+    cc.set_key(
+        ApplicationCacheKey::TmdbSettings,
+        ApplicationCacheValue::TmdbSettings(settings.clone()),
+    )
+    .await
+    .ok();
+    Ok(settings)
 }

@@ -1,3 +1,4 @@
+use common_models::ChangeCollectionToEntitiesInput;
 use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,8 @@ pub enum HpApplicationJob {
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
     BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
+    AddEntitiesToCollection(String, ChangeCollectionToEntitiesInput),
+    RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

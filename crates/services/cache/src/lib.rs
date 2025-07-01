@@ -40,10 +40,10 @@ impl CacheService {
             | ApplicationCacheKey::UserWorkoutsList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
+            | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::UserMetadataGroupsList { .. }
             | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::UserWorkoutTemplatesList { .. }
-            | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
             | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
 
@@ -56,8 +56,8 @@ impl CacheService {
 
             ApplicationCacheKey::TrendingMetadataIds
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
-            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. }
-            | ApplicationCacheKey::CollectionRecommendations { .. } => 24,
+            | ApplicationCacheKey::CollectionRecommendations { .. }
+            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
 
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
@@ -142,14 +142,12 @@ impl CacheService {
     ) -> Result<HashMap<ApplicationCacheKey, GetCacheKeyResponse>> {
         let caches = ApplicationCache::find()
             .filter(application_cache::Column::Key.is_in(keys))
+            .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
             .all(&self.db)
             .await?;
+
         let mut values = HashMap::new();
         for cache in caches {
-            let valid_by_expiry = cache.expires_at > Utc::now();
-            if !valid_by_expiry {
-                continue;
-            }
             if let Some(version) = cache.version {
                 if version != self.version {
                     continue;
@@ -181,9 +179,13 @@ impl CacheService {
 
     pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<()> {
         let expired = ApplicationCache::update_many()
+            .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
             .filter(match by.clone() {
                 ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
                 ExpireCacheKeyInput::ByKey(key) => application_cache::Column::Key.eq(key),
+                ExpireCacheKeyInput::ByUser(user_id) => {
+                    application_cache::Column::SanitizedKey.like(format!("%-{}", user_id))
+                }
                 ExpireCacheKeyInput::BySanitizedKey { key, user_id } => {
                     let sanitized_key = match (key, user_id) {
                         (key, None) => key.to_string(),

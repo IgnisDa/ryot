@@ -20,7 +20,7 @@ use database_models::{
     },
     seen, user, user_to_entity,
 };
-use database_utils::{get_user_query, revoke_access_link};
+use database_utils::{get_enabled_users_query, revoke_access_link};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput,
 };
@@ -171,6 +171,7 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     Ok(())
 }
 
+// FIXME: Remove this in the next major version
 async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingService>) -> Result<()> {
     #[derive(Debug, FromQueryResult)]
     struct CustomQueryResponse {
@@ -178,7 +179,6 @@ async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingServi
         entity_id: String,
         collection_id: String,
         entity_lot: EntityLot,
-        created_on: DateTimeUtc,
         last_updated_on: DateTimeUtc,
     }
     let all_cte = CollectionToEntity::find()
@@ -186,7 +186,6 @@ async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingServi
         .column(collection_to_entity::Column::Id)
         .column(collection_to_entity::Column::EntityId)
         .column(collection_to_entity::Column::EntityLot)
-        .column(collection_to_entity::Column::CreatedOn)
         .column(collection_to_entity::Column::CollectionId)
         .column(collection_to_entity::Column::LastUpdatedOn)
         .inner_join(Collection)
@@ -196,8 +195,8 @@ async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingServi
         .await?;
     let mut to_delete = vec![];
     for cte in all_cte {
-        let delta = cte.last_updated_on - cte.created_on;
-        if delta.num_days().abs() > ss.config.media.monitoring_remove_after_days {
+        let delta = Utc::now() - cte.last_updated_on;
+        if delta.num_days() > ss.config.media.monitoring_remove_after_days {
             to_delete.push(cte);
         }
     }
@@ -417,7 +416,7 @@ async fn queue_notifications_for_outdated_seen_entries(ss: &Arc<SupportingServic
 
 async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
     let mut all_keys = vec![];
-    let user_ids = get_user_query()
+    let user_ids = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()
@@ -446,7 +445,7 @@ async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
 }
 
 async fn regenerate_user_summaries(ss: &Arc<SupportingService>) -> Result<()> {
-    let all_users = get_user_query()
+    let all_users = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()

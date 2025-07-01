@@ -12,6 +12,7 @@ use dependent_models::{
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
+use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
@@ -40,9 +41,10 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         metadata_id: String,
+        ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.metadata_details(&metadata_id).await
+        service.metadata_details(&metadata_id, ensure_updated).await
     }
 
     /// Get details about a creator present in the database.
@@ -299,35 +301,16 @@ impl MiscellaneousMutation {
             .await
     }
 
-    /// Deploy a job to update a media item's metadata.
-    async fn deploy_update_metadata_job(
+    /// Deploy a job to update a media entity's metadata.
+    async fn deploy_update_media_entity_job(
         &self,
         gql_ctx: &Context<'_>,
-        metadata_id: String,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.deploy_update_metadata_job(&metadata_id).await
-    }
-
-    /// Deploy a job to update a person's metadata.
-    async fn deploy_update_person_job(
-        &self,
-        gql_ctx: &Context<'_>,
-        person_id: String,
-    ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        service.deploy_update_person_job(person_id).await
-    }
-
-    /// Deploy a job to update a metadata group's details.
-    async fn deploy_update_metadata_group_job(
-        &self,
-        gql_ctx: &Context<'_>,
-        metadata_group_id: String,
+        entity_id: String,
+        entity_lot: EntityLot,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service
-            .deploy_update_metadata_group_job(metadata_group_id)
+            .deploy_update_media_entity_job(entity_id, entity_lot)
             .await
     }
 

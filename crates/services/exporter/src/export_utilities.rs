@@ -8,6 +8,7 @@ pub enum ExportItem {
     Workouts,
     Metadata,
     Exercises,
+    Collections,
     Measurements,
     MetadataGroups,
     WorkoutTemplates,

@@ -8,7 +8,7 @@ use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput,
+    UpdateUserNotificationPlatformInput, UserResetResult,
 };
 use traits::AuthProvider;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -143,6 +143,18 @@ impl UserMutation {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.delete_user(user_id, to_delete_user_id).await
+    }
+
+    /// Reset a user by deleting and recreating them with the same ID. The account
+    /// resetting the user must be an `Admin`.
+    async fn reset_user(
+        &self,
+        gql_ctx: &Context<'_>,
+        to_reset_user_id: String,
+    ) -> Result<UserResetResult> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        service.reset_user(user_id, to_reset_user_id).await
     }
 
     /// Create a new user for the service. Also set their `lot` as admin if

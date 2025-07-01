@@ -4,7 +4,7 @@ use async_graphql::Result;
 use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
 use enum_models::ImportSource;
 use itertools::Itertools;
-use media_models::DeployJsonImportInput;
+use media_models::{CreateOrUpdateCollectionInput, DeployJsonImportInput};
 
 pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
     let export = fs::read_to_string(input.export)?;
@@ -39,6 +39,15 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
     }
     for media_group in complete_data.metadata_groups.unwrap_or_default() {
         completed.push(ImportCompletedItem::MetadataGroup(media_group));
+    }
+    for collection in complete_data.collections.unwrap_or_default() {
+        let collection_input = CreateOrUpdateCollectionInput {
+            name: collection.name,
+            description: collection.description,
+            information_template: collection.information_template,
+            ..Default::default()
+        };
+        completed.push(ImportCompletedItem::Collection(collection_input));
     }
     Ok(ImportResult {
         completed,

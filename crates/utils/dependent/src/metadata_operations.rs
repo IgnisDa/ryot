@@ -1,8 +1,11 @@
 use async_graphql::{Error, Result};
 use chrono::Utc;
 use common_models::EntityAssets;
+use common_models::PersonSourceSpecifics;
 use common_models::StringIdObject;
-use common_utils::{SHOW_SPECIAL_SEASON_NAMES, ryot_log};
+use common_utils::{
+    MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
+};
 use database_models::{
     genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
     metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, person,
@@ -11,14 +14,16 @@ use database_models::{
         MetadataToMetadataGroup, MetadataToPerson, Person,
     },
 };
+use database_utils::transform_entity_assets;
 use dependent_models::MetadataBaseData;
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, GenreListItem, MediaAssociatedPersonStateChanges,
-    MetadataCreator, MetadataCreatorGroupedByRole, PartialMetadata, PartialMetadataPerson,
-    PartialMetadataWithoutId, UniqueMediaIdentifier, UpdateMediaEntityResult,
+    MetadataCreator, MetadataCreatorGroupedByRole, PartialMetadataPerson, PartialMetadataWithoutId,
+    UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use nanoid::nanoid;
 use sea_orm::{
@@ -29,13 +34,47 @@ use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
 use std::{collections::HashMap, iter::zip, sync::Arc};
 use supporting_service::SupportingService;
 
+use crate::deploy_update_metadata_job;
 use crate::details_from_provider;
 use crate::get_non_metadata_provider;
+
+async fn ensure_metadata_updated(
+    metadata_id: &String,
+    ss: &Arc<SupportingService>,
+    ensure_updated: Option<bool>,
+) -> Result<bool> {
+    match ensure_updated {
+        Some(true) => {
+            let mut success = false;
+            for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
+                let is_partial = Metadata::find_by_id(metadata_id)
+                    .select_only()
+                    .column(metadata::Column::IsPartial)
+                    .into_tuple::<bool>()
+                    .one(&ss.db)
+                    .await?
+                    .unwrap_or(true);
+                if is_partial {
+                    deploy_update_metadata_job(metadata_id, ss).await?;
+                    let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
+                    ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
+                    sleep_for_n_seconds(sleep_time).await;
+                } else {
+                    success = true;
+                    break;
+                }
+            }
+            Ok(success)
+        }
+        _ => Ok(true),
+    }
+}
 
 pub async fn commit_metadata(
     data: PartialMetadataWithoutId,
     ss: &Arc<SupportingService>,
-) -> Result<PartialMetadata> {
+    ensure_updated: Option<bool>,
+) -> Result<(metadata::Model, bool)> {
     let mode = match Metadata::find()
         .filter(metadata::Column::Identifier.eq(&data.identifier))
         .filter(metadata::Column::Lot.eq(data.lot))
@@ -63,16 +102,14 @@ pub async fn commit_metadata(
             c.insert(&ss.db).await?
         }
     };
-    let model = PartialMetadata {
-        id: mode.id,
-        lot: mode.lot,
-        image: data.image,
-        title: mode.title,
-        source: mode.source,
-        identifier: mode.identifier,
-        publish_year: mode.publish_year,
+    let was_updated_successfully = ensure_metadata_updated(&mode.id, ss, ensure_updated).await?;
+
+    let final_metadata = match (was_updated_successfully, ensure_updated) {
+        (true, Some(true)) => Metadata::find_by_id(&mode.id).one(&ss.db).await?.unwrap(),
+        _ => mode,
     };
-    Ok(model)
+
+    Ok((final_metadata, was_updated_successfully))
 }
 
 pub async fn change_metadata_associations(
@@ -142,7 +179,7 @@ pub async fn change_metadata_associations(
     }
 
     for data in suggestions {
-        let db_partial_metadata = commit_metadata(data, ss).await?;
+        let (db_partial_metadata, _) = commit_metadata(data, ss, None).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
             to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
@@ -179,11 +216,6 @@ pub async fn update_metadata(
     }
     let mut result = UpdateMediaEntityResult::default();
     ryot_log!(debug, "Updating metadata for {:?}", metadata_id);
-    Metadata::update_many()
-        .filter(metadata::Column::Id.eq(metadata_id))
-        .col_expr(metadata::Column::IsPartial, Expr::value(false))
-        .exec(&ss.db)
-        .await?;
     let maybe_details =
         details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
     match maybe_details {
@@ -432,7 +464,7 @@ pub async fn update_metadata_group(
     eg.assets = ActiveValue::Set(group_details.assets);
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
-        let db_partial_metadata = commit_metadata(media, ss).await?;
+        let (db_partial_metadata, _) = commit_metadata(media, ss, None).await?;
         MetadataToMetadataGroup::delete_many()
             .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
@@ -483,7 +515,7 @@ pub async fn update_person(
     to_update_person.alternate_names = ActiveValue::Set(provider_person.alternate_names);
     for data in provider_person.related_metadata.clone() {
         let title = data.metadata.title.clone();
-        let pm = commit_metadata(data.metadata, ss).await?;
+        let (pm, _) = commit_metadata(data.metadata, ss, None).await?;
         let already_intermediate = MetadataToPerson::find()
             .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
             .filter(metadata_to_person::Column::PersonId.eq(&person_id))
@@ -629,9 +661,12 @@ pub async fn commit_person(
     match Person::find()
         .filter(person::Column::Source.eq(data.source))
         .filter(person::Column::Identifier.eq(&data.identifier))
-        .filter(match data.source_specifics.clone() {
+        .filter(match &data.source_specifics {
             None => person::Column::SourceSpecifics.is_null(),
-            Some(specifics) => person::Column::SourceSpecifics.eq(specifics),
+            Some(specifics) if *specifics == PersonSourceSpecifics::default() => {
+                person::Column::SourceSpecifics.is_null()
+            }
+            Some(specifics) => person::Column::SourceSpecifics.eq(Some(specifics.clone())),
         })
         .one(&ss.db)
         .await?
@@ -643,13 +678,20 @@ pub async fn commit_person(
             if let Some(i) = data.image.clone() {
                 assets.remote_images = vec![i];
             }
+            let source_specifics = match &data.source_specifics {
+                None => ActiveValue::Set(None),
+                Some(specifics) if *specifics == PersonSourceSpecifics::default() => {
+                    ActiveValue::Set(None)
+                }
+                Some(specifics) => ActiveValue::Set(Some(specifics.clone())),
+            };
             let person = person::ActiveModel {
+                source_specifics,
                 assets: ActiveValue::Set(assets),
                 name: ActiveValue::Set(data.name),
                 source: ActiveValue::Set(data.source),
                 is_partial: ActiveValue::Set(Some(true)),
                 identifier: ActiveValue::Set(data.identifier),
-                source_specifics: ActiveValue::Set(data.source_specifics),
                 ..Default::default()
             };
             let person = person.insert(&ss.db).await?;
@@ -661,17 +703,13 @@ pub async fn commit_person(
 pub async fn generic_metadata(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
+    ensure_updated: Option<bool>,
 ) -> Result<MetadataBaseData> {
+    ensure_metadata_updated(metadata_id, ss, ensure_updated).await?;
     let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
         return Err(Error::new("The record does not exist".to_owned()));
     };
-    let genres = meta
-        .find_related(Genre)
-        .order_by_asc(genre::Column::Name)
-        .into_model::<GenreListItem>()
-        .all(&ss.db)
-        .await
-        .unwrap();
+
     #[derive(Debug, FromQueryResult)]
     struct PartialCreator {
         id: String,
@@ -680,24 +718,43 @@ pub async fn generic_metadata(
         assets: EntityAssets,
         character: Option<String>,
     }
-    let crts = MetadataToPerson::find()
-        .expr(Expr::col(Asterisk))
-        .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
-        .join(
-            JoinType::Join,
-            metadata_to_person::Relation::Person
-                .def()
-                .on_condition(|left, right| {
-                    Condition::all().add(
-                        Expr::col((left, metadata_to_person::Column::PersonId))
-                            .equals((right, person::Column::Id)),
-                    )
-                }),
-        )
-        .order_by_asc(metadata_to_person::Column::Index)
-        .into_model::<PartialCreator>()
-        .all(&ss.db)
-        .await?;
+    let (genres, crts, suggestions, _) = try_join!(
+        meta.find_related(Genre)
+            .order_by_asc(genre::Column::Name)
+            .into_model::<GenreListItem>()
+            .all(&ss.db)
+            .map_err(|_| Error::new("Failed to fetch genres".to_owned())),
+        MetadataToPerson::find()
+            .expr(Expr::col(Asterisk))
+            .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
+            .join(
+                JoinType::Join,
+                metadata_to_person::Relation::Person
+                    .def()
+                    .on_condition(|left, right| {
+                        Condition::all().add(
+                            Expr::col((left, metadata_to_person::Column::PersonId))
+                                .equals((right, person::Column::Id)),
+                        )
+                    }),
+            )
+            .order_by_asc(metadata_to_person::Column::Index)
+            .into_model::<PartialCreator>()
+            .all(&ss.db)
+            .map_err(|_| Error::new("Failed to fetch creators".to_owned())),
+        MetadataToMetadata::find()
+            .select_only()
+            .column(metadata_to_metadata::Column::ToMetadataId)
+            .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
+            .filter(
+                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion)
+            )
+            .into_tuple::<String>()
+            .all(&ss.db)
+            .map_err(|_| Error::new("Failed to fetch suggestions".to_owned())),
+        transform_entity_assets(&mut meta.assets, ss),
+    )?;
+
     let mut creators: HashMap<String, Vec<_>> = HashMap::new();
     for cr in crts {
         let creator = MetadataCreator {
@@ -747,14 +804,6 @@ pub async fn generic_metadata(
         .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
         .map(|(name, items)| MetadataCreatorGroupedByRole { name, items })
         .collect_vec();
-    let suggestions = MetadataToMetadata::find()
-        .select_only()
-        .column(metadata_to_metadata::Column::ToMetadataId)
-        .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
-        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
-        .into_tuple::<String>()
-        .all(&ss.db)
-        .await?;
     Ok(MetadataBaseData {
         genres,
         creators,

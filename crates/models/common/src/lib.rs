@@ -241,13 +241,18 @@ pub struct SearchDetails {
     pub next_page: Option<i32>,
 }
 
-#[derive(Debug, InputObject, Default)]
-pub struct ChangeCollectionToEntityInput {
+#[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
+pub struct EntityToCollectionInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
+    pub information: Option<serde_json::Value>,
+}
+
+#[derive(Debug, InputObject, Default, Clone, Serialize, Deserialize)]
+pub struct ChangeCollectionToEntitiesInput {
     pub creator_user_id: String,
     pub collection_name: String,
-    pub information: Option<serde_json::Value>,
+    pub entities: Vec<EntityToCollectionInput>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
@@ -397,6 +402,7 @@ pub struct YoutubeMusicSongListened {
     Clone,
     Default,
     Serialize,
+    Schematic,
     PartialEq,
     InputObject,
     Deserialize,

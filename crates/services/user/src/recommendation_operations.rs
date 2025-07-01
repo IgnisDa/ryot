@@ -98,7 +98,7 @@ ORDER BY RANDOM() LIMIT 10;
                 for media in media_items.into_iter() {
                     ryot_log!(debug, "Getting recommendations: {:?}", media);
                     update_metadata_and_notify_users(&media.id, ss).await?;
-                    let recommendations = generic_metadata(&media.id, ss).await?.suggestions;
+                    let recommendations = generic_metadata(&media.id, ss, None).await?.suggestions;
                     ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                     for rec in recommendations {
                         let relation = metadata_to_metadata::ActiveModel {

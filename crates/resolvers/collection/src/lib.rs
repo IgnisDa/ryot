@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use collection_service::CollectionService;
-use common_models::{ChangeCollectionToEntityInput, StringIdObject};
+use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
@@ -72,26 +72,30 @@ impl CollectionMutation {
         service.create_or_update_collection(&user_id, input).await
     }
 
-    /// Add a entity to a collection if it is not there, otherwise do nothing.
-    async fn add_entity_to_collection(
+    /// Deploy a background job to add entities to a collection.
+    async fn deploy_add_entities_to_collection_job(
         &self,
         gql_ctx: &Context<'_>,
-        input: ChangeCollectionToEntityInput,
+        input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.add_entity_to_collection(&user_id, input).await
+        service
+            .deploy_add_entities_to_collection_job(&user_id, input)
+            .await
     }
 
-    /// Remove an entity from a collection if it is not there, otherwise do nothing.
-    async fn remove_entity_from_collection(
+    /// Deploy a background job to remove entities from a collection.
+    async fn deploy_remove_entities_from_collection_job(
         &self,
         gql_ctx: &Context<'_>,
-        input: ChangeCollectionToEntityInput,
-    ) -> Result<StringIdObject> {
+        input: ChangeCollectionToEntitiesInput,
+    ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.remove_entity_from_collection(&user_id, input).await
+        service
+            .deploy_remove_entities_from_collection_job(&user_id, input)
+            .await
     }
 
     /// Delete a collection.

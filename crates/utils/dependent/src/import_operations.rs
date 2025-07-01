@@ -1,22 +1,20 @@
 use std::{collections::HashMap, future::Future, sync::Arc};
 
 use async_graphql::Result;
-use common_models::ChangeCollectionToEntityInput;
-use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log, sleep_for_n_seconds};
-use database_models::{metadata, prelude::Metadata};
+use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
+use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use importer_models::ImportFailedItem;
 use importer_models::{ImportDetails, ImportFailStep, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    ImportOrExportMetadataItem, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
-use sea_orm::{EntityTrait, QuerySelect};
 use std::collections::hash_map::Entry;
 use supporting_service::SupportingService;
 
@@ -24,8 +22,7 @@ use crate::{
     collection_operations, commit_import_seen_item, commit_metadata, commit_metadata_group,
     commit_person, convert_review_into_input, create_custom_exercise,
     create_or_update_user_workout, create_user_measurement, db_workout_to_workout_input,
-    deploy_update_metadata_group_job, deploy_update_metadata_job, deploy_update_person_job,
-    post_review,
+    deploy_update_metadata_group_job, deploy_update_person_job, post_review,
 };
 
 async fn create_collection_and_add_entity_to_it(
@@ -34,6 +31,7 @@ async fn create_collection_and_add_entity_to_it(
     entity_lot: EntityLot,
     collection_name: String,
     ss: &Arc<SupportingService>,
+    information: Option<serde_json::Value>,
     import_failed_set: &mut Vec<ImportFailedItem>,
 ) {
     if let Err(e) = collection_operations::create_or_update_collection(
@@ -54,12 +52,15 @@ async fn create_collection_and_add_entity_to_it(
         });
         return;
     }
-    if let Err(e) = collection_operations::add_entity_to_collection(
+    if let Err(e) = collection_operations::add_entities_to_collection(
         user_id,
-        ChangeCollectionToEntityInput {
+        ChangeCollectionToEntitiesInput {
             collection_name: collection_name.clone(),
-            entity_id: entity_id.clone(),
-            entity_lot,
+            entities: vec![EntityToCollectionInput {
+                entity_id: entity_id.clone(),
+                entity_lot,
+                information,
+            }],
             ..Default::default()
         },
         ss,
@@ -165,7 +166,7 @@ where
         match item {
             ImportCompletedItem::Empty => {}
             ImportCompletedItem::Metadata(metadata) => {
-                let db_metadata_id = match commit_metadata(
+                let (db_metadata_id, was_updated_successfully) = match commit_metadata(
                     PartialMetadataWithoutId {
                         lot: metadata.lot,
                         source: metadata.source,
@@ -174,10 +175,11 @@ where
                         ..Default::default()
                     },
                     ss,
+                    Some(true),
                 )
                 .await
                 {
-                    Ok(m) => m.id,
+                    Ok((metadata, success)) => (metadata.id, success),
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
                             error: Some(e.message),
@@ -188,25 +190,6 @@ where
                         continue;
                     }
                 };
-                let mut was_updated_successfully = false;
-                for attempt in 0..MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE {
-                    let is_partial = Metadata::find_by_id(&db_metadata_id)
-                        .select_only()
-                        .column(metadata::Column::IsPartial)
-                        .into_tuple::<bool>()
-                        .one(&ss.db)
-                        .await?
-                        .unwrap_or(true);
-                    if is_partial {
-                        deploy_update_metadata_job(&db_metadata_id, ss).await?;
-                        let sleep_time = u64::pow(2, (attempt + 1).try_into().unwrap());
-                        ryot_log!(debug, "Sleeping for {}s before metadata check", sleep_time);
-                        sleep_for_n_seconds(sleep_time).await;
-                    } else {
-                        was_updated_successfully = true;
-                        break;
-                    }
-                }
                 if !was_updated_successfully {
                     import.failed.push(ImportFailedItem {
                         lot: Some(metadata.lot),
@@ -249,8 +232,9 @@ where
                         user_id,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                        col,
+                        col.collection_name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -305,8 +289,9 @@ where
                         user_id,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                        col,
+                        col.collection_name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -359,8 +344,9 @@ where
                         user_id,
                         db_person_id.clone(),
                         EntityLot::Person,
-                        col,
+                        col.collection_name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -422,8 +408,9 @@ where
                                 user_id,
                                 workout_id.clone(),
                                 EntityLot::Workout,
-                                col,
+                                col.collection_name,
                                 ss,
+                                col.information,
                                 &mut import.failed,
                             )
                             .await;

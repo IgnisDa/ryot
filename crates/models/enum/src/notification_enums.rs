@@ -67,6 +67,7 @@ pub enum UserNotificationContent {
     MetadataNumberOfSeasonsChanged,
     MetadataChaptersOrEpisodesChanged,
     NotificationFromReminderCollection,
+    // FIXME: Remove this in the next major version. Also need a migration to remove the old enum value.
     EntityRemovedFromMonitoringCollection,
     IntegrationDisabledDueToTooManyErrors,
 }

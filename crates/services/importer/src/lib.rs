@@ -9,6 +9,7 @@ use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
 };
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_utils::{
     deploy_background_job, generate_exercise_id, get_google_books_service, get_hardcover_service,
     get_openlibrary_service, get_tmdb_non_media_service, process_import,
@@ -16,7 +17,7 @@ use dependent_utils::{
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
-use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
+use media_models::DeployImportJobInput;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
@@ -29,6 +30,7 @@ mod anilist;
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
+mod hardcover;
 mod hevy;
 mod igdb;
 mod imdb;
@@ -100,7 +102,13 @@ impl ImporterService {
                 )
                 .await
             }
-            ImportSource::Trakt => trakt::import(input.trakt.unwrap()).await,
+            ImportSource::Trakt => {
+                trakt::import(
+                    input.trakt.unwrap(),
+                    self.0.config.server.importer.trakt_client_id.as_str(),
+                )
+                .await
+            }
             ImportSource::Movary => movary::import(input.movary.unwrap()).await,
             ImportSource::Storygraph => {
                 storygraph::import(
@@ -133,6 +141,7 @@ impl ImporterService {
             ImportSource::OpenScale => {
                 open_scale::import(input.generic_csv.unwrap(), &self.0.timezone).await
             }
+            ImportSource::Hardcover => hardcover::import(input.generic_csv.unwrap()).await,
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
         };

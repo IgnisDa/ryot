@@ -75,7 +75,7 @@ pub async fn associate_user_with_entity(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let user_to_entity_model =
-        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await;
+        get_user_to_entity_association(&ss.db, user_id, entity_id, entity_lot).await?;
 
     let entity_id_owned = entity_id.to_owned();
 
@@ -153,6 +153,20 @@ pub async fn expire_user_collections_list_cache(
     });
     ss.cache_service
         .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
+        .await?;
+    Ok(())
+}
+
+pub async fn expire_user_collection_contents_cache(
+    user_id: &String,
+    _collection_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
+        })
         .await?;
     Ok(())
 }

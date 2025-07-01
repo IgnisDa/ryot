@@ -4,7 +4,7 @@ use async_graphql::Result;
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{access_link, prelude::AccessLink, user};
-use database_utils::{get_user_query, server_key_validation_guard};
+use database_utils::{get_enabled_users_query, server_key_validation_guard};
 use jwt_service::sign;
 use media_models::{
     CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
@@ -40,7 +40,7 @@ pub async fn process_access_link(
     let maybe_link = match input {
         ProcessAccessLinkInput::Id(id) => AccessLink::find_by_id(id).one(&ss.db).await?,
         ProcessAccessLinkInput::Username(username) => {
-            let user = get_user_query()
+            let user = get_enabled_users_query()
                 .filter(user::Column::Name.eq(username))
                 .one(&ss.db)
                 .await?;

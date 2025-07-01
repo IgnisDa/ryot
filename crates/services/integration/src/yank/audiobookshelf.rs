@@ -4,14 +4,12 @@ use anyhow::{Result, anyhow};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
+use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-use external_utils::audiobookshelf::get_updated_podcast_metadata;
-use media_models::{
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
-};
+use media_models::{ImportOrExportMetadataItemSeen, PartialMetadataWithoutId};
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
 };
@@ -70,7 +68,7 @@ pub async fn yank_progress(
             {
                 let lot = MediaLot::Podcast;
                 let source = MediaSource::Itunes;
-                commit_metadata(
+                let (podcast, _) = commit_metadata(
                     PartialMetadataWithoutId {
                         lot,
                         source,
@@ -78,10 +76,10 @@ pub async fn yank_progress(
                         ..Default::default()
                     },
                     ss,
+                    Some(true),
                 )
                 .await
                 .unwrap();
-                let podcast = get_updated_podcast_metadata(&itunes_id, ss).await?;
                 if let Some(episode) = podcast
                     .podcast_specifics
                     .and_then(|p| get_podcast_episode_number_by_name(&p, &pe.title))
@@ -226,7 +224,10 @@ pub async fn sync_to_owned_collection(
                     lot,
                     source,
                     identifier,
-                    collections: vec![DefaultCollection::Owned.to_string()],
+                    collections: vec![CollectionToEntityDetails {
+                        collection_name: DefaultCollection::Owned.to_string(),
+                        ..Default::default()
+                    }],
                     ..Default::default()
                 }));
         }

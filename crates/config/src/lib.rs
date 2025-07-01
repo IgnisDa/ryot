@@ -3,16 +3,23 @@ use std::path::PathBuf;
 use anyhow::Result;
 use async_graphql::SimpleObject;
 use common_utils::PROJECT_NAME;
-use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
+use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN, TRAKT_CLIENT_ID};
 use schematic::{Config, ConfigEnum, ConfigLoader, HandlerError, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
 
+// FIXME: Remove this in the next major version
 fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_string()))
 }
 
+// FIXME: Remove this in the next major version
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_MAL_CLIENT_ID.to_string()))
+}
+
+// FIXME: Remove this in the next major version
+fn default_trakt_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
+    Ok(Some(TRAKT_CLIENT_ID.to_string()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -143,6 +150,7 @@ pub struct DatabaseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 pub struct ExerciseConfig {}
 
+// FIXME: Remove this in the next major version
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
 pub struct MediaConfig {
@@ -346,6 +354,14 @@ pub struct OidcConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "SERVER_IMPORTER_")]
+pub struct ImporterConfig {
+    /// The client ID for the Trakt importer. **Required** to enable Trakt importer.
+    #[setting(default = default_trakt_client_id)]
+    pub trakt_client_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
     /// The host address to bind the backend server to.
@@ -363,6 +379,9 @@ pub struct ServerConfig {
     /// The OIDC related settings.
     #[setting(nested)]
     pub oidc: OidcConfig,
+    /// The importer related settings.
+    #[setting(nested)]
+    pub importer: ImporterConfig,
     /// The pro key assigned to the user.
     pub pro_key: String,
     /// An array of URLs for CORS.
@@ -491,6 +510,7 @@ impl AppConfig {
         cl.server.smtp.user = gt();
         cl.server.smtp.password = gt();
         cl.server.smtp.mailbox = gt();
+        cl.server.importer.trakt_client_id = gt();
         cl.server.oidc.client_id = gt();
         cl.server.oidc.client_secret = gt();
         cl.server.oidc.issuer_url = gt();

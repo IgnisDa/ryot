@@ -1,6 +1,6 @@
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
-use async_graphql::Result;
+use async_graphql::{Error, Result};
 use common_models::SearchDetails;
 use database_models::{
     metadata_group_to_person, metadata_to_genre, metadata_to_metadata_group, metadata_to_person,
@@ -14,6 +14,7 @@ use dependent_models::{
     GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, SearchResults,
 };
 use dependent_utils::generic_metadata;
+use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use media_models::{
     GenreDetailsInput, GenreListItem, GraphqlMetadataDetails, GraphqlMetadataGroup,
@@ -21,6 +22,7 @@ use media_models::{
 };
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect,
 };
 use supporting_service::SupportingService;
 
@@ -32,7 +34,7 @@ pub async fn person_details(
         .one(&ss.db)
         .await?
         .unwrap();
-    transform_entity_assets(&mut details.assets, ss).await;
+    transform_entity_assets(&mut details.assets, ss).await?;
     let metadata_associations = MetadataToPerson::find()
         .filter(metadata_to_person::Column::PersonId.eq(&person_id))
         .order_by_asc(metadata_to_person::Column::Index)
@@ -111,15 +113,11 @@ pub async fn genre_details(
             num_items: Some(number_of_items.try_into().unwrap()),
         },
         contents: SearchResults {
+            items: contents,
             details: SearchDetails {
                 total: number_of_items.try_into().unwrap(),
-                next_page: if page < number_of_pages {
-                    Some((page + 1).try_into().unwrap())
-                } else {
-                    None
-                },
+                next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
             },
-            items: contents,
         },
     })
 }
@@ -128,34 +126,48 @@ pub async fn metadata_group_details(
     ss: &Arc<SupportingService>,
     metadata_group_id: String,
 ) -> Result<MetadataGroupDetails> {
-    let mut model = MetadataGroup::find_by_id(metadata_group_id)
+    let mut model = MetadataGroup::find_by_id(&metadata_group_id)
         .one(&ss.db)
         .await?
         .unwrap();
-    transform_entity_assets(&mut model.assets, ss).await;
+    transform_entity_assets(&mut model.assets, ss).await?;
+    let contents = MetadataToMetadataGroup::find()
+        .select_only()
+        .column(metadata_to_metadata_group::Column::MetadataId)
+        .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(metadata_group_id))
+        .order_by_asc(metadata_to_metadata_group::Column::Part)
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
     Ok(MetadataGroupDetails {
+        contents,
         details: model,
-        contents: vec![],
     })
 }
 
 pub async fn metadata_details(
     ss: &Arc<SupportingService>,
     metadata_id: &String,
+    ensure_updated: Option<bool>,
 ) -> Result<GraphqlMetadataDetails> {
-    let MetadataBaseData {
-        mut model,
-        genres,
-        creators,
-        suggestions,
-    } = generic_metadata(metadata_id, ss).await?;
+    let (
+        MetadataBaseData {
+            model,
+            genres,
+            creators,
+            suggestions,
+        },
+        associations,
+    ) = try_join!(
+        generic_metadata(metadata_id, ss, ensure_updated),
+        MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .find_also_related(MetadataGroup)
+            .all(&ss.db)
+            .map_err(|_e| Error::new("Failed to fetch metadata associations"))
+    )?;
 
     let mut group = vec![];
-    let associations = MetadataToMetadataGroup::find()
-        .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
-        .find_also_related(MetadataGroup)
-        .all(&ss.db)
-        .await?;
     for association in associations {
         let grp = association.1.unwrap();
         group.push(GraphqlMetadataGroup {
@@ -166,8 +178,6 @@ pub async fn metadata_details(
     }
 
     let watch_providers = model.watch_providers.unwrap_or_default();
-
-    transform_entity_assets(&mut model.assets, ss).await;
 
     let resp = GraphqlMetadataDetails {
         group,

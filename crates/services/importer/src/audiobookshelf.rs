@@ -5,15 +5,14 @@ use application_utils::{get_base_http_client, get_podcast_episode_number_by_name
 use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
-use external_utils::audiobookshelf::get_updated_podcast_metadata;
 use futures::stream::{self, StreamExt};
 use media_models::{
-    DeployUrlAndKeyImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-    PartialMetadataWithoutId,
+    DeployUrlAndKeyImportInput, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
@@ -168,7 +167,7 @@ async fn process_item(
                         if let Some(true) =
                             episode_details.user_media_progress.map(|u| u.is_finished)
                         {
-                            commit_metadata(
+                            let (podcast, _) = commit_metadata(
                                 PartialMetadataWithoutId {
                                     lot,
                                     source,
@@ -176,6 +175,7 @@ async fn process_item(
                                     ..Default::default()
                                 },
                                 services.ss,
+                                Some(true),
                             )
                             .await
                             .map_err(|e| ImportFailedItem {
@@ -184,14 +184,6 @@ async fn process_item(
                                 step: ImportFailStep::ItemDetailsFromSource,
                                 ..Default::default()
                             })?;
-                            let podcast = get_updated_podcast_metadata(&itunes_id, services.ss)
-                                .await
-                                .map_err(|e| ImportFailedItem {
-                                    identifier: title.clone(),
-                                    error: Some(e.to_string()),
-                                    step: ImportFailStep::ItemDetailsFromSource,
-                                    ..Default::default()
-                                })?;
                             if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
                                 get_podcast_episode_number_by_name(&p, &episode.title)
                             }) {

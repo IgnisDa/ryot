@@ -6,14 +6,10 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 common-utils = { path = "../common" }
-database-models = { path = "../../models/database" }
-dependent-utils = { path = "../dependent" }
-enum-models = { path = "../../models/enum" }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }
 
 [package.metadata.cargo-machete]

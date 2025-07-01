@@ -1,17 +1,18 @@
 import {
-	AddEntityToCollectionDocument,
 	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
+	DeployAddEntitiesToCollectionJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	SetLot,
 	UserUnitSystem,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	DEFAULT_USER_COLLECTIONS_COUNT,
 	getCollectionContents,
 	getFirstExerciseId,
 	getGraphqlClient,
@@ -43,7 +44,7 @@ describe("Cache related tests", () => {
 		const client = getGraphqlClient(url);
 
 		const initial = await getUserCollectionsList(url, userApiKey);
-		expect(initial).toHaveLength(7);
+		expect(initial).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 
 		const createResult = await client.request(
 			CreateOrUpdateCollectionDocument,
@@ -68,7 +69,7 @@ describe("Cache related tests", () => {
 		expect(deleteResult.deleteCollection).toBe(true);
 
 		const afterDelete = await getUserCollectionsList(url, userApiKey);
-		expect(afterDelete).toHaveLength(7);
+		expect(afterDelete).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
 
 	it("should reflect changes in workouts count (0→create→1→delete→0)", async () => {
@@ -175,18 +176,22 @@ describe("Cache related tests", () => {
 
 		const firstMetadataId = searchResult[0];
 		const addToCollectionResult = await client.request(
-			AddEntityToCollectionDocument,
+			DeployAddEntitiesToCollectionJobDocument,
 			{
 				input: {
 					creatorUserId: userId,
-					entityId: firstMetadataId,
 					collectionName: "Watchlist",
-					entityLot: EntityLot.Metadata,
+					entities: [
+						{
+							entityId: firstMetadataId,
+							entityLot: EntityLot.Metadata,
+						},
+					],
 				},
 			},
 			getAuthHeaders(),
 		);
-		expect(addToCollectionResult.addEntityToCollection).toBe(true);
+		expect(addToCollectionResult.deployAddEntitiesToCollectionJob).toBe(true);
 		await waitFor(4000);
 
 		const afterAdd = await getUserMetadataList(url, userApiKey);

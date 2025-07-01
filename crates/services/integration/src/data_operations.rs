@@ -2,15 +2,18 @@ use std::collections::HashSet;
 
 use async_graphql::Result;
 use common_utils::ryot_log;
-use database_models::{integration, prelude::Integration};
+use database_models::{
+    integration,
+    prelude::{Integration, User},
+    user,
+};
 use database_utils::user_by_id;
-
 use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
 use enum_models::{IntegrationLot, IntegrationProvider};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use traits::TraceOk;
 
-use crate::integration_management::IntegrationManager;
+use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
 use crate::{IntegrationService, yank};
 
 impl IntegrationService {
@@ -19,13 +22,8 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(());
         }
-        let integrations = IntegrationManager::select_integrations_to_process(
-            &self.0,
-            user_id,
-            IntegrationLot::Yank,
-            None,
-        )
-        .await?;
+        let integrations =
+            select_integrations_to_process(&self.0, user_id, IntegrationLot::Yank, None).await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
             let specifics = integration.clone().provider_specifics.unwrap();
@@ -69,12 +67,7 @@ impl IntegrationService {
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
                 Err(e) => {
-                    IntegrationManager::set_trigger_result(
-                        &self.0,
-                        Some(e.to_string()),
-                        &integration,
-                    )
-                    .await?;
+                    set_trigger_result(&self.0, Some(e.to_string()), &integration).await?;
                 }
             };
         }
@@ -88,7 +81,13 @@ impl IntegrationService {
 
     pub async fn yank_integrations_data(&self) -> Result<()> {
         let users_with_integrations = Integration::find()
+            .inner_join(User)
             .filter(integration::Column::Lot.eq(IntegrationLot::Yank))
+            .filter(
+                user::Column::IsDisabled
+                    .eq(false)
+                    .or(user::Column::IsDisabled.is_null()),
+            )
             .select_only()
             .column(integration::Column::UserId)
             .into_tuple::<String>()
@@ -111,13 +110,8 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(false);
         }
-        let integrations = IntegrationManager::select_integrations_to_process(
-            &self.0,
-            user_id,
-            IntegrationLot::Yank,
-            None,
-        )
-        .await?;
+        let integrations =
+            select_integrations_to_process(&self.0, user_id, IntegrationLot::Yank, None).await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
             if !integration.sync_to_owned_collection.unwrap_or_default() {
@@ -156,12 +150,7 @@ impl IntegrationService {
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
                 Err(e) => {
-                    IntegrationManager::set_trigger_result(
-                        &self.0,
-                        Some(e.to_string()),
-                        &integration,
-                    )
-                    .await?;
+                    set_trigger_result(&self.0, Some(e.to_string()), &integration).await?;
                 }
             };
         }

@@ -11,10 +11,9 @@ use database_models::{
     prelude::{Collection, Review, UserToEntity},
     review, user, user_to_entity,
 };
-use database_utils::{entity_in_collections, get_user_query};
+use database_utils::{entity_in_collections_with_details, get_enabled_users_query};
 use dependent_utils::{expire_user_metadata_list_cache, is_metadata_finished_by_user};
 use enum_models::{EntityLot, UserToMediaReason};
-use itertools::Itertools;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
     QueryFilter, QuerySelect,
@@ -22,7 +21,7 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) -> Result<()> {
-    let all_users = get_user_query()
+    let all_users = get_enabled_users_query()
         .select_only()
         .column(user::Column::Id)
         .into_tuple::<String>()
@@ -81,12 +80,30 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 continue;
             };
 
-            let collections_part_of =
-                entity_in_collections(&ss.db, &user_id, &entity_id, entity_lot)
-                    .await?
-                    .into_iter()
-                    .map(|c| c.id)
-                    .collect_vec();
+            let collections =
+                entity_in_collections_with_details(&ss.db, &user_id, &entity_id, entity_lot)
+                    .await?;
+
+            let mut is_in_collection = false;
+            let mut is_monitoring = false;
+            let mut is_watchlist = false;
+            let mut is_owned = false;
+            let mut has_reminder = false;
+
+            for collection in collections {
+                let collection_id = &collection.details.collection_id;
+                is_in_collection = true;
+                if collection_id == monitoring_collection_id {
+                    is_monitoring = true;
+                } else if collection_id == watchlist_collection_id {
+                    is_watchlist = true;
+                } else if collection_id == owned_collection_id {
+                    is_owned = true;
+                } else if collection_id == reminder_collection_id {
+                    has_reminder = true;
+                }
+            }
+
             if Review::find()
                 .filter(review::Column::UserId.eq(&ute.user_id))
                 .filter(
@@ -101,11 +118,6 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             {
                 new_reasons.insert(UserToMediaReason::Reviewed);
             }
-            let is_in_collection = !collections_part_of.is_empty();
-            let is_monitoring = collections_part_of.contains(monitoring_collection_id);
-            let is_watchlist = collections_part_of.contains(watchlist_collection_id);
-            let is_owned = collections_part_of.contains(owned_collection_id);
-            let has_reminder = collections_part_of.contains(reminder_collection_id);
             if is_in_collection {
                 new_reasons.insert(UserToMediaReason::Collection);
             }

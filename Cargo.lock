@@ -840,6 +840,7 @@ dependencies = [
 name = "background-models"
 version = "0.1.0"
 dependencies = [
+ "common-models",
  "media-models",
  "sea-orm",
  "serde",
@@ -1254,6 +1255,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",
@@ -2196,14 +2198,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "common-utils",
- "database-models",
- "dependent-utils",
- "enum-models",
  "reqwest",
  "sea-orm",
  "serde",
  "serde_json",
- "supporting-service",
  "tracing",
 ]
 
@@ -2272,6 +2270,7 @@ dependencies = [
 name = "file-storage-service"
 version = "0.1.0"
 dependencies = [
+ "async-graphql",
  "aws-sdk-s3",
  "chrono",
  "nanoid",
@@ -3240,7 +3239,6 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
- "env-utils",
  "external-models",
  "external-utils",
  "fitness-models",
@@ -3697,6 +3695,7 @@ dependencies = [
  "async-graphql",
  "common-models",
  "dependent-models",
+ "enum-models",
  "media-models",
  "miscellaneous-service",
  "traits",

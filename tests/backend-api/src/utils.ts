@@ -10,8 +10,10 @@ import {
 	type MetadataProgressUpdateInput,
 	MetadataSearchDocument,
 	RegisterUserDocument,
+	UpdateUserDocument,
 	UserCollectionsListDocument,
 	UserExercisesListDocument,
+	UserLot,
 	UserMeasurementsListDocument,
 	UserMetadataListDocument,
 	UserWorkoutsListDocument,
@@ -19,6 +21,7 @@ import {
 import { GraphQLClient } from "graphql-request";
 
 export const TEST_ADMIN_ACCESS_TOKEN = "test-admin-access-token-for-e2e-tests";
+export const DEFAULT_USER_COLLECTIONS_COUNT = 7;
 
 export const getGraphqlClient = (baseUrl: string) => {
 	return new GraphQLClient(`${baseUrl}/backend/graphql`);
@@ -192,4 +195,24 @@ export async function progressUpdate(
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
 	return deployBulkMetadataProgressUpdate;
+}
+
+export async function registerAdminUser(baseUrl: string) {
+	const client = getGraphqlClient(baseUrl);
+
+	// First register a regular user
+	const [userApiKey, userId] = await registerTestUser(baseUrl);
+
+	// Then upgrade them to admin using the test admin token
+	await client.request(UpdateUserDocument, {
+		input: {
+			userId,
+			lot: UserLot.Admin,
+			adminAccessToken: TEST_ADMIN_ACCESS_TOKEN,
+		},
+	});
+
+	console.log(`[Test Utils] User '${userId}' upgraded to admin successfully`);
+
+	return [userApiKey, userId] as const;
 }

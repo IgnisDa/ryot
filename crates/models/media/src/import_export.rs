@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, OneofObject, SimpleObject};
+use common_models::IdAndNamedObject;
+use enum_models::{ImportSource, Visibility};
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-
-use common_models::{IdAndNamedObject, PersonSourceSpecifics};
-use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 
 /// A specific instance when an entity was seen.
 #[skip_serializing_none]
@@ -99,80 +98,6 @@ pub struct ImportOrExportItemRating {
     pub comments: Option<Vec<ImportOrExportItemReviewComment>>,
 }
 
-/// Details about a specific media item that needs to be imported or exported.
-#[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
-#[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMetadataItem {
-    /// The type of media.
-    pub lot: MediaLot,
-    /// An string to help identify it in the original source.
-    pub source_id: String,
-    /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-    pub identifier: String,
-    /// The source of media.
-    pub source: MediaSource,
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
-    /// The seen history for the user.
-    pub seen_history: Vec<ImportOrExportMetadataItemSeen>,
-}
-
-/// Details about a specific media group item that needs to be imported or exported.
-#[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
-#[serde(rename_all = "snake_case")]
-pub struct ImportOrExportMetadataGroupItem {
-    /// Name of the group.
-    pub title: String,
-    /// The type of media.
-    pub lot: MediaLot,
-    /// The provider identifier. For eg: TMDB-ID, Openlibrary ID and so on.
-    pub identifier: String,
-    /// The source of media.
-    pub source: MediaSource,
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
-}
-
-/// Details about a specific creator item that needs to be exported.
-#[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic, Default)]
-#[serde(rename_all = "snake_case")]
-pub struct ImportOrExportPersonItem {
-    /// The name of the creator.
-    pub name: String,
-    /// The provider identifier.
-    pub identifier: String,
-    /// The source of data.
-    pub source: MediaSource,
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
-    /// The source specific data.
-    pub source_specifics: Option<PersonSourceSpecifics>,
-}
-
-/// Details about a specific exercise item that needs to be exported.
-#[skip_serializing_none]
-#[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
-#[serde(rename_all = "snake_case")]
-pub struct ImportOrExportExerciseItem {
-    /// The unique identifier of the exercise.
-    pub id: String,
-    /// The name of the exercise.
-    pub name: String,
-    /// The collections this entity was added to.
-    pub collections: Vec<String>,
-    /// The review history for the user.
-    pub reviews: Vec<ImportOrExportItemRating>,
-}
-
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct DeployGenericCsvImportInput {
     // The file path of the uploaded CSV export file.
@@ -180,9 +105,19 @@ pub struct DeployGenericCsvImportInput {
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct DeployTraktImportInput {
-    // The public username in Trakt.
-    pub username: String,
+pub struct DeployTraktImportListInput {
+    // The public url of the list in Trakt.
+    pub url: String,
+    // The name of the collection to import into.
+    pub collection: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum DeployTraktImportInput {
+    // Import from a public Trakt user.
+    User(String),
+    // Import from a public Trakt list.
+    List(DeployTraktImportListInput),
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

@@ -10,7 +10,7 @@ use media_models::SeenShowExtraInformation;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use uuid::Uuid;
 
-use crate::integration_management::IntegrationManager;
+use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
 use crate::{IntegrationService, push};
 
 impl IntegrationService {
@@ -33,13 +33,9 @@ impl IntegrationService {
             .all(&self.0.db)
             .await?;
         for user_id in users {
-            let integrations = IntegrationManager::select_integrations_to_process(
-                &self.0,
-                &user_id,
-                IntegrationLot::Push,
-                None,
-            )
-            .await?;
+            let integrations =
+                select_integrations_to_process(&self.0, &user_id, IntegrationLot::Push, None)
+                    .await?;
             for integration in integrations {
                 let possible_collection_ids = match integration.provider_specifics.clone() {
                     Some(s) => match integration.provider {
@@ -97,7 +93,7 @@ impl IntegrationService {
                     }
                     _ => unreachable!(),
                 };
-                IntegrationManager::set_trigger_result(
+                set_trigger_result(
                     &self.0,
                     push_result.err().map(|e| e.to_string()),
                     &integration,
@@ -118,7 +114,7 @@ impl IntegrationService {
             .one(&self.0.db)
             .await?
             .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
-        let integrations = IntegrationManager::select_integrations_to_process(
+        let integrations = select_integrations_to_process(
             &self.0,
             &seen,
             IntegrationLot::Push,
@@ -142,7 +138,7 @@ impl IntegrationService {
                 }
                 _ => unreachable!(),
             };
-            IntegrationManager::set_trigger_result(
+            set_trigger_result(
                 &self.0,
                 push_result.err().map(|e| e.to_string()),
                 &integration,

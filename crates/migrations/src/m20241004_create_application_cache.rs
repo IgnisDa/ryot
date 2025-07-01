@@ -1,6 +1,9 @@
 use sea_orm_migration::prelude::*;
 
 pub static APPLICATION_CACHE_SANITIZED_KEY_INDEX: &str = "application_cache_sanitized_key_index";
+pub static APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX: &str =
+    "application_cache_sanitized_key_trigram_idx";
+pub static APPLICATION_CACHE_EXPIRES_AT_INDEX: &str = "application_cache_expires_at_index";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -71,6 +74,23 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(APPLICATION_CACHE_EXPIRES_AT_INDEX)
+                    .table(ApplicationCache::Table)
+                    .col(ApplicationCache::ExpiresAt)
+                    .to_owned(),
+            )
+            .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{}" ON application_cache USING gin (sanitized_key gin_trgm_ops);"#,
+            APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX
+        ))
+        .await?;
+
         Ok(())
     }
 

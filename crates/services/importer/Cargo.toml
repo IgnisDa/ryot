@@ -19,7 +19,6 @@ database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
-env-utils = { path = "../../utils/env" }
 external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
 fitness-models = { path = "../../models/fitness" }

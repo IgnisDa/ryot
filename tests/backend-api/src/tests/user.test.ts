@@ -1,4 +1,7 @@
+import { faker } from "@faker-js/faker";
 import {
+	CreateOrUpdateCollectionDocument,
+	ResetUserDocument,
 	UserDetailsDocument,
 	UserImportReportsDocument,
 	UserIntegrationsDocument,
@@ -6,11 +9,13 @@ import {
 	UserWorkoutTemplatesListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	DEFAULT_USER_COLLECTIONS_COUNT,
 	getGraphqlClient,
 	getUserCollectionsList,
 	getUserMeasurementsList,
 	getUserMetadataList,
 	getUserWorkoutsList,
+	registerAdminUser,
 	registerTestUser,
 } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -65,7 +70,7 @@ describe("User related tests", () => {
 
 	it("should have 7 system-created collections", async () => {
 		const collections = await getUserCollectionsList(url, userApiKey);
-		expect(collections).toHaveLength(7);
+		expect(collections).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
 
 	it("should have 0 imports", async () => {
@@ -129,5 +134,123 @@ describe("User related tests", () => {
 	it("should have 0 measurements", async () => {
 		const measurements = await getUserMeasurementsList(url, userApiKey);
 		expect(measurements).toHaveLength(0);
+	});
+});
+
+describe("Reset User functionality", () => {
+	const url = process.env.API_BASE_URL as string;
+
+	it("should successfully reset a password-based user", async () => {
+		const client = getGraphqlClient(url);
+
+		const [adminApiKey] = await registerAdminUser(url);
+		const [targetUserApiKey, targetUserId] = await registerTestUser(url);
+
+		const { userDetails: beforeReset } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${targetUserApiKey}` },
+		);
+		expect(beforeReset.__typename).toBe("User");
+		const { resetUser } = await client.request(
+			ResetUserDocument,
+			{ toResetUserId: targetUserId },
+			{ Authorization: `Bearer ${adminApiKey}` },
+		);
+		expect(resetUser.__typename).toBe("UserResetResponse");
+		if (resetUser.__typename === "UserResetResponse") {
+			expect(resetUser.password).toBeDefined();
+			expect(typeof resetUser.password).toBe("string");
+			expect(resetUser.password?.length).toBeGreaterThan(0);
+		}
+		const { userDetails: afterReset } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${targetUserApiKey}` },
+		);
+		expect(afterReset.__typename).toBe("User");
+		const collectionsAfterReset = await getUserCollectionsList(
+			url,
+			targetUserApiKey,
+		);
+		expect(collectionsAfterReset).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
+	});
+
+	it("should fail when non-admin user tries to reset another user", async () => {
+		const client = getGraphqlClient(url);
+		const [user1ApiKey] = await registerTestUser(url);
+		const [, user2Id] = await registerTestUser(url);
+		await expect(
+			client.request(
+				ResetUserDocument,
+				{ toResetUserId: user2Id },
+				{ Authorization: `Bearer ${user1ApiKey}` },
+			),
+		).rejects.toThrow();
+	});
+
+	it("should return error when trying to reset non-existent user", async () => {
+		const client = getGraphqlClient(url);
+		const [adminApiKey] = await registerAdminUser(url);
+		const nonExistentUserId = "usr_nonexistent123";
+
+		await expect(
+			client.request(
+				ResetUserDocument,
+				{ toResetUserId: nonExistentUserId },
+				{ Authorization: `Bearer ${adminApiKey}` },
+			),
+		).rejects.toThrow("User not found");
+	});
+
+	it("should reset user data and create fresh default collections", async () => {
+		const client = getGraphqlClient(url);
+		const [adminApiKey] = await registerAdminUser(url);
+		const [targetUserApiKey, targetUserId] = await registerTestUser(url);
+		const initialCollections = await getUserCollectionsList(
+			url,
+			targetUserApiKey,
+		);
+		expect(initialCollections).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
+
+		const additionalCollections = 2;
+		for (let i = 0; i < additionalCollections; i++) {
+			await client.request(
+				CreateOrUpdateCollectionDocument,
+				{
+					input: {
+						name: `Custom Collection ${i + 1}`,
+						description: faker.lorem.sentence(),
+					},
+				},
+				{ Authorization: `Bearer ${targetUserApiKey}` },
+			);
+		}
+
+		const collectionsWithCustom = await getUserCollectionsList(
+			url,
+			targetUserApiKey,
+		);
+		expect(collectionsWithCustom).toHaveLength(
+			DEFAULT_USER_COLLECTIONS_COUNT + additionalCollections,
+		);
+		const { resetUser } = await client.request(
+			ResetUserDocument,
+			{ toResetUserId: targetUserId },
+			{ Authorization: `Bearer ${adminApiKey}` },
+		);
+
+		expect(resetUser.__typename).toBe("UserResetResponse");
+		const { userDetails } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${targetUserApiKey}` },
+		);
+		expect(userDetails.__typename).toBe("User");
+		const collectionsAfterReset = await getUserCollectionsList(
+			url,
+			targetUserApiKey,
+		);
+		expect(collectionsAfterReset).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
 });

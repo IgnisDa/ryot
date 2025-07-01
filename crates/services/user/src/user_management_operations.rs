@@ -9,8 +9,8 @@ use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::UserLot;
 use media_models::{
-    AuthUserInput, CreateOrUpdateCollectionInput, RegisterError, RegisterErrorVariant,
-    RegisterResult, RegisterUserInput,
+    AuthUserInput, CreateOrUpdateCollectionInput, OidcUserInput, PasswordUserInput, RegisterError,
+    RegisterErrorVariant, RegisterResult, RegisterUserInput, UserResetResponse, UserResetResult,
 };
 use nanoid::nanoid;
 use sea_orm::Iterable;
@@ -77,6 +77,61 @@ pub async fn delete_user(
     Ok(true)
 }
 
+pub async fn reset_user(
+    ss: &Arc<SupportingService>,
+    admin_user_id: String,
+    to_reset_user_id: String,
+) -> Result<UserResetResult> {
+    admin_account_guard(&admin_user_id, ss).await?;
+    let maybe_user = User::find_by_id(&to_reset_user_id).one(&ss.db).await?;
+    let Some(user_to_reset) = maybe_user else {
+        return Err(Error::new("User not found"));
+    };
+
+    let original_id = user_to_reset.id.clone();
+    let original_name = user_to_reset.name.clone();
+    let original_oidc_issuer_id = user_to_reset.oidc_issuer_id.clone();
+
+    user_to_reset.delete(&ss.db).await?;
+
+    let new_password = match original_oidc_issuer_id {
+        Some(_) => None,
+        None => Some(nanoid!(12)),
+    };
+
+    let auth_input = match original_oidc_issuer_id {
+        Some(issuer_id) => AuthUserInput::Oidc(OidcUserInput {
+            issuer_id,
+            email: original_name,
+        }),
+        None => AuthUserInput::Password(PasswordUserInput {
+            username: original_name,
+            password: new_password.clone().unwrap_or_default(),
+        }),
+    };
+
+    let register_input = RegisterUserInput {
+        data: auth_input,
+        user_id: Some(original_id.clone()),
+        admin_access_token: Some(ss.config.server.admin_access_token.clone()),
+    };
+
+    let register_result = register_user(ss, register_input).await?;
+    ss.cache_service
+        .expire_key(dependent_models::ExpireCacheKeyInput::ByUser(original_id))
+        .await?;
+    match register_result {
+        RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
+        RegisterResult::Ok(result) => {
+            ryot_log!(debug, "User reset with id {:?}", result.id);
+            Ok(UserResetResult::Ok(UserResetResponse {
+                id: result.id,
+                password: new_password,
+            }))
+        }
+    }
+}
+
 pub async fn register_user(
     ss: &Arc<SupportingService>,
     input: RegisterUserInput,
@@ -114,8 +169,11 @@ pub async fn register_user(
         true => UserLot::Admin,
         false => UserLot::Normal,
     };
+    let user_id = input
+        .user_id
+        .unwrap_or_else(|| format!("usr_{}", nanoid!(12)));
     let user = user::ActiveModel {
-        id: ActiveValue::Set(format!("usr_{}", nanoid!(12))),
+        id: ActiveValue::Set(user_id),
         name: ActiveValue::Set(username),
         password: ActiveValue::Set(password),
         oidc_issuer_id: ActiveValue::Set(oidc_issuer_id),
