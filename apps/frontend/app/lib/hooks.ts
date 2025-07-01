@@ -2,13 +2,13 @@ import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	AddEntitiesToCollectionDocument,
 	type ChangeCollectionToEntitiesInput,
+	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
+	DeployRemoveEntitiesFromCollectionJobDocument,
 	type EntityLot,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
-	RemoveEntitiesFromCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
@@ -306,7 +306,7 @@ export const useAddEntitiesToCollection = () => {
 
 	const mutation = useMutation({
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
-			await clientGqlService.request(AddEntitiesToCollectionDocument, {
+			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
 				input: {
 					entities: input.entities,
 					creatorUserId: input.creatorUserId,
@@ -327,13 +327,16 @@ export const useRemoveEntitiesFromCollection = () => {
 
 	const mutation = useMutation({
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
-			await clientGqlService.request(RemoveEntitiesFromCollectionDocument, {
-				input: {
-					entities: input.entities,
-					creatorUserId: input.creatorUserId,
-					collectionName: input.collectionName,
+			await clientGqlService.request(
+				DeployRemoveEntitiesFromCollectionJobDocument,
+				{
+					input: {
+						entities: input.entities,
+						creatorUserId: input.creatorUserId,
+						collectionName: input.collectionName,
+					},
 				},
-			});
+			);
 		},
 		onSuccess: () => {
 			revalidator.revalidate();
