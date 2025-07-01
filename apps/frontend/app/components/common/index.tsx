@@ -1,4 +1,3 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Affix,
@@ -18,64 +17,45 @@ import {
 	Paper,
 	Pill,
 	PillsInput,
-	Select,
 	Skeleton,
 	Stack,
 	Text,
-	TextInput,
-	Title,
 	Tooltip,
 	rem,
 	useCombobox,
 } from "@mantine/core";
-import {
-	randomId,
-	useDebouncedValue,
-	useDidUpdate,
-	useDisclosure,
-	useListState,
-} from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
 	GridPacking,
-	type MediaCollectionFilter,
-	MediaCollectionPresenceFilter,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, getInitials, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
 	IconCancel,
 	IconCheck,
-	IconFilterOff,
-	IconPlus,
-	IconSearch,
 	IconX,
 } from "@tabler/icons-react";
 import clsx from "clsx";
-import { produce } from "immer";
-import Cookies from "js-cookie";
 import type { ReactNode, Ref } from "react";
 import { useState } from "react";
-import { Form, Link, useNavigate } from "react-router";
+import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
 	PRO_REQUIRED_MESSAGE,
-	convertEnumToSelectData,
 	dayjsLib,
 	openConfirmationModal,
 } from "~/lib/common";
 import {
 	useAddEntitiesToCollection,
-	useAppSearchParam,
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
 	useGetRandomMantineColor,
-	useNonHiddenUserCollections,
 	useRemoveEntitiesFromCollection,
 	useUserPreferences,
 } from "~/lib/hooks";
@@ -83,7 +63,6 @@ import {
 	type BulkAddEntities,
 	useBulkEditCollection,
 } from "~/lib/state/collection";
-import type { OnboardingTourStepTargets } from "~/lib/state/general";
 import classes from "~/styles/common.module.css";
 import {
 	ExerciseDisplayItem,
@@ -95,55 +74,6 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "../media";
-
-export const DebouncedSearchInput = (props: {
-	queryParam?: string;
-	placeholder?: string;
-	initialValue?: string;
-	enhancedQueryParams?: string;
-	onChange?: (query: string) => void;
-	tourControl?: {
-		target: OnboardingTourStepTargets;
-		onQueryChange: (query: string) => void;
-	};
-}) => {
-	const [query, setQuery] = useState(props.initialValue || "");
-	const [debounced] = useDebouncedValue(query, 1000);
-	const [_e, { setP }] = useAppSearchParam(
-		props.enhancedQueryParams || "query",
-	);
-
-	useDidUpdate(() => {
-		const query = debounced.trim().toLowerCase();
-		if (props.onChange) {
-			props.onChange(query);
-			return;
-		}
-		setP(props.queryParam || "query", query);
-		props.tourControl?.onQueryChange(query);
-	}, [debounced]);
-
-	return (
-		<TextInput
-			name="query"
-			value={query}
-			autoComplete="off"
-			autoCapitalize="none"
-			style={{ flexGrow: 1 }}
-			leftSection={<IconSearch />}
-			className={props.tourControl?.target}
-			placeholder={props.placeholder || "Search..."}
-			onChange={(e) => setQuery(e.currentTarget.value)}
-			rightSection={
-				query ? (
-					<ActionIcon onClick={() => setQuery("")}>
-						<IconX size={16} />
-					</ActionIcon>
-				) : null
-			}
-		/>
-	);
-};
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -322,145 +252,6 @@ export const BaseMediaDisplayItem = (props: {
 				</Flex>
 			)}
 		</Flex>
-	);
-};
-
-export const FiltersModal = (props: {
-	title?: string;
-	opened: boolean;
-	cookieName: string;
-	children: ReactNode;
-	closeFiltersModal: () => void;
-}) => {
-	const navigate = useNavigate();
-
-	return (
-		<Modal
-			centered
-			opened={props.opened}
-			withCloseButton={false}
-			onClose={props.closeFiltersModal}
-		>
-			<Stack>
-				<Group justify="space-between">
-					<Title order={3}>{props.title || "Filters"}</Title>
-					<ActionIcon
-						onClick={() => {
-							navigate(".");
-							props.closeFiltersModal();
-							Cookies.remove(props.cookieName);
-						}}
-					>
-						<IconFilterOff size={24} />
-					</ActionIcon>
-				</Group>
-				{props.children}
-			</Stack>
-		</Modal>
-	);
-};
-
-export const CollectionsFilter = (props: {
-	cookieName: string;
-	applied: MediaCollectionFilter[];
-}) => {
-	const coreDetails = useCoreDetails();
-	const collections = useNonHiddenUserCollections();
-	const [parent] = useAutoAnimate();
-	const [_p, { setP }] = useAppSearchParam(props.cookieName);
-	const [filters, filtersHandlers] = useListState<
-		MediaCollectionFilter & { id: string }
-	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
-
-	useDidUpdate(() => {
-		const applicableFilters = coreDetails.isServerKeyValidated
-			? filters
-			: filters.slice(0, 1);
-		const final = applicableFilters
-			.filter((f) => f.collectionId)
-			.map((a) => `${a.collectionId}:${a.presence}`)
-			.join(",");
-		setP("collections", final);
-	}, [filters]);
-
-	return (
-		<Stack gap="xs">
-			<Group wrap="nowrap" justify="space-between">
-				<Text size="sm" c="dimmed">
-					Collection filters
-				</Text>
-				<Button
-					size="compact-xs"
-					variant="transparent"
-					leftSection={<IconPlus size={14} />}
-					onClick={() => {
-						filtersHandlers.append({
-							id: randomId(),
-							collectionId: "",
-							presence: MediaCollectionPresenceFilter.PresentIn,
-						});
-					}}
-				>
-					Add
-				</Button>
-			</Group>
-			{filters.length > 0 ? (
-				<Stack gap="xs" px={{ md: "xs" }} ref={parent}>
-					{filters.map((f, idx) => (
-						<Group key={f.id} justify="space-between" wrap="nowrap">
-							{idx !== 0 ? (
-								<Text size="xs" c="dimmed">
-									OR
-								</Text>
-							) : null}
-							<Select
-								size="xs"
-								value={f.presence}
-								allowDeselect={false}
-								data={convertEnumToSelectData(MediaCollectionPresenceFilter)}
-								onChange={(v) =>
-									filtersHandlers.setItem(
-										idx,
-										produce(f, (d) => {
-											d.presence = v as MediaCollectionPresenceFilter;
-										}),
-									)
-								}
-							/>
-							<Select
-								size="xs"
-								searchable
-								allowDeselect={false}
-								value={f.collectionId}
-								placeholder="Select a collection"
-								data={collections.map((c) => ({
-									label: c.name,
-									value: c.id.toString(),
-								}))}
-								onChange={(v) =>
-									filtersHandlers.setItem(
-										idx,
-										produce(f, (d) => {
-											d.collectionId = v || "";
-										}),
-									)
-								}
-							/>
-							<ActionIcon
-								size="xs"
-								color="red"
-								onClick={() => filtersHandlers.remove(idx)}
-							>
-								<IconX />
-							</ActionIcon>
-						</Group>
-					))}
-					{filters.length > 1 && !coreDetails.isServerKeyValidated ? (
-						<ProRequiredAlert tooltipLabel="Only the first filter will be applied" />
-					) : null}
-				</Stack>
-			) : null}
-		</Stack>
 	);
 };
 
@@ -874,6 +665,7 @@ export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 	);
 };
 
+export * from "./filters";
 export * from "./layout";
 export * from "./review";
 export * from "./summary";
