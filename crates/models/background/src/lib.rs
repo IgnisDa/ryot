@@ -1,3 +1,4 @@
+use common_models::ChangeCollectionToEntitiesInput;
 use media_models::{DeployImportJobInput, MetadataProgressUpdateInput, ReviewPostedEvent};
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,8 @@ pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
     UpdateUserLastActivityPerformed(String, DateTimeUtc),
+    AddEntitiesToCollection(String, ChangeCollectionToEntitiesInput),
+    RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

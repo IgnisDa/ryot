@@ -22,8 +22,10 @@ mutation LoginUser($input: AuthUserInput!) {
 	}
 }
 
-mutation AddEntitiesToCollection($input: ChangeCollectionToEntitiesInput!) {
-	addEntitiesToCollection(input: $input)
+mutation DeployAddEntitiesToCollectionJob(
+	$input: ChangeCollectionToEntitiesInput!
+) {
+	deployAddEntitiesToCollectionJob(input: $input)
 }
 
 mutation CreateCustomExercise($input: ExerciseInput!) {
@@ -189,12 +191,10 @@ mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
 	}
 }
 
-mutation RemoveEntitiesFromCollection(
+mutation DeployRemoveEntitiesFromCollectionJob(
 	$input: ChangeCollectionToEntitiesInput!
 ) {
-	removeEntitiesFromCollection(input: $input) {
-		id
-	}
+	deployRemoveEntitiesFromCollectionJob(input: $input)
 }
 
 mutation TestUserNotificationPlatforms {

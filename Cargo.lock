@@ -840,6 +840,7 @@ dependencies = [
 name = "background-models"
 version = "0.1.0"
 dependencies = [
+ "common-models",
  "media-models",
  "sea-orm",
  "serde",
@@ -1254,6 +1255,7 @@ version = "0.1.0"
 dependencies = [
  "application-utils",
  "async-graphql",
+ "background-models",
  "chrono",
  "common-models",
  "common-utils",

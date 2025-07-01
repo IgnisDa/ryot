@@ -1337,8 +1337,6 @@ export type MusicSpecificsInput = {
 
 export type MutationRoot = {
   __typename?: 'MutationRoot';
-  /** Add entities to a collection if they are not there, otherwise do nothing. */
-  addEntitiesToCollection: Scalars['Boolean']['output'];
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1381,6 +1379,8 @@ export type MutationRoot = {
   deleteUserWorkout: Scalars['Boolean']['output'];
   /** Delete a workout template. */
   deleteUserWorkoutTemplate: Scalars['Boolean']['output'];
+  /** Deploy a background job to add entities to a collection. */
+  deployAddEntitiesToCollectionJob: Scalars['Boolean']['output'];
   /** Start a background job. */
   deployBackgroundJob: Scalars['Boolean']['output'];
   /**
@@ -1392,6 +1392,8 @@ export type MutationRoot = {
   deployExportJob: Scalars['Boolean']['output'];
   /** Add job to import data from various sources. */
   deployImportJob: Scalars['Boolean']['output'];
+  /** Deploy a background job to remove entities from a collection. */
+  deployRemoveEntitiesFromCollectionJob: Scalars['Boolean']['output'];
   /** Deploy a job to update a media entity's metadata. */
   deployUpdateMediaEntityJob: Scalars['Boolean']['output'];
   /**
@@ -1428,8 +1430,6 @@ export type MutationRoot = {
    * they are the first user.
    */
   registerUser: RegisterResult;
-  /** Remove entities from a collection if they are there, otherwise do nothing. */
-  removeEntitiesFromCollection: StringIdObject;
   /**
    * Reset a user by deleting and recreating them with the same ID. The account
    * resetting the user must be an `Admin`.
@@ -1455,11 +1455,6 @@ export type MutationRoot = {
   updateUserPreference: Scalars['Boolean']['output'];
   /** Change the details about a user's workout. */
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
-};
-
-
-export type MutationRootAddEntitiesToCollectionArgs = {
-  input: ChangeCollectionToEntitiesInput;
 };
 
 
@@ -1568,6 +1563,11 @@ export type MutationRootDeleteUserWorkoutTemplateArgs = {
 };
 
 
+export type MutationRootDeployAddEntitiesToCollectionJobArgs = {
+  input: ChangeCollectionToEntitiesInput;
+};
+
+
 export type MutationRootDeployBackgroundJobArgs = {
   jobName: BackgroundJob;
 };
@@ -1580,6 +1580,11 @@ export type MutationRootDeployBulkMetadataProgressUpdateArgs = {
 
 export type MutationRootDeployImportJobArgs = {
   input: DeployImportJobInput;
+};
+
+
+export type MutationRootDeployRemoveEntitiesFromCollectionJobArgs = {
+  input: ChangeCollectionToEntitiesInput;
 };
 
 
@@ -1633,11 +1638,6 @@ export type MutationRootProcessAccessLinkArgs = {
 
 export type MutationRootRegisterUserArgs = {
   input: RegisterUserInput;
-};
-
-
-export type MutationRootRemoveEntitiesFromCollectionArgs = {
-  input: ChangeCollectionToEntitiesInput;
 };
 
 

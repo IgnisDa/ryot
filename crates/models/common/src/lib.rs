@@ -241,14 +241,14 @@ pub struct SearchDetails {
     pub next_page: Option<i32>,
 }
 
-#[derive(Debug, InputObject, Clone)]
+#[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
 pub struct EntityToCollectionInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
     pub information: Option<serde_json::Value>,
 }
 
-#[derive(Debug, InputObject, Default)]
+#[derive(Debug, InputObject, Default, Clone, Serialize, Deserialize)]
 pub struct ChangeCollectionToEntitiesInput {
     pub creator_user_id: String,
     pub collection_name: String,

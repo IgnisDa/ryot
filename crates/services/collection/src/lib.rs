@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_graphql::Result;
+use background_models::{ApplicationJob, LpApplicationJob};
 use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
@@ -71,6 +72,32 @@ impl CollectionService {
         input: ChangeCollectionToEntitiesInput,
     ) -> Result<StringIdObject> {
         remove_entities_from_collection(user_id, input, &self.0).await
+    }
+
+    pub async fn deploy_add_entities_to_collection_job(
+        &self,
+        user_id: &String,
+        input: ChangeCollectionToEntitiesInput,
+    ) -> Result<bool> {
+        self.0
+            .perform_application_job(ApplicationJob::Lp(
+                LpApplicationJob::AddEntitiesToCollection(user_id.to_owned(), input),
+            ))
+            .await?;
+        Ok(true)
+    }
+
+    pub async fn deploy_remove_entities_from_collection_job(
+        &self,
+        user_id: &String,
+        input: ChangeCollectionToEntitiesInput,
+    ) -> Result<bool> {
+        self.0
+            .perform_application_job(ApplicationJob::Lp(
+                LpApplicationJob::RemoveEntitiesFromCollection(user_id.to_owned(), input),
+            ))
+            .await?;
+        Ok(true)
     }
 
     pub async fn handle_entity_added_to_collection_event(

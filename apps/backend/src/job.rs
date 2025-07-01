@@ -176,6 +176,16 @@ pub async fn perform_lp_application_job(
                 .update_user_last_activity_performed(user_id, timestamp)
                 .await
         }
+        LpApplicationJob::AddEntitiesToCollection(user_id, input) => app_services
+            .collection_service
+            .add_entities_to_collection(&user_id, input)
+            .await
+            .map(|_| ()),
+        LpApplicationJob::RemoveEntitiesFromCollection(user_id, input) => app_services
+            .collection_service
+            .remove_entities_from_collection(&user_id, input)
+            .await
+            .map(|_| ()),
     };
     status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }
