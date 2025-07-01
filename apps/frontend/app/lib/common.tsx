@@ -60,6 +60,8 @@ dayjs.extend(localizedFormat);
 
 export { dayjs as dayjsLib };
 
+export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
+
 type TimestampToStringResult<T> = T extends Date | string ? string : null;
 
 export const convertTimestampToUtcString = <

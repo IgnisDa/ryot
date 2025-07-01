@@ -1,36 +1,36 @@
 import {
-	useMantineTheme,
-	SimpleGrid,
-	Text,
+	Box,
+	Center,
 	Flex,
 	RingProgress,
-	Center,
-	Box,
+	SimpleGrid,
+	Text,
+	useMantineTheme,
 } from "@mantine/core";
 import {
-	type UserAnalytics,
 	MediaLot,
+	type UserAnalytics,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
-	isNumber,
-	humanizeDuration,
 	formatQuantityWithCompactNotation,
+	humanizeDuration,
+	isNumber,
 } from "@ryot/ts-utils";
 import {
-	IconServer,
-	IconFriends,
 	IconBarbell,
+	IconFriends,
 	IconScaleOutline,
+	IconServer,
 } from "@tabler/icons-react";
-import { type ReactNode, Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { dayjsLib, getMetadataIcon, MediaColors } from "~/lib/common";
+import { MediaColors, dayjsLib, getMetadataIcon } from "~/lib/common";
 import {
+	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
-	useGetMantineColors,
 } from "~/lib/hooks";
 import { displayWeightWithUnit } from "../fitness";
 

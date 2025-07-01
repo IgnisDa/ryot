@@ -35,9 +35,12 @@ import { withQuery } from "ufo";
 import {
 	BaseMediaDisplayItem,
 	DisplayThreePointReview,
-	MEDIA_DETAILS_HEIGHT,
 } from "~/components/common";
-import { openConfirmationModal, reviewYellow } from "~/lib/common";
+import {
+	MEDIA_DETAILS_HEIGHT,
+	openConfirmationModal,
+	reviewYellow,
+} from "~/lib/common";
 import {
 	useAddEntitiesToCollection,
 	useConfirmSubmit,

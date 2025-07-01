@@ -67,7 +67,6 @@ import { z } from "zod";
 import {
 	DisplayCollectionToEntity,
 	DisplayThreePointReview,
-	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -89,6 +88,7 @@ import {
 	VideoIframe,
 } from "~/components/media-item";
 import {
+	MEDIA_DETAILS_HEIGHT,
 	Verb,
 	clientGqlService,
 	convertTimestampToUtcString,

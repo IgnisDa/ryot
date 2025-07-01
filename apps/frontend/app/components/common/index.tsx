@@ -263,8 +263,6 @@ export const MediaDetailsLayout = (props: {
 	);
 };
 
-export const MEDIA_DETAILS_HEIGHT = { base: "45vh", "2xl": "55vh" };
-
 export const DebouncedSearchInput = (props: {
 	queryParam?: string;
 	placeholder?: string;
