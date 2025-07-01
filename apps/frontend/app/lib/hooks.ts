@@ -307,11 +307,7 @@ export const useAddEntitiesToCollection = () => {
 	const mutation = useMutation({
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
-				input: {
-					entities: input.entities,
-					creatorUserId: input.creatorUserId,
-					collectionName: input.collectionName,
-				},
+				input,
 			});
 		},
 		onSuccess: () => {
@@ -329,13 +325,7 @@ export const useRemoveEntitiesFromCollection = () => {
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(
 				DeployRemoveEntitiesFromCollectionJobDocument,
-				{
-					input: {
-						entities: input.entities,
-						creatorUserId: input.creatorUserId,
-						collectionName: input.collectionName,
-					},
-				},
+				{ input },
 			);
 		},
 		onSuccess: () => {
