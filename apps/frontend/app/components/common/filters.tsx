@@ -27,7 +27,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import Cookies from "node_modules/@types/js-cookie";
+import Cookies from "js-cookie";
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import { convertEnumToSelectData } from "~/lib/common";
