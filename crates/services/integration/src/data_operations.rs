@@ -14,7 +14,7 @@ use enum_models::{IntegrationLot, IntegrationProvider};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use traits::TraceOk;
 
-use crate::integration_management::IntegrationManager;
+use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
 use crate::{IntegrationService, yank};
 
 impl IntegrationService {
@@ -23,13 +23,8 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(());
         }
-        let integrations = IntegrationManager::select_integrations_to_process(
-            &self.0,
-            user_id,
-            IntegrationLot::Yank,
-            None,
-        )
-        .await?;
+        let integrations =
+            select_integrations_to_process(&self.0, user_id, IntegrationLot::Yank, None).await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
             let specifics = integration.clone().provider_specifics.unwrap();
@@ -73,12 +68,7 @@ impl IntegrationService {
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
                 Err(e) => {
-                    IntegrationManager::set_trigger_result(
-                        &self.0,
-                        Some(e.to_string()),
-                        &integration,
-                    )
-                    .await?;
+                    set_trigger_result(&self.0, Some(e.to_string()), &integration).await?;
                 }
             };
         }
@@ -121,13 +111,8 @@ impl IntegrationService {
         if preferences.general.disable_integrations {
             return Ok(false);
         }
-        let integrations = IntegrationManager::select_integrations_to_process(
-            &self.0,
-            user_id,
-            IntegrationLot::Yank,
-            None,
-        )
-        .await?;
+        let integrations =
+            select_integrations_to_process(&self.0, user_id, IntegrationLot::Yank, None).await?;
         let mut progress_updates = vec![];
         for integration in integrations.into_iter() {
             if !integration.sync_to_owned_collection.unwrap_or_default() {
@@ -166,12 +151,7 @@ impl IntegrationService {
             match response {
                 Ok(update) => progress_updates.push((integration, update)),
                 Err(e) => {
-                    IntegrationManager::set_trigger_result(
-                        &self.0,
-                        Some(e.to_string()),
-                        &integration,
-                    )
-                    .await?;
+                    set_trigger_result(&self.0, Some(e.to_string()), &integration).await?;
                 }
             };
         }
