@@ -144,12 +144,12 @@ import {
 	WorkoutDisplayItem,
 	WorkoutTemplateDisplayItem,
 	displayWeightWithUnit,
-} from "./fitness";
+} from "../fitness";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
-} from "./media";
+} from "../media";
 
 export const ApplicationGrid = (props: {
 	className?: string;
