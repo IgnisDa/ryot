@@ -1261,7 +1261,7 @@ type MultiSelectCreatableProps = {
 	setValue: (value: string[]) => void;
 };
 
-export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
+export const MultiSelectCreatable = (props: MultiSelectCreatableProps) => {
 	const combobox = useCombobox({
 		onDropdownClose: () => combobox.resetSelectedOption(),
 		onDropdownOpen: () => combobox.updateSelectedOptionIndex("active"),
@@ -1362,7 +1362,7 @@ export function MultiSelectCreatable(props: MultiSelectCreatableProps) {
 			</Combobox.Dropdown>
 		</Combobox>
 	);
-}
+};
 
 export const FullscreenImageModal = () => {
 	const { fullscreenImage, setFullscreenImage } = useFullscreenImage();
