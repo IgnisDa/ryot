@@ -2,10 +2,13 @@ import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	AddEntityToCollectionDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	type EntityLot,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
+	RemoveEntityFromCollectionDocument,
+	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
@@ -292,6 +295,77 @@ export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 			setTimeout(() => {
 				revalidator.revalidate();
 			}, 1500);
+		},
+	});
+
+	return mutation;
+};
+
+export const useAddEntitiesToCollection = () => {
+	const revalidator = useRevalidator();
+
+	const mutation = useMutation({
+		mutationFn: async (input: {
+			creatorUserId: string;
+			collectionName: string;
+			entities: {
+				entityId: string;
+				entityLot: EntityLot;
+				information?: Scalars["JSON"]["input"];
+			}[];
+		}) => {
+			for (const entity of input.entities) {
+				await clientGqlService.request(AddEntityToCollectionDocument, {
+					input: {
+						entityId: entity.entityId,
+						entityLot: entity.entityLot,
+						information: entity.information,
+						creatorUserId: input.creatorUserId,
+						collectionName: input.collectionName,
+					},
+				});
+			}
+		},
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Added to collection",
+			});
+			revalidator.revalidate();
+		},
+	});
+
+	return mutation;
+};
+
+export const useRemoveEntitiesFromCollection = () => {
+	const revalidator = useRevalidator();
+
+	const mutation = useMutation({
+		mutationFn: async (input: {
+			creatorUserId: string;
+			collectionName: string;
+			entities: { entityId: string; entityLot: EntityLot }[];
+		}) => {
+			for (const entity of input.entities) {
+				await clientGqlService.request(RemoveEntityFromCollectionDocument, {
+					input: {
+						entityId: entity.entityId,
+						entityLot: entity.entityLot,
+						creatorUserId: input.creatorUserId,
+						collectionName: input.collectionName,
+					},
+				});
+			}
+		},
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "Removed from collection",
+			});
+			revalidator.revalidate();
 		},
 	});
 
