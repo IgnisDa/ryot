@@ -5,7 +5,6 @@ import {
 	Stack,
 	Switch,
 	TextInput,
-	Title,
 } from "@mantine/core";
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useListState } from "@mantine/hooks";
@@ -196,10 +195,10 @@ export const AddEntityToCollectionsForm = ({
 	return (
 		<Form ref={formRef} onSubmit={handleSubmit}>
 			<Stack>
-				<Title order={3}>Select collections</Title>
 				<MultiSelect
 					searchable
 					data={selectData}
+					label="Select collections"
 					nothingFoundMessage="Nothing found..."
 					onChange={(v) => handleCollectionChange(v)}
 					value={selectedCollections.map((c) => c.id)}
@@ -340,13 +339,6 @@ export const AddEntityToCollectionsForm = ({
 					}
 				>
 					Set
-				</Button>
-				<Button
-					color="red"
-					variant="outline"
-					onClick={closeAddEntityToCollectionsDrawer}
-				>
-					Cancel
 				</Button>
 			</Stack>
 		</Form>
