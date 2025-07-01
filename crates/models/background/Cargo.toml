@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+common-models = { path = "../common" }
 media-models = { path = "../media" }
 sea-orm = { workspace = true }
 serde = { workspace = true }

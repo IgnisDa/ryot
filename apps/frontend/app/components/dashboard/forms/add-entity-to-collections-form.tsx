@@ -5,25 +5,24 @@ import {
 	Stack,
 	Switch,
 	TextInput,
-	Title,
 } from "@mantine/core";
 import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useListState } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
-	AddEntityToCollectionDocument,
 	CollectionExtraInformationLot,
 	EntityLot,
+	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useCallback, useMemo, useRef, useState } from "react";
-import { Form, useRevalidator } from "react-router";
+import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { MultiSelectCreatable } from "~/components/common";
 import {
-	clientGqlService,
 	dayjsLib,
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
@@ -32,6 +31,7 @@ import {
 	refreshEntityDetails,
 } from "~/lib/common";
 import {
+	useAddEntitiesToCollection,
 	useApplicationEvents,
 	useNonHiddenUserCollections,
 	useUserDetails,
@@ -54,8 +54,8 @@ export const AddEntityToCollectionsForm = ({
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
-	const revalidator = useRevalidator();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
+	const addEntitiesToCollection = useAddEntitiesToCollection();
 
 	const alreadyInCollectionsQueryKey = [
 		"alreadyInCollections",
@@ -103,8 +103,7 @@ export const AddEntityToCollectionsForm = ({
 	});
 
 	const [selectedCollections, selectedCollectionsHandlers] = useListState<
-		// biome-ignore lint/suspicious/noExplicitAny: required here
-		Collection & { userExtraInformationData: any }
+		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
 	>([]);
 
 	const selectData = useMemo(
@@ -123,24 +122,6 @@ export const AddEntityToCollectionsForm = ({
 			})),
 		[collections, userDetails.id, alreadyInCollections],
 	);
-
-	const mutation = useMutation({
-		mutationFn: async () => {
-			if (!addEntityToCollectionData) return [];
-			const payload = selectedCollections.map((col) => ({
-				collectionName: col.name,
-				creatorUserId: col.creator.id,
-				information: col.userExtraInformationData,
-				entityId: addEntityToCollectionData.entityId,
-				entityLot: addEntityToCollectionData.entityLot,
-			}));
-			return Promise.all(
-				payload.map((input) =>
-					clientGqlService.request(AddEntityToCollectionDocument, { input }),
-				),
-			);
-		},
-	});
 
 	const checkFormValidity = useCallback(() => {
 		if (formRef.current) {
@@ -185,10 +166,30 @@ export const AddEntityToCollectionsForm = ({
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-		await mutation.mutateAsync();
+		if (!addEntityToCollectionData) return;
+
+		await Promise.all(
+			selectedCollections.map((col) =>
+				addEntitiesToCollection.mutateAsync({
+					collectionName: col.name,
+					creatorUserId: col.creator.id,
+					entities: [
+						{
+							information: col.userExtraInformationData,
+							entityId: addEntityToCollectionData.entityId,
+							entityLot: addEntityToCollectionData.entityLot,
+						},
+					],
+				}),
+			),
+		);
+		notifications.show({
+			color: "green",
+			title: "Added to collection",
+			message: `Entity added to ${selectedCollections.length} collection(s)`,
+		});
 		queryClient.removeQueries({ queryKey: alreadyInCollectionsQueryKey });
 		refreshEntityDetails(addEntityToCollectionData.entityId);
-		revalidator.revalidate();
 		closeAddEntityToCollectionsDrawer();
 		events.addToCollection(addEntityToCollectionData.entityLot);
 	};
@@ -196,10 +197,10 @@ export const AddEntityToCollectionsForm = ({
 	return (
 		<Form ref={formRef} onSubmit={handleSubmit}>
 			<Stack>
-				<Title order={3}>Select collections</Title>
 				<MultiSelect
 					searchable
 					data={selectData}
+					label="Select collections"
 					nothingFoundMessage="Nothing found..."
 					onChange={(v) => handleCollectionChange(v)}
 					value={selectedCollections.map((c) => c.id)}
@@ -332,21 +333,14 @@ export const AddEntityToCollectionsForm = ({
 				<Button
 					type="submit"
 					variant="outline"
-					loading={mutation.isPending}
+					loading={addEntitiesToCollection.isPending}
 					disabled={
 						selectedCollections.length === 0 ||
 						!isFormValid ||
-						mutation.isPending
+						addEntitiesToCollection.isPending
 					}
 				>
 					Set
-				</Button>
-				<Button
-					color="red"
-					variant="outline"
-					onClick={closeAddEntityToCollectionsDrawer}
-				>
-					Cancel
 				</Button>
 			</Stack>
 		</Form>

@@ -2,7 +2,10 @@ import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useForceUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	type ChangeCollectionToEntitiesInput,
+	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
+	DeployRemoveEntitiesFromCollectionJobDocument,
 	type EntityLot,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
@@ -292,6 +295,41 @@ export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 			setTimeout(() => {
 				revalidator.revalidate();
 			}, 1500);
+		},
+	});
+
+	return mutation;
+};
+
+export const useAddEntitiesToCollection = () => {
+	const revalidator = useRevalidator();
+
+	const mutation = useMutation({
+		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
+			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
+				input,
+			});
+		},
+		onSuccess: () => {
+			revalidator.revalidate();
+		},
+	});
+
+	return mutation;
+};
+
+export const useRemoveEntitiesFromCollection = () => {
+	const revalidator = useRevalidator();
+
+	const mutation = useMutation({
+		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
+			await clientGqlService.request(
+				DeployRemoveEntitiesFromCollectionJobDocument,
+				{ input },
+			);
+		},
+		onSuccess: () => {
+			revalidator.revalidate();
 		},
 	});
 

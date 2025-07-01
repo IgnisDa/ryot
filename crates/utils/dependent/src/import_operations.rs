@@ -1,16 +1,16 @@
 use std::{collections::HashMap, future::Future, sync::Arc};
 
 use async_graphql::Result;
-use common_models::ChangeCollectionToEntityInput;
+use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use importer_models::ImportFailedItem;
 use importer_models::{ImportDetails, ImportFailStep, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
-    ImportOrExportMetadataItem, PartialMetadataWithoutId, UniqueMediaIdentifier,
+    PartialMetadataWithoutId, UniqueMediaIdentifier,
 };
 use rand::seq::SliceRandom;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
@@ -31,6 +31,7 @@ async fn create_collection_and_add_entity_to_it(
     entity_lot: EntityLot,
     collection_name: String,
     ss: &Arc<SupportingService>,
+    information: Option<serde_json::Value>,
     import_failed_set: &mut Vec<ImportFailedItem>,
 ) {
     if let Err(e) = collection_operations::create_or_update_collection(
@@ -51,12 +52,15 @@ async fn create_collection_and_add_entity_to_it(
         });
         return;
     }
-    if let Err(e) = collection_operations::add_entity_to_collection(
+    if let Err(e) = collection_operations::add_entities_to_collection(
         user_id,
-        ChangeCollectionToEntityInput {
+        ChangeCollectionToEntitiesInput {
             collection_name: collection_name.clone(),
-            entity_id: entity_id.clone(),
-            entity_lot,
+            entities: vec![EntityToCollectionInput {
+                entity_id: entity_id.clone(),
+                entity_lot,
+                information,
+            }],
             ..Default::default()
         },
         ss,
@@ -228,8 +232,9 @@ where
                         user_id,
                         db_metadata_id.clone(),
                         EntityLot::Metadata,
-                        col,
+                        col.collection_name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -284,8 +289,9 @@ where
                         user_id,
                         db_metadata_group_id.clone(),
                         EntityLot::MetadataGroup,
-                        col,
+                        col.collection_name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -338,8 +344,9 @@ where
                         user_id,
                         db_person_id.clone(),
                         EntityLot::Person,
-                        col,
+                        col.collection_name,
                         ss,
+                        col.information,
                         &mut import.failed,
                     )
                     .await;
@@ -401,8 +408,9 @@ where
                                 user_id,
                                 workout_id.clone(),
                                 EntityLot::Workout,
-                                col,
+                                col.collection_name,
                                 ss,
+                                col.information,
                                 &mut import.failed,
                             )
                             .await;

@@ -3,6 +3,7 @@ use common_models::{
     CollectionExtraInformation, IdAndNamedObject, UserToCollectionExtraInformation,
 };
 use enum_models::{EntityLot, MediaLot};
+use schematic::Schematic;
 use sea_orm::{FromJsonQueryResult, FromQueryResult};
 use serde::{Deserialize, Serialize};
 
@@ -32,14 +33,24 @@ pub struct CollectionContentsFilter {
 }
 
 #[derive(
-    Debug, Clone, SimpleObject, FromJsonQueryResult, PartialEq, Eq, Serialize, Deserialize,
+    Eq,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Schematic,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
 pub struct CollectionItemCollaboratorInformation {
     pub collaborator: IdAndNamedObject,
     pub extra_information: Option<UserToCollectionExtraInformation>,
 }
 
-#[derive(Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, SimpleObject, FromQueryResult, PartialEq, Eq, Serialize, Deserialize, Schematic,
+)]
 pub struct CollectionItem {
     pub id: String,
     pub count: i64,

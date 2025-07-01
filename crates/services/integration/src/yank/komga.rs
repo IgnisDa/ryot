@@ -9,13 +9,13 @@ use async_graphql::futures_util::{StreamExt, stream};
 use common_models::DefaultCollection;
 use common_utils::{ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
 use itertools::Itertools;
-use media_models::{
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, UniqueMediaIdentifier,
-};
+use media_models::{ImportOrExportMetadataItemSeen, UniqueMediaIdentifier};
 use reqwest::Url;
 use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
@@ -503,7 +503,10 @@ pub async fn sync_to_owned_collection(
                         identifier: id,
                         lot: MediaLot::Manga,
                         source,
-                        collections: vec![DefaultCollection::Owned.to_string()],
+                        collections: vec![CollectionToEntityDetails {
+                            collection_name: DefaultCollection::Owned.to_string(),
+                            ..Default::default()
+                        }],
                         ..Default::default()
                     }),
                 )),

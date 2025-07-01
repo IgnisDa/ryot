@@ -50,7 +50,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
 	ApplicationGrid,
-	BulkEditingAffix,
+	BulkCollectionEditingAffix,
 	DebouncedSearchInput,
 	DisplayCollectionEntity,
 	FiltersModal,
@@ -163,7 +163,7 @@ export default function Page() {
 
 	return (
 		<>
-			<BulkEditingAffix
+			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
 					const input = cloneDeep(loaderData.queryInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
@@ -440,28 +440,32 @@ const RecommendationsSection = () => {
 				onChange={(query) => setSearchInput({ ...searchInput, query })}
 			/>
 			{recommendations.data ? (
-				<>
-					<ApplicationGrid>
-						{recommendations.data.collectionRecommendations.items.map((r) => (
-							<MetadataDisplayItem
-								key={r}
-								metadataId={r}
-								shouldHighlightNameIfInteracted
+				recommendations.data.collectionRecommendations.details.total > 0 ? (
+					<>
+						<ApplicationGrid>
+							{recommendations.data.collectionRecommendations.items.map((r) => (
+								<MetadataDisplayItem
+									key={r}
+									metadataId={r}
+									shouldHighlightNameIfInteracted
+								/>
+							))}
+						</ApplicationGrid>
+						<Center>
+							<Pagination
+								size="sm"
+								value={searchInput.page}
+								onChange={(v) => setSearchInput({ ...searchInput, page: v })}
+								total={Math.ceil(
+									recommendations.data.collectionRecommendations.details.total /
+										userPreferences.general.listPageSize,
+								)}
 							/>
-						))}
-					</ApplicationGrid>
-					<Center>
-						<Pagination
-							size="sm"
-							value={searchInput.page}
-							onChange={(v) => setSearchInput({ ...searchInput, page: v })}
-							total={Math.ceil(
-								recommendations.data.collectionRecommendations.details.total /
-									userPreferences.general.listPageSize,
-							)}
-						/>
-					</Center>
-				</>
+						</Center>
+					</>
+				) : (
+					<Text>No recommendations found</Text>
+				)
 			) : (
 				<Skeleton height={100} />
 			)}

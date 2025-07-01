@@ -3,7 +3,7 @@ use std::result::Result as StdResult;
 use async_graphql::Result;
 use common_models::IdObject;
 use common_utils::{USER_AGENT_STR, ryot_log};
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use futures::stream::{self, StreamExt};
 use media_models::{
@@ -316,7 +316,10 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
                 lot,
                 source,
                 identifier,
-                collections: vec![list.name.clone()],
+                collections: vec![CollectionToEntityDetails {
+                    collection_name: list.name.clone(),
+                    ..Default::default()
+                }],
                 ..Default::default()
             }));
         }

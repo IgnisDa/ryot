@@ -8,10 +8,9 @@ use dependent_utils::process_import;
 use enum_models::IntegrationProvider;
 use rust_decimal_macros::dec;
 use sea_orm::EntityTrait;
-
 use traits::TraceOk;
 
-use crate::integration_management::IntegrationManager;
+use crate::integration_operations::set_trigger_result;
 use crate::{IntegrationService, sink};
 
 impl IntegrationService {
@@ -55,12 +54,7 @@ impl IntegrationService {
             Ok(())
         })
         .await;
-        IntegrationManager::set_trigger_result(
-            &self.0,
-            result.err().map(|e| e.message),
-            &integration,
-        )
-        .await?;
+        set_trigger_result(&self.0, result.err().map(|e| e.message), &integration).await?;
         Ok(())
     }
 
@@ -102,8 +96,7 @@ impl IntegrationService {
                 Ok("Progress updated successfully".to_owned())
             }
             Err(e) => {
-                IntegrationManager::set_trigger_result(&self.0, Some(e.to_string()), &integration)
-                    .await?;
+                set_trigger_result(&self.0, Some(e.to_string()), &integration).await?;
                 Err(Error::new(e.to_string()))
             }
         }

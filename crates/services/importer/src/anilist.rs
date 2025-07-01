@@ -3,11 +3,13 @@ use std::{collections::HashMap, fs, sync::Arc};
 use async_graphql::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{ImportSource, MediaLot, MediaSource, Visibility};
 use media_models::{
     DeployJsonImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
+    ImportOrExportMetadataItemSeen,
 };
 use nest_struct::nest_struct;
 use rust_decimal::Decimal;
@@ -115,12 +117,18 @@ pub async fn import(
             match lot {
                 MediaLot::Anime => {
                     if let Some(list) = anime_custom_lists.get(in_list) {
-                        to_push_item.collections.push(list.clone());
+                        to_push_item.collections.push(CollectionToEntityDetails {
+                            collection_name: list.clone(),
+                            ..Default::default()
+                        });
                     }
                 }
                 MediaLot::Manga => {
                     if let Some(list) = manga_custom_lists.get(in_list) {
-                        to_push_item.collections.push(list.clone());
+                        to_push_item.collections.push(CollectionToEntityDetails {
+                            collection_name: list.clone(),
+                            ..Default::default()
+                        });
                     }
                 }
                 _ => unreachable!(),
@@ -173,7 +181,10 @@ pub async fn import(
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source: MediaSource::Anilist,
-            collections: vec!["Favorite".to_string()],
+            collections: vec![CollectionToEntityDetails {
+                collection_name: "Favorite".to_string(),
+                ..Default::default()
+            }],
             identifier: favorite.favourite_id.to_string(),
             ..Default::default()
         }));

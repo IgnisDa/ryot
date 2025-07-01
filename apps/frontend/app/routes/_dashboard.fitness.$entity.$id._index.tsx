@@ -57,7 +57,10 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollection, ProRequiredAlert } from "~/components/common";
+import {
+	DisplayCollectionToEntity,
+	ProRequiredAlert,
+} from "~/components/common";
 import {
 	ExerciseHistory,
 	WorkoutRevisionScheduledAlert,
@@ -477,11 +480,10 @@ export default function Page() {
 					{loaderData.collections.length > 0 ? (
 						<Group>
 							{loaderData.collections.map((col) => (
-								<DisplayCollection
+								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
 									entityLot={entityLot}
-									creatorUserId={col.userId}
 									entityId={loaderData.entityId}
 								/>
 							))}

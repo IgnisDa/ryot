@@ -65,9 +65,8 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	DisplayThreePointReview,
-	MEDIA_DETAILS_HEIGHT,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -89,6 +88,7 @@ import {
 	VideoIframe,
 } from "~/components/media-item";
 import {
+	MEDIA_DETAILS_HEIGHT,
 	Verb,
 	clientGqlService,
 	convertTimestampToUtcString,
@@ -400,10 +400,9 @@ export default function Page() {
 					{loaderData.userMetadataDetails.collections.length > 0 ? (
 						<Group>
 							{loaderData.userMetadataDetails.collections.map((col) => (
-								<DisplayCollection
+								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
-									creatorUserId={col.userId}
 									entityLot={EntityLot.Metadata}
 									entityId={loaderData.metadataId}
 								/>
@@ -933,7 +932,7 @@ export default function Page() {
 										<Menu.Dropdown>
 											<ToggleMediaMonitorMenuItem
 												inCollections={loaderData.userMetadataDetails.collections.map(
-													(c) => c.name,
+													(c) => c.details.collectionName,
 												)}
 												formValue={loaderData.metadataId}
 												entityLot={EntityLot.Metadata}

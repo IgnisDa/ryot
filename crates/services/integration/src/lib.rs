@@ -4,7 +4,7 @@ use supporting_service::SupportingService;
 
 mod data_operations;
 mod event_handlers;
-mod integration_management;
+mod integration_operations;
 mod push;
 mod sink;
 mod utils;

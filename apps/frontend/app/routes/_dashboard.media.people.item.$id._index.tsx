@@ -30,7 +30,7 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -152,10 +152,9 @@ export default function Page() {
 				{loaderData.userPersonDetails.collections.length > 0 ? (
 					<Group>
 						{loaderData.userPersonDetails.collections.map((col) => (
-							<DisplayCollection
+							<DisplayCollectionToEntity
 								col={col}
 								key={col.id}
-								creatorUserId={col.userId}
 								entityLot={EntityLot.Person}
 								entityId={loaderData.personId}
 							/>
@@ -315,7 +314,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userPersonDetails.collections.map(
-												(c) => c.name,
+												(c) => c.details.collectionName,
 											)}
 											formValue={loaderData.personId}
 											entityLot={EntityLot.Person}

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::{Error, Result};
-use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
+use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_models::{exercise, prelude::*, user, user_measurement, user_to_entity, workout};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
@@ -31,7 +31,7 @@ use supporting_service::SupportingService;
 use user_models::UserStatisticsMeasurement;
 
 use crate::{
-    collection_operations::add_entity_to_collection,
+    collection_operations::add_entities_to_collection,
     notification_operations::send_notification_for_user,
     utility_operations::{expire_user_measurements_list_cache, expire_user_workouts_list_cache},
 };
@@ -317,14 +317,16 @@ pub async fn create_custom_exercise(
 
     let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
-    add_entity_to_collection(
+    add_entities_to_collection(
         &user_id.clone(),
-        ChangeCollectionToEntityInput {
-            entity_id: exercise.id.clone(),
-            entity_lot: EntityLot::Exercise,
+        ChangeCollectionToEntitiesInput {
+            entities: vec![EntityToCollectionInput {
+                entity_id: exercise.id.clone(),
+                entity_lot: EntityLot::Exercise,
+                information: None,
+            }],
             creator_user_id: user_id.to_owned(),
             collection_name: DefaultCollection::Custom.to_string(),
-            ..Default::default()
         },
         ss,
     )

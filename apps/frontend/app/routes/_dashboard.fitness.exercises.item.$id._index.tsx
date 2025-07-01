@@ -65,7 +65,10 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { DisplayCollection, ReviewItemDisplay } from "~/components/common";
+import {
+	DisplayCollectionToEntity,
+	ReviewItemDisplay,
+} from "~/components/common";
 import {
 	ExerciseHistory,
 	displayDistanceWithUnit,
@@ -266,10 +269,9 @@ export default function Page() {
 					{loaderData.userExerciseDetails.collections.length > 0 ? (
 						<Group id="entity-collections">
 							{loaderData.userExerciseDetails.collections.map((col) => (
-								<DisplayCollection
+								<DisplayCollectionToEntity
 									col={col}
 									key={col.id}
-									creatorUserId={col.userId}
 									entityLot={EntityLot.Exercise}
 									entityId={loaderData.exerciseDetails.id}
 								/>

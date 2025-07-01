@@ -1,11 +1,11 @@
 import {
-	AddEntityToCollectionDocument,
 	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
+	DeployAddEntitiesToCollectionJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	SetLot,
@@ -176,18 +176,22 @@ describe("Cache related tests", () => {
 
 		const firstMetadataId = searchResult[0];
 		const addToCollectionResult = await client.request(
-			AddEntityToCollectionDocument,
+			DeployAddEntitiesToCollectionJobDocument,
 			{
 				input: {
 					creatorUserId: userId,
-					entityId: firstMetadataId,
 					collectionName: "Watchlist",
-					entityLot: EntityLot.Metadata,
+					entities: [
+						{
+							entityId: firstMetadataId,
+							entityLot: EntityLot.Metadata,
+						},
+					],
 				},
 			},
 			getAuthHeaders(),
 		);
-		expect(addToCollectionResult.addEntityToCollection).toBe(true);
+		expect(addToCollectionResult.deployAddEntitiesToCollectionJob).toBe(true);
 		await waitFor(4000);
 
 		const afterAdd = await getUserMetadataList(url, userApiKey);

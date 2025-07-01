@@ -133,10 +133,15 @@ fragment WorkoutSummaryPart on WorkoutSummary {
 	}
 }
 
-fragment CollectionPart on Collection {
+fragment CollectionToEntityDetailsPart on GraphqlCollectionToEntityDetails {
 	id
-	name
-	userId
+	details {
+		createdOn
+		lastUpdatedOn
+		information
+		collectionId
+		collectionName
+	}
 }
 
 fragment ReviewItemPart on ReviewItem {

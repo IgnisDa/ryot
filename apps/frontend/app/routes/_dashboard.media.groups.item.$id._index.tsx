@@ -25,7 +25,7 @@ import {
 import { useLoaderData } from "react-router";
 import { z } from "zod";
 import {
-	DisplayCollection,
+	DisplayCollectionToEntity,
 	MediaDetailsLayout,
 	ReviewItemDisplay,
 } from "~/components/common";
@@ -116,10 +116,9 @@ export default function Page() {
 				{loaderData.userMetadataGroupDetails.collections.length > 0 ? (
 					<Group>
 						{loaderData.userMetadataGroupDetails.collections.map((col) => (
-							<DisplayCollection
+							<DisplayCollectionToEntity
 								col={col}
 								key={col.id}
-								creatorUserId={col.userId}
 								entityLot={EntityLot.MetadataGroup}
 								entityId={loaderData.metadataGroupId}
 							/>
@@ -193,7 +192,7 @@ export default function Page() {
 									<Menu.Dropdown>
 										<ToggleMediaMonitorMenuItem
 											inCollections={loaderData.userMetadataGroupDetails.collections.map(
-												(c) => c.name,
+												(c) => c.details.collectionName,
 											)}
 											formValue={loaderData.metadataGroupId}
 											entityLot={EntityLot.MetadataGroup}

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::Result;
-use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
+use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
@@ -14,7 +14,7 @@ use rust_decimal::{
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
-use crate::collection_operations::{add_entity_to_collection, remove_entity_from_collection};
+use crate::collection_operations::{add_entities_to_collection, remove_entities_from_collection};
 
 pub async fn seen_history(
     user_id: &String,
@@ -118,41 +118,45 @@ pub async fn handle_after_metadata_seen_tasks(
     seen: seen::Model,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    let add_entity_to_collection = |collection_name: &str| {
-        add_entity_to_collection(
+    let add_entities_to_collection = |collection_name: &str| {
+        add_entities_to_collection(
             &seen.user_id,
-            ChangeCollectionToEntityInput {
+            ChangeCollectionToEntitiesInput {
                 creator_user_id: seen.user_id.clone(),
                 collection_name: collection_name.to_string(),
-                entity_id: seen.metadata_id.clone(),
-                entity_lot: EntityLot::Metadata,
-                ..Default::default()
+                entities: vec![EntityToCollectionInput {
+                    entity_id: seen.metadata_id.clone(),
+                    entity_lot: EntityLot::Metadata,
+                    information: None,
+                }],
             },
             ss,
         )
     };
-    let remove_entity_from_collection = |collection_name: &str| {
-        remove_entity_from_collection(
+    let remove_entities_from_collection = |collection_name: &str| {
+        remove_entities_from_collection(
             &seen.user_id,
-            ChangeCollectionToEntityInput {
+            ChangeCollectionToEntitiesInput {
                 creator_user_id: seen.user_id.clone(),
                 collection_name: collection_name.to_string(),
-                entity_id: seen.metadata_id.clone(),
-                entity_lot: EntityLot::Metadata,
-                ..Default::default()
+                entities: vec![EntityToCollectionInput {
+                    entity_id: seen.metadata_id.clone(),
+                    entity_lot: EntityLot::Metadata,
+                    information: None,
+                }],
             },
             ss,
         )
     };
-    remove_entity_from_collection(&DefaultCollection::Watchlist.to_string()).await?;
+    remove_entities_from_collection(&DefaultCollection::Watchlist.to_string()).await?;
     match seen.state {
         SeenState::InProgress => {
             for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                add_entity_to_collection(&col.to_string()).await.ok();
+                add_entities_to_collection(&col.to_string()).await.ok();
             }
         }
         SeenState::Dropped | SeenState::OnAHold => {
-            remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
+            remove_entities_from_collection(&DefaultCollection::InProgress.to_string())
                 .await
                 .ok();
         }
@@ -169,20 +173,20 @@ pub async fn handle_after_metadata_seen_tasks(
                 let (is_complete, _) =
                     is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, &ss.db).await?;
                 if is_complete {
-                    remove_entity_from_collection(&DefaultCollection::InProgress.to_string())
+                    remove_entities_from_collection(&DefaultCollection::InProgress.to_string())
                         .await?;
-                    add_entity_to_collection(&DefaultCollection::Completed.to_string()).await?;
+                    add_entities_to_collection(&DefaultCollection::Completed.to_string()).await?;
                 } else {
                     for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                        add_entity_to_collection(&col.to_string()).await.ok();
+                        add_entities_to_collection(&col.to_string()).await.ok();
                     }
                 }
             } else {
-                add_entity_to_collection(&DefaultCollection::Completed.to_string())
+                add_entities_to_collection(&DefaultCollection::Completed.to_string())
                     .await
                     .ok();
                 for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                    remove_entity_from_collection(&col.to_string()).await.ok();
+                    remove_entities_from_collection(&col.to_string()).await.ok();
                 }
             };
         }

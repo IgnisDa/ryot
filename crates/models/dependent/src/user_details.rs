@@ -2,8 +2,8 @@ use async_graphql::{SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use database_models::{
-    collection, exercise, metadata_group::MetadataGroupWithoutId, person, seen, user,
-    user_to_entity, workout, workout_template,
+    exercise, metadata_group::MetadataGroupWithoutId, person, seen, user, user_to_entity, workout,
+    workout_template,
 };
 use enum_models::{MediaSource, UserToMediaReason};
 use fitness_models::UserToExerciseHistoryExtraInformation;
@@ -12,7 +12,25 @@ use media_models::{
     UserMediaNextEntry, UserMetadataDetailsEpisodeProgress, UserMetadataDetailsShowSeasonProgress,
 };
 use rust_decimal::Decimal;
+use schematic::Schematic;
+use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+#[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
+pub struct CollectionToEntityDetails {
+    pub collection_id: String,
+    pub collection_name: String,
+    pub created_on: DateTimeUtc,
+    pub last_updated_on: DateTimeUtc,
+    pub information: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct GraphqlCollectionToEntityDetails {
+    pub id: Uuid,
+    pub details: CollectionToEntityDetails,
+}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Hash)]
 pub struct MetadataPersonRelated {
@@ -65,7 +83,7 @@ pub struct UserPersonDetails {
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
-    pub collections: Vec<collection::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(SimpleObject)]
@@ -74,7 +92,7 @@ pub struct UserMetadataGroupDetails {
     pub reviews: Vec<ReviewItem>,
     pub is_recently_consumed: bool,
     pub average_rating: Option<Decimal>,
-    pub collections: Vec<collection::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(SimpleObject)]
@@ -96,7 +114,7 @@ pub struct UserMetadataDetails {
     /// The seen item if it is in progress.
     pub in_progress: Option<seen::Model>,
     /// The collections in which this media is present.
-    pub collections: Vec<collection::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     /// The next episode/chapter of this media.
     pub next_entry: Option<UserMediaNextEntry>,
     /// The reasons why this metadata is related to this user
@@ -111,13 +129,13 @@ pub struct UserMetadataDetails {
 pub struct UserWorkoutDetails {
     pub details: workout::Model,
     pub metadata_consumed: Vec<String>,
-    pub collections: Vec<collection::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserExerciseDetails {
     pub reviews: Vec<ReviewItem>,
-    pub collections: Vec<collection::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     pub details: Option<user_to_entity::Model>,
     pub history: Option<Vec<UserToExerciseHistoryExtraInformation>>,
 }
@@ -125,7 +143,7 @@ pub struct UserExerciseDetails {
 #[derive(Debug, SimpleObject, Clone, Serialize, Deserialize)]
 pub struct UserWorkoutTemplateDetails {
     pub details: workout_template::Model,
-    pub collections: Vec<collection::Model>,
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
 }
 
 #[derive(async_graphql::InputObject, Clone, Debug, Deserialize, Serialize)]

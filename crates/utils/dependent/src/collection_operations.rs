@@ -3,7 +3,9 @@ use std::{collections::HashSet, sync::Arc};
 use async_graphql::{Error, Result};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{ChangeCollectionToEntityInput, DefaultCollection, StringIdObject};
+use common_models::{
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput, StringIdObject,
+};
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
 use enum_models::EntityLot;
@@ -15,20 +17,24 @@ use sea_orm::{
 use sea_query::OnConflict;
 use supporting_service::SupportingService;
 
-use crate::utility_operations::{
-    associate_user_with_entity, expire_user_collections_list_cache,
-    mark_entity_as_recently_consumed,
+use crate::{
+    expire_user_collection_contents_cache,
+    utility_operations::{
+        associate_user_with_entity, expire_user_collections_list_cache,
+        mark_entity_as_recently_consumed,
+    },
 };
 
-pub async fn add_entity_to_collection(
+async fn add_single_entity_to_collection(
     user_id: &String,
-    input: ChangeCollectionToEntityInput,
+    entity: &EntityToCollectionInput,
+    collection_name: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let collection = Collection::find()
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::UserId.eq(user_id))
-        .filter(collection::Column::Name.eq(input.collection_name))
+        .filter(collection::Column::Name.eq(collection_name))
         .one(&ss.db)
         .await?
         .unwrap();
@@ -37,8 +43,8 @@ pub async fn add_entity_to_collection(
     let collection = updated.update(&ss.db).await?;
     let resp = if let Some(etc) = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
-        .filter(collection_to_entity::Column::EntityId.eq(input.entity_id.clone()))
-        .filter(collection_to_entity::Column::EntityLot.eq(input.entity_lot))
+        .filter(collection_to_entity::Column::EntityId.eq(entity.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityLot.eq(entity.entity_lot))
         .one(&ss.db)
         .await?
     {
@@ -47,12 +53,12 @@ pub async fn add_entity_to_collection(
         to_update.update(&ss.db).await?
     } else {
         let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
-            information: ActiveValue::Set(input.information),
+            collection_id: ActiveValue::Set(collection.id.clone()),
+            information: ActiveValue::Set(entity.information.clone()),
             ..Default::default()
         };
-        let id = input.entity_id.clone();
-        match input.entity_lot {
+        let id = entity.entity_id.clone();
+        match entity.entity_lot {
             EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
             EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
             EntityLot::MetadataGroup => {
@@ -69,25 +75,37 @@ pub async fn add_entity_to_collection(
         }
         let created = created_collection.insert(&ss.db).await?;
         ryot_log!(debug, "Created collection to entity: {:?}", created);
-        match input.entity_lot {
+        match entity.entity_lot {
             EntityLot::Workout
             | EntityLot::WorkoutTemplate
             | EntityLot::Review
             | EntityLot::UserMeasurement => {}
             _ => {
-                associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
+                associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
                     .await
                     .ok();
             }
         }
         created
     };
-    mark_entity_as_recently_consumed(user_id, &input.entity_id, input.entity_lot, ss).await?;
+    mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss).await?;
+    expire_user_collections_list_cache(user_id, ss).await?;
+    expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
     ss.perform_application_job(ApplicationJob::Lp(
         LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
     ))
     .await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
+    Ok(true)
+}
+
+pub async fn add_entities_to_collection(
+    user_id: &String,
+    input: ChangeCollectionToEntitiesInput,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    for entity in &input.entities {
+        add_single_entity_to_collection(user_id, entity, &input.collection_name, ss).await?;
+    }
     Ok(true)
 }
 
@@ -186,29 +204,50 @@ pub async fn create_or_update_collection(
     Ok(StringIdObject { id: created })
 }
 
-pub async fn remove_entity_from_collection(
+async fn remove_single_entity_from_collection(
     user_id: &String,
-    input: ChangeCollectionToEntityInput,
+    entity: &EntityToCollectionInput,
+    collection_name: &String,
+    creator_user_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
+) -> Result<bool> {
     let collect = Collection::find()
         .left_join(UserToEntity)
-        .filter(collection::Column::Name.eq(input.collection_name))
-        .filter(user_to_entity::Column::UserId.eq(input.creator_user_id))
+        .filter(collection::Column::Name.eq(collection_name))
+        .filter(user_to_entity::Column::UserId.eq(creator_user_id))
         .one(&ss.db)
         .await?
         .unwrap();
     CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
-        .filter(collection_to_entity::Column::EntityId.eq(input.entity_id.clone()))
-        .filter(collection_to_entity::Column::EntityLot.eq(input.entity_lot))
+        .filter(collection_to_entity::Column::EntityId.eq(entity.entity_id.clone()))
+        .filter(collection_to_entity::Column::EntityLot.eq(entity.entity_lot))
         .exec(&ss.db)
         .await?;
-    if input.entity_lot != EntityLot::Workout && input.entity_lot != EntityLot::WorkoutTemplate {
-        associate_user_with_entity(user_id, &input.entity_id, input.entity_lot, ss)
+    if entity.entity_lot != EntityLot::Workout && entity.entity_lot != EntityLot::WorkoutTemplate {
+        associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
             .await
             .ok();
     }
     expire_user_collections_list_cache(user_id, ss).await?;
-    Ok(StringIdObject { id: collect.id })
+    expire_user_collection_contents_cache(user_id, &collect.id, ss).await?;
+    Ok(true)
+}
+
+pub async fn remove_entities_from_collection(
+    user_id: &String,
+    input: ChangeCollectionToEntitiesInput,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    for entity in &input.entities {
+        remove_single_entity_from_collection(
+            user_id,
+            entity,
+            &input.collection_name,
+            &input.creator_user_id,
+            ss,
+        )
+        .await?;
+    }
+    Ok(true)
 }

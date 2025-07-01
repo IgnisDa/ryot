@@ -9,6 +9,7 @@ use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
 };
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_utils::{
     deploy_background_job, generate_exercise_id, get_google_books_service, get_hardcover_service,
     get_openlibrary_service, get_tmdb_non_media_service, process_import,
@@ -16,7 +17,7 @@ use dependent_utils::{
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
 use importer_models::{ImportFailStep, ImportFailedItem};
-use media_models::{DeployImportJobInput, ImportOrExportMetadataItem};
+use media_models::DeployImportJobInput;
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,

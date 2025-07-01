@@ -1,8 +1,9 @@
 use anyhow::{Context, Result, bail};
 use common_models::StringIdObject;
+use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
-use media_models::{ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen};
+use media_models::ImportOrExportMetadataItemSeen;
 use regex::Regex;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;

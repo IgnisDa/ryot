@@ -2,10 +2,11 @@ use async_graphql::Result;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
+use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
-use media_models::{DeployGenericCsvImportInput, ImportOrExportMetadataItem};
+use media_models::DeployGenericCsvImportInput;
 pub use providers::tmdb::NonMediaTmdbService;
 use serde::Deserialize;
 
@@ -85,7 +86,10 @@ pub async fn import(
             source,
             identifier,
             source_id: record.id,
-            collections: vec![DefaultCollection::Watchlist.to_string()],
+            collections: vec![CollectionToEntityDetails {
+                collection_name: DefaultCollection::Watchlist.to_string(),
+                ..Default::default()
+            }],
             ..Default::default()
         }));
     }

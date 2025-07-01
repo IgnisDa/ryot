@@ -13,7 +13,10 @@ use database_models::{
     },
     review, seen, user, user_to_entity, workout,
 };
-use dependent_models::{UserWorkoutDetails, UserWorkoutTemplateDetails};
+use dependent_models::{
+    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
+};
 use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
@@ -76,6 +79,28 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
     entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<Vec<(collection::Model, Uuid)>> {
+    let details = entity_in_collections_with_details(db, user_id, entity_id, entity_lot).await?;
+    Ok(details
+        .into_iter()
+        .map(|d| {
+            (
+                collection::Model {
+                    id: d.details.collection_id.clone(),
+                    name: d.details.collection_name.clone(),
+                    ..Default::default()
+                },
+                d.id,
+            )
+        })
+        .collect_vec())
+}
+
+pub async fn entity_in_collections_with_details(
+    db: &DatabaseConnection,
+    user_id: &String,
+    entity_id: &String,
+    entity_lot: EntityLot,
+) -> Result<Vec<GraphqlCollectionToEntityDetails>> {
     let user_collections = Collection::find()
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::UserId.eq(user_id))
@@ -95,21 +120,18 @@ pub async fn entity_in_collections_with_collection_to_entity_ids(
         .unwrap();
     let resp = mtc
         .into_iter()
-        .map(|(cte, col)| (col.unwrap(), cte.id))
+        .map(|(cte, col)| GraphqlCollectionToEntityDetails {
+            id: cte.id,
+            details: CollectionToEntityDetails {
+                collection_id: col.as_ref().unwrap().id.clone(),
+                collection_name: col.as_ref().unwrap().name.clone(),
+                created_on: cte.created_on,
+                information: cte.information,
+                last_updated_on: cte.last_updated_on,
+            },
+        })
         .collect_vec();
     Ok(resp)
-}
-
-pub async fn entity_in_collections(
-    db: &DatabaseConnection,
-    user_id: &String,
-    entity_id: &String,
-    entity_lot: EntityLot,
-) -> Result<Vec<collection::Model>> {
-    let eic =
-        entity_in_collections_with_collection_to_entity_ids(db, user_id, entity_id, entity_lot)
-            .await?;
-    Ok(eic.into_iter().map(|(c, _)| c).collect_vec())
 }
 
 pub async fn user_workout_details(
@@ -127,7 +149,8 @@ pub async fn user_workout_details(
         ));
     };
     let collections =
-        entity_in_collections(&ss.db, user_id, &workout_id, EntityLot::Workout).await?;
+        entity_in_collections_with_details(&ss.db, user_id, &workout_id, EntityLot::Workout)
+            .await?;
     let details = {
         if let Some(ref mut assets) = e.information.assets {
             transform_entity_assets(assets, ss).await?;
@@ -168,7 +191,7 @@ pub async fn user_workout_template_details(
             "Workout template with the given ID could not be found.",
         ));
     };
-    let collections = entity_in_collections(
+    let collections = entity_in_collections_with_details(
         db,
         user_id,
         &workout_template_id,

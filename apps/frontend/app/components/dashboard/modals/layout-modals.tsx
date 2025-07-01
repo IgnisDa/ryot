@@ -73,7 +73,7 @@ export function LayoutModals() {
 				<ReviewEntityForm closeReviewEntityModal={closeReviewEntityModal} />
 			</Modal>
 			<Drawer
-				withCloseButton={false}
+				title="Add to collections"
 				onClose={closeAddEntityToCollectionsDrawer}
 				opened={addEntityToCollectionsData !== null}
 			>

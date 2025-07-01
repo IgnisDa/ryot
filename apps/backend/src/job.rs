@@ -79,6 +79,16 @@ pub async fn perform_hp_application_job(
                 .bulk_metadata_progress_update(user_id, input)
                 .await
         }
+        HpApplicationJob::AddEntitiesToCollection(user_id, input) => app_services
+            .collection_service
+            .add_entities_to_collection(&user_id, input)
+            .await
+            .map(|_| ()),
+        HpApplicationJob::RemoveEntitiesFromCollection(user_id, input) => app_services
+            .collection_service
+            .remove_entities_from_collection(&user_id, input)
+            .await
+            .map(|_| ()),
     };
     status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
 }

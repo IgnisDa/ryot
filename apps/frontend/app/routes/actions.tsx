@@ -1,5 +1,4 @@
 import {
-	AddEntityToCollectionDocument,
 	CreateOrUpdateReviewDocument,
 	CreateReviewCommentDocument,
 	DeleteReviewDocument,
@@ -7,13 +6,10 @@ import {
 	EntityLot,
 	ExpireCacheKeyDocument,
 	MarkEntityAsPartialDocument,
-	RemoveEntityFromCollectionDocument,
 	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
-	isEmpty,
-	omitBy,
 	processSubmission,
 	zodBoolAsString,
 	zodCheckboxAsString,
@@ -89,46 +85,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				}),
 			);
 		})
-		.with("addEntityToCollection", async () => {
-			const [submission] = getChangeCollectionToEntityVariables(formData);
-			const addTo = [submission.collectionName];
-			if (submission.collectionName === "Watchlist") addTo.push("Monitoring");
-			for (const co of addTo) {
-				await serverGqlService.authenticatedRequest(
-					request,
-					AddEntityToCollectionDocument,
-					{
-						input: {
-							...submission,
-							collectionName: co,
-							creatorUserId: submission.creatorUserId,
-							information: omitBy(submission.information || {}, isEmpty),
-						},
-					},
-				);
-			}
-			extendResponseHeaders(
-				headers,
-				await createToastHeaders({
-					message: "Media added to collection successfully",
-					type: "success",
-				}),
-			);
-		})
-		.with("removeEntityFromCollection", async () => {
-			const [submission] = getChangeCollectionToEntityVariables(formData);
-			await serverGqlService.authenticatedRequest(
-				request,
-				RemoveEntityFromCollectionDocument,
-				{
-					input: {
-						...submission,
-						collectionName: submission.collectionName,
-						creatorUserId: submission.creatorUserId,
-					},
-				},
-			);
-		})
 		.with("performReviewAction", async () => {
 			const submission = processSubmission(formData, reviewSchema);
 			if (submission.shouldDelete) {
@@ -160,24 +116,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 						message: "Review submitted successfully",
 						type: "success",
 					}),
-				);
-			}
-		})
-		.with("bulkCollectionAction", async () => {
-			const submission = processSubmission(formData, bulkCollectionAction);
-			for (const item of submission.items) {
-				await serverGqlService.authenticatedRequest(
-					request,
-					submission.action === "remove"
-						? RemoveEntityFromCollectionDocument
-						: AddEntityToCollectionDocument,
-					{
-						input: {
-							...item,
-							collectionName: submission.collectionName,
-							creatorUserId: submission.creatorUserId,
-						},
-					},
 				);
 			}
 		})
@@ -219,14 +157,6 @@ const reviewCommentSchema = z.object({
 	incrementLikes: zodBoolAsString.optional(),
 });
 
-const changeCollectionToEntitySchema = z.object({
-	entityId: z.string(),
-	creatorUserId: z.string(),
-	collectionName: z.string(),
-	information: z.any().optional(),
-	entityLot: z.nativeEnum(EntityLot),
-});
-
 const reviewSchema = z
 	.object({
 		text: z.string().optional(),
@@ -239,26 +169,6 @@ const reviewSchema = z
 		visibility: z.nativeEnum(Visibility).optional(),
 	})
 	.merge(MetadataSpecificsSchema);
-
-const getChangeCollectionToEntityVariables = (formData: FormData) => {
-	const submission = processSubmission(
-		formData,
-		changeCollectionToEntitySchema,
-	);
-	return [submission] as const;
-};
-
-const bulkCollectionAction = z.object({
-	action: z.enum(["remove", "add"]),
-	collectionName: z.string(),
-	creatorUserId: z.string(),
-	items: z.array(
-		z.object({
-			entityId: z.string(),
-			entityLot: z.nativeEnum(EntityLot),
-		}),
-	),
-});
 
 const markEntityAsPartialSchema = z.object({
 	entityId: z.string(),

@@ -4,13 +4,12 @@ use anyhow::{Result, anyhow};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
+use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
-use media_models::{
-    ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
-};
+use media_models::{ImportOrExportMetadataItemSeen, PartialMetadataWithoutId};
 use providers::{
     google_books::GoogleBooksService, hardcover::HardcoverService, openlibrary::OpenlibraryService,
 };
@@ -225,7 +224,10 @@ pub async fn sync_to_owned_collection(
                     lot,
                     source,
                     identifier,
-                    collections: vec![DefaultCollection::Owned.to_string()],
+                    collections: vec![CollectionToEntityDetails {
+                        collection_name: DefaultCollection::Owned.to_string(),
+                        ..Default::default()
+                    }],
                     ..Default::default()
                 }));
         }

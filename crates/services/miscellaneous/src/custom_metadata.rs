@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use async_graphql::{Error, Result};
-use common_models::{ChangeCollectionToEntityInput, DefaultCollection};
+use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use database_models::{
     metadata, metadata_to_genre,
     prelude::{Metadata, MetadataToGenre},
 };
-use dependent_utils::{add_entity_to_collection, change_metadata_associations};
+use dependent_utils::{add_entities_to_collection, change_metadata_associations};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};
@@ -31,14 +31,16 @@ pub async fn create_custom_metadata(
         ss,
     )
     .await?;
-    add_entity_to_collection(
+    add_entities_to_collection(
         &user_id,
-        ChangeCollectionToEntityInput {
-            entity_id: metadata.id.clone(),
-            entity_lot: EntityLot::Metadata,
+        ChangeCollectionToEntitiesInput {
+            entities: vec![EntityToCollectionInput {
+                entity_id: metadata.id.clone(),
+                entity_lot: EntityLot::Metadata,
+                information: None,
+            }],
             creator_user_id: user_id.to_owned(),
             collection_name: DefaultCollection::Custom.to_string(),
-            ..Default::default()
         },
         ss,
     )

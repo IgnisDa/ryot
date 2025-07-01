@@ -2,13 +2,13 @@ use std::{collections::HashMap, result::Result as StdResult, sync::Arc};
 
 use async_graphql::Result;
 use common_utils::ryot_log;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
 use enum_models::{MediaLot, MediaSource};
 use external_utils::jellyfin::{ItemResponse, ItemsResponse, MediaType, get_authenticated_client};
 use futures::stream::{self, StreamExt};
-use media_models::{
-    DeployJellyfinImportInput, ImportOrExportMetadataItem, ImportOrExportMetadataItemSeen,
-};
+use media_models::{DeployJellyfinImportInput, ImportOrExportMetadataItemSeen};
 use reqwest::Client;
 use serde_json::json;
 use tokio::sync::Mutex;
@@ -175,6 +175,14 @@ async fn process_item(
         if let Some(true) = item_user_data.is_favorite {
             collections.push("Favorites".to_string());
         }
+        let collections = collections
+            .into_iter()
+            .map(|name| CollectionToEntityDetails {
+                collection_name: name,
+                ..Default::default()
+            })
+            .collect();
+
         Ok(Some(ImportOrExportMetadataItem {
             lot,
             source_id: item.series_name.unwrap_or(item.name),
