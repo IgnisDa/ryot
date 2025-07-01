@@ -189,7 +189,9 @@ mutation PresignedPutS3Url($input: PresignedPutUrlInput!) {
 	}
 }
 
-mutation RemoveEntitiesFromCollection($input: ChangeCollectionToEntitiesInput!) {
+mutation RemoveEntitiesFromCollection(
+	$input: ChangeCollectionToEntitiesInput!
+) {
 	removeEntitiesFromCollection(input: $input) {
 		id
 	}
