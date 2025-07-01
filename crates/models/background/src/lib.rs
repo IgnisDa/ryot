@@ -11,6 +11,8 @@ pub enum HpApplicationJob {
     SyncUserIntegrationsData(String),
     RecalculateUserActivitiesAndSummary(String, bool),
     BulkMetadataProgressUpdate(String, Vec<MetadataProgressUpdateInput>),
+    AddEntitiesToCollection(String, ChangeCollectionToEntitiesInput),
+    RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
@@ -32,8 +34,6 @@ pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
     UpdateUserLastActivityPerformed(String, DateTimeUtc),
-    AddEntitiesToCollection(String, ChangeCollectionToEntitiesInput),
-    RemoveEntitiesFromCollection(String, ChangeCollectionToEntitiesInput),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]
