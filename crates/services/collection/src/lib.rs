@@ -70,7 +70,7 @@ impl CollectionService {
         &self,
         user_id: &String,
         input: ChangeCollectionToEntitiesInput,
-    ) -> Result<StringIdObject> {
+    ) -> Result<bool> {
         remove_entities_from_collection(user_id, input, &self.0).await
     }
 

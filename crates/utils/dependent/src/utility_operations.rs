@@ -157,6 +157,20 @@ pub async fn expire_user_collections_list_cache(
     Ok(())
 }
 
+pub async fn expire_user_collection_contents_cache(
+    user_id: &String,
+    _collection_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    ss.cache_service
+        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+            user_id: Some(user_id.to_owned()),
+            key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
+        })
+        .await?;
+    Ok(())
+}
+
 pub async fn expire_user_workouts_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,

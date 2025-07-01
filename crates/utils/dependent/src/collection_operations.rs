@@ -17,9 +17,12 @@ use sea_orm::{
 use sea_query::OnConflict;
 use supporting_service::SupportingService;
 
-use crate::utility_operations::{
-    associate_user_with_entity, expire_user_collections_list_cache,
-    mark_entity_as_recently_consumed,
+use crate::{
+    expire_user_collection_contents_cache,
+    utility_operations::{
+        associate_user_with_entity, expire_user_collections_list_cache,
+        mark_entity_as_recently_consumed,
+    },
 };
 
 async fn add_single_entity_to_collection(
@@ -50,7 +53,7 @@ async fn add_single_entity_to_collection(
         to_update.update(&ss.db).await?
     } else {
         let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id),
+            collection_id: ActiveValue::Set(collection.id.clone()),
             information: ActiveValue::Set(entity.information.clone()),
             ..Default::default()
         };
@@ -86,6 +89,8 @@ async fn add_single_entity_to_collection(
         created
     };
     mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss).await?;
+    expire_user_collections_list_cache(user_id, ss).await?;
+    expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
     ss.perform_application_job(ApplicationJob::Lp(
         LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
     ))
@@ -101,7 +106,6 @@ pub async fn add_entities_to_collection(
     for entity in &input.entities {
         add_single_entity_to_collection(user_id, entity, &input.collection_name, ss).await?;
     }
-    expire_user_collections_list_cache(user_id, ss).await?;
     Ok(true)
 }
 
@@ -206,7 +210,7 @@ async fn remove_single_entity_from_collection(
     collection_name: &String,
     creator_user_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
+) -> Result<bool> {
     let collect = Collection::find()
         .left_join(UserToEntity)
         .filter(collection::Column::Name.eq(collection_name))
@@ -225,17 +229,18 @@ async fn remove_single_entity_from_collection(
             .await
             .ok();
     }
-    Ok(StringIdObject { id: collect.id })
+    expire_user_collections_list_cache(user_id, ss).await?;
+    expire_user_collection_contents_cache(user_id, &collect.id, ss).await?;
+    Ok(true)
 }
 
 pub async fn remove_entities_from_collection(
     user_id: &String,
     input: ChangeCollectionToEntitiesInput,
     ss: &Arc<SupportingService>,
-) -> Result<StringIdObject> {
-    let mut result_id = String::new();
+) -> Result<bool> {
     for entity in &input.entities {
-        let result = remove_single_entity_from_collection(
+        remove_single_entity_from_collection(
             user_id,
             entity,
             &input.collection_name,
@@ -243,8 +248,6 @@ pub async fn remove_entities_from_collection(
             ss,
         )
         .await?;
-        result_id = result.id;
     }
-    expire_user_collections_list_cache(user_id, ss).await?;
-    Ok(StringIdObject { id: result_id })
+    Ok(true)
 }
