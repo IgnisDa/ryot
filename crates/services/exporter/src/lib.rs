@@ -5,33 +5,25 @@ use common_models::ExportJob;
 use supporting_service::SupportingService;
 
 mod collection_exports;
+mod export_operations;
 mod export_utilities;
 mod fitness_exports;
-mod job_management;
 mod media_exports;
 
-use job_management::JobManager;
+use export_operations::{deploy_export_job, perform_export, user_exports};
 
-pub struct ExporterService {
-    job_manager: JobManager,
-}
+pub struct ExporterService(pub Arc<SupportingService>);
 
 impl ExporterService {
-    pub fn new(service: Arc<SupportingService>) -> Self {
-        Self {
-            job_manager: JobManager::new(service),
-        }
-    }
-
     pub async fn deploy_export_job(&self, user_id: String) -> Result<bool> {
-        self.job_manager.deploy_export_job(user_id).await
+        deploy_export_job(&self.0, user_id).await
     }
 
     pub async fn user_exports(&self, user_id: String) -> Result<Vec<ExportJob>> {
-        self.job_manager.user_exports(user_id).await
+        user_exports(&self.0, user_id).await
     }
 
     pub async fn perform_export(&self, user_id: String) -> Result<()> {
-        self.job_manager.perform_export(user_id).await
+        perform_export(&self.0, user_id).await
     }
 }
