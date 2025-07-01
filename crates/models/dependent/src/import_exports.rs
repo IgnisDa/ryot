@@ -110,20 +110,20 @@ pub struct ImportOrExportExerciseItem {
 #[derive(Debug, Serialize, Deserialize, Clone, Schematic)]
 #[serde(rename_all = "snake_case")]
 pub struct CompleteExport {
+    /// Data about user's people.
+    pub people: Option<Vec<ImportOrExportPersonItem>>,
     /// Data about user's workouts.
     pub workouts: Option<Vec<ImportOrExportWorkoutItem>>,
+    /// Data about user's media.
+    pub metadata: Option<Vec<ImportOrExportMetadataItem>>,
     /// Data about user's exercises.
     pub exercises: Option<Vec<ImportOrExportExerciseItem>>,
     /// Data about user's measurements.
     pub measurements: Option<Vec<user_measurement::Model>>,
-    /// Data about user's people.
-    pub people: Option<Vec<ImportOrExportPersonItem>>,
-    /// Data about user's media.
-    pub metadata: Option<Vec<ImportOrExportMetadataItem>>,
-    /// Data about user's workout templates.
-    pub workout_templates: Option<Vec<ImportOrExportWorkoutTemplateItem>>,
     /// Data about user's media groups.
     pub metadata_groups: Option<Vec<ImportOrExportMetadataGroupItem>>,
+    /// Data about user's workout templates.
+    pub workout_templates: Option<Vec<ImportOrExportWorkoutTemplateItem>>,
 }
 
 #[derive(Debug, Default, Display, Clone, Serialize)]
