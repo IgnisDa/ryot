@@ -1,11 +1,11 @@
 import {
-	AddEntitiesToCollectionDocument,
 	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
+	DeployAddEntitiesToCollectionJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	SetLot,
@@ -176,7 +176,7 @@ describe("Cache related tests", () => {
 
 		const firstMetadataId = searchResult[0];
 		const addToCollectionResult = await client.request(
-			AddEntitiesToCollectionDocument,
+			DeployAddEntitiesToCollectionJobDocument,
 			{
 				input: {
 					creatorUserId: userId,
@@ -191,7 +191,7 @@ describe("Cache related tests", () => {
 			},
 			getAuthHeaders(),
 		);
-		expect(addToCollectionResult.addEntitiesToCollection).toBe(true);
+		expect(addToCollectionResult.deployAddEntitiesToCollectionJob).toBe(true);
 		await waitFor(4000);
 
 		const afterAdd = await getUserMetadataList(url, userApiKey);
