@@ -56,9 +56,9 @@ pub async fn user_exports(
         let ended_at =
             DateTime::parse_from_rfc2822(metadata.get("ended_at").unwrap())?.with_timezone(&Utc);
         resp.push(ExportJob {
-            size,
-            url,
             key,
+            url,
+            size,
             ended_at,
             started_at,
         });

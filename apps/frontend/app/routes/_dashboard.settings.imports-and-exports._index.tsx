@@ -28,6 +28,7 @@ import {
 	DeployImportJobDocument,
 	ImportSource,
 	UserExportsDocument,
+	type UserExportsQuery,
 	UserImportReportsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -39,7 +40,7 @@ import {
 import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Form, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -627,52 +628,7 @@ export default function Page() {
 							{loaderData.userExports.length > 0 ? (
 								<Stack>
 									{loaderData.userExports.map((exp) => (
-										<Box key={exp.startedAt} w="100%">
-											<Group justify="space-between" wrap="nowrap">
-												<Group gap="xs">
-													<Text span size="lg">
-														{changeCase(dayjsLib(exp.endedAt).fromNow())}
-													</Text>
-													<Text span size="xs" c="dimmed">
-														({filesize(exp.size)})
-													</Text>
-												</Group>
-												<Group>
-													<Anchor
-														href={exp.url}
-														target="_blank"
-														rel="noreferrer"
-													>
-														<ThemeIcon color="blue" variant="transparent">
-															<IconDownload />
-														</ThemeIcon>
-													</Anchor>
-													<Form
-														method="POST"
-														action={withQuery($path("/actions"), {
-															intent: "deleteS3Asset",
-														})}
-													>
-														<input hidden name="key" defaultValue={exp.key} />
-														<ActionIcon
-															color="red"
-															type="submit"
-															variant="transparent"
-															onClick={(e) => {
-																const form = e.currentTarget.form;
-																e.preventDefault();
-																openConfirmationModal(
-																	"Are you sure you want to delete this export? This action is irreversible.",
-																	() => submit(form),
-																);
-															}}
-														>
-															<IconTrash />
-														</ActionIcon>
-													</Form>
-												</Group>
-											</Group>
-										</Box>
+										<ExportItem key={exp.startedAt} item={exp} />
 									))}
 								</Stack>
 							) : (
@@ -685,3 +641,67 @@ export default function Page() {
 		</Container>
 	);
 }
+
+type ExportItemProps = {
+	item: UserExportsQuery["userExports"][number];
+};
+
+const ExportItem = ({ item }: ExportItemProps) => {
+	const submit = useConfirmSubmit();
+
+	const duration = useMemo(() => {
+		const seconds = dayjsLib(item.endedAt).diff(
+			dayjsLib(item.startedAt),
+			"second",
+		);
+		if (seconds < 60) return `${seconds}s`;
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+		return `${minutes}m ${remainingSeconds}s`;
+	}, [item.startedAt, item.endedAt]);
+
+	return (
+		<Box w="100%">
+			<Group justify="space-between" wrap="nowrap">
+				<Group gap="xs">
+					<Text span>
+						{dayjsLib(item.startedAt).format("MMM DD, YYYY [at] HH:mm")}
+					</Text>
+					<Text span size="xs" c="dimmed">
+						(Took {duration}, {filesize(item.size)})
+					</Text>
+				</Group>
+				<Group>
+					<Anchor href={item.url} target="_blank" rel="noreferrer">
+						<ThemeIcon color="blue" variant="transparent">
+							<IconDownload />
+						</ThemeIcon>
+					</Anchor>
+					<Form
+						method="POST"
+						action={withQuery($path("/actions"), {
+							intent: "deleteS3Asset",
+						})}
+					>
+						<input hidden name="key" defaultValue={item.key} />
+						<ActionIcon
+							color="red"
+							type="submit"
+							variant="transparent"
+							onClick={(e) => {
+								const form = e.currentTarget.form;
+								e.preventDefault();
+								openConfirmationModal(
+									"Are you sure you want to delete this export? This action is irreversible.",
+									() => submit(form),
+								);
+							}}
+						>
+							<IconTrash />
+						</ActionIcon>
+					</Form>
+				</Group>
+			</Group>
+		</Box>
+	);
+};
