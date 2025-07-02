@@ -10,6 +10,7 @@ import {
 	FileInput,
 	Group,
 	Indicator,
+	Paper,
 	Progress,
 	Select,
 	Skeleton,
@@ -661,16 +662,16 @@ const ExportItem = ({ item }: ExportItemProps) => {
 	}, [item.startedAt, item.endedAt]);
 
 	return (
-		<Box w="100%">
-			<Group justify="space-between" wrap="nowrap">
-				<Group gap="xs">
+		<Paper withBorder p={{ base: "sm", md: "md" }}>
+			<Group justify="space-between" wrap="wrap">
+				<Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
 					<Text span>
-						{dayjsLib(item.startedAt).format("MMM DD, YYYY [at] HH:mm")}
+						{dayjsLib(item.startedAt).format("MMM DD, YYYY [at] h:mm A")}
 					</Text>
 					<Text span size="xs" c="dimmed">
 						(Took {duration}, {filesize(item.size)})
 					</Text>
-				</Group>
+				</Stack>
 				<Group>
 					<Anchor href={item.url} target="_blank" rel="noreferrer">
 						<ThemeIcon color="blue" variant="transparent">
@@ -702,6 +703,6 @@ const ExportItem = ({ item }: ExportItemProps) => {
 					</Form>
 				</Group>
 			</Group>
-		</Box>
+		</Paper>
 	);
 };
