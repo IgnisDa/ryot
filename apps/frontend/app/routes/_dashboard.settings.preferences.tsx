@@ -277,6 +277,7 @@ export default function Page() {
 											</SimpleGrid>
 											{facet === "media" ? (
 												<MultiSelect
+													disabled={!!isEditDisabled}
 													defaultValue={
 														userPreferences.featuresEnabled[facet].specific
 													}
