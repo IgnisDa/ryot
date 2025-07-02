@@ -4,6 +4,7 @@ import {
 	Loader,
 	SegmentedControl,
 	Stack,
+	Text,
 } from "@mantine/core";
 import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
 import { useMetadataDetails, useUserMetadataDetails } from "~/lib/hooks";
@@ -47,6 +48,9 @@ export const MetadataProgressUpdateForm = ({
 
 	return (
 		<Stack gap="lg">
+			<Text fw="bold" ta="center" truncate>
+				{metadataDetails.title}
+			</Text>
 			<SegmentedControl
 				fullWidth
 				defaultValue={Target.Progress}

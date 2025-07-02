@@ -61,7 +61,7 @@ export const MetadataInProgressUpdateForm = ({
 		.otherwise(() => [null, null]);
 
 	return (
-		<Stack mt="xs">
+		<Stack mt="sm">
 			<Group>
 				<Slider
 					min={0}
@@ -114,8 +114,9 @@ export const MetadataInProgressUpdateForm = ({
 				</>
 			) : null}
 			<Button
-				variant="outline"
+				size="xs"
 				type="submit"
+				variant="outline"
 				onClick={async () => {
 					await deployBulkMetadataProgressUpdate.mutateAsync([
 						{

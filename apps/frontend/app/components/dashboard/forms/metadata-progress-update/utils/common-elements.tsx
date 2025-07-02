@@ -1,12 +1,8 @@
-import { Button, Select } from "@mantine/core";
+import { Select } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { Verb, getVerb } from "~/lib/common";
 import { useGetWatchProviders } from "~/lib/hooks";
-import {
-	OnboardingTourStepTargets,
-	useOnboardingTour,
-} from "~/lib/state/general";
 import { WatchTimes } from "../../../types";
 
 interface WatchTimeSelectProps {
@@ -97,28 +93,5 @@ export const ProviderSelect = ({
 			name="providerWatchedOn"
 			label={`Where did you ${getVerb(Verb.Read, metadataLot)} it?`}
 		/>
-	);
-};
-
-interface SubmitButtonProps {
-	disabled: boolean;
-	onClick: () => void;
-}
-
-export const SubmitButton = ({ disabled, onClick }: SubmitButtonProps) => {
-	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	return (
-		<Button
-			variant="outline"
-			disabled={disabled}
-			className={OnboardingTourStepTargets.AddAudiobookToWatchedHistory}
-			onClick={() => {
-				onClick();
-				advanceOnboardingTourStep();
-			}}
-		>
-			Submit
-		</Button>
 	);
 };

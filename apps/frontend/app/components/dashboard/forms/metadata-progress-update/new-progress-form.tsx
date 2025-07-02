@@ -1,5 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { Stack } from "@mantine/core";
+import { Button, Stack } from "@mantine/core";
 import type {
 	MetadataProgressUpdateChange,
 	MetadataProgressUpdateCommonInput,
@@ -10,6 +10,10 @@ import { useState } from "react";
 import { match } from "ts-pattern";
 import { convertTimestampToUtcString } from "~/lib/common";
 import { useDeployBulkMetadataProgressUpdate } from "~/lib/hooks";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/general";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import { WatchTimes } from "../../types";
 import { AnimeForm } from "./media-types/anime-form";
@@ -23,7 +27,6 @@ import {
 import {
 	CustomDatePicker,
 	ProviderSelect,
-	SubmitButton,
 	WatchTimeSelect,
 } from "./utils/common-elements";
 import type { MetadataNewProgressFormProps } from "./utils/form-types";
@@ -43,6 +46,7 @@ export const MetadataNewProgressUpdateForm = ({
 	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
 		metadataDetails.title,
 	);
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const handleSubmit = async () => {
 		if (!metadataToUpdate) return;
@@ -138,7 +142,7 @@ export const MetadataNewProgressUpdateForm = ({
 	};
 
 	return (
-		<Stack ref={parent} gap="xs">
+		<Stack ref={parent} gap="sm">
 			<AnimeForm metadataDetails={metadataDetails} />
 			<MangaForm metadataDetails={metadataDetails} />
 			<ShowForm metadataDetails={metadataDetails} />
@@ -162,14 +166,22 @@ export const MetadataNewProgressUpdateForm = ({
 					onChange={handleProviderChange}
 				/>
 			) : null}
-			<SubmitButton
-				onClick={handleSubmit}
+			<Button
+				size="xs"
+				variant="outline"
 				disabled={
 					watchTime === WatchTimes.CustomDates &&
 					startDate === null &&
 					finishDate === null
 				}
-			/>
+				className={OnboardingTourStepTargets.AddAudiobookToWatchedHistory}
+				onClick={() => {
+					advanceOnboardingTourStep();
+					handleSubmit();
+				}}
+			>
+				Submit
+			</Button>
 		</Stack>
 	);
 };
