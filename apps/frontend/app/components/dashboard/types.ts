@@ -2,8 +2,7 @@ import type {
 	UserCollectionsListQuery,
 	UserMetadataDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import type { ComponentType, ReactNode } from "react";
-import type { ThreePointSmileyRating } from "~/lib/common";
+import type { ComponentType } from "react";
 
 export enum WatchTimes {
 	JustCompletedNow = "Just Completed Now",
@@ -31,7 +30,3 @@ export type InProgress =
 export type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
 
-export interface SmileySurroundProps {
-	children: ReactNode;
-	smileyRating: ThreePointSmileyRating;
-}

@@ -9,7 +9,6 @@ import {
 	type MediaCollectionFilter,
 	type MediaCollectionPresenceFilter,
 	MediaLot,
-	MediaSource,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
@@ -250,54 +249,7 @@ export const getLot = (lot: unknown) => {
 		.otherwise(() => undefined);
 };
 
-export const getLotGradient = (lot: MediaLot) =>
-	match(lot)
-		.with(MediaLot.AudioBook, () => ({ from: "indigo", to: "cyan" }))
-		.with(MediaLot.Book, () => ({ from: "teal", to: "lime" }))
-		.with(MediaLot.Movie, () => ({ from: "teal", to: "blue" }))
-		.with(MediaLot.Show, () => ({ from: "orange", to: "red" }))
-		.with(MediaLot.VideoGame, () => ({
-			from: "purple",
-			to: "blue",
-		}))
-		.with(MediaLot.Anime, () => ({
-			from: "red",
-			to: "blue",
-		}))
-		.with(MediaLot.Manga, () => ({
-			from: "red",
-			to: "green",
-		}))
-		.with(MediaLot.Podcast, () => ({
-			from: "yellow",
-			to: "purple",
-		}))
-		.with(MediaLot.VisualNovel, () => ({
-			from: "green",
-			to: "yellow",
-		}))
-		.with(MediaLot.Music, () => ({
-			from: "orange",
-			to: "pink",
-		}))
-		.exhaustive();
 
-/**
- * Get the correct source from a string
- */
-export const getSource = (source: unknown) => {
-	if (!source) return undefined;
-	const newLot = (source as string).toLowerCase();
-	return match(newLot)
-		.with("anilist", () => MediaSource.Anilist)
-		.with("audible", () => MediaSource.Audible)
-		.with("custom", () => MediaSource.Custom)
-		.with("igdb", () => MediaSource.Igdb)
-		.with("listennotes", () => MediaSource.Listennotes)
-		.with("openlibrary", () => MediaSource.Openlibrary)
-		.with("tmdb", () => MediaSource.Tmdb)
-		.otherwise(() => undefined);
-};
 
 export enum Verb {
 	Read = 0,
