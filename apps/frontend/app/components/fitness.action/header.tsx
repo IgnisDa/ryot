@@ -12,13 +12,6 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { displayWeightWithUnit } from "~/components/fitness";
 import {
-	NameAndOtherInputs,
-	RestTimer,
-	StatDisplay,
-	WorkoutDurationTimer,
-	deleteUploadedAsset,
-} from "~/components/fitness.action";
-import {
 	FitnessAction,
 	FitnessEntity,
 	clientGqlService,
@@ -35,6 +28,10 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { NameAndOtherInputs } from "./miscellaneous";
+import { RestTimer, WorkoutDurationTimer } from "./rest-timer";
+import { StatDisplay } from "./stat-display-and-input";
+import { deleteUploadedAsset } from "./utils";
 
 interface HeaderProps {
 	stopTimer: () => void;

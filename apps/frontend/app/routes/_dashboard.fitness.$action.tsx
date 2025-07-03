@@ -10,15 +10,17 @@ import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { useInterval } from "usehooks-ts";
 import { z } from "zod";
+import { ExerciseDisplay } from "~/components/fitness.action/exercise-display/display";
+import { WorkoutHeader } from "~/components/fitness.action/header";
 import {
-	DEFAULT_SET_TIMEOUT_DELAY_MS,
-	ExerciseDisplay,
-	WorkoutHeader,
-	WorkoutModals,
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
+} from "~/components/fitness.action/hooks";
+import {
+	WorkoutModals,
 	useWorkoutModals,
-} from "~/components/fitness.action";
+} from "~/components/fitness.action/modals";
+import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/fitness.action/utils";
 import {
 	FitnessAction,
 	dayjsLib,

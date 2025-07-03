@@ -77,16 +77,16 @@ import {
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
 import {
-	DisplayPodcastEpisode,
-	DisplayShowSeason,
-	DisplayShowSeasonEpisodesModal,
-	HistoryItem,
 	JUST_WATCH_URL,
 	METADATA_LOTS_WITH_GRANULAR_UPDATES,
-	MergeMetadataModal,
-	MetadataCreator,
-	VideoIframe,
-} from "~/components/media-item";
+} from "~/components/media-item/constants";
+import { HistoryItem } from "~/components/media-item/displays/history-item";
+import { MetadataCreator } from "~/components/media-item/displays/metadata-creator";
+import { DisplayPodcastEpisode } from "~/components/media-item/displays/podcast-episode";
+import { DisplayShowSeason } from "~/components/media-item/displays/show-season";
+import { VideoIframe } from "~/components/media-item/displays/video-iframe";
+import { MergeMetadataModal } from "~/components/media-item/modals/merge-metadata-modal";
+import { DisplayShowSeasonEpisodesModal } from "~/components/media-item/modals/show-season-episodes-modal";
 import {
 	MEDIA_DETAILS_HEIGHT,
 	Verb,

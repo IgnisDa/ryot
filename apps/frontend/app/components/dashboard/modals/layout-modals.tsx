@@ -1,11 +1,5 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
 import { FullscreenImageModal } from "~/components/common";
-import {
-	AddEntityToCollectionsForm,
-	CreateMeasurementForm,
-	MetadataProgressUpdateForm,
-	ReviewEntityForm,
-} from "~/components/dashboard";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/general";
 import {
@@ -13,6 +7,10 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import { AddEntityToCollectionsForm } from "../forms/add-entity-to-collections-form";
+import { CreateMeasurementForm } from "../forms/create-measurement-form";
+import { MetadataProgressUpdateForm } from "../forms/metadata-progress-update/progress-update";
+import { ReviewEntityForm } from "../forms/review-entity-form";
 
 export function LayoutModals() {
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();

@@ -46,16 +46,16 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
+import { LayoutModals } from "~/components/dashboard/modals/layout-modals";
+import { Footer } from "~/components/dashboard/navigation/footer";
+import { LinksGroup } from "~/components/dashboard/navigation/links-group";
 import {
-	Footer,
-	LayoutModals,
-	LinksGroup,
-	desktopSidebarCollapsedCookie,
 	getFitnessLinks,
 	getMediaLinks,
 	getSettingsLinks,
 	getThemeIcon,
-} from "~/components/dashboard";
+} from "~/components/dashboard/navigation/navigation-config";
+import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
