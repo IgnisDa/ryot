@@ -10,7 +10,7 @@ import {
 } from "@mantine/core";
 import { Form, isRouteErrorResponse, useRouteError } from "react-router";
 import { $path } from "safe-routes";
-import { discordLink } from "~/components/dashboard";
+import { discordLink } from "./utils";
 
 export function ErrorBoundary() {
 	const error = useRouteError();

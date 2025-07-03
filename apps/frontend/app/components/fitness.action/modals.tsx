@@ -1,11 +1,9 @@
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
-import {
-	DisplaySupersetModal,
-	ReorderDrawer,
-	TimerAndStopwatchDrawer,
-	UploadAssetsModal,
-} from "~/components/fitness.action";
+import { UploadAssetsModal } from "./miscellaneous";
+import { ReorderDrawer } from "./reorder";
+import { DisplaySupersetModal } from "./supersets";
+import { TimerAndStopwatchDrawer } from "./timer-and-stopwatch-drawer";
 
 interface ModalsProps {
 	stopTimer: () => void;

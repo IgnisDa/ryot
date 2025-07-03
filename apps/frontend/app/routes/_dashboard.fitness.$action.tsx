@@ -11,15 +11,6 @@ import { $path } from "safe-routes";
 import { useInterval } from "usehooks-ts";
 import { z } from "zod";
 import {
-	DEFAULT_SET_TIMEOUT_DELAY_MS,
-	ExerciseDisplay,
-	WorkoutHeader,
-	WorkoutModals,
-	getProgressOfExercise,
-	usePerformTasksAfterSetConfirmed,
-	useWorkoutModals,
-} from "~/components/fitness.action";
-import {
 	FitnessAction,
 	dayjsLib,
 	postMessageToServiceWorker,
@@ -36,6 +27,17 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import type { Route } from "./+types/_dashboard.fitness.$action";
+import {
+	getProgressOfExercise,
+	usePerformTasksAfterSetConfirmed,
+} from "~/components/fitness.action/hooks";
+import { ExerciseDisplay } from "~/components/fitness.action/exercise-display/display";
+import { WorkoutHeader } from "~/components/fitness.action/header";
+import {
+	useWorkoutModals,
+	WorkoutModals,
+} from "~/components/fitness.action/modals";
+import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/fitness.action/utils";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
