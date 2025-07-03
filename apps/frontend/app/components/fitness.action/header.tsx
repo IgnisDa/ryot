@@ -29,7 +29,7 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { NameAndOtherInputs } from "./miscellaneous";
-import { WorkoutDurationTimer, RestTimer } from "./rest-timer";
+import { RestTimer, WorkoutDurationTimer } from "./rest-timer";
 import { StatDisplay } from "./stat-display-and-input";
 import { deleteUploadedAsset } from "./utils";
 

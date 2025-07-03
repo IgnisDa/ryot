@@ -46,6 +46,16 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
+import { LayoutModals } from "~/components/dashboard/modals/layout-modals";
+import { Footer } from "~/components/dashboard/navigation/footer";
+import { LinksGroup } from "~/components/dashboard/navigation/links-group";
+import {
+	getFitnessLinks,
+	getMediaLinks,
+	getSettingsLinks,
+	getThemeIcon,
+} from "~/components/dashboard/navigation/navigation-config";
+import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
 import {
 	FitnessAction,
 	LOGO_IMAGE_URL,
@@ -74,16 +84,6 @@ import {
 import { colorSchemeCookie } from "~/lib/utilities.server";
 import classes from "~/styles/dashboard.module.css";
 import type { Route } from "./+types/_dashboard";
-import { LayoutModals } from "~/components/dashboard/modals/layout-modals";
-import { Footer } from "~/components/dashboard/navigation/footer";
-import { LinksGroup } from "~/components/dashboard/navigation/links-group";
-import {
-	getMediaLinks,
-	getThemeIcon,
-	getFitnessLinks,
-	getSettingsLinks,
-} from "~/components/dashboard/navigation/navigation-config";
-import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
