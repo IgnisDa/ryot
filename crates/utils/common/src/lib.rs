@@ -36,7 +36,7 @@ pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("appl
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const PAGE_SIZE: i32 = 20;
 
-pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
+pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 10] = [
     MediaSource::Tmdb,
     MediaSource::Anilist,
     MediaSource::Vndb,
@@ -46,6 +46,7 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 9] = [
     MediaSource::Igdb,
     MediaSource::YoutubeMusic,
     MediaSource::Hardcover,
+    MediaSource::GiantBomb,
 ];
 
 pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 4] = [
