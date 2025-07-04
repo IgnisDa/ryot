@@ -241,9 +241,13 @@ impl MediaProvider for GiantBombService {
                 if let Some(api_url) = dev.api_detail_url {
                     people.push(PartialMetadataPerson {
                         name: dev.name,
-                        identifier: extract_giant_bomb_guid(&api_url),
                         source: MediaSource::GiantBomb,
                         character: Some("Developer".to_string()),
+                        identifier: extract_giant_bomb_guid(&api_url),
+                        source_specifics: Some(PersonSourceSpecifics {
+                            is_giant_bomb_company: Some(true),
+                            ..Default::default()
+                        }),
                         ..Default::default()
                     });
                 }
@@ -251,13 +255,30 @@ impl MediaProvider for GiantBombService {
         }
 
         if let Some(pubs) = game.publishers {
-            for pub_ in pubs {
-                if let Some(api_url) = pub_.api_detail_url {
+            for publish in pubs {
+                if let Some(api_url) = publish.api_detail_url {
                     people.push(PartialMetadataPerson {
-                        name: pub_.name,
-                        identifier: extract_giant_bomb_guid(&api_url),
+                        name: publish.name,
                         source: MediaSource::GiantBomb,
                         character: Some("Publisher".to_string()),
+                        identifier: extract_giant_bomb_guid(&api_url),
+                        source_specifics: Some(PersonSourceSpecifics {
+                            is_giant_bomb_publisher: Some(true),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+
+        if let Some(game_people) = game.people {
+            for person in game_people {
+                if let Some(api_url) = person.api_detail_url {
+                    people.push(PartialMetadataPerson {
+                        name: person.name,
+                        source: MediaSource::GiantBomb,
+                        identifier: extract_giant_bomb_guid(&api_url),
                         ..Default::default()
                     });
                 }
