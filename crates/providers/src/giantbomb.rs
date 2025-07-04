@@ -153,18 +153,6 @@ struct GiantBombPerson {
     site_detail_url: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombPublisher {
-    id: i32,
-    guid: String,
-    name: String,
-    deck: Option<String>,
-    description: Option<String>,
-    image: Option<GiantBombImage>,
-    founded: Option<i32>,
-    api_detail_url: Option<String>,
-    site_detail_url: Option<String>,
-}
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
     date_str.and_then(|d| {
@@ -306,7 +294,7 @@ impl MediaProvider for GiantBombService {
                         character: Some("Publisher".to_string()),
                         identifier: extract_giant_bomb_guid(&api_url),
                         source_specifics: Some(PersonSourceSpecifics {
-                            is_giant_bomb_publisher: Some(true),
+                            is_giant_bomb_company: Some(true),
                             ..Default::default()
                         }),
                         ..Default::default()
@@ -433,10 +421,6 @@ impl MediaProvider for GiantBombService {
                 is_giant_bomb_company: Some(true),
                 ..
             }) => "company",
-            Some(PersonSourceSpecifics {
-                is_giant_bomb_publisher: Some(true),
-                ..
-            }) => "publisher",
             _ => "person",
         };
 
@@ -474,16 +458,6 @@ impl MediaProvider for GiantBombService {
                     identifier: company.guid,
                     image: company.image.and_then(|img| img.original_url),
                     birth_year: company.founded,
-                })?
-            }
-            "publisher" => {
-                let search_response: GiantBombSearchResponse<GiantBombPublisher> =
-                    response.json().await?;
-                self.process_search_response(search_response, |publisher| PeopleSearchItem {
-                    name: publisher.name,
-                    identifier: publisher.guid,
-                    image: publisher.image.and_then(|img| img.original_url),
-                    birth_year: publisher.founded,
                 })?
             }
             _ => {
