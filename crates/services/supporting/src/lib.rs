@@ -210,6 +210,7 @@ impl SupportingService {
                         | MediaSource::Vndb
                         | MediaSource::Custom
                         | MediaSource::Anilist
+                        | MediaSource::GiantBomb
                         | MediaSource::Hardcover
                         | MediaSource::GoogleBooks
                         | MediaSource::Listennotes
