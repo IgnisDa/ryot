@@ -4,13 +4,13 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{EntityAssets, SearchDetails};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, ryot_log};
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
-    PartialMetadataWithoutId, UniqueMediaIdentifier, VideoGameSpecifics,
+    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -78,22 +78,64 @@ struct GiantBombGame {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GiantBombSearchResponse {
+struct GiantBombSearchResponse<T> {
     limit: i32,
     offset: i32,
     error: String,
     status_code: i32,
     number_of_page_results: i32,
-    results: Vec<GiantBombGame>,
+    results: Vec<T>,
     number_of_total_results: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GiantBombGameDetailsResponse {
+struct GiantBombDetailsResponse<T> {
     error: String,
     status_code: i32,
-    results: GiantBombGame,
+    results: T,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombCompany {
+    id: i32,
+    guid: String,
+    name: String,
+    deck: Option<String>,
+    description: Option<String>,
+    image: Option<GiantBombImage>,
+    founded: Option<i32>,
+    api_detail_url: Option<String>,
+    site_detail_url: Option<String>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombPerson {
+    id: i32,
+    guid: String,
+    name: String,
+    deck: Option<String>,
+    description: Option<String>,
+    image: Option<GiantBombImage>,
+    birth_date: Option<String>,
+    api_detail_url: Option<String>,
+    site_detail_url: Option<String>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombPublisher {
+    id: i32,
+    guid: String,
+    name: String,
+    deck: Option<String>,
+    description: Option<String>,
+    image: Option<GiantBombImage>,
+    founded: Option<i32>,
+    api_detail_url: Option<String>,
+    site_detail_url: Option<String>,
+}
+
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
     date_str.and_then(|d| {
@@ -167,7 +209,7 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let search_response: GiantBombSearchResponse = response
+        let search_response: GiantBombSearchResponse<GiantBombGame> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
@@ -223,7 +265,7 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let details_response: GiantBombGameDetailsResponse = response
+        let details_response: GiantBombDetailsResponse<GiantBombGame> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
@@ -373,5 +415,166 @@ impl MediaProvider for GiantBombService {
             },
             ..Default::default()
         })
+    }
+
+    async fn people_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _display_nsfw: bool,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<SearchResults<PeopleSearchItem>> {
+        let page = page.unwrap_or(1);
+        let offset = (page - 1) * PAGE_SIZE;
+
+        let search_type = match source_specifics {
+            Some(PersonSourceSpecifics {
+                is_giant_bomb_company: Some(true),
+                ..
+            }) => "company",
+            Some(PersonSourceSpecifics {
+                is_giant_bomb_publisher: Some(true),
+                ..
+            }) => "publisher",
+            _ => "person",
+        };
+
+        ryot_log!(debug, "Searching GiantBomb {} for: {}", search_type, query);
+
+        let url = format!("{}/search/", BASE_URL);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[
+                ("api_key", &self.api_key),
+                ("format", &"json".to_string()),
+                ("query", &query.to_string()),
+                ("resources", &search_type.to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("offset", &offset.to_string()),
+            ])
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "GiantBomb API returned status: {}",
+                response.status()
+            ));
+        }
+
+        if search_type == "company" {
+            let search_response: GiantBombSearchResponse<GiantBombCompany> = response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb company response: {}", e))?;
+
+            if search_response.error != "OK" {
+                return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+            }
+
+            let items: Vec<PeopleSearchItem> = search_response
+                .results
+                .into_iter()
+                .map(|company| PeopleSearchItem {
+                    name: company.name,
+                    identifier: company.guid,
+                    image: company.image.and_then(|img| img.original_url),
+                    birth_year: company.founded,
+                    ..Default::default()
+                })
+                .collect();
+
+            let next_page = if search_response.offset + search_response.number_of_page_results
+                < search_response.number_of_total_results
+            {
+                Some(page + 1)
+            } else {
+                None
+            };
+
+            return Ok(SearchResults {
+                items,
+                details: SearchDetails {
+                    next_page,
+                    total: search_response.number_of_total_results,
+                },
+            });
+        } else if search_type == "publisher" {
+            let search_response: GiantBombSearchResponse<GiantBombPublisher> = response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb publisher response: {}", e))?;
+
+            if search_response.error != "OK" {
+                return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+            }
+
+            let items: Vec<PeopleSearchItem> = search_response
+                .results
+                .into_iter()
+                .map(|publisher| PeopleSearchItem {
+                    name: publisher.name,
+                    identifier: publisher.guid,
+                    image: publisher.image.and_then(|img| img.original_url),
+                    birth_year: publisher.founded,
+                    ..Default::default()
+                })
+                .collect();
+
+            let next_page = if search_response.offset + search_response.number_of_page_results
+                < search_response.number_of_total_results
+            {
+                Some(page + 1)
+            } else {
+                None
+            };
+
+            return Ok(SearchResults {
+                items,
+                details: SearchDetails {
+                    next_page,
+                    total: search_response.number_of_total_results,
+                },
+            });
+        } else {
+            let search_response: GiantBombSearchResponse<GiantBombPerson> = response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb person response: {}", e))?;
+
+            if search_response.error != "OK" {
+                return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+            }
+
+            let items: Vec<PeopleSearchItem> = search_response
+                .results
+                .into_iter()
+                .map(|person| PeopleSearchItem {
+                    name: person.name,
+                    identifier: person.guid,
+                    image: person.image.and_then(|img| img.original_url),
+                    birth_year: person.birth_date.and_then(|d| extract_year_from_date(Some(d))),
+                    ..Default::default()
+                })
+                .collect();
+
+            let next_page = if search_response.offset + search_response.number_of_page_results
+                < search_response.number_of_total_results
+            {
+                Some(page + 1)
+            } else {
+                None
+            };
+
+            return Ok(SearchResults {
+                items,
+                details: SearchDetails {
+                    next_page,
+                    total: search_response.number_of_total_results,
+                },
+            });
+        }
     }
 }
