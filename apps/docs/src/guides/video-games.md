@@ -22,3 +22,16 @@ You can follow the below steps to obtain your own API keys and enable video game
 6. Generate a client secret. Copy the **Client ID** and **Client Secret**.
 7. Set the `VIDEO_GAMES_*` environment variables as described in the
    [configuration](../configuration.md#important-parameters) docs.
+
+## Integration with GiantBomb
+
+Ryot also supports tracking video games via [GiantBomb](https://www.giantbomb.com/). This
+provides an alternative source for video game metadata with comprehensive coverage.
+
+### Steps
+
+1. Create a [GiantBomb](https://www.giantbomb.com/) account.
+2. Navigate to your [API key page](https://www.giantbomb.com/api/).
+3. Generate an API key if you don't have one already.
+4. Copy the **API Key**.
+5. Set the `VIDEO_GAMES_GIANTBOMB_API_KEY` environment variable with your API key.
