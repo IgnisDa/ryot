@@ -62,6 +62,7 @@ struct GiantBombGame {
     description: Option<String>,
     image: Option<GiantBombImage>,
     original_release_date: Option<String>,
+    site_detail_url: Option<String>,
     genres: Option<Vec<GiantBombPartialItem>>,
     themes: Option<Vec<GiantBombPartialItem>>,
     people: Option<Vec<GiantBombPartialItem>>,
