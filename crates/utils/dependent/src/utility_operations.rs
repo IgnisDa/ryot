@@ -159,7 +159,7 @@ pub async fn expire_user_collections_list_cache(
 
 pub async fn expire_user_collection_contents_cache(
     user_id: &String,
-    _collection_id: &String,
+    _collection_id: &str,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     ss.cache_service

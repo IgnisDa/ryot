@@ -140,7 +140,6 @@ struct GiantBombCompany {
     site_detail_url: Option<String>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombPerson {
     id: i32,
@@ -153,7 +152,6 @@ struct GiantBombPerson {
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombPublisher {
@@ -168,7 +166,6 @@ struct GiantBombPublisher {
     site_detail_url: Option<String>,
 }
 
-
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
     date_str.and_then(|d| {
         chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
@@ -180,7 +177,7 @@ fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
 fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
     api_detail_url
         .split('/')
-        .last()
+        .next_back()
         .and_then(|s| s.strip_suffix('/').or(Some(s)))
         .map(|s| s.to_string())
         .unwrap()
@@ -474,33 +471,35 @@ impl MediaProvider for GiantBombService {
 
         let items = match search_type {
             "company" => {
-                let search_response: GiantBombSearchResponse<GiantBombCompany> = response.json().await?;
+                let search_response: GiantBombSearchResponse<GiantBombCompany> =
+                    response.json().await?;
                 self.process_search_response(search_response, |company| PeopleSearchItem {
                     name: company.name,
                     identifier: company.guid,
                     image: company.image.and_then(|img| img.original_url),
                     birth_year: company.founded,
-                    ..Default::default()
                 })?
             }
             "publisher" => {
-                let search_response: GiantBombSearchResponse<GiantBombPublisher> = response.json().await?;
+                let search_response: GiantBombSearchResponse<GiantBombPublisher> =
+                    response.json().await?;
                 self.process_search_response(search_response, |publisher| PeopleSearchItem {
                     name: publisher.name,
                     identifier: publisher.guid,
                     image: publisher.image.and_then(|img| img.original_url),
                     birth_year: publisher.founded,
-                    ..Default::default()
                 })?
             }
             _ => {
-                let search_response: GiantBombSearchResponse<GiantBombPerson> = response.json().await?;
+                let search_response: GiantBombSearchResponse<GiantBombPerson> =
+                    response.json().await?;
                 self.process_search_response(search_response, |person| PeopleSearchItem {
                     name: person.name,
                     identifier: person.guid,
                     image: person.image.and_then(|img| img.original_url),
-                    birth_year: person.birth_date.and_then(|d| extract_year_from_date(Some(d))),
-                    ..Default::default()
+                    birth_year: person
+                        .birth_date
+                        .and_then(|d| extract_year_from_date(Some(d))),
                 })?
             }
         };
