@@ -54,7 +54,7 @@ meta! {
         MediaSource::Itunes,
         MediaSource::Listennotes,
     ];
-    VideoGame, vec![MediaSource::Igdb];
+    VideoGame, vec![MediaSource::Igdb, MediaSource::GiantBomb];
     Anime, vec![
         MediaSource::Anilist,
         MediaSource::Myanimelist,
@@ -101,6 +101,7 @@ pub enum MediaSource {
     Itunes,
     Anilist,
     Audible,
+    GiantBomb,
     Hardcover,
     Myanimelist,
     Listennotes,
@@ -125,6 +126,7 @@ meta! {
     MangaUpdates, None;
     Tmdb, Some(MediaLot::Movie);
     Igdb, Some(MediaLot::VideoGame);
+    GiantBomb, Some(MediaLot::VideoGame);
     Hardcover, Some(MediaLot::Book);
     YoutubeMusic, Some(MediaLot::Music);
 }
