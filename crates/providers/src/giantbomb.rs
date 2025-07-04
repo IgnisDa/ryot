@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
+use async_graphql::OutputType;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
@@ -33,6 +34,37 @@ impl GiantBombService {
             client,
             api_key: config.giantbomb.api_key.clone(),
         }
+    }
+
+    fn process_search_response<T, R, F>(
+        &self,
+        search_response: GiantBombSearchResponse<T>,
+        mapper: F,
+    ) -> Result<SearchResults<R>>
+    where
+        F: Fn(T) -> R,
+        R: OutputType,
+    {
+        if search_response.error != "OK" {
+            return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+        }
+
+        let items = search_response.results.into_iter().map(mapper).collect();
+        let next_page = if search_response.offset + search_response.number_of_page_results
+            < search_response.number_of_total_results
+        {
+            Some((search_response.offset / PAGE_SIZE) + 2)
+        } else {
+            None
+        };
+
+        Ok(SearchResults {
+            items,
+            details: SearchDetails {
+                next_page,
+                total: search_response.number_of_total_results,
+            },
+        })
     }
 }
 
@@ -214,35 +246,11 @@ impl MediaProvider for GiantBombService {
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-        if search_response.error != "OK" {
-            return Err(anyhow!("GiantBomb API error: {}", search_response.error));
-        }
-
-        let items = search_response
-            .results
-            .into_iter()
-            .map(|game| MetadataSearchItem {
-                title: game.name,
-                identifier: game.guid,
-                image: game.image.and_then(|img| img.original_url),
-                publish_year: extract_year_from_date(game.original_release_date),
-            })
-            .collect();
-
-        let next_page = if search_response.offset + search_response.number_of_page_results
-            < search_response.number_of_total_results
-        {
-            Some(page + 1)
-        } else {
-            None
-        };
-
-        Ok(SearchResults {
-            items,
-            details: SearchDetails {
-                next_page,
-                total: search_response.number_of_total_results,
-            },
+        self.process_search_response(search_response, |game| MetadataSearchItem {
+            title: game.name,
+            identifier: game.guid,
+            image: game.image.and_then(|img| img.original_url),
+            publish_year: extract_year_from_date(game.original_release_date),
         })
     }
 
@@ -464,117 +472,39 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        if search_type == "company" {
-            let search_response: GiantBombSearchResponse<GiantBombCompany> = response
-                .json()
-                .await
-                .map_err(|e| anyhow!("Failed to parse GiantBomb company response: {}", e))?;
-
-            if search_response.error != "OK" {
-                return Err(anyhow!("GiantBomb API error: {}", search_response.error));
-            }
-
-            let items: Vec<PeopleSearchItem> = search_response
-                .results
-                .into_iter()
-                .map(|company| PeopleSearchItem {
+        let items = match search_type {
+            "company" => {
+                let search_response: GiantBombSearchResponse<GiantBombCompany> = response.json().await?;
+                self.process_search_response(search_response, |company| PeopleSearchItem {
                     name: company.name,
                     identifier: company.guid,
                     image: company.image.and_then(|img| img.original_url),
                     birth_year: company.founded,
                     ..Default::default()
-                })
-                .collect();
-
-            let next_page = if search_response.offset + search_response.number_of_page_results
-                < search_response.number_of_total_results
-            {
-                Some(page + 1)
-            } else {
-                None
-            };
-
-            return Ok(SearchResults {
-                items,
-                details: SearchDetails {
-                    next_page,
-                    total: search_response.number_of_total_results,
-                },
-            });
-        } else if search_type == "publisher" {
-            let search_response: GiantBombSearchResponse<GiantBombPublisher> = response
-                .json()
-                .await
-                .map_err(|e| anyhow!("Failed to parse GiantBomb publisher response: {}", e))?;
-
-            if search_response.error != "OK" {
-                return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+                })?
             }
-
-            let items: Vec<PeopleSearchItem> = search_response
-                .results
-                .into_iter()
-                .map(|publisher| PeopleSearchItem {
+            "publisher" => {
+                let search_response: GiantBombSearchResponse<GiantBombPublisher> = response.json().await?;
+                self.process_search_response(search_response, |publisher| PeopleSearchItem {
                     name: publisher.name,
                     identifier: publisher.guid,
                     image: publisher.image.and_then(|img| img.original_url),
                     birth_year: publisher.founded,
                     ..Default::default()
-                })
-                .collect();
-
-            let next_page = if search_response.offset + search_response.number_of_page_results
-                < search_response.number_of_total_results
-            {
-                Some(page + 1)
-            } else {
-                None
-            };
-
-            return Ok(SearchResults {
-                items,
-                details: SearchDetails {
-                    next_page,
-                    total: search_response.number_of_total_results,
-                },
-            });
-        } else {
-            let search_response: GiantBombSearchResponse<GiantBombPerson> = response
-                .json()
-                .await
-                .map_err(|e| anyhow!("Failed to parse GiantBomb person response: {}", e))?;
-
-            if search_response.error != "OK" {
-                return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+                })?
             }
-
-            let items: Vec<PeopleSearchItem> = search_response
-                .results
-                .into_iter()
-                .map(|person| PeopleSearchItem {
+            _ => {
+                let search_response: GiantBombSearchResponse<GiantBombPerson> = response.json().await?;
+                self.process_search_response(search_response, |person| PeopleSearchItem {
                     name: person.name,
                     identifier: person.guid,
                     image: person.image.and_then(|img| img.original_url),
                     birth_year: person.birth_date.and_then(|d| extract_year_from_date(Some(d))),
                     ..Default::default()
-                })
-                .collect();
+                })?
+            }
+        };
 
-            let next_page = if search_response.offset + search_response.number_of_page_results
-                < search_response.number_of_total_results
-            {
-                Some(page + 1)
-            } else {
-                None
-            };
-
-            return Ok(SearchResults {
-                items,
-                details: SearchDetails {
-                    next_page,
-                    total: search_response.number_of_total_results,
-                },
-            });
-        }
+        Ok(items)
     }
 }
