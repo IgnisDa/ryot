@@ -8,7 +8,6 @@ use common_models::SearchDetails;
 use common_utils::{PAGE_SIZE, ryot_log};
 use dependent_models::SearchResults;
 use media_models::{MetadataDetails, MetadataSearchItem};
-use nest_struct::nest_struct;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
@@ -33,38 +32,46 @@ impl GiantBombService {
     }
 }
 
-#[nest_struct]
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombImage {
+    icon_url: Option<String>,
+    tiny_url: Option<String>,
+    small_url: Option<String>,
+    super_url: Option<String>,
+    thumb_url: Option<String>,
+    screen_url: Option<String>,
+    medium_url: Option<String>,
+    original_url: Option<String>,
+    screen_large_url: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombPlatform {
+    id: i32,
+    name: String,
+    abbreviation: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombGame {
+    id: i32,
+    name: String,
+    deck: Option<String>,
+    description: Option<String>,
+    image: Option<GiantBombImage>,
+    original_release_date: Option<String>,
+    platforms: Option<Vec<GiantBombPlatform>>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombSearchResponse {
-    error: String,
     limit: i32,
     offset: i32,
-    number_of_page_results: i32,
-    number_of_total_results: i32,
+    error: String,
     status_code: i32,
-    results: Vec<nest! {
-        id: i32,
-        name: String,
-        deck: Option<String>,
-        description: Option<String>,
-        image: Option<nest! {
-            icon_url: Option<String>,
-            medium_url: Option<String>,
-            screen_url: Option<String>,
-            screen_large_url: Option<String>,
-            small_url: Option<String>,
-            super_url: Option<String>,
-            thumb_url: Option<String>,
-            tiny_url: Option<String>,
-            original_url: Option<String>,
-        }>,
-        original_release_date: Option<String>,
-        platforms: Option<Vec<nest! {
-            id: i32,
-            name: String,
-            abbreviation: Option<String>,
-        }>>,
-    }>,
+    number_of_page_results: i32,
+    results: Vec<GiantBombGame>,
+    number_of_total_results: i32,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
