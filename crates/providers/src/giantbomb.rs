@@ -275,10 +275,6 @@ impl MediaProvider for GiantBombService {
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-        if details_response.error != "OK" {
-            return Err(anyhow!("GiantBomb API error: {}", details_response.error));
-        }
-
         let game = details_response.results;
 
         let mut people = Vec::new();
