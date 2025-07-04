@@ -46,51 +46,11 @@ struct GiantBombImage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GiantBombPlatform {
+struct GiantBombPartialItem {
     id: i32,
     name: String,
     abbreviation: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombCompany {
-    id: i32,
-    name: String,
-    api_detail_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombPerson {
-    id: i32,
-    name: String,
-    api_detail_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombGenre {
-    id: i32,
-    name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombTheme {
-    id: i32,
-    name: String,
-    api_detail_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombFranchise {
-    id: i32,
-    name: String,
-    api_detail_url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombSimilarGame {
-    id: i32,
-    name: String,
-    api_detail_url: String,
+    api_detail_url: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -101,15 +61,15 @@ struct GiantBombGame {
     deck: Option<String>,
     description: Option<String>,
     image: Option<GiantBombImage>,
-    genres: Option<Vec<GiantBombGenre>>,
-    themes: Option<Vec<GiantBombTheme>>,
-    people: Option<Vec<GiantBombPerson>>,
     original_release_date: Option<String>,
-    platforms: Option<Vec<GiantBombPlatform>>,
-    developers: Option<Vec<GiantBombCompany>>,
-    publishers: Option<Vec<GiantBombCompany>>,
-    franchises: Option<Vec<GiantBombFranchise>>,
-    similar_games: Option<Vec<GiantBombSimilarGame>>,
+    genres: Option<Vec<GiantBombPartialItem>>,
+    themes: Option<Vec<GiantBombPartialItem>>,
+    people: Option<Vec<GiantBombPartialItem>>,
+    platforms: Option<Vec<GiantBombPartialItem>>,
+    developers: Option<Vec<GiantBombPartialItem>>,
+    publishers: Option<Vec<GiantBombPartialItem>>,
+    franchises: Option<Vec<GiantBombPartialItem>>,
+    similar_games: Option<Vec<GiantBombPartialItem>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
