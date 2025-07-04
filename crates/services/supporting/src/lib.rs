@@ -205,7 +205,7 @@ impl SupportingService {
                                 .collect(),
                             "en".to_owned(),
                         ),
-                         MediaSource::Igdb
+                        MediaSource::Igdb
                         | MediaSource::Vndb
                         | MediaSource::Custom
                         | MediaSource::Anilist

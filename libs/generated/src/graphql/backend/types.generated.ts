@@ -1176,6 +1176,7 @@ export enum MediaSource {
   Anilist = 'ANILIST',
   Audible = 'AUDIBLE',
   Custom = 'CUSTOM',
+  GiantBomb = 'GIANT_BOMB',
   GoogleBooks = 'GOOGLE_BOOKS',
   Hardcover = 'HARDCOVER',
   Igdb = 'IGDB',
