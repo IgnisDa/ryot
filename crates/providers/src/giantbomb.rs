@@ -73,6 +73,27 @@ struct GiantBombGenre {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct GiantBombTheme {
+    id: i32,
+    name: String,
+    api_detail_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombFranchise {
+    id: i32,
+    name: String,
+    api_detail_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombSimilarGame {
+    id: i32,
+    name: String,
+    api_detail_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct GiantBombGame {
     id: i32,
     guid: String,
@@ -81,11 +102,14 @@ struct GiantBombGame {
     description: Option<String>,
     image: Option<GiantBombImage>,
     genres: Option<Vec<GiantBombGenre>>,
+    themes: Option<Vec<GiantBombTheme>>,
     people: Option<Vec<GiantBombPerson>>,
     original_release_date: Option<String>,
     platforms: Option<Vec<GiantBombPlatform>>,
     developers: Option<Vec<GiantBombCompany>>,
     publishers: Option<Vec<GiantBombCompany>>,
+    franchises: Option<Vec<GiantBombFranchise>>,
+    similar_games: Option<Vec<GiantBombSimilarGame>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
