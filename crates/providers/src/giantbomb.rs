@@ -32,7 +32,7 @@ impl GiantBombService {
         let config = ss.config.video_games.clone();
         Self {
             client,
-            api_key: config.giantbomb.api_key.clone(),
+            api_key: config.giant_bomb.api_key.clone(),
         }
     }
 

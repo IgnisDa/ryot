@@ -34,4 +34,4 @@ provides an alternative source for video game metadata with comprehensive covera
 2. Navigate to your [API key page](https://www.giantbomb.com/api/).
 3. Generate an API key if you don't have one already.
 4. Copy the **API Key**.
-5. Set the `VIDEO_GAMES_GIANTBOMB_API_KEY` environment variable with your API key.
+5. Set the `VIDEO_GAMES_GIANT_BOMB_API_KEY` environment variable with your API key.
