@@ -53,14 +53,39 @@ struct GiantBombPlatform {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct GiantBombCompany {
+    id: i32,
+    name: String,
+    api_detail_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombPerson {
+    id: i32,
+    name: String,
+    api_detail_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombGenre {
+    id: i32,
+    name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct GiantBombGame {
     id: i32,
+    guid: String,
     name: String,
     deck: Option<String>,
     description: Option<String>,
     image: Option<GiantBombImage>,
+    genres: Option<Vec<GiantBombGenre>>,
+    people: Option<Vec<GiantBombPerson>>,
     original_release_date: Option<String>,
     platforms: Option<Vec<GiantBombPlatform>>,
+    developers: Option<Vec<GiantBombCompany>>,
+    publishers: Option<Vec<GiantBombCompany>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -72,6 +97,13 @@ struct GiantBombSearchResponse {
     number_of_page_results: i32,
     results: Vec<GiantBombGame>,
     number_of_total_results: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombGameDetailsResponse {
+    error: String,
+    status_code: i32,
+    results: GiantBombGame,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
@@ -131,10 +163,10 @@ impl MediaProvider for GiantBombService {
             .results
             .into_iter()
             .map(|game| MetadataSearchItem {
-                identifier: game.id.to_string(),
                 title: game.name,
-                publish_year: extract_year_from_date(game.original_release_date),
+                identifier: game.guid,
                 image: game.image.and_then(|img| img.original_url),
+                publish_year: extract_year_from_date(game.original_release_date),
             })
             .collect();
 
