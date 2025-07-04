@@ -243,6 +243,8 @@ export interface ImportOrExportMetadataGroupItem {
 
 export interface PersonSourceSpecifics {
 	is_anilist_studio: boolean | null;
+	is_giant_bomb_company: boolean | null;
+	is_giant_bomb_publisher: boolean | null;
 	is_hardcover_publisher: boolean | null;
 	is_tmdb_company: boolean | null;
 }
