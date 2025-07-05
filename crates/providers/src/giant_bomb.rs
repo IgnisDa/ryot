@@ -92,8 +92,8 @@ struct GiantBombImage {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombResource {
-    guid: String,
-    name: String,
+    guid: Option<String>,
+    name: Option<String>,
     deck: Option<String>,
     description: Option<String>,
     image: Option<GiantBombImage>,
@@ -232,8 +232,8 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         self.process_search_response(search_response, |game| MetadataSearchItem {
-            title: game.name,
-            identifier: game.guid,
+            title: game.name.unwrap(),
+            identifier: game.guid.unwrap(),
             image: game.image.and_then(|img| img.original_url),
             publish_year: extract_year_from_date(game.original_release_date),
         })
@@ -272,7 +272,7 @@ impl MediaProvider for GiantBombService {
             for dev in devs {
                 if let Some(api_url) = dev.api_detail_url {
                     people.push(PartialMetadataPerson {
-                        name: dev.name,
+                        name: dev.name.unwrap(),
                         source: MediaSource::GiantBomb,
                         character: Some(ROLE_DEVELOPER.to_string()),
                         identifier: extract_giant_bomb_guid(&api_url),
@@ -290,7 +290,7 @@ impl MediaProvider for GiantBombService {
             for publish in pubs {
                 if let Some(api_url) = publish.api_detail_url {
                     people.push(PartialMetadataPerson {
-                        name: publish.name,
+                        name: publish.name.unwrap(),
                         source: MediaSource::GiantBomb,
                         character: Some(ROLE_PUBLISHER.to_string()),
                         identifier: extract_giant_bomb_guid(&api_url),
@@ -308,7 +308,7 @@ impl MediaProvider for GiantBombService {
             for person in game_people {
                 if let Some(api_url) = person.api_detail_url {
                     people.push(PartialMetadataPerson {
-                        name: person.name,
+                        name: person.name.unwrap(),
                         source: MediaSource::GiantBomb,
                         identifier: extract_giant_bomb_guid(&api_url),
                         ..Default::default()
@@ -322,7 +322,7 @@ impl MediaProvider for GiantBombService {
             for franchise in franchises {
                 if let Some(api_url) = franchise.api_detail_url {
                     groups.push(CommitMetadataGroupInput {
-                        name: franchise.name,
+                        name: franchise.name.unwrap(),
                         unique: UniqueMediaIdentifier {
                             lot: MediaLot::VideoGame,
                             source: MediaSource::GiantBomb,
@@ -339,12 +339,11 @@ impl MediaProvider for GiantBombService {
             for similar in similar_games {
                 if let Some(api_url) = similar.api_detail_url {
                     suggestions.push(PartialMetadataWithoutId {
-                        title: similar.name,
+                        title: similar.name.unwrap(),
                         lot: MediaLot::VideoGame,
                         source: MediaSource::GiantBomb,
                         identifier: extract_giant_bomb_guid(&api_url),
-                        image: None,
-                        publish_year: None,
+                        ..Default::default()
                     });
                 }
             }
@@ -353,19 +352,19 @@ impl MediaProvider for GiantBombService {
         let mut genres = Vec::new();
         if let Some(game_genres) = game.genres {
             for genre in game_genres {
-                genres.push(genre.name);
+                genres.push(genre.name.unwrap());
             }
         }
         if let Some(game_themes) = game.themes {
             for theme in game_themes {
-                genres.push(theme.name);
+                genres.push(theme.name.unwrap());
             }
         }
 
         let mut platforms = Vec::new();
         if let Some(game_platforms) = game.platforms {
             for platform in game_platforms {
-                platforms.push(platform.name);
+                platforms.push(platform.name.unwrap());
             }
         }
 
@@ -379,8 +378,8 @@ impl MediaProvider for GiantBombService {
             groups,
             description,
             suggestions,
-            title: game.name,
-            identifier: game.guid,
+            title: game.name.unwrap(),
+            identifier: game.guid.unwrap(),
             lot: MediaLot::VideoGame,
             source: MediaSource::GiantBomb,
             source_url: game.site_detail_url,
@@ -442,9 +441,9 @@ impl MediaProvider for GiantBombService {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
                 self.process_search_response(search_response, |company| PeopleSearchItem {
-                    name: company.name,
-                    identifier: company.guid,
+                    name: company.name.unwrap(),
                     birth_year: company.founded,
+                    identifier: company.guid.unwrap(),
                     image: company.image.and_then(|img| img.original_url),
                 })?
             }
@@ -452,8 +451,8 @@ impl MediaProvider for GiantBombService {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
                 self.process_search_response(search_response, |person| PeopleSearchItem {
-                    name: person.name,
-                    identifier: person.guid,
+                    name: person.name.unwrap(),
+                    identifier: person.guid.unwrap(),
                     image: person.image.and_then(|img| img.original_url),
                     birth_year: person
                         .birth_date
@@ -517,8 +516,8 @@ impl MediaProvider for GiantBombService {
                         related_games.push(MetadataPersonRelated {
                             role: ROLE_DEVELOPER.to_string(),
                             metadata: PartialMetadataWithoutId {
-                                title: game.name,
                                 lot: MediaLot::VideoGame,
+                                title: game.name.unwrap(),
                                 source: MediaSource::GiantBomb,
                                 identifier: extract_giant_bomb_guid(&api_url),
                                 ..Default::default()
@@ -535,8 +534,8 @@ impl MediaProvider for GiantBombService {
                         related_games.push(MetadataPersonRelated {
                             role: ROLE_PUBLISHER.to_string(),
                             metadata: PartialMetadataWithoutId {
-                                title: game.name,
                                 lot: MediaLot::VideoGame,
+                                title: game.name.unwrap(),
                                 source: MediaSource::GiantBomb,
                                 identifier: extract_giant_bomb_guid(&api_url),
                                 ..Default::default()
@@ -553,8 +552,8 @@ impl MediaProvider for GiantBombService {
                         related_games.push(MetadataPersonRelated {
                             role: ROLE_PERSON.to_string(),
                             metadata: PartialMetadataWithoutId {
-                                title: game.name,
                                 lot: MediaLot::VideoGame,
+                                title: game.name.unwrap(),
                                 source: MediaSource::GiantBomb,
                                 identifier: extract_giant_bomb_guid(&api_url),
                                 ..Default::default()
@@ -571,8 +570,8 @@ impl MediaProvider for GiantBombService {
                         related_groups.push(MetadataGroupPersonRelated {
                             role: ROLE_PERSON.to_string(),
                             metadata_group: MetadataGroupWithoutId {
-                                title: franchise.name,
                                 lot: MediaLot::VideoGame,
+                                title: franchise.name.unwrap(),
                                 source: MediaSource::GiantBomb,
                                 identifier: extract_giant_bomb_guid(&api_url),
                                 ..Default::default()
@@ -592,13 +591,13 @@ impl MediaProvider for GiantBombService {
         };
 
         Ok(PersonDetails {
-            name: resource.name,
             birth_date,
-            source_url: resource.site_detail_url,
-            related_metadata: related_games,
-            identifier: resource.guid,
-            related_metadata_groups: related_groups,
+            name: resource.name.unwrap(),
             source: MediaSource::GiantBomb,
+            related_metadata: related_games,
+            identifier: resource.guid.unwrap(),
+            source_url: resource.site_detail_url,
+            related_metadata_groups: related_groups,
             description: combine_description(resource.deck, resource.description),
             assets: EntityAssets {
                 remote_images: get_prioritized_images(resource.image),
@@ -655,8 +654,8 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         self.process_search_response(search_response, |franchise| MetadataGroupSearchItem {
-            name: franchise.name,
-            identifier: franchise.guid,
+            name: franchise.name.unwrap(),
+            identifier: franchise.guid.unwrap(),
             image: franchise.image.and_then(|img| img.original_url),
             ..Default::default()
         })
@@ -697,10 +696,10 @@ impl MediaProvider for GiantBombService {
         let franchise = details_response.results;
 
         let metadata_group = MetadataGroupWithoutId {
-            title: franchise.name,
             lot: MediaLot::VideoGame,
-            identifier: franchise.guid,
+            title: franchise.name.unwrap(),
             source: MediaSource::GiantBomb,
+            identifier: franchise.guid.unwrap(),
             source_url: franchise.site_detail_url,
             description: combine_description(franchise.deck, franchise.description),
             assets: EntityAssets {
@@ -719,8 +718,8 @@ impl MediaProvider for GiantBombService {
             for game in franchise_games {
                 if let Some(api_url) = game.api_detail_url {
                     games.push(PartialMetadataWithoutId {
-                        title: game.name,
                         lot: MediaLot::VideoGame,
+                        title: game.name.unwrap(),
                         source: MediaSource::GiantBomb,
                         identifier: extract_giant_bomb_guid(&api_url),
                         ..Default::default()
