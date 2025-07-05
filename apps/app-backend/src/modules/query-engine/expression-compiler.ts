@@ -381,15 +381,16 @@ const buildEventAggregateExpression = <
 				and es_agg.slug = ${eventSchemaSlug}
 		)`;
 	} else {
+		const propertyPath = path.slice(1);
 		const propertiesBase = sql.raw("e_agg.properties");
 		const propertyJsonExpr = buildPropertyPathExpression(
 			propertiesBase,
-			path,
+			propertyPath,
 			"json",
 		);
 		const propertyTextExpr = buildPropertyPathExpression(
 			propertiesBase,
-			path,
+			propertyPath,
 			"text",
 		);
 		const numericValue = sql`case when jsonb_typeof(${propertyJsonExpr}) = 'number' then (${propertyTextExpr})::numeric else null end`;
