@@ -11,11 +11,13 @@
 //    tracker's associated entity schemas would be fetched via the
 //    /entity-schemas/list endpoint and displayed as the type grid.
 //
-// 2. STATUS AT ADD-TIME: The existing flow creates an entity and nothing else.
-//    V6 adds an inline status picker (Planning / In Progress / Completed /
-//    On Hold / Dropped) after selecting a search result. In production, this
-//    would create both an entity AND an initial status event in a single
-//    transaction or sequential calls (POST /entities + POST /events).
+// 2. ACTIONS AT ADD-TIME: The existing flow creates an entity and nothing else.
+//    V6 exposes four independent actions per search result: Log (history event
+//    with date + optional rating), Backlog (intent event), Collection (saved
+//    view membership), and Rate & Review (rating event + optional text). In
+//    production each action would POST /entities to ensure the entity exists,
+//    then POST /events for the corresponding event schema. Actions are fully
+//    independent — completing one does not affect availability of others.
 //
 // 3. SEARCH RESULT SHAPE: Matches the existing SearchResultItem type from
 //    use-search.ts: { identifier, titleProperty, subtitleProperty,
@@ -42,6 +44,7 @@ import {
 	SimpleGrid,
 	Stack,
 	Text,
+	Textarea,
 	TextInput,
 	Tooltip,
 	UnstyledButton,
@@ -49,13 +52,15 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+	Bookmark,
 	BookOpen,
-	CheckCircle,
 	ChevronLeft,
 	ChevronRight,
 	Clock,
+	FolderPlus,
 	Gamepad2,
 	Headphones,
+	History,
 	Image as ImageIcon,
 	Monitor,
 	Play,
@@ -1240,13 +1245,59 @@ const MOCK_SEARCH_RESULTS: Record<string, MockSearchResult[]> = {
 	],
 };
 
-const ADD_STATUSES = [
-	{ value: "planning", label: "Planning" },
-	{ value: "in_progress", label: "In Progress" },
-	{ value: "completed", label: "Completed" },
-	{ value: "on_hold", label: "On Hold" },
-	{ value: "dropped", label: "Dropped" },
+// Mock collections for the "Add to Collection" action
+const MOCK_COLLECTIONS = [
+	"Watched in Theater",
+	"Top 100",
+	"Family Movies",
+	"Rewatches",
+	"Classics",
+];
+
+const LOG_DATE_OPTIONS = [
+	{ value: "now", label: "Just now" },
+	{ value: "unknown", label: "I don't remember" },
+	{ value: "custom", label: "Pick a date" },
+	{ value: "started", label: "Just started" },
 ] as const;
+
+const RATE_DATE_OPTIONS = [
+	{ value: "now", label: "Just now" },
+	{ value: "unknown", label: "I don't remember" },
+	{ value: "custom", label: "Pick a date" },
+] as const;
+
+type PanelType = "log" | "backlog" | "collection" | "rate";
+type LogDateOption = "now" | "unknown" | "custom" | "started";
+type RateDateOption = "now" | "unknown" | "custom";
+
+interface ItemActionState {
+	openPanel: PanelType | null;
+	doneActions: PanelType[];
+	logDate: LogDateOption;
+	logCustomDate: string;
+	selectedCollections: string[];
+	newCollectionInput: string;
+	rateStars: number;
+	rateStarsHover: number;
+	rateReview: string;
+	rateDate: RateDateOption;
+	rateCustomDate: string;
+}
+
+const DEFAULT_ITEM_STATE: ItemActionState = {
+	openPanel: null,
+	doneActions: [],
+	logDate: "now",
+	logCustomDate: "",
+	selectedCollections: [],
+	newCollectionInput: "",
+	rateStars: 0,
+	rateStarsHover: 0,
+	rateReview: "",
+	rateDate: "unknown",
+	rateCustomDate: "",
+};
 
 // --- Components ---
 
@@ -1795,10 +1846,19 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<MockSearchResult[] | null>(null);
 	const [isSearching, setIsSearching] = useState(false);
-	const [addStatus, setAddStatus] = useState<
-		Record<string, "idle" | "picking" | "done">
-	>({});
-	const [pickedStatus, setPickedStatus] = useState<Record<string, string>>({});
+	const [itemStates, setItemStates] = useState<Record<string, ItemActionState>>(
+		{},
+	);
+
+	const getItem = (id: string): ItemActionState =>
+		itemStates[id] ?? DEFAULT_ITEM_STATE;
+
+	const patchItem = (id: string, patch: Partial<ItemActionState>) => {
+		setItemStates((prev) => ({
+			...prev,
+			[id]: { ...(prev[id] ?? DEFAULT_ITEM_STATE), ...patch },
+		}));
+	};
 
 	const reset = () => {
 		setStep("type-picker");
@@ -1807,8 +1867,7 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 		setQuery("");
 		setResults(null);
 		setIsSearching(false);
-		setAddStatus({});
-		setPickedStatus({});
+		setItemStates({});
 	};
 
 	const handleClose = () => {
@@ -1822,8 +1881,7 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 		setStep("search");
 		setQuery("");
 		setResults(null);
-		setAddStatus({});
-		setPickedStatus({});
+		setItemStates({});
 	};
 
 	const handleBack = () => {
@@ -1832,8 +1890,7 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 		setSelectedProviderIndex(0);
 		setQuery("");
 		setResults(null);
-		setAddStatus({});
-		setPickedStatus({});
+		setItemStates({});
 	};
 
 	const activeProvider =
@@ -1861,22 +1918,79 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 	const handleProviderChange = (value: string) => {
 		setSelectedProviderIndex(Number(value));
 		setResults(null);
-		setAddStatus({});
-		setPickedStatus({});
+		setItemStates({});
 	};
 
-	const handleAddClick = (identifier: string) => {
-		setAddStatus((prev) => ({ ...prev, [identifier]: "picking" }));
+	const togglePanel = (id: string, panel: PanelType) => {
+		const current = getItem(id);
+		patchItem(id, { openPanel: current.openPanel === panel ? null : panel });
 	};
 
-	const handleStatusPick = (identifier: string, status: string) => {
-		setPickedStatus((prev) => ({ ...prev, [identifier]: status }));
-		setAddStatus((prev) => ({ ...prev, [identifier]: "done" }));
-		const result = results?.find((r) => r.identifier === identifier);
-		console.log("[v6] Add entity:", {
-			identifier,
-			status,
-			title: result?.titleProperty.value,
+	const handleBacklog = (id: string, title: string) => {
+		const current = getItem(id);
+		patchItem(id, {
+			openPanel: null,
+			doneActions: [
+				...new Set([...current.doneActions, "backlog" as PanelType]),
+			],
+		});
+		console.log("[v6] Add to backlog:", {
+			identifier: id,
+			title,
+			entitySchemaId: selectedSchema?.id,
+			provider: activeProvider?.name,
+			detailsScriptId: activeProvider?.detailsScriptId,
+		});
+	};
+
+	const handleLogSave = (id: string, title: string) => {
+		const s = getItem(id);
+		patchItem(id, {
+			openPanel: null,
+			doneActions: [...new Set([...s.doneActions, "log" as PanelType])],
+		});
+		console.log("[v6] Log:", {
+			identifier: id,
+			title,
+			date: s.logDate,
+			customDate: s.logDate === "custom" ? s.logCustomDate : undefined,
+			entitySchemaId: selectedSchema?.id,
+			provider: activeProvider?.name,
+			detailsScriptId: activeProvider?.detailsScriptId,
+		});
+	};
+
+	const handleCollectionSave = (id: string, title: string) => {
+		const s = getItem(id);
+		const collections = [
+			...s.selectedCollections,
+			...(s.newCollectionInput.trim() ? [s.newCollectionInput.trim()] : []),
+		];
+		patchItem(id, {
+			openPanel: null,
+			doneActions: [...new Set([...s.doneActions, "collection" as PanelType])],
+		});
+		console.log("[v6] Add to collections:", {
+			identifier: id,
+			title,
+			collections,
+			entitySchemaId: selectedSchema?.id,
+		});
+	};
+
+	const handleRateSave = (id: string, title: string) => {
+		const s = getItem(id);
+		patchItem(id, {
+			openPanel: null,
+			doneActions: [...new Set([...s.doneActions, "rate" as PanelType])],
+		});
+		console.log("[v6] Rate & review:", {
+			identifier: id,
+			title,
+			stars: s.rateStars,
+			review: s.rateReview || null,
+			date: s.rateDate,
+			customDate: s.rateDate === "custom" ? s.rateCustomDate : undefined,
 			entitySchemaId: selectedSchema?.id,
 			provider: activeProvider?.name,
 			detailsScriptId: activeProvider?.detailsScriptId,
@@ -2027,11 +2141,14 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 								<ScrollArea.Autosize mah={400}>
 									<Stack gap={4}>
 										{results.map((item) => {
-											const status = addStatus[item.identifier] ?? "idle";
+											const istate = getItem(item.identifier);
+											const accentColor = selectedSchema.accentColor;
 											const imageUrl =
 												item.imageProperty.kind === "image"
 													? (item.imageProperty.value?.url ?? undefined)
 													: undefined;
+											const actionDone = (panel: PanelType) =>
+												istate.doneActions.includes(panel);
 
 											return (
 												<Paper
@@ -2040,6 +2157,7 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 													radius="sm"
 													key={item.identifier}
 												>
+													{/* Main row: cover + title + 4 action buttons */}
 													<Group
 														justify="space-between"
 														align="center"
@@ -2092,76 +2210,484 @@ function AddMediaModal(props: { opened: boolean; onClose: () => void }) {
 																)}
 															</Stack>
 														</Group>
-														<Box w={32} style={{ flexShrink: 0 }}>
-															{status === "idle" && (
+														{/* Four independent action buttons */}
+														<Group gap={2} style={{ flexShrink: 0 }}>
+															<Tooltip label="Log" withArrow position="top">
 																<ActionIcon
-																	variant="subtle"
-																	onClick={() =>
-																		handleAddClick(item.identifier)
+																	size="sm"
+																	aria-label="Log"
+																	variant={
+																		actionDone("log") ? "filled" : "subtle"
 																	}
-																	aria-label="Add"
+																	color={
+																		actionDone("log") ? "green" : undefined
+																	}
+																	style={
+																		istate.openPanel === "log" &&
+																		!actionDone("log")
+																			? {
+																					backgroundColor: `${accentColor}20`,
+																					color: accentColor,
+																				}
+																			: {}
+																	}
+																	onClick={() =>
+																		togglePanel(item.identifier, "log")
+																	}
 																>
-																	<Plus size={16} strokeWidth={1.5} />
+																	<History size={14} strokeWidth={1.5} />
 																</ActionIcon>
-															)}
-															{status === "done" && (
-																<CheckCircle
-																	size={18}
-																	strokeWidth={1.5}
-																	color="var(--mantine-color-green-6)"
-																/>
-															)}
-														</Box>
+															</Tooltip>
+															<Tooltip label="Backlog" withArrow position="top">
+																<ActionIcon
+																	size="sm"
+																	aria-label="Add to Backlog"
+																	variant={
+																		actionDone("backlog") ? "filled" : "subtle"
+																	}
+																	color={
+																		actionDone("backlog") ? "blue" : undefined
+																	}
+																	onClick={() =>
+																		handleBacklog(
+																			item.identifier,
+																			item.titleProperty.value,
+																		)
+																	}
+																>
+																	<Bookmark size={14} strokeWidth={1.5} />
+																</ActionIcon>
+															</Tooltip>
+															<Tooltip
+																label="Collection"
+																withArrow
+																position="top"
+															>
+																<ActionIcon
+																	size="sm"
+																	aria-label="Add to Collection"
+																	variant={
+																		actionDone("collection")
+																			? "filled"
+																			: "subtle"
+																	}
+																	color={
+																		actionDone("collection")
+																			? "orange"
+																			: undefined
+																	}
+																	style={
+																		istate.openPanel === "collection" &&
+																		!actionDone("collection")
+																			? {
+																					backgroundColor: `${accentColor}20`,
+																					color: accentColor,
+																				}
+																			: {}
+																	}
+																	onClick={() =>
+																		togglePanel(item.identifier, "collection")
+																	}
+																>
+																	<FolderPlus size={14} strokeWidth={1.5} />
+																</ActionIcon>
+															</Tooltip>
+															<Tooltip
+																label="Rate & Review"
+																withArrow
+																position="top"
+															>
+																<ActionIcon
+																	size="sm"
+																	aria-label="Rate & Review"
+																	variant={
+																		actionDone("rate") ? "filled" : "subtle"
+																	}
+																	color={
+																		actionDone("rate") ? "yellow" : undefined
+																	}
+																	style={
+																		istate.openPanel === "rate" &&
+																		!actionDone("rate")
+																			? {
+																					backgroundColor: `${accentColor}20`,
+																					color: accentColor,
+																				}
+																			: {}
+																	}
+																	onClick={() =>
+																		togglePanel(item.identifier, "rate")
+																	}
+																>
+																	<Star size={14} strokeWidth={1.5} />
+																</ActionIcon>
+															</Tooltip>
+														</Group>
 													</Group>
 
-													{/* Inline status picker */}
-													{status === "picking" && (
-														<Box mt="sm">
-															<Text fz="xs" c={t.textMuted} mb={6}>
-																Set initial status:
-															</Text>
-															<Group gap={4} wrap="wrap">
-																{ADD_STATUSES.map((s) => (
-																	<Button
-																		key={s.value}
-																		size="compact-xs"
+													{/* Completed action badges */}
+													{istate.doneActions.length > 0 &&
+														istate.openPanel === null && (
+															<Group gap={4} mt={8}>
+																{istate.doneActions.map((action) => (
+																	<Badge
+																		key={action}
+																		size="xs"
 																		variant="light"
-																		onClick={() =>
-																			handleStatusPick(item.identifier, s.value)
-																		}
 																		style={{
-																			backgroundColor: `${selectedSchema.accentColor}18`,
-																			color: selectedSchema.accentColor,
-																			border: "none",
+																			backgroundColor: `${accentColor}15`,
+																			color: accentColor,
 																		}}
 																	>
-																		{s.label}
+																		{action === "log"
+																			? istate.logDate === "started"
+																				? "Started"
+																				: "Logged"
+																			: action === "backlog"
+																				? "In Backlog"
+																				: action === "collection"
+																					? "In Collection"
+																					: `Rated ${istate.rateStars}★`}
+																	</Badge>
+																))}
+															</Group>
+														)}
+
+													{/* Log panel */}
+													{istate.openPanel === "log" && (
+														<Box
+															mt="sm"
+															pt="sm"
+															style={{
+																borderTop: `1px solid ${t.border}`,
+															}}
+														>
+															<Text fz="xs" fw={500} c={t.textMuted} mb={6}>
+																When?
+															</Text>
+															<Group gap={4} mb="sm" wrap="wrap">
+																{LOG_DATE_OPTIONS.map((opt) => (
+																	<Button
+																		key={opt.value}
+																		size="compact-xs"
+																		variant={
+																			istate.logDate === opt.value
+																				? "filled"
+																				: "subtle"
+																		}
+																		style={
+																			istate.logDate === opt.value
+																				? {
+																						backgroundColor: accentColor,
+																						color: "white",
+																					}
+																				: {}
+																		}
+																		onClick={() =>
+																			patchItem(item.identifier, {
+																				logDate: opt.value,
+																			})
+																		}
+																	>
+																		{opt.label}
 																	</Button>
 																))}
+															</Group>
+															{istate.logDate === "custom" && (
+																<TextInput
+																	type="date"
+																	size="xs"
+																	mb="sm"
+																	value={istate.logCustomDate}
+																	onChange={(e) =>
+																		patchItem(item.identifier, {
+																			logCustomDate: e.currentTarget.value,
+																		})
+																	}
+																/>
+															)}
+
+															<Group gap="xs">
+																<Button
+																	size="compact-xs"
+																	style={{
+																		backgroundColor: accentColor,
+																		color: "white",
+																	}}
+																	onClick={() =>
+																		handleLogSave(
+																			item.identifier,
+																			item.titleProperty.value,
+																		)
+																	}
+																>
+																	Save
+																</Button>
+																<Button
+																	size="compact-xs"
+																	variant="subtle"
+																	onClick={() =>
+																		patchItem(item.identifier, {
+																			openPanel: null,
+																		})
+																	}
+																>
+																	Cancel
+																</Button>
 															</Group>
 														</Box>
 													)}
 
-													{/* Confirmation */}
-													{status === "done" && (
-														<Group gap={6} mt="xs">
-															<Badge
-																size="xs"
-																variant="light"
-																style={{
-																	backgroundColor: `${selectedSchema.accentColor}18`,
-																	color: selectedSchema.accentColor,
-																}}
-															>
-																{ADD_STATUSES.find(
-																	(s) =>
-																		s.value === pickedStatus[item.identifier],
-																)?.label ?? "Added"}
-															</Badge>
-															<Text fz={10} c={t.textMuted}>
-																Added to library
+													{/* Collection panel */}
+													{istate.openPanel === "collection" && (
+														<Box
+															mt="sm"
+															pt="sm"
+															style={{
+																borderTop: `1px solid ${t.border}`,
+															}}
+														>
+															<Text fz="xs" fw={500} c={t.textMuted} mb={8}>
+																Add to collection
 															</Text>
-														</Group>
+															<Group gap={4} mb="sm" wrap="wrap">
+																{MOCK_COLLECTIONS.map((col) => {
+																	const isSelected =
+																		istate.selectedCollections.includes(col);
+																	return (
+																		<Button
+																			key={col}
+																			size="compact-xs"
+																			variant={isSelected ? "filled" : "light"}
+																			style={
+																				isSelected
+																					? {
+																							backgroundColor: accentColor,
+																							color: "white",
+																						}
+																					: {
+																							backgroundColor: `${accentColor}12`,
+																							color: accentColor,
+																							border: "none",
+																						}
+																			}
+																			onClick={() =>
+																				patchItem(item.identifier, {
+																					selectedCollections: isSelected
+																						? istate.selectedCollections.filter(
+																								(c) => c !== col,
+																							)
+																						: [
+																								...istate.selectedCollections,
+																								col,
+																							],
+																				})
+																			}
+																		>
+																			{col}
+																		</Button>
+																	);
+																})}
+															</Group>
+															<TextInput
+																size="xs"
+																mb="sm"
+																placeholder="New collection name..."
+																value={istate.newCollectionInput}
+																leftSection={<Plus size={12} />}
+																onChange={(e) =>
+																	patchItem(item.identifier, {
+																		newCollectionInput: e.currentTarget.value,
+																	})
+																}
+															/>
+															<Group gap="xs">
+																<Button
+																	size="compact-xs"
+																	disabled={
+																		istate.selectedCollections.length === 0 &&
+																		!istate.newCollectionInput.trim()
+																	}
+																	style={{
+																		backgroundColor: accentColor,
+																		color: "white",
+																	}}
+																	onClick={() =>
+																		handleCollectionSave(
+																			item.identifier,
+																			item.titleProperty.value,
+																		)
+																	}
+																>
+																	Save
+																</Button>
+																<Button
+																	size="compact-xs"
+																	variant="subtle"
+																	onClick={() =>
+																		patchItem(item.identifier, {
+																			openPanel: null,
+																		})
+																	}
+																>
+																	Cancel
+																</Button>
+															</Group>
+														</Box>
+													)}
+
+													{/* Rate & Review panel */}
+													{istate.openPanel === "rate" && (
+														<Box
+															mt="sm"
+															pt="sm"
+															style={{
+																borderTop: `1px solid ${t.border}`,
+															}}
+														>
+															<Box mb="sm">
+																<Text fz="xs" fw={500} c={t.textMuted} mb={6}>
+																	Rating
+																</Text>
+																<Group gap={2}>
+																	{[1, 2, 3, 4, 5].map((star) => (
+																		<ActionIcon
+																			key={star}
+																			size="sm"
+																			variant="transparent"
+																			onMouseEnter={() =>
+																				patchItem(item.identifier, {
+																					rateStarsHover: star,
+																				})
+																			}
+																			onMouseLeave={() =>
+																				patchItem(item.identifier, {
+																					rateStarsHover: 0,
+																				})
+																			}
+																			onClick={() =>
+																				patchItem(item.identifier, {
+																					rateStars:
+																						istate.rateStars === star
+																							? 0
+																							: star,
+																				})
+																			}
+																		>
+																			<Star
+																				size={20}
+																				color={GOLD}
+																				fill={
+																					star <=
+																					(istate.rateStarsHover ||
+																						istate.rateStars)
+																						? GOLD
+																						: "transparent"
+																				}
+																			/>
+																		</ActionIcon>
+																	))}
+																	{istate.rateStars > 0 && (
+																		<Text
+																			fz="sm"
+																			fw={600}
+																			c={GOLD}
+																			ff="var(--mantine-font-family-monospace)"
+																			ml={4}
+																		>
+																			{istate.rateStars}/5
+																		</Text>
+																	)}
+																</Group>
+															</Box>
+															<Textarea
+																size="xs"
+																mb="sm"
+																autosize
+																minRows={2}
+																maxRows={4}
+																placeholder="Write a review (optional)..."
+																value={istate.rateReview}
+																onChange={(e) =>
+																	patchItem(item.identifier, {
+																		rateReview: e.currentTarget.value,
+																	})
+																}
+															/>
+															<Text fz="xs" fw={500} c={t.textMuted} mb={6}>
+																When?
+															</Text>
+															<Group gap={4} mb="sm" wrap="wrap">
+																{RATE_DATE_OPTIONS.map((opt) => (
+																	<Button
+																		key={opt.value}
+																		size="compact-xs"
+																		variant={
+																			istate.rateDate === opt.value
+																				? "filled"
+																				: "subtle"
+																		}
+																		style={
+																			istate.rateDate === opt.value
+																				? {
+																						backgroundColor: accentColor,
+																						color: "white",
+																					}
+																				: {}
+																		}
+																		onClick={() =>
+																			patchItem(item.identifier, {
+																				rateDate: opt.value,
+																			})
+																		}
+																	>
+																		{opt.label}
+																	</Button>
+																))}
+															</Group>
+															{istate.rateDate === "custom" && (
+																<TextInput
+																	type="date"
+																	size="xs"
+																	mb="sm"
+																	value={istate.rateCustomDate}
+																	onChange={(e) =>
+																		patchItem(item.identifier, {
+																			rateCustomDate: e.currentTarget.value,
+																		})
+																	}
+																/>
+															)}
+															<Group gap="xs">
+																<Button
+																	size="compact-xs"
+																	disabled={!istate.rateStars}
+																	style={{
+																		backgroundColor: accentColor,
+																		color: "white",
+																	}}
+																	onClick={() =>
+																		handleRateSave(
+																			item.identifier,
+																			item.titleProperty.value,
+																		)
+																	}
+																>
+																	Save
+																</Button>
+																<Button
+																	size="compact-xs"
+																	variant="subtle"
+																	onClick={() =>
+																		patchItem(item.identifier, {
+																			openPanel: null,
+																		})
+																	}
+																>
+																	Cancel
+																</Button>
+															</Group>
+														</Box>
 													)}
 												</Paper>
 											);
@@ -2191,7 +2717,7 @@ function RouteComponent() {
 			if (!acc[event.date]) {
 				acc[event.date] = [];
 			}
-			acc[event.date]!.push(event);
+			acc[event.date]?.push(event);
 			return acc;
 		},
 		{},
