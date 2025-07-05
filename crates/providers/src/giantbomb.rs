@@ -86,31 +86,40 @@ struct GiantBombImage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GiantBombPartialItem {
-    id: i32,
-    name: String,
-    abbreviation: Option<String>,
-    api_detail_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombGame {
+struct GiantBombResource {
     id: i32,
     guid: String,
     name: String,
     deck: Option<String>,
     description: Option<String>,
     image: Option<GiantBombImage>,
+    api_detail_url: Option<String>,
     site_detail_url: Option<String>,
+    
+    // Game-specific fields
     original_release_date: Option<String>,
-    genres: Option<Vec<GiantBombPartialItem>>,
-    themes: Option<Vec<GiantBombPartialItem>>,
-    people: Option<Vec<GiantBombPartialItem>>,
-    platforms: Option<Vec<GiantBombPartialItem>>,
-    developers: Option<Vec<GiantBombPartialItem>>,
-    publishers: Option<Vec<GiantBombPartialItem>>,
-    franchises: Option<Vec<GiantBombPartialItem>>,
-    similar_games: Option<Vec<GiantBombPartialItem>>,
+    genres: Option<Vec<GiantBombResource>>,
+    themes: Option<Vec<GiantBombResource>>,
+    people: Option<Vec<GiantBombResource>>,
+    platforms: Option<Vec<GiantBombResource>>,
+    developers: Option<Vec<GiantBombResource>>,
+    publishers: Option<Vec<GiantBombResource>>,
+    franchises: Option<Vec<GiantBombResource>>,
+    similar_games: Option<Vec<GiantBombResource>>,
+    
+    // Company-specific fields
+    founded: Option<i32>,
+    developed_games: Option<Vec<GiantBombResource>>,
+    published_games: Option<Vec<GiantBombResource>>,
+    
+    // Person-specific fields
+    birth_date: Option<String>,
+    
+    // Franchise and Person shared field
+    games: Option<Vec<GiantBombResource>>,
+    
+    // Platform-specific field
+    abbreviation: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -129,49 +138,6 @@ struct GiantBombDetailsResponse<T> {
     results: T,
     error: String,
     status_code: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombCompany {
-    id: i32,
-    guid: String,
-    name: String,
-    deck: Option<String>,
-    founded: Option<i32>,
-    description: Option<String>,
-    image: Option<GiantBombImage>,
-    api_detail_url: Option<String>,
-    site_detail_url: Option<String>,
-    developed_games: Option<Vec<GiantBombPartialItem>>,
-    published_games: Option<Vec<GiantBombPartialItem>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombPerson {
-    id: i32,
-    guid: String,
-    name: String,
-    deck: Option<String>,
-    birth_date: Option<String>,
-    description: Option<String>,
-    image: Option<GiantBombImage>,
-    api_detail_url: Option<String>,
-    site_detail_url: Option<String>,
-    games: Option<Vec<GiantBombPartialItem>>,
-    franchises: Option<Vec<GiantBombPartialItem>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombFranchise {
-    id: i32,
-    guid: String,
-    name: String,
-    deck: Option<String>,
-    description: Option<String>,
-    image: Option<GiantBombImage>,
-    api_detail_url: Option<String>,
-    site_detail_url: Option<String>,
-    games: Option<Vec<GiantBombPartialItem>>,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
@@ -263,7 +229,7 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let search_response: GiantBombSearchResponse<GiantBombGame> = response
+        let search_response: GiantBombSearchResponse<GiantBombResource> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
@@ -295,7 +261,7 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let details_response: GiantBombDetailsResponse<GiantBombGame> = response
+        let details_response: GiantBombDetailsResponse<GiantBombResource> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
@@ -475,7 +441,7 @@ impl MediaProvider for GiantBombService {
 
         let items = match search_type {
             "company" => {
-                let search_response: GiantBombSearchResponse<GiantBombCompany> =
+                let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
                 self.process_search_response(search_response, |company| PeopleSearchItem {
                     name: company.name,
@@ -485,7 +451,7 @@ impl MediaProvider for GiantBombService {
                 })?
             }
             _ => {
-                let search_response: GiantBombSearchResponse<GiantBombPerson> =
+                let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
                 self.process_search_response(search_response, |person| PeopleSearchItem {
                     name: person.name,
@@ -536,26 +502,17 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let (
-            name,
-            guid,
-            deck,
-            description,
-            birth_date,
-            image,
-            source_url,
-            related_metadata,
-            related_metadata_groups,
-        ) = if is_company {
-            let details_response: GiantBombDetailsResponse<GiantBombCompany> = response
-                .json()
-                .await
-                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+        let details_response: GiantBombDetailsResponse<GiantBombResource> = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
-            let company = details_response.results;
-            let mut related_games = Vec::new();
+        let resource = details_response.results;
+        let mut related_games = Vec::new();
+        let mut related_groups = Vec::new();
 
-            if let Some(developed_games) = company.developed_games {
+        if is_company {
+            if let Some(developed_games) = resource.developed_games {
                 for game in developed_games {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
@@ -573,7 +530,7 @@ impl MediaProvider for GiantBombService {
                 }
             }
 
-            if let Some(published_games) = company.published_games {
+            if let Some(published_games) = resource.published_games {
                 for game in published_games {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
@@ -590,31 +547,8 @@ impl MediaProvider for GiantBombService {
                     }
                 }
             }
-
-            (
-                company.name,
-                company.guid,
-                company.deck,
-                company.description,
-                company
-                    .founded
-                    .map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap()),
-                company.image,
-                company.site_detail_url,
-                related_games,
-                Vec::new(),
-            )
         } else {
-            let details_response: GiantBombDetailsResponse<GiantBombPerson> = response
-                .json()
-                .await
-                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
-
-            let person = details_response.results;
-            let mut related_games = Vec::new();
-            let mut related_groups = Vec::new();
-
-            if let Some(games) = person.games {
+            if let Some(games) = resource.games {
                 for game in games {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
@@ -632,7 +566,7 @@ impl MediaProvider for GiantBombService {
                 }
             }
 
-            if let Some(franchises) = person.franchises {
+            if let Some(franchises) = resource.franchises {
                 for franchise in franchises {
                     if let Some(api_url) = franchise.api_detail_url {
                         related_groups.push(MetadataGroupPersonRelated {
@@ -648,31 +582,25 @@ impl MediaProvider for GiantBombService {
                     }
                 }
             }
+        }
 
-            (
-                person.name,
-                person.guid,
-                person.deck,
-                person.description,
-                parse_date(person.birth_date),
-                person.image,
-                person.site_detail_url,
-                related_games,
-                related_groups,
-            )
+        let birth_date = if is_company {
+            resource.founded.map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap())
+        } else {
+            parse_date(resource.birth_date)
         };
 
         Ok(PersonDetails {
-            name,
+            name: resource.name,
             birth_date,
-            source_url,
-            related_metadata,
-            identifier: guid,
-            related_metadata_groups,
+            source_url: resource.site_detail_url,
+            related_metadata: related_games,
+            identifier: resource.guid,
+            related_metadata_groups: related_groups,
             source: MediaSource::GiantBomb,
-            description: combine_description(deck, description),
+            description: combine_description(resource.deck, resource.description),
             assets: EntityAssets {
-                remote_images: get_prioritized_images(image),
+                remote_images: get_prioritized_images(resource.image),
                 ..Default::default()
             },
             source_specifics: match is_company {
@@ -720,7 +648,7 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let search_response: GiantBombSearchResponse<GiantBombFranchise> = response
+        let search_response: GiantBombSearchResponse<GiantBombResource> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
@@ -759,7 +687,7 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let details_response: GiantBombDetailsResponse<GiantBombFranchise> = response
+        let details_response: GiantBombDetailsResponse<GiantBombResource> = response
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
