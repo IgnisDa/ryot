@@ -274,11 +274,7 @@ impl MediaProvider for OpenlibraryService {
             total: search.num_found,
             items: resp,
         };
-        let next_page = if search.num_found - ((page) * PAGE_SIZE) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (search.num_found - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: data.total,

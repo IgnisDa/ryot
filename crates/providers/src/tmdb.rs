@@ -448,11 +448,7 @@ impl MediaProvider for NonMediaTmdbService {
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = if page < search.total_pages {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: search.total_results,
@@ -672,11 +668,7 @@ impl MediaProvider for TmdbMovieService {
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
-        let next_page = if page < search.total_pages {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: search.total_results,
@@ -889,11 +881,7 @@ impl MediaProvider for TmdbMovieService {
                 ..Default::default()
             })
             .collect_vec();
-        let next_page = if page < search.total_pages {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: search.total_results,
@@ -1289,11 +1277,7 @@ impl MediaProvider for TmdbShowService {
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),
             })
             .collect_vec();
-        let next_page = if page < search.total_pages {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: search.total_results,

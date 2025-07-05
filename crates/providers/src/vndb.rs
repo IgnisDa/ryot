@@ -104,11 +104,7 @@ impl MediaProvider for VndbService {
                 ..Default::default()
             })
             .collect();
-        let next_page = if data.more {
-            Some(page.unwrap_or(1) + 1)
-        } else {
-            None
-        };
+        let next_page = data.more.then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: data.count,
@@ -205,7 +201,7 @@ impl MediaProvider for VndbService {
                 }
             })
             .collect();
-        let next_page = if search.more { Some(page + 1) } else { None };
+        let next_page = search.more.then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: search.count,

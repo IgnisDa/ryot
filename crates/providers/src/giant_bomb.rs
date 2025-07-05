@@ -58,13 +58,9 @@ impl GiantBombService {
         }
 
         let items = search_response.results.into_iter().map(mapper).collect();
-        let next_page = if search_response.offset + search_response.number_of_page_results
-            < search_response.number_of_total_results
-        {
-            Some((search_response.offset / PAGE_SIZE) + 2)
-        } else {
-            None
-        };
+        let next_page = (search_response.offset + search_response.number_of_page_results
+            < search_response.number_of_total_results)
+            .then(|| (search_response.offset / PAGE_SIZE) + 2);
 
         Ok(SearchResults {
             items,
