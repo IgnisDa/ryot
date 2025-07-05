@@ -21,11 +21,11 @@ import { Fragment, type ReactNode, type RefObject } from "react";
 import { Form } from "react-router";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { withQuery } from "ufo";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
-import { dayjsLib } from "~/lib/date-utils";
-import { useConfirmSubmit, useCoreDetails } from "~/lib/hooks";
-import { refreshEntityDetails } from "~/lib/query-factory";
-import { openConfirmationModal } from "~/lib/ui-utils";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useConfirmSubmit, useCoreDetails } from "~/lib/shared/hooks";
+import { refreshEntityDetails } from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { EditHistoryItemModal } from "../modals/edit-history-modal";
 import type { History, MetadataDetails, UserMetadataDetails } from "../types";
 

@@ -17,8 +17,8 @@ import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
 import { useRevalidator } from "react-router";
-import { useApplicationEvents, useUserPreferences } from "~/lib/hooks";
-import { clientGqlService } from "~/lib/query-factory";
+import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
 
 export const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;

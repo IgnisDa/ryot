@@ -58,7 +58,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -66,14 +66,18 @@ import {
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
-} from "~/lib/query-factory";
-import { convertEnumToSelectData, openConfirmationModal } from "~/lib/ui-utils";
+} from "~/lib/shared/query-factory";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
+import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,
@@ -81,7 +85,6 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { zodCommaDelimitedString } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.collections.list";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {

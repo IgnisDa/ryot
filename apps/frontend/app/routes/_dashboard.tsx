@@ -56,20 +56,20 @@ import {
 	getThemeIcon,
 } from "~/components/dashboard/navigation/navigation-config";
 import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
-import { LOGO_IMAGE_URL } from "~/lib/constants";
+import { LOGO_IMAGE_URL } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { forcedDashboardPath } from "~/lib/shared/ui-utils";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
 } from "~/lib/state/general";
 import { FitnessAction } from "~/lib/types";
-import { forcedDashboardPath } from "~/lib/ui-utils";
 import {
 	getCookieValue,
 	getCoreDetails,

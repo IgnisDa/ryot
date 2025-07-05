@@ -57,13 +57,13 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { pageQueryParam } from "~/lib/constants";
-import { dayjsLib } from "~/lib/date-utils";
-import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
-import { clientGqlService, queryFactory } from "~/lib/query-factory";
+import { pageQueryParam } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useAppSearchParam, useUserPreferences } from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
-import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,

@@ -19,9 +19,14 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { ProRequiredAlert } from "~/components/common";
 import { ExerciseHistory } from "~/components/fitness";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
-import { useCoreDetails } from "~/lib/hooks";
-import { getExerciseDetailsPath } from "~/lib/media-utils";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { useCoreDetails } from "~/lib/shared/hooks";
+import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
+import {
+	convertEnumToSelectData,
+	getSurroundingElements,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
 import {
 	convertHistorySetToCurrentSet,
 	getExerciseImages,
@@ -29,11 +34,6 @@ import {
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 import { FitnessEntity } from "~/lib/types";
-import {
-	convertEnumToSelectData,
-	getSurroundingElements,
-	openConfirmationModal,
-} from "~/lib/ui-utils";
 
 interface ExerciseDetailsModalProps {
 	opened: boolean;

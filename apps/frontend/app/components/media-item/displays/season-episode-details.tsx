@@ -11,7 +11,7 @@ import {
 } from "@mantine/core";
 import { humanizeDuration } from "@ryot/ts-utils";
 import type { ReactNode } from "react";
-import { dayjsLib } from "~/lib/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 
 export const DisplaySeasonOrEpisodeDetails = (props: {
 	name: string;

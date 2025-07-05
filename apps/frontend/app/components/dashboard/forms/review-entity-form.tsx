@@ -38,9 +38,9 @@ import {
 	useConfirmSubmit,
 	useMetadataDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
-import { convertDecimalToThreePointSmiley } from "~/lib/media-utils";
-import { refreshEntityDetails } from "~/lib/query-factory";
+} from "~/lib/shared/hooks";
+import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
+import { refreshEntityDetails } from "~/lib/shared/query-factory";
 import { useReviewEntity } from "~/lib/state/media";
 import { ThreePointSmileyRating } from "~/lib/types";
 import { convertThreePointSmileyToDecimal } from "../utils";

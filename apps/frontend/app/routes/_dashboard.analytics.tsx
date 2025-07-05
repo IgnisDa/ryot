@@ -64,22 +64,22 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	convertUtcHourToLocalHour,
 	dayjsLib,
 	getStartTimeFromRange,
-} from "~/lib/date-utils";
+} from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
-import { MediaColors } from "~/lib/media-utils";
-import { clientGqlService, queryFactory } from "~/lib/query-factory";
+} from "~/lib/shared/hooks";
+import { MediaColors } from "~/lib/shared/media-utils";
+import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { selectRandomElement } from "~/lib/shared/ui-utils";
 import { ApplicationTimeRange } from "~/lib/types";
-import { selectRandomElement } from "~/lib/ui-utils";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.analytics";
 

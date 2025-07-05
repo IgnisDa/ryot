@@ -22,20 +22,20 @@ import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { MultiSelectCreatable } from "~/components/common";
-import { dayjsLib } from "~/lib/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAddEntitiesToCollection,
 	useApplicationEvents,
 	useNonHiddenUserCollections,
 	useUserDetails,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
 import {
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
 	queryClient,
 	refreshEntityDetails,
-} from "~/lib/query-factory";
+} from "~/lib/shared/query-factory";
 import {
 	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,

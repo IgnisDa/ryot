@@ -75,15 +75,16 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
-import { dayjsLib, getDateFromTimeSpan } from "~/lib/date-utils";
+import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
-import { clientGqlService } from "~/lib/query-factory";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
@@ -93,7 +94,6 @@ import {
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { FitnessEntity, TimeSpan } from "~/lib/types";
-import { convertEnumToSelectData } from "~/lib/ui-utils";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 

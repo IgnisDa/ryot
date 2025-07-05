@@ -9,7 +9,7 @@ import {
 	ApplicationTimeRange,
 	TimeSpan,
 	type TimestampToStringResult,
-} from "./types";
+} from "../types";
 
 dayjs.extend(utc);
 dayjs.extend(duration);

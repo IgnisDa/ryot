@@ -41,11 +41,14 @@ import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { dayjsLib } from "~/lib/date-utils";
-import { useConfirmSubmit } from "~/lib/hooks";
-import { convertEnumToSelectData, openConfirmationModal } from "~/lib/ui-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useConfirmSubmit } from "~/lib/shared/hooks";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
+import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
-import { zodCommaDelimitedString } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.settings.notifications";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {

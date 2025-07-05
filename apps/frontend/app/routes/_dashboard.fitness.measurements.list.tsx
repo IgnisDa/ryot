@@ -35,20 +35,20 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { dayjsLib, getDateFromTimeSpan } from "~/lib/date-utils";
+import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
 	useUserPreferences,
-} from "~/lib/hooks";
-import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
-import { TimeSpan } from "~/lib/types";
+} from "~/lib/shared/hooks";
 import {
 	convertEnumToSelectData,
 	generateColor,
 	getStringAsciiValue,
 	openConfirmationModal,
-} from "~/lib/ui-utils";
+} from "~/lib/shared/ui-utils";
+import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
+import { TimeSpan } from "~/lib/types";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,

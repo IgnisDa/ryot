@@ -46,9 +46,9 @@ import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { BaseEntityDisplayItem } from "~/components/common";
-import { dayjsLib } from "~/lib/date-utils";
-import { useGetRandomMantineColor, useUserDetails } from "~/lib/hooks";
-import { getExerciseDetailsPath, getSetColor } from "~/lib/media-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useGetRandomMantineColor, useUserDetails } from "~/lib/shared/hooks";
+import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
 	getExerciseDetailsQuery,
 	getExerciseImages,

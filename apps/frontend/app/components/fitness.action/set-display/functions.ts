@@ -7,8 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
-import { dayjsLib } from "~/lib/date-utils";
-import { useUserPreferences } from "~/lib/hooks";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useUserPreferences } from "~/lib/shared/hooks";
 import {
 	type InProgressWorkout,
 	getUserExerciseDetailsQuery,

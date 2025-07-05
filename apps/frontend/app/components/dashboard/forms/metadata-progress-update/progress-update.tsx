@@ -7,7 +7,7 @@ import {
 	Text,
 } from "@mantine/core";
 import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
-import { useMetadataDetails, useUserMetadataDetails } from "~/lib/hooks";
+import { useMetadataDetails, useUserMetadataDetails } from "~/lib/shared/hooks";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,

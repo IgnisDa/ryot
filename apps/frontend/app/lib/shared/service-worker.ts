@@ -1,9 +1,9 @@
-import { LOGO_IMAGE_URL } from "./constants";
 import type {
 	AppServiceWorkerMessageData,
 	AppServiceWorkerNotificationData,
 	AppServiceWorkerNotificationTag,
-} from "./types";
+} from "../types";
+import { LOGO_IMAGE_URL } from "./constants";
 
 export const sendNotificationToServiceWorker = (
 	title: string,

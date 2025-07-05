@@ -18,7 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import { useDeployBulkMetadataProgressUpdate } from "~/lib/hooks";
+import { useDeployBulkMetadataProgressUpdate } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MetadataInProgressFormProps } from "./utils/form-types";
 

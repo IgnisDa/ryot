@@ -11,12 +11,13 @@ import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { displayWeightWithUnit } from "~/components/fitness";
-import { useApplicationEvents, useUserUnitSystem } from "~/lib/hooks";
+import { useApplicationEvents, useUserUnitSystem } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
 	queryClient,
 	queryFactory,
-} from "~/lib/query-factory";
+} from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	currentWorkoutToCreateWorkoutInput,
 	useCurrentWorkout,
@@ -26,7 +27,6 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
-import { openConfirmationModal } from "~/lib/ui-utils";
 import { NameAndOtherInputs } from "./miscellaneous";
 import { RestTimer, WorkoutDurationTimer } from "./rest-timer";
 import { StatDisplay } from "./stat-display-and-input";

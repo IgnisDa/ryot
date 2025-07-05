@@ -4,7 +4,7 @@ import type {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, sortBy } from "@ryot/ts-utils";
 import { produce } from "immer";
-import { queryClient } from "~/lib/query-factory";
+import { queryClient } from "~/lib/shared/query-factory";
 import {
 	type InProgressWorkout,
 	getExerciseDetailsQuery,

@@ -3,8 +3,8 @@ import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
 import { useEffect, useRef } from "react";
 import { useOnClickOutside } from "usehooks-ts";
-import { dayjsLib } from "~/lib/date-utils";
-import { forceUpdateEverySecond } from "~/lib/hooks";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { forceUpdateEverySecond } from "~/lib/shared/hooks";
 import {
 	type CurrentWorkoutTimer,
 	useCurrentWorkout,

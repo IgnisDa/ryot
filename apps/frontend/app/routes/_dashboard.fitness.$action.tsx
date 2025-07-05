@@ -21,12 +21,12 @@ import {
 	useWorkoutModals,
 } from "~/components/fitness.action/modals";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/fitness.action/utils";
-import { dayjsLib } from "~/lib/date-utils";
-import { useUserPreferences } from "~/lib/hooks";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useUserPreferences } from "~/lib/shared/hooks";
 import {
 	postMessageToServiceWorker,
 	sendNotificationToServiceWorker,
-} from "~/lib/service-worker";
+} from "~/lib/shared/service-worker";
 import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,

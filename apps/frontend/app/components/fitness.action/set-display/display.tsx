@@ -30,10 +30,11 @@ import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { DisplaySetStatistics } from "~/components/fitness";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
-import { dayjsLib } from "~/lib/date-utils";
-import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
-import { getSetColor } from "~/lib/media-utils";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
+import { getSetColor } from "~/lib/shared/media-utils";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	getRestTimerForSet,
 	useCurrentWorkout,
@@ -45,7 +46,6 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import { openConfirmationModal } from "~/lib/ui-utils";
 import { StatInput } from "../stat-display-and-input";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";

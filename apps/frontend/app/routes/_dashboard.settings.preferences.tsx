@@ -56,16 +56,16 @@ import { useLoaderData, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
 	useDashboardLayoutData,
 	useIsFitnessActionActive,
 	useUserPreferences,
-} from "~/lib/hooks";
-import { clientGqlService } from "~/lib/query-factory";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { FitnessEntity } from "~/lib/types";
-import { convertEnumToSelectData } from "~/lib/ui-utils";
 import classes from "~/styles/preferences.module.css";
 import type { Route } from "./+types/_dashboard.settings.preferences";
 

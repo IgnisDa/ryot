@@ -46,17 +46,17 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
-import { clientGqlService, queryFactory } from "~/lib/query-factory";
+} from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/general";
-import { openConfirmationModal } from "~/lib/ui-utils";
 import {
 	getUserCollectionsList,
 	getUserPreferences,

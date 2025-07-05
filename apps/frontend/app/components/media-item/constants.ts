@@ -1,5 +1,5 @@
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
-import { dayjsLib } from "~/lib/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 
 export const JUST_WATCH_URL = "https://www.justwatch.com";
 

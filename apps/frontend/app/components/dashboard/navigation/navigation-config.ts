@@ -4,7 +4,7 @@ import { changeCase } from "@ryot/ts-utils";
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { joinURL } from "ufo";
-import type { useUserDetails } from "~/lib/hooks";
+import type { useUserDetails } from "~/lib/shared/hooks";
 import { OnboardingTourStepTargets } from "~/lib/state/general";
 
 export const getMediaLinks = (

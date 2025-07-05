@@ -1,5 +1,5 @@
 import { Anchor, Flex, Text } from "@mantine/core";
-import { useCoreDetails } from "~/lib/hooks";
+import { useCoreDetails } from "~/lib/shared/hooks";
 import { discordLink } from "../utils";
 
 export const Footer = () => {

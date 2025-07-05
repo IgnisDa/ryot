@@ -34,9 +34,9 @@ import {
 	useAppSearchParam,
 	useCoreDetails,
 	useNonHiddenUserCollections,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import type { OnboardingTourStepTargets } from "~/lib/state/general";
-import { convertEnumToSelectData } from "~/lib/ui-utils";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {

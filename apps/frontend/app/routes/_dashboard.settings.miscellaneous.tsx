@@ -20,8 +20,8 @@ import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
 	useUserDetails,
-} from "~/lib/hooks";
-import { openConfirmationModal } from "~/lib/ui-utils";
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.miscellaneous";
 

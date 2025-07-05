@@ -60,11 +60,13 @@ import {
 	ProRequiredAlert,
 } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { pageQueryParam } from "~/lib/constants";
-import { dayjsLib, getStartTimeFromRange } from "~/lib/date-utils";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
-import { getLot } from "~/lib/media-utils";
-import { clientGqlService } from "~/lib/query-factory";
+import { pageQueryParam } from "~/lib/shared/constants";
+import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
+import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
+import { getLot } from "~/lib/shared/media-utils";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { zodCollectionFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
@@ -72,7 +74,6 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/general";
 import { ApplicationTimeRange } from "~/lib/types";
-import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
@@ -80,7 +81,6 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { zodCollectionFilter } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
 
 export type SearchParams = {

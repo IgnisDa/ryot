@@ -15,7 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { ThreePointSmileyRating, Verb } from "./types";
+import { ThreePointSmileyRating, Verb } from "../types";
 
 export const getLot = (lot: unknown) => {
 	if (!lot) return undefined;

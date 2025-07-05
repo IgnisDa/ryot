@@ -55,18 +55,18 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { PersonDisplayItem } from "~/components/media";
-import { pageQueryParam } from "~/lib/constants";
-import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
-import { clientGqlService } from "~/lib/query-factory";
+import { pageQueryParam } from "~/lib/shared/constants";
+import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import { zodCollectionFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
-import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import { zodCollectionFilter } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.media.people.$action";
 
 export type SearchParams = {

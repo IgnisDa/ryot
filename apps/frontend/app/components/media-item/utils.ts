@@ -1,4 +1,4 @@
-import { dayjsLib } from "~/lib/date-utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import { SECONDS_IN_MONTH } from "./constants";
 import type { DurationInput } from "./types";
 
