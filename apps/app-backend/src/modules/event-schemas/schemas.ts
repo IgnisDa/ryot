@@ -3,7 +3,7 @@ import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	createNameWithOptionalSlugSchema,
 	nonEmptyTrimmedStringSchema,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
 const eventSchemaProperties = createLabeledPropertySchemas(

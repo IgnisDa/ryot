@@ -9,7 +9,7 @@ import {
 	nullableIntSchema,
 	nullableNumberSchema,
 	nullableStringSchema,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 const builtinMediaEntitySchemaSlugSchema = z.enum(
 	builtinMediaEntitySchemaSlugs,
