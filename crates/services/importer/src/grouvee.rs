@@ -111,7 +111,7 @@ fn process_grouvee_record(
     }
 
     let source = MediaSource::GiantBomb;
-    let identifier = giantbomb_id;
+    let identifier = format!("3030-{giantbomb_id}"); // since we store giant bomb guid
 
     let collections = parse_shelves(&record.shelves);
 
