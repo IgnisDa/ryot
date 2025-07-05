@@ -13,8 +13,9 @@ use dependent_models::{
 };
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
-    PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier, VideoGameSpecifics,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
+    VideoGameSpecifics,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -158,6 +159,18 @@ struct GiantBombPerson {
     site_detail_url: Option<String>,
     games: Option<Vec<GiantBombPartialItem>>,
     franchises: Option<Vec<GiantBombPartialItem>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GiantBombFranchise {
+    id: i32,
+    guid: String,
+    name: String,
+    deck: Option<String>,
+    description: Option<String>,
+    image: Option<GiantBombImage>,
+    api_detail_url: Option<String>,
+    site_detail_url: Option<String>,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
@@ -668,6 +681,53 @@ impl MediaProvider for GiantBombService {
                     ..Default::default()
                 }),
             },
+            ..Default::default()
+        })
+    }
+
+    async fn metadata_group_search(
+        &self,
+        query: &str,
+        page: Option<i32>,
+        _display_nsfw: bool,
+    ) -> Result<SearchResults<MetadataGroupSearchItem>> {
+        let page = page.unwrap_or(1);
+        let offset = (page - 1) * PAGE_SIZE;
+
+        ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);
+
+        let url = format!("{}/search/", BASE_URL);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[
+                ("api_key", &self.api_key),
+                ("query", &query.to_string()),
+                ("format", &"json".to_string()),
+                ("offset", &offset.to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("resources", &"franchise".to_string()),
+            ])
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "GiantBomb API returned status: {}",
+                response.status()
+            ));
+        }
+
+        let search_response: GiantBombSearchResponse<GiantBombFranchise> = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+
+        self.process_search_response(search_response, |franchise| MetadataGroupSearchItem {
+            name: franchise.name,
+            identifier: franchise.guid,
+            image: franchise.image.and_then(|img| img.original_url),
             ..Default::default()
         })
     }
