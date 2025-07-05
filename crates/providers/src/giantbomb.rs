@@ -144,7 +144,7 @@ fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
     api_detail_url
         .split('/')
         .filter(|s| !s.is_empty())
-        .last()
+        .next_back()
         .unwrap_or("")
         .to_string()
 }
