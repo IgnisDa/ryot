@@ -242,7 +242,7 @@ fn parse_date(date_str: &str) -> Option<DateTime<Utc>> {
         return Some(dt.with_timezone(&Utc));
     }
 
-    if let Ok(dt) = chrono::DateTime::parse_from_str(date_str, "%Y-%m-%d") {
+    if let Ok(dt) = DateTime::parse_from_str(date_str, "%Y-%m-%d") {
         return Some(dt.with_timezone(&Utc));
     }
 
