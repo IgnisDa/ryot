@@ -29,4 +29,3 @@ export type InProgress =
 	UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
 export type History =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"];
-
