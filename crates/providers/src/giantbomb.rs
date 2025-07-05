@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_graphql::OutputType;
 use async_trait::async_trait;
-use chrono::Datelike;
+use chrono::{Datelike, NaiveDate};
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, ryot_log};
 use dependent_models::SearchResults;
@@ -97,8 +97,8 @@ struct GiantBombGame {
     deck: Option<String>,
     description: Option<String>,
     image: Option<GiantBombImage>,
-    original_release_date: Option<String>,
     site_detail_url: Option<String>,
+    original_release_date: Option<String>,
     genres: Option<Vec<GiantBombPartialItem>>,
     themes: Option<Vec<GiantBombPartialItem>>,
     people: Option<Vec<GiantBombPartialItem>>,
@@ -115,16 +115,16 @@ struct GiantBombSearchResponse<T> {
     offset: i32,
     error: String,
     status_code: i32,
-    number_of_page_results: i32,
     results: Vec<T>,
+    number_of_page_results: i32,
     number_of_total_results: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombDetailsResponse<T> {
+    results: T,
     error: String,
     status_code: i32,
-    results: T,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -133,9 +133,9 @@ struct GiantBombCompany {
     guid: String,
     name: String,
     deck: Option<String>,
+    founded: Option<i32>,
     description: Option<String>,
     image: Option<GiantBombImage>,
-    founded: Option<i32>,
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
 }
@@ -146,17 +146,16 @@ struct GiantBombPerson {
     guid: String,
     name: String,
     deck: Option<String>,
+    birth_date: Option<String>,
     description: Option<String>,
     image: Option<GiantBombImage>,
-    birth_date: Option<String>,
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
 }
 
-
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
     date_str.and_then(|d| {
-        chrono::NaiveDate::parse_from_str(&d, "%Y-%m-%d")
+        NaiveDate::parse_from_str(&d, "%Y-%m-%d")
             .ok()
             .map(|date| date.year())
     })
@@ -324,8 +323,8 @@ impl MediaProvider for GiantBombService {
                         name: franchise.name,
                         unique: UniqueMediaIdentifier {
                             lot: MediaLot::VideoGame,
-                            identifier: extract_giant_bomb_guid(&api_url),
                             source: MediaSource::GiantBomb,
+                            identifier: extract_giant_bomb_guid(&api_url),
                         },
                         ..Default::default()
                     });
@@ -432,11 +431,11 @@ impl MediaProvider for GiantBombService {
             .get(&url)
             .query(&[
                 ("api_key", &self.api_key),
-                ("format", &"json".to_string()),
                 ("query", &query.to_string()),
-                ("resources", &search_type.to_string()),
-                ("limit", &PAGE_SIZE.to_string()),
                 ("offset", &offset.to_string()),
+                ("format", &"json".to_string()),
+                ("limit", &PAGE_SIZE.to_string()),
+                ("resources", &search_type.to_string()),
             ])
             .send()
             .await
@@ -456,8 +455,8 @@ impl MediaProvider for GiantBombService {
                 self.process_search_response(search_response, |company| PeopleSearchItem {
                     name: company.name,
                     identifier: company.guid,
-                    image: company.image.and_then(|img| img.original_url),
                     birth_year: company.founded,
+                    image: company.image.and_then(|img| img.original_url),
                 })?
             }
             _ => {
