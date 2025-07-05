@@ -245,9 +245,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			kind: "image",
 			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
 		});
-		expect(gridResult.data?.data.items[0]?.image).toEqual(
+		expect(
 			getQueryEngineFieldOrThrow(gridResult.data?.data.items[0], "image").value,
-		);
+		).toEqual({ kind: "remote", url: "https://example.com/alpha-phone.png" });
 	});
 
 	it("returns null wrappers for empty grid display references", async () => {
@@ -320,7 +320,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items[0]?.fields).toEqual([
+		expect(data?.data.items[0]).toEqual([
 			{ key: "column_0", kind: "text", value: "Alpha Phone" },
 			{ key: "column_1", kind: "number", value: 2018 },
 			{ key: "column_2", kind: "null", value: null },
@@ -511,16 +511,17 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
-			"Alpha Phone",
-			"Gamma Phone",
-		]);
-		expect(data?.data.items[0]?.fields).toMatchObject([
+		expect(
+			data?.data.items.map(
+				(item) => getQueryEngineFieldOrThrow(item, "column_0").value,
+			),
+		).toEqual(["Alpha Phone", "Gamma Phone"]);
+		expect(data?.data.items[0]).toMatchObject([
 			{ key: "column_0", kind: "text", value: "Alpha Phone" },
 			{ key: "column_1", kind: "number", value: 5 },
 			{ key: "column_2", kind: "date" },
 		]);
-		expect(data?.data.items[1]?.fields).toMatchObject([
+		expect(data?.data.items[1]).toMatchObject([
 			{ key: "column_0", kind: "text", value: "Gamma Phone" },
 			{ key: "column_1", kind: "number", value: 4 },
 			{ key: "column_2", kind: "date" },
@@ -542,20 +543,23 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: ["event.review.properties.rating"],
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: ["event.review.properties.rating"],
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[smartphoneSlug, tabletSlug],
+				),
 			}),
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
-			"Beta Tablet",
-			"Delta Tablet",
-			"Omega Phone",
-		]);
+		expect(
+			data?.data.items.map(
+				(item) => getQueryEngineFieldOrThrow(item, "title").value,
+			),
+		).toEqual(["Beta Tablet", "Delta Tablet", "Omega Phone"]);
 		for (const item of data?.data.items ?? []) {
 			expect(getQueryEngineFieldOrThrow(item, "callout")).toEqual({
 				key: "callout",
@@ -580,19 +584,23 @@ export function registerQueryEnginePresentationAndErrorTests() {
 				eventJoins: [
 					{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 				],
-				displayConfiguration: buildGridDisplayConfiguration({
-					calloutProperty: ["event.review.properties.rating"],
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				}),
+				displayConfiguration: buildGridDisplayConfiguration(
+					{
+						calloutProperty: ["event.review.properties.rating"],
+						primarySubtitleProperty: null,
+						secondarySubtitleProperty: null,
+					},
+					[smartphoneSlug, tabletSlug],
+				),
 			}),
 		);
 
 		expect(response.status).toBe(200);
-		expect(data?.data.items.map((item) => item.name)).toEqual([
-			"Alpha Phone",
-			"Gamma Phone",
-		]);
+		expect(
+			data?.data.items.map(
+				(item) => getQueryEngineFieldOrThrow(item, "title").value,
+			),
+		).toEqual(["Alpha Phone", "Gamma Phone"]);
 		for (const item of data?.data.items ?? []) {
 			expect(getQueryEngineFieldOrThrow(item, "callout").kind).toBe("number");
 		}

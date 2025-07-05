@@ -3792,30 +3792,11 @@ export interface paths {
                         "application/json": {
                             data: {
                                 items: {
-                                    id: string;
-                                    name: string;
-                                    /** Format: date-time */
-                                    createdAt: string;
-                                    /** Format: date-time */
-                                    updatedAt: string;
-                                    image: {
-                                        key: string;
-                                        /** @enum {string} */
-                                        kind: "s3";
-                                    } | {
-                                        url: string;
-                                        /** @enum {string} */
-                                        kind: "remote";
-                                    } | unknown;
-                                    externalId: string | null;
-                                    sandboxScriptId: string | null;
-                                    fields: {
-                                        value?: unknown;
-                                        /** @enum {string} */
-                                        kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
-                                        key: string;
-                                    }[];
-                                }[];
+                                    value?: unknown;
+                                    /** @enum {string} */
+                                    kind: "json" | "null" | "date" | "text" | "image" | "number" | "boolean";
+                                    key: string;
+                                }[][];
                                 meta: {
                                     pagination: {
                                         page: number;

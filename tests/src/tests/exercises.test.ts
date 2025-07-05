@@ -163,10 +163,7 @@ describe("Exercises E2E", () => {
 							label: "Equipment",
 							expression: createTransformExpression(
 								"titleCase",
-								createEntityPropertyExpression(
-									"exercise",
-									"equipment",
-								),
+								createEntityPropertyExpression("exercise", "equipment"),
 							),
 						},
 					],
@@ -211,12 +208,6 @@ describe("Exercises E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const exercise = await waitForSeededExercise(client, cookies);
 
-		expect(exercise.name).toBe(seededExerciseName);
-		expect(exercise.sandboxScriptId).toBeNull();
-		expect(exercise.image).toEqual({
-			kind: "remote",
-			url: seededExerciseImageUrl,
-		});
 		expect(getQueryEngineFieldOrThrow(exercise, "title")).toEqual({
 			key: "title",
 			kind: "text",
