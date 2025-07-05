@@ -406,48 +406,84 @@ impl TmdbService {
             _ => return Err(anyhow!("Invalid media type")),
         };
 
-        let pages: Vec<Result<Vec<PartialMetadataWithoutId>>> = stream::iter(1..=3)
-            .map(|page| {
-                let client = &self.client;
-                let language = &self.language;
-                async move {
-                    let rsp = client
-                        .get(format!("{}/trending/{}/day", URL, media_type))
-                        .query(&json!({
-                            "page": page,
-                            "language": language,
-                        }))
-                        .send()
-                        .await
-                        .map_err(|e| anyhow!(e))?;
-                    let data: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let first_page: TmdbListResponse = self
+            .client
+            .get(format!("{}/trending/{}/day", URL, media_type))
+            .query(&json!({
+                "page": 1,
+                "language": self.language,
+            }))
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .json()
+            .await
+            .map_err(|e| anyhow!(e))?;
 
-                    let mut page_results = vec![];
-                    for entry in data.results.into_iter() {
-                        let title = match entry.title {
-                            Some(n) => n,
-                            _ => continue,
-                        };
-                        page_results.push(PartialMetadataWithoutId {
-                            title,
-                            source: MediaSource::Tmdb,
-                            identifier: entry.id.to_string(),
-                            image: entry.poster_path.map(|p| self.get_image_url(p)),
-                            lot: media_lot,
-                            ..Default::default()
-                        });
-                    }
-                    Ok(page_results)
-                }
-            })
-            .buffer_unordered(5)
-            .collect()
-            .await;
-
+        let total_pages = first_page.total_pages.min(3);
         let mut trending = vec![];
-        for page_result in pages {
-            trending.extend(page_result?);
+
+        for entry in first_page.results.into_iter() {
+            let title = match entry.title {
+                Some(n) => n,
+                _ => continue,
+            };
+            trending.push(PartialMetadataWithoutId {
+                title,
+                source: MediaSource::Tmdb,
+                identifier: entry.id.to_string(),
+                image: entry.poster_path.map(|p| self.get_image_url(p)),
+                lot: media_lot,
+                ..Default::default()
+            });
         }
+
+        if total_pages > 1 {
+            let remaining_pages: Vec<Result<Vec<PartialMetadataWithoutId>>> =
+                stream::iter(2..=total_pages)
+                    .map(|page| {
+                        let client = &self.client;
+                        let language = &self.language;
+                        async move {
+                            let rsp = client
+                                .get(format!("{}/trending/{}/day", URL, media_type))
+                                .query(&json!({
+                                    "page": page,
+                                    "language": language,
+                                }))
+                                .send()
+                                .await
+                                .map_err(|e| anyhow!(e))?;
+                            let data: TmdbListResponse =
+                                rsp.json().await.map_err(|e| anyhow!(e))?;
+
+                            let mut page_results = vec![];
+                            for entry in data.results.into_iter() {
+                                let title = match entry.title {
+                                    Some(n) => n,
+                                    _ => continue,
+                                };
+                                page_results.push(PartialMetadataWithoutId {
+                                    title,
+                                    source: MediaSource::Tmdb,
+                                    identifier: entry.id.to_string(),
+                                    image: entry.poster_path.map(|p| self.get_image_url(p)),
+                                    lot: media_lot,
+                                    ..Default::default()
+                                });
+                            }
+                            Ok(page_results)
+                        }
+                    })
+                    .buffer_unordered(5)
+                    .collect()
+                    .await;
+
+            for page_result in remaining_pages {
+                trending.extend(page_result?);
+            }
+        }
+
         Ok(trending)
     }
 }
