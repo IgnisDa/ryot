@@ -430,9 +430,9 @@ export default function Page() {
 									}}
 								>
 									<Image
-										alt="Logo"
 										h={24}
 										w={24}
+										alt="Logo"
 										src={`/provider-logos/${match(
 											loaderData.metadataDetails.source,
 										)
@@ -449,6 +449,7 @@ export default function Page() {
 											.with(MediaSource.Vndb, () => "vndb.ico")
 											.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
 											.with(MediaSource.Hardcover, () => "hardcover.png")
+											.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
 											.with(MediaSource.Custom, () => undefined)
 											.exhaustive()}`}
 									/>
@@ -481,6 +482,7 @@ export default function Page() {
 												MediaSource.Itunes,
 												MediaSource.Openlibrary,
 												MediaSource.YoutubeMusic,
+												MediaSource.GiantBomb,
 												() => undefined,
 											)
 											.exhaustive()}
