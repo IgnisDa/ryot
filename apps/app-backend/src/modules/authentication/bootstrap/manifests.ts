@@ -37,7 +37,7 @@ export const authenticationBuiltinTrackers = () => [
 	{
 		slug: "fitness",
 		name: "Fitness",
-		icon: "dumbbell",
+		icon: "heart-pulse",
 		accentColor: "#2DD4BF",
 		description: "Track workouts, measurements, and progress.",
 	},
@@ -342,7 +342,7 @@ export const authenticationBuiltinEntitySchemas = () => [
 		},
 	},
 	{
-		icon: "dumbbell",
+		icon: "zap",
 		slug: "exercise",
 		name: "Exercise",
 		trackerSlug: "fitness",
