@@ -48,7 +48,6 @@ struct TmdbCredit {
     character: Option<String>,
     media_type: Option<String>,
     poster_path: Option<String>,
-    profile_path: Option<String>,
     known_for_department: Option<String>,
 }
 
@@ -76,7 +75,6 @@ struct TmdbEntry {
     id: i32,
     #[serde(alias = "name")]
     title: Option<String>,
-    overview: Option<String>,
     #[serde(alias = "logo_path", alias = "profile_path")]
     poster_path: Option<String>,
     release_date: Option<String>,
@@ -130,7 +128,6 @@ struct TmdbMediaEntry {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbWatchProviderDetails {
-    provider_id: i32,
     provider_name: String,
     logo_path: Option<String>,
 }
@@ -335,8 +332,8 @@ impl TmdbService {
                 } else {
                     watch_providers.push(WatchProvider {
                         name: provider.provider_name,
-                        image: provider.logo_path.map(|i| self.get_image_url(i)),
                         languages: HashSet::from_iter(vec![country.clone()]),
+                        image: provider.logo_path.map(|i| self.get_image_url(i)),
                     });
                 }
             }
