@@ -1,6 +1,13 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Plus } from "lucide-react-native";
-import Animated, { SlideInRight, SlideOutRight } from "react-native-reanimated";
+import { useEffect } from "react";
+import Animated, {
+	SlideInRight,
+	SlideOutRight,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -15,22 +22,35 @@ import { RAIL_WIDTH } from "./rail";
 export const FLYOUT_WIDTH = 220;
 
 type Props = {
-	onNavigate: () => void;
+	open?: boolean;
 	pinned?: boolean;
+	onNavigate: () => void;
 };
 
-export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
+export function SpineSubFlyout({
+	onNavigate,
+	open = true,
+	pinned = false,
+}: Props) {
 	const trackers = useAtomValue(trackersAtom);
 	const activeTrackerId = useAtomValue(activeTrackerIdAtom);
 	const [activeSubItem, setActiveSubItem] = useAtom(activeSubItemAtom);
 	const setSubFlyoutOpen = useSetAtom(subFlyoutOpenAtom);
+	const animatedWidth = useSharedValue(open ? FLYOUT_WIDTH : 0);
+
+	useEffect(() => {
+		animatedWidth.value = withTiming(open ? FLYOUT_WIDTH : 0, {
+			duration: open ? 220 : 180,
+		});
+	}, [open]);
+
+	const pinnedStyle = useAnimatedStyle(() => ({
+		width: animatedWidth.value,
+		overflow: "hidden" as const,
+	}));
 
 	const activeTracker = trackers.find((t) => t.id === activeTrackerId);
 	const subItems = activeTracker?.subItems ?? [];
-
-	if (!subItems.length) {
-		return null;
-	}
 
 	function handleSubItemPress(item: string) {
 		setActiveSubItem(item);
@@ -77,17 +97,22 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 	if (pinned) {
 		return (
 			<Animated.View
-				entering={SlideInRight.duration(220)}
-				exiting={SlideOutRight.duration(180)}
-				className="w-55 pt-16 pb-20 border-l-[0.5px] border-l-ink/20 bg-paper"
+				style={pinnedStyle}
+				className="pt-16 pb-20 border-l-[0.5px] border-l-ink/20 bg-paper"
 			>
 				{content}
 			</Animated.View>
 		);
 	}
 
+	if (!subItems.length) {
+		return null;
+	}
+
 	return (
 		<Animated.View
+			entering={SlideInRight.duration(220)}
+			exiting={SlideOutRight.duration(180)}
 			className="absolute top-0 bottom-0 z-25 pt-16 pb-20 bg-paper w-55"
 			style={{
 				elevation: 10,
@@ -97,8 +122,6 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 				shadowOpacity: 0.12,
 				shadowOffset: { width: -8, height: 0 },
 			}}
-			entering={SlideInRight.duration(220)}
-			exiting={SlideOutRight.duration(180)}
 		>
 			{content}
 		</Animated.View>
