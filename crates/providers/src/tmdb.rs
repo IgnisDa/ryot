@@ -250,79 +250,22 @@ impl TmdbService {
             _ => unreachable!(),
         };
 
-        let first_page: TmdbListResponse = self
-            .client
-            .get(format!("{}/{}/{}/recommendations", URL, type_, identifier))
-            .query(&json!({ "page": 1 }))
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?
-            .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
-
-        let total_pages = first_page.total_pages;
-
-        let mut suggestions = vec![];
-        for entry in first_page.results.into_iter() {
-            let name = match entry.title {
-                Some(n) => n,
-                _ => continue,
-            };
-            suggestions.push(PartialMetadataWithoutId {
-                lot,
-                title: name,
-                source: MediaSource::Tmdb,
-                identifier: entry.id.to_string(),
-                image: entry.poster_path.map(|p| self.get_image_url(p)),
-                ..Default::default()
-            });
-        }
-
-        if total_pages > 1 {
-            let remaining_pages: Vec<Result<Vec<PartialMetadataWithoutId>>> =
-                stream::iter(2..=total_pages)
-                    .map(|page| {
-                        let client = &self.client;
-                        async move {
-                            let new_recs: TmdbListResponse = client
-                                .get(format!("{}/{}/{}/recommendations", URL, type_, identifier))
-                                .query(&json!({ "page": page }))
-                                .send()
-                                .await
-                                .map_err(|e| anyhow!(e))?
-                                .json()
-                                .await
-                                .map_err(|e| anyhow!(e))?;
-
-                            let mut page_suggestions = vec![];
-                            for entry in new_recs.results.into_iter() {
-                                let name = match entry.title {
-                                    Some(n) => n,
-                                    _ => continue,
-                                };
-                                page_suggestions.push(PartialMetadataWithoutId {
-                                    lot,
-                                    title: name,
-                                    source: MediaSource::Tmdb,
-                                    identifier: entry.id.to_string(),
-                                    image: entry.poster_path.map(|p| self.get_image_url(p)),
-                                    ..Default::default()
-                                });
-                            }
-                            Ok(page_suggestions)
-                        }
-                    })
-                    .buffer_unordered(5)
-                    .collect()
-                    .await;
-
-            for page_result in remaining_pages {
-                suggestions.extend(page_result?);
-            }
-        }
-
-        Ok(suggestions)
+        self.fetch_paginated_data(
+            format!("{}/{}/{}/recommendations", URL, type_, identifier),
+            json!({ "page": 1 }),
+            None,
+            |entry| async move {
+                entry.title.map(|title| PartialMetadataWithoutId {
+                    lot,
+                    title,
+                    source: MediaSource::Tmdb,
+                    identifier: entry.id.to_string(),
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    ..Default::default()
+                })
+            },
+        )
+        .await
     }
 
     async fn get_all_watch_providers(
@@ -399,20 +342,22 @@ impl TmdbService {
         rsp.json().await.map_err(|e| anyhow!(e))
     }
 
-    async fn get_trending_media(&self, media_type: &str) -> Result<Vec<PartialMetadataWithoutId>> {
-        let media_lot = match media_type {
-            "movie" => MediaLot::Movie,
-            "tv" => MediaLot::Show,
-            _ => return Err(anyhow!("Invalid media type")),
-        };
-
+    async fn fetch_paginated_data<T, F, Fut>(
+        &self,
+        url: String,
+        query_params: serde_json::Value,
+        max_pages: Option<i32>,
+        process_entry: F,
+    ) -> Result<Vec<T>>
+    where
+        F: Fn(TmdbEntry) -> Fut + Send + Sync + Clone,
+        Fut: std::future::Future<Output = Option<T>> + Send,
+        T: Send,
+    {
         let first_page: TmdbListResponse = self
             .client
-            .get(format!("{}/trending/{}/day", URL, media_type))
-            .query(&json!({
-                "page": 1,
-                "language": self.language,
-            }))
+            .get(&url)
+            .query(&query_params)
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -420,71 +365,84 @@ impl TmdbService {
             .await
             .map_err(|e| anyhow!(e))?;
 
-        let total_pages = first_page.total_pages.min(3);
-        let mut trending = vec![];
+        let total_pages = match max_pages {
+            Some(max) => first_page.total_pages.min(max),
+            None => first_page.total_pages,
+        };
 
-        for entry in first_page.results.into_iter() {
-            let title = match entry.title {
-                Some(n) => n,
-                _ => continue,
-            };
-            trending.push(PartialMetadataWithoutId {
-                title,
-                source: MediaSource::Tmdb,
-                identifier: entry.id.to_string(),
-                image: entry.poster_path.map(|p| self.get_image_url(p)),
-                lot: media_lot,
-                ..Default::default()
-            });
-        }
-
-        if total_pages > 1 {
-            let remaining_pages: Vec<Result<Vec<PartialMetadataWithoutId>>> =
-                stream::iter(2..=total_pages)
-                    .map(|page| {
-                        let client = &self.client;
-                        let language = &self.language;
-                        async move {
-                            let rsp = client
-                                .get(format!("{}/trending/{}/day", URL, media_type))
-                                .query(&json!({
-                                    "page": page,
-                                    "language": language,
-                                }))
-                                .send()
-                                .await
-                                .map_err(|e| anyhow!(e))?;
-                            let data: TmdbListResponse =
-                                rsp.json().await.map_err(|e| anyhow!(e))?;
-
-                            let mut page_results = vec![];
-                            for entry in data.results.into_iter() {
-                                let title = match entry.title {
-                                    Some(n) => n,
-                                    _ => continue,
-                                };
-                                page_results.push(PartialMetadataWithoutId {
-                                    title,
-                                    source: MediaSource::Tmdb,
-                                    identifier: entry.id.to_string(),
-                                    image: entry.poster_path.map(|p| self.get_image_url(p)),
-                                    lot: media_lot,
-                                    ..Default::default()
-                                });
-                            }
-                            Ok(page_results)
-                        }
-                    })
-                    .buffer_unordered(5)
-                    .collect()
-                    .await;
-
-            for page_result in remaining_pages {
-                trending.extend(page_result?);
+        let mut results = vec![];
+        for entry in first_page.results {
+            if let Some(processed) = process_entry(entry).await {
+                results.push(processed);
             }
         }
 
-        Ok(trending)
+        if total_pages > 1 {
+            let remaining_pages: Vec<Result<Vec<T>>> = stream::iter(2..=total_pages)
+                .map(|page| {
+                    let client = &self.client;
+                    let url = &url;
+                    let mut page_query = query_params.clone();
+                    let process_entry = process_entry.clone();
+                    page_query["page"] = page.into();
+                    async move {
+                        let page_response: TmdbListResponse = client
+                            .get(url)
+                            .query(&page_query)
+                            .send()
+                            .await
+                            .map_err(|e| anyhow!(e))?
+                            .json()
+                            .await
+                            .map_err(|e| anyhow!(e))?;
+
+                        let mut page_results = vec![];
+                        for entry in page_response.results {
+                            if let Some(processed) = process_entry(entry).await {
+                                page_results.push(processed);
+                            }
+                        }
+                        Ok(page_results)
+                    }
+                })
+                .buffer_unordered(5)
+                .collect()
+                .await;
+
+            for page_result in remaining_pages {
+                results.extend(page_result?);
+            }
+        }
+
+        Ok(results)
+    }
+
+    async fn get_trending_media(&self, media_type: &str) -> Result<Vec<PartialMetadataWithoutId>> {
+        let media_lot = match media_type {
+            "movie" => MediaLot::Movie,
+            "tv" => MediaLot::Show,
+            _ => return Err(anyhow!("Invalid media type")),
+        };
+
+        self.fetch_paginated_data(
+            format!("{}/trending/{}/day", URL, media_type),
+            json!({
+                "page": 1,
+                "language": self.language,
+            }),
+            Some(3),
+            |entry| async move {
+                entry.title.map(|title| PartialMetadataWithoutId {
+                    title,
+                    source: MediaSource::Tmdb,
+                    identifier: entry.id.to_string(),
+                    image: entry.poster_path.map(|p| self.get_image_url(p)),
+                    lot: media_lot,
+                    ..Default::default()
+                })
+            },
+        )
+        .await
     }
 }
 
@@ -1104,101 +1062,36 @@ async fn fetch_company_media_by_type(
     identifier: &str,
     base: &TmdbService,
 ) -> Result<Vec<MetadataPersonRelated>> {
-    let mut all_results = vec![];
-
-    let first_page: TmdbListResponse = base
-        .client
-        .get(format!("{}/discover/{}", URL, &media_type))
-        .query(&json!({
-            "with_companies": identifier,
-            "page": 1,
-            "language": base.language
-        }))
-        .send()
-        .await
-        .map_err(|e| anyhow!(e))?
-        .json()
-        .await
-        .map_err(|e| anyhow!(e))?;
-
     let lot = match media_type.as_str() {
         "movie" => MediaLot::Movie,
         "tv" => MediaLot::Show,
         _ => unreachable!(),
     };
 
-    all_results.extend(
-        first_page
-            .results
-            .into_iter()
-            .map(|m| MetadataPersonRelated {
+    base.fetch_paginated_data(
+        format!("{}/discover/{}", URL, &media_type),
+        json!({
+            "with_companies": identifier,
+            "page": 1,
+            "language": base.language
+        }),
+        None,
+        |entry| async move {
+            Some(MetadataPersonRelated {
                 role: "Production Company".to_owned(),
                 metadata: PartialMetadataWithoutId {
                     source: MediaSource::Tmdb,
-                    identifier: m.id.to_string(),
-                    title: m.title.unwrap_or_default(),
-                    image: m.poster_path.map(|p| base.get_image_url(p)),
+                    identifier: entry.id.to_string(),
+                    title: entry.title.unwrap_or_default(),
+                    image: entry.poster_path.map(|p| base.get_image_url(p)),
                     lot,
                     ..Default::default()
                 },
                 ..Default::default()
-            }),
-    );
-
-    let total_pages = first_page.total_pages;
-
-    if total_pages > 1 {
-        let remaining_pages: Vec<Result<Vec<MetadataPersonRelated>>> =
-            stream::iter(2..=total_pages)
-                .map(|page| {
-                    let client = &base.client;
-                    let language = &base.language;
-                    let media_type = &media_type;
-                    async move {
-                        let page_result: TmdbListResponse = client
-                            .get(format!("{}/discover/{}", URL, media_type))
-                            .query(&json!({
-                                "with_companies": identifier,
-                                "page": page,
-                                "language": language
-                            }))
-                            .send()
-                            .await
-                            .map_err(|e| anyhow!(e))?
-                            .json()
-                            .await
-                            .map_err(|e| anyhow!(e))?;
-
-                        let page_results = page_result
-                            .results
-                            .into_iter()
-                            .map(|m| MetadataPersonRelated {
-                                role: "Production Company".to_owned(),
-                                metadata: PartialMetadataWithoutId {
-                                    source: MediaSource::Tmdb,
-                                    identifier: m.id.to_string(),
-                                    title: m.title.unwrap_or_default(),
-                                    image: m.poster_path.map(|p| base.get_image_url(p)),
-                                    lot,
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            })
-                            .collect();
-
-                        Ok(page_results)
-                    }
-                })
-                .buffer_unordered(5)
-                .collect()
-                .await;
-
-        for page_result in remaining_pages {
-            all_results.extend(page_result?);
-        }
-    }
-
-    Ok(all_results)
+            })
+        },
+    )
+    .await
 }
 
 pub struct TmdbShowService {
