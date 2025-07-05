@@ -4498,6 +4498,7 @@ dependencies = [
  "dependent-models",
  "educe",
  "enum-models",
+ "futures",
  "graphql_client",
  "hashbag",
  "itertools 0.14.0",
@@ -4516,6 +4517,7 @@ dependencies = [
  "serde_with",
  "strum",
  "supporting-service",
+ "tokio",
  "tracing",
  "traits",
 ]

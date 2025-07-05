@@ -18,6 +18,7 @@ database-models = { path = "../models/database" }
 dependent-models = { path = "../models/dependent" }
 educe = { workspace = true }
 enum-models = { path = "../models/enum" }
+futures = { workspace = true }
 graphql_client = { workspace = true }
 hashbag = { workspace = true }
 itertools = { workspace = true }
@@ -36,6 +37,7 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 strum = { workspace = true }
 supporting-service = { path = "../services/supporting" }
+tokio = { workspace = true }
 tracing = { workspace = true }
 traits = { path = "../traits" }
 
