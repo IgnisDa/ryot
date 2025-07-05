@@ -127,7 +127,7 @@ const buildPreparedRequest = (input: {
 		eventJoins: input.queryDefinition.eventJoins,
 		relationships: input.queryDefinition.relationships,
 		computedFields: input.queryDefinition.computedFields,
-		entitySchemaSlugs: input.queryDefinition.entitySchemaSlugs,
+		scope: input.queryDefinition.scope,
 	};
 };
 
@@ -160,9 +160,9 @@ const validateSavedViewDefinition = (input: {
 
 const loadVisibleSchemas = async (input: {
 	userId: string;
-	entitySchemaSlugs: string[];
+	scope: string[];
 }): Promise<QueryEngineSchemaRow[]> => {
-	const uniqueSlugs = [...new Set(input.entitySchemaSlugs)];
+	const uniqueSlugs = [...new Set(input.scope)];
 	const rows = await db
 		.select({
 			id: entitySchema.id,
@@ -338,7 +338,7 @@ const prepareContext = async (input: {
 }): Promise<PreparedQueryContext> => {
 	const runtimeSchemas = await loadVisibleSchemas({
 		userId: input.userId,
-		entitySchemaSlugs: input.queryDefinition.entitySchemaSlugs,
+		scope: input.queryDefinition.scope,
 	});
 	const eventJoins = await loadVisibleEventJoins({
 		runtimeSchemas,
@@ -375,7 +375,7 @@ export const prepareAndExecute = async (input: {
 		eventJoins: input.request.eventJoins,
 		relationships: input.request.relationships,
 		computedFields: input.request.computedFields,
-		entitySchemaSlugs: input.request.entitySchemaSlugs,
+		scope: input.request.scope,
 	});
 	const context = await prepareContext({
 		userId: input.userId,

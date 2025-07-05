@@ -303,7 +303,7 @@ export function useEntitySearch(props: { entitySchema: AppEntitySchema }) {
 			fields: base.fields,
 			eventJoins: [],
 			computedFields: [],
-			entitySchemaSlugs: [schemaSlug],
+			scope: [schemaSlug],
 			pagination: { page: 1, limit: Math.max(currentResults.length, 1) },
 			sort: {
 				direction: "asc" as const,
