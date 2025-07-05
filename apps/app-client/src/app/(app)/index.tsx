@@ -1,7 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
 import { Plus } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { PageHeader } from "@/components/spine/page-header";
+import { PageHeader } from "@/components/shell/page-header";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonIcon, ButtonText } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";

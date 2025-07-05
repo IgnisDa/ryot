@@ -2,7 +2,7 @@ import { Menu } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BreadcrumbChip } from "@/components/spine/breadcrumb-chip";
+import { BreadcrumbChip } from "@/components/shell/breadcrumb-chip";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";

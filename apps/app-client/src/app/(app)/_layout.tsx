@@ -1,6 +1,6 @@
 import { router, Stack } from "expo-router";
 import { useEffect } from "react";
-import { SpineNavigation } from "@/components/spine";
+import { ShellNavigation } from "@/components/shell";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";
 import { Text } from "@/components/ui/text";
@@ -31,8 +31,8 @@ export default function AppLayout() {
 	}
 
 	return (
-		<SpineNavigation>
+		<ShellNavigation>
 			<Stack screenOptions={{ headerShown: false }} />
-		</SpineNavigation>
+		</ShellNavigation>
 	);
 }
