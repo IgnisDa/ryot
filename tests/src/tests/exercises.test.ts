@@ -10,10 +10,10 @@ import {
 	createAuthenticatedClient,
 	entityField,
 	executeQueryEngine,
+	findBuiltinTrackerBySlug,
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
-	listTrackers,
 	literalExpression,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
@@ -21,25 +21,6 @@ import { pollUntil } from "../fixtures/polling";
 const seededExerciseName = "3/4 Sit-Up";
 const seededExerciseImageUrl =
 	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/0.jpg";
-
-const findBuiltinTrackerBySlug = async (
-	client: Client,
-	cookies: string,
-	slug: string,
-) => {
-	const trackers = await listTrackers(client, cookies, {
-		includeDisabled: true,
-	});
-	const tracker = trackers.find(
-		(entry) => entry.isBuiltin && entry.slug === slug,
-	);
-
-	if (!tracker) {
-		throw new Error(`Built-in tracker '${slug}' not found`);
-	}
-
-	return tracker;
-};
 
 const waitForSeededExercise = async (client: Client, cookies: string) => {
 	return pollUntil(

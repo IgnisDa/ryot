@@ -64,6 +64,25 @@ export async function findBuiltinTracker(client: Client, cookies: string) {
 	return builtinTracker;
 }
 
+export async function findBuiltinTrackerBySlug(
+	client: Client,
+	cookies: string,
+	slug: string,
+) {
+	const trackers = await listTrackers(client, cookies, {
+		includeDisabled: true,
+	});
+	const tracker = trackers.find(
+		(entry) => entry.isBuiltin && entry.slug === slug,
+	);
+
+	if (!tracker) {
+		throw new Error(`Built-in tracker '${slug}' not found`);
+	}
+
+	return tracker;
+}
+
 export async function disableTracker(input: {
 	trackerId: string;
 	cookies: string;
