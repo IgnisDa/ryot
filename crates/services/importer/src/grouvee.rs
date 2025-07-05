@@ -217,18 +217,17 @@ fn parse_dates(dates_str: &str) -> Vec<ImportOrExportMetadataItemSeen> {
     match dates {
         Ok(date_entries) => date_entries
             .into_iter()
-            .filter_map(|entry| {
-                if entry.date_finished.is_some() || entry.seconds_played.is_some() {
-                    Some(ImportOrExportMetadataItemSeen {
+            .filter_map(
+                |entry| match (entry.date_finished.as_ref(), entry.seconds_played) {
+                    (Some(_), _) | (_, Some(_)) => Some(ImportOrExportMetadataItemSeen {
                         provider_watched_on: Some(ImportSource::Grouvee.to_string()),
                         started_on: entry.date_started.and_then(|d| parse_date(&d)),
                         ended_on: entry.date_finished.and_then(|d| parse_date(&d)),
                         ..Default::default()
-                    })
-                } else {
-                    None
-                }
-            })
+                    }),
+                    _ => None,
+                },
+            )
             .collect(),
         Err(_) => Vec::new(),
     }
