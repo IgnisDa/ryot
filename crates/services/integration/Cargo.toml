@@ -19,6 +19,7 @@ enum-models = { path = "../../models/enum" }
 eventsource-stream = { workspace = true }
 external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
+futures = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }

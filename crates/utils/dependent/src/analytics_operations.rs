@@ -15,7 +15,7 @@ use database_models::{
 };
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
 use enum_models::{EntityLot, MediaLot, SeenState};
-use futures::TryStreamExt;
+use futures::{TryStreamExt, try_join};
 use media_models::{
     AnimeSpecifics, AudioBookSpecifics, BookSpecifics, MangaSpecifics, MovieSpecifics,
     MusicSpecifics, PodcastSpecifics, SeenAnimeExtraInformation, SeenMangaExtraInformation,
@@ -234,12 +234,13 @@ pub async fn calculate_user_activities_and_summary(
         };
     }
 
-    let exercises = Exercise::find().all(&ss.db).await?;
-    let user_exercises = UserToEntity::find()
-        .filter(user_to_entity::Column::UserId.eq(user_id))
-        .filter(user_to_entity::Column::ExerciseId.is_not_null())
-        .all(&ss.db)
-        .await?;
+    let (exercises, user_exercises) = try_join!(
+        Exercise::find().all(&ss.db),
+        UserToEntity::find()
+            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::ExerciseId.is_not_null())
+            .all(&ss.db)
+    )?;
     let mut workout_stream = Workout::find()
         .filter(workout::Column::UserId.eq(user_id))
         .filter(workout::Column::EndTime.gte(start_from))

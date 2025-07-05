@@ -8,6 +8,7 @@ use database_utils::{admin_account_guard, deploy_job_to_calculate_user_activitie
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::UserLot;
+use futures::try_join;
 use media_models::{
     AuthUserInput, CreateOrUpdateCollectionInput, OidcUserInput, PasswordUserInput, RegisterError,
     RegisterErrorVariant, RegisterResult, RegisterUserInput, UserResetResponse, UserResetResult,
@@ -155,7 +156,11 @@ pub async fn register_user(
             Some(data.password),
         ),
     };
-    if User::find().filter(filter).count(&ss.db).await? != 0 {
+    let (user_exists, total_users) = try_join!(
+        User::find().filter(filter).count(&ss.db),
+        User::find().count(&ss.db)
+    )?;
+    if user_exists != 0 {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::IdentifierAlreadyExists,
         }));
@@ -165,7 +170,7 @@ pub async fn register_user(
         AuthUserInput::Password(_) => None,
     };
     // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
-    let lot = match User::find().count(&ss.db).await? == 0 {
+    let lot = match total_users == 0 {
         true => UserLot::Admin,
         false => UserLot::Normal,
     };

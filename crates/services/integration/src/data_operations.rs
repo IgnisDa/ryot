@@ -10,6 +10,7 @@ use database_models::{
 use database_utils::user_by_id;
 use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
 use enum_models::{IntegrationLot, IntegrationProvider};
+use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use traits::TraceOk;
 
@@ -29,13 +30,18 @@ impl IntegrationService {
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
+                    let (hardcover, google_books, openlibrary) = try_join!(
+                        get_hardcover_service(&self.0.config),
+                        get_google_books_service(&self.0.config),
+                        get_openlibrary_service(&self.0.config)
+                    )?;
                     yank::audiobookshelf::yank_progress(
                         specifics.audiobookshelf_base_url.unwrap(),
                         specifics.audiobookshelf_token.unwrap(),
                         &self.0,
-                        &get_hardcover_service(&self.0.config).await.unwrap(),
-                        &get_google_books_service(&self.0.config).await.unwrap(),
-                        &get_openlibrary_service(&self.0.config).await.unwrap(),
+                        &hardcover,
+                        &google_books,
+                        &openlibrary,
                     )
                     .await
                 }
@@ -120,11 +126,16 @@ impl IntegrationService {
             let specifics = integration.clone().provider_specifics.unwrap();
             let response = match integration.provider {
                 IntegrationProvider::Audiobookshelf => {
+                    let (hardcover, google_books, openlibrary) = try_join!(
+                        get_hardcover_service(&self.0.config),
+                        get_google_books_service(&self.0.config),
+                        get_openlibrary_service(&self.0.config)
+                    )?;
                     yank::audiobookshelf::sync_to_owned_collection(
                         specifics.audiobookshelf_base_url.unwrap(),
-                        &get_hardcover_service(&self.0.config).await.unwrap(),
-                        &get_google_books_service(&self.0.config).await.unwrap(),
-                        &get_openlibrary_service(&self.0.config).await.unwrap(),
+                        &hardcover,
+                        &google_books,
+                        &openlibrary,
                     )
                     .await
                 }
@@ -192,8 +203,10 @@ impl IntegrationService {
     }
 
     pub async fn sync_integrations_data(&self) -> Result<()> {
-        self.yank_integrations_data().await?;
-        self.sync_integrations_data_to_owned_collection().await?;
+        try_join!(
+            self.yank_integrations_data(),
+            self.sync_integrations_data_to_owned_collection()
+        )?;
         Ok(())
     }
 }

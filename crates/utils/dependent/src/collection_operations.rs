@@ -9,6 +9,7 @@ use common_models::{
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
 use enum_models::EntityLot;
+use futures::try_join;
 use media_models::CreateOrUpdateCollectionInput;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, QueryFilter,
@@ -41,56 +42,61 @@ async fn add_single_entity_to_collection(
     let mut updated: collection::ActiveModel = collection.into();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(&ss.db).await?;
-    let resp = if let Some(etc) = CollectionToEntity::find()
+    let resp = match CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(collection.id.clone()))
         .filter(collection_to_entity::Column::EntityId.eq(entity.entity_id.clone()))
         .filter(collection_to_entity::Column::EntityLot.eq(entity.entity_lot))
         .one(&ss.db)
         .await?
     {
-        let mut to_update: collection_to_entity::ActiveModel = etc.into();
-        to_update.last_updated_on = ActiveValue::Set(Utc::now());
-        to_update.update(&ss.db).await?
-    } else {
-        let mut created_collection = collection_to_entity::ActiveModel {
-            collection_id: ActiveValue::Set(collection.id.clone()),
-            information: ActiveValue::Set(entity.information.clone()),
-            ..Default::default()
-        };
-        let id = entity.entity_id.clone();
-        match entity.entity_lot {
-            EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
-            EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
-            EntityLot::MetadataGroup => {
-                created_collection.metadata_group_id = ActiveValue::Set(Some(id))
-            }
-            EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
-            EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
-            EntityLot::WorkoutTemplate => {
-                created_collection.workout_template_id = ActiveValue::Set(Some(id))
-            }
-            EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
-                unreachable!()
-            }
+        Some(etc) => {
+            let mut to_update: collection_to_entity::ActiveModel = etc.into();
+            to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.update(&ss.db).await?
         }
-        let created = created_collection.insert(&ss.db).await?;
-        ryot_log!(debug, "Created collection to entity: {:?}", created);
-        match entity.entity_lot {
-            EntityLot::Workout
-            | EntityLot::WorkoutTemplate
-            | EntityLot::Review
-            | EntityLot::UserMeasurement => {}
-            _ => {
-                associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
-                    .await
-                    .ok();
+        None => {
+            let mut created_collection = collection_to_entity::ActiveModel {
+                collection_id: ActiveValue::Set(collection.id.clone()),
+                information: ActiveValue::Set(entity.information.clone()),
+                ..Default::default()
+            };
+            let id = entity.entity_id.clone();
+            match entity.entity_lot {
+                EntityLot::Metadata => created_collection.metadata_id = ActiveValue::Set(Some(id)),
+                EntityLot::Person => created_collection.person_id = ActiveValue::Set(Some(id)),
+                EntityLot::MetadataGroup => {
+                    created_collection.metadata_group_id = ActiveValue::Set(Some(id))
+                }
+                EntityLot::Exercise => created_collection.exercise_id = ActiveValue::Set(Some(id)),
+                EntityLot::Workout => created_collection.workout_id = ActiveValue::Set(Some(id)),
+                EntityLot::WorkoutTemplate => {
+                    created_collection.workout_template_id = ActiveValue::Set(Some(id))
+                }
+                EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                    unreachable!()
+                }
             }
+            let created = created_collection.insert(&ss.db).await?;
+            ryot_log!(debug, "Created collection to entity: {:?}", created);
+            match entity.entity_lot {
+                EntityLot::Workout
+                | EntityLot::WorkoutTemplate
+                | EntityLot::Review
+                | EntityLot::UserMeasurement => {}
+                _ => {
+                    associate_user_with_entity(user_id, &entity.entity_id, entity.entity_lot, ss)
+                        .await
+                        .ok();
+                }
+            }
+            created
         }
-        created
     };
-    mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss).await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
-    expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
+    try_join!(
+        mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss),
+        expire_user_collections_list_cache(user_id, ss),
+        expire_user_collection_contents_cache(user_id, &collection.id, ss)
+    )?;
     ss.perform_application_job(ApplicationJob::Lp(
         LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
     ))

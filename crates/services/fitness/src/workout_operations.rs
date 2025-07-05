@@ -18,7 +18,7 @@ use dependent_utils::{
 use fitness_models::{
     UpdateUserWorkoutAttributesInput, UserToExerciseExtraInformation, UserWorkoutInput,
 };
-use futures::TryStreamExt;
+use futures::{TryStreamExt, try_join};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
 };
@@ -122,8 +122,10 @@ pub async fn delete_user_workout(
         association.update(&ss.db).await?;
     }
     wkt.delete(&ss.db).await?;
-    expire_user_workouts_list_cache(&user_id, ss).await?;
-    schedule_user_for_workout_revision(&user_id, ss).await?;
+    try_join!(
+        expire_user_workouts_list_cache(&user_id, ss),
+        schedule_user_for_workout_revision(&user_id, ss)
+    )?;
     Ok(true)
 }
 
