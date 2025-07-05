@@ -356,9 +356,9 @@ impl MediaProvider for GiantBombService {
             groups,
             description,
             suggestions,
+            lot: MediaLot::VideoGame,
             title: game.name.unwrap(),
             identifier: game.guid.unwrap(),
-            lot: MediaLot::VideoGame,
             source: MediaSource::GiantBomb,
             source_url: game.site_detail_url,
             video_game_specifics: Some(VideoGameSpecifics { platforms }),
@@ -488,85 +488,61 @@ impl MediaProvider for GiantBombService {
         let mut related_games = Vec::new();
         let mut related_groups = Vec::new();
 
+        let mut add_games_to_related = |games: Option<Vec<GiantBombResource>>, role: &str| {
+            games
+                .into_iter()
+                .flatten()
+                .filter_map(|game| {
+                    game.api_detail_url.map(|api_url| MetadataPersonRelated {
+                        role: role.to_string(),
+                        metadata: PartialMetadataWithoutId {
+                            lot: MediaLot::VideoGame,
+                            title: game.name.unwrap(),
+                            source: MediaSource::GiantBomb,
+                            identifier: extract_giant_bomb_guid(&api_url),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                })
+                .for_each(|game| related_games.push(game));
+        };
+
+        let mut add_franchises_to_related =
+            |franchises: Option<Vec<GiantBombResource>>, role: &str| {
+                franchises
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|franchise| {
+                        franchise
+                            .api_detail_url
+                            .map(|api_url| MetadataGroupPersonRelated {
+                                role: role.to_string(),
+                                metadata_group: MetadataGroupWithoutId {
+                                    lot: MediaLot::VideoGame,
+                                    title: franchise.name.unwrap(),
+                                    source: MediaSource::GiantBomb,
+                                    identifier: extract_giant_bomb_guid(&api_url),
+                                    ..Default::default()
+                                },
+                            })
+                    })
+                    .for_each(|franchise| related_groups.push(franchise));
+            };
+
         if is_company {
-            if let Some(developed_games) = resource.developed_games {
-                for game in developed_games {
-                    if let Some(api_url) = game.api_detail_url {
-                        related_games.push(MetadataPersonRelated {
-                            role: ROLE_DEVELOPER.to_string(),
-                            metadata: PartialMetadataWithoutId {
-                                lot: MediaLot::VideoGame,
-                                title: game.name.unwrap(),
-                                source: MediaSource::GiantBomb,
-                                identifier: extract_giant_bomb_guid(&api_url),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        });
-                    }
-                }
-            }
-
-            if let Some(published_games) = resource.published_games {
-                for game in published_games {
-                    if let Some(api_url) = game.api_detail_url {
-                        related_games.push(MetadataPersonRelated {
-                            role: ROLE_PUBLISHER.to_string(),
-                            metadata: PartialMetadataWithoutId {
-                                lot: MediaLot::VideoGame,
-                                title: game.name.unwrap(),
-                                source: MediaSource::GiantBomb,
-                                identifier: extract_giant_bomb_guid(&api_url),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        });
-                    }
-                }
-            }
+            add_games_to_related(resource.developed_games, ROLE_DEVELOPER);
+            add_games_to_related(resource.published_games, ROLE_PUBLISHER);
         } else {
-            if let Some(games) = resource.games {
-                for game in games {
-                    if let Some(api_url) = game.api_detail_url {
-                        related_games.push(MetadataPersonRelated {
-                            role: ROLE_PERSON.to_string(),
-                            metadata: PartialMetadataWithoutId {
-                                lot: MediaLot::VideoGame,
-                                title: game.name.unwrap(),
-                                source: MediaSource::GiantBomb,
-                                identifier: extract_giant_bomb_guid(&api_url),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        });
-                    }
-                }
-            }
-
-            if let Some(franchises) = resource.franchises {
-                for franchise in franchises {
-                    if let Some(api_url) = franchise.api_detail_url {
-                        related_groups.push(MetadataGroupPersonRelated {
-                            role: ROLE_PERSON.to_string(),
-                            metadata_group: MetadataGroupWithoutId {
-                                lot: MediaLot::VideoGame,
-                                title: franchise.name.unwrap(),
-                                source: MediaSource::GiantBomb,
-                                identifier: extract_giant_bomb_guid(&api_url),
-                                ..Default::default()
-                            },
-                        });
-                    }
-                }
-            }
+            add_games_to_related(resource.games, ROLE_PERSON);
+            add_franchises_to_related(resource.franchises, ROLE_PERSON);
         }
 
-        let birth_date = if is_company {
-            resource
+        let birth_date = match is_company {
+            false => parse_date(resource.birth_date),
+            true => resource
                 .founded
-                .map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap())
-        } else {
-            parse_date(resource.birth_date)
+                .map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap()),
         };
 
         Ok(PersonDetails {
