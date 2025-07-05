@@ -87,7 +87,6 @@ struct GiantBombImage {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombResource {
-    id: i32,
     guid: String,
     name: String,
     deck: Option<String>,
@@ -95,7 +94,7 @@ struct GiantBombResource {
     image: Option<GiantBombImage>,
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
-    
+
     // Game-specific fields
     original_release_date: Option<String>,
     genres: Option<Vec<GiantBombResource>>,
@@ -106,28 +105,23 @@ struct GiantBombResource {
     publishers: Option<Vec<GiantBombResource>>,
     franchises: Option<Vec<GiantBombResource>>,
     similar_games: Option<Vec<GiantBombResource>>,
-    
+
     // Company-specific fields
     founded: Option<i32>,
     developed_games: Option<Vec<GiantBombResource>>,
     published_games: Option<Vec<GiantBombResource>>,
-    
+
     // Person-specific fields
     birth_date: Option<String>,
-    
+
     // Franchise and Person shared field
     games: Option<Vec<GiantBombResource>>,
-    
-    // Platform-specific field
-    abbreviation: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombSearchResponse<T> {
-    limit: i32,
     offset: i32,
     error: String,
-    status_code: i32,
     results: Vec<T>,
     number_of_page_results: i32,
     number_of_total_results: i32,
@@ -136,8 +130,6 @@ struct GiantBombSearchResponse<T> {
 #[derive(Debug, Serialize, Deserialize)]
 struct GiantBombDetailsResponse<T> {
     results: T,
-    error: String,
-    status_code: i32,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
@@ -261,10 +253,11 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let details_response: GiantBombDetailsResponse<GiantBombResource> = response
-            .json()
-            .await
-            .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+        let details_response: GiantBombDetailsResponse<GiantBombResource> =
+            response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         let game = details_response.results;
 
@@ -502,10 +495,11 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let details_response: GiantBombDetailsResponse<GiantBombResource> = response
-            .json()
-            .await
-            .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+        let details_response: GiantBombDetailsResponse<GiantBombResource> =
+            response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         let resource = details_response.results;
         let mut related_games = Vec::new();
@@ -585,7 +579,9 @@ impl MediaProvider for GiantBombService {
         }
 
         let birth_date = if is_company {
-            resource.founded.map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap())
+            resource
+                .founded
+                .map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap())
         } else {
             parse_date(resource.birth_date)
         };
@@ -687,10 +683,11 @@ impl MediaProvider for GiantBombService {
             ));
         }
 
-        let details_response: GiantBombDetailsResponse<GiantBombResource> = response
-            .json()
-            .await
-            .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+        let details_response: GiantBombDetailsResponse<GiantBombResource> =
+            response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
 
         let franchise = details_response.results;
 
