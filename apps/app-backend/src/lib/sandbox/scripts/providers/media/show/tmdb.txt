@@ -272,6 +272,12 @@ function buildSeason(seasonData) {
 }
 
 driver("search", async function (context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
   const query =
     typeof context?.query === "string" ? context.query.trim() : "";
   if (!query) {
@@ -339,7 +345,8 @@ driver("search", async function (context) {
             : { kind: "image", value: { kind: "remote", url: image } },
       };
     })
-    .filter((item) => item !== null);
+    .filter((item) => item !== null)
+    .slice(0, pageSize);
 
   return {
     items,
