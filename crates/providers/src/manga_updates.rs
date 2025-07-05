@@ -383,11 +383,7 @@ impl MediaProvider for MangaUpdatesService {
                 publish_year: s.record.year.and_then(|y| y.parse().ok()),
             })
             .collect();
-        let next_page = if search.total_hits - ((page) * PAGE_SIZE) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (search.total_hits - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 total: search.total_hits,

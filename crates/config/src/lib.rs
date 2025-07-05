@@ -232,6 +232,13 @@ pub struct IgdbConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "VIDEO_GAMES_GIANT_BOMB_")]
+pub struct GiantBombConfig {
+    /// The API key to be used for the GiantBomb API.
+    pub api_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
 pub struct VideoGameConfig {
     /// Settings related to IGDB.
@@ -240,12 +247,18 @@ pub struct VideoGameConfig {
     /// Settings related to Twitch.
     #[setting(nested)]
     pub twitch: TwitchConfig,
+    /// Settings related to GiantBomb.
+    #[setting(nested)]
+    pub giant_bomb: GiantBombConfig,
 }
 
 impl VideoGameConfig {
     pub fn is_enabled(&self) -> bool {
         let mut enabled = false;
         if !self.twitch.client_id.is_empty() && !self.twitch.client_secret.is_empty() {
+            enabled = true;
+        }
+        if !self.giant_bomb.api_key.is_empty() {
             enabled = true;
         }
         enabled
@@ -504,6 +517,7 @@ impl AppConfig {
         cl.podcasts.listennotes.api_token = gt();
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
+        cl.video_games.giant_bomb.api_key = gt();
         cl.users.jwt_secret = gt();
         cl.server.cors_origins = vec![gt()];
         cl.server.smtp.server = gt();

@@ -90,6 +90,7 @@ const searchSchema = z.object({
 	isTmdbCompany: zodBoolAsString.optional(),
 	isAnilistStudio: zodBoolAsString.optional(),
 	isHardcoverPublisher: zodBoolAsString.optional(),
+	isGiantBombCompany: zodBoolAsString.optional(),
 	source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 });
 
@@ -151,6 +152,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 								isTmdbCompany: urlParse.isTmdbCompany,
 								isAnilistStudio: urlParse.isAnilistStudio,
 								isHardcoverPublisher: urlParse.isHardcoverPublisher,
+								isGiantBombCompany: urlParse.isGiantBombCompany,
 							},
 							search: { page: query[pageQueryParam], query: query.query },
 						},
@@ -309,6 +311,15 @@ export default function Page() {
 										checked={loaderData.search?.url.isHardcoverPublisher}
 										onChange={(e) =>
 											setP("isHardcoverPublisher", String(e.target.checked))
+										}
+									/>
+								) : null}
+								{loaderData.search?.url.source === MediaSource.GiantBomb ? (
+									<Checkbox
+										label="Company"
+										checked={loaderData.search?.url.isGiantBombCompany}
+										onChange={(e) =>
+											setP("isGiantBombCompany", String(e.target.checked))
 										}
 									/>
 								) : null}

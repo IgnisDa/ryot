@@ -389,11 +389,7 @@ impl MediaProvider for AudibleService {
                 }
             })
             .collect_vec();
-        let next_page = if search.total_results - ((page) * PAGE_SIZE) > 0 {
-            Some(page + 1)
-        } else {
-            None
-        };
+        let next_page = (search.total_results - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
                 next_page,

@@ -4485,6 +4485,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
+ "async-graphql",
  "async-trait",
  "chrono",
  "common-models",

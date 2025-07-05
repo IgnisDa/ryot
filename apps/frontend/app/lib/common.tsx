@@ -249,8 +249,6 @@ export const getLot = (lot: unknown) => {
 		.otherwise(() => undefined);
 };
 
-
-
 export enum Verb {
 	Read = 0,
 }

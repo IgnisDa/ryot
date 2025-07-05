@@ -1150,6 +1150,7 @@ export enum MediaSource {
   Anilist = 'ANILIST',
   Audible = 'AUDIBLE',
   Custom = 'CUSTOM',
+  GiantBomb = 'GIANT_BOMB',
   GoogleBooks = 'GOOGLE_BOOKS',
   Hardcover = 'HARDCOVER',
   Igdb = 'IGDB',
@@ -1744,6 +1745,7 @@ export type PersonSortInput = {
 
 export type PersonSourceSpecificsInput = {
   isAnilistStudio?: InputMaybe<Scalars['Boolean']['input']>;
+  isGiantBombCompany?: InputMaybe<Scalars['Boolean']['input']>;
   isHardcoverPublisher?: InputMaybe<Scalars['Boolean']['input']>;
   isTmdbCompany?: InputMaybe<Scalars['Boolean']['input']>;
 };

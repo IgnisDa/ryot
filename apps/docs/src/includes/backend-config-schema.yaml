@@ -255,6 +255,12 @@ users:
 
 # Settings related to video games.
 video_games:
+  # Settings related to GiantBomb.
+  giant_bomb:
+    # The API key to be used for the GiantBomb API.
+    # @envvar VIDEO_GAMES_GIANT_BOMB_API_KEY
+    api_key: ""
+
   # Settings related to IGDB.
   igdb:
     # The image sizes to fetch from IGDB.

@@ -158,11 +158,8 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * PAGE_SIZE) > 0 {
-                Some(page.unwrap_or(1) + 1)
-            } else {
-                None
-            };
+            let next_page =
+                (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
                 .studios
                 .unwrap()
@@ -200,11 +197,8 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-            let next_page = if total - (page.unwrap_or(1) * PAGE_SIZE) > 0 {
-                Some(page.unwrap_or(1) + 1)
-            } else {
-                None
-            };
+            let next_page =
+                (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
                 .staff
                 .unwrap()
@@ -745,11 +739,7 @@ async fn search(
         .page
         .unwrap();
     let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
-    let next_page = if total - (page * page_size) > 0 {
-        Some(page + 1)
-    } else {
-        None
-    };
+    let next_page = (total - (page * page_size) > 0).then(|| page + 1);
     let media = search
         .media
         .unwrap()

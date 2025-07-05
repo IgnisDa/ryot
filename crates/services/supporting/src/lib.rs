@@ -205,12 +205,13 @@ impl SupportingService {
                                 .collect(),
                             "en".to_owned(),
                         ),
-                        MediaSource::Myanimelist
-                        | MediaSource::Igdb
+                        MediaSource::Igdb
                         | MediaSource::Vndb
                         | MediaSource::Custom
                         | MediaSource::Anilist
+                        | MediaSource::GiantBomb
                         | MediaSource::Hardcover
+                        | MediaSource::Myanimelist
                         | MediaSource::GoogleBooks
                         | MediaSource::Listennotes
                         | MediaSource::Openlibrary

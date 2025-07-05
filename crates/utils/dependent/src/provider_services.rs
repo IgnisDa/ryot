@@ -4,6 +4,7 @@ use media_models::MetadataDetails;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService},
     audible::AudibleService,
+    giant_bomb::GiantBombService,
     google_books::GoogleBooksService,
     hardcover::HardcoverService,
     igdb::IgdbService,
@@ -75,6 +76,7 @@ pub async fn get_metadata_provider(
             _ => return err(),
         },
         MediaSource::Igdb => Box::new(IgdbService::new(ss.clone()).await),
+        MediaSource::GiantBomb => Box::new(GiantBombService::new(ss.clone()).await),
         MediaSource::MangaUpdates => {
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }
@@ -98,6 +100,7 @@ pub async fn get_non_metadata_provider(
         MediaSource::Audible => Box::new(AudibleService::new(&ss.config.audio_books.audible).await),
         MediaSource::Listennotes => Box::new(ListennotesService::new(ss.clone()).await),
         MediaSource::Igdb => Box::new(IgdbService::new(ss.clone()).await),
+        MediaSource::GiantBomb => Box::new(GiantBombService::new(ss.clone()).await),
         MediaSource::MangaUpdates => {
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }
