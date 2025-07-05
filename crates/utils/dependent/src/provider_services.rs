@@ -4,7 +4,7 @@ use media_models::MetadataDetails;
 use providers::{
     anilist::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService},
     audible::AudibleService,
-    giantbomb::GiantBombService,
+    giant_bomb::GiantBombService,
     google_books::GoogleBooksService,
     hardcover::HardcoverService,
     igdb::IgdbService,
