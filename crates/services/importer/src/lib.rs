@@ -30,6 +30,7 @@ mod anilist;
 mod audiobookshelf;
 mod generic_json;
 mod goodreads;
+mod grouvee;
 mod hardcover;
 mod hevy;
 mod igdb;
@@ -102,6 +103,7 @@ impl ImporterService {
                 )
                 .await
             }
+            ImportSource::Grouvee => grouvee::import(input.generic_csv.unwrap()).await,
             ImportSource::Trakt => {
                 trakt::import(
                     input.trakt.unwrap(),
