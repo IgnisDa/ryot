@@ -75,14 +75,7 @@ import {
 	displayWeightWithUnit,
 } from "~/components/fitness";
 import { MediaScrollArea } from "~/components/media";
-import {
-	FitnessEntity,
-	TimeSpan,
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	getDateFromTimeSpan,
-} from "~/lib/common";
+import { dayjsLib, getDateFromTimeSpan } from "~/lib/date-utils";
 import {
 	useCoreDetails,
 	useIsFitnessActionActive,
@@ -90,6 +83,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import { clientGqlService } from "~/lib/query-factory";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
@@ -98,6 +92,8 @@ import {
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
+import { FitnessEntity, TimeSpan } from "~/lib/types";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 

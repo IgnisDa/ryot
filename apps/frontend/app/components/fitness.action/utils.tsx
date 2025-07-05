@@ -1,5 +1,5 @@
 import { $path } from "safe-routes";
-import { dayjsLib } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import type { CurrentWorkoutStopwatch } from "~/lib/state/fitness";
 
 export const DEFAULT_SET_TIMEOUT_DELAY_MS = 800;

@@ -41,8 +41,8 @@ import {
 	PartialMetadataDisplay,
 	ToggleMediaMonitorMenuItem,
 } from "~/components/media";
-import { clientGqlService } from "~/lib/common";
 import { useMetadataGroupDetails, useUserPreferences } from "~/lib/hooks";
+import { clientGqlService } from "~/lib/query-factory";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";

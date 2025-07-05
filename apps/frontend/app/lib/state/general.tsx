@@ -15,12 +15,14 @@ import type { ReactNode } from "react";
 import type { Step } from "react-joyride";
 import { useNavigate, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
-import { clientGqlService, dayjsLib, forcedDashboardPath } from "../common";
+import { dayjsLib } from "../date-utils";
 import {
 	useApplicationEvents,
 	useDashboardLayoutData,
 	useUserPreferences,
 } from "../hooks";
+import { clientGqlService } from "../query-factory";
+import { forcedDashboardPath } from "../ui-utils";
 
 type OpenedSidebarLinks = {
 	media: boolean;

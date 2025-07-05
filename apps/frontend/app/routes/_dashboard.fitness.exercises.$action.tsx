@@ -39,8 +39,9 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { convertEnumToSelectData, getExerciseDetailsPath } from "~/lib/common";
 import { useCoreDetails } from "~/lib/hooks";
+import { getExerciseDetailsPath } from "~/lib/media-utils";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	createS3FileUploader,
 	createToastHeaders,

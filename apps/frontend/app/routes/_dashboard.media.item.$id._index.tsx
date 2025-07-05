@@ -87,17 +87,8 @@ import { DisplayShowSeason } from "~/components/media-item/displays/show-season"
 import { VideoIframe } from "~/components/media-item/displays/video-iframe";
 import { MergeMetadataModal } from "~/components/media-item/modals/merge-metadata-modal";
 import { DisplayShowSeasonEpisodesModal } from "~/components/media-item/modals/show-season-episodes-modal";
-import {
-	MEDIA_DETAILS_HEIGHT,
-	Verb,
-	clientGqlService,
-	convertTimestampToUtcString,
-	dayjsLib,
-	getVerb,
-	openConfirmationModal,
-	reviewYellow,
-	zodDateTimeString,
-} from "~/lib/common";
+import { MEDIA_DETAILS_HEIGHT, reviewYellow } from "~/lib/constants";
+import { convertTimestampToUtcString, dayjsLib } from "~/lib/date-utils";
 import {
 	useConfirmSubmit,
 	useDeployBulkMetadataProgressUpdate,
@@ -105,6 +96,8 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { getVerb } from "~/lib/media-utils";
+import { clientGqlService } from "~/lib/query-factory";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -114,6 +107,8 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import { Verb } from "~/lib/types";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
@@ -121,6 +116,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import { zodDateTimeString } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
 
 const searchParamsSchema = z

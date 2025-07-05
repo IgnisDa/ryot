@@ -23,10 +23,9 @@ import {
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
+import { dayjsLib } from "~/lib/date-utils";
 import {
-	type FitnessAction,
 	clientGqlService,
-	dayjsLib,
 	getMetadataDetailsQuery,
 	getMetadataGroupDetailsQuery,
 	getPersonDetailsQuery,
@@ -34,14 +33,15 @@ import {
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
 	refreshEntityDetails,
-	selectRandomElement,
-} from "~/lib/common";
+} from "~/lib/query-factory";
 import {
 	type InProgressWorkout,
 	useCurrentWorkout,
 	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
+import type { FitnessAction } from "~/lib/types";
+import { selectRandomElement } from "~/lib/ui-utils";
 import type { loader as dashboardLoader } from "~/routes/_dashboard";
 
 export const useGetMantineColors = () => {

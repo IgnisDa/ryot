@@ -35,19 +35,17 @@ import { $path } from "safe-routes";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import {
-	ThreePointSmileyRating,
-	convertDecimalToThreePointSmiley,
-	dayjsLib,
-	openConfirmationModal,
-	reviewYellow,
-} from "~/lib/common";
+import { reviewYellow } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useConfirmSubmit,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { convertDecimalToThreePointSmiley } from "~/lib/media-utils";
 import { useReviewEntity } from "~/lib/state/media";
+import { ThreePointSmileyRating } from "~/lib/types";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import type { action } from "~/routes/actions";
 import classes from "~/styles/common.module.css";
 

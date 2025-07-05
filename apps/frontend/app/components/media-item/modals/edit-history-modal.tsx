@@ -16,12 +16,14 @@ import { SeenState } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
 import { Form } from "react-router";
 import { withQuery } from "ufo";
-import { PRO_REQUIRED_MESSAGE, Verb, getVerb } from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
 import {
 	useCoreDetails,
 	useGetWatchProviders,
 	useUserDetails,
 } from "~/lib/hooks";
+import { getVerb } from "~/lib/media-utils";
+import { Verb } from "~/lib/types";
 import {
 	type DurationInput,
 	type History,

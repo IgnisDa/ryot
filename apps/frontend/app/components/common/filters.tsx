@@ -30,13 +30,13 @@ import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
-import { convertEnumToSelectData } from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/hooks";
 import type { OnboardingTourStepTargets } from "~/lib/state/general";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {

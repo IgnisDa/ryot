@@ -39,7 +39,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
-import { PRO_REQUIRED_MESSAGE, openConfirmationModal } from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
 import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
 import {
 	getExerciseDetailsQuery,
@@ -53,6 +53,7 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import { getProgressOfExercise } from "../hooks";
 import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";

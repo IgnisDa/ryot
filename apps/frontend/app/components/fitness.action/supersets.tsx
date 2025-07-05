@@ -6,7 +6,6 @@ import { produce } from "immer";
 import { useEffect, useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { v4 as randomUUID } from "uuid";
-import { openConfirmationModal } from "~/lib/common";
 import { useGetMantineColors } from "~/lib/hooks";
 import {
 	type Exercise,
@@ -14,6 +13,7 @@ import {
 	getExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
+import { openConfirmationModal } from "~/lib/ui-utils";
 
 export const DisplaySupersetModal = ({
 	onClose,

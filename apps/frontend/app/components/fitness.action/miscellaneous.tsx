@@ -27,19 +27,15 @@ import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
-import {
-	PRO_REQUIRED_MESSAGE,
-	clientGqlService,
-	clientSideFileUpload,
-	openConfirmationModal,
-	queryFactory,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
 import { useCoreDetails, useUserPreferences } from "~/lib/hooks";
+import { clientGqlService, queryFactory } from "~/lib/query-factory";
 import {
 	getExerciseDetailsQuery,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
+import { clientSideFileUpload, openConfirmationModal } from "~/lib/ui-utils";
 import { deleteUploadedAsset } from "./utils";
 
 export const NameAndOtherInputs = (props: {

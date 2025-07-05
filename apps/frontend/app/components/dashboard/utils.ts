@@ -1,5 +1,5 @@
 import { match } from "ts-pattern";
-import { ThreePointSmileyRating } from "~/lib/common";
+import { ThreePointSmileyRating } from "~/lib/types";
 
 export const convertThreePointSmileyToDecimal = (
 	rating: ThreePointSmileyRating,

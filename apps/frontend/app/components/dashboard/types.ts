@@ -27,5 +27,5 @@ export type Collection =
 
 export type InProgress =
 	UserMetadataDetailsQuery["userMetadataDetails"]["inProgress"];
-export type History =
+export type MetadataHistory =
 	UserMetadataDetailsQuery["userMetadataDetails"]["history"];

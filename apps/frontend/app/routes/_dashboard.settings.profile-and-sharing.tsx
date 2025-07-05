@@ -52,11 +52,8 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import {
-	applicationBaseUrl,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { applicationBaseUrl } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -66,6 +63,7 @@ import {
 	useUserDetails,
 } from "~/lib/hooks";
 import { useOnboardingTour } from "~/lib/state/general";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import {
 	createToastHeaders,
 	getDecodedJwt,

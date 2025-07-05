@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useInterval } from "usehooks-ts";
-import { dayjsLib } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import { forceUpdateEverySecond } from "~/lib/hooks";
 import {
 	useCurrentWorkout,

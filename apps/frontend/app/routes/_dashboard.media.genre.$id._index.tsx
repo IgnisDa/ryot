@@ -17,7 +17,7 @@ import { useLoaderData } from "react-router";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { pageQueryParam } from "~/lib/common";
+import { pageQueryParam } from "~/lib/constants";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getSearchEnhancedCookieName,

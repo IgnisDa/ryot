@@ -46,12 +46,7 @@ import {
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import {
-	clientGqlService,
-	dayjsLib,
-	openConfirmationModal,
-	queryFactory,
-} from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useCoreDetails,
 	useIsMobile,
@@ -59,7 +54,9 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { clientGqlService, queryFactory } from "~/lib/query-factory";
 import { useOnboardingTour } from "~/lib/state/general";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import {
 	getUserCollectionsList,
 	getUserPreferences,

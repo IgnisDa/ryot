@@ -8,7 +8,7 @@ import type {
 import { produce } from "immer";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import { convertTimestampToUtcString } from "~/lib/common";
+import { convertTimestampToUtcString } from "~/lib/date-utils";
 import { useDeployBulkMetadataProgressUpdate } from "~/lib/hooks";
 import {
 	OnboardingTourStepTargets,

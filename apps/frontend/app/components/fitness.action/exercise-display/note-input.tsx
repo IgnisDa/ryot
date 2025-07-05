@@ -2,8 +2,8 @@ import { ActionIcon, Flex, Textarea } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { IconTrash } from "@tabler/icons-react";
 import { produce } from "immer";
-import { openConfirmationModal } from "~/lib/common";
 import { useCurrentWorkout } from "~/lib/state/fitness";
+import { openConfirmationModal } from "~/lib/ui-utils";
 
 export const NoteInput = (props: {
 	note: string;

@@ -34,17 +34,15 @@ import { Form } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import {
-	ThreePointSmileyRating,
-	convertDecimalToThreePointSmiley,
-	refreshEntityDetails,
-} from "~/lib/common";
-import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useMetadataDetails,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { convertDecimalToThreePointSmiley } from "~/lib/media-utils";
+import { refreshEntityDetails } from "~/lib/query-factory";
 import { useReviewEntity } from "~/lib/state/media";
+import { ThreePointSmileyRating } from "~/lib/types";
 import { convertThreePointSmileyToDecimal } from "../utils";
 
 export const ReviewEntityForm = ({

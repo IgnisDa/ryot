@@ -26,12 +26,13 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { MediaColors, dayjsLib, getMetadataIcon } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import { MediaColors, getMetadataIcon } from "~/lib/media-utils";
 import { displayWeightWithUnit } from "../fitness";
 
 export const DisplaySummarySection = ({

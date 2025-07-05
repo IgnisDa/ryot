@@ -47,18 +47,15 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import {
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/hooks";
+import { clientGqlService } from "~/lib/query-factory";
+import { convertEnumToSelectData, openConfirmationModal } from "~/lib/ui-utils";
 import {
 	createToastHeaders,
 	serverGqlService,

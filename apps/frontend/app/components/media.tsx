@@ -36,11 +36,8 @@ import {
 	BaseEntityDisplayItem,
 	DisplayThreePointReview,
 } from "~/components/common";
-import {
-	MEDIA_DETAILS_HEIGHT,
-	openConfirmationModal,
-	reviewYellow,
-} from "~/lib/common";
+import { MEDIA_DETAILS_HEIGHT } from "~/lib/constants";
+import { reviewYellow } from "~/lib/constants";
 import {
 	useAddEntitiesToCollection,
 	useConfirmSubmit,
@@ -56,6 +53,7 @@ import {
 } from "~/lib/hooks";
 import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>

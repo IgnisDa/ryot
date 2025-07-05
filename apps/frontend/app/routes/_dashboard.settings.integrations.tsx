@@ -56,21 +56,17 @@ import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
-import {
-	PRO_REQUIRED_MESSAGE,
-	applicationBaseUrl,
-	convertEnumToSelectData,
-	dayjsLib,
-	openConfirmationModal,
-	zodCommaDelimitedString,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE, applicationBaseUrl } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
 	useNonHiddenUserCollections,
 } from "~/lib/hooks";
+import { convertEnumToSelectData, openConfirmationModal } from "~/lib/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+import { zodCommaDelimitedString } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.settings.integrations";
 
 const PRO_INTEGRATIONS = [

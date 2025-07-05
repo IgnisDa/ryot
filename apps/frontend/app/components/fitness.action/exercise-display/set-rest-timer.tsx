@@ -1,5 +1,5 @@
 import { RingProgress, Text } from "@mantine/core";
-import { dayjsLib } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import { forceUpdateEverySecond } from "~/lib/hooks";
 import { useCurrentWorkoutTimerAtom } from "~/lib/state/fitness";
 

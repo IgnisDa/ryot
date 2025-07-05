@@ -60,23 +60,19 @@ import {
 	ProRequiredAlert,
 } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import {
-	ApplicationTimeRange,
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	getLot,
-	getStartTimeFromRange,
-	pageQueryParam,
-	zodCollectionFilter,
-} from "~/lib/common";
+import { pageQueryParam } from "~/lib/constants";
+import { dayjsLib, getStartTimeFromRange } from "~/lib/date-utils";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { getLot } from "~/lib/media-utils";
+import { clientGqlService } from "~/lib/query-factory";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { ApplicationTimeRange } from "~/lib/types";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
@@ -84,6 +80,7 @@ import {
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import { zodCollectionFilter } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.media.$action.$lot";
 
 export type SearchParams = {

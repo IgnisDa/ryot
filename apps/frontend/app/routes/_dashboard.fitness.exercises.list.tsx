@@ -64,13 +64,8 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
-import {
-	convertEnumToSelectData,
-	dayjsLib,
-	getExerciseDetailsPath,
-	openConfirmationModal,
-	pageQueryParam,
-} from "~/lib/common";
+import { pageQueryParam } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -78,6 +73,7 @@ import {
 	useNonHiddenUserCollections,
 	useUserPreferences,
 } from "~/lib/hooks";
+import { getExerciseDetailsPath } from "~/lib/media-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseDetailsQuery,
@@ -91,6 +87,7 @@ import {
 	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { convertEnumToSelectData, openConfirmationModal } from "~/lib/ui-utils";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,

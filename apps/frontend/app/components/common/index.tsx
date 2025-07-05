@@ -29,11 +29,8 @@ import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import {
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useAddEntitiesToCollection,
 	useConfirmSubmit,
@@ -45,6 +42,7 @@ import {
 	type BulkAddEntities,
 	useBulkEditCollection,
 } from "~/lib/state/collection";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,

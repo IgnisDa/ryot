@@ -1,8 +1,9 @@
 import { Select } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
-import { Verb, getVerb } from "~/lib/common";
 import { useGetWatchProviders } from "~/lib/hooks";
+import { getVerb } from "~/lib/media-utils";
+import { Verb } from "~/lib/types";
 import { WatchTimes } from "../../../types";
 
 interface WatchTimeSelectProps {

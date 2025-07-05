@@ -54,20 +54,18 @@ import {
 	FiltersModal,
 } from "~/components/common";
 import { MetadataGroupDisplayItem } from "~/components/media";
-import {
-	clientGqlService,
-	convertEnumToSelectData,
-	pageQueryParam,
-	zodCollectionFilter,
-} from "~/lib/common";
+import { pageQueryParam } from "~/lib/constants";
 import { useAppSearchParam, useCoreDetails } from "~/lib/hooks";
+import { clientGqlService } from "~/lib/query-factory";
 import { useBulkEditCollection } from "~/lib/state/collection";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	getCoreDetails,
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,
 	serverGqlService,
 } from "~/lib/utilities.server";
+import { zodCollectionFilter } from "~/lib/validation";
 import type { Route } from "./+types/_dashboard.media.groups.$action";
 
 export type SearchParams = {

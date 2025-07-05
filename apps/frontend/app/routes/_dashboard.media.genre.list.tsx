@@ -33,19 +33,19 @@ import {
 	DebouncedSearchInput,
 	ProRequiredAlert,
 } from "~/components/common";
-import {
-	clientGqlService,
-	getMetadataDetailsQuery,
-	queryClient,
-	queryFactory,
-} from "~/lib/common";
-import { pageQueryParam } from "~/lib/common";
+import { pageQueryParam } from "~/lib/constants";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useFallbackImageUrl,
 	useGetRandomMantineColor,
 } from "~/lib/hooks";
+import {
+	clientGqlService,
+	getMetadataDetailsQuery,
+	queryClient,
+	queryFactory,
+} from "~/lib/query-factory";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,

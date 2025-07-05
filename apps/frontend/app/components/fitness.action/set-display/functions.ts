@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
-import { FitnessAction, dayjsLib } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import { useUserPreferences } from "~/lib/hooks";
 import {
 	type InProgressWorkout,
@@ -21,6 +21,7 @@ import {
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/general";
+import { FitnessAction } from "~/lib/types";
 import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";
 

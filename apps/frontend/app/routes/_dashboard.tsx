@@ -56,11 +56,7 @@ import {
 	getThemeIcon,
 } from "~/components/dashboard/navigation/navigation-config";
 import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
-import {
-	FitnessAction,
-	LOGO_IMAGE_URL,
-	forcedDashboardPath,
-} from "~/lib/common";
+import { LOGO_IMAGE_URL } from "~/lib/constants";
 import {
 	useConfirmSubmit,
 	useIsFitnessActionActive,
@@ -72,6 +68,8 @@ import {
 	useOnboardingTour,
 	useOpenedSidebarLinks,
 } from "~/lib/state/general";
+import { FitnessAction } from "~/lib/types";
+import { forcedDashboardPath } from "~/lib/ui-utils";
 import {
 	getCookieValue,
 	getCoreDetails,

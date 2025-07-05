@@ -21,13 +21,12 @@ import {
 	useWorkoutModals,
 } from "~/components/fitness.action/modals";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/fitness.action/utils";
+import { dayjsLib } from "~/lib/date-utils";
+import { useUserPreferences } from "~/lib/hooks";
 import {
-	FitnessAction,
-	dayjsLib,
 	postMessageToServiceWorker,
 	sendNotificationToServiceWorker,
-} from "~/lib/common";
-import { useUserPreferences } from "~/lib/hooks";
+} from "~/lib/service-worker";
 import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
@@ -37,6 +36,7 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { FitnessAction } from "~/lib/types";
 import type { Route } from "./+types/_dashboard.fitness.$action";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {

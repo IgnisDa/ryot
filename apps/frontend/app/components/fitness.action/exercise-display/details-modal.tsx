@@ -19,21 +19,21 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { ProRequiredAlert } from "~/components/common";
 import { ExerciseHistory } from "~/components/fitness";
-import {
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	convertEnumToSelectData,
-	getExerciseDetailsPath,
-	getSurroundingElements,
-	openConfirmationModal,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
 import { useCoreDetails } from "~/lib/hooks";
+import { getExerciseDetailsPath } from "~/lib/media-utils";
 import {
 	convertHistorySetToCurrentSet,
 	getExerciseImages,
 	getWorkoutDetails,
 	useCurrentWorkout,
 } from "~/lib/state/fitness";
+import { FitnessEntity } from "~/lib/types";
+import {
+	convertEnumToSelectData,
+	getSurroundingElements,
+	openConfirmationModal,
+} from "~/lib/ui-utils";
 
 interface ExerciseDetailsModalProps {
 	opened: boolean;

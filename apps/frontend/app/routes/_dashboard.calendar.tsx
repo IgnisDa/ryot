@@ -21,7 +21,7 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
 import { MetadataDisplayItem } from "~/components/media";
-import { dayjsLib } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import { useAppSearchParam } from "~/lib/hooks";
 import {
 	getSearchEnhancedCookieName,

@@ -15,7 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
-import { dayjsLib } from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import { forceUpdateEverySecond } from "~/lib/hooks";
 import {
 	useCurrentWorkout,

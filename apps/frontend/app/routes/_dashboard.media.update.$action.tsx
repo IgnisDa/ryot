@@ -33,8 +33,8 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { convertEnumToSelectData } from "~/lib/common";
 import { useCoreDetails } from "~/lib/hooks";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import { createS3FileUploader, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.update.$action";
 

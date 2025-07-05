@@ -27,9 +27,10 @@ import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { useRevalidator } from "react-router";
 import { match } from "ts-pattern";
-import { getSurroundingElements, refreshEntityDetails } from "~/lib/common";
 import { useFallbackImageUrl, useUserPreferences } from "~/lib/hooks";
+import { refreshEntityDetails } from "~/lib/query-factory";
 import { useFullscreenImage } from "~/lib/state/general";
+import { getSurroundingElements } from "~/lib/ui-utils";
 import classes from "~/styles/common.module.css";
 
 export const ApplicationGrid = (props: {

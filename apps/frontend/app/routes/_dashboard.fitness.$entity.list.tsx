@@ -66,21 +66,15 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness";
-import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	pageQueryParam,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE, pageQueryParam } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/hooks";
+import { clientGqlService } from "~/lib/query-factory";
 import {
 	getDefaultWorkout,
 	getExerciseDetailsQuery,
@@ -89,6 +83,8 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
+import { convertEnumToSelectData } from "~/lib/ui-utils";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,

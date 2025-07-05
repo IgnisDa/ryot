@@ -46,13 +46,9 @@ import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { BaseEntityDisplayItem } from "~/components/common";
-import {
-	FitnessEntity,
-	dayjsLib,
-	getExerciseDetailsPath,
-	getSetColor,
-} from "~/lib/common";
+import { dayjsLib } from "~/lib/date-utils";
 import { useGetRandomMantineColor, useUserDetails } from "~/lib/hooks";
+import { getExerciseDetailsPath, getSetColor } from "~/lib/media-utils";
 import {
 	getExerciseDetailsQuery,
 	getExerciseImages,
@@ -61,6 +57,7 @@ import {
 	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
+import { FitnessEntity } from "~/lib/types";
 
 export const getSetStatisticsTextToDisplay = (
 	lot: ExerciseLot,

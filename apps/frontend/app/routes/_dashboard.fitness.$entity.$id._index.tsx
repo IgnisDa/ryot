@@ -67,13 +67,8 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness";
-import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/constants";
+import { dayjsLib } from "~/lib/date-utils";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -85,6 +80,8 @@ import {
 import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
+import { openConfirmationModal } from "~/lib/ui-utils";
 import {
 	createToastHeaders,
 	redirectWithToast,
