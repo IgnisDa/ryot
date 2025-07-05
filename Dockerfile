@@ -28,6 +28,14 @@ RUN apt-get update && apt-get install -y curl unzip && \
     apt-get remove -y curl unzip && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
+# Pre-populate the Deno package cache at build time so startup requires no network access.
+# Keep this package list in sync with vendoredPackages in
+# apps/app-backend/src/lib/sandbox/constants.ts
+RUN mkdir -p /home/ryot/tmp && \
+    DENO_DIR=/home/ryot/tmp deno cache --no-config \
+      npm:zod npm:dayjs npm:cheerio npm:youtubei.js && \
+    chown -R ryot:ryot /home/ryot/tmp
+ENV RYOT_SANDBOX_DENO_DIR=/home/ryot/tmp
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
 COPY --from=builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist

@@ -19,6 +19,10 @@ export class PackageCacheManager {
 			return;
 		}
 
+		if (await this.isCachePopulated()) {
+			return;
+		}
+
 		const proc = Bun.spawn(["deno", "cache", "--no-config", ...packages], {
 			stderr: "pipe",
 			stdout: "pipe",
