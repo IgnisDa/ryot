@@ -61,12 +61,12 @@ import {
 	DisplayCollectionToEntity,
 	ProRequiredAlert,
 } from "~/components/common";
+import { ExerciseHistory } from "~/components/fitness/components";
+import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
-	ExerciseHistory,
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
+} from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {

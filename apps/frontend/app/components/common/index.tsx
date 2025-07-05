@@ -47,7 +47,7 @@ import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
 	WorkoutTemplateDisplayItem,
-} from "../fitness";
+} from "../fitness/display-items";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,

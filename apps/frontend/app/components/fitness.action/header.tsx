@@ -10,7 +10,7 @@ import { RESET } from "jotai/utils";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { displayWeightWithUnit } from "~/components/fitness";
+import { displayWeightWithUnit } from "~/components/fitness/utils";
 import { useApplicationEvents, useUserUnitSystem } from "~/lib/shared/hooks";
 import {
 	clientGqlService,

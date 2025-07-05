@@ -1,9 +1,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
-	Alert,
 	Anchor,
-	Avatar,
 	Badge,
 	Box,
 	Flex,
@@ -18,19 +16,17 @@ import {
 	Text,
 	useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure, useInViewport } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
 import {
-	ExerciseLot,
+	type ExerciseLot,
 	SetLot,
-	UserUnitSystem,
+	type UserUnitSystem,
 	type UserWorkoutDetailsQuery,
-	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, isNumber, startCase } from "@ryot/ts-utils";
+import { changeCase, startCase } from "@ryot/ts-utils";
 import {
 	IconArrowLeftToArc,
-	IconBellRinging,
 	IconClock,
 	IconInfoCircle,
 	type IconProps,
@@ -41,126 +37,26 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { BaseEntityDisplayItem } from "~/components/common";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useGetRandomMantineColor, useUserDetails } from "~/lib/shared/hooks";
+import { useGetRandomMantineColor } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath, getSetColor } from "~/lib/shared/media-utils";
 import {
 	getExerciseDetailsQuery,
 	getExerciseImages,
-	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,
 	getWorkoutTemplateDetailsQuery,
 } from "~/lib/state/fitness";
-import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
-
-export const getSetStatisticsTextToDisplay = (
-	lot: ExerciseLot,
-	statistic: WorkoutSetStatistic,
-	unit: UserUnitSystem,
-) => {
-	return match(lot)
-		.with(ExerciseLot.Reps, () => [`${statistic.reps} reps`, undefined])
-		.with(ExerciseLot.RepsAndDuration, () => [
-			`${statistic.reps} reps for ${Number(statistic.duration).toFixed(2)} min`,
-			undefined,
-		])
-		.with(ExerciseLot.DistanceAndDuration, () => [
-			`${displayDistanceWithUnit(unit, statistic.distance)} for ${Number(
-				statistic.duration,
-			).toFixed(2)} min`,
-			`${displayDistanceWithUnit(unit, statistic.pace)}/min`,
-		])
-		.with(ExerciseLot.Duration, () => [
-			`${Number(statistic.duration).toFixed(2)} min`,
-			undefined,
-		])
-		.with(ExerciseLot.RepsAndWeight, () => [
-			statistic.weight && statistic.weight !== "0"
-				? `${displayWeightWithUnit(unit, statistic.weight)} × ${statistic.reps}`
-				: `${statistic.reps} reps`,
-			statistic.oneRm && statistic.oneRm !== "0"
-				? `${Number(statistic.oneRm).toFixed(1)} RM`
-				: null,
-		])
-		.with(ExerciseLot.RepsAndDurationAndDistance, () => [
-			`${displayDistanceWithUnit(unit, statistic.distance)} × ${statistic.reps}`,
-			`${Number(statistic.duration).toFixed(2)} min`,
-		])
-		.exhaustive();
-};
-
-/**
- * Display the correct weight unit for a given unit.
- */
-export const displayWeightWithUnit = (
-	unit: UserUnitSystem,
-	data: string | number | null | undefined,
-	compactNotation?: boolean,
-) => {
-	return new Intl.NumberFormat("en-us", {
-		style: "unit",
-		notation: compactNotation ? "compact" : undefined,
-		unit: unit === UserUnitSystem.Metric ? "kilogram" : "pound",
-	}).format(Number((data || 0).toString()));
-};
-
-/**
- * Display the correct distance unit for a given unit.
- */
-export const displayDistanceWithUnit = (
-	unit: UserUnitSystem,
-	data: string | number | null | undefined,
-	compactNotation?: boolean,
-) => {
-	return new Intl.NumberFormat("en-us", {
-		style: "unit",
-		notation: compactNotation ? "compact" : undefined,
-		unit: unit === UserUnitSystem.Metric ? "kilometer" : "mile",
-	}).format(Number((data || 0).toString()));
-};
-
-/**
- * Display statistics for a set.
- **/
-export const DisplaySetStatistics = (props: {
-	lot: ExerciseLot;
-	hideExtras?: boolean;
-	centerText?: boolean;
-	unitSystem: UserUnitSystem;
-	statistic: WorkoutSetStatistic;
-}) => {
-	const [first, second] = getSetStatisticsTextToDisplay(
-		props.lot,
-		props.statistic,
-		props.unitSystem,
-	);
-
-	return (
-		<>
-			<Text
-				fz={props.hideExtras ? "xs" : "sm"}
-				ta={props.centerText ? "center" : undefined}
-			>
-				{first}
-			</Text>
-			{!props.hideExtras && second ? (
-				<Text
-					ml="auto"
-					fz={props.hideExtras ? "xs" : "sm"}
-					ta={props.centerText ? "center" : undefined}
-				>
-					{second}
-				</Text>
-			) : null}
-		</>
-	);
-};
+import { ExerciseImagesList } from "./display-items";
+import {
+	DisplaySetStatistics,
+	displayDistanceWithUnit,
+	displayWeightWithUnit,
+} from "./utils";
 
 type Exercise =
 	UserWorkoutDetailsQuery["userWorkoutDetails"]["details"]["information"]["exercises"][number];
@@ -413,127 +309,5 @@ const DisplayExerciseAttributes = (props: {
 				{changeCase(props.label)}: {props.value}
 			</Text>
 		</Flex>
-	) : null;
-};
-
-export const ExerciseDisplayItem = (props: {
-	exerciseId: string;
-	topRight?: ReactNode;
-	rightLabel?: ReactNode;
-}) => {
-	const { ref, inViewport } = useInViewport();
-	const { data: exerciseDetails, isLoading: isExerciseDetailsLoading } =
-		useQuery({
-			...getExerciseDetailsQuery(props.exerciseId),
-			enabled: inViewport,
-		});
-	const { data: userExerciseDetails } = useQuery({
-		...getUserExerciseDetailsQuery(props.exerciseId),
-		enabled: inViewport,
-	});
-	const times = userExerciseDetails?.details?.exerciseNumTimesInteracted;
-	const images = getExerciseImages(exerciseDetails);
-
-	return (
-		<BaseEntityDisplayItem
-			innerRef={ref}
-			imageUrl={images.at(0)}
-			name={exerciseDetails?.name}
-			isLoading={isExerciseDetailsLoading}
-			onImageClickBehavior={[getExerciseDetailsPath(props.exerciseId)]}
-			labels={{
-				left: isNumber(times)
-					? `${times} time${times > 1 ? "s" : ""}`
-					: undefined,
-				right: props.rightLabel,
-			}}
-			imageOverlay={{ topRight: props.topRight }}
-		/>
-	);
-};
-
-export const WorkoutDisplayItem = (props: {
-	workoutId: string;
-	rightLabel?: ReactNode;
-	topRight?: ReactNode;
-}) => {
-	const { ref, inViewport } = useInViewport();
-	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
-		{ ...getWorkoutDetailsQuery(props.workoutId), enabled: inViewport },
-	);
-
-	return (
-		<BaseEntityDisplayItem
-			innerRef={ref}
-			name={workoutDetails?.details.name}
-			isLoading={isWorkoutDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
-			onImageClickBehavior={[
-				$path("/fitness/:entity/:id", {
-					entity: "workouts",
-					id: props.workoutId,
-				}),
-			]}
-			labels={{
-				left: dayjsLib(workoutDetails?.details.startTime).format("l"),
-				right: props.rightLabel,
-			}}
-		/>
-	);
-};
-
-export const WorkoutTemplateDisplayItem = (props: {
-	workoutTemplateId: string;
-	topRight?: ReactNode;
-}) => {
-	const {
-		data: workoutTemplateDetails,
-		isLoading: isWorkoutTemplateDetailsLoading,
-	} = useQuery(getWorkoutTemplateDetailsQuery(props.workoutTemplateId));
-
-	return (
-		<BaseEntityDisplayItem
-			name={workoutTemplateDetails?.details.name}
-			isLoading={isWorkoutTemplateDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
-			onImageClickBehavior={[
-				$path("/fitness/:entity/:id", {
-					id: props.workoutTemplateId,
-					entity: FitnessEntity.Templates,
-				}),
-			]}
-			labels={{
-				left: dayjsLib(workoutTemplateDetails?.details.createdOn).format("l"),
-				right: "Template",
-			}}
-		/>
-	);
-};
-
-const ExerciseImagesList = (props: { images: string[] }) => {
-	const { setFullscreenImage } = useFullscreenImage();
-
-	return (
-		<Avatar.Group>
-			{props.images.map((i) => (
-				<Avatar
-					key={i}
-					src={i}
-					style={{ cursor: "pointer" }}
-					onClick={() => setFullscreenImage({ src: i })}
-				/>
-			))}
-		</Avatar.Group>
-	);
-};
-
-export const WorkoutRevisionScheduledAlert = () => {
-	const userDetails = useUserDetails();
-
-	return userDetails.extraInformation?.scheduledForWorkoutRevision ? (
-		<Alert icon={<IconBellRinging />}>
-			A workout revision has been scheduled. Workout details might be outdated
-			until revision is complete.
-		</Alert>
 	) : null;
 };

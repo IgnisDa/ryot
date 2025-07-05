@@ -18,7 +18,7 @@ import { produce } from "immer";
 import { useState } from "react";
 import { Link } from "react-router";
 import { ProRequiredAlert } from "~/components/common";
-import { ExerciseHistory } from "~/components/fitness";
+import { ExerciseHistory } from "~/components/fitness/components";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { useCoreDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";

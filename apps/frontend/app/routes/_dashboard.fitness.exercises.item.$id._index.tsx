@@ -69,11 +69,11 @@ import {
 	DisplayCollectionToEntity,
 	ReviewItemDisplay,
 } from "~/components/common";
+import { ExerciseHistory } from "~/components/fitness/components";
 import {
-	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
+} from "~/components/fitness/utils";
 import { MediaScrollArea } from "~/components/media";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {

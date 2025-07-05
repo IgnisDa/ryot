@@ -63,7 +63,7 @@ import { ProRequiredAlert } from "~/components/common";
 import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
+} from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	convertUtcHourToLocalHour,

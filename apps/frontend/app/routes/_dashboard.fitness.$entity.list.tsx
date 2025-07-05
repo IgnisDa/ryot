@@ -60,12 +60,12 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
+import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
-} from "~/components/fitness";
+} from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE, pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {

@@ -29,7 +29,7 @@ import { produce } from "immer";
 import { useState } from "react";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { DisplaySetStatistics } from "~/components/fitness";
+import { DisplaySetStatistics } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
