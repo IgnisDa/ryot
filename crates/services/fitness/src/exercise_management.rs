@@ -22,6 +22,7 @@ use fitness_models::{
     ExerciseAttributes, ExerciseCategory, GithubExercise, GithubExerciseAttributes,
     UpdateUserExerciseSettings, UserExercisesListInput, UserToExerciseExtraInformation,
 };
+use futures::try_join;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use std::sync::Arc;
 use supporting_service::SupportingService;
@@ -47,10 +48,10 @@ pub async fn user_exercise_details(
     user_id: String,
     exercise_id: String,
 ) -> Result<UserExerciseDetails> {
-    let collections =
-        entity_in_collections_with_details(&ss.db, &user_id, &exercise_id, EntityLot::Exercise)
-            .await?;
-    let reviews = item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, ss).await?;
+    let (collections, reviews) = try_join!(
+        entity_in_collections_with_details(&ss.db, &user_id, &exercise_id, EntityLot::Exercise),
+        item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, ss)
+    )?;
     let mut resp = UserExerciseDetails {
         collections,
         reviews,
@@ -163,14 +164,12 @@ pub async fn merge_exercise(
     merge_from: String,
     merge_into: String,
 ) -> Result<bool> {
-    let old_exercise = Exercise::find_by_id(merge_from.clone())
-        .one(&ss.db)
-        .await?
-        .ok_or_else(|| Error::new("Exercise does not exist"))?;
-    let new_exercise = Exercise::find_by_id(merge_into.clone())
-        .one(&ss.db)
-        .await?
-        .ok_or_else(|| Error::new("Exercise does not exist"))?;
+    let (old_exercise, new_exercise) = try_join!(
+        Exercise::find_by_id(merge_from.clone()).one(&ss.db),
+        Exercise::find_by_id(merge_into.clone()).one(&ss.db)
+    )?;
+    let old_exercise = old_exercise.ok_or_else(|| Error::new("Exercise does not exist"))?;
+    let new_exercise = new_exercise.ok_or_else(|| Error::new("Exercise does not exist"))?;
     if old_exercise.id == new_exercise.id {
         return Err(Error::new("Cannot merge exercise with itself"));
     }
