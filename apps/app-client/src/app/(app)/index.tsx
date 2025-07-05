@@ -1,15 +1,14 @@
 import { dayjs } from "@ryot/ts-utils";
-import { useAtomValue } from "jotai";
 import { Plus } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PageHeader } from "@/components/spine/page-header";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonIcon, ButtonText } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
-import { trackersAtom } from "@/lib/navigation";
+import { useTrackers } from "@/lib/navigation";
 
 export default function HomeScreen() {
-	const trackers = useAtomValue(trackersAtom);
+	const trackers = useTrackers();
 
 	if (!trackers.length) {
 		return (

@@ -1,3 +1,8 @@
+import { apiKeyClient } from "@better-auth/api-key/client";
+import { expoClient } from "@better-auth/expo/client";
+import { createAuthClient } from "better-auth/react";
+import * as SecureStore from "expo-secure-store";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
@@ -25,7 +30,35 @@ export const atomWithPlatformStorage = <T>(key: string, initial: T) => {
 	return atomWithStorage<T>(key, initial, storage, { getOnInit: true });
 };
 
-export const serverUrlAtom = atomWithPlatformStorage<string | null>(
+const serverUrlAtom = atomWithPlatformStorage<string | null>(
 	"server-url",
 	null,
 );
+
+export const useServerUrl = () => useAtomValue(serverUrlAtom);
+export const useSetServerUrl = () => useSetAtom(serverUrlAtom);
+
+const nativeStorage = {
+	getItem: (key: string) => SecureStore.getItem(key),
+	setItem: (key: string, value: string) => SecureStore.setItem(key, value),
+};
+
+const authClientAtom = atom((get) => {
+	const serverUrl = (get(serverUrlAtom) ?? CLOUD_URL) as string;
+	const plugins =
+		Platform.OS !== "web"
+			? [
+					expoClient({
+						scheme: "ryot",
+						storagePrefix: "ryot",
+						storage: nativeStorage,
+					}),
+					apiKeyClient(),
+				]
+			: [apiKeyClient()];
+	return createAuthClient({ baseURL: serverUrl, plugins });
+});
+
+export type AuthClient = ReturnType<typeof createAuthClient>;
+
+export const useAuthClient = () => useAtomValue(authClientAtom);
