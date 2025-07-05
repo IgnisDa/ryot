@@ -54,22 +54,22 @@ impl YoutubeMusicService {
 impl MediaProvider for YoutubeMusicService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details = self.client.music_details(identifier).await?;
-        let suggestions = if let Some(related_id) = details.related_id {
-            let related = self.client.music_related(related_id).await?;
-            related
-                .tracks
-                .into_iter()
-                .map(|t| PartialMetadataWithoutId {
-                    title: t.name,
-                    identifier: t.id,
-                    lot: MediaLot::Music,
-                    source: MediaSource::YoutubeMusic,
-                    image: self.largest_image(&t.cover).map(|c| c.url.to_owned()),
-                    ..Default::default()
-                })
-                .collect()
-        } else {
-            vec![]
+        let suggestions = match details.related_id {
+            None => vec![],
+            Some(related_id) => {
+                let related = self.client.music_related(related_id).await?.tracks;
+                related
+                    .into_iter()
+                    .map(|t| PartialMetadataWithoutId {
+                        title: t.name,
+                        identifier: t.id,
+                        lot: MediaLot::Music,
+                        source: MediaSource::YoutubeMusic,
+                        image: self.largest_image(&t.cover).map(|c| c.url.to_owned()),
+                        ..Default::default()
+                    })
+                    .collect()
+            }
         };
         let identifier = details.track.id;
         Ok(MetadataDetails {
@@ -78,6 +78,12 @@ impl MediaProvider for YoutubeMusicService {
             title: details.track.name,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
+            source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
+            music_specifics: Some(MusicSpecifics {
+                by_various_artists: Some(details.track.by_va),
+                duration: details.track.duration.map(|d| d.try_into().unwrap()),
+                view_count: details.track.view_count.map(|v| v.try_into().unwrap()),
+            }),
             groups: details
                 .track
                 .album
@@ -92,12 +98,6 @@ impl MediaProvider for YoutubeMusicService {
                     ..Default::default()
                 })
                 .collect(),
-            source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
-            music_specifics: Some(MusicSpecifics {
-                by_various_artists: Some(details.track.by_va),
-                duration: details.track.duration.map(|d| d.try_into().unwrap()),
-                view_count: details.track.view_count.map(|v| v.try_into().unwrap()),
-            }),
             assets: EntityAssets {
                 remote_images: self
                     .order_images_by_size(&details.track.cover)
