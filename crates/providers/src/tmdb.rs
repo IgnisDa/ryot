@@ -169,8 +169,8 @@ struct TmdbNonMediaEntity {
 
 pub struct TmdbService {
     client: Client,
-    language: String,
     settings: TmdbSettings,
+    supporting_service: Arc<SupportingService>,
 }
 
 impl TmdbService {
@@ -184,12 +184,16 @@ impl TmdbService {
         Self {
             client,
             settings,
-            language: ss.config.movies_and_shows.tmdb.locale.clone(),
+            supporting_service: ss,
         }
     }
 }
 
 impl TmdbService {
+    fn get_language(&self) -> &str {
+        &self.supporting_service.config.movies_and_shows.tmdb.locale
+    }
+
     fn get_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
     }
@@ -291,7 +295,7 @@ impl TmdbService {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
             .get(format!("{}/{}/{}/watch/providers", URL, type_, identifier))
-            .query(&json!({ "language": self.language }))
+            .query(&json!({ "language": self.get_language() }))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -365,7 +369,7 @@ impl TmdbService {
                 .get(format!("{}/trending/{}/day", URL, media_type))
                 .query(&json!({
                     "page": page,
-                    "language": self.language,
+                    "language": self.get_language(),
                 }))
                 .send()
                 .await
@@ -418,7 +422,7 @@ impl MediaProvider for NonMediaTmdbService {
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let language = &self.base.language;
+        let language = self.base.get_language();
         let type_ = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
@@ -481,7 +485,7 @@ impl MediaProvider for NonMediaTmdbService {
             .base
             .client
             .get(format!("{}/{}/{}", URL, type_, identifier))
-            .query(&json!({ "language": self.base.language }))
+            .query(&json!({ "language": self.base.get_language() }))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -504,7 +508,7 @@ impl MediaProvider for NonMediaTmdbService {
                 .base
                 .client
                 .get(format!("{}/{}/{}/combined_credits", URL, type_, identifier))
-                .query(&json!({ "language": self.base.language }))
+                .query(&json!({ "language": self.base.get_language() }))
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
@@ -538,7 +542,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .client
                         .get(format!("{}/discover/{}", URL, m_typ))
                         .query(
-                            &json!({ "with_companies": identifier, "page": i, "language": self.base.language }),
+                            &json!({ "with_companies": identifier, "page": i, "language": self.base.get_language() }),
                         )
                         .send()
                         .await
@@ -612,7 +616,7 @@ impl NonMediaTmdbService {
             .base
             .client
             .get(format!("{}/find/{}", URL, external_id))
-            .query(&json!({ "language": self.base.language, "external_source": external_source }))
+            .query(&json!({ "language": self.base.get_language(), "external_source": external_source }))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -657,7 +661,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": self.base.language,
+                "language": self.base.get_language(),
                 "include_adult": display_nsfw,
             }))
             .send()
@@ -695,7 +699,7 @@ impl MediaProvider for TmdbMovieService {
             .client
             .get(format!("{}/movie/{}", URL, &identifier))
             .query(&json!({
-                "language": self.base.language,
+                "language": self.base.get_language(),
                 "append_to_response": "videos",
             }))
             .send()
@@ -714,7 +718,7 @@ impl MediaProvider for TmdbMovieService {
             .client
             .get(format!("{}/movie/{}/credits", URL, identifier))
             .query(&json!({
-                "language": self.base.language,
+                "language": self.base.get_language(),
             }))
             .send()
             .await
@@ -875,7 +879,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": self.base.language,
+                "language": self.base.get_language(),
                 "include_adult": display_nsfw,
             }))
             .send()
@@ -923,7 +927,7 @@ impl MediaProvider for TmdbMovieService {
             .base
             .client
             .get(format!("{}/collection/{}", URL, &identifier))
-            .query(&json!({ "language": self.base.language }))
+            .query(&json!({ "language": self.base.get_language() }))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -999,7 +1003,7 @@ impl MediaProvider for TmdbShowService {
             .client
             .get(format!("{}/tv/{}", URL, &identifier))
             .query(&json!({
-                "language": self.base.language,
+                "language": self.base.get_language(),
                 "append_to_response": "videos",
             }))
             .send()
@@ -1056,7 +1060,7 @@ impl MediaProvider for TmdbShowService {
                     s.season_number
                 ))
                 .query(&json!({
-                    "language": self.base.language,
+                    "language": self.base.get_language(),
                 }))
                 .send()
                 .await
@@ -1072,7 +1076,7 @@ impl MediaProvider for TmdbShowService {
                     s.season_number
                 ))
                 .query(&json!({
-                    "language": self.base.language,
+                    "language": self.base.get_language(),
                 }))
                 .send()
                 .await
@@ -1275,7 +1279,7 @@ impl MediaProvider for TmdbShowService {
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
-                "language": self.base.language,
+                "language": self.base.get_language(),
                 "include_adult": display_nsfw,
             }))
             .send()
