@@ -257,29 +257,29 @@ export default function Page() {
 						</Modal>
 					</Flex>
 				</Group>
-				<Stack gap="md">
-					<DebouncedSearchInput
-						initialValue={query}
-						enhancedQueryParams={loaderData.cookieName}
-					/>
-					<Group justify="space-between" align="center">
-						<Text size="sm" c="dimmed">
-							{collections.length} collection
-							{collections.length !== 1 ? "s" : ""}
-						</Text>
-						{hasHiddenCollections ? (
-							<Checkbox
-								size="xs"
-								name="showHidden"
-								label="Show hidden"
-								defaultChecked={showHidden}
-								onChange={(e) =>
-									setP("showHidden", e.target.checked ? "yes" : "")
-								}
-							/>
-						) : null}
-					</Group>
-				</Stack>
+				<DebouncedSearchInput
+					initialValue={query}
+					enhancedQueryParams={loaderData.cookieName}
+				/>
+				<Group justify="space-between" align="center">
+					<Box>
+						<Text display="inline" fw="bold">
+							{collections.length}
+						</Text>{" "}
+						items found
+					</Box>
+					{hasHiddenCollections ? (
+						<Checkbox
+							size="sm"
+							name="showHidden"
+							label="Show hidden"
+							defaultChecked={showHidden}
+							onChange={(e) =>
+								setP("showHidden", e.target.checked ? "yes" : "")
+							}
+						/>
+					) : null}
+				</Group>
 				<Virtuoso
 					style={{ height: "80vh" }}
 					data={filteredCollections}
