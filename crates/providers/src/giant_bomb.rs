@@ -38,10 +38,9 @@ pub struct GiantBombService {
 impl GiantBombService {
     pub async fn new(ss: Arc<SupportingService>) -> Self {
         let client = get_base_http_client(None);
-        let config = ss.config.video_games.clone();
         Self {
             client,
-            api_key: config.giant_bomb.api_key.clone(),
+            api_key: ss.config.video_games.giant_bomb.api_key.clone(),
         }
     }
 
@@ -268,54 +267,33 @@ impl MediaProvider for GiantBombService {
 
         let mut people = Vec::new();
 
-        if let Some(devs) = game.developers {
-            for dev in devs {
-                if let Some(api_url) = dev.api_detail_url {
-                    people.push(PartialMetadataPerson {
-                        name: dev.name.unwrap(),
-                        source: MediaSource::GiantBomb,
-                        character: Some(ROLE_DEVELOPER.to_string()),
-                        identifier: extract_giant_bomb_guid(&api_url),
-                        source_specifics: Some(PersonSourceSpecifics {
-                            is_giant_bomb_company: Some(true),
+        let mut add_people_from_entries =
+            |entries: Option<Vec<GiantBombResource>>, role: Option<&str>, is_company: bool| {
+                entries
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|entry| {
+                        entry.api_detail_url.map(|api_url| PartialMetadataPerson {
+                            name: entry.name.unwrap(),
+                            source: MediaSource::GiantBomb,
+                            character: role.map(|r| r.to_string()),
+                            identifier: extract_giant_bomb_guid(&api_url),
+                            source_specifics: match is_company {
+                                false => None,
+                                true => Some(PersonSourceSpecifics {
+                                    is_giant_bomb_company: Some(true),
+                                    ..Default::default()
+                                }),
+                            },
                             ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
+                        })
+                    })
+                    .for_each(|person| people.push(person));
+            };
 
-        if let Some(pubs) = game.publishers {
-            for publish in pubs {
-                if let Some(api_url) = publish.api_detail_url {
-                    people.push(PartialMetadataPerson {
-                        name: publish.name.unwrap(),
-                        source: MediaSource::GiantBomb,
-                        character: Some(ROLE_PUBLISHER.to_string()),
-                        identifier: extract_giant_bomb_guid(&api_url),
-                        source_specifics: Some(PersonSourceSpecifics {
-                            is_giant_bomb_company: Some(true),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
-
-        if let Some(game_people) = game.people {
-            for person in game_people {
-                if let Some(api_url) = person.api_detail_url {
-                    people.push(PartialMetadataPerson {
-                        name: person.name.unwrap(),
-                        source: MediaSource::GiantBomb,
-                        identifier: extract_giant_bomb_guid(&api_url),
-                        ..Default::default()
-                    });
-                }
-            }
-        }
+        add_people_from_entries(game.developers, Some(ROLE_DEVELOPER), true);
+        add_people_from_entries(game.publishers, Some(ROLE_PUBLISHER), true);
+        add_people_from_entries(game.people, None, false);
 
         let mut groups = Vec::new();
         if let Some(franchises) = game.franchises {
@@ -447,7 +425,7 @@ impl MediaProvider for GiantBombService {
                     image: company.image.and_then(|img| img.original_url),
                 })?
             }
-            _ => {
+            "person" => {
                 let search_response: GiantBombSearchResponse<GiantBombResource> =
                     response.json().await?;
                 self.process_search_response(search_response, |person| PeopleSearchItem {
@@ -459,6 +437,7 @@ impl MediaProvider for GiantBombService {
                         .and_then(|d| extract_year_from_date(Some(d))),
                 })?
             }
+            _ => return Err(anyhow!("Unsupported search type: {}", search_type)),
         };
 
         Ok(items)
