@@ -7,7 +7,10 @@ use async_trait::async_trait;
 use chrono::{Datelike, NaiveDate};
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, ryot_log};
-use dependent_models::SearchResults;
+use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::{
+    MetadataGroupPersonRelated, MetadataPersonRelated, PersonDetails, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataSearchItem, PartialMetadataPerson,
@@ -138,6 +141,8 @@ struct GiantBombCompany {
     image: Option<GiantBombImage>,
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
+    developed_games: Option<Vec<GiantBombPartialItem>>,
+    published_games: Option<Vec<GiantBombPartialItem>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -151,6 +156,8 @@ struct GiantBombPerson {
     image: Option<GiantBombImage>,
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
+    games: Option<Vec<GiantBombPartialItem>>,
+    franchises: Option<Vec<GiantBombPartialItem>>,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
@@ -187,6 +194,23 @@ fn get_prioritized_images(image: Option<GiantBombImage>) -> Vec<String> {
         .flatten()
         .collect()
     })
+}
+
+fn combine_description(deck: Option<String>, description: Option<String>) -> Option<String> {
+    match (deck, description) {
+        (Some(deck), Some(desc)) => {
+            if deck.trim().is_empty() {
+                Some(desc)
+            } else if desc.trim().is_empty() {
+                Some(deck)
+            } else {
+                Some(format!("{}\n\n{}", deck, desc))
+            }
+        }
+        (Some(deck), None) => Some(deck),
+        (None, Some(desc)) => Some(desc),
+        (None, None) => None,
+    }
 }
 
 #[async_trait]
@@ -369,20 +393,7 @@ impl MediaProvider for GiantBombService {
 
         let images = get_prioritized_images(game.image);
 
-        let description = match (game.deck, game.description) {
-            (Some(deck), Some(desc)) => {
-                if deck.trim().is_empty() {
-                    Some(desc)
-                } else if desc.trim().is_empty() {
-                    Some(deck)
-                } else {
-                    Some(format!("{}\n\n{}", deck, desc))
-                }
-            }
-            (Some(deck), None) => Some(deck),
-            (None, Some(desc)) => Some(desc),
-            (None, None) => None,
-        };
+        let description = combine_description(game.deck, game.description);
 
         Ok(MetadataDetails {
             people,
@@ -474,5 +485,192 @@ impl MediaProvider for GiantBombService {
         };
 
         Ok(items)
+    }
+
+    async fn person_details(
+        &self,
+        identifier: &str,
+        source_specifics: &Option<PersonSourceSpecifics>,
+    ) -> Result<PersonDetails> {
+        let is_company = source_specifics
+            .as_ref()
+            .and_then(|s| s.is_giant_bomb_company)
+            .unwrap_or(false);
+
+        let endpoint = if is_company { "company" } else { "person" };
+
+        ryot_log!(
+            debug,
+            "Fetching GiantBomb {} details for: {}",
+            endpoint,
+            identifier
+        );
+
+        let url = format!("{}/{}/{}/", BASE_URL, endpoint, identifier);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("api_key", &self.api_key), ("format", &"json".to_string())])
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "GiantBomb API returned status: {}",
+                response.status()
+            ));
+        }
+
+        let (
+            name,
+            guid,
+            deck,
+            description,
+            birth_date,
+            image,
+            source_url,
+            related_metadata,
+            related_metadata_groups,
+        ) = if is_company {
+            let details_response: GiantBombDetailsResponse<GiantBombCompany> = response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+
+            let company = details_response.results;
+            let mut related_games = Vec::new();
+
+            if let Some(developed_games) = company.developed_games {
+                for game in developed_games {
+                    if let Some(api_url) = game.api_detail_url {
+                        related_games.push(MetadataPersonRelated {
+                            role: "Developer".to_string(),
+                            character: None,
+                            metadata: PartialMetadataWithoutId {
+                                title: game.name,
+                                lot: MediaLot::VideoGame,
+                                source: MediaSource::GiantBomb,
+                                identifier: extract_giant_bomb_guid(&api_url),
+                                ..Default::default()
+                            },
+                        });
+                    }
+                }
+            }
+
+            if let Some(published_games) = company.published_games {
+                for game in published_games {
+                    if let Some(api_url) = game.api_detail_url {
+                        related_games.push(MetadataPersonRelated {
+                            role: "Publisher".to_string(),
+                            character: None,
+                            metadata: PartialMetadataWithoutId {
+                                title: game.name,
+                                lot: MediaLot::VideoGame,
+                                source: MediaSource::GiantBomb,
+                                identifier: extract_giant_bomb_guid(&api_url),
+                                ..Default::default()
+                            },
+                        });
+                    }
+                }
+            }
+
+            (
+                company.name,
+                company.guid,
+                company.deck,
+                company.description,
+                company
+                    .founded
+                    .map(|year| NaiveDate::from_ymd_opt(year, 1, 1).unwrap()),
+                company.image,
+                company.site_detail_url,
+                related_games,
+                Vec::new(),
+            )
+        } else {
+            let details_response: GiantBombDetailsResponse<GiantBombPerson> = response
+                .json()
+                .await
+                .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+
+            let person = details_response.results;
+            let mut related_games = Vec::new();
+            let mut related_groups = Vec::new();
+
+            if let Some(games) = person.games {
+                for game in games {
+                    if let Some(api_url) = game.api_detail_url {
+                        related_games.push(MetadataPersonRelated {
+                            role: "Person".to_string(),
+                            metadata: PartialMetadataWithoutId {
+                                title: game.name,
+                                lot: MediaLot::VideoGame,
+                                source: MediaSource::GiantBomb,
+                                identifier: extract_giant_bomb_guid(&api_url),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+
+            if let Some(franchises) = person.franchises {
+                for franchise in franchises {
+                    if let Some(api_url) = franchise.api_detail_url {
+                        related_groups.push(MetadataGroupPersonRelated {
+                            role: "Person".to_string(),
+                            metadata_group: MetadataGroupWithoutId {
+                                title: franchise.name,
+                                lot: MediaLot::VideoGame,
+                                source: MediaSource::GiantBomb,
+                                identifier: extract_giant_bomb_guid(&api_url),
+                                ..Default::default()
+                            },
+                        });
+                    }
+                }
+            }
+
+            (
+                person.name,
+                person.guid,
+                person.deck,
+                person.description,
+                person
+                    .birth_date
+                    .and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok()),
+                person.image,
+                person.site_detail_url,
+                related_games,
+                related_groups,
+            )
+        };
+
+        Ok(PersonDetails {
+            name,
+            birth_date,
+            source_url,
+            related_metadata,
+            identifier: guid,
+            related_metadata_groups,
+            source: MediaSource::GiantBomb,
+            description: combine_description(deck, description),
+            assets: EntityAssets {
+                remote_images: get_prioritized_images(image),
+                ..Default::default()
+            },
+            source_specifics: match is_company {
+                false => None,
+                true => Some(PersonSourceSpecifics {
+                    is_giant_bomb_company: Some(true),
+                    ..Default::default()
+                }),
+            },
+            ..Default::default()
+        })
     }
 }
