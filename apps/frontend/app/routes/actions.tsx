@@ -19,7 +19,7 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/common";
+import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,

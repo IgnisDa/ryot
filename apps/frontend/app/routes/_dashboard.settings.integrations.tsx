@@ -59,17 +59,19 @@ import { z } from "zod";
 import {
 	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
-	convertEnumToSelectData,
-	dayjsLib,
-	openConfirmationModal,
-	zodCommaDelimitedString,
-} from "~/lib/common";
+} from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
 	useNonHiddenUserCollections,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
+import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.integrations";
 

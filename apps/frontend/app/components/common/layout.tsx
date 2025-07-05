@@ -27,8 +27,9 @@ import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { useRevalidator } from "react-router";
 import { match } from "ts-pattern";
-import { getSurroundingElements, refreshEntityDetails } from "~/lib/common";
-import { useFallbackImageUrl, useUserPreferences } from "~/lib/hooks";
+import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
+import { refreshEntityDetails } from "~/lib/shared/query-factory";
+import { getSurroundingElements } from "~/lib/shared/ui-utils";
 import { useFullscreenImage } from "~/lib/state/general";
 import classes from "~/styles/common.module.css";
 

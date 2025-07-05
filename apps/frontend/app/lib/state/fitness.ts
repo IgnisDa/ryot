@@ -25,15 +25,14 @@ import type { NavigateFunction } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { v4 as randomUUID } from "uuid";
+import { CURRENT_WORKOUT_KEY } from "~/lib/shared/constants";
+import { dayjsLib, getTimeOfDay } from "~/lib/shared/date-utils";
 import {
-	CURRENT_WORKOUT_KEY,
-	FitnessAction,
 	clientGqlService,
-	dayjsLib,
-	getTimeOfDay,
 	queryClient,
 	queryFactory,
-} from "~/lib/common";
+} from "~/lib/shared/query-factory";
+import { FitnessAction } from "~/lib/types";
 
 export type WorkoutDuration = {
 	from: string;

@@ -64,20 +64,20 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
-import {
-	convertEnumToSelectData,
-	dayjsLib,
-	getExerciseDetailsPath,
-	openConfirmationModal,
-	pageQueryParam,
-} from "~/lib/common";
+import { pageQueryParam } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useIsFitnessActionActive,
 	useNonHiddenUserCollections,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseDetailsQuery,

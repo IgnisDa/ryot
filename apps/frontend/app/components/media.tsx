@@ -36,11 +36,8 @@ import {
 	BaseEntityDisplayItem,
 	DisplayThreePointReview,
 } from "~/components/common";
-import {
-	MEDIA_DETAILS_HEIGHT,
-	openConfirmationModal,
-	reviewYellow,
-} from "~/lib/common";
+import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
+import { reviewYellow } from "~/lib/shared/constants";
 import {
 	useAddEntitiesToCollection,
 	useConfirmSubmit,
@@ -53,7 +50,8 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";

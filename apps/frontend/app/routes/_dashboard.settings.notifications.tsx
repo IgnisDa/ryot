@@ -41,13 +41,13 @@ import { Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useConfirmSubmit } from "~/lib/shared/hooks";
 import {
 	convertEnumToSelectData,
-	dayjsLib,
 	openConfirmationModal,
-	zodCommaDelimitedString,
-} from "~/lib/common";
-import { useConfirmSubmit } from "~/lib/hooks";
+} from "~/lib/shared/ui-utils";
+import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.notifications";
 

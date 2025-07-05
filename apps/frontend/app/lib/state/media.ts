@@ -13,7 +13,7 @@ import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
-} from "~/lib/common";
+} from "~/lib/shared/query-factory";
 
 export type UpdateProgressData = {
 	metadataId: string;

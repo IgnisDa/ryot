@@ -30,12 +30,12 @@ import { produce } from "immer";
 import Cookies from "js-cookie";
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
-import { convertEnumToSelectData } from "~/lib/common";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useNonHiddenUserCollections,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import type { OnboardingTourStepTargets } from "~/lib/state/general";
 import { ProRequiredAlert } from ".";
 

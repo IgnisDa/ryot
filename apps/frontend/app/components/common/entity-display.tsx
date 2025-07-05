@@ -20,7 +20,7 @@ import {
 	useCoreDetails,
 	useFallbackImageUrl,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
 import classes from "~/styles/common.module.css";
 
 const blackBgStyles = {

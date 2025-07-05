@@ -79,32 +79,27 @@ import {
 import {
 	JUST_WATCH_URL,
 	METADATA_LOTS_WITH_GRANULAR_UPDATES,
-} from "~/components/media-item/constants";
-import { HistoryItem } from "~/components/media-item/displays/history-item";
-import { MetadataCreator } from "~/components/media-item/displays/metadata-creator";
-import { DisplayPodcastEpisode } from "~/components/media-item/displays/podcast-episode";
-import { DisplayShowSeason } from "~/components/media-item/displays/show-season";
-import { VideoIframe } from "~/components/media-item/displays/video-iframe";
-import { MergeMetadataModal } from "~/components/media-item/modals/merge-metadata-modal";
-import { DisplayShowSeasonEpisodesModal } from "~/components/media-item/modals/show-season-episodes-modal";
-import {
-	MEDIA_DETAILS_HEIGHT,
-	Verb,
-	clientGqlService,
-	convertTimestampToUtcString,
-	dayjsLib,
-	getVerb,
-	openConfirmationModal,
-	reviewYellow,
-	zodDateTimeString,
-} from "~/lib/common";
+} from "~/components/pages/media-item/constants";
+import { HistoryItem } from "~/components/pages/media-item/displays/history-item";
+import { MetadataCreator } from "~/components/pages/media-item/displays/metadata-creator";
+import { DisplayPodcastEpisode } from "~/components/pages/media-item/displays/podcast-episode";
+import { DisplayShowSeason } from "~/components/pages/media-item/displays/show-season";
+import { VideoIframe } from "~/components/pages/media-item/displays/video-iframe";
+import { MergeMetadataModal } from "~/components/pages/media-item/modals/merge-metadata-modal";
+import { DisplayShowSeasonEpisodesModal } from "~/components/pages/media-item/modals/show-season-episodes-modal";
+import { MEDIA_DETAILS_HEIGHT, reviewYellow } from "~/lib/shared/constants";
+import { convertTimestampToUtcString, dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
 	useDeployBulkMetadataProgressUpdate,
 	useGetRandomMantineColor,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { getVerb } from "~/lib/shared/media-utils";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { zodDateTimeString } from "~/lib/shared/validation";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -114,6 +109,7 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import { Verb } from "~/lib/types";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,

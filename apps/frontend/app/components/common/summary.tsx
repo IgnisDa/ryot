@@ -26,13 +26,14 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { MediaColors, dayjsLib, getMetadataIcon } from "~/lib/common";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useGetMantineColors,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
-import { displayWeightWithUnit } from "../fitness";
+} from "~/lib/shared/hooks";
+import { MediaColors, getMetadataIcon } from "~/lib/shared/media-utils";
+import { displayWeightWithUnit } from "../fitness/utils";
 
 export const DisplaySummarySection = ({
 	latestUserSummary,

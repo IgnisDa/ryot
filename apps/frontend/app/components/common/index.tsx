@@ -29,18 +29,16 @@ import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
-import {
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAddEntitiesToCollection,
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollection,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
 	useBulkEditCollection,
@@ -49,7 +47,7 @@ import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
 	WorkoutTemplateDisplayItem,
-} from "../fitness";
+} from "../fitness/display-items";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,

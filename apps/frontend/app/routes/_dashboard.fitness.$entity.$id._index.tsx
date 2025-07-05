@@ -61,19 +61,14 @@ import {
 	DisplayCollectionToEntity,
 	ProRequiredAlert,
 } from "~/components/common";
+import { ExerciseHistory } from "~/components/fitness/components";
+import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
-	ExerciseHistory,
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
-import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+} from "~/components/fitness/utils";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -81,10 +76,12 @@ import {
 	useMetadataDetails,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { duplicateOldWorkout } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { useAddEntityToCollections } from "~/lib/state/media";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
 import {
 	createToastHeaders,
 	redirectWithToast,
