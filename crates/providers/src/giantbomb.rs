@@ -161,11 +161,11 @@ struct GiantBombPerson {
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
-    date_str.and_then(|d| {
-        NaiveDate::parse_from_str(&d, "%Y-%m-%d")
-            .ok()
-            .map(|date| date.year())
-    })
+    parse_date(date_str).map(|date| date.year())
+}
+
+fn parse_date(date_str: Option<String>) -> Option<NaiveDate> {
+    date_str.and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok())
 }
 
 fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
@@ -546,7 +546,6 @@ impl MediaProvider for GiantBombService {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
                             role: "Developer".to_string(),
-                            character: None,
                             metadata: PartialMetadataWithoutId {
                                 title: game.name,
                                 lot: MediaLot::VideoGame,
@@ -554,6 +553,7 @@ impl MediaProvider for GiantBombService {
                                 identifier: extract_giant_bomb_guid(&api_url),
                                 ..Default::default()
                             },
+                            ..Default::default()
                         });
                     }
                 }
@@ -564,7 +564,6 @@ impl MediaProvider for GiantBombService {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
                             role: "Publisher".to_string(),
-                            character: None,
                             metadata: PartialMetadataWithoutId {
                                 title: game.name,
                                 lot: MediaLot::VideoGame,
@@ -572,6 +571,7 @@ impl MediaProvider for GiantBombService {
                                 identifier: extract_giant_bomb_guid(&api_url),
                                 ..Default::default()
                             },
+                            ..Default::default()
                         });
                     }
                 }
@@ -640,9 +640,7 @@ impl MediaProvider for GiantBombService {
                 person.guid,
                 person.deck,
                 person.description,
-                person
-                    .birth_date
-                    .and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok()),
+                parse_date(person.birth_date),
                 person.image,
                 person.site_detail_url,
                 related_games,
