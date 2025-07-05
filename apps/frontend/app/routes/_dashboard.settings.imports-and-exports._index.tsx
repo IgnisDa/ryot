@@ -93,6 +93,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.OpenScale,
 					ImportSource.Goodreads,
+					ImportSource.Grouvee,
 					ImportSource.Hardcover,
 					ImportSource.Storygraph,
 					() => ({
@@ -289,6 +290,7 @@ export default function Page() {
 												ImportSource.Imdb,
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
+												ImportSource.Grouvee,
 												ImportSource.Hardcover,
 												ImportSource.Storygraph,
 												() => (
