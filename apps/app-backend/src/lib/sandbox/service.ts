@@ -8,19 +8,25 @@ import {
 	defaultTimeoutMs,
 	vendoredPackages,
 } from "./constants";
-import { hostFunctionRegistry } from "./function-registry";
+import {
+	buildApiFunctionDescriptors,
+	hostFunctionRegistry,
+} from "./function-registry";
 import {
 	type SandboxRunJobData,
 	sandboxRunJobData,
 	sandboxRunJobName,
 } from "./jobs";
 import { PackageCacheManager } from "./package-cache";
+import { getSandboxScriptById } from "./repository";
 import { RunnerFileManager } from "./runner";
 import type {
+	ApiFunctionDescriptor,
 	HostFunctionFactory,
 	SandboxEnqueueOptions,
 	SandboxResult,
 } from "./types";
+import { sandboxScriptMetadataSchema } from "./types";
 import {
 	attachTimeoutGuard,
 	formatExit,
@@ -56,12 +62,10 @@ export class SandboxService {
 		await this.getQueue().add(
 			sandboxRunJobName,
 			{
-				code: options.code,
 				userId: options.userId,
 				context: options.context,
 				scriptId: options.scriptId,
 				driverName: options.driverName,
-				apiFunctionDescriptors: options.apiFunctionDescriptors,
 			},
 			{ jobId },
 		);
@@ -86,20 +90,35 @@ export class SandboxService {
 		return { job, jobData: jobData.data };
 	}
 
-	async executeQueuedRun(jobData: SandboxRunJobData) {
-		const descriptors = jobData.apiFunctionDescriptors;
-		const apiFunctions = descriptors?.length
-			? this.resolveApiFunctions(descriptors)
-			: undefined;
+	async executeQueuedRun(
+		jobData: SandboxRunJobData,
+		scriptFetcher: typeof getSandboxScriptById = getSandboxScriptById,
+	): Promise<QueuedRunResult> {
+		const script = await scriptFetcher(jobData.scriptId);
+		if (!script) {
+			return { success: false, error: "Sandbox script not found" };
+		}
+
+		const metadata = sandboxScriptMetadataSchema.safeParse(script.metadata);
+		const allowedKeys = metadata.success
+			? (metadata.data.allowedHostFunctions ??
+				Object.keys(hostFunctionRegistry))
+			: Object.keys(hostFunctionRegistry);
+
+		const descriptors = buildApiFunctionDescriptors(
+			allowedKeys,
+			jobData.userId,
+			jobData.scriptId,
+		);
 
 		return this.execute({
-			apiFunctions,
-			code: jobData.code,
+			code: script.code,
 			context: jobData.context,
 			scriptId: jobData.scriptId,
 			timeoutMs: jobData.timeoutMs,
 			maxHeapMB: jobData.maxHeapMB,
 			driverName: jobData.driverName,
+			apiFunctions: this.resolveApiFunctions(descriptors),
 		});
 	}
 
@@ -232,16 +251,14 @@ export class SandboxService {
 		}
 	}
 
-	private resolveApiFunctions(
-		descriptors: SandboxRunJobData["apiFunctionDescriptors"],
-	) {
+	private resolveApiFunctions(descriptors: ApiFunctionDescriptor[]) {
 		const apiFunctions: SandboxExecutionOptions["apiFunctions"] = {};
 		const registry = hostFunctionRegistry as Record<
 			string,
 			HostFunctionFactory
 		>;
 
-		for (const descriptor of descriptors ?? []) {
+		for (const descriptor of descriptors) {
 			const factory = registry[descriptor.functionKey];
 			if (!factory) {
 				throw new Error(
@@ -262,9 +279,17 @@ export class SandboxService {
 
 type SandboxExecutionOptions = Pick<
 	SandboxRunJobData,
-	"code" | "context" | "maxHeapMB" | "timeoutMs" | "driverName" | "scriptId"
+	"context" | "maxHeapMB" | "timeoutMs" | "driverName" | "scriptId"
 > & {
+	code: string;
 	apiFunctions?: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
+};
+
+export type QueuedRunResult = {
+	value?: unknown;
+	success: boolean;
+	logs?: string | null;
+	error?: string | null;
 };
 
 type SandboxJobLookupResult = {
