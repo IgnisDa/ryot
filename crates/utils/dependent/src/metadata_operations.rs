@@ -36,6 +36,7 @@ use supporting_service::SupportingService;
 
 use crate::deploy_update_metadata_job;
 use crate::details_from_provider;
+use crate::get_metadata_provider;
 use crate::get_non_metadata_provider;
 
 async fn ensure_metadata_updated(
@@ -450,8 +451,7 @@ pub async fn update_metadata_group(
     if !metadata_group.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
-    let provider =
-        crate::get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
+    let provider = get_metadata_provider(metadata_group.lot, metadata_group.source, ss).await?;
     let (group_details, associated_items) = provider
         .metadata_group_details(&metadata_group.identifier)
         .await?;
@@ -459,9 +459,9 @@ pub async fn update_metadata_group(
     eg.is_partial = ActiveValue::Set(None);
     eg.title = ActiveValue::Set(group_details.title);
     eg.parts = ActiveValue::Set(group_details.parts);
+    eg.assets = ActiveValue::Set(group_details.assets);
     eg.source_url = ActiveValue::Set(group_details.source_url);
     eg.description = ActiveValue::Set(group_details.description);
-    eg.assets = ActiveValue::Set(group_details.assets);
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
         let (db_partial_metadata, _) = commit_metadata(media, ss, None).await?;
