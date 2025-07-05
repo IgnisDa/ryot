@@ -89,13 +89,18 @@ export const WorkoutTemplateDisplayItem = (props: {
 	workoutTemplateId: string;
 	topRight?: ReactNode;
 }) => {
+	const { ref, inViewport } = useInViewport();
 	const {
 		data: workoutTemplateDetails,
 		isLoading: isWorkoutTemplateDetailsLoading,
-	} = useQuery(getWorkoutTemplateDetailsQuery(props.workoutTemplateId));
+	} = useQuery({
+		...getWorkoutTemplateDetailsQuery(props.workoutTemplateId),
+		enabled: inViewport,
+	});
 
 	return (
 		<BaseEntityDisplayItem
+			innerRef={ref}
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
 			imageOverlay={{ topRight: props.topRight }}
