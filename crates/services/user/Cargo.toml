@@ -16,6 +16,7 @@ dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum_meta = { workspace = true }
 enum-models = { path = "../../models/enum" }
+futures = { workspace = true }
 itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
