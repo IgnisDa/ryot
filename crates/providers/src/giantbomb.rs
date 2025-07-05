@@ -171,6 +171,7 @@ struct GiantBombFranchise {
     image: Option<GiantBombImage>,
     api_detail_url: Option<String>,
     site_detail_url: Option<String>,
+    games: Option<Vec<GiantBombPartialItem>>,
 }
 
 fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
@@ -184,10 +185,10 @@ fn parse_date(date_str: Option<String>) -> Option<NaiveDate> {
 fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
     api_detail_url
         .split('/')
-        .next_back()
-        .and_then(|s| s.strip_suffix('/').or(Some(s)))
-        .map(|s| s.to_string())
-        .unwrap()
+        .filter(|s| !s.is_empty())
+        .last()
+        .unwrap_or("")
+        .to_string()
 }
 
 fn get_prioritized_images(image: Option<GiantBombImage>) -> Vec<String> {
@@ -730,5 +731,74 @@ impl MediaProvider for GiantBombService {
             image: franchise.image.and_then(|img| img.original_url),
             ..Default::default()
         })
+    }
+
+    async fn metadata_group_details(
+        &self,
+        identifier: &str,
+    ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
+        ryot_log!(
+            debug,
+            "Fetching GiantBomb franchise details for: {}",
+            identifier
+        );
+
+        let url = format!("{}/franchise/{}/", BASE_URL, identifier);
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("api_key", &self.api_key), ("format", &"json".to_string())])
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "GiantBomb API returned status: {}",
+                response.status()
+            ));
+        }
+
+        let details_response: GiantBombDetailsResponse<GiantBombFranchise> = response
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse GiantBomb response: {}", e))?;
+
+        let franchise = details_response.results;
+
+        let metadata_group = MetadataGroupWithoutId {
+            title: franchise.name,
+            lot: MediaLot::VideoGame,
+            identifier: franchise.guid,
+            source: MediaSource::GiantBomb,
+            source_url: franchise.site_detail_url,
+            description: combine_description(franchise.deck, franchise.description),
+            assets: EntityAssets {
+                remote_images: get_prioritized_images(franchise.image),
+                ..Default::default()
+            },
+            parts: franchise
+                .games
+                .as_ref()
+                .map(|games| games.len())
+                .unwrap_or(0) as i32,
+        };
+
+        let mut games = Vec::new();
+        if let Some(franchise_games) = franchise.games {
+            for game in franchise_games {
+                if let Some(api_url) = game.api_detail_url {
+                    games.push(PartialMetadataWithoutId {
+                        title: game.name,
+                        lot: MediaLot::VideoGame,
+                        source: MediaSource::GiantBomb,
+                        identifier: extract_giant_bomb_guid(&api_url),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+
+        Ok((metadata_group, games))
     }
 }
