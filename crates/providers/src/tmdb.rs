@@ -65,20 +65,20 @@ struct TmdbImage {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbImagesResponse {
-    backdrops: Option<Vec<TmdbImage>>,
-    posters: Option<Vec<TmdbImage>>,
     logos: Option<Vec<TmdbImage>>,
+    posters: Option<Vec<TmdbImage>>,
     profiles: Option<Vec<TmdbImage>>,
+    backdrops: Option<Vec<TmdbImage>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbEntry {
     id: i32,
-    #[serde(alias = "logo_path", alias = "profile_path")]
-    poster_path: Option<String>,
-    overview: Option<String>,
     #[serde(alias = "name")]
     title: Option<String>,
+    overview: Option<String>,
+    #[serde(alias = "logo_path", alias = "profile_path")]
+    poster_path: Option<String>,
     release_date: Option<String>,
     first_air_date: Option<String>,
 }
@@ -86,9 +86,9 @@ struct TmdbEntry {
 #[derive(Serialize, Deserialize, Debug)]
 struct TmdbListResponse {
     page: i32,
+    total_pages: i32,
     total_results: i32,
     results: Vec<TmdbEntry>,
-    total_pages: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -109,23 +109,23 @@ struct TmdbSeasonNumber {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbMediaEntry {
     id: i32,
-    name: Option<String>,
-    original_language: Option<String>,
-    title: Option<String>,
     adult: Option<bool>,
-    vote_average: Option<Decimal>,
+    runtime: Option<i32>,
+    name: Option<String>,
+    title: Option<String>,
+    status: Option<String>,
     overview: Option<String>,
     poster_path: Option<String>,
-    backdrop_path: Option<String>,
     release_date: Option<String>,
+    vote_average: Option<Decimal>,
+    backdrop_path: Option<String>,
     first_air_date: Option<String>,
-    production_companies: Option<Vec<TmdbNonMediaEntity>>,
-    seasons: Option<Vec<TmdbSeasonNumber>>,
-    runtime: Option<i32>,
-    status: Option<String>,
     genres: Option<Vec<NamedObject>>,
-    belongs_to_collection: Option<IdObject>,
     videos: Option<TmdbVideoResults>,
+    original_language: Option<String>,
+    seasons: Option<Vec<TmdbSeasonNumber>>,
+    belongs_to_collection: Option<IdObject>,
+    production_companies: Option<Vec<TmdbNonMediaEntity>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -137,8 +137,8 @@ struct TmdbWatchProviderDetails {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbWatchProviderList {
-    rent: Option<Vec<TmdbWatchProviderDetails>>,
     buy: Option<Vec<TmdbWatchProviderDetails>>,
+    rent: Option<Vec<TmdbWatchProviderDetails>>,
     flatrate: Option<Vec<TmdbWatchProviderDetails>>,
 }
 
@@ -149,20 +149,20 @@ struct TmdbWatchProviderResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 struct TmdbFindByExternalSourceResponse {
-    movie_results: Vec<TmdbEntry>,
     tv_results: Vec<TmdbEntry>,
+    movie_results: Vec<TmdbEntry>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TmdbNonMediaEntity {
     id: i32,
     name: String,
+    gender: Option<u8>,
+    homepage: Option<String>,
     biography: Option<String>,
     description: Option<String>,
     birthday: Option<NaiveDate>,
     deathday: Option<NaiveDate>,
-    homepage: Option<String>,
-    gender: Option<u8>,
     origin_country: Option<String>,
     place_of_birth: Option<String>,
 }
