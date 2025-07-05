@@ -24,6 +24,11 @@ use traits::MediaProvider;
 
 static BASE_URL: &str = "https://www.giantbomb.com/api";
 
+// Role constants for metadata associations
+static ROLE_DEVELOPER: &str = "Developer";
+static ROLE_PUBLISHER: &str = "Publisher";
+static ROLE_PERSON: &str = "Person";
+
 #[derive(Clone)]
 pub struct GiantBombService {
     client: Client,
@@ -269,7 +274,7 @@ impl MediaProvider for GiantBombService {
                     people.push(PartialMetadataPerson {
                         name: dev.name,
                         source: MediaSource::GiantBomb,
-                        character: Some("Developer".to_string()),
+                        character: Some(ROLE_DEVELOPER.to_string()),
                         identifier: extract_giant_bomb_guid(&api_url),
                         source_specifics: Some(PersonSourceSpecifics {
                             is_giant_bomb_company: Some(true),
@@ -287,7 +292,7 @@ impl MediaProvider for GiantBombService {
                     people.push(PartialMetadataPerson {
                         name: publish.name,
                         source: MediaSource::GiantBomb,
-                        character: Some("Publisher".to_string()),
+                        character: Some(ROLE_PUBLISHER.to_string()),
                         identifier: extract_giant_bomb_guid(&api_url),
                         source_specifics: Some(PersonSourceSpecifics {
                             is_giant_bomb_company: Some(true),
@@ -510,7 +515,7 @@ impl MediaProvider for GiantBombService {
                 for game in developed_games {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
-                            role: "Developer".to_string(),
+                            role: ROLE_DEVELOPER.to_string(),
                             metadata: PartialMetadataWithoutId {
                                 title: game.name,
                                 lot: MediaLot::VideoGame,
@@ -528,7 +533,7 @@ impl MediaProvider for GiantBombService {
                 for game in published_games {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
-                            role: "Publisher".to_string(),
+                            role: ROLE_PUBLISHER.to_string(),
                             metadata: PartialMetadataWithoutId {
                                 title: game.name,
                                 lot: MediaLot::VideoGame,
@@ -546,7 +551,7 @@ impl MediaProvider for GiantBombService {
                 for game in games {
                     if let Some(api_url) = game.api_detail_url {
                         related_games.push(MetadataPersonRelated {
-                            role: "Person".to_string(),
+                            role: ROLE_PERSON.to_string(),
                             metadata: PartialMetadataWithoutId {
                                 title: game.name,
                                 lot: MediaLot::VideoGame,
@@ -564,7 +569,7 @@ impl MediaProvider for GiantBombService {
                 for franchise in franchises {
                     if let Some(api_url) = franchise.api_detail_url {
                         related_groups.push(MetadataGroupPersonRelated {
-                            role: "Person".to_string(),
+                            role: ROLE_PERSON.to_string(),
                             metadata_group: MetadataGroupWithoutId {
                                 title: franchise.name,
                                 lot: MediaLot::VideoGame,
