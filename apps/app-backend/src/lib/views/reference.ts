@@ -51,37 +51,78 @@ type RuntimeColumnConfig = {
 	property?: AppPropertyDefinition;
 };
 
+type RuntimePropertyType = "boolean" | "datetime" | "string";
+
+function createRuntimeProperty(
+	label: string,
+	type: "boolean",
+	description: string,
+): Extract<AppPropertyDefinition, { type: "boolean" }>;
+function createRuntimeProperty(
+	label: string,
+	type: "datetime",
+	description: string,
+): Extract<AppPropertyDefinition, { type: "datetime" }>;
+function createRuntimeProperty(
+	label: string,
+	type: "string",
+	description: string,
+): Extract<AppPropertyDefinition, { type: "string" }>;
+function createRuntimeProperty(
+	label: string,
+	type: RuntimePropertyType,
+	description: string,
+): AppPropertyDefinition {
+	return { label, type, description };
+}
+
 const entityRuntimeColumns = {
 	image: { display: true, filter: false },
 	id: {
 		filter: true,
 		display: true,
-		property: { label: "ID", type: "string" },
+		property: createRuntimeProperty("ID", "string", "Entity id"),
 	},
 	name: {
 		filter: true,
 		display: true,
-		property: { label: "Name", type: "string" },
+		property: createRuntimeProperty("Name", "string", "Entity name"),
 	},
 	externalId: {
 		filter: true,
 		display: true,
-		property: { label: "External ID", type: "string" },
+		property: createRuntimeProperty(
+			"External ID",
+			"string",
+			"External identifier",
+		),
 	},
 	sandboxScriptId: {
 		filter: true,
 		display: true,
-		property: { label: "Sandbox Script ID", type: "string" },
+		property: createRuntimeProperty(
+			"Sandbox Script ID",
+			"string",
+			"Sandbox script identifier",
+		),
 	},
 	createdAt: {
 		filter: true,
 		display: true,
-		property: { label: "Created At", type: "datetime" },
+		property: createRuntimeProperty(
+			"Created At",
+			"datetime",
+			"Creation timestamp",
+		),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: { label: "Updated At", type: "datetime" },
+		property: createRuntimeProperty(
+			"Updated At",
+			"datetime",
+			"Last update timestamp",
+		),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
@@ -89,17 +130,25 @@ const eventJoinColumns = {
 	id: {
 		filter: true,
 		display: true,
-		property: { label: "ID", type: "string" },
+		property: createRuntimeProperty("ID", "string", "Event id"),
 	},
 	createdAt: {
 		filter: true,
 		display: true,
-		property: { label: "Created At", type: "datetime" },
+		property: createRuntimeProperty(
+			"Created At",
+			"datetime",
+			"Event creation timestamp",
+		),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: { label: "Updated At", type: "datetime" },
+		property: createRuntimeProperty(
+			"Updated At",
+			"datetime",
+			"Event update timestamp",
+		),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
@@ -107,47 +156,63 @@ const entitySchemaRuntimeColumns = {
 	id: {
 		filter: true,
 		display: true,
-		property: { label: "ID", type: "string" },
+		property: createRuntimeProperty("ID", "string", "Schema id"),
 	},
 	icon: {
 		display: true,
 		filter: false,
-		property: { label: "Icon", type: "string" },
+		property: createRuntimeProperty("Icon", "string", "Schema icon"),
 	},
 	name: {
 		filter: true,
 		display: true,
-		property: { label: "Name", type: "string" },
+		property: createRuntimeProperty("Name", "string", "Schema name"),
 	},
 	slug: {
 		filter: true,
 		display: true,
-		property: { label: "Slug", type: "string" },
+		property: createRuntimeProperty("Slug", "string", "Schema slug"),
 	},
 	userId: {
 		filter: true,
 		display: true,
-		property: { label: "User ID", type: "string" },
+		property: createRuntimeProperty("User ID", "string", "Owner user id"),
 	},
 	isBuiltin: {
 		filter: true,
 		display: true,
-		property: { label: "Is Builtin", type: "boolean" },
+		property: createRuntimeProperty(
+			"Is Builtin",
+			"boolean",
+			"Whether the schema is built in",
+		),
 	},
 	createdAt: {
 		filter: true,
 		display: true,
-		property: { label: "Created At", type: "datetime" },
+		property: createRuntimeProperty(
+			"Created At",
+			"datetime",
+			"Schema creation timestamp",
+		),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: { label: "Updated At", type: "datetime" },
+		property: createRuntimeProperty(
+			"Updated At",
+			"datetime",
+			"Schema update timestamp",
+		),
 	},
 	accentColor: {
 		filter: false,
 		display: true,
-		property: { label: "Accent Color", type: "string" },
+		property: createRuntimeProperty(
+			"Accent Color",
+			"string",
+			"Schema accent color",
+		),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
@@ -227,8 +292,31 @@ export const getEventJoinColumnPropertyType = (
 
 const formatEventJoinReferencePrefix = (joinKey: string) => `event.${joinKey}`;
 
-const stringifyPropertyDefinition = (property: AppPropertyDefinition) => {
-	return JSON.stringify(property);
+const serializeComparablePropertyDefinition = (
+	property: AppPropertyDefinition,
+): string => {
+	const { description: _description, label: _label, ...rest } = property;
+
+	if (property.type === "array") {
+		return JSON.stringify({
+			...rest,
+			items: JSON.parse(serializeComparablePropertyDefinition(property.items)),
+		});
+	}
+
+	if (property.type === "object") {
+		return JSON.stringify({
+			...rest,
+			properties: Object.fromEntries(
+				Object.entries(property.properties).map(([key, value]) => [
+					key,
+					JSON.parse(serializeComparablePropertyDefinition(value)),
+				]),
+			),
+		});
+	}
+
+	return JSON.stringify(rest);
 };
 
 export const getPropertyDefinition = (
@@ -364,9 +452,10 @@ export const getEventJoinPropertyDefinition = <
 		);
 	}
 
-	const firstSerialized = stringifyPropertyDefinition(firstDefinition);
+	const firstSerialized =
+		serializeComparablePropertyDefinition(firstDefinition);
 	for (const definition of restDefinitions) {
-		if (stringifyPropertyDefinition(definition) !== firstSerialized) {
+		if (serializeComparablePropertyDefinition(definition) !== firstSerialized) {
 			throw new QueryEngineValidationError(
 				`Property '${propertyPath.join(".")}' has incompatible definitions across event schemas for join '${join.key}'`,
 			);

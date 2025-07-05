@@ -49,6 +49,7 @@ describe("parseAppSchemaProperties", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress Percent",
+							description: "Progress percentage",
 							transform: { round: { mode: "half_up", scale: 2 } },
 							validation: {
 								required: true,
@@ -69,10 +70,15 @@ describe("parseAppSchemaProperties", () => {
 				properties: { status: "draft" },
 				propertiesSchema: {
 					fields: {
-						progressPercent: { type: "number", label: "Progress Percent" },
+						progressPercent: {
+							type: "number",
+							label: "Progress Percent",
+							description: "Progress percentage",
+						},
 						status: {
 							type: "string",
 							label: "Status",
+							description: "Workflow status",
 							validation: { required: true },
 						},
 					},
@@ -94,10 +100,15 @@ describe("parseAppSchemaProperties", () => {
 				properties: { status: "completed" },
 				propertiesSchema: {
 					fields: {
-						progressPercent: { type: "number", label: "Progress Percent" },
+						progressPercent: {
+							type: "number",
+							label: "Progress Percent",
+							description: "Progress percentage",
+						},
 						status: {
 							type: "string",
 							label: "Status",
+							description: "Workflow status",
 							validation: { required: true },
 						},
 					},

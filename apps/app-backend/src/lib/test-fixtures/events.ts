@@ -97,6 +97,7 @@ export const createEventDeps = (
 					rating: {
 						label: "Rating",
 						type: "number" as const,
+						description: "Rating score",
 						validation: { required: true as const },
 					},
 				},

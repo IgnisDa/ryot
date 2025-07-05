@@ -22,9 +22,10 @@ describe("buildDefaultEventFormValues", () => {
 				entitySchemaId: "entity-schema-1",
 				propertiesSchema: {
 					fields: {
-						notes: { label: "Notes", type: "string" },
+						notes: { label: "Notes", description: "Notes", type: "string" },
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
@@ -55,6 +56,7 @@ describe("buildDefaultEventFormValues", () => {
 						fields: {
 							pages: {
 								label: "Pages",
+								description: "Pages",
 								type: "integer",
 								validation: { required: true },
 							},
@@ -71,6 +73,7 @@ describe("buildDefaultEventFormValues", () => {
 							completed: {
 								type: "boolean",
 								label: "Completed",
+								description: "Completed",
 								validation: { required: true },
 							},
 						},
@@ -96,6 +99,7 @@ describe("buildDefaultEventFormValues", () => {
 						fields: {
 							pages: {
 								label: "Pages",
+								description: "Pages",
 								type: "integer",
 								validation: { required: true },
 							},
@@ -112,6 +116,7 @@ describe("buildDefaultEventFormValues", () => {
 							completed: {
 								type: "boolean",
 								label: "Completed",
+								description: "Completed",
 								validation: { required: true },
 							},
 						},
@@ -135,22 +140,26 @@ describe("buildDefaultEventFormValues", () => {
 					fields: {
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
 						tags: {
 							label: "Tags",
+							description: "Tags",
 							type: "array",
 							validation: { required: true },
-							items: { label: "Tag", type: "string" },
+							items: { label: "Tag", description: "Tag", type: "string" },
 						},
 						metadata: {
 							type: "object",
 							label: "Metadata",
+							description: "Metadata",
 							validation: { required: true },
 							properties: {
 								rating: {
 									label: "Rating",
+									description: "Rating",
 									type: "number",
 									validation: { required: true },
 								},
@@ -182,10 +191,15 @@ describe("buildCreateEventFormSchema", () => {
 				id: "schema-1",
 				propertiesSchema: {
 					fields: {
-						minutes: { label: "Minutes", type: "number" },
+						minutes: {
+							label: "Minutes",
+							description: "Minutes",
+							type: "number",
+						},
 						completed: {
 							type: "boolean",
 							label: "Completed",
+							description: "Completed",
 							validation: { required: true },
 						},
 					},
@@ -208,6 +222,7 @@ describe("buildCreateEventFormSchema", () => {
 					fields: {
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
@@ -222,6 +237,7 @@ describe("buildCreateEventFormSchema", () => {
 						completed: {
 							type: "boolean",
 							label: "Completed",
+							description: "Completed",
 							validation: { required: true },
 						},
 					},
@@ -249,22 +265,26 @@ describe("buildCreateEventFormSchema", () => {
 					fields: {
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
 						tags: {
 							label: "Tags",
+							description: "Tags",
 							type: "array",
-							items: { label: "Tag", type: "string" },
+							items: { label: "Tag", description: "Tag", type: "string" },
 							validation: { required: true },
 						},
 						metadata: {
 							type: "object",
 							label: "Metadata",
+							description: "Metadata",
 							validation: { required: true },
 							properties: {
 								rating: {
 									label: "Rating",
+									description: "Rating",
 									type: "number",
 									validation: { required: true },
 								},
@@ -301,28 +321,33 @@ describe("getUnsupportedRequiredEventProperties", () => {
 				fields: {
 					pages: {
 						label: "Pages",
+						description: "Pages",
 						type: "integer",
 						validation: { required: true },
 					},
 					notes: {
 						label: "Notes",
+						description: "Notes",
 						type: "array",
-						items: { label: "Note", type: "string" },
+						items: { label: "Note", description: "Note", type: "string" },
 					},
 					tags: {
 						label: "Tags",
+						description: "Tags",
 						type: "array",
-						items: { label: "Tag", type: "string" },
+						items: { label: "Tag", description: "Tag", type: "string" },
 						validation: { required: true },
 					},
 					metadata: {
 						type: "object",
 						label: "Metadata",
+						description: "Metadata",
 						validation: { required: true },
 						properties: {
 							rating: {
 								type: "number",
 								label: "Rating",
+								description: "Rating",
 								validation: { required: true },
 							},
 						},
@@ -390,6 +415,7 @@ describe("toCreateEventPayload", () => {
 							minutes: {
 								type: "number",
 								label: "Minutes",
+								description: "Minutes",
 								validation: { required: true },
 							},
 						},
@@ -403,6 +429,7 @@ describe("toCreateEventPayload", () => {
 							completed: {
 								type: "boolean",
 								label: "Completed",
+								description: "Completed",
 								validation: { required: true },
 							},
 						},
@@ -429,6 +456,7 @@ describe("toCreateEventPayload", () => {
 							minutes: {
 								type: "number",
 								label: "Minutes",
+								description: "Minutes",
 								validation: { required: true },
 							},
 						},
@@ -447,15 +475,17 @@ describe("reconcileEventProperties", () => {
 			reconcileEventProperties(
 				{
 					fields: {
-						notes: { label: "Notes", type: "string" },
+						notes: { label: "Notes", description: "Notes", type: "string" },
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
 						completed: {
 							type: "boolean",
 							label: "Completed",
+							description: "Completed",
 							validation: { required: true },
 						},
 					},
@@ -472,14 +502,16 @@ describe("reconcileEventProperties", () => {
 					fields: {
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
 						tags: {
 							label: "Tags",
+							description: "Tags",
 							type: "array",
 							validation: { required: true },
-							items: { label: "Tag", type: "string" },
+							items: { label: "Tag", description: "Tag", type: "string" },
 						},
 					},
 				},
@@ -500,6 +532,7 @@ describe("syncCreateEventFormValues", () => {
 							fields: {
 								pages: {
 									label: "Pages",
+									description: "Pages",
 									type: "integer",
 									validation: { required: true },
 								},
@@ -511,10 +544,11 @@ describe("syncCreateEventFormValues", () => {
 						name: "Finished",
 						propertiesSchema: {
 							fields: {
-								notes: { label: "Notes", type: "string" },
+								notes: { label: "Notes", description: "Notes", type: "string" },
 								completed: {
 									type: "boolean",
 									label: "Completed",
+									description: "Completed",
 									validation: { required: true },
 								},
 							},
@@ -542,6 +576,7 @@ describe("syncCreateEventFormValues", () => {
 							fields: {
 								pages: {
 									label: "Pages",
+									description: "Pages",
 									type: "integer",
 									validation: { required: true },
 								},
@@ -556,6 +591,7 @@ describe("syncCreateEventFormValues", () => {
 								completed: {
 									type: "boolean",
 									label: "Completed",
+									description: "Completed",
 									validation: { required: true },
 								},
 							},
@@ -579,6 +615,7 @@ describe("buildEventSchemaSelectionPatch", () => {
 							fields: {
 								pages: {
 									label: "Pages",
+									description: "Pages",
 									type: "integer",
 									validation: { required: true },
 								},
@@ -590,10 +627,15 @@ describe("buildEventSchemaSelectionPatch", () => {
 						name: "Finished",
 						propertiesSchema: {
 							fields: {
-								notes: { label: "Notes", type: "string" },
+								notes: {
+									label: "Notes",
+									description: "Notes",
+									type: "string",
+								},
 								completed: {
 									type: "boolean",
 									label: "Completed",
+									description: "Completed",
 									validation: { required: true },
 								},
 							},
@@ -624,6 +666,7 @@ describe("getEventFormReconciliationState", () => {
 							fields: {
 								pages: {
 									label: "Pages",
+									description: "Pages",
 									type: "integer",
 									validation: { required: true },
 								},
@@ -638,6 +681,7 @@ describe("getEventFormReconciliationState", () => {
 								completed: {
 									type: "boolean",
 									label: "Completed",
+									description: "Completed",
 									validation: { required: true },
 								},
 							},
@@ -653,6 +697,7 @@ describe("getEventFormReconciliationState", () => {
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -670,6 +715,7 @@ describe("getEventFormReconciliationState", () => {
 							fields: {
 								pages: {
 									label: "Pages",
+									description: "Pages",
 									type: "integer",
 									validation: { required: true },
 								},
@@ -685,6 +731,7 @@ describe("getEventFormReconciliationState", () => {
 				fields: {
 					pages: {
 						label: "Pages",
+						description: "Pages",
 						type: "integer",
 						validation: { required: true },
 					},

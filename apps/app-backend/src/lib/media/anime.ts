@@ -5,15 +5,18 @@ import { mediaPropertiesSchema } from "./common";
 
 const animeAiringScheduleSpecificsSchema = z
 	.object({
-		episode: z.number().int(),
-		airingAt: z.iso.datetime(),
+		episode: z.number().int().describe("Episode number"),
+		airingAt: z.iso.datetime().describe("Scheduled air date and time"),
 	})
 	.strict();
 
 export const animePropertiesSchema = mediaPropertiesSchema.extend({
-	images: imagesSchema,
-	episodes: nullableIntSchema,
-	airingSchedule: z.array(animeAiringScheduleSpecificsSchema).nullish(),
+	images: imagesSchema.describe("Cover and promotional images for this anime"),
+	episodes: nullableIntSchema.describe("Total number of episodes, if known"),
+	airingSchedule: z
+		.array(animeAiringScheduleSpecificsSchema)
+		.nullish()
+		.describe("Upcoming episode airing schedule"),
 });
 
 export const animePropertiesJsonSchema = toAppSchemaProperties(

@@ -10,6 +10,7 @@ export function createPropertySchemaInputFixture(
 		key: "title",
 		type: "string",
 		label: "Title",
+		description: "Title",
 		required: false,
 		...overrides,
 	};

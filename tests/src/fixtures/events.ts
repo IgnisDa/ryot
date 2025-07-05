@@ -92,6 +92,7 @@ export async function createEventTestFixture(client: Client, cookies: string) {
 				rating: {
 					label: "Rating",
 					type: "number" as const,
+					description: "Rating score",
 					validation: { required: true as const },
 				},
 			},
@@ -121,10 +122,12 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 				progressPercent: {
 					type: "number" as const,
 					label: "Progress Percent",
+					description: "Progress percentage",
 				},
 				status: {
-					type: "string" as const,
 					label: "Status",
+					type: "string" as const,
+					description: "Workflow status",
 					validation: { required: true as const },
 				},
 			},

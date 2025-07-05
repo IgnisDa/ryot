@@ -23,6 +23,7 @@ describe("buildDefaultEntitySchemaPropertyRow", () => {
 		expect(row).toMatchObject({
 			key: "",
 			label: "",
+			description: "",
 			type: "string",
 			required: false,
 		});
@@ -47,6 +48,7 @@ describe("buildEntitySchemaFormValues", () => {
 		expect(row).toMatchObject({
 			key: "",
 			label: "",
+			description: "",
 			type: "string",
 			required: false,
 		});
@@ -68,6 +70,7 @@ describe("buildEntitySchemaFormValues", () => {
 		expect(row).toMatchObject({
 			key: "",
 			label: "",
+			description: "",
 			type: "string",
 			required: false,
 		});
@@ -283,9 +286,9 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				title: { label: "Title", type: "string" },
-				rating: { label: "Title", type: "number" },
-				isOwned: { label: "Title", type: "boolean" },
+				title: { label: "Title", description: "Title", type: "string" },
+				rating: { label: "Title", description: "Title", type: "number" },
+				isOwned: { label: "Title", description: "Title", type: "boolean" },
 			},
 		});
 	});
@@ -295,7 +298,11 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			buildEntitySchemaPropertiesSchema([
 				input({ key: "pages", type: "integer" }),
 			]),
-		).toEqual({ fields: { pages: { label: "Title", type: "integer" } } });
+		).toEqual({
+			fields: {
+				pages: { label: "Title", description: "Title", type: "integer" },
+			},
+		});
 	});
 
 	it("maps date rows and includes required flag when present", () => {
@@ -306,10 +313,11 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 			]),
 		).toEqual({
 			fields: {
-				summary: { label: "Title", type: "string" },
+				summary: { label: "Title", description: "Title", type: "string" },
 				releasedOn: {
 					type: "date",
 					label: "Title",
+					description: "Title",
 					validation: { required: true },
 				},
 			},
@@ -346,10 +354,15 @@ describe("toCreateEntitySchemaPayload", () => {
 			trackerId: "tracker-123",
 			propertiesSchema: {
 				fields: {
-					rating: { label: "Title", type: "number" },
+					rating: {
+						label: "Title",
+						description: "Title",
+						type: "number",
+					},
 					releasedOn: {
 						type: "date",
 						label: "Title",
+						description: "Title",
 						validation: { required: true },
 					},
 				},
@@ -375,7 +388,13 @@ describe("toCreateEntitySchemaPayload", () => {
 			accentColor: "#5B7FFF",
 			trackerId: "tracker-123",
 			propertiesSchema: {
-				fields: { title: { label: "Title", type: "string" } },
+				fields: {
+					title: {
+						label: "Title",
+						description: "Title",
+						type: "string",
+					},
+				},
 			},
 		});
 	});
