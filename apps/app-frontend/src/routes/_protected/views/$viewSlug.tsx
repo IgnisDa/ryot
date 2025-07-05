@@ -97,8 +97,8 @@ function RouteComponent() {
 				onDelete={handleDelete}
 				actionError={actionError}
 				isCloning={savedViewMutations.clone.isPending}
-				isDeleting={savedViewMutations.remove.isPending}
 				onCreateCollection={createCollectionModal.open}
+				isDeleting={savedViewMutations.remove.isPending}
 				isCreatingCollection={collectionMutations.create.isPending}
 			/>
 			<CreateCollectionModal
