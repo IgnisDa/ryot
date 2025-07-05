@@ -3322,6 +3322,7 @@ dependencies = [
  "eventsource-stream",
  "external-models",
  "external-utils",
+ "futures",
  "itertools 0.14.0",
  "media-models",
  "providers",

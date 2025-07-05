@@ -9,6 +9,7 @@ use common_models::{
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
 use enum_models::EntityLot;
+use futures::try_join;
 use media_models::CreateOrUpdateCollectionInput;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, QueryFilter,
@@ -91,9 +92,11 @@ async fn add_single_entity_to_collection(
             created
         }
     };
-    mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss).await?;
-    expire_user_collections_list_cache(user_id, ss).await?;
-    expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
+    try_join!(
+        mark_entity_as_recently_consumed(user_id, &entity.entity_id, entity.entity_lot, ss),
+        expire_user_collections_list_cache(user_id, ss),
+        expire_user_collection_contents_cache(user_id, &collection.id, ss)
+    )?;
     ss.perform_application_job(ApplicationJob::Lp(
         LpApplicationJob::HandleEntityAddedToCollectionEvent(resp.id),
     ))
