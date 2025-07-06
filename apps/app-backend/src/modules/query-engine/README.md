@@ -50,6 +50,7 @@ In `aggregate` mode:
 - `sort`, `pagination`, and `fields` are omitted.
 - `aggregations` is required.
 - The filtered entity set is still defined by `scope`, `filter`, `eventJoins`, `relationships`, and `computedFields`.
+- `countBy.groupBy` must resolve to a comparable scalar value.
 
 In `events` mode:
 
@@ -148,7 +149,8 @@ Available columns: `id`, `slug`, `name`, `icon`, `accentColor`, `isBuiltin`, `us
 Available built-in columns: `id`, `createdAt`, `updatedAt`. Properties via `["properties", "fieldName"]`.
 
 - `id` and `createdAt`/`updatedAt` work in sort, filters, and fields.
-- `eventSchemaSlug` is optional for property paths; without it the property type falls back to `string`.
+- `eventSchemaSlug` is optional for display-only property paths; without it the property type falls back to `string`.
+- Sort, filter, aggregate `countBy`, and time-series `sum` contexts require `eventSchemaSlug` for primary event property paths.
 
 ### Event-Schema Built-Ins (`event-schema` reference)
 

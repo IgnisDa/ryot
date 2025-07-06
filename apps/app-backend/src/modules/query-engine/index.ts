@@ -1,14 +1,14 @@
+export { executePreparedQuery } from "./entity-query-builder";
+export {
+	calculatePagination,
+	mapQueryRowToItem,
+} from "./paginated-query-sql";
 export {
 	normalizeRequestPerMode,
 	prepareAndExecute,
 	prepareForValidation,
 	prepareSavedView,
 } from "./preparer";
-export {
-	calculatePagination,
-	executePreparedQuery,
-	mapQueryRowToItem,
-} from "./query-builder";
 export type { QueryEngineSchemaRow } from "./query-ctes";
 export type {
 	AggregateQueryEngineRequest,

@@ -46,6 +46,7 @@ export type QueryEngineReferenceContext<
 > = {
 	userId?: string;
 	supportsPrimaryEventRefs?: boolean;
+	requirePrimaryEventSchemaSlug?: boolean;
 	schemaMap: Map<string, TSchema>;
 	eventJoinMap: Map<string, TJoin>;
 	eventSchemaSlugs?: ReadonlySet<string>;
@@ -134,7 +135,7 @@ const entityRuntimeColumns = {
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
-const eventJoinColumns = {
+const sharedEventRuntimeColumns = {
 	id: {
 		filter: true,
 		display: true,
@@ -160,31 +161,9 @@ const eventJoinColumns = {
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
-const eventRuntimeColumns = {
-	id: {
-		filter: true,
-		display: true,
-		property: createRuntimeProperty("ID", "string", "Event id"),
-	},
-	createdAt: {
-		filter: true,
-		display: true,
-		property: createRuntimeProperty(
-			"Created At",
-			"datetime",
-			"Event creation timestamp",
-		),
-	},
-	updatedAt: {
-		filter: true,
-		display: true,
-		property: createRuntimeProperty(
-			"Updated At",
-			"datetime",
-			"Event update timestamp",
-		),
-	},
-} satisfies Record<string, RuntimeColumnConfig>;
+const eventJoinColumns = sharedEventRuntimeColumns;
+
+const eventRuntimeColumns = sharedEventRuntimeColumns;
 
 const eventSchemaRuntimeColumns = {
 	id: {
