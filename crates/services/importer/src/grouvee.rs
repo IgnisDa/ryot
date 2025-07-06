@@ -2,6 +2,7 @@ use std::{collections::HashMap, result::Result as StdResult};
 
 use async_graphql::Result;
 use chrono::{DateTime, Utc};
+use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use csv::Reader;
 use dependent_models::{
@@ -167,9 +168,17 @@ fn parse_shelves(shelves_str: &str) -> Vec<CollectionToEntityDetails> {
     match shelves {
         Ok(shelf_map) => shelf_map
             .keys()
-            .map(|shelf_name| CollectionToEntityDetails {
-                collection_name: shelf_name.clone(),
-                ..Default::default()
+            .map(|shelf_name| {
+                let collection_name = match shelf_name.as_str() {
+                    "Played" => DefaultCollection::Completed.to_string(),
+                    "Playing" => DefaultCollection::InProgress.to_string(),
+                    "Wish List" => DefaultCollection::Watchlist.to_string(),
+                    _ => shelf_name.clone(),
+                };
+                CollectionToEntityDetails {
+                    collection_name,
+                    ..Default::default()
+                }
             })
             .collect(),
         Err(_) => Vec::new(),
