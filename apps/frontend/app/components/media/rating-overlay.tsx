@@ -36,7 +36,7 @@ export const DisplayAverageRatingOverlay = (props: {
 							: Number(props.averageRating).toFixed(1)}
 						{userPreferences.general.reviewScale ===
 						UserReviewScale.OutOfHundred
-							? " %"
+							? "%"
 							: undefined}
 						{userPreferences.general.reviewScale === UserReviewScale.OutOfTen
 							? "/10"
