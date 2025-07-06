@@ -1,14 +1,9 @@
 import { S3Client } from "bun";
+
 import { config } from "./config";
 
 const createS3Config = () => {
-	const {
-		region,
-		bucketName,
-		accessKeyId,
-		url: endpoint,
-		secretAccessKey,
-	} = config.fileStorage;
+	const { region, bucketName, accessKeyId, url: endpoint, secretAccessKey } = config.fileStorage;
 
 	if (!endpoint || !bucketName || !accessKeyId || !secretAccessKey) {
 		return null;

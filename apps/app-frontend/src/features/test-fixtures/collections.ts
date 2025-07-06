@@ -60,9 +60,7 @@ export function createQueryEngineCollectionFixture(
 	];
 }
 
-export function createAppCollectionFixture(
-	overrides: Partial<AppCollection> = {},
-): AppCollection {
+export function createAppCollectionFixture(overrides: Partial<AppCollection> = {}): AppCollection {
 	const id = overrides.id ?? "collection-1";
 	return {
 		id,
@@ -86,10 +84,7 @@ export function createQueryEngineCollectionWithSchema(
 	id: string,
 	name: string,
 	schema: {
-		fields: Record<
-			string,
-			{ type: string; label: string; description: string }
-		>;
+		fields: Record<string, { type: string; label: string; description: string }>;
 	},
 ): ApiQueryEngineCollection {
 	return createQueryEngineCollectionFixture({

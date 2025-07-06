@@ -59,6 +59,7 @@ After the engine extension is built, the media service's hardcoded custom querie
 ### Discriminated Union on `mode`
 
 The request body is a Zod discriminated union on the `mode` field. The response body is also discriminated on `mode`. This enables:
+
 - Single endpoint (`POST /query-engine/execute`)
 - Polymorphic storage in saved view `queryDefinition` JSONB
 - Self-describing responses
@@ -66,6 +67,7 @@ The request body is a Zod discriminated union on the `mode` field. The response 
 ### Reference Type Rename (Prerequisite)
 
 The existing `{ type: "event", joinKey: string, path: string[] }` reference is renamed to `{ type: "event-join", joinKey: string, path: string[] }`. This frees `event` for the new primary-event-row reference. The rename affects:
+
 - The `RuntimeRef` type in `@ryot/ts-utils`
 - Zod schemas in the views expression library
 - Expression compiler handlers
@@ -73,20 +75,21 @@ The existing `{ type: "event", joinKey: string, path: string[] }` reference is r
 - Media service code
 
 Two new reference types are introduced:
+
 - `{ type: "event", eventSchemaSlug?: string, path: string[] }` — the primary event row in event-first modes. `eventSchemaSlug` is required when `path` starts with `"properties"` (for property validation and CASE WHEN generation). Built-in columns (`id`, `createdAt`, `updatedAt`) don't need it.
 - `{ type: "event-schema", path: string[] }` — the primary event's schema metadata. Available columns: `id`, `slug`, `name`, `isBuiltin`, `createdAt`, `updatedAt`. All are filterable, sortable, and displayable.
 
 ### Reference Validity Per Mode
 
-| Reference Type | entities | events | aggregate | timeSeries |
-|---|---|---|---|---|
-| `entity` (slug-qualified) | valid | valid | valid | valid |
-| `entity-schema` | valid | valid | valid | valid |
-| `event-join` (joinKey) | valid | valid | valid | invalid |
-| `event-aggregate` | valid | invalid | valid | invalid |
-| `computed-field` | valid | valid | valid | valid |
-| `event` (primary event) | invalid | valid | invalid | valid |
-| `event-schema` (primary event's schema) | invalid | valid | invalid | valid |
+| Reference Type                          | entities | events  | aggregate | timeSeries |
+| --------------------------------------- | -------- | ------- | --------- | ---------- |
+| `entity` (slug-qualified)               | valid    | valid   | valid     | valid      |
+| `entity-schema`                         | valid    | valid   | valid     | valid      |
+| `event-join` (joinKey)                  | valid    | valid   | valid     | invalid    |
+| `event-aggregate`                       | valid    | invalid | valid     | invalid    |
+| `computed-field`                        | valid    | valid   | valid     | valid      |
+| `event` (primary event)                 | invalid  | valid   | invalid   | valid      |
+| `event-schema` (primary event's schema) | invalid  | valid   | invalid   | valid      |
 
 The validator enforces this matrix per mode at request time.
 
@@ -113,6 +116,7 @@ In all modes (including event mode), entity references require a `slug` field. M
 Events mode returns paginated event rows. The response shape is identical to entity mode: `{ mode, data: { meta: { pagination }, items: [[{ key, kind, value }]] } }`.
 
 Events mode does NOT support:
+
 - `relationships` — events are user-owned, no access control gap
 - `event-aggregate` references — per-entity aggregation doesn't apply to event-first results
 
@@ -171,6 +175,7 @@ ORDER BY sort_index
 ### Events Mode Expression Resolution
 
 In event mode:
+
 - `event` references resolve against the primary event row columns: `id` = `alias.id`, `createdAt` = `alias.created_at`, `properties.X` = `alias.properties -> 'X'`. When `eventSchemaSlug` is provided, a CASE WHEN wraps property access: `CASE WHEN event_schema_data ->> 'slug' = $slug THEN ... ELSE null END`.
 - `entity` references resolve against `alias.entity_name`, `alias.entity_image`, `alias.entity_properties` with slug-based CASE WHEN for multi-schema queries (same as entity mode).
 - `entity-schema` references resolve against `alias.entity_schema_data ->> $column` (same as entity mode).
@@ -383,18 +388,18 @@ Each variant contains only the fields relevant to its mode. Existing saved views
 
 ### Infrastructure Sharing
 
-| Component | entities | events | aggregate | timeSeries |
-|---|---|---|---|---|
-| Schema loading (preparer) | reused | reused | reused | reused |
-| Access scoping (userId) | reused | reused | reused | reused |
-| Expression compiler | reused | extended (new refs) | reused | extended (new refs) |
-| Filter builder | reused | reused | reused | reused |
-| Sort builder | reused | reused | n/a | n/a |
-| Display builder | reused | reused | adapted (single row) | n/a (fixed shape) |
-| Pagination utilities | reused | reused | n/a | n/a |
-| Event join loading | reused | reused | reused | n/a |
-| Relationship loading | reused | n/a | reused | n/a |
-| Base entity CTEs | reused | n/a (different CTEs) | reused | n/a |
+| Component                 | entities | events               | aggregate            | timeSeries          |
+| ------------------------- | -------- | -------------------- | -------------------- | ------------------- |
+| Schema loading (preparer) | reused   | reused               | reused               | reused              |
+| Access scoping (userId)   | reused   | reused               | reused               | reused              |
+| Expression compiler       | reused   | extended (new refs)  | reused               | extended (new refs) |
+| Filter builder            | reused   | reused               | reused               | reused              |
+| Sort builder              | reused   | reused               | n/a                  | n/a                 |
+| Display builder           | reused   | reused               | adapted (single row) | n/a (fixed shape)   |
+| Pagination utilities      | reused   | reused               | n/a                  | n/a                 |
+| Event join loading        | reused   | reused               | reused               | n/a                 |
+| Relationship loading      | reused   | n/a                  | reused               | n/a                 |
+| Base entity CTEs          | reused   | n/a (different CTEs) | reused               | n/a                 |
 
 ### Implementation Order
 
@@ -411,12 +416,14 @@ Aggregate mode reuses `buildBaseEntitiesCte`, `buildLatestEventJoinCte`, and `bu
 ### Expression Compiler Extension
 
 The expression compiler gains two new reference handlers:
+
 - `event` → resolves event row columns/properties from the CTE alias. Built-in columns: `id`, `createdAt`, `updatedAt`. Property paths use JSONB access with CASE WHEN on `event_schema_data.slug` when `eventSchemaSlug` is provided.
 - `event-schema` → resolves `alias.event_schema_data ->> $column` with type casting. Same pattern as existing `entity-schema` handler.
 
 ### Media Service Migration
 
 After all modes are built:
+
 - `getRecentActivityItems` becomes an events-mode query with `eventSchemas: ["review", "complete", "progress", "backlog"]`, sorted by `event.createdAt DESC`, limit 12.
 - `getLibraryStats` becomes an aggregate-mode query with `countWhere` for in-progress/completed/backlog, `avg` for rating, `countBy` for schema slug distribution. No row limit.
 - `getWeekActivity` becomes a time-series query with `bucket: "day"`, absolute date range (current ISO week computed at call site), `metric: { type: "count" }`.
@@ -470,6 +477,7 @@ Tests should verify external behavior through the module's public interface, not
 ### Why One Endpoint
 
 All modes share one endpoint because:
+
 1. Stored query definitions are polymorphic JSONB — one column stores any mode's definition
 2. The frontend calls one API regardless of widget type
 3. The preparer already orchestrates mode dispatch — adding routes would fragment what is conceptually "execute a query"
@@ -477,6 +485,7 @@ All modes share one endpoint because:
 ### Why Not Application-Level Aggregation
 
 The current library stats approach (fetch 10k rows, aggregate in TypeScript) is fundamentally broken:
+
 - Users with >10k entities get incorrect stats
 - Network transfer of 10k rows for 6 numbers is wasteful
 - Aggregation logic duplicates what SQL does natively
@@ -486,6 +495,7 @@ Aggregate mode pushes all computation to PostgreSQL. The response contains only 
 ### Event Mode vs Entity Mode with Event Joins
 
 These serve different purposes:
+
 - Entity mode + event joins: "show me entities, with their latest event state" (one row per entity)
 - Events mode: "show me events" (one row per event, same entity can appear multiple times)
 
@@ -505,11 +515,11 @@ This is a greenfield project. There are no external consumers or persisted saved
 
 ### Task List
 
-| #   | Task                                                        | Type | Status |
-| --- | ----------------------------------------------------------- | ---- | ------ |
-| 01  | [Reference Type Rename](./01-reference-type-rename.md)      | AFK  | done   |
-| 02  | [Aggregate Mode](./02-aggregate-mode.md)                    | AFK  | done   |
-| 03  | [Events Mode](./03-events-mode.md)                          | AFK  | done   |
-| 04  | [Time-Series Mode](./04-time-series-mode.md)                | AFK  | done   |
-| 05  | [Media Service Migration](./05-media-service-migration.md)  | AFK  | done   |
-| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                | AFK  | done   |
+| #   | Task                                                       | Type | Status |
+| --- | ---------------------------------------------------------- | ---- | ------ |
+| 01  | [Reference Type Rename](./01-reference-type-rename.md)     | AFK  | done   |
+| 02  | [Aggregate Mode](./02-aggregate-mode.md)                   | AFK  | done   |
+| 03  | [Events Mode](./03-events-mode.md)                         | AFK  | done   |
+| 04  | [Time-Series Mode](./04-time-series-mode.md)               | AFK  | done   |
+| 05  | [Media Service Migration](./05-media-service-migration.md) | AFK  | done   |
+| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)               | AFK  | done   |

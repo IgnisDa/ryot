@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
+
 import type { CreatedEventData } from "~/modules/events";
+
 import { processEventSchemaTriggers } from "./service";
 
-const createProgressEvent = (
-	overrides: Partial<CreatedEventData> = {},
-): CreatedEventData => ({
+const createProgressEvent = (overrides: Partial<CreatedEventData> = {}): CreatedEventData => ({
 	id: "event_1",
 	entityId: "entity_1",
 	sessionEntityId: null,
@@ -135,9 +135,7 @@ describe("processEventSchemaTriggers", () => {
 		await processEventSchemaTriggers(
 			{
 				userId: "user_1",
-				createdEvents: [
-					createProgressEvent({ eventSchemaId: "schema_progress" }),
-				],
+				createdEvents: [createProgressEvent({ eventSchemaId: "schema_progress" })],
 			},
 			createDeps({
 				getActiveEventSchemaTriggersForEventSchemas: async () => [

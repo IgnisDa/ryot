@@ -23,9 +23,7 @@ export function LoadingSpinner(props: LoadingSpinnerProps) {
 					props.message ? "mb-2" : "mb-4",
 				)}
 			/>
-			{props.message && (
-				<p className="text-sm text-muted-foreground">{props.message}</p>
-			)}
+			{props.message && <p className="text-sm text-muted-foreground">{props.message}</p>}
 		</div>
 	);
 }

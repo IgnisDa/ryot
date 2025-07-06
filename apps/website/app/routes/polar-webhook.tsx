@@ -1,21 +1,17 @@
 import { validateEvent } from "@polar-sh/sdk/webhooks";
 import { data } from "react-router";
 import { match } from "ts-pattern";
+
 import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
-import {
-	revokeCancellation,
-	revokePurchaseInProgress,
-} from "~/lib/caches.server";
+import { revokeCancellation, revokePurchaseInProgress } from "~/lib/caches.server";
 import { getPolarProducts, getPolarWebhookSecret } from "~/lib/config.server";
 import {
 	findCustomerById,
 	findCustomerByPolarId,
 	findCustomerWithFallback,
 } from "~/lib/customer-lookup.server";
-import {
-	handlePurchaseOrRenewal,
-	revokePurchase,
-} from "~/lib/provisioning.server";
+import { handlePurchaseOrRenewal, revokePurchase } from "~/lib/provisioning.server";
+
 import type { Route } from "./+types/polar-webhook";
 
 async function findCustomer(
@@ -37,8 +33,7 @@ function findPlanAndProductType(
 
 	for (const product of products) {
 		const matchingPrice = product.prices.find((p) => p.productId === productId);
-		if (matchingPrice)
-			return { productType: product.type, planType: matchingPrice.name };
+		if (matchingPrice) return { productType: product.type, planType: matchingPrice.name };
 	}
 
 	return null;
@@ -68,17 +63,11 @@ async function handleOrderPaid(
 	if (!productId) return { error: "Product ID not found in order" };
 
 	const planAndProduct = findPlanAndProductType(productId);
-	if (!planAndProduct)
-		return { error: `No matching product found for product ID: ${productId}` };
+	if (!planAndProduct) return { error: `No matching product found for product ID: ${productId}` };
 
 	const { planType, productType } = planAndProduct;
 
-	await handlePurchaseOrRenewal(
-		customer,
-		planType,
-		productType,
-		polarCustomerId,
-	);
+	await handlePurchaseOrRenewal(customer, planType, productType, polarCustomerId);
 	revokePurchaseInProgress(customer.id);
 
 	return { message: "Order processed successfully" };
@@ -87,8 +76,7 @@ async function handleOrderPaid(
 async function handleSubscriptionRevoked(
 	event: ReturnType<typeof validateEvent>,
 ): Promise<{ error?: string; message?: string }> {
-	if (event.type !== "subscription.revoked")
-		return { error: "Invalid event type" };
+	if (event.type !== "subscription.revoked") return { error: "Invalid event type" };
 
 	const { data: subscription } = event;
 	const polarCustomerId = subscription.customer.id;

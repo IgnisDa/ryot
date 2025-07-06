@@ -1,5 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
+
 import { redis } from "~/lib/redis";
+
 import { requestBodyLimit } from "./constants";
 import { sendJson } from "./utils";
 
@@ -15,10 +17,7 @@ export class BridgeServer {
 	private port: number | null = null;
 	private server: Bun.Server<undefined> | null = null;
 	private readonly keyPrefix = "sandbox:session:";
-	private readonly apiFunctions = new Map<
-		string,
-		Record<string, BoundHostFunction>
-	>();
+	private readonly apiFunctions = new Map<string, Record<string, BoundHostFunction>>();
 
 	async start() {
 		this.server = Bun.serve({
@@ -52,9 +51,7 @@ export class BridgeServer {
 
 	async addSession(executionId: string, session: ExecutionSession) {
 		const key = this.getKey(executionId);
-		const ttlSeconds = Math.ceil(
-			dayjs(session.expiresAt).diff(dayjs(), "second", true),
-		);
+		const ttlSeconds = Math.ceil(dayjs(session.expiresAt).diff(dayjs(), "second", true));
 		const data = {
 			token: session.token,
 			expiresAt: session.expiresAt,
@@ -133,9 +130,7 @@ export class BridgeServer {
 			}
 
 			const requestBody = await this.readJsonBody(req);
-			const args = Array.isArray(requestBody.args)
-				? requestBody.args
-				: ([] as Array<unknown>);
+			const args = Array.isArray(requestBody.args) ? requestBody.args : ([] as Array<unknown>);
 
 			try {
 				const result = await fn(...args);

@@ -10,5 +10,5 @@ setup.
 2. Open a new incognito window in your browser and login to Youtube Music.
 3. Once logged in, open the extension and export the cookies as "Header String". After
    copying them, close the incognito browser immediately so that they are not invalidated.
-  ![image](../images/integrations_youtube-music-export-cookies.png)
+   ![image](../images/integrations_youtube-music-export-cookies.png)
 4. Paste the exported cookies in the input.

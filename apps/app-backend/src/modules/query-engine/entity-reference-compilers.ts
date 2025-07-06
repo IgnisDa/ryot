@@ -1,6 +1,7 @@
 import type { RuntimeRef } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
+
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
 import type { PropertyType } from "~/lib/views/reference";
@@ -10,6 +11,7 @@ import {
 	getPropertyType,
 	getSchemaForReference,
 } from "~/lib/views/reference";
+
 import type { QueryEngineContext } from "./schemas";
 import {
 	buildJsonColumnPropertyExpression,
@@ -24,10 +26,7 @@ export const buildEntityExpression = (input: {
 	reference: Extract<RuntimeRef, { type: "entity" }>;
 }) => {
 	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
-	const schema = getSchemaForReference(
-		input.context.schemaMap,
-		input.reference,
-	);
+	const schema = getSchemaForReference(input.context.schemaMap, input.reference);
 	const overrides = input.context.entityColumnOverrides;
 
 	if (input.reference.path[0] === "properties") {
@@ -47,10 +46,7 @@ export const buildEntityExpression = (input: {
 			base: sql`${sql.raw(`${safeAlias}.${propertiesCol}`)}`,
 		});
 
-		if (
-			input.context.schemaMap.size === 1 &&
-			input.reference.slug === schema.slug
-		) {
+		if (input.context.schemaMap.size === 1 && input.reference.slug === schema.slug) {
 			return valueExpression;
 		}
 
@@ -59,9 +55,7 @@ export const buildEntityExpression = (input: {
 
 	const [column] = input.reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Entity reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Entity reference path must not be empty");
 	}
 
 	const sqlCol = (() => {
@@ -83,20 +77,13 @@ export const buildEntityExpression = (input: {
 				.with("name", () => sql`${sql.raw(safeAlias)}.name`)
 				.with("image", () => sql`${sql.raw(safeAlias)}.image`)
 				.with("externalId", () => sql`${sql.raw(safeAlias)}.external_id`)
-				.with(
-					"sandboxScriptId",
-					() => sql`${sql.raw(safeAlias)}.sandbox_script_id`,
-				)
+				.with("sandboxScriptId", () => sql`${sql.raw(safeAlias)}.sandbox_script_id`)
 				.otherwise(() => {
-					throw new QueryEngineValidationError(
-						`Unsupported entity column '${column}'`,
-					);
+					throw new QueryEngineValidationError(`Unsupported entity column '${column}'`);
 				});
 
 	const actualType =
-		column === "image"
-			? undefined
-			: (getEntityColumnPropertyType(column) ?? undefined);
+		column === "image" ? undefined : (getEntityColumnPropertyType(column) ?? undefined);
 	if (column === "image" && input.targetType) {
 		throw new QueryEngineValidationError(
 			"Image expressions are display-only and cannot be compiled for sort or filter usage",
@@ -106,16 +93,10 @@ export const buildEntityExpression = (input: {
 	const valueExpression = input.targetType
 		? castExpressionToType(expression, input.targetType)
 		: actualType
-			? castExpressionToType(
-					expression,
-					normalizeExpressionPropertyType(actualType),
-				)
+			? castExpressionToType(expression, normalizeExpressionPropertyType(actualType))
 			: expression;
 
-	if (
-		input.context.schemaMap.size === 1 &&
-		input.context.schemaMap.has(input.reference.slug)
-	) {
+	if (input.context.schemaMap.size === 1 && input.context.schemaMap.has(input.reference.slug)) {
 		return valueExpression;
 	}
 
@@ -129,22 +110,16 @@ export const buildEntitySchemaExpression = (input: {
 }) => {
 	const [column] = input.reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Entity schema reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Entity schema reference path must not be empty");
 	}
 
 	if (input.reference.path.length > 1) {
-		throw new QueryEngineValidationError(
-			"Entity schema references do not support nested paths",
-		);
+		throw new QueryEngineValidationError("Entity schema references do not support nested paths");
 	}
 
 	const propertyType = getEntitySchemaColumnPropertyType(column);
 	if (!propertyType) {
-		throw new QueryEngineValidationError(
-			`Unsupported entity schema column '${column}'`,
-		);
+		throw new QueryEngineValidationError(`Unsupported entity schema column '${column}'`);
 	}
 
 	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
@@ -152,8 +127,5 @@ export const buildEntitySchemaExpression = (input: {
 
 	return input.targetType
 		? castExpressionToType(expression, input.targetType)
-		: castExpressionToType(
-				expression,
-				normalizeExpressionPropertyType(propertyType),
-			);
+		: castExpressionToType(expression, normalizeExpressionPropertyType(propertyType));
 };

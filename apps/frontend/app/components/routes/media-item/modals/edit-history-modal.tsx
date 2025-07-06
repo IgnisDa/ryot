@@ -17,6 +17,7 @@ import { MediaLot, SeenState } from "@ryot/generated/graphql/backend/graphql";
 import { useState } from "react";
 import { Form } from "react-router";
 import { withQuery } from "ufo";
+
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
@@ -28,11 +29,8 @@ import {
 import { getVerb } from "~/lib/shared/media-utils";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { Verb } from "~/lib/types";
-import {
-	type DurationInput,
-	type History,
-	POSSIBLE_DURATION_UNITS,
-} from "../types";
+
+import { type DurationInput, type History, POSSIBLE_DURATION_UNITS } from "../types";
 import { convertDurationToSeconds, convertSecondsToDuration } from "../utils";
 
 export const EditHistoryItemModal = (props: {
@@ -44,47 +42,35 @@ export const EditHistoryItemModal = (props: {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(props.metadataId);
 	const watchProviders = useGetWatchProviders(metadataDetails?.lot);
-	const [manualTimeSpentValue, setManualTimeSpentValue] =
-		useState<DurationInput>(
-			convertSecondsToDuration(props.seen.manualTimeSpent),
-		);
-	const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<
-		number | null
-	>(props.seen.showExtraInformation?.season ?? null);
+	const [manualTimeSpentValue, setManualTimeSpentValue] = useState<DurationInput>(
+		convertSecondsToDuration(props.seen.manualTimeSpent),
+	);
+	const [selectedSeasonNumber, setSelectedSeasonNumber] = useState<number | null>(
+		props.seen.showExtraInformation?.season ?? null,
+	);
 	const [selectedProviders, setSelectedProviders] = useState<string[]>(
 		props.seen.providersConsumedOn || [],
 	);
 
-	const manualTimeSpentInSeconds =
-		convertDurationToSeconds(manualTimeSpentValue);
+	const manualTimeSpentInSeconds = convertDurationToSeconds(manualTimeSpentValue);
 	const reviewsByThisCurrentUser = (userMetadataDetails?.reviews ?? []).filter(
 		(r) => r.postedBy.id === userDetails.id,
 	);
-	const areStartAndEndInputsDisabled = ![
-		SeenState.Completed,
-		SeenState.Dropped,
-	].includes(props.seen.state);
+	const areStartAndEndInputsDisabled = ![SeenState.Completed, SeenState.Dropped].includes(
+		props.seen.state,
+	);
 
 	const seasons = metadataDetails?.showSpecifics?.seasons ?? [];
-	const selectedSeason = seasons.find(
-		(s) => s.seasonNumber === selectedSeasonNumber,
-	);
+	const selectedSeason = seasons.find((s) => s.seasonNumber === selectedSeasonNumber);
 	const episodes = selectedSeason?.episodes ?? [];
 	const podcastEpisodes = metadataDetails?.podcastSpecifics?.episodes ?? [];
 
 	if (!metadataDetails) return null;
 
 	return (
-		<Modal
-			centered
-			opened={props.opened}
-			onClose={props.onClose}
-			withCloseButton={false}
-		>
+		<Modal centered opened={props.opened} onClose={props.onClose} withCloseButton={false}>
 			<FocusTrap.InitialFocus />
 			<Form
 				replace
@@ -102,19 +88,13 @@ export const EditHistoryItemModal = (props: {
 						name="startedOn"
 						label="Start Date & Time"
 						disabled={areStartAndEndInputsDisabled}
-						defaultValue={
-							props.seen.startedOn ? new Date(props.seen.startedOn) : undefined
-						}
+						defaultValue={props.seen.startedOn ? new Date(props.seen.startedOn) : undefined}
 					/>
 					<DateTimePicker
 						name="finishedOn"
 						label="End Date & Time"
 						disabled={areStartAndEndInputsDisabled}
-						defaultValue={
-							props.seen.finishedOn
-								? new Date(props.seen.finishedOn)
-								: undefined
-						}
+						defaultValue={props.seen.finishedOn ? new Date(props.seen.finishedOn) : undefined}
 					/>
 					{metadataDetails.lot === MediaLot.Show && seasons.length > 0 ? (
 						<>
@@ -126,11 +106,7 @@ export const EditHistoryItemModal = (props: {
 									label: s.name,
 									value: String(s.seasonNumber),
 								}))}
-								value={
-									selectedSeasonNumber !== null
-										? String(selectedSeasonNumber)
-										: null
-								}
+								value={selectedSeasonNumber !== null ? String(selectedSeasonNumber) : null}
 							/>
 							<Select
 								label="Episode"
@@ -151,9 +127,7 @@ export const EditHistoryItemModal = (props: {
 						<NumberInput
 							label="Episode"
 							name="animeEpisodeNumber"
-							defaultValue={
-								props.seen.animeExtraInformation?.episode ?? undefined
-							}
+							defaultValue={props.seen.animeExtraInformation?.episode ?? undefined}
 						/>
 					) : null}
 					{metadataDetails.lot === MediaLot.Manga ? (
@@ -162,21 +136,16 @@ export const EditHistoryItemModal = (props: {
 								label="Chapter"
 								decimalScale={2}
 								name="mangaChapterNumber"
-								defaultValue={
-									props.seen.mangaExtraInformation?.chapter ?? undefined
-								}
+								defaultValue={props.seen.mangaExtraInformation?.chapter ?? undefined}
 							/>
 							<NumberInput
 								label="Volume"
 								name="mangaVolumeNumber"
-								defaultValue={
-									props.seen.mangaExtraInformation?.volume ?? undefined
-								}
+								defaultValue={props.seen.mangaExtraInformation?.volume ?? undefined}
 							/>
 						</>
 					) : null}
-					{metadataDetails.lot === MediaLot.Podcast &&
-					podcastEpisodes.length > 0 ? (
+					{metadataDetails.lot === MediaLot.Podcast && podcastEpisodes.length > 0 ? (
 						<Select
 							label="Episode"
 							name="podcastEpisodeNumber"
@@ -196,28 +165,16 @@ export const EditHistoryItemModal = (props: {
 						value={selectedProviders}
 						onChange={setSelectedProviders}
 						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
-						label={`Where did you ${getVerb(
-							Verb.Read,
-							metadataDetails.lot,
-						)} it?`}
+						label={`Where did you ${getVerb(Verb.Read, metadataDetails.lot)} it?`}
 					/>
 					{selectedProviders.length > 0 ? (
 						selectedProviders.map((p) => (
-							<input
-								hidden
-								key={p}
-								readOnly
-								value={p}
-								name="providersConsumedOn"
-							/>
+							<input hidden key={p} readOnly value={p} name="providersConsumedOn" />
 						))
 					) : (
 						<input hidden readOnly name="providersConsumedOn" value="" />
 					)}
-					<Tooltip
-						label={PRO_REQUIRED_MESSAGE}
-						disabled={coreDetails.isServerKeyValidated}
-					>
+					<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isServerKeyValidated}>
 						<Select
 							clearable
 							limit={5}
@@ -229,9 +186,7 @@ export const EditHistoryItemModal = (props: {
 							data={reviewsByThisCurrentUser.map((r) => ({
 								value: r.id,
 								label: [
-									r.textOriginal
-										? `${r.textOriginal.slice(0, 20)}...`
-										: undefined,
+									r.textOriginal ? `${r.textOriginal.slice(0, 20)}...` : undefined,
 									r.rating,
 									`(${r.id})`,
 								]
@@ -244,10 +199,7 @@ export const EditHistoryItemModal = (props: {
 						label="Time spent"
 						description="How much time did you actually spend on this media?"
 					>
-						<Tooltip
-							label={PRO_REQUIRED_MESSAGE}
-							disabled={coreDetails.isServerKeyValidated}
-						>
+						<Tooltip label={PRO_REQUIRED_MESSAGE} disabled={coreDetails.isServerKeyValidated}>
 							<Group wrap="nowrap" mt="xs">
 								{POSSIBLE_DURATION_UNITS.map((input) => (
 									<NumberInput
@@ -265,12 +217,7 @@ export const EditHistoryItemModal = (props: {
 									/>
 								))}
 								{manualTimeSpentInSeconds > 0 ? (
-									<input
-										hidden
-										readOnly
-										name="manualTimeSpent"
-										value={manualTimeSpentInSeconds}
-									/>
+									<input hidden readOnly name="manualTimeSpent" value={manualTimeSpentInSeconds} />
 								) : null}
 							</Group>
 						</Tooltip>

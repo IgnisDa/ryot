@@ -6,7 +6,9 @@ import {
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
+
 import { MultiSelectCreatable } from "./multi-select-creatable";
 
 export interface CollectionTemplateRendererProps {
@@ -15,9 +17,7 @@ export interface CollectionTemplateRendererProps {
 	onChange: (value: Scalars["JSON"]["input"]) => void;
 }
 
-export const CollectionTemplateRenderer = (
-	props: CollectionTemplateRendererProps,
-) => (
+export const CollectionTemplateRenderer = (props: CollectionTemplateRendererProps) => (
 	<>
 		{match(props.template.lot)
 			.with(CollectionExtraInformationLot.String, () => (
@@ -36,9 +36,7 @@ export const CollectionTemplateRenderer = (
 					checked={props.value === "true"}
 					required={!!props.template.required}
 					description={props.template.description}
-					onChange={(e) =>
-						props.onChange(e.currentTarget.checked ? "true" : "false")
-					}
+					onChange={(e) => props.onChange(e.currentTarget.checked ? "true" : "false")}
 				/>
 			))
 			.with(CollectionExtraInformationLot.Number, () => (
@@ -67,9 +65,7 @@ export const CollectionTemplateRenderer = (
 					label={props.template.name}
 					required={!!props.template.required}
 					description={props.template.description}
-					onChange={(v) =>
-						props.onChange(v ? dayjsLib(v).toISOString() : undefined)
-					}
+					onChange={(v) => props.onChange(v ? dayjsLib(v).toISOString() : undefined)}
 				/>
 			))
 			.with(CollectionExtraInformationLot.StringArray, () => (

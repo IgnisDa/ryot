@@ -8,7 +8,7 @@ export type FieldDef = {
 };
 
 export interface GroupDef<
-	// biome-ignore lint/suspicious/noExplicitAny: recursive generic requires any
+	// oxlint-disable-next-line typescript/no-explicit-any
 	T extends Record<string, any> = Record<string, ConfigNode>,
 > {
 	readonly children: T;
@@ -18,26 +18,17 @@ export interface GroupDef<
 
 export type ConfigNode = FieldDef | GroupDef;
 
-type ExtractPathsFromNode<
-	T extends ConfigNode,
-	Path extends string,
-> = T extends { _kind: "field" }
+type ExtractPathsFromNode<T extends ConfigNode, Path extends string> = T extends { _kind: "field" }
 	? Path
 	: T extends {
 				_kind: "group";
 				children: infer C extends Record<string, ConfigNode>;
-			}
+		  }
 		? ExtractPaths<C, Path>
 		: never;
 
-export type ExtractPaths<
-	T extends Record<string, ConfigNode>,
-	Prefix extends string = "",
-> = {
-	[K in keyof T & string]: ExtractPathsFromNode<
-		T[K],
-		Prefix extends "" ? K : `${Prefix}.${K}`
-	>;
+export type ExtractPaths<T extends Record<string, ConfigNode>, Prefix extends string = ""> = {
+	[K in keyof T & string]: ExtractPathsFromNode<T[K], Prefix extends "" ? K : `${Prefix}.${K}`>;
 }[keyof T & string];
 
 type ParsedNode<T extends ConfigNode> = T extends { _kind: "field" }
@@ -45,7 +36,7 @@ type ParsedNode<T extends ConfigNode> = T extends { _kind: "field" }
 	: T extends {
 				_kind: "group";
 				children: infer R extends Record<string, ConfigNode>;
-			}
+		  }
 		? ParsedChildren<R>
 		: never;
 
@@ -61,7 +52,7 @@ type ExtractEnvKeysFromNode<T extends ConfigNode> = T extends {
 	: T extends {
 				_kind: "group";
 				children: infer R extends Record<string, ConfigNode>;
-			}
+		  }
 		? { [K in keyof R]: ExtractEnvKeysFromNode<R[K]> }[keyof R]
 		: never;
 

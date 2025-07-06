@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createPresignedDownloads,
 	createPresignedUpload,
@@ -7,9 +8,9 @@ import {
 
 describe("createPresignedUpload", () => {
 	it("rejects unsupported content types", () => {
-		expect(() =>
-			resolvePresignedUploadInput({ contentType: "application/pdf" }),
-		).toThrow("Upload content type must be a supported MIME type");
+		expect(() => resolvePresignedUploadInput({ contentType: "application/pdf" })).toThrow(
+			"Upload content type must be a supported MIME type",
+		);
 	});
 
 	it("generates a canonical key when filename is omitted", async () => {

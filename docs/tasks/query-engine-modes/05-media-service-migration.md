@@ -9,6 +9,7 @@
 ## What to build
 
 Replace the media service's hardcoded custom queries with the new query engine modes. This proves the engine extension solves the real problem and eliminates:
+
 - The 10k-row fetch-and-reduce antipattern in `getLibraryStats`
 - Custom Drizzle queries in the media repository for activity and week sections
 
@@ -17,6 +18,7 @@ Replace the media service's hardcoded custom queries with the new query engine m
 Replace the current implementation (which fetches up to 10,000 entity rows and aggregates in TypeScript) with a single aggregate-mode query engine call.
 
 The aggregate request should include:
+
 - `scope`: all builtin media entity schema slugs
 - `relationships`: `[{ relationshipSchemaSlug: "in-library" }]`
 - `eventJoins`: latest review, backlog, progress, complete events
@@ -35,6 +37,7 @@ This eliminates the row limit entirely — stats are correct for any library siz
 Replace the current implementation (custom Drizzle query in `listRecentActivityEventsForUser`) with an events-mode query engine call.
 
 The events request should include:
+
 - `scope`: all builtin media entity schema slugs
 - `eventSchemas`: `["review", "complete", "progress", "backlog"]`
 - `sort`: `event.createdAt DESC`
@@ -48,6 +51,7 @@ The response transformer (`buildRecentActivitySectionResponse`) may need adjustm
 Replace the current implementation (custom Drizzle query in `listWeekActivityEventsForUser` + TypeScript date bucketing) with a time-series-mode query engine call.
 
 The time-series request should include:
+
 - `scope`: all builtin media entity schema slugs
 - `eventSchemas`: `["review", "complete", "progress", "backlog"]`
 - `dateRange`: current ISO week bounds (computed at call site using dayjs)
@@ -59,6 +63,7 @@ The response maps directly to the existing `{ date, count }` section response fo
 ### Remove custom repository queries
 
 After all three migrations, remove from `~/modules/media/repository.ts`:
+
 - `listRecentActivityEventsForUser`
 - `listWeekActivityEventsForUser`
 - Any helper functions that become unused (`recentActivitySelection`, `mediaActivityPredicates`, `resolveOccurredAt`, etc.)
@@ -68,6 +73,7 @@ If the repository file becomes empty, remove it entirely.
 ### Update media service dependencies
 
 The `MediaServiceDeps` type and default dependency injection pattern should be updated:
+
 - Remove `listWeekActivityEventsForUser` and `listRecentActivityEventsForUser` deps
 - The `executeSectionQuery` dep remains (now used for all section types via the unified endpoint)
 - Or replace with a single `executeQuery` dep that accepts any mode's request
@@ -75,6 +81,7 @@ The `MediaServiceDeps` type and default dependency injection pattern should be u
 ### Update tests
 
 Update media service tests to verify:
+
 - `getLibraryStats` returns correct aggregates without the 10k limit
 - `getRecentActivityItems` returns correct event-based results
 - `getWeekActivity` returns correct daily buckets

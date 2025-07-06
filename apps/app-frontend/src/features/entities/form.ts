@@ -1,11 +1,8 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import {
-	fromAppSchemaObject,
-	isAppPropertyRequired,
-	zodRequiredName,
-} from "@ryot/ts-utils";
+import { fromAppSchemaObject, isAppPropertyRequired, zodRequiredName } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
 import type { ApiPostRequestBody } from "~/lib/api/types";
 
 const entityImageSchema = z.union([
@@ -34,15 +31,12 @@ function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
 function getUnsupportedRequiredProperties(schema: AppSchema): string[] {
 	return Object.entries(schema.fields)
 		.filter(
-			([, propertyDef]) =>
-				isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
+			([, propertyDef]) => isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
 		)
 		.map(([key]) => key);
 }
 
-function getUnsupportedRequiredPropertiesMessage(
-	propertyKeys: string[],
-): string {
+function getUnsupportedRequiredPropertiesMessage(propertyKeys: string[]): string {
 	return `This entity schema requires unsupported properties: ${propertyKeys.join(", ")}.`;
 }
 
@@ -76,21 +70,16 @@ export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
 			properties: z.record(z.string(), z.unknown()),
 		})
 		.superRefine((value, ctx) => {
-			const unsupportedRequiredProperties =
-				getUnsupportedRequiredProperties(propertiesSchema);
+			const unsupportedRequiredProperties = getUnsupportedRequiredProperties(propertiesSchema);
 			if (unsupportedRequiredProperties.length > 0) {
 				ctx.addIssue({
 					code: "custom",
 					path: ["properties"],
-					message: getUnsupportedRequiredPropertiesMessage(
-						unsupportedRequiredProperties,
-					),
+					message: getUnsupportedRequiredPropertiesMessage(unsupportedRequiredProperties),
 				});
 			}
 
-			const result = buildEntityPropertiesSchema(propertiesSchema).safeParse(
-				value.properties,
-			);
+			const result = buildEntityPropertiesSchema(propertiesSchema).safeParse(value.properties);
 
 			if (result.success) {
 				return;
@@ -105,9 +94,7 @@ export const buildCreateEntityFormSchema = (propertiesSchema: AppSchema) => {
 		});
 };
 
-export type CreateEntityFormValues = z.infer<
-	ReturnType<typeof buildCreateEntityFormSchema>
->;
+export type CreateEntityFormValues = z.infer<ReturnType<typeof buildCreateEntityFormSchema>>;
 
 export const buildDefaultEntityFormValues = (
 	propertiesSchema: AppSchema,
@@ -147,9 +134,7 @@ export function toCreateEntityPayload(
 	entitySchemaId: string,
 	propertiesSchema: AppSchema,
 ): CreateEntityPayload {
-	const properties = buildEntityPropertiesSchema(propertiesSchema).parse(
-		input.properties,
-	);
+	const properties = buildEntityPropertiesSchema(propertiesSchema).parse(input.properties);
 
 	return {
 		entitySchemaId,

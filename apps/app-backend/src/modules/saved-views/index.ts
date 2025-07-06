@@ -1,7 +1,4 @@
-export {
-	createDefaultDisplayConfiguration,
-	createDefaultQueryDefinition,
-} from "./constants";
+export { createDefaultDisplayConfiguration, createDefaultQueryDefinition } from "./constants";
 export type {
 	CreateSavedViewBody,
 	DisplayConfiguration,
@@ -16,10 +13,7 @@ export type {
 	TableConfig,
 	UpdateSavedViewBody,
 } from "./schemas";
-export type {
-	SavedViewServiceDeps,
-	SavedViewServiceResult,
-} from "./service";
+export type { SavedViewServiceDeps, SavedViewServiceResult } from "./service";
 export {
 	buildBuiltinSavedViewName,
 	cloneSavedView,

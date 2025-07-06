@@ -1,4 +1,5 @@
 import { storage } from "#imports";
+
 import { MESSAGE_TYPES, STORAGE_KEYS } from "./constants";
 import type { MetadataLookupData } from "./extension-types";
 import { logger } from "./logger";

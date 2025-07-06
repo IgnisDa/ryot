@@ -9,10 +9,8 @@ import {
 	MediaSource,
 } from "@ryot/generated/graphql/backend/graphql";
 import { snakeCase, startCase } from "@ryot/ts-utils";
-import {
-	CollectionsFilter,
-	SortOrderToggle,
-} from "~/components/common/filters";
+
+import { CollectionsFilter, SortOrderToggle } from "~/components/common/filters";
 import type { FilterState } from "~/components/routes/collections/filters-state";
 import type { FilterUpdateFunction } from "~/lib/hooks/filters/types";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
@@ -55,9 +53,7 @@ export const FiltersModalForm = (props: {
 					w="100%"
 					size="xs"
 					value={props.filters.sortBy}
-					onChange={(v) =>
-						props.updateFilter("sortBy", v as CollectionContentsSortBy)
-					}
+					onChange={(v) => props.updateFilter("sortBy", v as CollectionContentsSortBy)}
 					data={[
 						{
 							group: "Sort by",
@@ -106,9 +102,7 @@ export const FiltersModalForm = (props: {
 						placeholder="Select a media source"
 						value={props.filters.metadataSource}
 						data={convertEnumToSelectData(MediaSource)}
-						onChange={(v) =>
-							props.updateFilter("metadataSource", v as MediaSource)
-						}
+						onChange={(v) => props.updateFilter("metadataSource", v as MediaSource)}
 					/>
 					<Select
 						size="xs"
@@ -116,41 +110,31 @@ export const FiltersModalForm = (props: {
 						placeholder="Select a general filter"
 						value={props.filters.metadataGeneral}
 						data={convertEnumToSelectData(MediaGeneralFilter)}
-						onChange={(v) =>
-							props.updateFilter("metadataGeneral", v as MediaGeneralFilter)
-						}
+						onChange={(v) => props.updateFilter("metadataGeneral", v as MediaGeneralFilter)}
 					/>
 				</>
 			) : null}
 			{props.filters.entityLot === EntityLot.Exercise ? (
 				<Stack gap={2}>
-					{(Object.keys(exerciseFilterMapping) as Array<ExerciseFilterKey>).map(
-						(filterKey) => {
-							const { singularKey, label } = exerciseFilterMapping[filterKey];
-							const filterData =
-								coreDetails.exerciseParameters.filters[singularKey] ?? [];
-							return (
-								<MultiSelect
-									size="xs"
-									clearable
-									searchable
-									label={label}
-									key={filterKey}
-									value={props.filters[filterKey]}
-									data={filterData.map((value) => ({
-										value,
-										label: startCase(snakeCase(value)),
-									}))}
-									onChange={(v) =>
-										props.updateFilter(
-											filterKey,
-											v as FilterState[ExerciseFilterKey],
-										)
-									}
-								/>
-							);
-						},
-					)}
+					{(Object.keys(exerciseFilterMapping) as Array<ExerciseFilterKey>).map((filterKey) => {
+						const { singularKey, label } = exerciseFilterMapping[filterKey];
+						const filterData = coreDetails.exerciseParameters.filters[singularKey] ?? [];
+						return (
+							<MultiSelect
+								size="xs"
+								clearable
+								searchable
+								label={label}
+								key={filterKey}
+								value={props.filters[filterKey]}
+								data={filterData.map((value) => ({
+									value,
+									label: startCase(snakeCase(value)),
+								}))}
+								onChange={(v) => props.updateFilter(filterKey, v as FilterState[ExerciseFilterKey])}
+							/>
+						);
+					})}
 				</Stack>
 			) : null}
 			<Divider />
@@ -171,15 +155,10 @@ export const FiltersModalForm = (props: {
 						props.updateFilter("dateRange", range);
 						if (range === ApplicationTimeRange.Custom) return;
 
-						props.updateFilter(
-							"startDateRange",
-							startDateRange?.format("YYYY-MM-DD") || "",
-						);
+						props.updateFilter("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
 						props.updateFilter(
 							"endDateRange",
-							range === ApplicationTimeRange.AllTime
-								? ""
-								: dayjsLib().format("YYYY-MM-DD"),
+							range === ApplicationTimeRange.AllTime ? "" : dayjsLib().format("YYYY-MM-DD"),
 						);
 					}}
 				/>
@@ -190,24 +169,15 @@ export const FiltersModalForm = (props: {
 						description="Select custom dates"
 						value={
 							props.filters.startDateRange && props.filters.endDateRange
-								? [
-										new Date(props.filters.startDateRange),
-										new Date(props.filters.endDateRange),
-									]
+								? [new Date(props.filters.startDateRange), new Date(props.filters.endDateRange)]
 								: undefined
 						}
 						onChange={(v) => {
 							const end = v[1];
 							const start = v[0];
 							if (!start || !end) return;
-							props.updateFilter(
-								"startDateRange",
-								dayjsLib(start).format("YYYY-MM-DD"),
-							);
-							props.updateFilter(
-								"endDateRange",
-								dayjsLib(end).format("YYYY-MM-DD"),
-							);
+							props.updateFilter("startDateRange", dayjsLib(start).format("YYYY-MM-DD"));
+							props.updateFilter("endDateRange", dayjsLib(end).format("YYYY-MM-DD"));
 						}}
 					/>
 				) : null}

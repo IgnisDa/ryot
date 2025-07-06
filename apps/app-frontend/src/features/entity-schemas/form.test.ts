@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createPropertySchemaInputFixture,
 	createPropertySchemaRowFixture,
 } from "~/features/test-fixtures";
+
 import {
 	buildDefaultEntitySchemaPropertyRow,
 	buildEntitySchemaFormValues,
@@ -133,9 +135,7 @@ describe("isEntitySchemaPropertyRowsValid", () => {
 	});
 
 	it("returns false when a trimmed key is empty", () => {
-		expect(
-			isEntitySchemaPropertyRowsValid([buildDefaultEntitySchemaPropertyRow()]),
-		).toBeFalse();
+		expect(isEntitySchemaPropertyRowsValid([buildDefaultEntitySchemaPropertyRow()])).toBeFalse();
 	});
 
 	it("returns false when trimmed keys are duplicated", () => {
@@ -294,11 +294,7 @@ describe("buildEntitySchemaPropertiesSchema", () => {
 	});
 
 	it("maps integer type correctly", () => {
-		expect(
-			buildEntitySchemaPropertiesSchema([
-				input({ key: "pages", type: "integer" }),
-			]),
-		).toEqual({
+		expect(buildEntitySchemaPropertiesSchema([input({ key: "pages", type: "integer" })])).toEqual({
 			fields: {
 				pages: { label: "Title", description: "Title", type: "integer" },
 			},

@@ -1,8 +1,5 @@
 export { executePreparedQuery } from "./entity-query-builder";
-export {
-	calculatePagination,
-	mapQueryRowToItem,
-} from "./paginated-query-sql";
+export { calculatePagination, mapQueryRowToItem } from "./paginated-query-sql";
 export {
 	normalizeRequestPerMode,
 	prepareAndExecute,

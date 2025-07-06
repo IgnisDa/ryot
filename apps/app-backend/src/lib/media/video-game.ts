@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
+
 import { imagesSchema, nullableIntSchema, nullableStringSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
@@ -7,15 +8,9 @@ import { mediaPropertiesSchema } from "./common";
 // (e.g., IGDB). GiantBomb does not provide this.
 const videoGameTimeToBeatSchema = z
 	.object({
-		hastily: nullableIntSchema.describe(
-			"Estimated minutes to rush through the main story",
-		),
-		normally: nullableIntSchema.describe(
-			"Estimated minutes for a typical playthrough",
-		),
-		completely: nullableIntSchema.describe(
-			"Estimated minutes for a full 100% completion run",
-		),
+		hastily: nullableIntSchema.describe("Estimated minutes to rush through the main story"),
+		normally: nullableIntSchema.describe("Estimated minutes for a typical playthrough"),
+		completely: nullableIntSchema.describe("Estimated minutes for a full 100% completion run"),
 	})
 	.strict()
 	.nullish();
@@ -27,16 +22,12 @@ const videoGamePlatformReleaseSchema = z
 	.object({
 		name: z.string().describe("Platform name"),
 		releaseDate: nullableStringSchema.describe("Release date on this platform"),
-		releaseRegion: nullableStringSchema.describe(
-			"Geographic region of this release",
-		),
+		releaseRegion: nullableStringSchema.describe("Geographic region of this release"),
 	})
 	.strict();
 
 export const videoGamePropertiesSchema = mediaPropertiesSchema.extend({
-	images: imagesSchema.describe(
-		"Cover and promotional images for this video game",
-	),
+	images: imagesSchema.describe("Cover and promotional images for this video game"),
 	timeToBeat: videoGameTimeToBeatSchema.describe(
 		"Estimated time to complete the game at different paces",
 	),
@@ -46,8 +37,6 @@ export const videoGamePropertiesSchema = mediaPropertiesSchema.extend({
 		.describe("Platform-specific release information"),
 });
 
-export const videoGamePropertiesJsonSchema = toAppSchemaProperties(
-	videoGamePropertiesSchema,
-);
+export const videoGamePropertiesJsonSchema = toAppSchemaProperties(videoGamePropertiesSchema);
 
 export type VideoGameProperties = z.infer<typeof videoGamePropertiesSchema>;

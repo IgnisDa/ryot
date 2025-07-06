@@ -1,5 +1,6 @@
 import { router, Stack } from "expo-router";
 import { useEffect } from "react";
+
 import { ShellNavigation } from "@/components/shell";
 import { Box } from "@/components/ui/box";
 import { Center } from "@/components/ui/center";

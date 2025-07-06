@@ -11,11 +11,7 @@
 		},
 		"build-firefox": {
 			"dependsOn": ["^build"],
-			"outputs": [
-				"dist/firefox-mv2/**",
-				"dist/*-sources.zip",
-				"dist/*-firefox.zip"
-			]
+			"outputs": ["dist/firefox-mv2/**", "dist/*-sources.zip", "dist/*-firefox.zip"]
 		},
 		"typecheck": {
 			"dependsOn": ["^typecheck"]

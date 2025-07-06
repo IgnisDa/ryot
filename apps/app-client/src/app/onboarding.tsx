@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { router } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform } from "react-native";
+
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
@@ -30,9 +31,7 @@ const options: { mode: ServerMode; label: string; subtitle: string }[] = [
 export default function Onboarding() {
 	const setServerUrl = useSetServerUrl();
 	const [mode, setMode] = useState<ServerMode>("cloud");
-	const [url, setUrl] = useState(
-		Platform.OS === "web" ? window.location.origin : "",
-	);
+	const [url, setUrl] = useState(Platform.OS === "web" ? window.location.origin : "");
 
 	const resolvedUrl = resolveServerUrl(mode, url);
 
@@ -57,8 +56,7 @@ export default function Onboarding() {
 		},
 	});
 
-	const isDisabled =
-		connectMutation.isPending || (mode === "self-hosted" && !url.trim());
+	const isDisabled = connectMutation.isPending || (mode === "self-hosted" && !url.trim());
 
 	return (
 		<KeyboardAvoidingView
@@ -68,9 +66,7 @@ export default function Onboarding() {
 			<Box className="flex-1 bg-background justify-center items-center">
 				<Box className="w-full max-w-md px-6 gap-8">
 					<Box className="items-center gap-4">
-						<Text className="text-muted-foreground text-center">
-							Connect to your Ryot instance
-						</Text>
+						<Text className="text-muted-foreground text-center">Connect to your Ryot instance</Text>
 					</Box>
 					<Box className="gap-3">
 						{options.map((opt) => {
@@ -84,9 +80,7 @@ export default function Onboarding() {
 									}}
 									className={clsx(
 										"rounded-lg border p-4 gap-1",
-										selected
-											? "border-primary bg-primary/5"
-											: "border-border bg-transparent",
+										selected ? "border-primary bg-primary/5" : "border-border bg-transparent",
 									)}
 								>
 									<Text
@@ -97,9 +91,7 @@ export default function Onboarding() {
 									>
 										{opt.label}
 									</Text>
-									<Text className="text-muted-foreground text-xs">
-										{opt.subtitle}
-									</Text>
+									<Text className="text-muted-foreground text-xs">{opt.subtitle}</Text>
 								</Pressable>
 							);
 						})}
@@ -121,18 +113,11 @@ export default function Onboarding() {
 							</Input>
 						)}
 						{connectMutation.error && (
-							<Text className="text-destructive text-sm">
-								{connectMutation.error.message}
-							</Text>
+							<Text className="text-destructive text-sm">{connectMutation.error.message}</Text>
 						)}
-						<Button
-							isDisabled={isDisabled}
-							onPress={() => connectMutation.mutate(resolvedUrl)}
-						>
+						<Button isDisabled={isDisabled} onPress={() => connectMutation.mutate(resolvedUrl)}>
 							{connectMutation.isPending && <ButtonSpinner />}
-							<ButtonText>
-								{connectMutation.isPending ? "Connecting..." : "Continue"}
-							</ButtonText>
+							<ButtonText>{connectMutation.isPending ? "Connecting..." : "Continue"}</ButtonText>
 						</Button>
 					</Box>
 				</Box>

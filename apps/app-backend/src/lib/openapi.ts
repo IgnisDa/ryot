@@ -1,5 +1,6 @@
 import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
+
 import { requireAuth } from "~/lib/auth/middleware";
 import type { ServiceResult } from "~/lib/result";
 
@@ -19,22 +20,10 @@ const createErrorSchema = (code: string, name: string) =>
 export const commonErrors = {
 	notFound: createErrorSchema(ERROR_CODES.NOT_FOUND, "NotFoundError"),
 	timeout: createErrorSchema(ERROR_CODES.TIMEOUT, "TimeoutError"),
-	unauthenticated: createErrorSchema(
-		ERROR_CODES.UNAUTHENTICATED,
-		"UnauthenticatedError",
-	),
-	validationFailed: createErrorSchema(
-		ERROR_CODES.VALIDATION_FAILED,
-		"ValidationFailedError",
-	),
-	internalError: createErrorSchema(
-		ERROR_CODES.INTERNAL_ERROR,
-		"InternalServerError",
-	),
-	healthCheckFailed: createErrorSchema(
-		ERROR_CODES.HEALTH_CHECK_FAILED,
-		"HealthCheckFailedError",
-	),
+	unauthenticated: createErrorSchema(ERROR_CODES.UNAUTHENTICATED, "UnauthenticatedError"),
+	validationFailed: createErrorSchema(ERROR_CODES.VALIDATION_FAILED, "ValidationFailedError"),
+	internalError: createErrorSchema(ERROR_CODES.INTERNAL_ERROR, "InternalServerError"),
+	healthCheckFailed: createErrorSchema(ERROR_CODES.HEALTH_CHECK_FAILED, "HealthCheckFailedError"),
 } as const;
 
 export const createErrorUnion = <T extends z.ZodTypeAny[]>(...errors: T) => {
@@ -54,10 +43,7 @@ export const createErrorResponse = (
 };
 
 export const unauthenticatedResponse = () =>
-	createErrorResponse(
-		"Request is unauthenticated",
-		commonErrors.unauthenticated,
-	);
+	createErrorResponse("Request is unauthenticated", commonErrors.unauthenticated);
 
 export const notFoundResponse = (description = "Resource not found") =>
 	createErrorResponse(description, commonErrors.notFound);
@@ -138,14 +124,11 @@ export const errorResponse = (code: string, message: string) => ({
 	error: { code, message },
 });
 
-export const dataSchema = <T extends z.ZodType>(schema: T) =>
-	z.object({ data: schema });
+export const dataSchema = <T extends z.ZodType>(schema: T) => z.object({ data: schema });
 
-export const itemDataSchema = <T extends z.ZodType>(schema: T) =>
-	dataSchema(schema);
+export const itemDataSchema = <T extends z.ZodType>(schema: T) => dataSchema(schema);
 
-export const listDataSchema = <T extends z.ZodType>(schema: T) =>
-	dataSchema(z.array(schema));
+export const listDataSchema = <T extends z.ZodType>(schema: T) => dataSchema(z.array(schema));
 
 export const unknownObjectSchema = z.record(z.string(), z.unknown());
 
@@ -182,12 +165,8 @@ export const createStandardResponses = <TSchema extends z.ZodType>(input: {
 	notFoundDescription?: string;
 	includePayloadError?: boolean;
 }) => ({
-	...(input.includePayloadError === false
-		? {}
-		: { 400: payloadErrorResponse() }),
-	...(input.notFoundDescription
-		? { 404: notFoundResponse(input.notFoundDescription) }
-		: {}),
+	...(input.includePayloadError === false ? {} : { 400: payloadErrorResponse() }),
+	...(input.notFoundDescription ? { 404: notFoundResponse(input.notFoundDescription) } : {}),
 	200: jsonResponse(input.successDescription, input.successSchema),
 });
 
@@ -195,10 +174,10 @@ const jsonContent = <TSchema extends z.ZodType>(schema: TSchema) => ({
 	"application/json": { schema },
 });
 
-export const jsonResponse = <TSchema extends z.ZodType>(
-	description: string,
-	schema: TSchema,
-) => ({ description, content: jsonContent(schema) });
+export const jsonResponse = <TSchema extends z.ZodType>(description: string, schema: TSchema) => ({
+	description,
+	content: jsonContent(schema),
+});
 
 export const createAuthRoute = <TRoute extends RouteConfig>(route: TRoute) => ({
 	...route,

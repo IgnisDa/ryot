@@ -1,13 +1,6 @@
-import {
-	ActionIcon,
-	Card,
-	FileInput,
-	Image,
-	SimpleGrid,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { ActionIcon, Card, FileInput, Image, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
+
 import { useS3PresignedUrls } from "~/lib/shared/hooks";
 
 type ExistingImageListProps = {

@@ -1,15 +1,8 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
-import {
-	Button,
-	Chip,
-	Group,
-	Modal,
-	Stack,
-	Text,
-	TextInput,
-} from "@mantine/core";
+import { Button, Chip, Group, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { hasLength, useForm } from "@mantine/form";
 import { useLongPress } from "@mantine/hooks";
+
 import type { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 
 export const CreateFilterPresetModal = (props: {
@@ -27,11 +20,7 @@ export const CreateFilterPresetModal = (props: {
 	});
 
 	return (
-		<Modal
-			opened={props.opened}
-			onClose={props.onClose}
-			title="Save filter as preset"
-		>
+		<Modal opened={props.opened} onClose={props.onClose} title="Save filter as preset">
 			<form
 				onSubmit={form.onSubmit((values) => {
 					props.onSave(values.name);
@@ -80,9 +69,7 @@ const FilterPresetChip = (props: {
 	name: string;
 	onDelete: (id: string, name: string) => void;
 }) => {
-	const longPressHandlers = useLongPress(() =>
-		props.onDelete(props.id, props.name),
-	);
+	const longPressHandlers = useLongPress(() => props.onDelete(props.id, props.name));
 	return (
 		<Chip
 			size="sm"
@@ -95,9 +82,7 @@ const FilterPresetChip = (props: {
 	);
 };
 
-export const FilterPresetBar = (props: {
-	presetManager: ReturnType<typeof useFilterPresets>;
-}) => {
+export const FilterPresetBar = (props: { presetManager: ReturnType<typeof useFilterPresets> }) => {
 	const [parent] = useAutoAnimate();
 	const presets = props.presetManager.filterPresets;
 	if (!presets || presets.response.length === 0) return null;

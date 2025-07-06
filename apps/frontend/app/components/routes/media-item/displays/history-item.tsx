@@ -1,26 +1,14 @@
-import {
-	ActionIcon,
-	Anchor,
-	Flex,
-	SimpleGrid,
-	Stack,
-	Text,
-} from "@mantine/core";
+import { ActionIcon, Anchor, Flex, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import {
-	changeCase,
-	humanizeDuration,
-	isInteger,
-	isNumber,
-	isString,
-} from "@ryot/ts-utils";
+import { changeCase, humanizeDuration, isInteger, isNumber, isString } from "@ryot/ts-utils";
 import { IconBubble, IconEdit, IconX } from "@tabler/icons-react";
 import type { HumanizeDurationOptions } from "humanize-duration-ts";
 import { Fragment, type ReactNode, type RefObject } from "react";
 import { Form } from "react-router";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { withQuery } from "ufo";
+
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -31,6 +19,7 @@ import {
 } from "~/lib/shared/hooks";
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
+
 import { EditHistoryItemModal } from "../modals/edit-history-modal";
 import type { History } from "../types";
 
@@ -44,20 +33,13 @@ export const HistoryItem = (props: {
 }) => {
 	const submit = useConfirmSubmit();
 	const coreDetails = useCoreDetails();
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(props.metadataId);
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
 	const [opened, { open, close }] = useDisclosure(false);
 	const showExtraInformation = props.history.showExtraInformation
 		? metadataDetails?.showSpecifics?.seasons
-				.find(
-					(s) => s.seasonNumber === props.history.showExtraInformation?.season,
-				)
-				?.episodes.find(
-					(e) =>
-						e.episodeNumber === props.history.showExtraInformation?.episode,
-				)
+				.find((s) => s.seasonNumber === props.history.showExtraInformation?.season)
+				?.episodes.find((e) => e.episodeNumber === props.history.showExtraInformation?.episode)
 		: null;
 	const scrollToVirtuosoElement = (
 		ref: RefObject<VirtuosoHandle | null>,
@@ -99,22 +81,17 @@ export const HistoryItem = (props: {
 				)
 			}
 		>
-			EP-{props.history.podcastExtraInformation?.episode}:{" "}
-			{podcastExtraInformation.title}
+			EP-{props.history.podcastExtraInformation?.episode}: {podcastExtraInformation.title}
 		</Anchor>
 	) : null;
-	const displayAnimeExtraInformation = isNumber(
-		props.history.animeExtraInformation?.episode,
-	)
+	const displayAnimeExtraInformation = isNumber(props.history.animeExtraInformation?.episode)
 		? `EP-${props.history.animeExtraInformation.episode}`
 		: null;
 	const displayMangaExtraInformation = (() => {
 		const { chapter, volume } = props.history.mangaExtraInformation || {};
 
 		if (chapter != null) {
-			const chapterNum = isString(chapter)
-				? Number.parseFloat(chapter)
-				: chapter;
+			const chapterNum = isString(chapter) ? Number.parseFloat(chapter) : chapter;
 
 			if (!Number.isNaN(chapterNum)) {
 				const isWholeNumber = isInteger(chapterNum);
@@ -145,12 +122,9 @@ export const HistoryItem = (props: {
 			: null;
 
 	const timeSpentInMilliseconds =
-		(props.history.manualTimeSpent
-			? Number(props.history.manualTimeSpent)
-			: 0) * 1000;
+		(props.history.manualTimeSpent ? Number(props.history.manualTimeSpent) : 0) * 1000;
 	const units = ["mo", "d", "h"] as HumanizeDurationOptions["units"];
-	const isLessThanAnHour =
-		timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
+	const isLessThanAnHour = timeSpentInMilliseconds < dayjsLib.duration(1, "hour").asMilliseconds();
 	if (isLessThanAnHour) units?.push("m");
 
 	return (
@@ -164,11 +138,7 @@ export const HistoryItem = (props: {
 				data-seen-num-times-updated={props.history.numTimesUpdated}
 			>
 				<Flex direction="column" justify="center">
-					<Form
-						replace
-						method="POST"
-						action={withQuery(".", { intent: "deleteSeenItem" })}
-					>
+					<Form replace method="POST" action={withQuery(".", { intent: "deleteSeenItem" })}>
 						<input hidden name="seenId" defaultValue={props.history.id} />
 						<ActionIcon
 							color="red"
@@ -223,25 +193,17 @@ export const HistoryItem = (props: {
 							</Text>
 						) : null}
 					</Flex>
-					<SimpleGrid
-						spacing="md"
-						verticalSpacing={2}
-						cols={{ base: 1, md: 2 }}
-					>
+					<SimpleGrid spacing="md" verticalSpacing={2} cols={{ base: 1, md: 2 }}>
 						<Flex gap="xs">
 							<Text size="sm">Started:</Text>
 							<Text size="sm" fw="bold">
-								{props.history.startedOn
-									? dayjsLib(props.history.startedOn).format("L")
-									: "N/A"}
+								{props.history.startedOn ? dayjsLib(props.history.startedOn).format("L") : "N/A"}
 							</Text>
 						</Flex>
 						<Flex gap="xs">
 							<Text size="sm">Ended:</Text>
 							<Text size="sm" fw="bold">
-								{props.history.finishedOn
-									? dayjsLib(props.history.finishedOn).format("L")
-									: "N/A"}
+								{props.history.finishedOn ? dayjsLib(props.history.finishedOn).format("L") : "N/A"}
 							</Text>
 						</Flex>
 						{timeSpentInMilliseconds ? (

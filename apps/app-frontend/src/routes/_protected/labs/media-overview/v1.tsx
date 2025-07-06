@@ -26,14 +26,7 @@ import {
 	UnstyledButton,
 } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	Bookmark,
-	ChevronRight,
-	Clock,
-	Play,
-	Star,
-	TrendingUp,
-} from "lucide-react";
+import { Bookmark, ChevronRight, Clock, Play, Star, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_protected/labs/media-overview/v1")({
 	component: JournalOverview,
@@ -294,12 +287,7 @@ function HeroSpotlight() {
 								<Text fz="xs" c="dimmed">
 									Progress
 								</Text>
-								<Text
-									fz="xs"
-									fw={600}
-									ff="var(--mantine-font-family-monospace)"
-									c={schema.accent}
-								>
+								<Text fz="xs" fw={600} ff="var(--mantine-font-family-monospace)" c={schema.accent}>
 									{item.progress.progressPercent}%
 								</Text>
 							</Group>
@@ -348,14 +336,7 @@ function ContinueStrip() {
 
 	return (
 		<Box>
-			<Text
-				fz={10}
-				fw={700}
-				tt="uppercase"
-				c="dimmed"
-				mb="xs"
-				style={{ letterSpacing: "1px" }}
-			>
+			<Text fz={10} fw={700} tt="uppercase" c="dimmed" mb="xs" style={{ letterSpacing: "1px" }}>
 				Also in progress
 			</Text>
 			<Stack gap="xs">
@@ -405,12 +386,7 @@ function ContinueStrip() {
 									)}
 								</Group>
 							</Box>
-							<Text
-								fz="xs"
-								fw={600}
-								c={schema.accent}
-								ff="var(--mantine-font-family-monospace)"
-							>
+							<Text fz="xs" fw={600} c={schema.accent} ff="var(--mantine-font-family-monospace)">
 								{item.progress.progressPercent}%
 							</Text>
 						</UnstyledButton>
@@ -427,13 +403,7 @@ function QueueList() {
 			<Group justify="space-between" mb="xs">
 				<Group gap={6}>
 					<Bookmark size={14} color={STONE} />
-					<Text
-						fz={10}
-						fw={700}
-						tt="uppercase"
-						c="dimmed"
-						style={{ letterSpacing: "1px" }}
-					>
+					<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 						Up Next
 					</Text>
 				</Group>
@@ -501,13 +471,7 @@ function UnratedList() {
 		<Box>
 			<Group gap={6} mb="xs">
 				<Star size={14} color="#D38D5A" />
-				<Text
-					fz={10}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Needs Rating
 				</Text>
 			</Group>
@@ -562,20 +526,11 @@ function ActivityTimeline() {
 		<Box>
 			<Group gap={6} mb="sm">
 				<Clock size={14} color="#6F8B75" />
-				<Text
-					fz={10}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Recent
 				</Text>
 			</Group>
-			<Box
-				pl="md"
-				style={{ borderLeft: "2px solid var(--mantine-color-dark-4)" }}
-			>
+			<Box pl="md" style={{ borderLeft: "2px solid var(--mantine-color-dark-4)" }}>
 				{ACTIVITY_EVENTS.map((event) => {
 					const schema = SCHEMAS[event.entitySchemaSlug];
 					return (
@@ -626,27 +581,12 @@ function WeekBar() {
 	const total = WEEK_ACTIVITY.reduce((s, d) => s + d.count, 0);
 
 	return (
-		<Paper
-			p="md"
-			radius="sm"
-			style={{ border: "1px solid var(--mantine-color-dark-4)" }}
-		>
+		<Paper p="md" radius="sm" style={{ border: "1px solid var(--mantine-color-dark-4)" }}>
 			<Group justify="space-between" mb="sm">
-				<Text
-					fz={10}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					This Week
 				</Text>
-				<Text
-					fz="xs"
-					fw={600}
-					c={GOLD}
-					ff="var(--mantine-font-family-monospace)"
-				>
+				<Text fz="xs" fw={600} c={GOLD} ff="var(--mantine-font-family-monospace)">
 					{total} events
 				</Text>
 			</Group>
@@ -658,8 +598,7 @@ function WeekBar() {
 							style={{
 								height: Math.max(4, (day.count / max) * 40),
 								borderRadius: 2,
-								backgroundColor:
-									day.count > 0 ? "#6F8B75" : "var(--mantine-color-dark-5)",
+								backgroundColor: day.count > 0 ? "#6F8B75" : "var(--mantine-color-dark-5)",
 								transition: "height 300ms",
 							}}
 						/>
@@ -674,26 +613,13 @@ function WeekBar() {
 }
 
 function LibraryCompact() {
-	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [
-		SchemaSlug,
-		number,
-	][];
+	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
 	const barTotal = types.reduce((s, [, c]) => s + c, 0);
 
 	return (
-		<Paper
-			p="md"
-			radius="sm"
-			style={{ border: "1px solid var(--mantine-color-dark-4)" }}
-		>
+		<Paper p="md" radius="sm" style={{ border: "1px solid var(--mantine-color-dark-4)" }}>
 			<Group justify="space-between" mb="sm">
-				<Text
-					fz={10}
-					fw={700}
-					tt="uppercase"
-					c="dimmed"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} tt="uppercase" c="dimmed" style={{ letterSpacing: "1px" }}>
 					Library
 				</Text>
 				<Text fz="xs" c="dimmed">
@@ -721,12 +647,7 @@ function LibraryCompact() {
 					},
 				].map((stat) => (
 					<Box key={stat.label} ta="center">
-						<Text
-							fz={18}
-							fw={700}
-							ff="var(--mantine-font-family-monospace)"
-							c={stat.color}
-						>
+						<Text fz={18} fw={700} ff="var(--mantine-font-family-monospace)" c={stat.color}>
 							{stat.value}
 						</Text>
 						<Text fz={9} c="dimmed" tt="uppercase">

@@ -87,18 +87,18 @@ Supported expression nodes: `literal`, `reference`, `coalesce`, `arithmetic`, `r
 
 ```json
 {
-  "type": "conditional",
-  "condition": {
-    "type": "comparison",
-    "operator": "gte",
-    "left": {
-      "type": "reference",
-      "reference": { "type": "entity", "slug": "book", "path": ["properties", "rating"] }
-    },
-    "right": { "type": "literal", "value": 4 }
-  },
-  "whenTrue": { "type": "literal", "value": "recommended" },
-  "whenFalse": { "type": "literal", "value": "standard" }
+	"type": "conditional",
+	"condition": {
+		"type": "comparison",
+		"operator": "gte",
+		"left": {
+			"type": "reference",
+			"reference": { "type": "entity", "slug": "book", "path": ["properties", "rating"] }
+		},
+		"right": { "type": "literal", "value": 4 }
+	},
+	"whenTrue": { "type": "literal", "value": "recommended" },
+	"whenFalse": { "type": "literal", "value": "standard" }
 }
 ```
 
@@ -107,8 +107,9 @@ Supported expression nodes: `literal`, `reference`, `coalesce`, `arithmetic`, `r
 **`concat`** — composes string values in order (scalars only — images, arrays, and objects are rejected).
 
 **`transform`** — applies a named string transformation to the inner expression (must be concat-compatible):
-  - `titleCase`: normalizes underscores/hyphens to spaces, capitalizes each word (`reps_and_weight` → `Reps And Weight`)
-  - `kebabCase`: normalizes underscores/spaces to hyphens, lowercases (`Reps And Weight` → `reps-and-weight`)
+
+- `titleCase`: normalizes underscores/hyphens to spaces, capitalizes each word (`reps_and_weight` → `Reps And Weight`)
+- `kebabCase`: normalizes underscores/spaces to hyphens, lowercases (`Reps And Weight` → `reps-and-weight`)
 
 **Image rules**: image references are display-only. Rejected from sort, filter, arithmetic, and string composition. Conditional/coalesce branches cannot mix image and non-image values.
 
@@ -168,7 +169,12 @@ Built-ins per join: `id`, `createdAt`, `updatedAt`. Properties via `["properties
 Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integer` for `count` and `number` for all others.
 
 ```json
-{ "type": "event-aggregate", "eventSchemaSlug": "review", "path": ["properties", "rating"], "aggregation": "avg" }
+{
+	"type": "event-aggregate",
+	"eventSchemaSlug": "review",
+	"path": ["properties", "rating"],
+	"aggregation": "avg"
+}
 ```
 
 - Scoped to the authenticated user — user A sees only their own aggregates.
@@ -201,24 +207,24 @@ Combine predicates with `and` / `or` (each takes a `predicates` array). Negate a
 
 ```json
 {
-  "type": "and",
-  "predicates": [
-    {
-      "type": "contains",
-      "expression": {
-        "type": "reference",
-        "reference": { "type": "entity", "slug": "book", "path": ["properties", "tags"] }
-      },
-      "value": { "type": "literal", "value": "classic" }
-    },
-    {
-      "type": "isNotNull",
-      "expression": {
-        "type": "reference",
-        "reference": { "type": "event-join", "joinKey": "review", "path": ["properties", "rating"] }
-      }
-    }
-  ]
+	"type": "and",
+	"predicates": [
+		{
+			"type": "contains",
+			"expression": {
+				"type": "reference",
+				"reference": { "type": "entity", "slug": "book", "path": ["properties", "tags"] }
+			},
+			"value": { "type": "literal", "value": "classic" }
+		},
+		{
+			"type": "isNotNull",
+			"expression": {
+				"type": "reference",
+				"reference": { "type": "event-join", "joinKey": "review", "path": ["properties", "rating"] }
+			}
+		}
+	]
 }
 ```
 
@@ -230,27 +236,27 @@ Entity mode:
 
 ```json
 {
-  "data": {
-    "mode": "entities",
-    "data": {
-      "meta": {
-        "pagination": {
-          "page": 1,
-          "total": 42,
-          "limit": 20,
-          "totalPages": 3,
-          "hasNextPage": true,
-          "hasPreviousPage": false
-        }
-      },
-      "items": [
-        [
-          { "key": "title", "kind": "text", "value": "Dune" },
-          { "key": "rating", "kind": "number", "value": 5 }
-        ]
-      ]
-    }
-  }
+	"data": {
+		"mode": "entities",
+		"data": {
+			"meta": {
+				"pagination": {
+					"page": 1,
+					"total": 42,
+					"limit": 20,
+					"totalPages": 3,
+					"hasNextPage": true,
+					"hasPreviousPage": false
+				}
+			},
+			"items": [
+				[
+					{ "key": "title", "kind": "text", "value": "Dune" },
+					{ "key": "rating", "kind": "number", "value": 5 }
+				]
+			]
+		}
+	}
 }
 ```
 
@@ -258,15 +264,15 @@ Aggregate mode:
 
 ```json
 {
-  "data": {
-    "mode": "aggregate",
-    "data": {
-      "values": [
-        { "key": "total", "kind": "number", "value": 42 },
-        { "key": "bySchema", "kind": "json", "value": { "book": 18, "movie": 24 } }
-      ]
-    }
-  }
+	"data": {
+		"mode": "aggregate",
+		"data": {
+			"values": [
+				{ "key": "total", "kind": "number", "value": 42 },
+				{ "key": "bySchema", "kind": "json", "value": { "book": 18, "movie": 24 } }
+			]
+		}
+	}
 }
 ```
 
@@ -274,27 +280,27 @@ Events mode (same shape as entity mode, each row is an event):
 
 ```json
 {
-  "data": {
-    "mode": "events",
-    "data": {
-      "meta": {
-        "pagination": {
-          "page": 1,
-          "total": 7,
-          "limit": 20,
-          "totalPages": 1,
-          "hasNextPage": false,
-          "hasPreviousPage": false
-        }
-      },
-      "items": [
-        [
-          { "key": "rating", "kind": "number", "value": 5 },
-          { "key": "reviewedAt", "kind": "date", "value": "2024-01-15T00:00:00.000Z" }
-        ]
-      ]
-    }
-  }
+	"data": {
+		"mode": "events",
+		"data": {
+			"meta": {
+				"pagination": {
+					"page": 1,
+					"total": 7,
+					"limit": 20,
+					"totalPages": 1,
+					"hasNextPage": false,
+					"hasPreviousPage": false
+				}
+			},
+			"items": [
+				[
+					{ "key": "rating", "kind": "number", "value": 5 },
+					{ "key": "reviewedAt", "kind": "date", "value": "2024-01-15T00:00:00.000Z" }
+				]
+			]
+		}
+	}
 }
 ```
 
@@ -302,16 +308,16 @@ Time-series mode:
 
 ```json
 {
-  "data": {
-    "mode": "timeSeries",
-    "data": {
-      "buckets": [
-        { "date": "2024-01-01T00:00:00.000Z", "value": 3 },
-        { "date": "2024-01-02T00:00:00.000Z", "value": 0 },
-        { "date": "2024-01-03T00:00:00.000Z", "value": 5 }
-      ]
-    }
-  }
+	"data": {
+		"mode": "timeSeries",
+		"data": {
+			"buckets": [
+				{ "date": "2024-01-01T00:00:00.000Z", "value": 3 },
+				{ "date": "2024-01-02T00:00:00.000Z", "value": 0 },
+				{ "date": "2024-01-03T00:00:00.000Z", "value": 5 }
+			]
+		}
+	}
 }
 ```
 

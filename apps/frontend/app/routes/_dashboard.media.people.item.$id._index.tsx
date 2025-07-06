@@ -10,10 +10,7 @@ import {
 	Tabs,
 	Text,
 } from "@mantine/core";
-import {
-	EntityLot,
-	EntityTranslationVariant,
-} from "@ryot/generated/graphql/backend/graphql";
+import { EntityLot, EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
 import { parseParameters, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconDeviceTv,
@@ -27,11 +24,8 @@ import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	EditButton,
-	SkeletonLoader,
-} from "~/components/common";
+
+import { DisplayCollectionToEntity, EditButton, SkeletonLoader } from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
 import { ReviewItemDisplay } from "~/components/common/review";
 import {
@@ -53,6 +47,7 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
+
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
 
 const searchParamsSchema = z.object({
@@ -62,10 +57,7 @@ const searchParamsSchema = z.object({
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { id: personId } = parseParameters(
-		params,
-		z.object({ id: z.string() }),
-	);
+	const { id: personId } = parseParameters(params, z.object({ id: z.string() }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 
 	return { query, personId };
@@ -81,9 +73,7 @@ export default function Page() {
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 
-	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(
-		loaderData.personId,
-	);
+	const [personDetails, isPersonPartialStatusActive] = usePersonDetails(loaderData.personId);
 	const userPersonDetails = useUserPersonDetails(loaderData.personId);
 
 	const personTitleTranslation = usePersonTranslationValue({
@@ -101,10 +91,8 @@ export default function Page() {
 		variant: EntityTranslationVariant.Image,
 	});
 
-	const title =
-		personTitleTranslation || personDetails.data?.details.name || "";
-	const description =
-		personDescriptionTranslation || personDetails.data?.details.description;
+	const title = personTitleTranslation || personDetails.data?.details.name || "";
+	const description = personDescriptionTranslation || personDetails.data?.details.description;
 
 	const [mediaRoleFilter, setMediaRoleFilter] = useLocalStorage(
 		"PersonMediaTabRoleFilter",
@@ -112,22 +100,17 @@ export default function Page() {
 	);
 	const [groupRoleFilter, setGroupRoleFilter] = useLocalStorage(
 		"PersonGroupTabRoleFilter",
-		personDetails.data?.associatedMetadataGroups.map((c) => c.name).at(0) ||
-			null,
+		personDetails.data?.associatedMetadataGroups.map((c) => c.name).at(0) || null,
 	);
 
-	const totalMetadata =
-		personDetails.data?.associatedMetadata.flatMap((e) => e.items).length || 0;
+	const totalMetadata = personDetails.data?.associatedMetadata.flatMap((e) => e.items).length || 0;
 	const totalMetadataGroups =
-		personDetails.data?.associatedMetadataGroups.flatMap((e) => e.items)
-			.length || 0;
+		personDetails.data?.associatedMetadataGroups.flatMap((e) => e.items).length || 0;
 	const additionalPersonDetails = [
 		totalMetadata ? `${totalMetadata} media items` : null,
 		totalMetadataGroups ? `${totalMetadataGroups} groups` : null,
-		personDetails.data?.details.birthDate &&
-			`Birth: ${personDetails.data?.details.birthDate}`,
-		personDetails.data?.details.deathDate &&
-			`Death: ${personDetails.data?.details.deathDate}`,
+		personDetails.data?.details.birthDate && `Birth: ${personDetails.data?.details.birthDate}`,
+		personDetails.data?.details.deathDate && `Death: ${personDetails.data?.details.deathDate}`,
 		personDetails.data?.details.place,
 		personDetails.data?.details.gender,
 		personDetails.data?.details.alternateNames &&
@@ -179,41 +162,26 @@ export default function Page() {
 					) : null}
 					<Tabs
 						variant="outline"
-						defaultValue={
-							loaderData.query.defaultTab ||
-							(totalMetadata > 0 ? "media" : "actions")
-						}
+						defaultValue={loaderData.query.defaultTab || (totalMetadata > 0 ? "media" : "actions")}
 					>
 						<Tabs.List mb="xs">
 							{totalMetadata > 0 ? (
-								<Tabs.Tab
-									value="media"
-									leftSection={<IconDeviceTv size={16} />}
-								>
+								<Tabs.Tab value="media" leftSection={<IconDeviceTv size={16} />}>
 									Media
 								</Tabs.Tab>
 							) : null}
 							{totalMetadataGroups > 0 ? (
-								<Tabs.Tab
-									value="groups"
-									leftSection={<IconLibrary size={16} />}
-								>
+								<Tabs.Tab value="groups" leftSection={<IconLibrary size={16} />}>
 									Groups
 								</Tabs.Tab>
 							) : null}
 							{description ? (
-								<Tabs.Tab
-									value="overview"
-									leftSection={<IconInfoCircle size={16} />}
-								>
+								<Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
 									Overview
 								</Tabs.Tab>
 							) : null}
 							{!userPreferences.general.disableReviews ? (
-								<Tabs.Tab
-									value="reviews"
-									leftSection={<IconMessageCircle2 size={16} />}
-								>
+								<Tabs.Tab value="reviews" leftSection={<IconMessageCircle2 size={16} />}>
 									Reviews
 								</Tabs.Tab>
 							) : null}
@@ -233,12 +201,10 @@ export default function Page() {
 												size="xs"
 												value={mediaRoleFilter}
 												onChange={(value) => setMediaRoleFilter(value)}
-												data={personDetails.data.associatedMetadata.map(
-													(c) => ({
-														value: c.name,
-														label: `${c.name} (${c.items.length})`,
-													}),
-												)}
+												data={personDetails.data.associatedMetadata.map((c) => ({
+													value: c.name,
+													label: `${c.name} (${c.items.length})`,
+												}))}
 											/>
 										</Group>
 										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
@@ -268,12 +234,10 @@ export default function Page() {
 												size="xs"
 												value={groupRoleFilter}
 												onChange={(value) => setGroupRoleFilter(value)}
-												data={personDetails.data.associatedMetadataGroups.map(
-													(c) => ({
-														value: c.name,
-														label: `${c.name} (${c.items.length})`,
-													}),
-												)}
+												data={personDetails.data.associatedMetadataGroups.map((c) => ({
+													value: c.name,
+													label: `${c.name} (${c.items.length})`,
+												}))}
 											/>
 										</Group>
 										<SimpleGrid cols={{ base: 3, md: 4, lg: 5 }}>
@@ -294,7 +258,7 @@ export default function Page() {
 							<Tabs.Panel value="overview">
 								<MediaScrollArea>
 									<div
-										// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
+										// oxlint-disable-next-line react/no-danger
 										dangerouslySetInnerHTML={{ __html: description }}
 									/>
 								</MediaScrollArea>
@@ -352,9 +316,7 @@ export default function Page() {
 											editRouteType="people"
 											entityId={personDetails.data.details.id}
 											source={personDetails.data.details.source}
-											createdByUserId={
-												personDetails.data.details.createdByUserId
-											}
+											createdByUserId={personDetails.data.details.createdByUserId}
 										/>
 									)}
 								</SimpleGrid>
@@ -390,10 +352,7 @@ export default function Page() {
 	);
 }
 
-const MetadataDisplay = (props: {
-	metadataId: string;
-	character?: string | null;
-}) => {
+const MetadataDisplay = (props: { metadataId: string; character?: string | null }) => {
 	return (
 		<PartialMetadataDisplay
 			metadataId={props.metadataId}
@@ -420,12 +379,9 @@ const MetadataGroupDisplay = (props: { metadataGroupId: string }) => {
 		<BaseEntityDisplay
 			isPartialStatusActive={isMetadataGroupPartialStatusActive}
 			link={$path("/media/groups/item/:id", { id: props.metadataGroupId })}
-			title={
-				metadataGroupTitleTranslation || metadataGroupDetails?.details.title
-			}
+			title={metadataGroupTitleTranslation || metadataGroupDetails?.details.title}
 			image={
-				metadataGroupImageTranslation ||
-				metadataGroupDetails?.details.assets.remoteImages.at(0)
+				metadataGroupImageTranslation || metadataGroupDetails?.details.assets.remoteImages.at(0)
 			}
 		/>
 	);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createEntityImportDeps,
 	createEntitySchemaBody,
@@ -11,6 +12,7 @@ import {
 	createTitlePagesPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
+
 import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import {
 	createEntitySchema,
@@ -35,9 +37,7 @@ describe("resolveEntitySchemaName", () => {
 	});
 
 	it("throws when the name is blank", () => {
-		expect(() => resolveEntitySchemaName("   ")).toThrow(
-			"Entity schema name is required",
-		);
+		expect(() => resolveEntitySchemaName("   ")).toThrow("Entity schema name is required");
 	});
 });
 
@@ -47,9 +47,7 @@ describe("resolveEntitySchemaIcon", () => {
 	});
 
 	it("throws when the icon is blank", () => {
-		expect(() => resolveEntitySchemaIcon("   ")).toThrow(
-			"Entity schema icon is required",
-		);
+		expect(() => resolveEntitySchemaIcon("   ")).toThrow("Entity schema icon is required");
 	});
 });
 
@@ -215,9 +213,7 @@ describe("resolveEntitySchemaTrackerId", () => {
 	});
 
 	it("throws when the tracker id is blank", () => {
-		expect(() => resolveEntitySchemaTrackerId("   ")).toThrow(
-			"Tracker id is required",
-		);
+		expect(() => resolveEntitySchemaTrackerId("   ")).toThrow("Tracker id is required");
 	});
 });
 
@@ -234,12 +230,7 @@ describe("validateSlugNotReserved", () => {
 	});
 
 	it("does not throw for non-reserved slugs", () => {
-		const nonReservedSlugs = [
-			"cars",
-			"whiskey",
-			"smartphones",
-			"custom-schema",
-		];
+		const nonReservedSlugs = ["cars", "whiskey", "smartphones", "custom-schema"];
 
 		for (const slug of nonReservedSlugs) {
 			expect(() => validateSlugNotReserved(slug)).not.toThrow();
@@ -253,29 +244,21 @@ describe("validateSlugNotReserved", () => {
 	});
 
 	it("creates distinct built-in progress schema objects per entity type", () => {
-		const showSchema = builtinEntitySchemas.find(
-			(schema) => schema.slug === "show",
-		);
-		const movieSchema = builtinEntitySchemas.find(
-			(schema) => schema.slug === "movie",
-		);
+		const showSchema = builtinEntitySchemas.find((schema) => schema.slug === "show");
+		const movieSchema = builtinEntitySchemas.find((schema) => schema.slug === "movie");
 		expect(showSchema).toBeDefined();
 		expect(movieSchema).toBeDefined();
 		if (!showSchema || !movieSchema) {
 			throw new Error("Missing built-in media schema");
 		}
 
-		const showProgressSchema = showSchema.eventSchemas.find(
-			(schema) => schema.slug === "progress",
-		);
+		const showProgressSchema = showSchema.eventSchemas.find((schema) => schema.slug === "progress");
 		const movieProgressSchema = movieSchema.eventSchemas.find(
 			(schema) => schema.slug === "progress",
 		);
 		expect(showProgressSchema).toBeDefined();
 		expect(movieProgressSchema).toBeDefined();
-		expect(showProgressSchema?.propertiesSchema).not.toBe(
-			movieProgressSchema?.propertiesSchema,
-		);
+		expect(showProgressSchema?.propertiesSchema).not.toBe(movieProgressSchema?.propertiesSchema);
 	});
 });
 
@@ -536,10 +519,7 @@ describe("getEntitySearchResult", () => {
 			}),
 		});
 
-		const result = await getEntitySearchResult(
-			{ jobId: "nonexistent", userId: "user_1" },
-			deps,
-		);
+		const result = await getEntitySearchResult({ jobId: "nonexistent", userId: "user_1" }, deps);
 
 		expect(result).toEqual({
 			error: "not_found",
@@ -625,10 +605,7 @@ describe("getEntityImportResult", () => {
 			}),
 		});
 
-		const result = await getEntityImportResult(
-			{ jobId: "job_1", userId: "user_1" },
-			deps,
-		);
+		const result = await getEntityImportResult({ jobId: "job_1", userId: "user_1" }, deps);
 
 		expect(result).toEqual({
 			error: "not_found",
@@ -660,10 +637,7 @@ describe("getEntityImportResult", () => {
 			}),
 		});
 
-		const result = await getEntityImportResult(
-			{ jobId: "job_1", userId: "user_1" },
-			deps,
-		);
+		const result = await getEntityImportResult({ jobId: "job_1", userId: "user_1" }, deps);
 
 		expect(result).toEqual({
 			data: { status: "failed", error: "Script threw an error" },

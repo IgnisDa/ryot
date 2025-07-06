@@ -1,4 +1,5 @@
 import { resolveRequiredString } from "@ryot/ts-utils";
+
 import { createDefaultQueryDefinition } from "../saved-views/constants";
 import type {
 	DisplayConfiguration,
@@ -43,23 +44,15 @@ export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
 	schemaLinks: Array<{ slug: string; trackerSlug: string }>;
 }) => {
 	return input.schemaLinks.map((schemaLink) => {
-		const tracker = input.trackers.find(
-			(item) => item.slug === schemaLink.trackerSlug,
-		);
-		const entitySchema = input.entitySchemas.find(
-			(item) => item.slug === schemaLink.slug,
-		);
+		const tracker = input.trackers.find((item) => item.slug === schemaLink.trackerSlug);
+		const entitySchema = input.entitySchemas.find((item) => item.slug === schemaLink.slug);
 
 		if (!tracker) {
-			throw new Error(
-				`Missing built-in tracker for entity schema ${schemaLink.slug}`,
-			);
+			throw new Error(`Missing built-in tracker for entity schema ${schemaLink.slug}`);
 		}
 
 		if (!entitySchema) {
-			throw new Error(
-				`Missing built-in entity schema for tracker link ${schemaLink.slug}`,
-			);
+			throw new Error(`Missing built-in entity schema for tracker link ${schemaLink.slug}`);
 		}
 
 		return {
@@ -94,21 +87,15 @@ export const buildAuthenticationSavedViewInputs = (input: {
 			? input.trackers.find((item) => item.slug === savedView.trackerSlug)
 			: undefined;
 		const entitySchema = savedView.entitySchemaSlug
-			? input.entitySchemas.find(
-					(schema) => schema.slug === savedView.entitySchemaSlug,
-				)
+			? input.entitySchemas.find((schema) => schema.slug === savedView.entitySchemaSlug)
 			: undefined;
 
 		if (savedView.trackerSlug && !tracker) {
-			throw new Error(
-				`Missing built-in tracker for saved view ${savedView.name}`,
-			);
+			throw new Error(`Missing built-in tracker for saved view ${savedView.name}`);
 		}
 
 		if (savedView.entitySchemaSlug && !entitySchema) {
-			throw new Error(
-				`Missing built-in entity schema for saved view ${savedView.name}`,
-			);
+			throw new Error(`Missing built-in entity schema for saved view ${savedView.name}`);
 		}
 
 		const icon = savedView.icon ?? entitySchema?.icon;
@@ -126,9 +113,7 @@ export const buildAuthenticationSavedViewInputs = (input: {
 		const queryDefinition = savedView.queryDefinition;
 
 		if (!queryDefinition && !entitySchema) {
-			throw new Error(
-				`Missing query definition for saved view ${savedView.name}`,
-			);
+			throw new Error(`Missing query definition for saved view ${savedView.name}`);
 		}
 
 		let resolvedQueryDefinition: SavedViewQueryDefinition;
@@ -137,15 +122,12 @@ export const buildAuthenticationSavedViewInputs = (input: {
 			resolvedQueryDefinition = queryDefinition;
 		} else {
 			if (!entitySchema) {
-				throw new Error(
-					`Missing query definition for saved view ${savedView.name}`,
-				);
+				throw new Error(`Missing query definition for saved view ${savedView.name}`);
 			}
 
-			resolvedQueryDefinition = createDefaultQueryDefinition(
-				[entitySchema.slug],
-				{ relationships: savedView.relationships },
-			);
+			resolvedQueryDefinition = createDefaultQueryDefinition([entitySchema.slug], {
+				relationships: savedView.relationships,
+			});
 		}
 
 		return {

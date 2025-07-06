@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
@@ -11,10 +12,7 @@ import {
 	buildLatestEventJoinCte,
 	ENTITY_CTE_ALIASES,
 } from "./query-ctes";
-import type {
-	EntityQueryEngineRequest,
-	QueryEngineEntityResponse,
-} from "./schemas";
+import type { EntityQueryEngineRequest, QueryEngineEntityResponse } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
 export const executePreparedQuery = async (input: {

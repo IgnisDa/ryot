@@ -1,9 +1,8 @@
 import { dayjs } from "@ryot/ts-utils";
+
 import type { AppEntity, SearchResultItem } from "~/features/entities/model";
 
-export function createEntityFixture(
-	overrides: Partial<AppEntity> = {},
-): AppEntity {
+export function createEntityFixture(overrides: Partial<AppEntity> = {}): AppEntity {
 	return {
 		image: null,
 		id: "entity-1",

@@ -1,4 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
+
 import { useApiClient } from "~/hooks/api";
 
 export function useCollectionMutations() {
@@ -6,10 +7,7 @@ export function useCollectionMutations() {
 
 	const create = apiClient.useMutation("post", "/collections");
 
-	const createCollection = async (
-		name: string,
-		membershipPropertiesSchema?: AppSchema,
-	) => {
+	const createCollection = async (name: string, membershipPropertiesSchema?: AppSchema) => {
 		return await create.mutateAsync({
 			body: {
 				name,

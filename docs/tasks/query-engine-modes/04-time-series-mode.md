@@ -119,6 +119,7 @@ Invalid: `event-join`, `event-aggregate`.
 ### Preparer extension
 
 Time-series mode needs:
+
 1. Entity schema loading (for scope validation and entity property access in filters)
 2. Event schema loading (for `eventSchemas` validation and `event` property reference validation)
 3. No event join loading, no relationship loading

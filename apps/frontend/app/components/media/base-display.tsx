@@ -4,6 +4,7 @@ import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphq
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
+
 import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
 import {
 	useMetadataDetails,
@@ -11,6 +12,7 @@ import {
 	useS3PresignedUrls,
 	useUserMetadataDetails,
 } from "~/lib/shared/hooks";
+
 import classes from "~/styles/common.module.css";
 
 const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
@@ -59,19 +61,13 @@ export const BaseEntityDisplay = (props: {
 	);
 };
 
-export const PartialMetadataDisplay = (props: {
-	metadataId: string;
-	extraText?: string;
-}) => {
+export const PartialMetadataDisplay = (props: { metadataId: string; extraText?: string }) => {
 	const { ref, inViewport } = useInViewport();
 	const [{ data: metadataDetails }, isPartialStatusActive] = useMetadataDetails(
 		props.metadataId,
 		inViewport,
 	);
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-		inViewport,
-	);
+	const { data: userMetadataDetails } = useUserMetadataDetails(props.metadataId, inViewport);
 
 	const metadataTitleTranslation = useMetadataTranslationValue({
 		metadataId: props.metadataId,
@@ -86,10 +82,7 @@ export const PartialMetadataDisplay = (props: {
 	});
 
 	const s3PresignedUrls = useS3PresignedUrls(metadataDetails?.assets.s3Images);
-	const images = [
-		...(metadataDetails?.assets.remoteImages || []),
-		...(s3PresignedUrls.data || []),
-	];
+	const images = [...(metadataDetails?.assets.remoteImages || []), ...(s3PresignedUrls.data || [])];
 
 	return (
 		<BaseEntityDisplay
@@ -105,9 +98,5 @@ export const PartialMetadataDisplay = (props: {
 };
 
 export const MediaScrollArea = (props: { children: ReactNode }) => {
-	return (
-		<ScrollArea.Autosize mah={MEDIA_DETAILS_HEIGHT}>
-			{props.children}
-		</ScrollArea.Autosize>
-	);
+	return <ScrollArea.Autosize mah={MEDIA_DETAILS_HEIGHT}>{props.children}</ScrollArea.Autosize>;
 };

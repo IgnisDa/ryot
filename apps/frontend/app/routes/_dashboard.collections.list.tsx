@@ -29,10 +29,8 @@ import { parseAsBoolean, parseAsString } from "nuqs";
 import { Link } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
-import {
-	DisplayListDetailsAndRefresh,
-	ProRequiredAlert,
-} from "~/components/common";
+
+import { DisplayListDetailsAndRefresh, ProRequiredAlert } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import {
@@ -63,27 +61,23 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
-	const { filters: searchFilters, updateFilters } =
-		useFiltersState(defaultSearchFilters);
+	const { filters: searchFilters, updateFilters } = useFiltersState(defaultSearchFilters);
 
 	const query = searchFilters.query;
 	const showHidden = searchFilters.showHidden;
 	const hasHiddenCollections = collections.some(
 		(c) =>
-			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
-				?.extraInformation?.isHidden,
+			c.collaborators.find((c) => c.collaborator.id === userDetails.id)?.extraInformation?.isHidden,
 	);
 
 	const filteredCollections = collections
 		.filter((c) =>
 			showHidden
 				? true
-				: c.collaborators.find((c) => c.collaborator.id === userDetails.id)
-						?.extraInformation?.isHidden !== true,
+				: c.collaborators.find((c) => c.collaborator.id === userDetails.id)?.extraInformation
+						?.isHidden !== true,
 		)
-		.filter((c) =>
-			query ? c.name.toLowerCase().includes(query.toLowerCase()) : true,
-		);
+		.filter((c) => (query ? c.name.toLowerCase().includes(query.toLowerCase()) : true));
 
 	return (
 		<Container size="sm">
@@ -91,11 +85,7 @@ export default function Page() {
 				<Group justify="space-between" wrap="nowrap">
 					<Flex align="center" gap="md">
 						<Title>Your collections</Title>
-						<ActionIcon
-							color="green"
-							variant="outline"
-							onClick={() => openCollectionModal(null)}
-						>
+						<ActionIcon color="green" variant="outline" onClick={() => openCollectionModal(null)}>
 							<IconPlus size={20} />
 						</ActionIcon>
 					</Flex>
@@ -122,9 +112,7 @@ export default function Page() {
 					data={filteredCollections}
 					itemContent={(index) => {
 						const c = filteredCollections[index];
-						return (
-							<DisplayCollection key={c.id} index={index} collection={c} />
-						);
+						return <DisplayCollection key={c.id} index={index} collection={c} />;
 					}}
 				/>
 			</Stack>
@@ -132,15 +120,11 @@ export default function Page() {
 	);
 }
 
-type Collection =
-	UserCollectionsListQuery["userCollectionsList"]["response"][number];
+type Collection = UserCollectionsListQuery["userCollectionsList"]["response"][number];
 
 const IMAGES_CONTAINER_WIDTH = 250;
 
-const DisplayCollection = (props: {
-	index: number;
-	collection: Collection;
-}) => {
+const DisplayCollection = (props: { index: number; collection: Collection }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
@@ -149,10 +133,9 @@ const DisplayCollection = (props: {
 
 	const deleteCollectionMutation = useMutation({
 		mutationFn: async (collectionName: string) => {
-			const { deleteCollection } = await clientGqlService.request(
-				DeleteCollectionDocument,
-				{ collectionName },
-			);
+			const { deleteCollection } = await clientGqlService.request(DeleteCollectionDocument, {
+				collectionName,
+			});
 			return deleteCollection;
 		},
 		onSuccess: () => {
@@ -175,23 +158,18 @@ const DisplayCollection = (props: {
 	});
 
 	const { data: collectionImages } = useQuery({
-		queryKey: queryFactory.collections.collectionDetailsImages(
-			props.collection.id,
-		).queryKey,
+		queryKey: queryFactory.collections.collectionDetailsImages(props.collection.id).queryKey,
 		queryFn: async () => {
-			const { collectionContents } = await clientGqlService.request(
-				CollectionContentsDocument,
-				{
-					input: {
-						search: { take: 10 },
-						collectionId: props.collection.id,
-						sort: {
-							order: GraphqlSortOrder.Desc,
-							by: CollectionContentsSortBy.LastUpdatedOn,
-						},
+			const { collectionContents } = await clientGqlService.request(CollectionContentsDocument, {
+				input: {
+					search: { take: 10 },
+					collectionId: props.collection.id,
+					sort: {
+						order: GraphqlSortOrder.Desc,
+						by: CollectionContentsSortBy.LastUpdatedOn,
 					},
 				},
-			);
+			});
 			const images = [];
 			for (const content of collectionContents.response.results.items) {
 				if (images.length === 5) break;
@@ -215,12 +193,9 @@ const DisplayCollection = (props: {
 
 	if (props.collection.creator.id !== userDetails.id)
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
-	if (props.collection.count > 0)
-		additionalDisplay.push(`${props.collection.count} items`);
+	if (props.collection.count > 0) additionalDisplay.push(`${props.collection.count} items`);
 	if (props.collection.collaborators.length > 1)
-		additionalDisplay.push(
-			`${props.collection.collaborators.length - 1} collaborators`,
-		);
+		additionalDisplay.push(`${props.collection.collaborators.length - 1} collaborators`);
 
 	const FallBackImage = () => (
 		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />
@@ -272,13 +247,8 @@ const DisplayCollection = (props: {
 				</Flex>
 				<Stack flex={1} py={{ md: "sm" }}>
 					<Group justify="space-between">
-						<Anchor
-							component={Link}
-							to={$path("/collections/:id", { id: props.collection.id })}
-						>
-							<Title order={4}>
-								{truncate(props.collection.name, { length: 20 })}
-							</Title>
+						<Anchor component={Link} to={$path("/collections/:id", { id: props.collection.id })}>
+							<Title order={4}>{truncate(props.collection.name, { length: 20 })}</Title>
 						</Anchor>
 						<Group gap="md">
 							{additionalDisplay.length > 0 ? (
@@ -299,17 +269,14 @@ const DisplayCollection = (props: {
 									<IconEdit size={18} />
 								</ActionIcon>
 							) : null}
-							{userDetails.id === props.collection.creator.id &&
-							!props.collection.isDefault ? (
+							{userDetails.id === props.collection.creator.id && !props.collection.isDefault ? (
 								<ActionIcon
 									color="red"
 									variant="outline"
 									loading={deleteCollectionMutation.isPending}
 									onClick={() => {
-										openConfirmationModal(
-											"Are you sure you want to delete this collection?",
-											() =>
-												deleteCollectionMutation.mutate(props.collection.name),
+										openConfirmationModal("Are you sure you want to delete this collection?", () =>
+											deleteCollectionMutation.mutate(props.collection.name),
 										);
 									}}
 								>
@@ -326,9 +293,8 @@ const DisplayCollection = (props: {
 					{props.collection.isDefault ? (
 						<Text lineClamp={1} mt="auto" ta="right" c="dimmed" size="xs">
 							System created
-							{props.collection.collaborators.find(
-								(c) => c.collaborator.id === userDetails.id,
-							)?.extraInformation?.isHidden
+							{props.collection.collaborators.find((c) => c.collaborator.id === userDetails.id)
+								?.extraInformation?.isHidden
 								? ", Hidden"
 								: ""}
 						</Text>

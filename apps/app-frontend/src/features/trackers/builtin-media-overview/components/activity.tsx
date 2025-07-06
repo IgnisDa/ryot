@@ -1,5 +1,6 @@
 import { Badge, Box, Group, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import { Link } from "@tanstack/react-router";
+
 import { colorMix, GOLD, STONE, type WeekDayView } from "../shared";
 import { Artwork } from "./artwork";
 
@@ -30,12 +31,7 @@ export function WeekStrip(props: WeekStripProps) {
 					>
 						Weekly rhythm
 					</Text>
-					<Text
-						fz="sm"
-						fw={600}
-						c={props.textPrimary}
-						ff="var(--mantine-headings-font-family)"
-					>
+					<Text fz="sm" fw={600} c={props.textPrimary} ff="var(--mantine-headings-font-family)">
 						You showed up {activeDays} of 7 days.
 					</Text>
 				</Stack>
@@ -48,19 +44,15 @@ export function WeekStrip(props: WeekStripProps) {
 					const h = day.count > 0 ? 10 + (day.count / maxCount) * 28 : 6;
 					return (
 						<Stack key={day.day} gap={4} align="center" style={{ flex: 1 }}>
-							<Tooltip
-								label={`${day.count} event${day.count !== 1 ? "s" : ""}`}
-							>
+							<Tooltip label={`${day.count} event${day.count !== 1 ? "s" : ""}`}>
 								<Box
 									h={h}
 									w="100%"
 									style={{
 										borderRadius: 999,
 										transition: "height 0.2s ease",
-										backgroundColor:
-											day.count > 0 ? props.accentColor : `${props.border}`,
-										opacity:
-											day.count > 0 ? 0.4 + (day.count / maxCount) * 0.6 : 1,
+										backgroundColor: day.count > 0 ? props.accentColor : `${props.border}`,
+										opacity: day.count > 0 ? 0.4 + (day.count / maxCount) * 0.6 : 1,
 									}}
 								/>
 							</Tooltip>
@@ -80,10 +72,7 @@ interface EventRowProps {
 	isLast: boolean;
 	textMuted: string;
 	textPrimary: string;
-	schemaBySlug: Map<
-		string,
-		{ accentColor?: string; icon?: string; name?: string }
-	>;
+	schemaBySlug: Map<string, { accentColor?: string; icon?: string; name?: string }>;
 	event: {
 		id: string;
 		sub?: string;
@@ -162,11 +151,7 @@ export function EventRow(props: EventRowProps) {
 					)}
 				</Group>
 			</Stack>
-			<Text
-				fz={10}
-				c={props.textMuted}
-				style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-			>
+			<Text fz={10} c={props.textMuted} style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
 				{props.event.time}
 			</Text>
 		</Group>
@@ -190,10 +175,7 @@ export function TypeBar(props: TypeBarProps) {
 	}
 	return (
 		<Stack gap={6}>
-			<Box
-				h={8}
-				style={{ display: "flex", borderRadius: 4, overflow: "hidden" }}
-			>
+			<Box h={8} style={{ display: "flex", borderRadius: 4, overflow: "hidden" }}>
 				{props.types.map((t) => {
 					const pct = (t.count / props.total) * 100;
 					return (
@@ -213,11 +195,7 @@ export function TypeBar(props: TypeBarProps) {
 			<Group gap="sm" wrap="wrap">
 				{props.types.slice(0, 6).map((t) => (
 					<Group key={t.slug} gap={4}>
-						<Box
-							w={8}
-							h={8}
-							style={{ borderRadius: 2, backgroundColor: t.color }}
-						/>
+						<Box w={8} h={8} style={{ borderRadius: 2, backgroundColor: t.color }} />
 						<Text fz={10} c={props.textMuted} tt="capitalize">
 							{t.slug} ({t.count})
 						</Text>

@@ -4,9 +4,9 @@
 	"type": "module",
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "biome check .",
 		"build": "vitepress build",
-		"dev": "vitepress dev --port 3002"
+		"dev": "vitepress dev --port 3002",
+		"lint": "oxlint . && oxfmt --check ."
 	},
 	"devDependencies": {
 		"vitepress": "2.0.0-alpha.15"

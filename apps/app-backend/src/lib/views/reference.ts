@@ -1,8 +1,5 @@
-import type {
-	AppPropertyDefinition,
-	AppSchema,
-	RuntimeRef,
-} from "@ryot/ts-utils";
+import type { AppPropertyDefinition, AppSchema, RuntimeRef } from "@ryot/ts-utils";
+
 import { QueryEngineValidationError } from "./errors";
 
 export type PropertyType = AppPropertyDefinition["type"];
@@ -100,38 +97,22 @@ const entityRuntimeColumns = {
 	externalId: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"External ID",
-			"string",
-			"External identifier",
-		),
+		property: createRuntimeProperty("External ID", "string", "External identifier"),
 	},
 	sandboxScriptId: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Sandbox Script ID",
-			"string",
-			"Sandbox script identifier",
-		),
+		property: createRuntimeProperty("Sandbox Script ID", "string", "Sandbox script identifier"),
 	},
 	createdAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Created At",
-			"datetime",
-			"Creation timestamp",
-		),
+		property: createRuntimeProperty("Created At", "datetime", "Creation timestamp"),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Updated At",
-			"datetime",
-			"Last update timestamp",
-		),
+		property: createRuntimeProperty("Updated At", "datetime", "Last update timestamp"),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
@@ -144,20 +125,12 @@ const sharedEventRuntimeColumns = {
 	createdAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Created At",
-			"datetime",
-			"Event creation timestamp",
-		),
+		property: createRuntimeProperty("Created At", "datetime", "Event creation timestamp"),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Updated At",
-			"datetime",
-			"Event update timestamp",
-		),
+		property: createRuntimeProperty("Updated At", "datetime", "Event update timestamp"),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
@@ -193,20 +166,12 @@ const eventSchemaRuntimeColumns = {
 	createdAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Created At",
-			"datetime",
-			"Event schema creation timestamp",
-		),
+		property: createRuntimeProperty("Created At", "datetime", "Event schema creation timestamp"),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Updated At",
-			"datetime",
-			"Event schema update timestamp",
-		),
+		property: createRuntimeProperty("Updated At", "datetime", "Event schema update timestamp"),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
@@ -239,45 +204,26 @@ const entitySchemaRuntimeColumns = {
 	isBuiltin: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Is Builtin",
-			"boolean",
-			"Whether the schema is built in",
-		),
+		property: createRuntimeProperty("Is Builtin", "boolean", "Whether the schema is built in"),
 	},
 	createdAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Created At",
-			"datetime",
-			"Schema creation timestamp",
-		),
+		property: createRuntimeProperty("Created At", "datetime", "Schema creation timestamp"),
 	},
 	updatedAt: {
 		filter: true,
 		display: true,
-		property: createRuntimeProperty(
-			"Updated At",
-			"datetime",
-			"Schema update timestamp",
-		),
+		property: createRuntimeProperty("Updated At", "datetime", "Schema update timestamp"),
 	},
 	accentColor: {
 		filter: false,
 		display: true,
-		property: createRuntimeProperty(
-			"Accent Color",
-			"string",
-			"Schema accent color",
-		),
+		property: createRuntimeProperty("Accent Color", "string", "Schema accent color"),
 	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
-const hasOwnKey = <T extends object>(
-	value: T,
-	key: PropertyKey,
-): key is keyof T => {
+const hasOwnKey = <T extends object>(value: T, key: PropertyKey): key is keyof T => {
 	return Object.hasOwn(value, key);
 };
 
@@ -310,29 +256,21 @@ export const displayBuiltins: ReadonlySet<string> = new Set([
 		.map(([key]) => key),
 ]);
 
-export const getEntityColumnPropertyDefinition = (
-	column: string,
-): AppPropertyDefinition | null => {
+export const getEntityColumnPropertyDefinition = (column: string): AppPropertyDefinition | null => {
 	return getRuntimeColumnConfig(entityRuntimeColumns, column)?.property ?? null;
 };
 
-export const getEntityColumnPropertyType = (
-	column: string,
-): PropertyType | null => {
+export const getEntityColumnPropertyType = (column: string): PropertyType | null => {
 	return getEntityColumnPropertyDefinition(column)?.type ?? null;
 };
 
 export const getEntitySchemaColumnPropertyDefinition = (
 	column: string,
 ): AppPropertyDefinition | null => {
-	return (
-		getRuntimeColumnConfig(entitySchemaRuntimeColumns, column)?.property ?? null
-	);
+	return getRuntimeColumnConfig(entitySchemaRuntimeColumns, column)?.property ?? null;
 };
 
-export const getEntitySchemaColumnPropertyType = (
-	column: string,
-): PropertyType | null => {
+export const getEntitySchemaColumnPropertyType = (column: string): PropertyType | null => {
 	return getEntitySchemaColumnPropertyDefinition(column)?.type ?? null;
 };
 
@@ -342,17 +280,13 @@ export const getEventJoinColumnPropertyDefinition = (
 	return getRuntimeColumnConfig(eventJoinColumns, column)?.property ?? null;
 };
 
-export const getEventJoinColumnPropertyType = (
-	column: string,
-): PropertyType | null => {
+export const getEventJoinColumnPropertyType = (column: string): PropertyType | null => {
 	return getEventJoinColumnPropertyDefinition(column)?.type ?? null;
 };
 
 const formatEventJoinReferencePrefix = (joinKey: string) => `event.${joinKey}`;
 
-export const serializeComparablePropertyDefinition = (
-	property: AppPropertyDefinition,
-): string => {
+export const serializeComparablePropertyDefinition = (property: AppPropertyDefinition): string => {
 	const { description: _description, label: _label, ...rest } = property;
 
 	if (property.type === "array") {
@@ -445,9 +379,7 @@ export const getSchemaForReference = <TSchema extends QueryEngineSchemaLike>(
 	return foundSchema;
 };
 
-export const getEventJoinForReference = <
-	TJoin extends QueryEngineEventJoinLike,
->(
+export const getEventJoinForReference = <TJoin extends QueryEngineEventJoinLike>(
 	eventJoinMap: Map<string, TJoin>,
 	reference: Extract<RuntimeRef, { type: "event-join" }>,
 ): TJoin => {
@@ -461,17 +393,13 @@ export const getEventJoinForReference = <
 	return foundJoin;
 };
 
-export const getEventJoinPropertyDefinition = <
-	TJoin extends QueryEngineEventJoinLike,
->(
+export const getEventJoinPropertyDefinition = <TJoin extends QueryEngineEventJoinLike>(
 	join: TJoin,
 	propertyPath: string[],
 ): AppPropertyDefinition => {
 	const [first, ...rest] = propertyPath;
 	if (!first) {
-		throw new QueryEngineValidationError(
-			`Property path must not be empty for join '${join.key}'`,
-		);
+		throw new QueryEngineValidationError(`Property path must not be empty for join '${join.key}'`);
 	}
 
 	const definitions = join.eventSchemas.map((schema) => {
@@ -505,13 +433,10 @@ export const getEventJoinPropertyDefinition = <
 
 	const [firstDefinition, ...restDefinitions] = definitions;
 	if (!firstDefinition) {
-		throw new QueryEngineValidationError(
-			`Join '${join.key}' has no event schemas`,
-		);
+		throw new QueryEngineValidationError(`Join '${join.key}' has no event schemas`);
 	}
 
-	const firstSerialized =
-		serializeComparablePropertyDefinition(firstDefinition);
+	const firstSerialized = serializeComparablePropertyDefinition(firstDefinition);
 	for (const definition of restDefinitions) {
 		if (serializeComparablePropertyDefinition(definition) !== firstSerialized) {
 			throw new QueryEngineValidationError(
@@ -523,38 +448,28 @@ export const getEventJoinPropertyDefinition = <
 	return firstDefinition;
 };
 
-export const getEventJoinPropertyType = <
-	TJoin extends QueryEngineEventJoinLike,
->(
+export const getEventJoinPropertyType = <TJoin extends QueryEngineEventJoinLike>(
 	join: TJoin,
 	propertyPath: string[],
 ): PropertyType => {
 	return getEventJoinPropertyDefinition(join, propertyPath).type;
 };
 
-export const getEventColumnPropertyDefinition = (
-	column: string,
-): AppPropertyDefinition | null => {
+export const getEventColumnPropertyDefinition = (column: string): AppPropertyDefinition | null => {
 	return getRuntimeColumnConfig(eventRuntimeColumns, column)?.property ?? null;
 };
 
-export const getEventColumnPropertyType = (
-	column: string,
-): PropertyType | null => {
+export const getEventColumnPropertyType = (column: string): PropertyType | null => {
 	return getEventColumnPropertyDefinition(column)?.type ?? null;
 };
 
 export const getEventSchemaColumnPropertyDefinition = (
 	column: string,
 ): AppPropertyDefinition | null => {
-	return (
-		getRuntimeColumnConfig(eventSchemaRuntimeColumns, column)?.property ?? null
-	);
+	return getRuntimeColumnConfig(eventSchemaRuntimeColumns, column)?.property ?? null;
 };
 
-export const getEventSchemaColumnPropertyType = (
-	column: string,
-): PropertyType | null => {
+export const getEventSchemaColumnPropertyType = (column: string): PropertyType | null => {
 	return getEventSchemaColumnPropertyDefinition(column)?.type ?? null;
 };
 

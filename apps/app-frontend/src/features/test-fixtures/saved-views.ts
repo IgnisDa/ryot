@@ -1,11 +1,8 @@
 import { createEntityColumnExpression } from "@ryot/ts-utils";
-import type {
-	AppEntitySavedView,
-	AppSavedView,
-} from "~/features/saved-views/model";
 
-type ViewExpression =
-	AppEntitySavedView["queryDefinition"]["sort"]["expression"];
+import type { AppEntitySavedView, AppSavedView } from "~/features/saved-views/model";
+
+type ViewExpression = AppEntitySavedView["queryDefinition"]["sort"]["expression"];
 
 const literalExpression = (value: unknown | null): ViewExpression => ({
 	value,
@@ -16,39 +13,32 @@ const nullExpression = literalExpression(null);
 const nameExpression = createEntityColumnExpression("schema-1", "name");
 const imageExpression = createEntityColumnExpression("schema-1", "image");
 
-export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfiguration"] =
-	{
-		table: {
-			columns: [{ label: "Name", expression: nameExpression }],
-		},
-		grid: {
-			calloutProperty: nullExpression,
-			titleProperty: nameExpression,
-			imageProperty: imageExpression,
-			primarySubtitleProperty: nullExpression,
-			secondarySubtitleProperty: nullExpression,
-		},
-		list: {
-			calloutProperty: nullExpression,
-			titleProperty: nameExpression,
-			imageProperty: imageExpression,
-			primarySubtitleProperty: nullExpression,
-			secondarySubtitleProperty: nullExpression,
-		},
-	};
+export const defaultSavedViewDisplayConfiguration: AppSavedView["displayConfiguration"] = {
+	table: {
+		columns: [{ label: "Name", expression: nameExpression }],
+	},
+	grid: {
+		calloutProperty: nullExpression,
+		titleProperty: nameExpression,
+		imageProperty: imageExpression,
+		primarySubtitleProperty: nullExpression,
+		secondarySubtitleProperty: nullExpression,
+	},
+	list: {
+		calloutProperty: nullExpression,
+		titleProperty: nameExpression,
+		imageProperty: imageExpression,
+		primarySubtitleProperty: nullExpression,
+		secondarySubtitleProperty: nullExpression,
+	},
+};
 
-type SavedViewFixtureOverrides = Omit<
-	Partial<AppSavedView>,
-	"queryDefinition"
-> & {
+type SavedViewFixtureOverrides = Omit<Partial<AppSavedView>, "queryDefinition"> & {
 	queryDefinition?: Partial<AppEntitySavedView["queryDefinition"]>;
 };
 
-export function createSavedViewFixture(
-	overrides: SavedViewFixtureOverrides = {},
-): AppSavedView {
-	const { queryDefinition: queryDefinitionOverride, ...viewOverrides } =
-		overrides;
+export function createSavedViewFixture(overrides: SavedViewFixtureOverrides = {}): AppSavedView {
+	const { queryDefinition: queryDefinitionOverride, ...viewOverrides } = overrides;
 	const queryDefinition = {
 		mode: "entities",
 		filter: queryDefinitionOverride?.filter ?? null,
