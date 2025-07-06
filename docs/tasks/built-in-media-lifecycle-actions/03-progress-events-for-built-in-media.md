@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,21 +22,21 @@ per-schema payloads** sections of the parent PRD.
 
 ## Acceptance criteria
 
-- [ ] The currently supported built-in media schemas expose a seeded `progress` event schema.
-- [ ] `POST /events` accepts `progress` events for built-in media entities.
-- [ ] Built-in media entities can only write `progress` using the seeded event schema belonging to
+- [x] The currently supported built-in media schemas expose a seeded `progress` event schema.
+- [x] `POST /events` accepts `progress` events for built-in media entities.
+- [x] Built-in media entities can only write `progress` using the seeded event schema belonging to
       their own entity schema.
-- [ ] `progressPercent` is stored as a number and normalized to 2 decimal places on write.
-- [ ] Normalization uses the agreed stable half-up rounding rule.
-- [ ] `progressPercent` values less than or equal to `0` or greater than or equal to `100` are
+- [x] `progressPercent` is stored as a number and normalized to 2 decimal places on write.
+- [x] Normalization uses the agreed stable half-up rounding rule.
+- [x] `progressPercent` values less than or equal to `0` or greater than or equal to `100` are
       rejected.
-- [ ] Repeated `progress` events are allowed.
-- [ ] Writing `progress` does not auto-create a `complete` event.
-- [ ] Bulk `POST /events` requests can include built-in `progress` events successfully.
-- [ ] Tests cover accepted values, rounding behavior, rejected ranges, and repeatability.
-- [ ] `tests/src` includes an end-to-end test that posts built-in `progress` events, verifies
+- [x] Repeated `progress` events are allowed.
+- [x] Writing `progress` does not auto-create a `complete` event.
+- [x] Bulk `POST /events` requests can include built-in `progress` events successfully.
+- [x] Tests cover accepted values, rounding behavior, rejected ranges, and repeatability.
+- [x] `tests/src` includes an end-to-end test that posts built-in `progress` events, verifies
       stored rounding to 2 decimals, and verifies rejection of out-of-range values.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 

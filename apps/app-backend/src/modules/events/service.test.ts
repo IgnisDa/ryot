@@ -5,6 +5,7 @@ import {
 	createEventDeps,
 	createListedEvent,
 	createNoteAndRatingPropertiesSchema,
+	createProgressPercentPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 import {
@@ -140,8 +141,11 @@ describe("resolveEventCreateInput", () => {
 		const propertiesSchema = createNoteAndRatingPropertiesSchema();
 
 		const input = resolveEventCreateInput({
+			isBuiltin: false,
 			propertiesSchema,
 			entityId: "  entity_123  ",
+			entitySchemaSlug: "custom",
+			eventSchemaSlug: "finished",
 			eventSchemaId: "  event_schema_123  ",
 			properties: { note: "Nice", rating: 4 },
 			occurredAt: " 2026-03-08T10:15:00.000Z ",
@@ -151,6 +155,36 @@ describe("resolveEventCreateInput", () => {
 		expect(input.eventSchemaId).toBe("event_schema_123");
 		expect(input.occurredAt.toISOString()).toBe("2026-03-08T10:15:00.000Z");
 		expect(input.properties).toEqual({ note: "Nice", rating: 4 });
+	});
+
+	it("normalizes progress properties for progress events", () => {
+		const input = resolveEventCreateInput({
+			isBuiltin: true,
+			entityId: "entity_123",
+			entitySchemaSlug: "book",
+			eventSchemaSlug: "progress",
+			eventSchemaId: "event_schema_123",
+			occurredAt: "2026-03-08T10:15:00.000Z",
+			properties: { progressPercent: 25.555 },
+			propertiesSchema: createProgressPercentPropertiesSchema(),
+		});
+
+		expect(input.properties).toEqual({ progressPercent: 25.56 });
+	});
+
+	it("keeps custom progress event properties untouched", () => {
+		const input = resolveEventCreateInput({
+			isBuiltin: false,
+			entityId: "entity_123",
+			entitySchemaSlug: "custom",
+			eventSchemaSlug: "progress",
+			eventSchemaId: "event_schema_123",
+			properties: { progressPercent: 100 },
+			occurredAt: "2026-03-08T10:15:00.000Z",
+			propertiesSchema: createProgressPercentPropertiesSchema(),
+		});
+
+		expect(input.properties).toEqual({ progressPercent: 100 });
 	});
 });
 
@@ -247,6 +281,7 @@ describe("createEvent", () => {
 							isBuiltin: true,
 							propertiesSchema: {},
 							entityId: input.entityId,
+							entitySchemaSlug: "book",
 							eventSchemaSlug: "backlog",
 							eventSchemaName: "Backlog",
 							eventSchemaId: input.eventSchemaId,
@@ -257,6 +292,84 @@ describe("createEvent", () => {
 
 		expect(createdEvent.eventSchemaSlug).toBe("backlog");
 		expect(createdEvent.properties).toEqual({});
+	});
+
+	it("creates a built-in progress event with rounded progress percent", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({ properties: { progressPercent: 25.555 } }),
+				},
+				createEventDeps({
+					getEventCreateScopeForUser: async (input) =>
+						createEventCreateScope({
+							isBuiltin: true,
+							entityId: input.entityId,
+							entitySchemaSlug: "book",
+							eventSchemaName: "Progress",
+							eventSchemaSlug: "progress",
+							eventSchemaId: input.eventSchemaId,
+							propertiesSchema: createProgressPercentPropertiesSchema(),
+						}),
+				}),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("progress");
+		expect(createdEvent.properties).toEqual({ progressPercent: 25.56 });
+	});
+
+	it("rejects out-of-range progress percent values", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { progressPercent: 100 } }),
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Progress",
+						eventSchemaSlug: "progress",
+						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createProgressPercentPropertiesSchema(),
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Progress percent must be greater than 0 and less than 100",
+		});
+	});
+
+	it("creates repeated built-in progress events in bulk", async () => {
+		const result = await createEvents(
+			{
+				userId: "user_1",
+				body: [
+					createEventBody({ properties: { progressPercent: 12.341 } }),
+					createEventBody({ properties: { progressPercent: 65.678 } }),
+				],
+			},
+			createEventDeps({
+				getEventCreateScopeForUser: async (input) =>
+					createEventCreateScope({
+						isBuiltin: true,
+						entityId: input.entityId,
+						entitySchemaSlug: "book",
+						eventSchemaName: "Progress",
+						eventSchemaSlug: "progress",
+						eventSchemaId: input.eventSchemaId,
+						propertiesSchema: createProgressPercentPropertiesSchema(),
+					}),
+			}),
+		);
+
+		expect(result).toEqual({ data: { count: 2 } });
 	});
 });
 
