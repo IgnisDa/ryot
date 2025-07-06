@@ -97,11 +97,19 @@ const getMediaOverviewRecentActivityRoute = createAuthRoute(
 		tags: ["media"],
 		path: "/overview/activity",
 		summary: "Get the recent media activity feed",
-		responses: createStandardResponses({
-			includePayloadError: false,
-			successDescription: "Recent media activity items",
-			successSchema: builtInMediaOverviewRecentActivityResponseSchema,
-		}),
+		responses: {
+			...createStandardResponses({
+				includePayloadError: false,
+				successDescription: "Recent media activity items",
+				successSchema: builtInMediaOverviewRecentActivityResponseSchema,
+			}),
+			400: validationErrorResponse(
+				"Built-in media overview configuration is invalid",
+			),
+			404: notFoundResponse(
+				"Built-in media overview configuration is missing required built-in schemas",
+			),
+		},
 	}),
 );
 
@@ -111,11 +119,19 @@ const getMediaOverviewWeekActivityRoute = createAuthRoute(
 		tags: ["media"],
 		path: "/overview/week",
 		summary: "Get the current week's media activity histogram",
-		responses: createStandardResponses({
-			includePayloadError: false,
-			successDescription: "Current week media activity buckets",
-			successSchema: builtInMediaOverviewWeekActivityResponseSchema,
-		}),
+		responses: {
+			...createStandardResponses({
+				includePayloadError: false,
+				successDescription: "Current week media activity buckets",
+				successSchema: builtInMediaOverviewWeekActivityResponseSchema,
+			}),
+			400: validationErrorResponse(
+				"Built-in media overview configuration is invalid",
+			),
+			404: notFoundResponse(
+				"Built-in media overview configuration is missing required built-in schemas",
+			),
+		},
 	}),
 );
 
@@ -125,11 +141,19 @@ const getMediaOverviewLibraryRoute = createAuthRoute(
 		tags: ["media"],
 		path: "/overview/library",
 		summary: "Get the library statistics overview",
-		responses: createStandardResponses({
-			includePayloadError: false,
-			successDescription: "Library statistics overview",
-			successSchema: builtInMediaOverviewLibraryResponseSchema,
-		}),
+		responses: {
+			...createStandardResponses({
+				includePayloadError: false,
+				successDescription: "Library statistics overview",
+				successSchema: builtInMediaOverviewLibraryResponseSchema,
+			}),
+			400: validationErrorResponse(
+				"Built-in media overview configuration is invalid",
+			),
+			404: notFoundResponse(
+				"Built-in media overview configuration is missing required built-in schemas",
+			),
+		},
 	}),
 );
 
@@ -174,6 +198,11 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 
 		const result = await getRecentActivityItems(user.id);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	})
@@ -181,6 +210,11 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 
 		const result = await getWeekActivity(user.id);
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	})
