@@ -533,7 +533,11 @@ describe("View runtime E2E", () => {
 		const schema = await createEntitySchema(client, cookies, {
 			trackerId,
 			name: "Movie",
-			propertiesSchema: { tags: { type: "array", items: { type: "string" } } },
+			propertiesSchema: {
+				fields: {
+					tags: { type: "array", items: { type: "string" } },
+				},
+			},
 		});
 
 		await createRuntimeEntity({
@@ -591,7 +595,7 @@ describe("View runtime E2E", () => {
 		const schema = await createEntitySchema(client, cookies, {
 			trackerId,
 			name: "Product",
-			propertiesSchema: { sku: { type: "string" } },
+			propertiesSchema: { fields: { sku: { type: "string" } } },
 		});
 
 		await createRuntimeEntity({
@@ -666,7 +670,11 @@ describe("View runtime E2E", () => {
 		const schema = await createEntitySchema(client, cookies, {
 			trackerId,
 			name: "Tagged Item",
-			propertiesSchema: { tags: { type: "array", items: { type: "string" } } },
+			propertiesSchema: {
+				fields: {
+					tags: { type: "array", items: { type: "string" } },
+				},
+			},
 		});
 
 		const result = await executeViewRuntime(
