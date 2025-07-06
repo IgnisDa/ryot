@@ -16,7 +16,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { type FormEvent, useMemo } from "react";
 import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
@@ -26,6 +26,7 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
+	useFormValidation,
 	useNonHiddenUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
@@ -49,8 +50,7 @@ export const AddEntityToCollectionsForm = ({
 }: {
 	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
-	const formRef = useRef<HTMLFormElement>(null);
-	const [isFormValid, setIsFormValid] = useState(true);
+	const { formRef, isFormValid, checkFormValidity } = useFormValidation();
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
@@ -122,12 +122,6 @@ export const AddEntityToCollectionsForm = ({
 			})),
 		[collections, userDetails.id, alreadyInCollections],
 	);
-
-	const checkFormValidity = useCallback(() => {
-		if (formRef.current) {
-			setIsFormValid(formRef.current.checkValidity());
-		}
-	}, []);
 
 	if (!addEntityToCollectionData) return null;
 

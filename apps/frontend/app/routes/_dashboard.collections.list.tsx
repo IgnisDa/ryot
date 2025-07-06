@@ -46,7 +46,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Form, Link, useLoaderData, useRevalidator } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
@@ -60,6 +60,7 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
+	useFormValidation,
 	useUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
@@ -479,8 +480,7 @@ const CreateOrUpdateModal = (props: {
 	const userDetails = useUserDetails();
 	const revalidator = useRevalidator();
 	const [parent] = useAutoAnimate();
-	const formRef = useRef<HTMLFormElement>(null);
-	const [isFormValid, setIsFormValid] = useState(true);
+	const { formRef, isFormValid, checkFormValidity } = useFormValidation();
 	const [formData, setFormData] = useState({
 		name: props.toUpdateCollection?.name || "",
 		description: props.toUpdateCollection?.description || "",
@@ -494,12 +494,6 @@ const CreateOrUpdateModal = (props: {
 			)?.extraInformation?.isHidden,
 		),
 	});
-
-	const checkFormValidity = useCallback(() => {
-		if (formRef.current) {
-			setIsFormValid(formRef.current.checkValidity());
-		}
-	}, []);
 
 	useEffect(() => {
 		checkFormValidity();
