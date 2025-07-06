@@ -25,6 +25,7 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	cloneDeep,
@@ -34,6 +35,7 @@ import {
 } from "@ryot/ts-utils";
 import {
 	IconBucketDroplet,
+	IconEdit,
 	IconFilter,
 	IconMessageCircle2,
 	IconSortAscending,
@@ -59,10 +61,18 @@ import {
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useAppSearchParam, useUserPreferences } from "~/lib/shared/hooks";
+import {
+	useAppSearchParam,
+	useUserCollections,
+	useUserDetails,
+	useUserPreferences,
+} from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import { useBulkEditCollection } from "~/lib/state/collection";
+import {
+	useBulkEditCollection,
+	useCreateOrUpdateCollectionModal,
+} from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {
 	getSearchEnhancedCookieName,
@@ -110,10 +120,11 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		search: { page: query[pageQueryParam], query: query.query },
 		filter: { entityLot: query.entityLot, metadataLot: query.metadataLot },
 	};
-	const [{ collectionContents }] = await Promise.all([
+	const [{ collectionContents }, { usersList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input,
 		}),
+		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
@@ -127,6 +138,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 		collectionId,
 		queryInput: input,
 		collectionContents,
+		usersList,
 	};
 };
 
@@ -139,7 +151,11 @@ export const meta = ({ data }: Route.MetaArgs) => {
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const userPreferences = useUserPreferences();
+	const userDetails = useUserDetails();
 	const navigate = useNavigate();
+	const userCollections = useUserCollections();
+
+	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
@@ -157,6 +173,9 @@ export default function Page() {
 		creatorUserId: details.user.id,
 	};
 	const state = bulkEditingCollection.state;
+	const thisCollection = userCollections.find(
+		(c) => c.id === loaderData.collectionId,
+	);
 
 	return (
 		<>
@@ -171,13 +190,40 @@ export default function Page() {
 			/>
 			<Container>
 				<Stack>
-					<Box>
-						<Title>{details.details.name}</Title>
-						<Text size="sm">
-							{details.totalItems} items, created by {details.user.name}{" "}
-							{dayjsLib(details.details.createdOn).fromNow()}
-						</Text>
-					</Box>
+					<Group justify="space-between" align="flex-start">
+						<Box>
+							<Group gap="md">
+								<Title>{details.details.name}</Title>
+								{userDetails.id === details.user.id ? (
+									<ActionIcon
+										color="blue"
+										variant="outline"
+										onClick={() => {
+											if (!thisCollection) return;
+											openCollectionModal(
+												{
+													id: thisCollection.id,
+													name: thisCollection.name,
+													isDefault: thisCollection.isDefault,
+													collaborators: thisCollection.collaborators,
+													description: thisCollection.description ?? undefined,
+													informationTemplate:
+														thisCollection.informationTemplate,
+												},
+												loaderData.usersList,
+											);
+										}}
+									>
+										<IconEdit size={18} />
+									</ActionIcon>
+								) : null}
+							</Group>
+							<Text size="sm">
+								{details.totalItems} items, created by {details.user.name}{" "}
+								{dayjsLib(details.details.createdOn).fromNow()}
+							</Text>
+						</Box>
+					</Group>
 					<Text>{details.details.description}</Text>
 					<Tabs value={tab} onChange={setTab} keepMounted={false}>
 						<Tabs.List mb="xs">
