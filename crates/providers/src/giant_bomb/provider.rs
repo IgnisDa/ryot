@@ -1,11 +1,7 @@
-use std::sync::Arc;
-
 use anyhow::{Result, anyhow};
-use application_utils::get_base_http_client;
-use async_graphql::OutputType;
 use async_trait::async_trait;
-use chrono::{Datelike, NaiveDate};
-use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use chrono::NaiveDate;
+use common_models::{EntityAssets, PersonSourceSpecifics};
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -17,173 +13,13 @@ use media_models::{
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
     VideoGameSpecifics,
 };
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-static BASE_URL: &str = "https://www.giantbomb.com/api";
-
-// Role constants for metadata associations
-static ROLE_DEVELOPER: &str = "Developer";
-static ROLE_PUBLISHER: &str = "Publisher";
-static ROLE_PERSON: &str = "Person";
-
-#[derive(Clone)]
-pub struct GiantBombService {
-    client: Client,
-    api_key: String,
-}
-
-impl GiantBombService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
-        let client = get_base_http_client(None);
-        Self {
-            client,
-            api_key: ss.config.video_games.giant_bomb.api_key.clone(),
-        }
-    }
-
-    fn process_search_response<T, R, F>(
-        &self,
-        search_response: GiantBombSearchResponse<T>,
-        mapper: F,
-    ) -> Result<SearchResults<R>>
-    where
-        F: Fn(T) -> R,
-        R: OutputType,
-    {
-        if search_response.error != "OK" {
-            return Err(anyhow!("GiantBomb API error: {}", search_response.error));
-        }
-
-        let items = search_response.results.into_iter().map(mapper).collect();
-        let next_page = (search_response.offset + search_response.number_of_page_results
-            < search_response.number_of_total_results)
-            .then(|| (search_response.offset / PAGE_SIZE) + 2);
-
-        Ok(SearchResults {
-            items,
-            details: SearchDetails {
-                next_page,
-                total: search_response.number_of_total_results,
-            },
-        })
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombImage {
-    icon_url: Option<String>,
-    tiny_url: Option<String>,
-    small_url: Option<String>,
-    super_url: Option<String>,
-    thumb_url: Option<String>,
-    screen_url: Option<String>,
-    medium_url: Option<String>,
-    original_url: Option<String>,
-    screen_large_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombResource {
-    guid: Option<String>,
-    name: Option<String>,
-    deck: Option<String>,
-    description: Option<String>,
-    image: Option<GiantBombImage>,
-    api_detail_url: Option<String>,
-    site_detail_url: Option<String>,
-
-    // Game-specific fields
-    original_release_date: Option<String>,
-    genres: Option<Vec<GiantBombResource>>,
-    themes: Option<Vec<GiantBombResource>>,
-    people: Option<Vec<GiantBombResource>>,
-    platforms: Option<Vec<GiantBombResource>>,
-    developers: Option<Vec<GiantBombResource>>,
-    publishers: Option<Vec<GiantBombResource>>,
-    franchises: Option<Vec<GiantBombResource>>,
-    similar_games: Option<Vec<GiantBombResource>>,
-
-    // Company-specific fields
-    founded: Option<i32>,
-    developed_games: Option<Vec<GiantBombResource>>,
-    published_games: Option<Vec<GiantBombResource>>,
-
-    // Person-specific fields
-    birth_date: Option<String>,
-
-    // Franchise and Person shared field
-    games: Option<Vec<GiantBombResource>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombSearchResponse<T> {
-    offset: i32,
-    error: String,
-    results: Vec<T>,
-    number_of_page_results: i32,
-    number_of_total_results: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GiantBombDetailsResponse<T> {
-    results: T,
-}
-
-fn extract_year_from_date(date_str: Option<String>) -> Option<i32> {
-    parse_date(date_str).map(|date| date.year())
-}
-
-fn parse_date(date_str: Option<String>) -> Option<NaiveDate> {
-    date_str.and_then(|d| NaiveDate::parse_from_str(&d, "%Y-%m-%d").ok())
-}
-
-fn extract_giant_bomb_guid(api_detail_url: &str) -> String {
-    api_detail_url
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .next_back()
-        .unwrap_or("")
-        .to_string()
-}
-
-fn get_prioritized_images(image: Option<GiantBombImage>) -> Vec<String> {
-    image.map_or(Vec::new(), |img| {
-        [
-            img.original_url,
-            img.super_url,
-            img.medium_url,
-            img.screen_large_url,
-            img.screen_url,
-            img.small_url,
-            img.thumb_url,
-            img.icon_url,
-            img.tiny_url,
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
-    })
-}
-
-fn combine_description(deck: Option<String>, description: Option<String>) -> Option<String> {
-    match (deck, description) {
-        (Some(deck), Some(desc)) => {
-            if deck.trim().is_empty() {
-                Some(desc)
-            } else if desc.trim().is_empty() {
-                Some(deck)
-            } else {
-                Some(format!("{}\n\n{}", deck, desc))
-            }
-        }
-        (Some(deck), None) => Some(deck),
-        (None, Some(desc)) => Some(desc),
-        (None, None) => None,
-    }
-}
+use super::base::{BASE_URL, GiantBombService, ROLE_DEVELOPER, ROLE_PERSON, ROLE_PUBLISHER};
+use super::models::{
+    GiantBombDetailsResponse, GiantBombResource, GiantBombSearchResponse, combine_description,
+    extract_giant_bomb_guid, extract_year_from_date, get_prioritized_images, parse_date,
+};
 
 #[async_trait]
 impl MediaProvider for GiantBombService {
