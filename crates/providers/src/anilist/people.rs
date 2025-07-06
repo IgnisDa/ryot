@@ -105,9 +105,7 @@ impl MediaProvider for NonMediaAnilistService {
                     identifier: data.id.to_string(),
                     name: data.name.and_then(|n| n.full).unwrap_or_default(),
                     image: data.image.and_then(|i| i.medium),
-                    birth_year: data
-                        .date_of_birth
-                        .and_then(|b| b.year),
+                    birth_year: data.date_of_birth.and_then(|b| b.year),
                 })
                 .collect();
             (items, total, next_page)

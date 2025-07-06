@@ -526,9 +526,7 @@ pub async fn media_details(
         _ => unreachable!(),
     };
 
-    let year = media
-        .start_date
-        .and_then(|b| b.year);
+    let year = media.start_date.and_then(|b| b.year);
 
     let suggestions = media
         .recommendations
@@ -696,9 +694,7 @@ pub async fn search(
                 identifier: b.id.to_string(),
                 title,
                 image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
-                publish_year: b
-                    .start_date
-                    .and_then(|b| b.year),
+                publish_year: b.start_date.and_then(|b| b.year),
             }
         })
         .collect();
