@@ -1719,7 +1719,7 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
-                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -1812,7 +1812,7 @@ export interface paths {
                                 value?: unknown;
                                 field: string;
                                 /** @enum {string} */
-                                op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                             })[];
                             entitySchemaSlugs: string[];
                         };
@@ -1887,7 +1887,7 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
-                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2010,7 +2010,7 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
-                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2108,7 +2108,7 @@ export interface paths {
                                 value?: unknown;
                                 field: string;
                                 /** @enum {string} */
-                                op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                             })[];
                             entitySchemaSlugs: string[];
                         };
@@ -2183,7 +2183,7 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
-                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2305,7 +2305,7 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
-                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2440,7 +2440,7 @@ export interface paths {
                                         value?: unknown;
                                         field: string;
                                         /** @enum {string} */
-                                        op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                                        op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                                     })[];
                                     entitySchemaSlugs: string[];
                                 };
@@ -2629,7 +2629,7 @@ export interface paths {
                             value?: unknown;
                             field: string;
                             /** @enum {string} */
-                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                            op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
                         /** @enum {string} */
@@ -2669,7 +2669,7 @@ export interface paths {
                             value?: unknown;
                             field: string;
                             /** @enum {string} */
-                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                            op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
                         /** @enum {string} */
@@ -2709,7 +2709,7 @@ export interface paths {
                             value?: unknown;
                             field: string;
                             /** @enum {string} */
-                            op: "eq" | "ne" | "gt" | "gte" | "lt" | "lte";
+                            op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
                         })[];
                         entitySchemaSlugs: string[];
                         /** @enum {string} */
@@ -2959,6 +2959,10 @@ export interface components {
             type: "date";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
         };
+        AppRequiredPropertyValidation: {
+            /** @enum {boolean} */
+            required?: true;
+        };
         AppDateTimeProperty: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -2966,10 +2970,6 @@ export interface components {
              */
             type: "datetime";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
-        };
-        AppRequiredPropertyValidation: {
-            /** @enum {boolean} */
-            required?: true;
         };
         AppArrayProperty: {
             /**

@@ -174,44 +174,6 @@ describe("validateViewRuntimeReferences - sort fields", () => {
 	});
 });
 
-describe("validateViewRuntimeReferences - filters", () => {
-	const baseRequest = {
-		layout: "grid" as const,
-		entitySchemaSlugs: ["smartphones"],
-		sort: { fields: ["@name"], direction: "asc" as const },
-		displayConfiguration: {
-			imageProperty: null,
-			titleProperty: ["@name"],
-			badgeProperty: null,
-			subtitleProperty: null,
-		},
-	};
-
-	it("accepts valid filter fields", () => {
-		expect(() =>
-			validateViewRuntimeReferences(
-				{
-					...baseRequest,
-					filters: [{ field: "smartphones.nameplate" }],
-				},
-				schemaMap,
-			),
-		).not.toThrow();
-	});
-
-	it("rejects a filter with a non-existent property", () => {
-		expect(() =>
-			validateViewRuntimeReferences(
-				{
-					...baseRequest,
-					filters: [{ field: "smartphones.storage_g" }],
-				},
-				schemaMap,
-			),
-		).toThrow("Property 'storage_g' not found in schema 'smartphones'");
-	});
-});
-
 describe("validateViewRuntimeReferences - display configuration", () => {
 	const baseSort = { fields: ["@name"], direction: "asc" as const };
 

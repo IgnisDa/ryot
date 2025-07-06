@@ -13,14 +13,15 @@ import {
 } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
+import type { FilterExpression } from "~/lib/views/filtering";
 import {
 	getPropertyType,
 	getSchemaForReference,
+	getTopLevelPropertyType,
 	type PropertyType,
 	resolveRuntimeReference,
 	type ViewRuntimeSchemaLike,
 } from "~/lib/views/reference";
-import type { FilterExpression } from "../saved-views/schemas";
 import { buildCastedValueExpression } from "./runtime-reference";
 
 const buildPropertyFilterExpression = <
@@ -49,12 +50,6 @@ const buildPropertyFilterExpression = <
 	return { expression, propertyType };
 };
 
-const buildTopLevelColumnType = (column: string): PropertyType | null =>
-	match(column)
-		.with("name", () => "string" as const)
-		.with("createdAt", "updatedAt", () => "date" as const)
-		.otherwise(() => null);
-
 const buildTopLevelFilterExpression = (alias: string, column: string) =>
 	match(column)
 		.with("name", () => sql`${sql.raw(alias)}.name`)
@@ -79,7 +74,7 @@ const buildFilterOperationClause = (
 	match(filter)
 		.with({ op: "isNull" }, () => isNull(expression))
 		.with({ op: "eq" }, ({ value }) => eq(expression, value))
-		.with({ op: "ne" }, ({ value }) => ne(expression, value))
+		.with({ op: "neq" }, ({ value }) => ne(expression, value))
 		.with({ op: "gt" }, ({ value }) => gt(expression, value))
 		.with({ op: "lt" }, ({ value }) => lt(expression, value))
 		.with({ op: "gte" }, ({ value }) => gte(expression, value))
@@ -135,7 +130,7 @@ const buildFilterClauseForSchema = <
 			parsedReference.column,
 		);
 		const topLevelType =
-			buildTopLevelColumnType(parsedReference.column) ?? undefined;
+			getTopLevelPropertyType(parsedReference.column) ?? undefined;
 		return buildFilterOperationClause(input.filter, expression, topLevelType);
 	}
 
