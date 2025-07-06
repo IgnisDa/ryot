@@ -191,6 +191,7 @@ export const AddEntityToCollectionsForm = ({
 		<Form ref={formRef} onSubmit={handleSubmit}>
 			<Stack>
 				<MultiSelect
+					required
 					searchable
 					data={selectData}
 					label="Select collections"
@@ -292,12 +293,8 @@ export const AddEntityToCollectionsForm = ({
 				<Button
 					type="submit"
 					variant="outline"
+					disabled={!isFormValid}
 					loading={addEntitiesToCollection.isPending}
-					disabled={
-						selectedCollections.length === 0 ||
-						!isFormValid ||
-						addEntitiesToCollection.isPending
-					}
 				>
 					Set
 				</Button>

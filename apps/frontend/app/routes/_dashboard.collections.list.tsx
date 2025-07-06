@@ -776,8 +776,8 @@ const CreateOrUpdateModal = (props: {
 				<Button
 					type="submit"
 					variant="outline"
+					disabled={!isFormValid}
 					loading={createOrUpdateMutation.isPending}
-					disabled={!isFormValid || createOrUpdateMutation.isPending}
 				>
 					{props.toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
