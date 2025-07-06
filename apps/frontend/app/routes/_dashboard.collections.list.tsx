@@ -494,7 +494,7 @@ const CreateOrUpdateModal = (props: {
 		),
 	});
 
-	const { formRef, isFormValid } = useFormValidation([formData]);
+	const { formRef, isFormValid } = useFormValidation(formData);
 
 	const createOrUpdateMutation = useMutation({
 		mutationFn: async () => {

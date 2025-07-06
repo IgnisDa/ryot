@@ -333,7 +333,7 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 	return mutation;
 };
 
-export const useFormValidation = (dependencies?: unknown[]) => {
+export const useFormValidation = (dependency?: unknown) => {
 	const formRef = useRef<HTMLFormElement>(null);
 	const [isFormValid, setIsFormValid] = useState(true);
 
@@ -345,7 +345,7 @@ export const useFormValidation = (dependencies?: unknown[]) => {
 
 	useEffect(() => {
 		checkFormValidity();
-	}, dependencies ? [checkFormValidity, ...dependencies] : [checkFormValidity]);
+	}, [checkFormValidity, dependency]);
 
 	return { formRef, isFormValid, checkFormValidity };
 };

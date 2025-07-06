@@ -105,8 +105,7 @@ export const AddEntityToCollectionsForm = ({
 		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
 	>([]);
 
-	const { formRef, isFormValid } = useFormValidation([selectedCollections]);
-
+	const { formRef, isFormValid } = useFormValidation(selectedCollections);
 
 	const selectData = useMemo(
 		() =>
