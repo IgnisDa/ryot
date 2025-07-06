@@ -19,6 +19,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -37,6 +38,7 @@ import {
 	useCoreDetails,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
+	useUserCollections,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
@@ -124,10 +126,15 @@ export const DisplayCollectionToEntity = (props: {
 	entityLot: EntityLot;
 	col: CollectionToEntityDetailsPartFragment;
 }) => {
+	const userCollections = useUserCollections();
 	const color = useGetRandomMantineColor(props.col.details.collectionName);
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
 	const [opened, { open, close }] = useDisclosure(false);
+
+	const thisCollection = userCollections.find(
+		(c) => c.id === props.col.details.collectionId,
+	);
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -206,7 +213,7 @@ export const DisplayCollectionToEntity = (props: {
 							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
-					{(props.col.details.information || 0).length > 0 && (
+					{Object.keys(props.col.details.information || {}).length > 0 && (
 						<>
 							<Divider />
 							<Text size="sm" fw={500}>
@@ -215,12 +222,29 @@ export const DisplayCollectionToEntity = (props: {
 							<Stack gap="xs">
 								{Object.entries(props.col.details.information).map(
 									([key, value]) => {
+										const stringValue = String(value);
+										const lot = thisCollection?.informationTemplate?.find(
+											(v) => v.name === key,
+										)?.lot;
 										return (
 											<Group key={key}>
 												<Text size="sm" c="dimmed">
 													{key}:
 												</Text>
-												<Text size="sm">{String(value)}</Text>
+												<Text size="sm">
+													{match(lot)
+														.with(CollectionExtraInformationLot.DateTime, () =>
+															dayjsLib(stringValue).format("LLL"),
+														)
+														.with(CollectionExtraInformationLot.Date, () =>
+															dayjsLib(stringValue).format("LL"),
+														)
+														.with(
+															CollectionExtraInformationLot.StringArray,
+															() => (value as string[]).join(", "),
+														)
+														.otherwise(() => stringValue)}
+												</Text>
 											</Group>
 										);
 									},
