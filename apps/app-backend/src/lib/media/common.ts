@@ -35,7 +35,7 @@ export const personStubSchema = z
 		role: z.string(),
 		name: z.string(),
 		scriptSlug: z.string(),
-		identifier: z.string(),
+		externalId: z.string(),
 		character: z.string().optional(),
 		order: z.number().int().optional(),
 	})

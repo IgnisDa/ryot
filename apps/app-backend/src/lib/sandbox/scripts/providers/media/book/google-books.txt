@@ -207,8 +207,8 @@ driver("search", async function(context) {
   const volumes = Array.isArray(payload?.items) ? payload.items : [];
   const items = volumes
     .map((volume) => {
-      const identifier = typeof volume?.id === "string" ? volume.id : "";
-      if (!identifier) {
+      const externalId = typeof volume?.id === "string" ? volume.id : "";
+      if (!externalId) {
         return null;
       }
 
@@ -222,7 +222,7 @@ driver("search", async function(context) {
       const title = typeof volumeInfo?.title === "string" ? volumeInfo.title : "";
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -250,8 +250,8 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier: contextIdentifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   const apiKey = await getGoogleBooksApiKey();
@@ -268,7 +268,7 @@ driver("details", async function(context) {
 
   const payload = parseJsonResponse(response.data.body);
 
-  const identifier =
+  const externalId =
     typeof payload?.id === "string" && payload.id.trim()
       ? payload.id
       : contextIdentifier;
@@ -295,7 +295,7 @@ driver("details", async function(context) {
       publishYear: parsePublishYear(volumeInfo?.publishedDate, dayjs),
       assets: { remoteImages: collectImages(volumeInfo?.imageLinks) },
       genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
-      sourceUrl: `https://www.google.co.in/books/edition/${title}/${identifier}`,
+      sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
       freeCreators: collectFreeCreators(volumeInfo?.authors, volumeInfo?.publisher),
       description:
         typeof volumeInfo?.description === "string"
