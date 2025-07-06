@@ -205,9 +205,9 @@ export const AddEntityToCollectionsForm = ({
 					onChange={(v) => handleCollectionChange(v)}
 					value={selectedCollections.map((c) => c.id)}
 				/>
-				{selectedCollections.map((selectedCollection) => (
-					<Fragment key={selectedCollection.id}>
-						{selectedCollection.informationTemplate?.map((template) => (
+				{selectedCollections.map((col) => (
+					<Fragment key={col.id}>
+						{col.informationTemplate?.map((template) => (
 							<Fragment key={template.name}>
 								{match(template.lot)
 									.with(CollectionExtraInformationLot.String, () => (
@@ -215,14 +215,10 @@ export const AddEntityToCollectionsForm = ({
 											label={template.name}
 											required={!!template.required}
 											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || ""
-											}
+											value={col.userExtraInformationData[template.name] || ""}
 											onChange={(e) =>
 												handleCustomFieldChange(
-													selectedCollection.id,
+													col.id,
 													template.name,
 													e.currentTarget.value,
 												)
@@ -235,13 +231,11 @@ export const AddEntityToCollectionsForm = ({
 											required={!!template.required}
 											description={template.description}
 											checked={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] === "true"
+												col.userExtraInformationData[template.name] === "true"
 											}
 											onChange={(e) =>
 												handleCustomFieldChange(
-													selectedCollection.id,
+													col.id,
 													template.name,
 													e.currentTarget.checked ? "true" : "false",
 												)
@@ -253,17 +247,9 @@ export const AddEntityToCollectionsForm = ({
 											label={template.name}
 											required={!!template.required}
 											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
+											value={col.userExtraInformationData[template.name]}
 											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													v,
-												)
+												handleCustomFieldChange(col.id, template.name, v)
 											}
 										/>
 									))
@@ -272,17 +258,9 @@ export const AddEntityToCollectionsForm = ({
 											label={template.name}
 											required={!!template.required}
 											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
+											value={col.userExtraInformationData[template.name]}
 											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													v,
-												)
+												handleCustomFieldChange(col.id, template.name, v)
 											}
 										/>
 									))
@@ -291,14 +269,10 @@ export const AddEntityToCollectionsForm = ({
 											label={template.name}
 											required={!!template.required}
 											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
+											value={col.userExtraInformationData[template.name]}
 											onChange={(v) =>
 												handleCustomFieldChange(
-													selectedCollection.id,
+													col.id,
 													template.name,
 													dayjsLib(v).toISOString(),
 												)
@@ -311,17 +285,9 @@ export const AddEntityToCollectionsForm = ({
 											required={!!template.required}
 											description={template.description}
 											data={template.possibleValues || []}
-											values={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
+											values={col.userExtraInformationData[template.name]}
 											setValue={(newValue) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													newValue,
-												)
+												handleCustomFieldChange(col.id, template.name, newValue)
 											}
 										/>
 									))
