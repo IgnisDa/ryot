@@ -45,20 +45,17 @@ import {
 	ProRequiredAlert,
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
-import {
-	clientGqlService,
-	dayjsLib,
-	openConfirmationModal,
-	queryFactory,
-} from "~/lib/common";
+import { MetadataDisplayItem } from "~/components/media/display-items";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/general";
 import {
 	getUserCollectionsList,

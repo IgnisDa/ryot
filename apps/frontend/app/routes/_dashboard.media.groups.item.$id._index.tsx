@@ -30,13 +30,15 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
+} from "~/components/media/base-display";
+import {
+	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
-} from "~/components/media";
-import { clientGqlService } from "~/lib/common";
-import { useUserPreferences } from "~/lib/hooks";
+} from "~/components/media/menu-items";
+import { useUserPreferences } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.groups.item.$id._index";

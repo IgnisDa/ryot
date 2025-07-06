@@ -46,32 +46,30 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
-import { LayoutModals } from "~/components/dashboard/modals/layout-modals";
-import { Footer } from "~/components/dashboard/navigation/footer";
-import { LinksGroup } from "~/components/dashboard/navigation/links-group";
+import { LayoutModals } from "~/components/routes/dashboard/modals/layout-modals";
+import { Footer } from "~/components/routes/dashboard/navigation/footer";
+import { LinksGroup } from "~/components/routes/dashboard/navigation/links-group";
 import {
 	getFitnessLinks,
 	getMediaLinks,
 	getSettingsLinks,
 	getThemeIcon,
-} from "~/components/dashboard/navigation/navigation-config";
-import { desktopSidebarCollapsedCookie } from "~/components/dashboard/utils";
-import {
-	FitnessAction,
-	LOGO_IMAGE_URL,
-	forcedDashboardPath,
-} from "~/lib/common";
+} from "~/components/routes/dashboard/navigation/navigation-config";
+import { desktopSidebarCollapsedCookie } from "~/components/routes/dashboard/utils";
+import { LOGO_IMAGE_URL } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { forcedDashboardPath } from "~/lib/shared/ui-utils";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 	useOpenedSidebarLinks,
 } from "~/lib/state/general";
+import { FitnessAction } from "~/lib/types";
 import {
 	getCookieValue,
 	getCoreDetails,
@@ -485,4 +483,4 @@ export default function Layout() {
 	);
 }
 
-export { ErrorBoundary } from "~/components/dashboard/error-boundary";
+export { ErrorBoundary } from "~/components/routes/dashboard/error-boundary";

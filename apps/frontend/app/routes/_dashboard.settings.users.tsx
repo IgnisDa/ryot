@@ -60,8 +60,9 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput } from "~/components/common";
-import { clientGqlService, openConfirmationModal } from "~/lib/common";
-import { useCoreDetails } from "~/lib/hooks";
+import { useCoreDetails } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,

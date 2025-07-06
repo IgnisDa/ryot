@@ -56,15 +56,12 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
-import {
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	pageQueryParam,
-	queryFactory,
-} from "~/lib/common";
-import { useAppSearchParam, useUserPreferences } from "~/lib/hooks";
+import { MetadataDisplayItem } from "~/components/media/display-items";
+import { pageQueryParam } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useAppSearchParam, useUserPreferences } from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 import {

@@ -29,18 +29,16 @@ import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	PRO_REQUIRED_MESSAGE,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
-import {
-	useAddEntitiesToCollection,
+	useAddEntitiesToCollectionMutation,
 	useConfirmSubmit,
 	useCoreDetails,
 	useGetRandomMantineColor,
-	useRemoveEntitiesFromCollection,
-} from "~/lib/hooks";
+	useRemoveEntitiesFromCollectionMutation,
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
 	useBulkEditCollection,
@@ -49,12 +47,12 @@ import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
 	WorkoutTemplateDisplayItem,
-} from "../fitness";
+} from "../fitness/display-items";
 import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
-} from "../media";
+} from "../media/display-items";
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -127,7 +125,8 @@ export const DisplayCollectionToEntity = (props: {
 	col: CollectionToEntityDetailsPartFragment;
 }) => {
 	const color = useGetRandomMantineColor(props.col.details.collectionName);
-	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+	const removeEntitiesFromCollection =
+		useRemoveEntitiesFromCollectionMutation();
 	const [opened, { open, close }] = useDisclosure(false);
 
 	const handleRemove = () => {
@@ -276,8 +275,9 @@ export const BulkCollectionEditingAffix = (props: {
 	bulkAddEntities: BulkAddEntities;
 }) => {
 	const bulkEditingCollection = useBulkEditCollection();
-	const addEntitiesToCollection = useAddEntitiesToCollection();
-	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
+	const removeEntitiesFromCollection =
+		useRemoveEntitiesFromCollectionMutation();
 
 	const bulkEditingCollectionState = bulkEditingCollection.state;
 

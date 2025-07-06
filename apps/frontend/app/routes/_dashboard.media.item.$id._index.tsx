@@ -71,40 +71,37 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
+} from "~/components/media/base-display";
+import {
+	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
-} from "~/components/media";
+} from "~/components/media/menu-items";
 import {
 	JUST_WATCH_URL,
 	METADATA_LOTS_WITH_GRANULAR_UPDATES,
-} from "~/components/media-item/constants";
-import { HistoryItem } from "~/components/media-item/displays/history-item";
-import { MetadataCreator } from "~/components/media-item/displays/metadata-creator";
-import { DisplayPodcastEpisode } from "~/components/media-item/displays/podcast-episode";
-import { DisplayShowSeason } from "~/components/media-item/displays/show-season";
-import { VideoIframe } from "~/components/media-item/displays/video-iframe";
-import { MergeMetadataModal } from "~/components/media-item/modals/merge-metadata-modal";
-import { DisplayShowSeasonEpisodesModal } from "~/components/media-item/modals/show-season-episodes-modal";
-import {
-	MEDIA_DETAILS_HEIGHT,
-	Verb,
-	clientGqlService,
-	convertTimestampToUtcString,
-	dayjsLib,
-	getVerb,
-	openConfirmationModal,
-	reviewYellow,
-	zodDateTimeString,
-} from "~/lib/common";
+} from "~/components/routes/media-item/constants";
+import { HistoryItem } from "~/components/routes/media-item/displays/history-item";
+import { MetadataCreator } from "~/components/routes/media-item/displays/metadata-creator";
+import { DisplayPodcastEpisode } from "~/components/routes/media-item/displays/podcast-episode";
+import { DisplayShowSeason } from "~/components/routes/media-item/displays/show-season";
+import { VideoIframe } from "~/components/routes/media-item/displays/video-iframe";
+import { MergeMetadataModal } from "~/components/routes/media-item/modals/merge-metadata-modal";
+import { DisplayShowSeasonEpisodesModal } from "~/components/routes/media-item/modals/show-season-episodes-modal";
+import { MEDIA_DETAILS_HEIGHT, reviewYellow } from "~/lib/shared/constants";
+import { convertTimestampToUtcString, dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
-	useDeployBulkMetadataProgressUpdate,
+	useDeployBulkMetadataProgressUpdateMutation,
 	useGetRandomMantineColor,
 	useUserDetails,
 	useUserPreferences,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { getVerb } from "~/lib/shared/media-utils";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { zodDateTimeString } from "~/lib/shared/validation";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -114,6 +111,7 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import { Verb } from "~/lib/types";
 import {
 	MetadataIdSchema,
 	MetadataSpecificsSchema,
@@ -253,9 +251,10 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
-		loaderData.metadataDetails.title,
-	);
+	const deployBulkMetadataProgressUpdate =
+		useDeployBulkMetadataProgressUpdateMutation(
+			loaderData.metadataDetails.title,
+		);
 
 	const changeProgress = useCallback(
 		(change: MetadataProgressUpdateChange) =>

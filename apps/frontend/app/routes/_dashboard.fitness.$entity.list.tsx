@@ -60,27 +60,22 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
+import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
-	WorkoutRevisionScheduledAlert,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
-} from "~/components/fitness";
-import {
-	FitnessAction,
-	FitnessEntity,
-	PRO_REQUIRED_MESSAGE,
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	pageQueryParam,
-} from "~/lib/common";
+} from "~/components/fitness/utils";
+import { PRO_REQUIRED_MESSAGE, pageQueryParam } from "~/lib/shared/constants";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	getDefaultWorkout,
 	getExerciseDetailsQuery,
@@ -89,6 +84,7 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { FitnessAction, FitnessEntity } from "~/lib/types";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,

@@ -77,11 +77,7 @@ pub async fn import(
                 continue;
             }
         };
-        ryot_log!(
-            debug,
-            "Getting details for {title:?} ({idx}/{total})",
-            title = record.title
-        );
+        ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
         let Some(isbn) = record.isbn else {
             failed.push(ImportFailedItem {
                 lot: Some(lot),
@@ -110,10 +106,7 @@ pub async fn import(
             });
             continue;
         };
-        ryot_log!(
-            debug,
-            "Got identifier = {identifier:?} from source = {source:?}"
-        );
+        ryot_log!(debug, "Identifier = {identifier:?}, Source = {source:?}");
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
                 provider_watched_on: Some(ImportSource::Storygraph.to_string()),

@@ -74,13 +74,7 @@ pub async fn import(
                 continue;
             }
         };
-        ryot_log!(
-            debug,
-            "Found tmdb id: {} ({}/{})",
-            identifier,
-            idx + 1,
-            total
-        );
+        ryot_log!(debug, "Tmdb id: {} ({}/{})", identifier, idx + 1, total);
         completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
             source,

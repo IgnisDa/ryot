@@ -69,27 +69,22 @@ import {
 	DisplayCollectionToEntity,
 	ReviewItemDisplay,
 } from "~/components/common";
+import { ExerciseHistory } from "~/components/fitness/components";
 import {
-	ExerciseHistory,
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
-} from "~/components/fitness";
-import { MediaScrollArea } from "~/components/media";
-import {
-	FitnessEntity,
-	TimeSpan,
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	getDateFromTimeSpan,
-} from "~/lib/common";
+} from "~/components/fitness/utils";
+import { MediaScrollArea } from "~/components/media/base-display";
+import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useIsFitnessActionActive,
 	useUserDetails,
 	useUserPreferences,
 	useUserUnitSystem,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
 	getExerciseImages,
@@ -98,6 +93,7 @@ import {
 	useMergingExercise,
 } from "~/lib/state/fitness";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
+import { FitnessEntity, TimeSpan } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.item.$id._index";
 

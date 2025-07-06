@@ -103,11 +103,7 @@ async fn process_book_record(
         }
     };
 
-    ryot_log!(
-        debug,
-        "Getting details for {title:?} ({idx}/{total})",
-        title = record.title
-    );
+    ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
 
     let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
     if isbn.is_empty() {

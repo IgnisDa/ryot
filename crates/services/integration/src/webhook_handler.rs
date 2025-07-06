@@ -26,11 +26,7 @@ impl IntegrationService {
                     .seen_history
                     .retain(|update| match update.progress {
                         Some(progress) if progress < integration.minimum_progress.unwrap() => {
-                            ryot_log!(
-                                debug,
-                                "Progress update for integration {} is below minimum threshold",
-                                integration.id
-                            );
+                            ryot_log!(debug, "Update {} below minimum threshold", integration.id);
                             false
                         }
                         _ => true,
@@ -39,11 +35,7 @@ impl IntegrationService {
                     update.ended_on = Some(update.ended_on.unwrap_or(Utc::now()));
                     if let Some(progress) = update.progress {
                         if progress > integration.maximum_progress.unwrap() {
-                            ryot_log!(
-                                debug,
-                                "Changing progress to 100 for integration {}",
-                                integration.id
-                            );
+                            ryot_log!(debug, "Changing progress to 100 for {}", integration.id);
                             update.progress = Some(dec!(100));
                         }
                     }
@@ -63,11 +55,7 @@ impl IntegrationService {
         integration_slug: String,
         payload: String,
     ) -> Result<String> {
-        ryot_log!(
-            debug,
-            "Processing integration webhook for slug: {}",
-            integration_slug
-        );
+        ryot_log!(debug, "Integration webhook for slug: {}", integration_slug);
         let integration = Integration::find_by_id(integration_slug)
             .one(&self.0.db)
             .await?

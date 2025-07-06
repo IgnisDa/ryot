@@ -16,12 +16,12 @@ import { processSubmission } from "@ryot/ts-utils";
 import { Form, data } from "react-router";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { openConfirmationModal } from "~/lib/common";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
 	useUserDetails,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.miscellaneous";
 

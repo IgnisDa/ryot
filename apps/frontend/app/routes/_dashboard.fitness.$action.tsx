@@ -10,24 +10,23 @@ import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { useInterval } from "usehooks-ts";
 import { z } from "zod";
-import { ExerciseDisplay } from "~/components/fitness.action/exercise-display/display";
-import { WorkoutHeader } from "~/components/fitness.action/header";
+import { ExerciseDisplay } from "~/components/routes/fitness.action/exercise-display/display";
+import { WorkoutHeader } from "~/components/routes/fitness.action/header";
 import {
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
-} from "~/components/fitness.action/hooks";
+} from "~/components/routes/fitness.action/hooks";
 import {
 	WorkoutModals,
 	useWorkoutModals,
-} from "~/components/fitness.action/modals";
-import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/fitness.action/utils";
+} from "~/components/routes/fitness.action/modals";
+import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/routes/fitness.action/utils";
+import { dayjsLib } from "~/lib/shared/date-utils";
+import { useUserPreferences } from "~/lib/shared/hooks";
 import {
-	FitnessAction,
-	dayjsLib,
 	postMessageToServiceWorker,
 	sendNotificationToServiceWorker,
-} from "~/lib/common";
-import { useUserPreferences } from "~/lib/hooks";
+} from "~/lib/shared/service-worker";
 import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
@@ -37,6 +36,7 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
+import { FitnessAction } from "~/lib/types";
 import type { Route } from "./+types/_dashboard.fitness.$action";
 
 export const loader = async ({ params }: Route.LoaderArgs) => {

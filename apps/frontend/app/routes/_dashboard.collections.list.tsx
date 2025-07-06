@@ -58,16 +58,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
-import {
-	PRO_REQUIRED_MESSAGE,
-	clientGqlService,
-	convertEnumToSelectData,
-	getMetadataDetailsQuery,
-	openConfirmationModal,
-	queryClient,
-	queryFactory,
-	zodCommaDelimitedString,
-} from "~/lib/common";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -75,7 +66,18 @@ import {
 	useFallbackImageUrl,
 	useUserCollections,
 	useUserDetails,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import {
+	clientGqlService,
+	getMetadataDetailsQuery,
+	queryClient,
+	queryFactory,
+} from "~/lib/shared/query-factory";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
+import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,

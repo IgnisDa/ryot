@@ -203,11 +203,7 @@ async fn process_item(
                 }
             }
         } else {
-            ryot_log!(
-                debug,
-                "No ASIN, ISBN or iTunes ID found for item {:?}",
-                item
-            );
+            ryot_log!(debug, "No ASIN, ISBN or iTunes ID found {:?}", item);
             return Err(ImportFailedItem {
                 identifier: title,
                 step: ImportFailStep::InputTransformation,

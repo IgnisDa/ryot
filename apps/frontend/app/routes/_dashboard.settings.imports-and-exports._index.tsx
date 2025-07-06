@@ -47,18 +47,18 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import {
-	clientGqlService,
-	convertEnumToSelectData,
-	dayjsLib,
-	openConfirmationModal,
-} from "~/lib/common";
+import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useNonHiddenUserCollections,
-} from "~/lib/hooks";
+} from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
+import {
+	convertEnumToSelectData,
+	openConfirmationModal,
+} from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
 	serverGqlService,
@@ -93,6 +93,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ImportSource.Imdb,
 					ImportSource.OpenScale,
 					ImportSource.Goodreads,
+					ImportSource.Grouvee,
 					ImportSource.Hardcover,
 					ImportSource.Storygraph,
 					() => ({
@@ -289,6 +290,7 @@ export default function Page() {
 												ImportSource.Imdb,
 												ImportSource.OpenScale,
 												ImportSource.Goodreads,
+												ImportSource.Grouvee,
 												ImportSource.Hardcover,
 												ImportSource.Storygraph,
 												() => (
