@@ -46,16 +46,16 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
-import { LayoutModals } from "~/components/pages/dashboard/modals/layout-modals";
-import { Footer } from "~/components/pages/dashboard/navigation/footer";
-import { LinksGroup } from "~/components/pages/dashboard/navigation/links-group";
+import { LayoutModals } from "~/components/routes/dashboard/modals/layout-modals";
+import { Footer } from "~/components/routes/dashboard/navigation/footer";
+import { LinksGroup } from "~/components/routes/dashboard/navigation/links-group";
 import {
 	getFitnessLinks,
 	getMediaLinks,
 	getSettingsLinks,
 	getThemeIcon,
-} from "~/components/pages/dashboard/navigation/navigation-config";
-import { desktopSidebarCollapsedCookie } from "~/components/pages/dashboard/utils";
+} from "~/components/routes/dashboard/navigation/navigation-config";
+import { desktopSidebarCollapsedCookie } from "~/components/routes/dashboard/utils";
 import { LOGO_IMAGE_URL } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
@@ -483,4 +483,4 @@ export default function Layout() {
 	);
 }
 
-export { ErrorBoundary } from "~/components/pages/dashboard/error-boundary";
+export { ErrorBoundary } from "~/components/routes/dashboard/error-boundary";

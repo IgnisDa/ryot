@@ -5,7 +5,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
-import { WatchTimes } from "~/components/pages/dashboard/types";
+import { WatchTimes } from "~/components/routes/dashboard/types";
 import type { BulkUpdateContext } from "./form-types";
 
 export const createCustomDatesCompletedChange = (params: {

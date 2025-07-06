@@ -7,7 +7,7 @@ import type {
 	InProgress,
 	MetadataHistory,
 	WatchTimes,
-} from "~/components/pages/dashboard/types";
+} from "~/components/routes/dashboard/types";
 import type { UpdateProgressData } from "~/lib/state/media";
 
 export interface MetadataProgressFormProps {
