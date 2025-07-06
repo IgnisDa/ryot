@@ -10,6 +10,7 @@ use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
     MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
 };
+use nest_struct::nest_struct;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
@@ -18,58 +19,93 @@ use serde::{Deserialize, Serialize};
 pub static URL: &str = "https://graphql.anilist.co";
 pub static STUDIO_ROLE: &str = "Production Studio";
 
+#[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphQLResponse<T> {
     pub data: Option<T>,
-    pub errors: Option<Vec<GraphQLError>>,
+    pub errors: Option<
+        Vec<
+            nest! {
+                pub message: String,
+            },
+        >,
+    >,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphQLError {
-    pub message: String,
-}
-
+#[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaSearchResponse {
     #[serde(rename = "Page")]
-    pub page: Option<SearchPage>,
+    pub page: Option<
+        nest! {
+            #[serde(rename = "pageInfo")]
+            pub page_info: Option<nest! {
+                pub total: Option<i32>,
+            }>,
+            pub media: Option<Vec<Option<MediaSearchItem>>>,
+            pub staff: Option<Vec<Option<StaffSearchItem>>>,
+            pub studios: Option<Vec<Option<StudioSearchItem>>>,
+        },
+    >,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SearchPage {
-    #[serde(rename = "pageInfo")]
-    pub page_info: Option<PageInfo>,
-    pub media: Option<Vec<Option<MediaSearchItem>>>,
-    pub staff: Option<Vec<Option<StaffSearchItem>>>,
-    pub studios: Option<Vec<Option<StudioSearchItem>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PageInfo {
-    pub total: Option<i32>,
-}
-
+#[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaSearchItem {
     pub id: i32,
-    pub title: Option<MediaTitle>,
+    pub title: Option<
+        nest! {
+            pub english: Option<String>,
+            pub native: Option<String>,
+            pub romaji: Option<String>,
+        },
+    >,
     #[serde(rename = "coverImage")]
-    pub cover_image: Option<MediaImage>,
+    pub cover_image: Option<
+        nest! {
+            #[serde(rename = "extraLarge")]
+            pub extra_large: Option<String>,
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
     #[serde(rename = "startDate")]
-    pub start_date: Option<MediaDate>,
+    pub start_date: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
     #[serde(rename = "bannerImage")]
     pub banner_image: Option<String>,
     #[serde(rename = "type")]
     pub type_: Option<String>,
 }
 
+#[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StaffSearchItem {
     pub id: i32,
-    pub name: Option<PersonName>,
-    pub image: Option<PersonImage>,
+    pub name: Option<
+        nest! {
+            pub full: Option<String>,
+        },
+    >,
+    pub image: Option<
+        nest! {
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
     #[serde(rename = "dateOfBirth")]
-    pub date_of_birth: Option<MediaDate>,
+    pub date_of_birth: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,13 +132,28 @@ pub struct StudioDetailsResponse {
     pub studio: Option<StudioDetails>,
 }
 
+#[nest_struct]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MediaDetails {
     pub id: i32,
-    pub title: Option<MediaTitle>,
+    pub title: Option<
+        nest! {
+            pub english: Option<String>,
+            pub native: Option<String>,
+            pub romaji: Option<String>,
+        },
+    >,
     pub status: Option<String>,
     #[serde(rename = "airingSchedule")]
-    pub airing_schedule: Option<AiringSchedule>,
+    pub airing_schedule: Option<
+        nest! {
+            pub nodes: Option<Vec<Option<nest! {
+                #[serde(rename = "airingAt")]
+                pub airing_at: i64,
+                pub episode: i32,
+            }>>>,
+        },
+    >,
     #[serde(rename = "isAdult")]
     pub is_adult: Option<bool>,
     pub episodes: Option<i32>,
@@ -110,187 +161,151 @@ pub struct MediaDetails {
     pub volumes: Option<i32>,
     pub description: Option<String>,
     #[serde(rename = "coverImage")]
-    pub cover_image: Option<MediaImage>,
+    pub cover_image: Option<
+        nest! {
+            #[serde(rename = "extraLarge")]
+            pub extra_large: Option<String>,
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
     #[serde(rename = "type")]
     pub type_: Option<String>,
     pub genres: Option<Vec<Option<String>>>,
-    pub tags: Option<Vec<Option<MediaTag>>>,
+    pub tags: Option<
+        Vec<
+            Option<
+                nest! {
+                    pub name: String,
+                },
+            >,
+        >,
+    >,
     #[serde(rename = "startDate")]
-    pub start_date: Option<MediaDate>,
+    pub start_date: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
     #[serde(rename = "bannerImage")]
     pub banner_image: Option<String>,
-    pub staff: Option<StaffConnection>,
-    pub studios: Option<StudioConnection>,
+    pub staff: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub node: Option<nest! {
+                    pub id: i32,
+                    pub name: Option<nest! {
+                        pub full: Option<String>,
+                    }>,
+                }>,
+                pub role: Option<String>,
+            }>>>,
+        },
+    >,
+    pub studios: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub node: Option<nest! {
+                    pub id: i32,
+                    pub name: String,
+                }>,
+            }>>>,
+        },
+    >,
     #[serde(rename = "averageScore")]
     pub average_score: Option<i32>,
-    pub recommendations: Option<RecommendationConnection>,
-    pub trailer: Option<MediaTrailer>,
+    pub recommendations: Option<
+        nest! {
+            pub nodes: Option<Vec<Option<nest! {
+                #[serde(rename = "mediaRecommendation")]
+                pub media_recommendation: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
+    pub trailer: Option<
+        nest! {
+            pub site: Option<String>,
+            pub id: Option<String>,
+        },
+    >,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StaffDetails {
     pub id: i32,
-    pub name: Option<PersonName>,
-    pub image: Option<PersonImage>,
+    pub name: Option<
+        nest! {
+            pub full: Option<String>,
+        },
+    >,
+    pub image: Option<
+        nest! {
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
     pub description: Option<String>,
     pub gender: Option<String>,
     #[serde(rename = "dateOfBirth")]
-    pub date_of_birth: Option<MediaDate>,
+    pub date_of_birth: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
     #[serde(rename = "dateOfDeath")]
-    pub date_of_death: Option<MediaDate>,
+    pub date_of_death: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
     #[serde(rename = "homeTown")]
     pub home_town: Option<String>,
     #[serde(rename = "characterMedia")]
-    pub character_media: Option<CharacterMediaConnection>,
+    pub character_media: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub characters: Option<Vec<Option<nest! {
+                    pub name: Option<nest! {
+                        pub full: Option<String>,
+                    }>,
+                }>>>,
+                pub node: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
     #[serde(rename = "staffMedia")]
-    pub staff_media: Option<StaffMediaConnection>,
+    pub staff_media: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                #[serde(rename = "staffRole")]
+                pub staff_role: Option<String>,
+                pub node: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StudioDetails {
     pub id: i32,
     pub name: String,
     #[serde(rename = "siteUrl")]
     pub site_url: Option<String>,
-    pub media: Option<StudioMediaConnection>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MediaTitle {
-    pub english: Option<String>,
-    pub native: Option<String>,
-    pub romaji: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MediaImage {
-    #[serde(rename = "extraLarge")]
-    pub extra_large: Option<String>,
-    pub medium: Option<String>,
-    pub large: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MediaDate {
-    pub year: Option<i32>,
-    pub month: Option<i32>,
-    pub day: Option<i32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonName {
-    pub full: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersonImage {
-    pub medium: Option<String>,
-    pub large: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MediaTag {
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AiringSchedule {
-    pub nodes: Option<Vec<Option<AiringScheduleNode>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AiringScheduleNode {
-    #[serde(rename = "airingAt")]
-    pub airing_at: i64,
-    pub episode: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaffConnection {
-    pub edges: Option<Vec<Option<StaffEdge>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaffEdge {
-    pub node: Option<StaffNode>,
-    pub role: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaffNode {
-    pub id: i32,
-    pub name: Option<PersonName>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudioConnection {
-    pub edges: Option<Vec<Option<StudioEdge>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudioEdge {
-    pub node: Option<StudioNode>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudioNode {
-    pub id: i32,
-    pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecommendationConnection {
-    pub nodes: Option<Vec<Option<RecommendationNode>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecommendationNode {
-    #[serde(rename = "mediaRecommendation")]
-    pub media_recommendation: Option<MediaSearchItem>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MediaTrailer {
-    pub site: Option<String>,
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct CharacterMediaConnection {
-    pub edges: Option<Vec<Option<CharacterMediaEdge>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CharacterMediaEdge {
-    pub characters: Option<Vec<Option<Character>>>,
-    pub node: Option<MediaSearchItem>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Character {
-    pub name: Option<PersonName>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct StaffMediaConnection {
-    pub edges: Option<Vec<Option<StaffMediaEdge>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StaffMediaEdge {
-    #[serde(rename = "staffRole")]
-    pub staff_role: Option<String>,
-    pub node: Option<MediaSearchItem>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct StudioMediaConnection {
-    pub edges: Option<Vec<Option<StudioMediaEdge>>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StudioMediaEdge {
-    pub node: Option<MediaSearchItem>,
+    pub media: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub node: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
