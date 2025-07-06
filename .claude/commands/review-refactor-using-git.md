@@ -8,4 +8,4 @@ After the review is done, run `git diff --stat` to see the summary of changes ma
 ensure that everything is in order. Then present it to the user in a pretty format along
 with the lines of code changed and other relevant stats.
 
-Think harder.
+Make sure you think harder while going through the changes.
