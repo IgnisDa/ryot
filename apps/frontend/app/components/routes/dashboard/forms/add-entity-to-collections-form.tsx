@@ -311,7 +311,7 @@ export const AddEntityToCollectionsForm = ({
 											required={!!template.required}
 											description={template.description}
 											data={template.possibleValues || []}
-											value={
+											values={
 												selectedCollection.userExtraInformationData[
 													template.name
 												]
