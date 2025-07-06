@@ -35,7 +35,9 @@ async function setupEventFixture(
 			name: "Test Item",
 			accentColor: "#00FF00",
 			slug: `item-${crypto.randomUUID()}`,
-			propertiesSchema: { title: { type: "string" as const } },
+			propertiesSchema: {
+				fields: { title: { type: "string" as const } },
+			},
 		},
 	});
 	if (schemaResult.response.status !== 200 || !schemaResult.data?.data?.id) {
@@ -50,7 +52,12 @@ async function setupEventFixture(
 			name: "Finished",
 			slug: `finished-${crypto.randomUUID()}`,
 			propertiesSchema: {
-				rating: { type: "number" as const, required: true as const },
+				fields: {
+					rating: {
+						type: "number" as const,
+						validation: { required: true as const },
+					},
+				},
 			},
 		},
 	});
@@ -77,6 +84,91 @@ async function setupEventFixture(
 	const entityId = entityResult.data.data.id;
 
 	return { apiClient, cookies, entityId, eventSchemaId };
+}
+
+async function setupRuleEventFixture(
+	client: ReturnType<typeof createAuthenticatedClient> extends Promise<infer T>
+		? T
+		: never,
+) {
+	const { client: apiClient, cookies } = client;
+
+	const trackerResult = await apiClient.POST("/trackers", {
+		headers: { Cookie: cookies },
+		body: {
+			icon: "book",
+			accentColor: "#FF0000",
+			name: `Rules Test Tracker ${crypto.randomUUID()}`,
+		},
+	});
+	if (trackerResult.response.status !== 200 || !trackerResult.data?.data?.id) {
+		throw new Error("Failed to create tracker");
+	}
+	const trackerId = trackerResult.data.data.id;
+
+	const schemaResult = await apiClient.POST("/entity-schemas", {
+		headers: { Cookie: cookies },
+		body: {
+			trackerId,
+			icon: "book",
+			name: "Rule Test Item",
+			accentColor: "#00FF00",
+			slug: `rule-item-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: { title: { type: "string" as const } },
+			},
+		},
+	});
+	if (schemaResult.response.status !== 200 || !schemaResult.data?.data?.id) {
+		throw new Error("Failed to create entity schema");
+	}
+	const entitySchemaId = schemaResult.data.data.id;
+
+	const eventSchemaResult = await apiClient.POST("/event-schemas", {
+		headers: { Cookie: cookies },
+		body: {
+			entitySchemaId,
+			name: "Progress Log",
+			slug: `progress-log-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: {
+					progressPercent: { type: "number" as const },
+					status: {
+						type: "string" as const,
+						validation: { required: true as const },
+					},
+				},
+				rules: [
+					{
+						kind: "validation" as const,
+						path: ["progressPercent"],
+						validation: { required: true as const },
+						when: {
+							path: ["status"],
+							value: "completed",
+							operator: "eq" as const,
+						},
+					},
+				],
+			},
+		},
+	});
+	if (
+		eventSchemaResult.response.status !== 200 ||
+		!eventSchemaResult.data?.data?.id
+	) {
+		throw new Error("Failed to create rule event schema");
+	}
+	const eventSchemaId = eventSchemaResult.data.data.id;
+
+	const entity = await createEntity(apiClient, cookies, {
+		image: null,
+		entitySchemaId,
+		name: "Rule Test Book",
+		properties: { title: "Rule Test" },
+	});
+
+	return { apiClient, cookies, entityId: entity.id, eventSchemaId };
 }
 
 async function setupBuiltinMediaLifecycleFixture(
@@ -215,6 +307,76 @@ describe("Events bulk POST", () => {
 
 		expect(result.response.status).toBe(200);
 		expect(result.data?.data.count).toBe(0);
+	});
+
+	it("enforces conditional required rules end to end", async () => {
+		const auth = await createAuthenticatedClient();
+		const { apiClient, cookies, entityId, eventSchemaId } =
+			await setupRuleEventFixture(auth);
+
+		const optionalResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId,
+					properties: { status: "draft" },
+					occurredAt: "2026-01-01T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(optionalResult.response.status).toBe(200);
+		expect(optionalResult.data?.data.count).toBe(1);
+
+		const rejectedResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId,
+					properties: { status: "completed" },
+					occurredAt: "2026-01-02T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(rejectedResult.response.status).toBe(400);
+		expect(rejectedResult.error?.error?.message).toContain(
+			"Event properties validation failed",
+		);
+		expect(rejectedResult.error?.error?.message).toContain(
+			"progressPercent is required",
+		);
+
+		const acceptedResult = await apiClient.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					eventSchemaId,
+					properties: {
+						status: "completed",
+						progressPercent: 75,
+					},
+					occurredAt: "2026-01-03T10:00:00.000Z",
+				},
+			],
+		});
+
+		expect(acceptedResult.response.status).toBe(200);
+		expect(acceptedResult.data?.data.count).toBe(1);
+
+		const listResult = await apiClient.GET("/events", {
+			headers: { Cookie: cookies },
+			params: { query: { entityId } },
+		});
+
+		expect(listResult.response.status).toBe(200);
+		expect(listResult.data?.data.map((event) => event.properties)).toEqual([
+			{ progressPercent: 75, status: "completed" },
+			{ status: "draft" },
+		]);
 	});
 
 	it("returns 404 when the entity does not exist", async () => {
@@ -458,8 +620,8 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toBe(
-			"Progress percent must be greater than 0 and less than 100",
+		expect(result.error?.error?.message).toContain(
+			"Event properties validation failed",
 		);
 	});
 
@@ -523,8 +685,8 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toBe(
-			"Rating must be an integer between 1 and 5",
+		expect(result.error?.error?.message).toContain(
+			"Event properties validation failed",
 		);
 	});
 });

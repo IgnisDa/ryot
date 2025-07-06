@@ -68,7 +68,14 @@ export const createEventDeps = (
 		createEventCreateScope({
 			entityId: input.entityId,
 			eventSchemaId: input.eventSchemaId,
-			propertiesSchema: { rating: { type: "number" as const, required: true } },
+			propertiesSchema: {
+				fields: {
+					rating: {
+						type: "number" as const,
+						validation: { required: true as const },
+					},
+				},
+			},
 		}),
 	createEventForUser: async (input) =>
 		createListedEvent({
