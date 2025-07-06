@@ -206,7 +206,7 @@ export const DisplayCollectionToEntity = (props: {
 							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
-					{props.col.details.information && (
+					{(props.col.details.information || 0).length > 0 && (
 						<>
 							<Divider />
 							<Text size="sm" fw={500}>
