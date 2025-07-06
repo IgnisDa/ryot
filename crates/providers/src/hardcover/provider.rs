@@ -1,7 +1,5 @@
 use anyhow::Result;
-use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -9,168 +7,15 @@ use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     BookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
-    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
-    UniqueMediaIdentifier,
+    MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
-use nest_struct::nest_struct;
-use reqwest::{
-    Client,
-    header::{AUTHORIZATION, HeaderValue},
-};
-use rust_decimal::Decimal;
-use serde::Deserialize;
 use traits::MediaProvider;
 
-static URL: &str = "https://api.hardcover.app/v1/graphql";
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Response<T> {
-    data: T,
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Search {
-    search: nest! {
-        results: nest! {
-            found: i32,
-            hits: Vec<nest! { document: Item<String> }>,
-        }
-    },
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Editions {
-    editions: Vec<nest! { book_id: i64 }>,
-}
-
-#[derive(Debug, Deserialize)]
-struct BooksByPk {
-    books_by_pk: Item<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct AuthorsByPk {
-    authors_by_pk: Item<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PublishersByPk {
-    publishers_by_pk: Item<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct SeriesByPk {
-    series_by_pk: Item<i64>,
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct Item<TId> {
-    id: TId,
-    pages: Option<i32>,
-    bio: Option<String>,
-    name: Option<String>,
-    slug: Option<String>,
-    title: Option<String>,
-    rating: Option<Decimal>,
-    release_year: Option<i32>,
-    compilation: Option<bool>,
-    books_count: Option<usize>,
-    image: Option<ImageOrLink>,
-    description: Option<String>,
-    born_date: Option<NaiveDate>,
-    death_date: Option<NaiveDate>,
-    links: Option<Vec<ImageOrLink>>,
-    release_date: Option<NaiveDate>,
-    images: Option<Vec<ImageOrLink>>,
-    alternate_names: Option<Vec<String>>,
-    editions: Option<Vec<nest! { book: Option<Item<TId>> }>>,
-    recommendations: Option<Vec<nest! { item_book: Option<Item<TId>> }>>,
-    cached_tags: Option<
-        nest! {
-          #[serde(rename = "Genre")]
-          genre: Option<Vec<nest! { tag: String }>>
-        },
-    >,
-    contributions: Option<
-        Vec<
-            nest! {
-                author_id: Option<TId>,
-                contribution: Option<String>,
-                author: Option<nest! { name: String }>,
-                book: Option<nest! { id: TId, title: String }>,
-            },
-        >,
-    >,
-    book_series: Option<
-        Vec<
-            nest! {
-                book: Option<Item<TId>>,
-                series: Option<nest! { id: TId, name: String }>
-            },
-        >,
-    >,
-}
-
-#[nest_struct]
-#[derive(Debug, Deserialize)]
-struct ImageOrLink {
-    url: Option<String>,
-}
-
-async fn get_search_response(
-    query: &str,
-    page: i32,
-    query_type: &str,
-    client: &Client,
-) -> Result<SearchSearchResults> {
-    let body = format!(
-        r#"
-query {{
-  search(
-    page: {page}, per_page: {PAGE_SIZE},
-    query: "{query}", query_type: "{query_type}"
-  ) {{
-    results
-  }}
-}}
-    "#
-    );
-    let data = client
-        .post(URL)
-        .json(&serde_json::json!({"query": body}))
-        .send()
-        .await?
-        .json::<Response<Search>>()
-        .await?;
-    Ok(data.data.search.results)
-}
-
-fn query_type_from_specifics(source_specifics: &Option<PersonSourceSpecifics>) -> String {
-    match source_specifics {
-        Some(source_specifics) if source_specifics.is_hardcover_publisher.unwrap_or(false) => {
-            "publisher".to_owned()
-        }
-        _ => "author".to_owned(),
-    }
-}
-
-pub struct HardcoverService {
-    client: Client,
-}
-
-impl HardcoverService {
-    pub async fn new(config: &config::HardcoverConfig) -> Self {
-        let client = get_base_http_client(Some(vec![(
-            AUTHORIZATION,
-            HeaderValue::from_str(&config.api_key).unwrap(),
-        )]));
-        Self { client }
-    }
-}
+use crate::hardcover::base::HardcoverService;
+use crate::hardcover::models::{
+    AuthorsByPk, BooksByPk, PublishersByPk, Response, SeriesByPk, URL, get_search_response,
+    query_type_from_specifics,
+};
 
 #[async_trait]
 impl MediaProvider for HardcoverService {
@@ -286,7 +131,7 @@ query {{
                 .into_iter()
                 .filter_map(|a| {
                     a.author.and_then(|ath| {
-                        a.author_id.map(|c| PartialMetadataPerson {
+                        a.author_id.map(|c| media_models::PartialMetadataPerson {
                             name: ath.name,
                             identifier: c.to_string(),
                             source: MediaSource::Hardcover,
@@ -597,39 +442,5 @@ query {{
             },
         };
         Ok(resp)
-    }
-}
-
-fn get_isbn_body(isbn_type: &str, isbn: &str) -> String {
-    format!(
-        r#"
-query {{
-  editions(where: {{ isbn_{isbn_type}: {{ _eq: "{isbn}" }} }}) {{
-    book_id
-  }}
-}}
-    "#
-    )
-}
-
-impl HardcoverService {
-    pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
-        for isbn_type in ["10", "13"] {
-            let body = get_isbn_body(isbn_type, isbn);
-            let rsp = self
-                .client
-                .post(URL)
-                .json(&serde_json::json!({ "query": body }))
-                .send()
-                .await
-                .ok()?
-                .json::<Response<Editions>>()
-                .await
-                .ok()?;
-            if let Some(edition) = rsp.data.editions.first() {
-                return Some(edition.book_id.to_string());
-            }
-        }
-        None
     }
 }
