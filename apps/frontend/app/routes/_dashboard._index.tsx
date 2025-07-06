@@ -45,7 +45,7 @@ import {
 	ProRequiredAlert,
 } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,

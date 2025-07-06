@@ -1,22 +1,9 @@
-import {
-	ActionIcon,
-	Anchor,
-	Avatar,
-	Box,
-	Group,
-	Loader,
-	Menu,
-	ScrollArea,
-	Text,
-	ThemeIcon,
-	Tooltip,
-} from "@mantine/core";
+import { ActionIcon, Group, Loader, ThemeIcon, Tooltip } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
 import {
 	EntityLot,
 	MediaLot,
 	SeenState,
-	UserReviewScale,
 	UserToMediaReason,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -25,160 +12,22 @@ import {
 	IconBookmarks,
 	IconPlayerPlay,
 	IconRosetteDiscountCheck,
-	IconStarFilled,
 } from "@tabler/icons-react";
 import { type ReactNode, useMemo } from "react";
-import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
+import { BaseEntityDisplayItem } from "~/components/common";
 import {
-	BaseEntityDisplayItem,
-	DisplayThreePointReview,
-} from "~/components/common";
-import { MEDIA_DETAILS_HEIGHT } from "~/lib/shared/constants";
-import { reviewYellow } from "~/lib/shared/constants";
-import {
-	useAddEntitiesToCollection,
-	useConfirmSubmit,
 	useMetadataDetails,
 	useMetadataGroupDetails,
 	usePersonDetails,
-	useRemoveEntitiesFromCollection,
-	useUserDetails,
 	useUserMetadataDetails,
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
-	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/general";
-import { useMetadataProgressUpdate, useReviewEntity } from "~/lib/state/media";
-import classes from "~/styles/common.module.css";
-
-const WrapperComponent = (props: { link?: string; children: ReactNode }) =>
-	props.link ? (
-		<Anchor component={Link} to={props.link}>
-			{props.children}
-		</Anchor>
-	) : (
-		<Box>{props.children}</Box>
-	);
-
-export const BaseEntityDisplay = (props: {
-	link?: string;
-	image?: string;
-	title?: string;
-	extraText?: string;
-	hasInteracted?: boolean;
-}) => {
-	return (
-		<WrapperComponent link={props.link}>
-			<Avatar
-				w={85}
-				h={100}
-				mx="auto"
-				radius="sm"
-				src={props.image}
-				name={props.title}
-				imageProps={{ loading: "lazy" }}
-				styles={{ image: { objectPosition: "top" } }}
-			/>
-			<Text
-				mt={4}
-				size="xs"
-				ta="center"
-				lineClamp={1}
-				c={props.hasInteracted ? "yellow" : "dimmed"}
-			>
-				{props.title} {props.extraText}
-			</Text>
-		</WrapperComponent>
-	);
-};
-
-export const PartialMetadataDisplay = (props: {
-	metadataId: string;
-	extraText?: string;
-}) => {
-	const { data: metadataDetails } = useMetadataDetails(props.metadataId);
-	const { data: userMetadataDetails } = useUserMetadataDetails(
-		props.metadataId,
-	);
-
-	const images = [
-		...(metadataDetails?.assets.remoteImages || []),
-		...(metadataDetails?.assets.s3Images || []),
-	];
-
-	return (
-		<BaseEntityDisplay
-			image={images.at(0)}
-			extraText={props.extraText}
-			title={metadataDetails?.title || undefined}
-			hasInteracted={userMetadataDetails?.hasInteracted}
-			link={$path("/media/item/:id", { id: props.metadataId })}
-		/>
-	);
-};
-
-export const MediaScrollArea = (props: { children: ReactNode }) => {
-	return (
-		<ScrollArea.Autosize mah={MEDIA_DETAILS_HEIGHT}>
-			{props.children}
-		</ScrollArea.Autosize>
-	);
-};
-
-const DisplayAverageRatingOverlay = (props: {
-	entityId: string;
-	entityLot: EntityLot;
-	entityTitle?: string;
-	metadataLot?: MediaLot;
-	averageRating?: string | null;
-}) => {
-	const userPreferences = useUserPreferences();
-	const [_r, setEntityToReview] = useReviewEntity();
-
-	return props.averageRating ? (
-		match(userPreferences.general.reviewScale)
-			.with(UserReviewScale.ThreePointSmiley, () => (
-				<DisplayThreePointReview rating={props.averageRating} />
-			))
-			.otherwise(() => (
-				<Group gap={4}>
-					<IconStarFilled size={12} style={{ color: reviewYellow }} />
-					<Text c="white" size="xs" fw="bold" pr={4}>
-						{Number(props.averageRating) % 1 === 0
-							? Math.round(Number(props.averageRating)).toString()
-							: Number(props.averageRating).toFixed(1)}
-						{userPreferences.general.reviewScale ===
-						UserReviewScale.OutOfHundred
-							? " %"
-							: undefined}
-						{userPreferences.general.reviewScale === UserReviewScale.OutOfTen
-							? "/10"
-							: undefined}
-					</Text>
-				</Group>
-			))
-	) : (
-		<IconStarFilled
-			size={18}
-			cursor="pointer"
-			className={classes.starIcon}
-			onClick={() => {
-				if (props.entityTitle)
-					setEntityToReview({
-						entityId: props.entityId,
-						entityLot: props.entityLot,
-						entityTitle: props.entityTitle,
-						metadataLot: props.metadataLot,
-					});
-			}}
-		/>
-	);
-};
+import { useMetadataProgressUpdate } from "~/lib/state/media";
+import { DisplayAverageRatingOverlay } from "./rating-overlay";
 
 export const MetadataDisplayItem = (props: {
 	name?: string;
@@ -462,73 +311,5 @@ export const PersonDisplayItem = (props: {
 					: undefined,
 			}}
 		/>
-	);
-};
-
-export const ToggleMediaMonitorMenuItem = (props: {
-	formValue: string;
-	entityLot: EntityLot;
-	inCollections: Array<string>;
-}) => {
-	const isMonitored = props.inCollections.includes("Monitoring");
-	const userDetails = useUserDetails();
-	const addEntitiesToCollection = useAddEntitiesToCollection();
-	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
-
-	const handleToggleMonitoring = () => {
-		const entityData = {
-			entityId: props.formValue,
-			entityLot: props.entityLot,
-		};
-
-		if (isMonitored) {
-			openConfirmationModal("Are you sure you want to stop monitoring?", () => {
-				removeEntitiesFromCollection.mutate({
-					collectionName: "Monitoring",
-					creatorUserId: userDetails.id,
-					entities: [entityData],
-				});
-			});
-		} else {
-			addEntitiesToCollection.mutate({
-				collectionName: "Monitoring",
-				creatorUserId: userDetails.id,
-				entities: [entityData],
-			});
-		}
-	};
-
-	return (
-		<Menu.Item
-			onClick={handleToggleMonitoring}
-			disabled={
-				addEntitiesToCollection.isPending ||
-				removeEntitiesFromCollection.isPending
-			}
-		>
-			{isMonitored ? "Stop" : "Start"} monitoring
-		</Menu.Item>
-	);
-};
-
-export const MarkEntityAsPartialMenuItem = (props: {
-	entityId: string;
-	entityLot: EntityLot;
-}) => {
-	const submit = useConfirmSubmit();
-
-	return (
-		<Form
-			replace
-			method="POST"
-			onSubmit={(e) => submit(e)}
-			action={withQuery($path("/actions"), {
-				intent: "markEntityAsPartial",
-			})}
-		>
-			<input hidden name="entityId" defaultValue={props.entityId} />
-			<input hidden name="entityLot" defaultValue={props.entityLot} />
-			<Menu.Item type="submit">Update details</Menu.Item>
-		</Form>
 	);
 };

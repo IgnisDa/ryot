@@ -74,7 +74,7 @@ import {
 	displayDistanceWithUnit,
 	displayWeightWithUnit,
 } from "~/components/fitness/utils";
-import { MediaScrollArea } from "~/components/media";
+import { MediaScrollArea } from "~/components/media/base-display";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,

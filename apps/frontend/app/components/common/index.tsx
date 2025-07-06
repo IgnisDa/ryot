@@ -52,7 +52,7 @@ import {
 	MetadataDisplayItem,
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
-} from "../media";
+} from "../media/display-items";
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;

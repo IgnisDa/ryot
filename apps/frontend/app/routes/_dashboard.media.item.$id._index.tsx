@@ -71,11 +71,13 @@ import {
 	ReviewItemDisplay,
 } from "~/components/common";
 import {
-	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
+} from "~/components/media/base-display";
+import {
+	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
-} from "~/components/media";
+} from "~/components/media/menu-items";
 import {
 	JUST_WATCH_URL,
 	METADATA_LOTS_WITH_GRANULAR_UPDATES,

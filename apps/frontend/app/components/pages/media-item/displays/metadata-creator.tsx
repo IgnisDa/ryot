@@ -1,5 +1,5 @@
 import { $path } from "safe-routes";
-import { BaseEntityDisplay } from "~/components/media";
+import { BaseEntityDisplay } from "~/components/media/base-display";
 
 export const MetadataCreator = (props: {
 	id?: string;

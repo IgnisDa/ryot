@@ -20,7 +20,7 @@ import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import { ApplicationGrid } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useAppSearchParam } from "~/lib/shared/hooks";
 import {

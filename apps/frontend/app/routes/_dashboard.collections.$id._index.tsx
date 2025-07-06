@@ -56,7 +56,7 @@ import {
 	FiltersModal,
 	ReviewItemDisplay,
 } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useAppSearchParam, useUserPreferences } from "~/lib/shared/hooks";

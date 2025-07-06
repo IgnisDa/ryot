@@ -53,7 +53,7 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
-import { MetadataGroupDisplayItem } from "~/components/media";
+import { MetadataGroupDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/query-factory";

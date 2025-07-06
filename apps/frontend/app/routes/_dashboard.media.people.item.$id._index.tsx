@@ -36,11 +36,13 @@ import {
 } from "~/components/common";
 import {
 	BaseEntityDisplay,
-	MarkEntityAsPartialMenuItem,
 	MediaScrollArea,
 	PartialMetadataDisplay,
+} from "~/components/media/base-display";
+import {
+	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
-} from "~/components/media";
+} from "~/components/media/menu-items";
 import {
 	useMetadataGroupDetails,
 	useUserPreferences,

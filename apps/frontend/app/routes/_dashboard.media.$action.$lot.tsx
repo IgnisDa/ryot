@@ -59,7 +59,7 @@ import {
 	FiltersModal,
 	ProRequiredAlert,
 } from "~/components/common";
-import { MetadataDisplayItem } from "~/components/media";
+import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";

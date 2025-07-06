@@ -54,7 +54,7 @@ import {
 	DisplayListDetailsAndRefresh,
 	FiltersModal,
 } from "~/components/common";
-import { PersonDisplayItem } from "~/components/media";
+import { PersonDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/query-factory";
