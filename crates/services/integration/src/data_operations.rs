@@ -184,11 +184,7 @@ impl IntegrationService {
             .into_iter()
             .collect::<HashSet<String>>();
         for user_id in users_with_integrations {
-            ryot_log!(
-                debug,
-                "Syncing integrations data to owned collection for user {}",
-                user_id
-            );
+            ryot_log!(debug, "Syncing data to owned for user {}", user_id);
             self.sync_integrations_data_to_owned_collection_for_user(&user_id)
                 .await?;
         }

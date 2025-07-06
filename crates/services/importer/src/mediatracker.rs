@@ -150,11 +150,7 @@ async fn get_item_details_with_source(
             error: Some(e.to_string()),
         })?;
     let details: ItemDetails = rsp.json().await.map_err(|e| {
-        ryot_log!(
-            debug,
-            "Encountered error for id = {id:?}: {e:?}",
-            id = item.id
-        );
+        ryot_log!(debug, "Error for id = {id:?}: {e:?}", id = item.id);
         ImportFailedItem {
             lot: Some(lot),
             step: ImportFailStep::ItemDetailsFromSource,

@@ -153,10 +153,7 @@ pub async fn export_workout_templates(
             },
         )
         .await?;
-        ryot_log!(
-            debug,
-            "Exporting workout templates list page: {current_page}"
-        );
+        ryot_log!(debug, "Exporting templates list page: {current_page}");
         for workout_template_id in workout_template_ids.response.items {
             let details =
                 user_workout_template_details(&service.db, user_id, workout_template_id).await?;

@@ -259,11 +259,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
         .one(&ss.db)
         .await?
     {
-        ryot_log!(
-            debug,
-            "Updating existing exercise with identifier: {}",
-            ex.name
-        );
+        ryot_log!(debug, "Updating existing exercise with id: {}", ex.name);
         let mut db_ex: exercise::ActiveModel = e.into();
         db_ex.attributes = ActiveValue::Set(attributes);
         db_ex.muscles = ActiveValue::Set(muscles);
@@ -291,11 +287,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
             mechanic: ActiveValue::Set(ex.attributes.mechanic),
         };
         let created_exercise = db_exercise.insert(&ss.db).await?;
-        ryot_log!(
-            debug,
-            "Created new exercise with id: {}",
-            created_exercise.id
-        );
+        ryot_log!(debug, "Created exercise with id: {}", created_exercise.id);
     }
     Ok(())
 }

@@ -11,11 +11,7 @@ pub async fn export_collections(
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
-    ryot_log!(
-        debug,
-        "Getting user collections list for user_id = {}",
-        user_id
-    );
+    ryot_log!(debug, "Getting collections list for user_id = {}", user_id);
     let collections_resp = user_collections_list(user_id, service).await?;
     let collections = collections_resp.response;
 
