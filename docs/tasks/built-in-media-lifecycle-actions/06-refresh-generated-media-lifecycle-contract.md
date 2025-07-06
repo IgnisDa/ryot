@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -21,12 +21,12 @@ sections of the parent PRD.
 
 ## Acceptance criteria
 
-- [ ] The OpenAPI spec is regenerated after the backend contract changes.
-- [ ] Generated API types reflect the final built-in media lifecycle write contract.
-- [ ] The parent PRD remains aligned with the implemented lifecycle event semantics.
-- [ ] Any backend-facing test fixtures or contract helpers needed for the final lifecycle model are
+- [x] The OpenAPI spec is regenerated after the backend contract changes.
+- [x] Generated API types reflect the final built-in media lifecycle write contract.
+- [x] The parent PRD remains aligned with the implemented lifecycle event semantics.
+- [x] Any backend-facing test fixtures or contract helpers needed for the final lifecycle model are
       updated.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
