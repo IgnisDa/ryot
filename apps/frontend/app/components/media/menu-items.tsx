@@ -4,9 +4,9 @@ import { Form } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
 import {
-	useAddEntitiesToCollection,
+	useAddEntitiesToCollectionMutation,
 	useConfirmSubmit,
-	useRemoveEntitiesFromCollection,
+	useRemoveEntitiesFromCollectionMutation,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
@@ -18,8 +18,9 @@ export const ToggleMediaMonitorMenuItem = (props: {
 }) => {
 	const isMonitored = props.inCollections.includes("Monitoring");
 	const userDetails = useUserDetails();
-	const addEntitiesToCollection = useAddEntitiesToCollection();
-	const removeEntitiesFromCollection = useRemoveEntitiesFromCollection();
+	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
+	const removeEntitiesFromCollection =
+		useRemoveEntitiesFromCollectionMutation();
 
 	const handleToggleMonitoring = () => {
 		const entityData = {

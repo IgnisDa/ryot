@@ -93,7 +93,7 @@ import { MEDIA_DETAILS_HEIGHT, reviewYellow } from "~/lib/shared/constants";
 import { convertTimestampToUtcString, dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
-	useDeployBulkMetadataProgressUpdate,
+	useDeployBulkMetadataProgressUpdateMutation,
 	useGetRandomMantineColor,
 	useUserDetails,
 	useUserPreferences,
@@ -251,9 +251,10 @@ export default function Page() {
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
-		loaderData.metadataDetails.title,
-	);
+	const deployBulkMetadataProgressUpdate =
+		useDeployBulkMetadataProgressUpdateMutation(
+			loaderData.metadataDetails.title,
+		);
 
 	const changeProgress = useCallback(
 		(change: MetadataProgressUpdateChange) =>

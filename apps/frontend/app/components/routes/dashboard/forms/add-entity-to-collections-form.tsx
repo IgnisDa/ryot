@@ -24,7 +24,7 @@ import { match } from "ts-pattern";
 import { MultiSelectCreatable } from "~/components/common";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	useAddEntitiesToCollection,
+	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
 	useNonHiddenUserCollections,
 	useUserDetails,
@@ -55,7 +55,7 @@ export const AddEntityToCollectionsForm = ({
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
 	const [addEntityToCollectionData] = useAddEntityToCollections();
-	const addEntitiesToCollection = useAddEntitiesToCollection();
+	const addEntitiesToCollection = useAddEntitiesToCollectionMutation();
 
 	const alreadyInCollectionsQueryKey = [
 		"alreadyInCollections",

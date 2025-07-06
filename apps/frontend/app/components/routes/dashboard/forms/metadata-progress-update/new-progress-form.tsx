@@ -9,7 +9,7 @@ import { produce } from "immer";
 import { useState } from "react";
 import { match } from "ts-pattern";
 import { convertTimestampToUtcString } from "~/lib/shared/date-utils";
-import { useDeployBulkMetadataProgressUpdate } from "~/lib/shared/hooks";
+import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
@@ -43,9 +43,8 @@ export const MetadataNewProgressUpdateForm = ({
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
 		WatchTimes.JustCompletedNow,
 	);
-	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
-		metadataDetails.title,
-	);
+	const deployBulkMetadataProgressUpdate =
+		useDeployBulkMetadataProgressUpdateMutation(metadataDetails.title);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const handleSubmit = async () => {

@@ -270,7 +270,7 @@ export const useIsOnboardingTourCompleted = () => {
 	return dashboardData.isOnboardingTourCompleted;
 };
 
-export const useDeployBulkMetadataProgressUpdate = (title: string) => {
+export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
 	const revalidator = useRevalidator();
 	const events = useApplicationEvents();
 
@@ -301,35 +301,31 @@ export const useDeployBulkMetadataProgressUpdate = (title: string) => {
 	return mutation;
 };
 
-export const useAddEntitiesToCollection = () => {
+export const useAddEntitiesToCollectionMutation = () => {
 	const revalidator = useRevalidator();
 
 	const mutation = useMutation({
+		onSuccess: () => revalidator.revalidate(),
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
 				input,
 			});
-		},
-		onSuccess: () => {
-			revalidator.revalidate();
 		},
 	});
 
 	return mutation;
 };
 
-export const useRemoveEntitiesFromCollection = () => {
+export const useRemoveEntitiesFromCollectionMutation = () => {
 	const revalidator = useRevalidator();
 
 	const mutation = useMutation({
+		onSuccess: () => revalidator.revalidate(),
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
 			await clientGqlService.request(
 				DeployRemoveEntitiesFromCollectionJobDocument,
 				{ input },
 			);
-		},
-		onSuccess: () => {
-			revalidator.revalidate();
 		},
 	});
 

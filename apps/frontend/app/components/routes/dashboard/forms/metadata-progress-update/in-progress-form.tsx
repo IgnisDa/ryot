@@ -18,7 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { match } from "ts-pattern";
-import { useDeployBulkMetadataProgressUpdate } from "~/lib/shared/hooks";
+import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MetadataInProgressFormProps } from "./utils/form-types";
 
@@ -28,9 +28,8 @@ export const MetadataInProgressUpdateForm = ({
 	metadataDetails,
 }: MetadataInProgressFormProps) => {
 	const [metadataToUpdate] = useMetadataProgressUpdate();
-	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdate(
-		metadataDetails.title,
-	);
+	const deployBulkMetadataProgressUpdate =
+		useDeployBulkMetadataProgressUpdateMutation(metadataDetails.title);
 
 	if (!metadataToUpdate) return null;
 
