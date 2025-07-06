@@ -3,9 +3,9 @@ import {
 	assertSortableExpression,
 	normalizeExpressionPropertyType,
 } from "~/lib/views/expression-analysis";
-import type { QueryEngineContext } from "./context";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
+import type { QueryEngineContext } from "./schemas";
 
 export const buildSortExpression = (input: {
 	alias: string;

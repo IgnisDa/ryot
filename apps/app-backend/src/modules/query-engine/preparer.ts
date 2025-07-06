@@ -55,7 +55,7 @@ type PrepareContextInput = {
 	relationships: RelationshipFilter[];
 };
 
-type PreparedQueryContext = {
+export type PreparedQueryContext = {
 	relationshipSchemaIds: string[];
 	eventSchemaSlugs: ReadonlySet<string>;
 	eventJoins: QueryEngineEventJoinLike[];
@@ -205,28 +205,26 @@ const prepareContext = async (input: {
 		userId: input.userId,
 	});
 
+	const isEventMode = query.mode === "events" || query.mode === "timeSeries";
 	const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
-	const eventJoins = await loadVisibleEventJoins({
-		runtimeSchemas,
-		userId: input.userId,
-		eventJoins: eventJoinsForMode,
-	});
 
-	const relationshipSchemaIds =
-		query.mode !== "events" && query.mode !== "timeSeries"
-			? await loadRelationshipSchemaIds(query.relationships)
-			: [];
-	const eventSchemaSlugs = await loadEventSchemaSlugs({
-		runtimeSchemas,
-		userId: input.userId,
-	});
+	const [eventJoins, relationshipSchemaIds, eventSchemaSlugs] =
+		await Promise.all([
+			loadVisibleEventJoins({
+				runtimeSchemas,
+				userId: input.userId,
+				eventJoins: eventJoinsForMode,
+			}),
+			isEventMode
+				? (Promise.resolve([]) as Promise<string[]>)
+				: loadRelationshipSchemaIds(query.relationships),
+			loadEventSchemaSlugs({ runtimeSchemas, userId: input.userId }),
+		]);
+
 	const eventSchemaMap = await loadEventSchemasBySlug({
 		runtimeSchemas,
 		userId: input.userId,
-		eventSchemaSlugs:
-			query.mode === "events" || query.mode === "timeSeries"
-				? query.eventSchemas
-				: [...eventSchemaSlugs],
+		eventSchemaSlugs: isEventMode ? query.eventSchemas : [...eventSchemaSlugs],
 	});
 	const schemaMap = buildSchemaMap(runtimeSchemas);
 	const eventJoinMap = buildEventJoinMap(eventJoins);
@@ -250,56 +248,26 @@ export const prepareAndExecute = async (input: {
 
 	const context = await prepareContext({ userId: input.userId, query });
 	validateQueryEngineReferences(input.request, {
-		supportsPrimaryEventRefs:
-			input.request.mode === "events" || input.request.mode === "timeSeries",
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
 		eventSchemaMap: context.eventSchemaMap,
 		eventSchemaSlugs: context.eventSchemaSlugs,
+		supportsPrimaryEventRefs:
+			input.request.mode === "events" || input.request.mode === "timeSeries",
 	});
 
 	return match(input.request)
 		.with({ mode: "entities" }, (request) =>
-			executePreparedQuery({
-				request,
-				userId: input.userId,
-				schemaMap: context.schemaMap,
-				eventJoins: context.eventJoins,
-				eventJoinMap: context.eventJoinMap,
-				runtimeSchemas: context.runtimeSchemas,
-				relationshipSchemaIds: context.relationshipSchemaIds,
-			}),
+			executePreparedQuery({ request, userId: input.userId, context }),
 		)
 		.with({ mode: "aggregate" }, (request) =>
-			executeAggregateQuery({
-				request,
-				userId: input.userId,
-				schemaMap: context.schemaMap,
-				eventJoins: context.eventJoins,
-				eventJoinMap: context.eventJoinMap,
-				runtimeSchemas: context.runtimeSchemas,
-				relationshipSchemaIds: context.relationshipSchemaIds,
-			}),
+			executeAggregateQuery({ request, userId: input.userId, context }),
 		)
 		.with({ mode: "events" }, (request) =>
-			executeEventQuery({
-				request,
-				userId: input.userId,
-				schemaMap: context.schemaMap,
-				eventJoins: context.eventJoins,
-				eventJoinMap: context.eventJoinMap,
-				runtimeSchemas: context.runtimeSchemas,
-				eventSchemaMap: context.eventSchemaMap ?? new Map(),
-			}),
+			executeEventQuery({ request, userId: input.userId, context }),
 		)
 		.with({ mode: "timeSeries" }, (request) =>
-			executeTimeSeriesQuery({
-				request,
-				userId: input.userId,
-				schemaMap: context.schemaMap,
-				runtimeSchemas: context.runtimeSchemas,
-				eventSchemaMap: context.eventSchemaMap ?? new Map(),
-			}),
+			executeTimeSeriesQuery({ request, userId: input.userId, context }),
 		)
 		.exhaustive();
 };
@@ -320,9 +288,9 @@ export const prepareForValidation = async (input: {
 		},
 	});
 	validateSavedViewDefinition({
-		eventSchemaMap: context.eventSchemaMap,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
+		eventSchemaMap: context.eventSchemaMap,
 		queryDefinition: input.queryDefinition,
 		eventSchemaSlugs: context.eventSchemaSlugs,
 		displayConfiguration: input.displayConfiguration,
@@ -384,11 +352,7 @@ export const prepareSavedView = async (input: {
 			return executePreparedQuery({
 				request,
 				userId: input.userId,
-				schemaMap: context.schemaMap,
-				eventJoins: context.eventJoins,
-				eventJoinMap: context.eventJoinMap,
-				runtimeSchemas: context.runtimeSchemas,
-				relationshipSchemaIds: context.relationshipSchemaIds,
+				context,
 			});
 		},
 	};
