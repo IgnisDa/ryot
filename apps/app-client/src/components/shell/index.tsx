@@ -5,12 +5,10 @@ import { Box } from "@/components/ui/box";
 import {
 	useNavigationData,
 	useNavSheetOpen,
-	useSearchOpen,
 	useSetSubFlyoutOpen,
 	useSubFlyoutOpen,
 } from "@/lib/navigation";
 import { ShellRail } from "./rail";
-import { SearchOverlay } from "./search-overlay";
 import { ShellSubFlyout } from "./sub-flyout";
 import { TrackerSheet } from "./tracker-sheet";
 
@@ -20,14 +18,17 @@ type Props = { children: ReactNode };
 
 export function ShellNavigation({ children }: Props) {
 	const pathname = usePathname();
-	const searchOpen = useSearchOpen();
 	const navSheetOpen = useNavSheetOpen();
 	const subFlyoutOpen = useSubFlyoutOpen();
 	const setSubFlyoutOpen = useSetSubFlyoutOpen();
 	const { trackers } = useNavigationData();
 	const { width: screenWidth } = useWindowDimensions();
 	const segments = pathname.split("/").filter(Boolean);
-	const trackerSlug = segments[0] || "home";
+	const isViewPath = segments[0] === "views";
+	const trackerSlug = isViewPath
+		? (trackers.find((t) => t.subItems.some((s) => s.slug === segments[1]))
+				?.slug ?? "home")
+		: segments[0] || "home";
 	const activeTracker = trackers.find((t) => t.slug === trackerSlug);
 
 	useEffect(() => {
@@ -53,12 +54,5 @@ export function ShellNavigation({ children }: Props) {
 		</Box>
 	);
 
-	return (
-		<Box className="flex-1">
-			{layout}
-			{searchOpen && <SearchOverlay />}
-		</Box>
-	);
+	return <Box className="flex-1">{layout}</Box>;
 }
-
-export { BreadcrumbChip } from "./breadcrumb-chip";

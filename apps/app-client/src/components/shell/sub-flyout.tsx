@@ -12,8 +12,6 @@ import { TrackerIcon } from "@/lib/icons";
 import { useNavigationData } from "@/lib/navigation";
 import { RAIL_WIDTH } from "./rail";
 
-export const FLYOUT_WIDTH = 220;
-
 type Props = {
 	pinned?: boolean;
 };
@@ -22,8 +20,12 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 	const pathname = usePathname();
 	const { trackers } = useNavigationData();
 	const segments = pathname.split("/").filter(Boolean);
-	const activeTrackerSlug = segments[0] || "home";
-	const activeSubItem = segments[1] || null;
+	const isViewPath = segments[0] === "views";
+	const activeSubItem = isViewPath ? (segments[1] ?? null) : null;
+	const activeTrackerSlug = isViewPath
+		? (trackers.find((t) => t.subItems.some((s) => s.slug === activeSubItem))
+				?.slug ?? "home")
+		: segments[0] || "home";
 
 	const activeTracker = trackers.find((t) => t.slug === activeTrackerSlug);
 	const subItems = activeTracker?.subItems ?? [];
@@ -46,7 +48,7 @@ export function ShellSubFlyout({ pinned = false }: Props) {
 							key={item.key}
 							accessibilityRole="button"
 							accessibilityLabel={item.name}
-							href={`/${activeTrackerSlug}/${item.slug}`}
+							href={`/views/${item.slug}`}
 							className="min-h-11 py-2 px-2 flex-row items-center flex relative"
 						>
 							{isActive && (
