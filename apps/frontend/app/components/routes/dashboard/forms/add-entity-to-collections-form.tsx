@@ -16,7 +16,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, useMemo } from "react";
+import { type FormEvent, useEffect, useMemo } from "react";
 import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
@@ -106,6 +106,10 @@ export const AddEntityToCollectionsForm = ({
 		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
 	>([]);
 
+	useEffect(() => {
+		checkFormValidity();
+	}, [selectedCollections, checkFormValidity]);
+
 	const selectData = useMemo(
 		() =>
 			Object.entries(
@@ -140,7 +144,6 @@ export const AddEntityToCollectionsForm = ({
 			if (!ids.includes(selectedCollections[i].id))
 				selectedCollectionsHandlers.remove(i);
 		}
-		setTimeout(checkFormValidity, 0);
 	};
 
 	const handleCustomFieldChange = (
@@ -155,7 +158,6 @@ export const AddEntityToCollectionsForm = ({
 				[field]: value,
 			});
 		}
-		setTimeout(checkFormValidity, 0);
 	};
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
