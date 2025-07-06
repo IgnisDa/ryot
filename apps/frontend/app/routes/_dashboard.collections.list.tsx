@@ -37,22 +37,17 @@ import {
 	UsersListDocument,
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	getActionIntent,
-	processSubmission,
-	truncate,
-	zodCheckboxAsString,
-} from "@ryot/ts-utils";
+import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
 import {
 	IconEdit,
 	IconPlus,
 	IconTrash,
 	IconTrashFilled,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
-import { ClientError } from "graphql-request";
-import { useEffect, useState } from "react";
-import { Form, Link, useLoaderData, useNavigation } from "react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { produce } from "immer";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Form, Link, useLoaderData, useRevalidator } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -78,7 +73,6 @@ import {
 	convertEnumToSelectData,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
-import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,
@@ -109,40 +103,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("createOrUpdate", async () => {
-			const submission = processSubmission(formData, createOrUpdateSchema);
-			try {
-				await serverGqlService.authenticatedRequest(
-					request,
-					CreateOrUpdateCollectionDocument,
-					{ input: submission },
-				);
-				return Response.json(
-					{},
-					{
-						headers: await createToastHeaders({
-							type: "success",
-							message: submission.updateId
-								? "Collection updated"
-								: "Collection created",
-						}),
-					},
-				);
-			} catch (e) {
-				let message = "An error occurred";
-				if (e instanceof ClientError) {
-					const err = e.response.errors?.[0].message;
-					if (err) message = err;
-				}
-				return Response.json(
-					{ error: JSON.stringify(e) },
-					{
-						status: 400,
-						headers: await createToastHeaders({ type: "error", message }),
-					},
-				);
-			}
-		})
 		.with("delete", async () => {
 			const submission = processSubmission(
 				formData,
@@ -173,28 +133,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const createOrUpdateSchema = z.object({
-	name: z.string(),
-	updateId: z.string().optional(),
-	description: z.string().optional(),
-	collaborators: zodCommaDelimitedString,
-	extraInformation: z
-		.object({ isHidden: zodCheckboxAsString.optional() })
-		.optional(),
-	informationTemplate: z
-		.array(
-			z.object({
-				name: z.string(),
-				description: z.string(),
-				defaultValue: z.string().optional(),
-				required: zodCheckboxAsString.optional(),
-				possibleValues: zodCommaDelimitedString.optional(),
-				lot: z.nativeEnum(CollectionExtraInformationLot),
-			}),
-		)
-		.optional(),
-});
-
 type UpdateCollectionInput = {
 	id?: string;
 	name?: string;
@@ -205,7 +143,6 @@ type UpdateCollectionInput = {
 };
 
 export default function Page() {
-	const transition = useNavigation();
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const loaderData = useLoaderData<typeof loader>();
@@ -220,10 +157,6 @@ export default function Page() {
 			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
 				?.extraInformation?.isHidden,
 	);
-
-	useEffect(() => {
-		if (transition.state !== "submitting") setToUpdateCollection(null);
-	}, [transition.state]);
 
 	const filteredCollections = collections
 		.filter((c) =>
@@ -259,6 +192,7 @@ export default function Page() {
 							<CreateOrUpdateModal
 								usersList={loaderData.usersList}
 								toUpdateCollection={toUpdateCollection}
+								onClose={() => setToUpdateCollection(null)}
 							/>
 						</Modal>
 					</Flex>
@@ -537,28 +471,98 @@ const CollectionImageDisplay = (props: {
 };
 
 const CreateOrUpdateModal = (props: {
+	onClose: () => void;
 	usersList: UsersListQuery["usersList"];
 	toUpdateCollection: UpdateCollectionInput | null;
 }) => {
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
+	const revalidator = useRevalidator();
 	const [parent] = useAutoAnimate();
-	const [informationTemplate, setInformationTemplate] =
-		useListState<CollectionExtraInformation>(
-			props.toUpdateCollection?.informationTemplate || [],
-		);
+	const formRef = useRef<HTMLFormElement>(null);
+	const [isFormValid, setIsFormValid] = useState(true);
+	const [formData, setFormData] = useState({
+		name: props.toUpdateCollection?.name || "",
+		description: props.toUpdateCollection?.description || "",
+		informationTemplate: props.toUpdateCollection?.informationTemplate || [],
+		collaborators: (props.toUpdateCollection?.collaborators || []).map(
+			(c) => c.collaborator.id,
+		),
+		isHidden: Boolean(
+			props.toUpdateCollection?.collaborators?.find(
+				(c) => c.collaborator.id === userDetails.id,
+			)?.extraInformation?.isHidden,
+		),
+	});
+
+	const checkFormValidity = useCallback(() => {
+		if (formRef.current) {
+			setIsFormValid(formRef.current.checkValidity());
+		}
+	}, []);
+
+	useEffect(() => {
+		checkFormValidity();
+	}, [formData, checkFormValidity]);
+
+	const createOrUpdateMutation = useMutation({
+		mutationFn: async () => {
+			const input = {
+				name: formData.name,
+				description: formData.description,
+				collaborators: formData.collaborators,
+				updateId: props.toUpdateCollection?.id,
+				extraInformation: { isHidden: formData.isHidden },
+				informationTemplate:
+					formData.informationTemplate.length > 0
+						? formData.informationTemplate
+						: undefined,
+			};
+			return clientGqlService.request(CreateOrUpdateCollectionDocument, {
+				input,
+			});
+		},
+		onSuccess: () => {
+			notifications.show({
+				color: "green",
+				message: props.toUpdateCollection?.id
+					? "Collection updated"
+					: "Collection created",
+			});
+			revalidator.revalidate();
+			props.onClose();
+		},
+		onError: (_error) => {
+			notifications.show({
+				color: "red",
+				message: "An error occurred",
+			});
+		},
+	});
 
 	return (
-		<Form method="POST" action={withQuery(".", { intent: "createOrUpdate" })}>
+		<Form
+			ref={formRef}
+			onSubmit={(e) => {
+				e.preventDefault();
+				createOrUpdateMutation.mutate();
+			}}
+		>
 			<Stack>
 				<Title order={3}>
 					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
 				</Title>
 				<TextInput
 					required
-					name="name"
 					label="Name"
-					defaultValue={props.toUpdateCollection?.name}
+					value={formData.name}
+					onChange={(e) => {
+						setFormData(
+							produce(formData, (draft) => {
+								draft.name = e.target.value;
+							}),
+						);
+					}}
 					readOnly={props.toUpdateCollection?.isDefault}
 					description={
 						props.toUpdateCollection?.isDefault
@@ -568,9 +572,15 @@ const CreateOrUpdateModal = (props: {
 				/>
 				<Textarea
 					autosize
-					name="description"
 					label="Description"
-					defaultValue={props.toUpdateCollection?.description}
+					value={formData.description}
+					onChange={(e) =>
+						setFormData(
+							produce(formData, (draft) => {
+								draft.description = e.target.value;
+							}),
+						)
+					}
 				/>
 				<Tooltip
 					label={PRO_REQUIRED_MESSAGE}
@@ -578,12 +588,14 @@ const CreateOrUpdateModal = (props: {
 				>
 					<Checkbox
 						label="Hide collection"
-						name="extraInformation.isHidden"
 						disabled={!coreDetails.isServerKeyValidated}
-						defaultChecked={
-							props.toUpdateCollection?.collaborators?.find(
-								(c) => c.collaborator.id === userDetails.id,
-							)?.extraInformation?.isHidden || undefined
+						checked={formData.isHidden}
+						onChange={(e) =>
+							setFormData(
+								produce(formData, (draft) => {
+									draft.isHidden = e.target.checked;
+								}),
+							)
 						}
 					/>
 				</Tooltip>
@@ -593,12 +605,16 @@ const CreateOrUpdateModal = (props: {
 				>
 					<MultiSelect
 						searchable
-						name="collaborators"
 						disabled={!coreDetails.isServerKeyValidated}
 						description="Add collaborators to this collection"
-						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
-							(c) => c.collaborator.id,
-						)}
+						value={formData.collaborators}
+						onChange={(value) =>
+							setFormData(
+								produce(formData, (draft) => {
+									draft.collaborators = value;
+								}),
+							)
+						}
 						data={props.usersList.map((u) => ({
 							value: u.id,
 							label: u.name,
@@ -621,11 +637,15 @@ const CreateOrUpdateModal = (props: {
 										});
 										return;
 									}
-									setInformationTemplate.append({
-										name: "",
-										description: "",
-										lot: CollectionExtraInformationLot.String,
-									});
+									setFormData(
+										produce(formData, (draft) => {
+											draft.informationTemplate.push({
+												name: "",
+												description: "",
+												lot: CollectionExtraInformationLot.String,
+											});
+										}),
+									);
 								}}
 							>
 								Add field
@@ -635,21 +655,39 @@ const CreateOrUpdateModal = (props: {
 					description="Associate extra information when adding an entity to this collection"
 				>
 					<Stack gap="xs" mt="xs" ref={parent}>
-						{informationTemplate.map((field, index) => (
+						{formData.informationTemplate.map((field, index) => (
 							<Paper withBorder key={index.toString()} p="xs">
 								<TextInput
 									required
 									size="xs"
 									label="Name"
-									defaultValue={field.name}
-									name={`informationTemplate[${index}].name`}
+									value={field.name}
+									onChange={(e) => {
+										setFormData(
+											produce(formData, (draft) => {
+												draft.informationTemplate[index] = {
+													...field,
+													name: e.target.value,
+												};
+											}),
+										);
+									}}
 								/>
 								<Textarea
 									required
 									size="xs"
 									label="Description"
-									defaultValue={field.description}
-									name={`informationTemplate[${index}].description`}
+									value={field.description}
+									onChange={(e) => {
+										setFormData(
+											produce(formData, (draft) => {
+												draft.informationTemplate[index] = {
+													...field,
+													description: e.target.value,
+												};
+											}),
+										);
+									}}
 								/>
 								<Group wrap="nowrap">
 									<Select
@@ -657,16 +695,19 @@ const CreateOrUpdateModal = (props: {
 										required
 										size="xs"
 										label="Input type"
-										defaultValue={field.lot}
-										name={`informationTemplate[${index}].lot`}
+										value={field.lot}
 										data={convertEnumToSelectData(
 											CollectionExtraInformationLot,
 										)}
 										onChange={(v) => {
-											setInformationTemplate.setItem(index, {
-												...field,
-												lot: v as CollectionExtraInformationLot,
-											});
+											setFormData(
+												produce(formData, (draft) => {
+													draft.informationTemplate[index] = {
+														...field,
+														lot: v as CollectionExtraInformationLot,
+													};
+												}),
+											);
 										}}
 									/>
 									{field.lot !== CollectionExtraInformationLot.StringArray ? (
@@ -674,8 +715,17 @@ const CreateOrUpdateModal = (props: {
 											flex={1}
 											size="xs"
 											label="Default value"
-											defaultValue={field.defaultValue || undefined}
-											name={`informationTemplate[${index}].defaultValue`}
+											value={field.defaultValue || ""}
+											onChange={(e) => {
+												setFormData(
+													produce(formData, (draft) => {
+														draft.informationTemplate[index] = {
+															...field,
+															defaultValue: e.target.value,
+														};
+													}),
+												);
+											}}
 										/>
 									) : null}
 								</Group>
@@ -683,23 +733,47 @@ const CreateOrUpdateModal = (props: {
 									<TagsInput
 										size="xs"
 										label="Possible values"
-										defaultValue={field.possibleValues || []}
-										name={`informationTemplate[${index}].possibleValues`}
+										value={field.possibleValues || []}
+										onChange={(value) => {
+											setFormData(
+												produce(formData, (draft) => {
+													draft.informationTemplate[index] = {
+														...field,
+														possibleValues: value,
+													};
+												}),
+											);
+										}}
 									/>
 								) : null}
 								<Group mt="xs" justify="space-around">
 									<Checkbox
 										size="sm"
 										label="Required"
-										defaultChecked={field.required || undefined}
-										name={`informationTemplate[${index}].required`}
+										checked={field.required || false}
+										onChange={(e) => {
+											setFormData(
+												produce(formData, (draft) => {
+													draft.informationTemplate[index] = {
+														...field,
+														required: e.target.checked,
+													};
+												}),
+											);
+										}}
 									/>
 									<Button
 										size="xs"
 										color="red"
 										variant="subtle"
 										leftSection={<IconTrash />}
-										onClick={() => setInformationTemplate.remove(index)}
+										onClick={() => {
+											setFormData(
+												produce(formData, (draft) => {
+													draft.informationTemplate.splice(index, 1);
+												}),
+											);
+										}}
 									>
 										Remove field
 									</Button>
@@ -711,8 +785,8 @@ const CreateOrUpdateModal = (props: {
 				<Button
 					type="submit"
 					variant="outline"
-					value={props.toUpdateCollection?.id}
-					name={props.toUpdateCollection ? "updateId" : undefined}
+					loading={createOrUpdateMutation.isPending}
+					disabled={!isFormValid || createOrUpdateMutation.isPending}
 				>
 					{props.toUpdateCollection?.id ? "Update" : "Create"}
 				</Button>
