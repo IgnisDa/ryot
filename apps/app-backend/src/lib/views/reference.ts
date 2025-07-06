@@ -57,6 +57,16 @@ const entityRuntimeColumns = {
 		display: true,
 		property: { label: "Name", type: "string" },
 	},
+	externalId: {
+		filter: true,
+		display: true,
+		property: { label: "External ID", type: "string" },
+	},
+	sandboxScriptId: {
+		filter: true,
+		display: true,
+		property: { label: "Sandbox Script ID", type: "string" },
+	},
 	createdAt: {
 		filter: true,
 		display: true,
