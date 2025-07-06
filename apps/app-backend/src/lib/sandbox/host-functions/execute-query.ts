@@ -1,5 +1,5 @@
 import { apiFailure, apiSuccess, type HostFunction } from "~/lib/sandbox/types";
-import { viewDefinitionModule } from "~/lib/views/definition";
+import { prepareAndExecute } from "~/modules/query-engine";
 import { executeQueryEngineBody } from "~/modules/query-engine/schemas";
 
 type ExecuteQueryContext = {
@@ -22,12 +22,10 @@ export const createExecuteQueryHostFunction =
 			}
 
 			try {
-				const result = await (
-					await viewDefinitionModule.prepare({
-						userId: context.userId,
-						source: { kind: "runtime", request: parsed.data },
-					})
-				).execute();
+				const result = await prepareAndExecute({
+					userId: context.userId,
+					request: parsed.data,
+				});
 				return apiSuccess(result);
 			} catch (error) {
 				const message =

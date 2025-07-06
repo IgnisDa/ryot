@@ -148,6 +148,46 @@ driver("main", async function() {
 		expect(value[0]?.id).toBeDefined();
 	});
 
+	it("fails a script that uses executeQuery with a missing schema slug", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "execute-query-missing-schema",
+			slug: `execute-query-missing-schema-${crypto.randomUUID()}`,
+			code: `
+driver("main", async function() {
+  const result = await executeQuery({
+    entitySchemaSlugs: ["does-not-exist"],
+    pagination: { page: 1, limit: 10 },
+    sort: {
+      direction: "asc",
+      expression: {
+        type: "reference",
+        reference: { column: "name", type: "entity-column", slug: "does-not-exist" }
+      }
+    }
+  });
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+  return result.data.items;
+});
+`,
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		expect(result.error).toContain("Schema 'does-not-exist' not found");
+	});
+
 	it("completes a script that uses getUserPreferences", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, cookies, {

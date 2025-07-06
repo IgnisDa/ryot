@@ -9,11 +9,11 @@ import {
 	payloadErrorResponse,
 	successResponse,
 } from "~/lib/openapi";
-import { viewDefinitionModule } from "~/lib/views/definition";
 import {
 	QueryEngineNotFoundError,
 	QueryEngineValidationError,
 } from "~/lib/views/errors";
+import { prepareAndExecute } from "./preparer";
 import {
 	executeQueryEngineBody,
 	executeQueryEngineResponseSchema,
@@ -48,12 +48,7 @@ export const queryEngineApi = new OpenAPIHono<{
 	const body = c.req.valid("json");
 
 	try {
-		const result = await (
-			await viewDefinitionModule.prepare({
-				userId: user.id,
-				source: { kind: "runtime", request: body },
-			})
-		).execute();
+		const result = await prepareAndExecute({ userId: user.id, request: body });
 		return c.json(successResponse(result), 200);
 	} catch (error) {
 		if (error instanceof QueryEngineNotFoundError) {
