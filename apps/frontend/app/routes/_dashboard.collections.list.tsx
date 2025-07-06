@@ -1,35 +1,21 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Anchor,
 	Box,
-	Button,
 	Checkbox,
 	Container,
 	Flex,
 	Group,
 	Image,
-	Input,
-	Modal,
-	MultiSelect,
 	Paper,
-	Select,
 	Stack,
-	TagsInput,
 	Text,
-	TextInput,
-	Textarea,
 	Title,
-	Tooltip,
 } from "@mantine/core";
 import { useDidUpdate, useHover, useListState } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
-	type CollectionExtraInformation,
-	CollectionExtraInformationLot,
-	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
 	EntityLot,
 	GraphqlSortOrder,
@@ -38,29 +24,20 @@ import {
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
-import {
-	IconEdit,
-	IconPlus,
-	IconTrash,
-	IconTrashFilled,
-} from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { produce } from "immer";
-import { useState } from "react";
-import { Form, Link, useLoaderData, useRevalidator } from "react-router";
+import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { Form, Link, useLoaderData } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
-	useFormValidation,
 	useUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
@@ -70,10 +47,8 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/shared/query-factory";
-import {
-	convertEnumToSelectData,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,
@@ -134,21 +109,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-type UpdateCollectionInput = {
-	id?: string;
-	name?: string;
-	isDefault?: boolean;
-	description?: string;
-	collaborators?: Collection["collaborators"];
-	informationTemplate?: CollectionExtraInformation[] | null;
-};
-
 export default function Page() {
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const loaderData = useLoaderData<typeof loader>();
-	const [toUpdateCollection, setToUpdateCollection] =
-		useState<UpdateCollectionInput | null>(null);
+	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	const query = params.get("query") || undefined;
@@ -179,23 +144,10 @@ export default function Page() {
 						<ActionIcon
 							color="green"
 							variant="outline"
-							onClick={() => setToUpdateCollection({})}
+							onClick={() => openCollectionModal(null, loaderData.usersList)}
 						>
 							<IconPlus size={20} />
 						</ActionIcon>
-						<Modal
-							centered
-							size="lg"
-							withCloseButton={false}
-							opened={toUpdateCollection !== null}
-							onClose={() => setToUpdateCollection(null)}
-						>
-							<CreateOrUpdateModal
-								usersList={loaderData.usersList}
-								toUpdateCollection={toUpdateCollection}
-								onClose={() => setToUpdateCollection(null)}
-							/>
-						</Modal>
 					</Flex>
 				</Group>
 				<DebouncedSearchInput
@@ -231,7 +183,7 @@ export default function Page() {
 								key={c.id}
 								index={index}
 								collection={c}
-								setToUpdateCollection={setToUpdateCollection}
+								usersList={loaderData.usersList}
 							/>
 						);
 					}}
@@ -249,12 +201,13 @@ const IMAGES_CONTAINER_WIDTH = 250;
 const DisplayCollection = (props: {
 	index: number;
 	collection: Collection;
-	setToUpdateCollection: (c: UpdateCollectionInput) => void;
+	usersList: UsersListQuery["usersList"];
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
+	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const additionalDisplay = [];
 
 	const { data: collectionImages } = useQuery({
@@ -372,14 +325,18 @@ const DisplayCollection = (props: {
 									color="blue"
 									variant="outline"
 									onClick={() => {
-										props.setToUpdateCollection({
-											id: props.collection.id,
-											name: props.collection.name,
-											isDefault: props.collection.isDefault,
-											collaborators: props.collection.collaborators,
-											description: props.collection.description ?? undefined,
-											informationTemplate: props.collection.informationTemplate,
-										});
+										openCollectionModal(
+											{
+												id: props.collection.id,
+												name: props.collection.name,
+												isDefault: props.collection.isDefault,
+												collaborators: props.collection.collaborators,
+												description: props.collection.description ?? undefined,
+												informationTemplate:
+													props.collection.informationTemplate,
+											},
+											props.usersList,
+										);
 									}}
 								>
 									<IconEdit size={18} />
@@ -468,320 +425,5 @@ const CollectionImageDisplay = (props: {
 		>
 			<Image src={props.image} h="100%" />
 		</Box>
-	);
-};
-
-const CreateOrUpdateModal = (props: {
-	onClose: () => void;
-	usersList: UsersListQuery["usersList"];
-	toUpdateCollection: UpdateCollectionInput | null;
-}) => {
-	const coreDetails = useCoreDetails();
-	const userDetails = useUserDetails();
-	const revalidator = useRevalidator();
-	const [parent] = useAutoAnimate();
-	const [formData, setFormData] = useState({
-		name: props.toUpdateCollection?.name || "",
-		description: props.toUpdateCollection?.description || "",
-		informationTemplate: props.toUpdateCollection?.informationTemplate || [],
-		collaborators: (props.toUpdateCollection?.collaborators || []).map(
-			(c) => c.collaborator.id,
-		),
-		isHidden: Boolean(
-			props.toUpdateCollection?.collaborators?.find(
-				(c) => c.collaborator.id === userDetails.id,
-			)?.extraInformation?.isHidden,
-		),
-	});
-
-	const { formRef, isFormValid } = useFormValidation(formData);
-
-	const createOrUpdateMutation = useMutation({
-		mutationFn: async () => {
-			const input = {
-				name: formData.name,
-				description: formData.description,
-				collaborators: formData.collaborators,
-				updateId: props.toUpdateCollection?.id,
-				extraInformation: { isHidden: formData.isHidden },
-				informationTemplate:
-					formData.informationTemplate.length > 0
-						? formData.informationTemplate
-						: undefined,
-			};
-			return clientGqlService.request(CreateOrUpdateCollectionDocument, {
-				input,
-			});
-		},
-		onSuccess: () => {
-			notifications.show({
-				color: "green",
-				message: props.toUpdateCollection?.id
-					? "Collection updated"
-					: "Collection created",
-			});
-			revalidator.revalidate();
-			props.onClose();
-		},
-		onError: (_error) => {
-			notifications.show({
-				color: "red",
-				message: "An error occurred",
-			});
-		},
-	});
-
-	return (
-		<Form
-			ref={formRef}
-			onSubmit={(e) => {
-				e.preventDefault();
-				createOrUpdateMutation.mutate();
-			}}
-		>
-			<Stack>
-				<Title order={3}>
-					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
-				</Title>
-				<TextInput
-					required
-					label="Name"
-					value={formData.name}
-					onChange={(e) => {
-						setFormData(
-							produce(formData, (draft) => {
-								draft.name = e.target.value;
-							}),
-						);
-					}}
-					readOnly={props.toUpdateCollection?.isDefault}
-					description={
-						props.toUpdateCollection?.isDefault
-							? "Can not edit a default collection"
-							: undefined
-					}
-				/>
-				<Textarea
-					autosize
-					label="Description"
-					value={formData.description}
-					onChange={(e) =>
-						setFormData(
-							produce(formData, (draft) => {
-								draft.description = e.target.value;
-							}),
-						)
-					}
-				/>
-				<Tooltip
-					label={PRO_REQUIRED_MESSAGE}
-					disabled={coreDetails.isServerKeyValidated}
-				>
-					<Checkbox
-						label="Hide collection"
-						disabled={!coreDetails.isServerKeyValidated}
-						checked={formData.isHidden}
-						onChange={(e) =>
-							setFormData(
-								produce(formData, (draft) => {
-									draft.isHidden = e.target.checked;
-								}),
-							)
-						}
-					/>
-				</Tooltip>
-				<Tooltip
-					label={PRO_REQUIRED_MESSAGE}
-					disabled={coreDetails.isServerKeyValidated}
-				>
-					<MultiSelect
-						searchable
-						disabled={!coreDetails.isServerKeyValidated}
-						description="Add collaborators to this collection"
-						value={formData.collaborators}
-						onChange={(value) =>
-							setFormData(
-								produce(formData, (draft) => {
-									draft.collaborators = value;
-								}),
-							)
-						}
-						data={props.usersList.map((u) => ({
-							value: u.id,
-							label: u.name,
-							disabled: u.id === userDetails.id,
-						}))}
-					/>
-				</Tooltip>
-				<Input.Wrapper
-					labelProps={{ w: "100%" }}
-					label={
-						<Group wrap="nowrap" justify="space-between">
-							<Input.Label size="xs">Information template</Input.Label>
-							<Anchor
-								size="xs"
-								onClick={() => {
-									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											color: "red",
-											message: PRO_REQUIRED_MESSAGE,
-										});
-										return;
-									}
-									setFormData(
-										produce(formData, (draft) => {
-											draft.informationTemplate.push({
-												name: "",
-												description: "",
-												lot: CollectionExtraInformationLot.String,
-											});
-										}),
-									);
-								}}
-							>
-								Add field
-							</Anchor>
-						</Group>
-					}
-					description="Associate extra information when adding an entity to this collection"
-				>
-					<Stack gap="xs" mt="xs" ref={parent}>
-						{formData.informationTemplate.map((field, index) => (
-							<Paper withBorder key={index.toString()} p="xs">
-								<TextInput
-									required
-									size="xs"
-									label="Name"
-									value={field.name}
-									onChange={(e) => {
-										setFormData(
-											produce(formData, (draft) => {
-												draft.informationTemplate[index] = {
-													...field,
-													name: e.target.value,
-												};
-											}),
-										);
-									}}
-								/>
-								<Textarea
-									required
-									size="xs"
-									label="Description"
-									value={field.description}
-									onChange={(e) => {
-										setFormData(
-											produce(formData, (draft) => {
-												draft.informationTemplate[index] = {
-													...field,
-													description: e.target.value,
-												};
-											}),
-										);
-									}}
-								/>
-								<Group wrap="nowrap">
-									<Select
-										flex={1}
-										required
-										size="xs"
-										label="Input type"
-										value={field.lot}
-										data={convertEnumToSelectData(
-											CollectionExtraInformationLot,
-										)}
-										onChange={(v) => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate[index] = {
-														...field,
-														lot: v as CollectionExtraInformationLot,
-													};
-												}),
-											);
-										}}
-									/>
-									{field.lot !== CollectionExtraInformationLot.StringArray ? (
-										<TextInput
-											flex={1}
-											size="xs"
-											label="Default value"
-											value={field.defaultValue || ""}
-											onChange={(e) => {
-												setFormData(
-													produce(formData, (draft) => {
-														draft.informationTemplate[index] = {
-															...field,
-															defaultValue: e.target.value,
-														};
-													}),
-												);
-											}}
-										/>
-									) : null}
-								</Group>
-								{field.lot === CollectionExtraInformationLot.StringArray ? (
-									<TagsInput
-										size="xs"
-										label="Possible values"
-										value={field.possibleValues || []}
-										onChange={(value) => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate[index] = {
-														...field,
-														possibleValues: value,
-													};
-												}),
-											);
-										}}
-									/>
-								) : null}
-								<Group mt="xs" justify="space-around">
-									<Checkbox
-										size="sm"
-										label="Required"
-										checked={field.required || false}
-										onChange={(e) => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate[index] = {
-														...field,
-														required: e.target.checked,
-													};
-												}),
-											);
-										}}
-									/>
-									<Button
-										size="xs"
-										color="red"
-										variant="subtle"
-										leftSection={<IconTrash />}
-										onClick={() => {
-											setFormData(
-												produce(formData, (draft) => {
-													draft.informationTemplate.splice(index, 1);
-												}),
-											);
-										}}
-									>
-										Remove field
-									</Button>
-								</Group>
-							</Paper>
-						))}
-					</Stack>
-				</Input.Wrapper>
-				<Button
-					type="submit"
-					variant="outline"
-					disabled={!isFormValid}
-					loading={createOrUpdateMutation.isPending}
-				>
-					{props.toUpdateCollection?.id ? "Update" : "Create"}
-				</Button>
-			</Stack>
-		</Form>
 	);
 };

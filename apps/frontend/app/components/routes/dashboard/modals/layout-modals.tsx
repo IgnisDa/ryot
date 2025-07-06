@@ -1,5 +1,6 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
 import { FullscreenImageModal } from "~/components/common";
+import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/general";
 import {
@@ -11,6 +12,7 @@ import { AddEntityToCollectionsForm } from "../forms/add-entity-to-collections-f
 import { CreateMeasurementForm } from "../forms/create-measurement-form";
 import { MetadataProgressUpdateForm } from "../forms/metadata-progress-update/progress-update";
 import { ReviewEntityForm } from "../forms/review-entity-form";
+import { CreateOrUpdateCollectionModal } from "./create-or-update-collection-modal";
 
 export function LayoutModals() {
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -26,6 +28,8 @@ export function LayoutModals() {
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const { completeOnboardingTour, isOnLastOnboardingTourStep } =
 		useOnboardingTour();
+	const { isOpen: isCollectionModalOpen, close: closeCollectionModal } =
+		useCreateOrUpdateCollectionModal();
 
 	return (
 		<>
@@ -88,6 +92,15 @@ export function LayoutModals() {
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
+			<Modal
+				centered
+				size="lg"
+				withCloseButton={false}
+				opened={isCollectionModalOpen}
+				onClose={closeCollectionModal}
+			>
+				<CreateOrUpdateCollectionModal onClose={closeCollectionModal} />
+			</Modal>
 		</>
 	);
 }

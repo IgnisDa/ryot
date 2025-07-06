@@ -1,4 +1,9 @@
-import type { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import type {
+	CollectionExtraInformation,
+	EntityLot,
+	UserCollectionsListQuery,
+	UsersListQuery,
+} from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
@@ -12,15 +17,30 @@ type Action = "remove" | "add";
 
 type BulkEditingCollectionData = {
 	action: Action;
-	locationStartedFrom: string;
+	isLoading: boolean;
 	collection: Collection;
 	entities: Array<Entity>;
-	isLoading: boolean;
+	locationStartedFrom: string;
 };
 
 export type BulkAddEntities = () => Promise<Array<Entity>>;
 
+export type CreateOrUpdateCollectionModalData = {
+	id?: string;
+	name?: string;
+	isDefault?: boolean;
+	description?: string;
+	informationTemplate?: CollectionExtraInformation[] | null;
+	collaborators?: UserCollectionsListQuery["userCollectionsList"]["response"][number]["collaborators"];
+};
+
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
+
+const createOrUpdateCollectionModalAtom = atom<{
+	isOpen: boolean;
+	usersList: UsersListQuery["usersList"];
+	data: CreateOrUpdateCollectionModalData | null;
+}>({ isOpen: false, data: null, usersList: [] });
 
 export const useBulkEditCollection = () => {
 	const [bec, setBec] = useAtom(bulkEditingCollectionAtom);
@@ -73,5 +93,28 @@ export const useBulkEditCollection = () => {
 					stopLoading: () => setBec({ ...bec, isLoading: false }),
 				}
 			: (false as const),
+	};
+};
+
+export const useCreateOrUpdateCollectionModal = () => {
+	const [modal, setModal] = useAtom(createOrUpdateCollectionModalAtom);
+
+	const open = (
+		data: CreateOrUpdateCollectionModalData | null,
+		usersList: UsersListQuery["usersList"],
+	) => {
+		setModal({ isOpen: true, data, usersList });
+	};
+
+	const close = () => {
+		setModal({ isOpen: false, data: null, usersList: [] });
+	};
+
+	return {
+		open,
+		close,
+		data: modal.data,
+		isOpen: modal.isOpen,
+		usersList: modal.usersList,
 	};
 };
