@@ -1,7 +1,7 @@
 # Review Refactor Using Git
 
 Go through all the changed files using `git diff` and review the changes made in the
-refactor. Make sure that there was ABSOLOUTELY NO CHANGE in functionality, only refactoring
+refactor. Make sure that there was ABSOLUTELY NO CHANGE in functionality, only refactoring
 of the code.
 
 After the review is done, run `git diff --stat` to see the summary of changes made and
