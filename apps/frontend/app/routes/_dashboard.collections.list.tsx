@@ -35,6 +35,7 @@ import {
 	GraphqlSortOrder,
 	type UserCollectionsListQuery,
 	UsersListDocument,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
@@ -255,7 +256,10 @@ export default function Page() {
 							opened={toUpdateCollection !== null}
 							onClose={() => setToUpdateCollection(null)}
 						>
-							<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
+							<CreateOrUpdateModal
+								usersList={loaderData.usersList}
+								toUpdateCollection={toUpdateCollection}
+							/>
 						</Modal>
 					</Flex>
 				</Group>
@@ -533,9 +537,9 @@ const CollectionImageDisplay = (props: {
 };
 
 const CreateOrUpdateModal = (props: {
+	usersList: UsersListQuery["usersList"];
 	toUpdateCollection: UpdateCollectionInput | null;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
 	const [parent] = useAutoAnimate();
@@ -595,7 +599,7 @@ const CreateOrUpdateModal = (props: {
 						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
 							(c) => c.collaborator.id,
 						)}
-						data={loaderData.usersList.map((u) => ({
+						data={props.usersList.map((u) => ({
 							value: u.id,
 							label: u.name,
 							disabled: u.id === userDetails.id,
