@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,18 +22,18 @@ sections of the parent PRD.
 
 ## Acceptance criteria
 
-- [ ] The currently supported built-in media schemas expose a seeded `backlog` event schema.
-- [ ] `POST /events` accepts `backlog` events for built-in media entities and persists them
+- [x] The currently supported built-in media schemas expose a seeded `backlog` event schema.
+- [x] `POST /events` accepts `backlog` events for built-in media entities and persists them
       successfully.
-- [ ] Built-in media entities can only write `backlog` using the seeded event schema belonging to
+- [x] Built-in media entities can only write `backlog` using the seeded event schema belonging to
       their own entity schema.
-- [ ] Repeated `backlog` events are allowed.
-- [ ] The event payload for `backlog` is an empty object.
-- [ ] Bulk `POST /events` requests can include built-in `backlog` events successfully.
-- [ ] Tests cover successful built-in backlog writes and expected access failures.
-- [ ] `tests/src` includes an end-to-end test that creates a built-in media entity, posts a
+- [x] Repeated `backlog` events are allowed.
+- [x] The event payload for `backlog` is an empty object.
+- [x] Bulk `POST /events` requests can include built-in `backlog` events successfully.
+- [x] Tests cover successful built-in backlog writes and expected access failures.
+- [x] `tests/src` includes an end-to-end test that creates a built-in media entity, posts a
       `backlog` event through the public API, and verifies it appears in the event list.
-- [ ] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
+- [x] `bun run typecheck`, `bun test`, and `bun run lint` pass in `apps/app-backend`.
 
 ## Blocked by
 
