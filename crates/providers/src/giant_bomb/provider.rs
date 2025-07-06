@@ -287,12 +287,7 @@ impl MediaProvider for GiantBombService {
 
         let endpoint = if is_company { "company" } else { "person" };
 
-        ryot_log!(
-            debug,
-            "Fetching GiantBomb {} details for: {}",
-            endpoint,
-            identifier
-        );
+        ryot_log!(debug, "Fetching {} details for: {}", endpoint, identifier);
 
         let url = format!("{}/{}/{}/", BASE_URL, endpoint, identifier);
         let response = self
@@ -452,11 +447,7 @@ impl MediaProvider for GiantBombService {
         &self,
         identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        ryot_log!(
-            debug,
-            "Fetching GiantBomb franchise details for: {}",
-            identifier
-        );
+        ryot_log!(debug, "Fetching franchise details for: {}", identifier);
 
         let url = format!("{}/franchise/{}/", BASE_URL, identifier);
         let response = self
