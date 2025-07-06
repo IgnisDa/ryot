@@ -31,13 +31,13 @@ const mediaLifecycleEventSchemas = () => [
 		slug: "complete",
 		propertiesSchema: {
 			fields: {
-				startedOn: { type: "date" as const },
-				completedOn: { type: "date" as const },
+				startedOn: { type: "datetime" as const },
+				completedOn: { type: "datetime" as const },
 				completionMode: {
 					type: "string" as const,
 					validation: {
 						required: true as const,
-						pattern: "^(just_now|unknown|custom_dates)$",
+						pattern: "^(just_now|unknown|custom_timestamps)$",
 					},
 				},
 			},
@@ -47,7 +47,7 @@ const mediaLifecycleEventSchemas = () => [
 					kind: "validation" as const,
 					validation: { required: true as const },
 					when: {
-						value: "custom_dates",
+						value: "custom_timestamps",
 						operator: "eq" as const,
 						path: ["completionMode"],
 					},
