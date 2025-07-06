@@ -214,14 +214,16 @@ export const DisplayCollectionToEntity = (props: {
 							</Text>
 							<Stack gap="xs">
 								{Object.entries(props.col.details.information).map(
-									([key, value]) => (
-										<Group key={key}>
-											<Text size="sm" c="dimmed">
-												{key}:
-											</Text>
-											<Text size="sm">{String(value)}</Text>
-										</Group>
-									),
+									([key, value]) => {
+										return (
+											<Group key={key}>
+												<Text size="sm" c="dimmed">
+													{key}:
+												</Text>
+												<Text size="sm">{String(value)}</Text>
+											</Group>
+										);
+									},
 								)}
 							</Stack>
 						</>
