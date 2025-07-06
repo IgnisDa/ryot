@@ -46,7 +46,6 @@ CREATE TABLE "entity" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text,
-	"search_vector" "tsvector" GENERATED ALWAYS AS (to_tsvector('english', name)) STORED NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	"details_sandbox_script_id" text,
 	"id" text PRIMARY KEY NOT NULL,
@@ -95,6 +94,7 @@ CREATE TABLE "event_schema" (
 	"name" text NOT NULL,
 	"properties_schema" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	"entity_schema_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
@@ -230,7 +230,6 @@ CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statem
 CREATE INDEX "entity_external_id_idx" ON "entity" USING btree ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_schema_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
-CREATE INDEX "entity_search_vector_idx" ON "entity" USING gin ("search_vector");--> statement-breakpoint
 CREATE INDEX "entity_details_sandbox_script_id_idx" ON "entity" USING btree ("details_sandbox_script_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_user_id_idx" ON "entity_schema" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_schema_sandbox_script_entity_schema_id_idx" ON "entity_schema_sandbox_script" USING btree ("entity_schema_id");--> statement-breakpoint
@@ -243,6 +242,7 @@ CREATE INDEX "event_event_schema_id_idx" ON "event" USING btree ("event_schema_i
 CREATE INDEX "event_session_entity_id_idx" ON "event" USING btree ("session_entity_id");--> statement-breakpoint
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_schema_entity_schema_id_idx" ON "event_schema" USING btree ("entity_schema_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "event_schema_builtin_entity_schema_slug_unique" ON "event_schema" USING btree ("entity_schema_id","slug") WHERE "event_schema"."user_id" is null;--> statement-breakpoint
 CREATE INDEX "relationship_rel_type_idx" ON "relationship" USING btree ("rel_type");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
