@@ -1,9 +1,20 @@
 import { describe, expect, it } from "bun:test";
-import type { SandboxRunJobData } from "./jobs";
+import { type SandboxRunJobData, sandboxRunJobName } from "./jobs";
 import { SandboxService } from "./service";
 
 type TestSandboxExecutor = {
 	execute: (options: unknown) => Promise<unknown>;
+	executeQueuedRun: (
+		jobData: SandboxRunJobData,
+		scriptFetcher?: (
+			scriptId: string,
+		) => Promise<{ code: string; metadata: object | null } | null>,
+	) => Promise<unknown>;
+};
+
+type TestSandboxWorkerProcessor = {
+	executeQueuedRun: (jobData: SandboxRunJobData) => Promise<unknown>;
+	processJob: (job: { name: string; data: unknown }) => Promise<unknown>;
 };
 
 type TestSandboxQueueAccessor = {
@@ -28,8 +39,9 @@ const createScriptFetcher =
 describe("SandboxService.executeQueuedRun", () => {
 	it("returns error when the script is not found", async () => {
 		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxExecutor;
 
-		const result = await service.executeQueuedRun(
+		const result = await testService.executeQueuedRun(
 			createJobData(),
 			async () => null,
 		);
@@ -50,7 +62,7 @@ describe("SandboxService.executeQueuedRun", () => {
 			return { value: "ok", success: true, logs: null, error: null };
 		};
 
-		await service.executeQueuedRun(
+		await testService.executeQueuedRun(
 			createJobData({ timeoutMs: 2500, context: { page: 2 } }),
 			createScriptFetcher({ allowedHostFunctions: ["getAppConfigValue"] }),
 		);
@@ -82,7 +94,7 @@ describe("SandboxService.executeQueuedRun", () => {
 			return { value: "ok", success: true, logs: null, error: null };
 		};
 
-		await service.executeQueuedRun(createJobData(), createScriptFetcher());
+		await testService.executeQueuedRun(createJobData(), createScriptFetcher());
 
 		const apiFunctions = (
 			capturedOptions as {
@@ -113,7 +125,7 @@ describe("SandboxService.executeQueuedRun", () => {
 		};
 
 		expect(
-			service.executeQueuedRun(
+			testService.executeQueuedRun(
 				createJobData(),
 				createScriptFetcher({ allowedHostFunctions: ["missingFunction"] }),
 			),
@@ -131,7 +143,7 @@ describe("SandboxService.executeQueuedRun", () => {
 			return { success: true, logs: null, error: null, value: null };
 		};
 
-		await service.executeQueuedRun(
+		await testService.executeQueuedRun(
 			createJobData({ driverName: "details" }),
 			createScriptFetcher(),
 		);
@@ -198,6 +210,49 @@ describe("SandboxService.getJobByIdForUser", () => {
 		expect(
 			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
 		).resolves.toBeNull();
+	});
+});
+
+describe("SandboxService worker job processing", () => {
+	it("rejects unsupported sandbox jobs", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxWorkerProcessor;
+
+		expect(
+			testService.processJob({ name: "unknown", data: {} }),
+		).rejects.toThrow("Unsupported sandbox job: unknown");
+	});
+
+	it("rejects invalid sandbox job payloads", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxWorkerProcessor;
+
+		expect(
+			testService.processJob({
+				name: sandboxRunJobName,
+				data: { userId: "user_1" },
+			}),
+		).rejects.toThrow("Sandbox run payload is invalid");
+	});
+
+	it("routes valid execute jobs through queued execution", async () => {
+		const service = new SandboxService();
+		const testService = service as unknown as TestSandboxWorkerProcessor;
+		let capturedJobData: SandboxRunJobData | undefined;
+
+		testService.executeQueuedRun = async (jobData) => {
+			capturedJobData = jobData;
+			return { success: true, error: null, logs: null, value: null };
+		};
+
+		expect(
+			testService.processJob({
+				name: sandboxRunJobName,
+				data: createJobData({ driverName: "details" }),
+			}),
+		).resolves.toEqual({ success: true, error: null, logs: null, value: null });
+
+		expect(capturedJobData).toEqual(createJobData({ driverName: "details" }));
 	});
 });
 
