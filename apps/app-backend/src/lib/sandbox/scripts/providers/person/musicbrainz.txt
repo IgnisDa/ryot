@@ -172,15 +172,13 @@ driver("details", async function (context) {
   return {
     name,
     properties: {
-      gender: null,
-      website: null,
       birthDate,
       deathDate,
       birthPlace,
       description,
-      sourceUrl: `https://musicbrainz.org/artist/${externalId}`,
       alternateNames,
       assets: { remoteImages: [] },
+      sourceUrl: `https://musicbrainz.org/artist/${externalId}`,
     },
   };
 });

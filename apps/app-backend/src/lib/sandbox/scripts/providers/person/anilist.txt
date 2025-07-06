@@ -262,12 +262,11 @@ query StaffQuery($id: Int!) {
 			gender,
 			birthPlace,
 			description,
-			website: null,
 			alternateNames: [],
-			birthDate: formatDate(staffData.dateOfBirth, dayjs),
-			deathDate: formatDate(staffData.dateOfDeath, dayjs),
 			assets: { remoteImages: image ? [image] : [] },
 			sourceUrl: `https://anilist.co/staff/${staffId}`,
+			birthDate: formatDate(staffData.dateOfBirth, dayjs),
+			deathDate: formatDate(staffData.dateOfDeath, dayjs),
 		},
 	};
 });

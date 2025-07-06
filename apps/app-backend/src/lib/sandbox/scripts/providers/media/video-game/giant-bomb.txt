@@ -121,7 +121,7 @@ function buildPlatformReleases(platforms) {
         return null;
       }
 
-      return { name, releaseDate: null, releaseRegion: null };
+      return { name };
     })
     .filter((release) => release !== null);
 
@@ -312,14 +312,6 @@ driver("details", async function(context) {
     properties: {
       genres,
       platformReleases,
-      // timeToBeat is reserved for providers that expose this data (e.g., IGDB).
-      // GiantBomb does not provide time-to-beat information.
-      timeToBeat: null,
-      // GiantBomb does not expose maturity ratings, aggregate scores, or
-      // production status via its public API.
-      isNsfw: null,
-      providerRating: null,
-      productionStatus: null,
       assets: { remoteImages },
       publishYear: extractYear(game.original_release_date),
       description: combineDescription(game.deck, game.description),
