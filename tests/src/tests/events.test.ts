@@ -228,7 +228,7 @@ describe("Events bulk POST", () => {
 		expect(events).toHaveLength(2);
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 		expect(
-			events.map((event) => event.properties.progressPercent as number).sort((a, b) => a - b),
+			events.map((event) => event.properties.progressPercent as number).toSorted((a, b) => a - b),
 		).toEqual([25.56, 50.44]);
 	});
 
