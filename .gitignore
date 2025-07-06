@@ -56,4 +56,4 @@ node_modules
 dist
 .vscode/settings.json
 templates
-.claude
+.claude/settings.local.json
