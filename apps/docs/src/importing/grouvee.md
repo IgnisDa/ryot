@@ -4,7 +4,11 @@ Ryot can import data from [Grouvee](https://www.grouvee.com).
 
 ## Additional Data
 
-- **Shelves**: All shelves will be imported as collections in Ryot.
+- **Shelves**: Shelves are converted as follows:
+  - Played → Completed
+  - Playing → In Progress
+  - Wish List → Watchlist
+  - Other shelves create new collection
 - **Ratings & Reviews**: Your ratings (1-5 → 20-100 scale), reviews, and status updates
   will be imported.
 - **Gameplay History**: Playtime and start/finish dates will be preserved.
