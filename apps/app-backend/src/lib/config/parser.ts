@@ -9,7 +9,7 @@ export function parseGroupDef<T extends Record<string, ConfigNode>>(
 	const envIndex: EnvIndex = {};
 
 	function walk(node: ConfigNode): unknown {
-		if (node._kind === "field") {
+		if (node.kind === "field") {
 			const raw = env[node.envKey] ?? node.default;
 			if (raw === undefined && !node.optional) {
 				throw new Error(`Required config key "${node.envKey}" is not set`);
@@ -31,7 +31,7 @@ export function buildPathIndex(def: GroupDef, prefix = ""): Record<string, strin
 	const result: Record<string, string> = {};
 	for (const [key, child] of Object.entries(def.children as Record<string, ConfigNode>)) {
 		const path = prefix ? `${prefix}.${key}` : key;
-		if (child._kind === "field") {
+		if (child.kind === "field") {
 			result[path] = child.envKey;
 		} else {
 			Object.assign(result, buildPathIndex(child as GroupDef, path));

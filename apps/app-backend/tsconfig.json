@@ -2,6 +2,7 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,
+		"lib": ["ESNext"],
 		"jsx": "react-jsx",
 		"target": "ES2022",
 		"module": "ESNext",
@@ -9,9 +10,7 @@
 		"types": ["bun-types"],
 		"moduleResolution": "bundler",
 		"jsxImportSource": "hono/jsx",
-		"noUncheckedIndexedAccess": true,
-		"paths": {
-			"~/*": ["./src/*"]
-		}
+		"paths": { "~/*": ["./src/*"] },
+		"noUncheckedIndexedAccess": true
 	}
 }

@@ -28,6 +28,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 	await database.transaction(async (tx) => {
 		const schemaIds = new Map<string, string>();
 		for (const schema of authenticationBuiltinEntitySchemas()) {
+			// oxlint-disable-next-line no-await-in-loop
 			const schemaId = await ensureBuiltinEntitySchema({
 				database: tx,
 				slug: schema.slug,
@@ -36,6 +37,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				accentColor: schema.accentColor,
 				propertiesSchema: schema.propertiesSchema,
 			});
+			// oxlint-disable-next-line no-await-in-loop
 			await ensureBuiltinEntitySchemaEventSchemas({
 				database: tx,
 				entitySchemaId: schemaId,
@@ -46,6 +48,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 
 		const scriptIds = new Map<string, string>();
 		for (const script of builtinSandboxScripts()) {
+			// oxlint-disable-next-line no-await-in-loop
 			const scriptId = await ensureBuiltinSandboxScript({
 				database: tx,
 				code: script.code,
@@ -68,6 +71,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				throw new Error(`Missing script id for ${link.scriptSlug}`);
 			}
 
+			// oxlint-disable-next-line no-await-in-loop
 			await linkScriptToEntitySchema({
 				database: tx,
 				entitySchemaId,
@@ -81,6 +85,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				throw new Error(`Missing script id for trigger script ${triggerLink.scriptSlug}`);
 			}
 
+			// oxlint-disable-next-line no-await-in-loop
 			const matchingEventSchemas = await tx
 				.select({ id: eventSchemaTable.id })
 				.from(eventSchemaTable)
@@ -92,6 +97,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 				);
 
 			for (const es of matchingEventSchemas) {
+				// oxlint-disable-next-line no-await-in-loop
 				await ensureBuiltinEventSchemaTrigger({
 					database: tx,
 					eventSchemaId: es.id,
@@ -121,6 +127,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 					})())
 				: undefined;
 
+			// oxlint-disable-next-line no-await-in-loop
 			await ensureBuiltinRelationshipSchema({
 				database: tx,
 				slug: schema.slug,

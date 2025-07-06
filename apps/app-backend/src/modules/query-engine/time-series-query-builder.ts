@@ -4,11 +4,12 @@ import { match } from "ts-pattern";
 
 import { db } from "~/lib/db";
 
+import { buildQueryContext, type PreparedQueryContext } from "./context";
+import { buildEventFirstCte } from "./event-query-ctes";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
-import { buildQueryContext, type PreparedQueryContext } from "./preparer";
-import { buildEventFirstCte, EVENT_FIRST_ENTITY_COLUMN_OVERRIDES } from "./query-ctes";
+import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES } from "./query-cte-shared";
 import type { QueryEngineTimeSeriesResponse, TimeSeriesQueryEngineRequest } from "./schemas";
 
 type TimeSeriesRow = {

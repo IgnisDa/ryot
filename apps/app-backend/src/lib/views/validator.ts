@@ -10,14 +10,13 @@ import {
 	prepareComputedFields,
 } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";
-import type { ViewComputedField, ViewExpression } from "./expression";
+import type { ViewComputedField, ViewExpression, ViewPredicate } from "./expression";
 import {
 	assertComparableExpression,
 	assertNumericExpression,
 	assertSortableExpression,
 	inferViewExpressionType,
 } from "./expression-analysis";
-import type { ViewPredicate } from "./filtering";
 import { validateViewPredicateAgainstSchemas } from "./predicate-validator";
 import {
 	displayBuiltins,
@@ -345,6 +344,7 @@ const collectComputedFieldsInExpression = (
 	seen = new Set<string>(),
 ): ViewComputedField[] => {
 	const dependencies = getComputedFieldDependencies(expression);
+	// oxlint-disable-next-line oxc/no-map-spread
 	return dependencies.flatMap((key) => {
 		if (seen.has(key)) {
 			return [];

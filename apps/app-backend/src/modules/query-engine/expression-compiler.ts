@@ -10,15 +10,14 @@ import {
 } from "~/lib/views/expression-analysis";
 import type { PropertyType } from "~/lib/views/reference";
 
-import { buildPredicateClause } from "./predicate-clause-builder";
+import { buildEntityExpression, buildEntitySchemaExpression } from "./entity-reference-compilers";
 import {
-	buildEntityExpression,
-	buildEntitySchemaExpression,
 	buildEventAggregateExpression,
-	buildEventExpression,
 	buildEventJoinExpression,
+	buildEventExpression,
 	buildEventSchemaExpression,
-} from "./reference-compilers";
+} from "./event-reference-compilers";
+import { buildPredicateClause } from "./predicate-clause-builder";
 import type { QueryEngineContext } from "./schemas";
 import {
 	buildCoalescedExpression,

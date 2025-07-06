@@ -19,6 +19,7 @@ export class RunnerFileManager {
 				error instanceof Error
 					? `Failed to create sandbox runner: ${error.message}`
 					: "Failed to create sandbox runner",
+				{ cause: error },
 			);
 		}
 	}
