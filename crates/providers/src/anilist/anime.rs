@@ -8,7 +8,7 @@ use media_models::MetadataSearchItem;
 use traits::MediaProvider;
 
 use crate::anilist::base::AnilistService;
-use crate::anilist::models::{media_details, media_search_query, search};
+use crate::anilist::models::{MediaType, media_details, search};
 
 #[derive(Debug, Clone)]
 pub struct AnilistAnimeService {
@@ -39,7 +39,7 @@ impl MediaProvider for AnilistAnimeService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
-            media_search_query::MediaType::ANIME,
+            MediaType::Anime,
             query,
             page,
             PAGE_SIZE,

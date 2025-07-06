@@ -19,7 +19,6 @@ dependent-models = { path = "../models/dependent" }
 educe = { workspace = true }
 enum-models = { path = "../models/enum" }
 futures = { workspace = true }
-graphql_client = { workspace = true }
 hashbag = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../models/media" }

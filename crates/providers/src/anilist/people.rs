@@ -5,14 +5,14 @@ use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
-use graphql_client::{GraphQLQuery, Response};
 use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
 use traits::MediaProvider;
 
 use crate::anilist::base::AnilistService;
 use crate::anilist::models::{
-    STUDIO_ROLE, StaffQuery, StaffSearchQuery, StudioQuery, StudioSearchQuery, URL,
-    get_in_preferred_language, staff_query, staff_search_query, studio_query, studio_search_query,
+    GraphQLResponse, MediaSearchResponse, STUDIO_ROLE, StaffDetailsResponse, StudioDetailsResponse,
+    URL, build_staff_details_query, build_staff_search_query, build_studio_details_query,
+    build_studio_search_query, get_in_preferred_language,
 };
 
 #[derive(Debug, Clone)]
@@ -45,12 +45,7 @@ impl MediaProvider for NonMediaAnilistService {
             })
         );
         let (items, total, next_page) = if is_studio {
-            let variables = studio_search_query::Variables {
-                page: page.unwrap_or(1).into(),
-                search: query.to_owned(),
-                per_page: PAGE_SIZE.into(),
-            };
-            let body = StudioSearchQuery::build_query(variables);
+            let body = build_studio_search_query(query, page.unwrap_or(1), PAGE_SIZE);
             let search = self
                 .base
                 .client
@@ -59,37 +54,30 @@ impl MediaProvider for NonMediaAnilistService {
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .json::<Response<studio_search_query::ResponseData>>()
+                .json::<GraphQLResponse<MediaSearchResponse>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
                 .unwrap()
                 .page
                 .unwrap();
-            let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+            let total = search.page_info.unwrap().total.unwrap();
             let next_page =
                 (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
                 .studios
-                .unwrap()
+                .unwrap_or_default()
                 .into_iter()
-                .map(|s| {
-                    let data = s.unwrap();
-                    PeopleSearchItem {
-                        name: data.name,
-                        identifier: data.id.to_string(),
-                        ..Default::default()
-                    }
+                .flatten()
+                .map(|data| PeopleSearchItem {
+                    name: data.name,
+                    identifier: data.id.to_string(),
+                    ..Default::default()
                 })
                 .collect();
             (items, total, next_page)
         } else {
-            let variables = staff_search_query::Variables {
-                page: page.unwrap_or(1).into(),
-                search: query.to_owned(),
-                per_page: PAGE_SIZE.into(),
-            };
-            let body = StaffSearchQuery::build_query(variables);
+            let body = build_staff_search_query(query, page.unwrap_or(1), PAGE_SIZE);
             let search = self
                 .base
                 .client
@@ -98,30 +86,26 @@ impl MediaProvider for NonMediaAnilistService {
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .json::<Response<staff_search_query::ResponseData>>()
+                .json::<GraphQLResponse<MediaSearchResponse>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
                 .unwrap()
                 .page
                 .unwrap();
-            let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+            let total = search.page_info.unwrap().total.unwrap();
             let next_page =
                 (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
                 .staff
-                .unwrap()
+                .unwrap_or_default()
                 .into_iter()
-                .map(|s| {
-                    let data = s.unwrap();
-                    PeopleSearchItem {
-                        identifier: data.id.to_string(),
-                        name: data.name.unwrap().full.unwrap(),
-                        image: data.image.and_then(|i| i.medium),
-                        birth_year: data
-                            .date_of_birth
-                            .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
-                    }
+                .flatten()
+                .map(|data| PeopleSearchItem {
+                    identifier: data.id.to_string(),
+                    name: data.name.and_then(|n| n.full).unwrap_or_default(),
+                    image: data.image.and_then(|i| i.medium),
+                    birth_year: data.date_of_birth.and_then(|b| b.year),
                 })
                 .collect();
             (items, total, next_page)
@@ -145,10 +129,7 @@ impl MediaProvider for NonMediaAnilistService {
             })
         );
         let data = if is_studio {
-            let variables = studio_query::Variables {
-                id: identity.parse::<i64>().unwrap(),
-            };
-            let body = StudioQuery::build_query(variables);
+            let body = build_studio_details_query(identity.parse::<i64>().unwrap());
             let details = self
                 .base
                 .client
@@ -157,7 +138,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .json::<Response<studio_query::ResponseData>>()
+                .json::<GraphQLResponse<StudioDetailsResponse>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -166,28 +147,27 @@ impl MediaProvider for NonMediaAnilistService {
                 .unwrap();
             let related_metadata = details
                 .media
-                .unwrap()
+                .unwrap_or_default()
                 .edges
-                .unwrap()
+                .unwrap_or_default()
                 .into_iter()
-                .map(|r| {
-                    let data = r.unwrap().node.unwrap();
-                    MetadataPersonRelated {
-                        role: STUDIO_ROLE.to_owned(),
-                        metadata: PartialMetadataWithoutId {
-                            source: MediaSource::Anilist,
-                            identifier: data.id.to_string(),
-                            title: data.title.unwrap().native.unwrap(),
-                            image: data.cover_image.unwrap().extra_large,
-                            lot: match data.type_.unwrap() {
-                                studio_query::MediaType::ANIME => MediaLot::Anime,
-                                studio_query::MediaType::MANGA => MediaLot::Manga,
-                                studio_query::MediaType::Other(_) => unreachable!(),
-                            },
-                            ..Default::default()
+                .flatten()
+                .filter_map(|edge| edge.node)
+                .map(|data| MetadataPersonRelated {
+                    role: STUDIO_ROLE.to_owned(),
+                    metadata: PartialMetadataWithoutId {
+                        source: MediaSource::Anilist,
+                        identifier: data.id.to_string(),
+                        title: data.title.and_then(|t| t.native).unwrap_or_default(),
+                        image: data.cover_image.and_then(|c| c.extra_large),
+                        lot: match data.type_.as_deref() {
+                            Some("ANIME") => MediaLot::Anime,
+                            Some("MANGA") => MediaLot::Manga,
+                            _ => unreachable!(),
                         },
                         ..Default::default()
-                    }
+                    },
+                    ..Default::default()
                 })
                 .collect();
             PersonDetails {
@@ -200,10 +180,7 @@ impl MediaProvider for NonMediaAnilistService {
                 ..Default::default()
             }
         } else {
-            let variables = staff_query::Variables {
-                id: identity.parse::<i64>().unwrap(),
-            };
-            let body = StaffQuery::build_query(variables);
+            let body = build_staff_details_query(identity.parse::<i64>().unwrap());
             let details = self
                 .base
                 .client
@@ -212,7 +189,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
-                .json::<Response<staff_query::ResponseData>>()
+                .json::<GraphQLResponse<StaffDetailsResponse>>()
                 .await
                 .map_err(|e| anyhow!(e))?
                 .data
@@ -222,22 +199,14 @@ impl MediaProvider for NonMediaAnilistService {
             let images = Vec::from_iter(details.image.and_then(|i| i.large));
             let birth_date = details.date_of_birth.and_then(|d| {
                 if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(
-                        y.try_into().unwrap(),
-                        m.try_into().unwrap(),
-                        d.try_into().unwrap(),
-                    )
+                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
                 } else {
                     None
                 }
             });
             let death_date = details.date_of_death.and_then(|d| {
                 if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(
-                        y.try_into().unwrap(),
-                        m.try_into().unwrap(),
-                        d.try_into().unwrap(),
-                    )
+                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
                 } else {
                     None
                 }
@@ -245,71 +214,93 @@ impl MediaProvider for NonMediaAnilistService {
             let mut related_metadata = vec![];
             details
                 .character_media
-                .unwrap()
+                .unwrap_or_default()
                 .edges
-                .unwrap()
+                .unwrap_or_default()
                 .into_iter()
-                .for_each(|r| {
-                    let edge = r.unwrap();
+                .flatten()
+                .for_each(|edge| {
                     let characters = edge.characters.unwrap_or_default();
-                    let data = edge.node.unwrap();
-                    let title = data.title.unwrap();
-                    let title = get_in_preferred_language(
-                        title.native,
-                        title.english,
-                        title.romaji,
-                        &self.base.preferred_language,
-                    );
-                    for character in characters {
-                        if let Some(character) = character.and_then(|c| c.name) {
-                            related_metadata.push(MetadataPersonRelated {
-                                character: character.full,
-                                role: "Voicing".to_owned(),
-                                metadata: PartialMetadataWithoutId {
-                                    title: title.clone(),
-                                    source: MediaSource::Anilist,
-                                    identifier: data.id.to_string(),
-                                    image: data.cover_image.clone().unwrap().extra_large,
-                                    lot: match data.type_.clone().unwrap() {
-                                        staff_query::MediaType::ANIME => MediaLot::Anime,
-                                        staff_query::MediaType::MANGA => MediaLot::Manga,
-                                        staff_query::MediaType::Other(_) => unreachable!(),
+                    if let Some(data) = edge.node {
+                        let title = data.title.as_ref();
+                        let title = if let Some(title) = title {
+                            get_in_preferred_language(
+                                title.native.clone(),
+                                title.english.clone(),
+                                title.romaji.clone(),
+                                &self.base.preferred_language,
+                            )
+                        } else {
+                            String::new()
+                        };
+                        for character in characters {
+                            if let Some(character) = character.and_then(|c| c.name) {
+                                related_metadata.push(MetadataPersonRelated {
+                                    character: character.full,
+                                    role: "Voicing".to_owned(),
+                                    metadata: PartialMetadataWithoutId {
+                                        title: title.clone(),
+                                        source: MediaSource::Anilist,
+                                        identifier: data.id.to_string(),
+                                        image: data
+                                            .cover_image
+                                            .as_ref()
+                                            .and_then(|c| c.extra_large.clone()),
+                                        lot: match data.type_.as_deref() {
+                                            Some("ANIME") => MediaLot::Anime,
+                                            Some("MANGA") => MediaLot::Manga,
+                                            _ => unreachable!(),
+                                        },
+                                        ..Default::default()
                                     },
-                                    ..Default::default()
-                                },
-                            })
+                                })
+                            }
                         }
                     }
                 });
-            related_metadata.extend(details.staff_media.unwrap().edges.unwrap().into_iter().map(
-                |r| {
-                    let edge = r.unwrap();
-                    let data = edge.node.unwrap();
-                    let title = data.title.unwrap();
-                    let title = get_in_preferred_language(
-                        title.native,
-                        title.english,
-                        title.romaji,
-                        &self.base.preferred_language,
-                    );
-                    MetadataPersonRelated {
-                        role: edge.staff_role.unwrap_or_else(|| "Production".to_owned()),
-                        metadata: PartialMetadataWithoutId {
-                            title,
-                            source: MediaSource::Anilist,
-                            identifier: data.id.to_string(),
-                            image: data.cover_image.unwrap().extra_large,
-                            lot: match data.type_.unwrap() {
-                                staff_query::MediaType::ANIME => MediaLot::Anime,
-                                staff_query::MediaType::MANGA => MediaLot::Manga,
-                                staff_query::MediaType::Other(_) => unreachable!(),
-                            },
-                            ..Default::default()
-                        },
-                        ..Default::default()
-                    }
-                },
-            ));
+            related_metadata.extend(
+                details
+                    .staff_media
+                    .unwrap_or_default()
+                    .edges
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|edge| {
+                        edge.and_then(|edge| {
+                            edge.node.map(|data| {
+                                let title = data.title.as_ref();
+                                let title = if let Some(title) = title {
+                                    get_in_preferred_language(
+                                        title.native.clone(),
+                                        title.english.clone(),
+                                        title.romaji.clone(),
+                                        &self.base.preferred_language,
+                                    )
+                                } else {
+                                    String::new()
+                                };
+                                MetadataPersonRelated {
+                                    role: edge
+                                        .staff_role
+                                        .unwrap_or_else(|| "Production".to_owned()),
+                                    metadata: PartialMetadataWithoutId {
+                                        title,
+                                        source: MediaSource::Anilist,
+                                        identifier: data.id.to_string(),
+                                        image: data.cover_image.and_then(|c| c.extra_large),
+                                        lot: match data.type_.as_deref() {
+                                            Some("ANIME") => MediaLot::Anime,
+                                            Some("MANGA") => MediaLot::Manga,
+                                            _ => unreachable!(),
+                                        },
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                }
+                            })
+                        })
+                    }),
+            );
             PersonDetails {
                 related_metadata,
                 death_date,
@@ -323,7 +314,7 @@ impl MediaProvider for NonMediaAnilistService {
                 source: MediaSource::Anilist,
                 description: details.description,
                 identifier: details.id.to_string(),
-                name: details.name.unwrap().full.unwrap(),
+                name: details.name.and_then(|n| n.full).unwrap_or_default(),
                 source_specifics: source_specifics.to_owned(),
                 ..Default::default()
             }

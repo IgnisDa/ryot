@@ -3,85 +3,335 @@ use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
 };
 use config::AnilistPreferredLanguage;
+use convert_case::{Case, Casing};
 use enum_models::{MediaLot, MediaSource};
-use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use media_models::{
     AnimeAiringScheduleSpecifics, AnimeSpecifics, MangaSpecifics, MetadataDetails,
     MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId,
 };
+use nest_struct::nest_struct;
 use reqwest::Client;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
+use serde::{Deserialize, Serialize};
 
 pub static URL: &str = "https://graphql.anilist.co";
 pub static STUDIO_ROLE: &str = "Production Studio";
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/media_search.graphql",
-    response_derives = "Debug,Clone",
-    variables_derives = "Debug"
-)]
-pub struct MediaSearchQuery;
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphQLResponse<T> {
+    pub data: Option<T>,
+    pub errors: Option<
+        Vec<
+            nest! {
+                pub message: String,
+            },
+        >,
+    >,
+}
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/staff_search.graphql",
-    response_derives = "Debug,Clone",
-    variables_derives = "Debug"
-)]
-pub struct StaffSearchQuery;
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaSearchResponse {
+    #[serde(rename = "Page")]
+    pub page: Option<
+        nest! {
+            #[serde(rename = "pageInfo")]
+            pub page_info: Option<nest! {
+                pub total: Option<i32>,
+            }>,
+            pub media: Option<Vec<Option<MediaSearchItem>>>,
+            pub staff: Option<Vec<Option<StaffSearchItem>>>,
+            pub studios: Option<Vec<Option<StudioSearchItem>>>,
+        },
+    >,
+}
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/studio_search.graphql",
-    response_derives = "Debug,Clone",
-    variables_derives = "Debug"
-)]
-pub struct StudioSearchQuery;
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaSearchItem {
+    pub id: i32,
+    pub title: Option<
+        nest! {
+            pub english: Option<String>,
+            pub native: Option<String>,
+            pub romaji: Option<String>,
+        },
+    >,
+    #[serde(rename = "coverImage")]
+    pub cover_image: Option<
+        nest! {
+            #[serde(rename = "extraLarge")]
+            pub extra_large: Option<String>,
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
+    #[serde(rename = "startDate")]
+    pub start_date: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
+    #[serde(rename = "bannerImage")]
+    pub banner_image: Option<String>,
+    #[serde(rename = "type")]
+    pub type_: Option<String>,
+}
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/media_details.graphql",
-    response_derives = "Debug,Clone",
-    variables_derives = "Debug"
-)]
-pub struct MediaDetailsQuery;
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StaffSearchItem {
+    pub id: i32,
+    pub name: Option<
+        nest! {
+            pub full: Option<String>,
+        },
+    >,
+    pub image: Option<
+        nest! {
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
+    #[serde(rename = "dateOfBirth")]
+    pub date_of_birth: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
+}
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/staff_details.graphql",
-    response_derives = "Debug,Clone",
-    variables_derives = "Debug"
-)]
-pub struct StaffQuery;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudioSearchItem {
+    pub id: i32,
+    pub name: String,
+}
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "src/anilist/schema.json",
-    query_path = "src/anilist/studio_details.graphql",
-    response_derives = "Debug,Clone",
-    variables_derives = "Debug"
-)]
-pub struct StudioQuery;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaDetailsResponse {
+    #[serde(rename = "Media")]
+    pub media: Option<MediaDetails>,
+}
 
-pub fn media_status_string(status: Option<media_details_query::MediaStatus>) -> Option<String> {
-    match status {
-        Some(media_details_query::MediaStatus::FINISHED) => Some("Finished".to_string()),
-        Some(media_details_query::MediaStatus::RELEASING) => Some("Ongoing".to_string()),
-        Some(media_details_query::MediaStatus::NOT_YET_RELEASED) => {
-            Some("Not Yet Released".to_string())
-        }
-        Some(media_details_query::MediaStatus::CANCELLED) => Some("Canceled".to_string()),
-        Some(media_details_query::MediaStatus::HIATUS) => Some("Hiatus".to_string()),
-        _ => None,
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StaffDetailsResponse {
+    #[serde(rename = "Staff")]
+    pub staff: Option<StaffDetails>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StudioDetailsResponse {
+    #[serde(rename = "Studio")]
+    pub studio: Option<StudioDetails>,
+}
+
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaDetails {
+    pub id: i32,
+    pub title: Option<
+        nest! {
+            pub english: Option<String>,
+            pub native: Option<String>,
+            pub romaji: Option<String>,
+        },
+    >,
+    pub status: Option<String>,
+    #[serde(rename = "airingSchedule")]
+    pub airing_schedule: Option<
+        nest! {
+            pub nodes: Option<Vec<Option<nest! {
+                #[serde(rename = "airingAt")]
+                pub airing_at: i64,
+                pub episode: i32,
+            }>>>,
+        },
+    >,
+    #[serde(rename = "isAdult")]
+    pub is_adult: Option<bool>,
+    pub episodes: Option<i32>,
+    pub chapters: Option<i32>,
+    pub volumes: Option<i32>,
+    pub description: Option<String>,
+    #[serde(rename = "coverImage")]
+    pub cover_image: Option<
+        nest! {
+            #[serde(rename = "extraLarge")]
+            pub extra_large: Option<String>,
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
+    #[serde(rename = "type")]
+    pub type_: Option<String>,
+    pub genres: Option<Vec<Option<String>>>,
+    pub tags: Option<
+        Vec<
+            Option<
+                nest! {
+                    pub name: String,
+                },
+            >,
+        >,
+    >,
+    #[serde(rename = "startDate")]
+    pub start_date: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
+    #[serde(rename = "bannerImage")]
+    pub banner_image: Option<String>,
+    pub staff: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub node: Option<nest! {
+                    pub id: i32,
+                    pub name: Option<nest! {
+                        pub full: Option<String>,
+                    }>,
+                }>,
+                pub role: Option<String>,
+            }>>>,
+        },
+    >,
+    pub studios: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub node: Option<nest! {
+                    pub id: i32,
+                    pub name: String,
+                }>,
+            }>>>,
+        },
+    >,
+    #[serde(rename = "averageScore")]
+    pub average_score: Option<i32>,
+    pub recommendations: Option<
+        nest! {
+            pub nodes: Option<Vec<Option<nest! {
+                #[serde(rename = "mediaRecommendation")]
+                pub media_recommendation: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
+    pub trailer: Option<
+        nest! {
+            pub site: Option<String>,
+            pub id: Option<String>,
+        },
+    >,
+}
+
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StaffDetails {
+    pub id: i32,
+    pub name: Option<
+        nest! {
+            pub full: Option<String>,
+        },
+    >,
+    pub image: Option<
+        nest! {
+            pub medium: Option<String>,
+            pub large: Option<String>,
+        },
+    >,
+    pub description: Option<String>,
+    pub gender: Option<String>,
+    #[serde(rename = "dateOfBirth")]
+    pub date_of_birth: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
+    #[serde(rename = "dateOfDeath")]
+    pub date_of_death: Option<
+        nest! {
+            pub year: Option<i32>,
+            pub month: Option<i32>,
+            pub day: Option<i32>,
+        },
+    >,
+    #[serde(rename = "homeTown")]
+    pub home_town: Option<String>,
+    #[serde(rename = "characterMedia")]
+    pub character_media: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub characters: Option<Vec<Option<nest! {
+                    pub name: Option<nest! {
+                        pub full: Option<String>,
+                    }>,
+                }>>>,
+                pub node: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
+    #[serde(rename = "staffMedia")]
+    pub staff_media: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                #[serde(rename = "staffRole")]
+                pub staff_role: Option<String>,
+                pub node: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
+}
+
+#[nest_struct]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StudioDetails {
+    pub id: i32,
+    pub name: String,
+    #[serde(rename = "siteUrl")]
+    pub site_url: Option<String>,
+    pub media: Option<
+        nest! {
+            pub edges: Option<Vec<Option<nest! {
+                pub node: Option<MediaSearchItem>,
+            }>>>,
+        },
+    >,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MediaType {
+    #[serde(rename = "ANIME")]
+    Anime,
+    #[serde(rename = "MANGA")]
+    Manga,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MediaStatus {
+    #[serde(rename = "FINISHED")]
+    Finished,
+    #[serde(rename = "RELEASING")]
+    Releasing,
+    #[serde(rename = "NOT_YET_RELEASED")]
+    NotYetReleased,
+    #[serde(rename = "CANCELLED")]
+    Cancelled,
+    #[serde(rename = "HIATUS")]
+    Hiatus,
+}
+
+pub fn media_status_string(status: Option<String>) -> Option<String> {
+    status.map(|f| f.to_case(Case::Title))
 }
 
 pub fn get_in_preferred_language(
@@ -103,17 +353,98 @@ pub async fn media_details(
     id: &str,
     preferred_language: &AnilistPreferredLanguage,
 ) -> Result<MetadataDetails> {
-    let variables = media_details_query::Variables {
-        id: id.parse::<i64>().unwrap(),
-    };
-    let body = MediaDetailsQuery::build_query(variables);
+    let query = r#"
+        query MediaDetailsQuery($id: Int!) {
+          Media(id: $id) {
+            id
+            title {
+              english
+              native
+              romaji
+            }
+            status
+            airingSchedule {
+              nodes {
+                airingAt
+                episode
+              }
+            }
+            isAdult
+            episodes
+            chapters
+            volumes
+            description
+            coverImage {
+              extraLarge
+            }
+            type
+            genres
+            tags {
+              name
+            }
+            startDate {
+              year
+            }
+            bannerImage
+            staff {
+              edges {
+                node {
+                  id
+                  name {
+                    full
+                  }
+                }
+                role
+              }
+            }
+            studios {
+              edges {
+                node {
+                  id
+                  name
+                }
+              }
+            }
+            averageScore
+            recommendations {
+              nodes {
+                mediaRecommendation {
+                  id
+                  type
+                  title {
+                    english
+                    native
+                    romaji
+                  }
+                  coverImage {
+                    extraLarge
+                  }
+                }
+              }
+            }
+            trailer {
+              site
+              id
+            }
+          }
+        }
+    "#;
+
+    let variables = serde_json::json!({
+        "id": id.parse::<i64>().unwrap()
+    });
+
+    let body = serde_json::json!({
+        "query": query,
+        "variables": variables
+    });
     let details = client
         .post(URL)
         .json(&body)
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .json::<Response<media_details_query::ResponseData>>()
+        .json::<GraphQLResponse<MediaDetailsResponse>>()
         .await
         .map_err(|e| anyhow!(e))?;
 
@@ -181,7 +512,7 @@ pub async fn media_details(
                 s.and_then(|data| {
                     DateTimeUtc::from_timestamp(data.airing_at, 0).map(|airing_at| {
                         AnimeAiringScheduleSpecifics {
-                            episode: data.episode.try_into().unwrap(),
+                            episode: data.episode,
                             airing_at: airing_at.naive_utc(),
                         }
                     })
@@ -189,30 +520,28 @@ pub async fn media_details(
             })
             .collect_vec()
     });
-    let (lot, anime_specifics, manga_specifics) = match media.type_.unwrap() {
-        media_details_query::MediaType::ANIME => (
+    let (lot, anime_specifics, manga_specifics) = match media.type_.as_deref() {
+        Some("ANIME") => (
             MediaLot::Anime,
             Some(AnimeSpecifics {
-                episodes: media.episodes.and_then(|c| c.try_into().ok()),
+                episodes: media.episodes,
                 airing_schedule,
             }),
             None,
         ),
-        media_details_query::MediaType::MANGA => (
+        Some("MANGA") => (
             MediaLot::Manga,
             None,
             Some(MangaSpecifics {
                 chapters: media.chapters.map(Decimal::from),
-                volumes: media.volumes.and_then(|v| v.try_into().ok()),
+                volumes: media.volumes,
                 ..Default::default()
             }),
         ),
-        media_details_query::MediaType::Other(_) => unreachable!(),
+        _ => unreachable!(),
     };
 
-    let year = media
-        .start_date
-        .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
+    let year = media.start_date.and_then(|b| b.year);
 
     let suggestions = media
         .recommendations
@@ -234,10 +563,10 @@ pub async fn media_details(
                     source: MediaSource::Anilist,
                     identifier: data.id.to_string(),
                     image: data.cover_image.unwrap().extra_large,
-                    lot: match data.type_.unwrap() {
-                        media_details_query::MediaType::ANIME => MediaLot::Anime,
-                        media_details_query::MediaType::MANGA => MediaLot::Manga,
-                        media_details_query::MediaType::Other(_) => unreachable!(),
+                    lot: match data.type_.as_deref() {
+                        Some("ANIME") => MediaLot::Anime,
+                        Some("MANGA") => MediaLot::Manga,
+                        _ => unreachable!(),
                     },
                     ..Default::default()
                 }
@@ -297,7 +626,7 @@ pub async fn media_details(
 
 pub async fn search(
     client: &Client,
-    media_type: media_search_query::MediaType,
+    media_type: MediaType,
     query: &str,
     page: Option<i32>,
     page_size: i32,
@@ -305,27 +634,63 @@ pub async fn search(
     preferred_language: &AnilistPreferredLanguage,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
-    let variables = media_search_query::Variables {
-        page: page.into(),
-        search: query.to_owned(),
-        type_: media_type,
-        per_page: page_size.into(),
-    };
-    let body = MediaSearchQuery::build_query(variables);
+
+    let query_str = r#"
+        query MediaSearchQuery(
+          $search: String!
+          $page: Int!
+          $type: MediaType!
+          $perPage: Int!
+        ) {
+          Page(page: $page, perPage: $perPage) {
+            pageInfo {
+              total
+            }
+            media(search: $search, type: $type) {
+              id
+              title {
+                english
+                native
+                romaji
+              }
+              coverImage {
+                extraLarge
+              }
+              startDate {
+                year
+              }
+              bannerImage
+            }
+          }
+        }
+    "#;
+
+    let variables = serde_json::json!({
+        "search": query,
+        "page": page,
+        "type": media_type,
+        "perPage": page_size
+    });
+
+    let body = serde_json::json!({
+        "query": query_str,
+        "variables": variables
+    });
+
     let search = client
         .post(URL)
         .json(&body)
         .send()
         .await
         .map_err(|e| anyhow!(e))?
-        .json::<Response<media_search_query::ResponseData>>()
+        .json::<GraphQLResponse<MediaSearchResponse>>()
         .await
         .map_err(|e| anyhow!(e))?
         .data
         .unwrap()
         .page
         .unwrap();
-    let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+    let total = search.page_info.unwrap().total.unwrap();
     let next_page = (total - (page * page_size) > 0).then(|| page + 1);
     let media = search
         .media
@@ -344,11 +709,182 @@ pub async fn search(
                 identifier: b.id.to_string(),
                 title,
                 image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
-                publish_year: b
-                    .start_date
-                    .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+                publish_year: b.start_date.and_then(|b| b.year),
             }
         })
         .collect();
     Ok((media, total, next_page))
+}
+
+pub fn build_staff_search_query(search: &str, page: i32, per_page: i32) -> serde_json::Value {
+    let query = r#"
+        query StaffSearchQuery(
+          $search: String!
+          $page: Int!
+          $perPage: Int!
+        ) {
+          Page(page: $page, perPage: $perPage) {
+            pageInfo {
+              total
+            }
+            staff(search: $search) {
+              id
+              name {
+                full
+              }
+              image {
+                medium
+              }
+              dateOfBirth {
+                year
+              }
+            }
+          }
+        }
+    "#;
+
+    serde_json::json!({
+        "query": query,
+        "variables": {
+            "search": search,
+            "page": page,
+            "perPage": per_page
+        }
+    })
+}
+
+pub fn build_studio_search_query(search: &str, page: i32, per_page: i32) -> serde_json::Value {
+    let query = r#"
+        query StudioSearchQuery(
+          $search: String!
+          $page: Int!
+          $perPage: Int!
+        ) {
+          Page(page: $page, perPage: $perPage) {
+            pageInfo {
+              total
+            }
+            studios(search: $search) {
+              id
+              name
+            }
+          }
+        }
+    "#;
+
+    serde_json::json!({
+        "query": query,
+        "variables": {
+            "search": search,
+            "page": page,
+            "perPage": per_page
+        }
+    })
+}
+
+pub fn build_staff_details_query(id: i64) -> serde_json::Value {
+    let query = r#"
+        query StaffQuery($id: Int!) {
+          Staff(id: $id) {
+            id
+            name {
+              full
+            }
+            image {
+              large
+            }
+            description
+            gender
+            dateOfBirth {
+              year
+              month
+              day
+            }
+            dateOfDeath {
+              year
+              month
+              day
+            }
+            homeTown
+            characterMedia {
+              edges {
+                characters {
+                  name {
+                    full
+                  }
+                }
+                node {
+                  id
+                  type
+                  title {
+                    native
+                    english
+                    romaji
+                  }
+                  coverImage {
+                    extraLarge
+                  }
+                }
+              }
+            }
+            staffMedia {
+              edges {
+                staffRole
+                node {
+                  id
+                  type
+                  title {
+                    native
+                    english
+                    romaji
+                  }
+                  coverImage {
+                    extraLarge
+                  }
+                }
+              }
+            }
+          }
+        }
+    "#;
+
+    serde_json::json!({
+        "query": query,
+        "variables": {
+            "id": id
+        }
+    })
+}
+
+pub fn build_studio_details_query(id: i64) -> serde_json::Value {
+    let query = r#"
+        query StudioQuery($id: Int!) {
+          Studio(id: $id) {
+            id
+            name
+            siteUrl
+            media {
+              edges {
+                node {
+                  id
+                  type
+                  title {
+                    english
+                    native
+                    romaji
+                  }
+                  coverImage {
+                    extraLarge
+                  }
+                }
+              }
+            }
+          }
+        }
+    "#;
+
+    serde_json::json!({
+        "query": query,
+        "variables": { "id": id }
+    })
 }
