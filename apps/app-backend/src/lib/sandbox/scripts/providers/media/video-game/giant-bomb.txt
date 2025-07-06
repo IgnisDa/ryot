@@ -309,7 +309,6 @@ driver("details", async function(context) {
 
   return {
     name,
-    externalId: contextIdentifier,
     properties: {
       genres,
       platformReleases,

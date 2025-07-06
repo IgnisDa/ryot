@@ -237,7 +237,6 @@ driver("details", async function (context) {
 
   return {
     name: title,
-    externalId: identifier,
     properties: {
       genres: [],
       isNsfw: null,

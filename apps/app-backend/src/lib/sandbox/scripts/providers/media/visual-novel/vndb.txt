@@ -264,7 +264,6 @@ driver("details", async function (context) {
 
   return {
     name,
-    externalId: identifier,
     properties: {
       genres,
       description,
