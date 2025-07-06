@@ -61,7 +61,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .unwrap()
                 .page
                 .unwrap();
-            let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+            let total = search.page_info.unwrap().total.unwrap();
             let next_page =
                 (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
@@ -93,7 +93,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .unwrap()
                 .page
                 .unwrap();
-            let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+            let total = search.page_info.unwrap().total.unwrap();
             let next_page =
                 (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
@@ -107,7 +107,7 @@ impl MediaProvider for NonMediaAnilistService {
                     image: data.image.and_then(|i| i.medium),
                     birth_year: data
                         .date_of_birth
-                        .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+                        .and_then(|b| b.year),
                 })
                 .collect();
             (items, total, next_page)
@@ -201,22 +201,14 @@ impl MediaProvider for NonMediaAnilistService {
             let images = Vec::from_iter(details.image.and_then(|i| i.large));
             let birth_date = details.date_of_birth.and_then(|d| {
                 if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(
-                        y.try_into().unwrap(),
-                        m.try_into().unwrap(),
-                        d.try_into().unwrap(),
-                    )
+                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
                 } else {
                     None
                 }
             });
             let death_date = details.date_of_death.and_then(|d| {
                 if let (Some(y), Some(m), Some(d)) = (d.year, d.month, d.day) {
-                    NaiveDate::from_ymd_opt(
-                        y.try_into().unwrap(),
-                        m.try_into().unwrap(),
-                        d.try_into().unwrap(),
-                    )
+                    NaiveDate::from_ymd_opt(y, m.try_into().unwrap(), d.try_into().unwrap())
                 } else {
                     None
                 }

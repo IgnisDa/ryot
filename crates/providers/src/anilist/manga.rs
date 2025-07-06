@@ -39,7 +39,7 @@ impl MediaProvider for AnilistMangaService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
-            MediaType::MANGA,
+            MediaType::Manga,
             query,
             page,
             PAGE_SIZE,

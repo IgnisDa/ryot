@@ -295,18 +295,24 @@ pub struct StudioMediaEdge {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MediaType {
-    ANIME,
-    MANGA,
+    #[serde(rename = "ANIME")]
+    Anime,
+    #[serde(rename = "MANGA")]
+    Manga,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MediaStatus {
-    FINISHED,
-    RELEASING,
+    #[serde(rename = "FINISHED")]
+    Finished,
+    #[serde(rename = "RELEASING")]
+    Releasing,
     #[serde(rename = "NOT_YET_RELEASED")]
     NotYetReleased,
-    CANCELLED,
-    HIATUS,
+    #[serde(rename = "CANCELLED")]
+    Cancelled,
+    #[serde(rename = "HIATUS")]
+    Hiatus,
 }
 
 pub fn media_status_string(status: Option<String>) -> Option<String> {
@@ -491,7 +497,7 @@ pub async fn media_details(
                 s.and_then(|data| {
                     DateTimeUtc::from_timestamp(data.airing_at, 0).map(|airing_at| {
                         AnimeAiringScheduleSpecifics {
-                            episode: data.episode.try_into().unwrap(),
+                            episode: data.episode,
                             airing_at: airing_at.naive_utc(),
                         }
                     })
@@ -503,7 +509,7 @@ pub async fn media_details(
         Some("ANIME") => (
             MediaLot::Anime,
             Some(AnimeSpecifics {
-                episodes: media.episodes.and_then(|c| c.try_into().ok()),
+                episodes: media.episodes,
                 airing_schedule,
             }),
             None,
@@ -513,7 +519,7 @@ pub async fn media_details(
             None,
             Some(MangaSpecifics {
                 chapters: media.chapters.map(Decimal::from),
-                volumes: media.volumes.and_then(|v| v.try_into().ok()),
+                volumes: media.volumes,
                 ..Default::default()
             }),
         ),
@@ -522,7 +528,7 @@ pub async fn media_details(
 
     let year = media
         .start_date
-        .and_then(|b| b.year.map(|y| y.try_into().unwrap()));
+        .and_then(|b| b.year);
 
     let suggestions = media
         .recommendations
@@ -671,7 +677,7 @@ pub async fn search(
         .unwrap()
         .page
         .unwrap();
-    let total = search.page_info.unwrap().total.unwrap().try_into().unwrap();
+    let total = search.page_info.unwrap().total.unwrap();
     let next_page = (total - (page * page_size) > 0).then(|| page + 1);
     let media = search
         .media
@@ -692,7 +698,7 @@ pub async fn search(
                 image: b.cover_image.and_then(|l| l.extra_large).or(b.banner_image),
                 publish_year: b
                     .start_date
-                    .and_then(|b| b.year.map(|y| y.try_into().unwrap())),
+                    .and_then(|b| b.year),
             }
         })
         .collect();
