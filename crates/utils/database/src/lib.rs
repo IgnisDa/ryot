@@ -120,15 +120,19 @@ pub async fn entity_in_collections_with_details(
         .unwrap();
     let resp = mtc
         .into_iter()
-        .map(|(cte, col)| GraphqlCollectionToEntityDetails {
-            id: cte.id,
-            details: CollectionToEntityDetails {
-                collection_id: col.as_ref().unwrap().id.clone(),
-                collection_name: col.as_ref().unwrap().name.clone(),
-                created_on: cte.created_on,
-                information: cte.information,
-                last_updated_on: cte.last_updated_on,
-            },
+        .map(|(cte, col)| {
+            let model = col.unwrap();
+            GraphqlCollectionToEntityDetails {
+                id: cte.id,
+                details: CollectionToEntityDetails {
+                    created_on: cte.created_on,
+                    information: cte.information,
+                    collection_id: model.id.clone(),
+                    collection_name: model.name.clone(),
+                    last_updated_on: cte.last_updated_on,
+                    creator_user_id: model.user_id.clone(),
+                },
+            }
         })
         .collect_vec();
     Ok(resp)

@@ -137,9 +137,10 @@ fragment CollectionToEntityDetailsPart on GraphqlCollectionToEntityDetails {
 	id
 	details {
 		createdOn
-		lastUpdatedOn
 		information
 		collectionId
+		lastUpdatedOn
+		creatorUserId
 		collectionName
 	}
 }

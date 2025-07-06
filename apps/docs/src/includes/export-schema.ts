@@ -46,6 +46,7 @@ export interface CollectionToEntityDetails {
 	collectionId: string;
 	collectionName: string;
 	createdOn: string;
+	creatorUserId: string;
 	information: unknown | null;
 	lastUpdatedOn: string;
 }
