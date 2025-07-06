@@ -46,7 +46,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Form, Link, useLoaderData, useRevalidator } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
@@ -480,7 +480,6 @@ const CreateOrUpdateModal = (props: {
 	const userDetails = useUserDetails();
 	const revalidator = useRevalidator();
 	const [parent] = useAutoAnimate();
-	const { formRef, isFormValid, checkFormValidity } = useFormValidation();
 	const [formData, setFormData] = useState({
 		name: props.toUpdateCollection?.name || "",
 		description: props.toUpdateCollection?.description || "",
@@ -495,9 +494,7 @@ const CreateOrUpdateModal = (props: {
 		),
 	});
 
-	useEffect(() => {
-		checkFormValidity();
-	}, [formData, checkFormValidity]);
+	const { formRef, isFormValid } = useFormValidation([formData]);
 
 	const createOrUpdateMutation = useMutation({
 		mutationFn: async () => {
