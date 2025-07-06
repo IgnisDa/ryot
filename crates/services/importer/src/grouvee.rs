@@ -144,7 +144,19 @@ fn process_grouvee_record(
         });
     }
 
-    let seen_history = parse_dates(&record.dates);
+    let mut seen_history = parse_dates(&record.dates);
+
+    if seen_history.is_empty() {
+        let is_completed = collections
+            .iter()
+            .any(|c| c.collection_name == DefaultCollection::Completed.to_string());
+        if is_completed {
+            seen_history.push(ImportOrExportMetadataItemSeen {
+                provider_watched_on: Some(ImportSource::Grouvee.to_string()),
+                ..Default::default()
+            });
+        }
+    }
 
     let item = ImportOrExportMetadataItem {
         lot,
