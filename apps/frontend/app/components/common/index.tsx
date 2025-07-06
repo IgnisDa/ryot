@@ -135,8 +135,8 @@ export const DisplayCollectionToEntity = (props: {
 			() => {
 				removeEntitiesFromCollection.mutate(
 					{
+						creatorUserId: props.col.details.creatorUserId,
 						collectionName: props.col.details.collectionName,
-						creatorUserId: props.col.details.collectionId,
 						entities: [
 							{ entityId: props.entityId, entityLot: props.entityLot },
 						],
