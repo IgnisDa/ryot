@@ -71,32 +71,32 @@ export const AddEntityToCollectionsForm = ({
 				.with(EntityLot.Exercise, () =>
 					queryClient
 						.ensureQueryData(getUserExerciseDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.id)),
+						.then((d) => d.collections.map((c) => c.details.collectionId)),
 				)
 				.with(EntityLot.Workout, () =>
 					queryClient
 						.ensureQueryData(getWorkoutDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.id)),
+						.then((d) => d.collections.map((c) => c.details.collectionId)),
 				)
 				.with(EntityLot.WorkoutTemplate, () =>
 					queryClient
 						.ensureQueryData(getWorkoutTemplateDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.id)),
+						.then((d) => d.collections.map((c) => c.details.collectionId)),
 				)
 				.with(EntityLot.Metadata, () =>
 					queryClient
 						.ensureQueryData(getUserMetadataDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.id)),
+						.then((d) => d.collections.map((c) => c.details.collectionId)),
 				)
 				.with(EntityLot.MetadataGroup, () =>
 					queryClient
 						.ensureQueryData(getUserMetadataGroupDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.id)),
+						.then((d) => d.collections.map((c) => c.details.collectionId)),
 				)
 				.with(EntityLot.Person, () =>
 					queryClient
 						.ensureQueryData(getUserPersonDetailsQuery(entityId))
-						.then((d) => d.collections.map((c) => c.id)),
+						.then((d) => d.collections.map((c) => c.details.collectionId)),
 				)
 				.run();
 		},
