@@ -4,11 +4,9 @@ import {
 	buildCreateEventFormSchema,
 	buildDefaultEventFormValues,
 	buildEventSchemaSelectionPatch,
-	formatOccurredAtInputValue,
 	getEventFormReconciliationState,
 	getSelectedEventSchema,
 	getUnsupportedRequiredEventProperties,
-	normalizeOccurredAtInputValue,
 	reconcileEventProperties,
 	syncCreateEventFormValues,
 	toCreateEventPayload,
@@ -16,38 +14,32 @@ import {
 
 describe("buildDefaultEventFormValues", () => {
 	it("uses the current timestamp, first schema selection, and generated defaults", () => {
-		const now = new Date(2026, 2, 8, 10, 15, 0, 0);
-		const values = buildDefaultEventFormValues(
-			[
-				createEventSchemaFixture({
-					id: "schema-1",
-					name: "Reading",
-					slug: "reading",
-					entitySchemaId: "entity-schema-1",
-					propertiesSchema: {
-						fields: {
-							notes: { type: "string" },
-							pages: { type: "integer", validation: { required: true } },
-						},
+		const values = buildDefaultEventFormValues([
+			createEventSchemaFixture({
+				id: "schema-1",
+				name: "Reading",
+				slug: "reading",
+				entitySchemaId: "entity-schema-1",
+				propertiesSchema: {
+					fields: {
+						notes: { type: "string" },
+						pages: { type: "integer", validation: { required: true } },
 					},
-				}),
-				createEventSchemaFixture({
-					id: "schema-2",
-					name: "Finished",
-					slug: "finished",
-					entitySchemaId: "entity-schema-1",
-				}),
-			],
-			now,
-		);
+				},
+			}),
+			createEventSchemaFixture({
+				id: "schema-2",
+				name: "Finished",
+				slug: "finished",
+				entitySchemaId: "entity-schema-1",
+			}),
+		]);
 
 		expect(values.eventSchemaId).toBe("schema-1");
-		expect(values.occurredAt).toBe("2026-03-08T10:15");
 		expect(values.properties).toEqual({ pages: 0 });
 	});
 
 	it("uses the requested schema id when generating defaults", () => {
-		const now = new Date(2026, 2, 8, 10, 15, 0, 0);
 		const values = buildDefaultEventFormValues(
 			[
 				createEventSchemaFixture({
@@ -73,7 +65,6 @@ describe("buildDefaultEventFormValues", () => {
 					},
 				}),
 			],
-			now,
 			"schema-2",
 		);
 
@@ -82,7 +73,6 @@ describe("buildDefaultEventFormValues", () => {
 	});
 
 	it("falls back to the first schema when the requested schema id is invalid", () => {
-		const now = new Date(2026, 2, 8, 10, 15, 0, 0);
 		const values = buildDefaultEventFormValues(
 			[
 				createEventSchemaFixture({
@@ -108,7 +98,6 @@ describe("buildDefaultEventFormValues", () => {
 					},
 				}),
 			],
-			now,
 			"missing-schema",
 		);
 
@@ -117,37 +106,33 @@ describe("buildDefaultEventFormValues", () => {
 	});
 
 	it("skips non-primitive generated defaults", () => {
-		const now = new Date(2026, 2, 8, 10, 15, 0, 0);
-		const values = buildDefaultEventFormValues(
-			[
-				createEventSchemaFixture({
-					name: "Reading",
-					slug: "reading",
-					entitySchemaId: "entity-schema-1",
-					propertiesSchema: {
-						fields: {
-							pages: { type: "integer", validation: { required: true } },
-							tags: {
-								type: "array",
-								items: { type: "string" },
-								validation: { required: true },
-							},
-							metadata: {
-								type: "object",
-								validation: { required: true },
-								properties: {
-									rating: {
-										type: "number",
-										validation: { required: true },
-									},
+		const values = buildDefaultEventFormValues([
+			createEventSchemaFixture({
+				name: "Reading",
+				slug: "reading",
+				entitySchemaId: "entity-schema-1",
+				propertiesSchema: {
+					fields: {
+						pages: { type: "integer", validation: { required: true } },
+						tags: {
+							type: "array",
+							items: { type: "string" },
+							validation: { required: true },
+						},
+						metadata: {
+							type: "object",
+							validation: { required: true },
+							properties: {
+								rating: {
+									type: "number",
+									validation: { required: true },
 								},
 							},
 						},
 					},
-				}),
-			],
-			now,
-		);
+				},
+			}),
+		]);
 
 		expect(values.properties).toEqual({ pages: 0 });
 	});
@@ -159,7 +144,6 @@ describe("buildCreateEventFormSchema", () => {
 		const result = schema.safeParse({
 			properties: {},
 			eventSchemaId: "  \n\t ",
-			occurredAt: "2026-03-08T10:15:00.000Z",
 		});
 
 		expect(result.success).toBeFalse();
@@ -179,7 +163,6 @@ describe("buildCreateEventFormSchema", () => {
 		]);
 		const result = schema.safeParse({
 			eventSchemaId: "schema-1",
-			occurredAt: "2026-03-08T10:15:00.000Z",
 			properties: { completed: true, minutes: "15" },
 		});
 
@@ -209,13 +192,11 @@ describe("buildCreateEventFormSchema", () => {
 
 		const oldSchemaResult = schema.safeParse({
 			eventSchemaId: "schema-1",
-			occurredAt: "2026-03-08T10:15:00.000Z",
 			properties: { completed: true },
 		});
 		const newSchemaResult = schema.safeParse({
 			eventSchemaId: "schema-2",
 			properties: { completed: true },
-			occurredAt: "2026-03-08T10:15:00.000Z",
 		});
 
 		expect(oldSchemaResult.success).toBeFalse();
@@ -247,7 +228,6 @@ describe("buildCreateEventFormSchema", () => {
 		const result = schema.safeParse({
 			properties: { pages: 10 },
 			eventSchemaId: "schema-1",
-			occurredAt: "2026-03-08T10:15",
 		});
 
 		expect(result.success).toBeFalse();
@@ -314,37 +294,20 @@ describe("getSelectedEventSchema", () => {
 });
 
 describe("toCreateEventPayload", () => {
-	it("normalizes a datetime-local occurredAt value to iso before submit", () => {
-		const payload = toCreateEventPayload(
-			{
-				eventSchemaId: "schema-1",
-				occurredAt: "2026-03-08T10:15",
-				properties: { completed: true },
-			},
-			"entity-1",
-		);
-
-		expect(payload[0]?.occurredAt).toBe(
-			new Date("2026-03-08T10:15").toISOString(),
-		);
-	});
-
 	it("wraps the single event in an array and trims ids", () => {
 		const payload = toCreateEventPayload(
 			{
-				eventSchemaId: "  schema-1  ",
-				occurredAt: "2026-03-08T10:15:00.000Z",
-				properties: { completed: true, minutes: 15 },
+				eventSchemaId: "schema-1",
+				properties: { completed: true },
 			},
-			"  entity-1  ",
+			"entity-1",
 		);
 
 		expect(payload).toEqual([
 			{
 				entityId: "entity-1",
 				eventSchemaId: "schema-1",
-				occurredAt: "2026-03-08T10:15:00.000Z",
-				properties: { completed: true, minutes: 15 },
+				properties: { completed: true },
 			},
 		]);
 	});
@@ -353,7 +316,6 @@ describe("toCreateEventPayload", () => {
 		const payload = toCreateEventPayload(
 			{
 				eventSchemaId: "schema-2",
-				occurredAt: "2026-03-08T10:15:00.000Z",
 				properties: { minutes: 15, completed: true },
 			},
 			"entity-1",
@@ -385,7 +347,6 @@ describe("toCreateEventPayload", () => {
 		const sanitizedPayload = toCreateEventPayload(
 			{
 				eventSchemaId: "schema-1",
-				occurredAt: "2026-03-08T10:15:00.000Z",
 				properties: { minutes: 15, extra: "ignore-me" },
 			},
 			"entity-1",
@@ -402,36 +363,6 @@ describe("toCreateEventPayload", () => {
 		);
 
 		expect(sanitizedPayload[0]?.properties).toEqual({ minutes: 15 });
-	});
-});
-
-describe("occurredAt input helpers", () => {
-	it("formats an iso timestamp for datetime-local inputs", () => {
-		expect(
-			formatOccurredAtInputValue(
-				new Date(2026, 2, 8, 10, 15, 0, 0).toISOString(),
-			),
-		).toBe("2026-03-08T10:15");
-	});
-
-	it("preserves a datetime-local value without re-normalizing it", () => {
-		expect(formatOccurredAtInputValue("2026-03-08T10:15")).toBe(
-			"2026-03-08T10:15",
-		);
-	});
-
-	it("normalizes datetime-local inputs back to iso timestamps", () => {
-		expect(normalizeOccurredAtInputValue("2026-03-08T10:15")).toBe(
-			new Date("2026-03-08T10:15").toISOString(),
-		);
-	});
-
-	it("returns an empty string for partial datetime-local input", () => {
-		expect(normalizeOccurredAtInputValue("2026-03-08T10:")).toBe("");
-	});
-
-	it("returns an empty string for invalid datetime-local input", () => {
-		expect(normalizeOccurredAtInputValue("not-a-date")).toBe("");
 	});
 });
 
@@ -508,7 +439,6 @@ describe("syncCreateEventFormValues", () => {
 				],
 				{
 					eventSchemaId: "schema-2",
-					occurredAt: "2026-03-08T10:15",
 					properties: { pages: 20, completed: true, notes: "keep me" },
 				},
 			),
@@ -541,7 +471,6 @@ describe("syncCreateEventFormValues", () => {
 					}),
 				],
 				{
-					occurredAt: "2026-03-08T10:15",
 					properties: { completed: true },
 					eventSchemaId: "missing-schema",
 				},
@@ -579,7 +508,6 @@ describe("buildEventSchemaSelectionPatch", () => {
 				],
 				{
 					eventSchemaId: "schema-1",
-					occurredAt: "2026-03-08T10:15",
 					properties: { pages: 20, completed: true, notes: "keep me" },
 				},
 				"schema-2",
