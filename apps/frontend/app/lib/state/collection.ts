@@ -1,5 +1,6 @@
 import type {
 	EntityLot,
+	Scalars,
 	UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
@@ -110,4 +111,20 @@ export const useCreateOrUpdateCollectionModal = () => {
 		isOpen: modal.isOpen,
 		usersList: modal.usersList,
 	};
+};
+
+export type EditEntityCollectionInformationData = {
+	entityId: string;
+	collectionId: string;
+	entityLot: EntityLot;
+	creatorUserId: string;
+	collectionName: string;
+	existingInformation: Scalars["JSON"]["input"];
+};
+
+const editEntityCollectionInformationAtom =
+	atom<EditEntityCollectionInformationData | null>(null);
+
+export const useEditEntityCollectionInformation = () => {
+	return useAtom(editEntityCollectionInformationAtom);
 };

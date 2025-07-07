@@ -24,7 +24,12 @@ import {
 	EntityLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
-import { IconArrowsShuffle, IconCancel, IconX } from "@tabler/icons-react";
+import {
+	IconArrowsShuffle,
+	IconCancel,
+	IconPencil,
+	IconX,
+} from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Form, Link } from "react-router";
 import { $path } from "safe-routes";
@@ -44,6 +49,7 @@ import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
 	useBulkEditCollection,
+	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
 import {
 	ExerciseDisplayItem,
@@ -131,6 +137,8 @@ export const DisplayCollectionToEntity = (props: {
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
 	const [opened, { open, close }] = useDisclosure(false);
+	const [, setEditEntityCollectionInformationData] =
+		useEditEntityCollectionInformation();
 
 	const thisCollection = userCollections.find(
 		(c) => c.id === props.col.details.collectionId,
@@ -160,6 +168,17 @@ export const DisplayCollectionToEntity = (props: {
 				);
 			},
 		);
+	};
+
+	const handleEdit = () => {
+		setEditEntityCollectionInformationData({
+			entityId: props.entityId,
+			entityLot: props.entityLot,
+			collectionId: props.col.details.collectionId,
+			creatorUserId: props.col.details.creatorUserId,
+			collectionName: props.col.details.collectionName,
+			existingInformation: props.col.details.information || {},
+		});
 	};
 
 	return (
@@ -216,9 +235,14 @@ export const DisplayCollectionToEntity = (props: {
 					{Object.keys(props.col.details.information || {}).length > 0 && (
 						<>
 							<Divider />
-							<Text size="sm" fw={500}>
-								Additional Information:
-							</Text>
+							<Group justify="space-between">
+								<Text size="sm" fw={500}>
+									Additional Information:
+								</Text>
+								<ActionIcon size="sm" variant="subtle" onClick={handleEdit}>
+									<IconPencil size={16} />
+								</ActionIcon>
+							</Group>
 							<Stack gap="xs">
 								{Object.entries(props.col.details.information).map(
 									([key, value]) => {
