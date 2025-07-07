@@ -179,6 +179,7 @@ export const DisplayCollectionToEntity = (props: {
 	};
 
 	const handleEdit = () => {
+		close();
 		setEditEntityCollectionInformationData({
 			entityId: props.entityId,
 			entityLot: props.entityLot,
