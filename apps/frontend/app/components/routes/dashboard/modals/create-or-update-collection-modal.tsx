@@ -84,22 +84,20 @@ export const CreateOrUpdateCollectionModal = (props: {
 	const { formRef, isFormValid } = useFormValidation(formData);
 
 	const createOrUpdateMutation = useMutation({
-		mutationFn: async () => {
-			const input = {
-				name: formData.name,
-				updateId: toUpdateCollection?.id,
-				description: formData.description,
-				collaborators: formData.collaborators,
-				extraInformation: { isHidden: formData.isHidden },
-				informationTemplate:
-					formData.informationTemplate.length > 0
-						? formData.informationTemplate
-						: undefined,
-			};
-			return clientGqlService.request(CreateOrUpdateCollectionDocument, {
-				input,
-			});
-		},
+		mutationFn: () =>
+			clientGqlService.request(CreateOrUpdateCollectionDocument, {
+				input: {
+					name: formData.name,
+					updateId: toUpdateCollection?.id,
+					description: formData.description,
+					collaborators: formData.collaborators,
+					extraInformation: { isHidden: formData.isHidden },
+					informationTemplate:
+						formData.informationTemplate.length > 0
+							? formData.informationTemplate
+							: undefined,
+				},
+			}),
 		onSuccess: () => {
 			notifications.show({
 				color: "green",
@@ -110,12 +108,8 @@ export const CreateOrUpdateCollectionModal = (props: {
 			revalidator.revalidate();
 			props.onClose();
 		},
-		onError: (_error) => {
-			notifications.show({
-				color: "red",
-				message: "An error occurred",
-			});
-		},
+		onError: (_error) =>
+			notifications.show({ color: "red", message: "An error occurred" }),
 	});
 
 	return (
@@ -134,6 +128,12 @@ export const CreateOrUpdateCollectionModal = (props: {
 					required
 					label="Name"
 					value={formData.name}
+					readOnly={toUpdateCollection?.isDefault}
+					description={
+						toUpdateCollection?.isDefault
+							? "Can not edit a default collection"
+							: undefined
+					}
 					onChange={(e) => {
 						setFormData(
 							produce(formData, (draft) => {
@@ -141,12 +141,6 @@ export const CreateOrUpdateCollectionModal = (props: {
 							}),
 						);
 					}}
-					readOnly={toUpdateCollection?.isDefault}
-					description={
-						toUpdateCollection?.isDefault
-							? "Can not edit a default collection"
-							: undefined
-					}
 				/>
 				<Textarea
 					autosize
@@ -166,8 +160,8 @@ export const CreateOrUpdateCollectionModal = (props: {
 				>
 					<Checkbox
 						label="Hide collection"
-						disabled={!coreDetails.isServerKeyValidated}
 						checked={formData.isHidden}
+						disabled={!coreDetails.isServerKeyValidated}
 						onChange={(e) =>
 							setFormData(
 								produce(formData, (draft) => {
@@ -183,9 +177,14 @@ export const CreateOrUpdateCollectionModal = (props: {
 				>
 					<MultiSelect
 						searchable
+						value={formData.collaborators}
 						disabled={!coreDetails.isServerKeyValidated}
 						description="Add collaborators to this collection"
-						value={formData.collaborators}
+						data={usersList.map((u) => ({
+							value: u.id,
+							label: u.name,
+							disabled: u.id === userDetails.id,
+						}))}
 						onChange={(value) =>
 							setFormData(
 								produce(formData, (draft) => {
@@ -193,15 +192,11 @@ export const CreateOrUpdateCollectionModal = (props: {
 								}),
 							)
 						}
-						data={usersList.map((u) => ({
-							value: u.id,
-							label: u.name,
-							disabled: u.id === userDetails.id,
-						}))}
 					/>
 				</Tooltip>
 				<Input.Wrapper
 					labelProps={{ w: "100%" }}
+					description="Associate extra information when adding an entity to this collection"
 					label={
 						<Group wrap="nowrap" justify="space-between">
 							<Input.Label size="xs">Information template</Input.Label>
@@ -230,7 +225,6 @@ export const CreateOrUpdateCollectionModal = (props: {
 							</Anchor>
 						</Group>
 					}
-					description="Associate extra information when adding an entity to this collection"
 				>
 					<Stack gap="xs" mt="xs" ref={parent}>
 						{formData.informationTemplate.map((field, index) => (
