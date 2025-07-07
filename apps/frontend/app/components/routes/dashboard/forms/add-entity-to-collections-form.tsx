@@ -1,16 +1,7 @@
-import {
-	Button,
-	MultiSelect,
-	NumberInput,
-	Stack,
-	Switch,
-	TextInput,
-} from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
+import { Button, MultiSelect, Stack } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	CollectionExtraInformationLot,
 	EntityLot,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -21,8 +12,7 @@ import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { MultiSelectCreatable } from "~/components/common";
-import { dayjsLib } from "~/lib/shared/date-utils";
+import { CollectionTemplateRenderer } from "~/components/common";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
@@ -202,91 +192,14 @@ export const AddEntityToCollectionsForm = ({
 				{selectedCollections.map((col) => (
 					<Fragment key={col.id}>
 						{col.informationTemplate?.map((template) => (
-							<Fragment key={template.name}>
-								{match(template.lot)
-									.with(CollectionExtraInformationLot.String, () => (
-										<TextInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={col.userExtraInformationData[template.name] || ""}
-											onChange={(e) =>
-												handleCustomFieldChange(
-													col.id,
-													template.name,
-													e.currentTarget.value,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Boolean, () => (
-										<Switch
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											checked={
-												col.userExtraInformationData[template.name] === "true"
-											}
-											onChange={(e) =>
-												handleCustomFieldChange(
-													col.id,
-													template.name,
-													e.currentTarget.checked ? "true" : "false",
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Number, () => (
-										<NumberInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={col.userExtraInformationData[template.name]}
-											onChange={(v) =>
-												handleCustomFieldChange(col.id, template.name, v)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Date, () => (
-										<DateInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={col.userExtraInformationData[template.name]}
-											onChange={(v) =>
-												handleCustomFieldChange(col.id, template.name, v)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.DateTime, () => (
-										<DateTimePicker
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={col.userExtraInformationData[template.name]}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													col.id,
-													template.name,
-													dayjsLib(v).toISOString(),
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.StringArray, () => (
-										<MultiSelectCreatable
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											data={template.possibleValues || []}
-											values={col.userExtraInformationData[template.name]}
-											setValue={(newValue) =>
-												handleCustomFieldChange(col.id, template.name, newValue)
-											}
-										/>
-									))
-									.exhaustive()}
-							</Fragment>
+							<CollectionTemplateRenderer
+								key={template.name}
+								template={template}
+								value={col.userExtraInformationData[template.name]}
+								onChange={(value) =>
+									handleCustomFieldChange(col.id, template.name, value)
+								}
+							/>
 						))}
 					</Fragment>
 				))}

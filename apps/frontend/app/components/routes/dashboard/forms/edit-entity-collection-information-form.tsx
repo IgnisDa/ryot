@@ -1,23 +1,9 @@
-import {
-	Button,
-	NumberInput,
-	Stack,
-	Switch,
-	Text,
-	TextInput,
-} from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
+import { Button, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import {
-	CollectionExtraInformationLot,
-	type Scalars,
-} from "@ryot/generated/graphql/backend/graphql";
+import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
 import { type FormEvent, useState } from "react";
 import { Form } from "react-router";
-import { Fragment } from "react/jsx-runtime";
-import { match } from "ts-pattern";
-import { MultiSelectCreatable } from "~/components/common";
-import { dayjsLib } from "~/lib/shared/date-utils";
+import { CollectionTemplateRenderer } from "~/components/common";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
@@ -92,82 +78,12 @@ export const EditEntityCollectionInformationForm = ({
 					{editEntityCollectionInformationData.collectionName}
 				</Text>
 				{thisCollection?.informationTemplate?.map((template) => (
-					<Fragment key={template.name}>
-						{match(template.lot)
-							.with(CollectionExtraInformationLot.String, () => (
-								<TextInput
-									label={template.name}
-									required={!!template.required}
-									description={template.description}
-									value={userExtraInformationData[template.name] || ""}
-									onChange={(e) =>
-										handleCustomFieldChange(
-											template.name,
-											e.currentTarget.value,
-										)
-									}
-								/>
-							))
-							.with(CollectionExtraInformationLot.Boolean, () => (
-								<Switch
-									label={template.name}
-									required={!!template.required}
-									description={template.description}
-									checked={userExtraInformationData[template.name] === "true"}
-									onChange={(e) =>
-										handleCustomFieldChange(
-											template.name,
-											e.currentTarget.checked ? "true" : "false",
-										)
-									}
-								/>
-							))
-							.with(CollectionExtraInformationLot.Number, () => (
-								<NumberInput
-									label={template.name}
-									required={!!template.required}
-									description={template.description}
-									value={userExtraInformationData[template.name]}
-									onChange={(v) => handleCustomFieldChange(template.name, v)}
-								/>
-							))
-							.with(CollectionExtraInformationLot.Date, () => (
-								<DateInput
-									label={template.name}
-									required={!!template.required}
-									description={template.description}
-									value={userExtraInformationData[template.name]}
-									onChange={(v) => handleCustomFieldChange(template.name, v)}
-								/>
-							))
-							.with(CollectionExtraInformationLot.DateTime, () => (
-								<DateTimePicker
-									label={template.name}
-									required={!!template.required}
-									description={template.description}
-									value={userExtraInformationData[template.name]}
-									onChange={(v) =>
-										handleCustomFieldChange(
-											template.name,
-											dayjsLib(v).toISOString(),
-										)
-									}
-								/>
-							))
-							.with(CollectionExtraInformationLot.StringArray, () => (
-								<MultiSelectCreatable
-									label={template.name}
-									required={!!template.required}
-									description={template.description}
-									data={template.possibleValues || []}
-									values={userExtraInformationData[template.name]}
-									setValue={(newValue) =>
-										handleCustomFieldChange(template.name, newValue)
-									}
-								/>
-							))
-							.exhaustive()}
-					</Fragment>
+					<CollectionTemplateRenderer
+						key={template.name}
+						template={template}
+						value={userExtraInformationData[template.name]}
+						onChange={(value) => handleCustomFieldChange(template.name, value)}
+					/>
 				))}
 				<Button
 					type="submit"

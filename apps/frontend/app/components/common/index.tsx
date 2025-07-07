@@ -10,18 +10,24 @@ import {
 	Flex,
 	Group,
 	Modal,
+	NumberInput,
 	Paper,
 	Stack,
+	Switch,
 	Text,
+	TextInput,
 	Tooltip,
 	rem,
 } from "@mantine/core";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
+	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
@@ -32,6 +38,7 @@ import {
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Form, Link } from "react-router";
+import { Fragment } from "react/jsx-runtime";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -61,6 +68,7 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "../media/display-items";
+import { MultiSelectCreatable } from "./multi-select-creatable";
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -416,6 +424,80 @@ export const BulkCollectionEditingAffix = (props: {
 				</Group>
 			</Paper>
 		</Affix>
+	);
+};
+
+export const CollectionTemplateRenderer = ({
+	value,
+	template,
+	onChange,
+}: {
+	value: Scalars["JSON"]["input"];
+	template: CollectionExtraInformation;
+	onChange: (value: Scalars["JSON"]["input"]) => void;
+}) => {
+	return (
+		<Fragment>
+			{match(template.lot)
+				.with(CollectionExtraInformationLot.String, () => (
+					<TextInput
+						value={value || ""}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(e) => onChange(e.currentTarget.value)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Boolean, () => (
+					<Switch
+						label={template.name}
+						checked={value === "true"}
+						required={!!template.required}
+						description={template.description}
+						onChange={(e) =>
+							onChange(e.currentTarget.checked ? "true" : "false")
+						}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Number, () => (
+					<NumberInput
+						value={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(v) => onChange(v)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Date, () => (
+					<DateInput
+						value={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(v) => onChange(v)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.DateTime, () => (
+					<DateTimePicker
+						value={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(v) => onChange(dayjsLib(v).toISOString())}
+					/>
+				))
+				.with(CollectionExtraInformationLot.StringArray, () => (
+					<MultiSelectCreatable
+						values={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						data={template.possibleValues || []}
+						setValue={(newValue: string[]) => onChange(newValue)}
+					/>
+				))
+				.exhaustive()}
+		</Fragment>
 	);
 };
 
