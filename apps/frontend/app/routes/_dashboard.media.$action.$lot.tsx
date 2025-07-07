@@ -3,6 +3,7 @@ import {
 	Box,
 	Button,
 	Center,
+	Checkbox,
 	Container,
 	Divider,
 	Flex,
@@ -34,6 +35,7 @@ import {
 	parseParameters,
 	parseSearchQuery,
 	startCase,
+	zodBoolAsString,
 	zodIntAsString,
 } from "@ryot/ts-utils";
 import {
@@ -96,6 +98,11 @@ const defaultFilters = {
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineDateRange: ApplicationTimeRange.AllTime,
 };
+
+const searchSchema = z.object({
+	googleBooksPassRawQuery: zodBoolAsString.optional(),
+	igdbAllowGamesWithParent: zodBoolAsString.optional(),
+});
 
 enum Action {
 	List = "list",
@@ -176,12 +183,12 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				(m) => m.lot === lot,
 			);
 			invariant(metadataSourcesForLot);
-			const searchSchema = z.object({
+			const searchSchemaWithDefaults = searchSchema.extend({
 				source: z
 					.nativeEnum(MediaSource)
 					.default(metadataSourcesForLot.sources[0]),
 			});
-			const urlParse = parseSearchQuery(request, searchSchema);
+			const urlParse = parseSearchQuery(request, searchSchemaWithDefaults);
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
 			try {
 				const response = await serverGqlService.authenticatedRequest(
@@ -192,6 +199,10 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 							lot,
 							source: urlParse.source,
 							search: { page: query[pageQueryParam], query: query.query },
+							sourceSpecifics: {
+								googleBooksPassRawQuery: urlParse.googleBooksPassRawQuery,
+								igdbAllowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+							},
 						},
 					},
 				);
@@ -425,7 +436,7 @@ export default function Page() {
 					) : null}
 					{mediaSearch ? (
 						<>
-							<Flex gap="xs">
+							<Group gap="xs" wrap="nowrap">
 								<DebouncedSearchInput
 									initialValue={loaderData.query.query}
 									enhancedQueryParams={loaderData.cookieName}
@@ -453,7 +464,25 @@ export default function Page() {
 										}))}
 									/>
 								) : null}
-							</Flex>
+								{mediaSearch.url.source === MediaSource.GoogleBooks ? (
+									<Checkbox
+										label="Pass raw query"
+										checked={mediaSearch.url.googleBooksPassRawQuery}
+										onChange={(e) =>
+											setP("googleBooksPassRawQuery", String(e.target.checked))
+										}
+									/>
+								) : null}
+								{mediaSearch.url.source === MediaSource.Igdb ? (
+									<Checkbox
+										label="Allow games with parent"
+										checked={mediaSearch.url.igdbAllowGamesWithParent}
+										onChange={(e) =>
+											setP("igdbAllowGamesWithParent", String(e.target.checked))
+										}
+									/>
+								) : null}
+							</Group>
 							{mediaSearch.search === false ? (
 								<Text>
 									Something is wrong. Please try with an alternate provider.
