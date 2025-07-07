@@ -40,7 +40,12 @@ pub async fn metadata_search(
     let preferences = user_by_id(user_id, ss).await?.preferences;
     let provider = get_metadata_provider(input.lot, input.source, ss).await?;
     let results = provider
-        .metadata_search(&query, input.search.page, preferences.general.display_nsfw)
+        .metadata_search(
+            &query,
+            input.search.page,
+            preferences.general.display_nsfw,
+            &input.source_specifics,
+        )
         .await?;
     let promises = results.items.iter().map(|i| {
         commit_metadata(
