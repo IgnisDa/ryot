@@ -24,11 +24,9 @@ import {
 } from "@tabler/icons-react";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	MediaDetailsLayout,
-	ReviewItemDisplay,
-} from "~/components/common";
+import { DisplayCollectionToEntity } from "~/components/common";
+import { MediaDetailsLayout } from "~/components/common/layout";
+import { ReviewItemDisplay } from "~/components/common/review";
 import {
 	MediaScrollArea,
 	PartialMetadataDisplay,

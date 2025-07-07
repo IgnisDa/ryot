@@ -65,10 +65,8 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	ReviewItemDisplay,
-} from "~/components/common";
+import { DisplayCollectionToEntity } from "~/components/common";
+import { ReviewItemDisplay } from "~/components/common/review";
 import { ExerciseHistory } from "~/components/fitness/components";
 import {
 	displayDistanceWithUnit,

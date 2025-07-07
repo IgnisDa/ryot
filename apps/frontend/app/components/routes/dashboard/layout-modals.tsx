@@ -1,5 +1,5 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
-import { FullscreenImageModal } from "~/components/common";
+import { FullscreenImageModal } from "~/components/common/layout";
 import {
 	useCreateOrUpdateCollectionModal,
 	useEditEntityCollectionInformation,

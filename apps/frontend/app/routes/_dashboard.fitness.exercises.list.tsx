@@ -59,11 +59,11 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { DisplayListDetailsAndRefresh } from "~/components/common";
 import {
 	DebouncedSearchInput,
-	DisplayListDetailsAndRefresh,
 	FiltersModal,
-} from "~/components/common";
+} from "~/components/common/filters";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -266,9 +266,9 @@ export default function Page() {
 						<IconFilter size={24} />
 					</ActionIcon>
 					<FiltersModal
-						closeFiltersModal={closeFiltersModal}
-						cookieName={loaderData.cookieName}
 						opened={filtersModalOpened}
+						cookieName={loaderData.cookieName}
+						closeFiltersModal={closeFiltersModal}
 					>
 						<FiltersModalForm />
 					</FiltersModal>

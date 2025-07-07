@@ -28,11 +28,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";
-import {
-	ApplicationGrid,
-	DebouncedSearchInput,
-	ProRequiredAlert,
-} from "~/components/common";
+import { ProRequiredAlert } from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common/filters";
+import { ApplicationGrid } from "~/components/common/layout";
 import { pageQueryParam } from "~/lib/shared/constants";
 import {
 	useAppSearchParam,

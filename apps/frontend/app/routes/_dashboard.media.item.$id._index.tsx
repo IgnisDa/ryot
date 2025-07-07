@@ -64,12 +64,12 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { DisplayCollectionToEntity } from "~/components/common";
+import { MediaDetailsLayout } from "~/components/common/layout";
 import {
-	DisplayCollectionToEntity,
 	DisplayThreePointReview,
-	MediaDetailsLayout,
 	ReviewItemDisplay,
-} from "~/components/common";
+} from "~/components/common/review";
 import {
 	MediaScrollArea,
 	PartialMetadataDisplay,

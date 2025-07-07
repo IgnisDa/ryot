@@ -51,13 +51,15 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
-	ApplicationGrid,
 	BulkCollectionEditingAffix,
-	DebouncedSearchInput,
 	DisplayCollectionEntity,
-	FiltersModal,
-	ReviewItemDisplay,
 } from "~/components/common";
+import {
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common/filters";
+import { ApplicationGrid } from "~/components/common/layout";
+import { ReviewItemDisplay } from "~/components/common/review";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";

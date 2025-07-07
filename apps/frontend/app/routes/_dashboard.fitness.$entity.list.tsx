@@ -55,11 +55,11 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
+import { DisplayListDetailsAndRefresh } from "~/components/common";
 import {
 	DebouncedSearchInput,
-	DisplayListDetailsAndRefresh,
 	FiltersModal,
-} from "~/components/common";
+} from "~/components/common/filters";
 import { WorkoutRevisionScheduledAlert } from "~/components/fitness/display-items";
 import {
 	displayDistanceWithUnit,

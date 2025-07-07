@@ -32,7 +32,8 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
+import { ProRequiredAlert } from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common/filters";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,

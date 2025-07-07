@@ -19,7 +19,7 @@ import { useLoaderData } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { ApplicationGrid } from "~/components/common";
+import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useAppSearchParam } from "~/lib/shared/hooks";
