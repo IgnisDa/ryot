@@ -1,7 +1,5 @@
 import type {
-	CollectionExtraInformation,
 	EntityLot,
-	UserCollectionsListQuery,
 	UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
@@ -26,12 +24,7 @@ type BulkEditingCollectionData = {
 export type BulkAddEntities = () => Promise<Array<Entity>>;
 
 export type CreateOrUpdateCollectionModalData = {
-	id?: string;
-	name?: string;
-	isDefault?: boolean;
-	description?: string;
-	informationTemplate?: CollectionExtraInformation[] | null;
-	collaborators?: UserCollectionsListQuery["userCollectionsList"]["response"][number]["collaborators"];
+	collectionId?: string;
 };
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);

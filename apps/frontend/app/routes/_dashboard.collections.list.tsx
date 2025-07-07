@@ -327,13 +327,7 @@ const DisplayCollection = (props: {
 									onClick={() => {
 										openCollectionModal(
 											{
-												id: props.collection.id,
-												name: props.collection.name,
-												isDefault: props.collection.isDefault,
-												collaborators: props.collection.collaborators,
-												description: props.collection.description ?? undefined,
-												informationTemplate:
-													props.collection.informationTemplate,
+												collectionId: props.collection.id,
 											},
 											props.usersList,
 										);

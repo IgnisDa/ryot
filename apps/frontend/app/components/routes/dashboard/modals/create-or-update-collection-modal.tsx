@@ -17,18 +17,20 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
+	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Form, useRevalidator } from "react-router";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
 	useCoreDetails,
 	useFormValidation,
+	useUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/query-factory";
@@ -40,24 +42,44 @@ export const CreateOrUpdateCollectionModal = (props: {
 }) => {
 	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
+	const userCollections = useUserCollections();
 	const revalidator = useRevalidator();
 	const [parent] = useAutoAnimate();
-	const { data: toUpdateCollection, usersList } =
-		useCreateOrUpdateCollectionModal();
+	const { data: modalData, usersList } = useCreateOrUpdateCollectionModal();
 
-	const [formData, setFormData] = useState({
-		name: toUpdateCollection?.name || "",
-		description: toUpdateCollection?.description || "",
-		informationTemplate: toUpdateCollection?.informationTemplate || [],
-		collaborators: (toUpdateCollection?.collaborators || []).map(
-			(c) => c.collaborator.id,
-		),
-		isHidden: Boolean(
-			toUpdateCollection?.collaborators?.find(
-				(c) => c.collaborator.id === userDetails.id,
-			)?.extraInformation?.isHidden,
-		),
+	const toUpdateCollection = modalData?.collectionId
+		? userCollections.find((c) => c.id === modalData.collectionId)
+		: null;
+
+	const [formData, setFormData] = useState<{
+		name: string;
+		isHidden: boolean;
+		description: string;
+		collaborators: string[];
+		informationTemplate: CollectionExtraInformation[];
+	}>({
+		name: "",
+		description: "",
+		isHidden: false,
+		collaborators: [],
+		informationTemplate: [],
 	});
+
+	useEffect(() => {
+		setFormData({
+			name: toUpdateCollection?.name || "",
+			description: toUpdateCollection?.description || "",
+			informationTemplate: toUpdateCollection?.informationTemplate || [],
+			collaborators: (toUpdateCollection?.collaborators || []).map(
+				(c) => c.collaborator.id,
+			),
+			isHidden: Boolean(
+				toUpdateCollection?.collaborators?.find(
+					(c) => c.collaborator.id === userDetails.id,
+				)?.extraInformation?.isHidden,
+			),
+		});
+	}, [toUpdateCollection, userDetails.id]);
 
 	const { formRef, isFormValid } = useFormValidation(formData);
 
@@ -65,9 +87,9 @@ export const CreateOrUpdateCollectionModal = (props: {
 		mutationFn: async () => {
 			const input = {
 				name: formData.name,
+				updateId: toUpdateCollection?.id,
 				description: formData.description,
 				collaborators: formData.collaborators,
-				updateId: toUpdateCollection?.id,
 				extraInformation: { isHidden: formData.isHidden },
 				informationTemplate:
 					formData.informationTemplate.length > 0

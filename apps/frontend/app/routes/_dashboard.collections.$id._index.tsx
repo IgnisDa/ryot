@@ -202,13 +202,7 @@ export default function Page() {
 											if (!thisCollection) return;
 											openCollectionModal(
 												{
-													id: thisCollection.id,
-													name: thisCollection.name,
-													isDefault: thisCollection.isDefault,
-													collaborators: thisCollection.collaborators,
-													description: thisCollection.description ?? undefined,
-													informationTemplate:
-														thisCollection.informationTemplate,
+													collectionId: thisCollection.id,
 												},
 												loaderData.usersList,
 											);
