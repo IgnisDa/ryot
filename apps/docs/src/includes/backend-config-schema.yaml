@@ -31,10 +31,6 @@ books:
     # @envvar BOOKS_GOOGLE_BOOKS_API_KEY
     api_key: ""
 
-    # Whether to pass the raw query string to the search API.
-    # @envvar BOOKS_GOOGLE_BOOKS_PASS_RAW_QUERY
-    pass_raw_query: false
-
   # Settings related to Hardcover.
   hardcover:
     # The API key to be used.
