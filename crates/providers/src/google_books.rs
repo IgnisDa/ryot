@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, SearchDetails};
+use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year};
 use convert_case::{Case, Casing};
 use dependent_models::SearchResults;
@@ -21,7 +21,6 @@ static URL: &str = "https://www.googleapis.com/books/v1/volumes";
 #[derive(Debug, Clone)]
 pub struct GoogleBooksService {
     client: Client,
-    pass_raw_query: bool,
 }
 
 impl GoogleBooksService {
@@ -30,10 +29,7 @@ impl GoogleBooksService {
             HeaderName::from_static("x-goog-api-key"),
             HeaderValue::from_str(&config.api_key).unwrap(),
         )]));
-        Self {
-            client,
-            pass_raw_query: config.pass_raw_query,
-        }
+        Self { client }
     }
 }
 
@@ -96,6 +92,7 @@ impl MediaProvider for GoogleBooksService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_SIZE;
@@ -103,7 +100,7 @@ impl MediaProvider for GoogleBooksService {
             .client
             .get(URL)
             .query(&serde_json::json!({
-                "q": match self.pass_raw_query {
+                "q": match source_specifics.as_ref().and_then(|s| s.google_books_pass_raw_query).unwrap_or(false) {
                     true => query.to_owned(),
                     false => format!("intitle:{}", query)
                 },
