@@ -856,7 +856,7 @@ export default function Page() {
 																Verb.Read,
 																loaderData.metadataDetails.lot,
 															)}
-															ting it
+															ing it
 														</Menu.Item>
 													) : null}
 													<Menu.Item
