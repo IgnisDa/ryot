@@ -1,7 +1,9 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
+use common_models::{
+    EntityAssets, MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
+};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use dependent_models::{PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -164,6 +166,7 @@ impl MediaProvider for VndbService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let rsp = self

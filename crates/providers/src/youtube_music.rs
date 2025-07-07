@@ -1,6 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_models::{
+    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
+};
 use common_utils::TEMPORARY_DIRECTORY;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -129,6 +131,7 @@ impl MediaProvider for YoutubeMusicService {
         query: &str,
         _page: Option<i32>,
         _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let results = self.client.music_search_tracks(query).await?;
         let data = SearchResults {

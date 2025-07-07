@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{EntityAssets, SearchDetails};
+use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_naive_to_utc};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ListennotesSettings, SearchResults,
@@ -119,6 +119,7 @@ impl MediaProvider for ListennotesService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         #[serde_as]

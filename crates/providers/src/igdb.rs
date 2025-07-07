@@ -5,8 +5,8 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
-    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject, NamedObject,
-    PersonSourceSpecifics, SearchDetails,
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject,
+    MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -454,11 +454,23 @@ where id = {id};
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let client = self.get_client_config().await?;
-        let count_req_body =
-            format!(r#"fields id; where version_parent = null; search "{query}"; limit: 500;"#);
+        let allow_games_with_parent = source_specifics
+            .as_ref()
+            .and_then(|s| s.igdb_allow_games_with_parent)
+            .unwrap_or(false);
+        let version_parent_filter = if allow_games_with_parent {
+            ""
+        } else {
+            "where version_parent = null;"
+        };
+        let count_req_body = format!(
+            r#"fields id; {} search "{query}"; limit: 500;"#,
+            version_parent_filter
+        );
         let rsp = client
             .post(format!("{}/games", URL))
             .body(count_req_body)
@@ -470,6 +482,11 @@ where id = {id};
 
         let total = search_count_resp.len().try_into().unwrap();
 
+        let fields_with_filter = if allow_games_with_parent {
+            GAME_FIELDS.replace("where version_parent = null;", "")
+        } else {
+            GAME_FIELDS.to_string()
+        };
         let req_body = format!(
             r#"
 {field}
@@ -477,7 +494,7 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            field = GAME_FIELDS,
+            field = fields_with_filter,
             limit = PAGE_SIZE,
             offset = (page - 1) * PAGE_SIZE
         );

@@ -113,8 +113,6 @@ pub struct OpenlibraryConfig {
 pub struct GoogleBooksConfig {
     /// The API key to be used for the Google Books API.
     pub api_key: String,
-    /// Whether to pass the raw query string to the search API.
-    pub pass_raw_query: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]

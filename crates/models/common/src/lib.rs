@@ -358,6 +358,28 @@ pub struct PersonSourceSpecifics {
 
 #[skip_serializing_none]
 #[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "MetadataSearchSourceSpecificsInput")]
+#[serde(rename_all = "snake_case")]
+pub struct MetadataSearchSourceSpecifics {
+    pub igdb_allow_games_with_parent: Option<bool>,
+    pub google_books_pass_raw_query: Option<bool>,
+}
+
+#[skip_serializing_none]
+#[derive(
     Clone, Hash, Debug, PartialEq, InputObject, FromJsonQueryResult, Eq, Serialize, Deserialize,
 )]
 pub struct PeopleSearchInput {
@@ -374,6 +396,7 @@ pub struct MetadataSearchInput {
     pub lot: MediaLot,
     pub search: SearchInput,
     pub source: MediaSource,
+    pub source_specifics: Option<MetadataSearchSourceSpecifics>,
 }
 
 #[skip_serializing_none]

@@ -1,7 +1,9 @@
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_models::{
+    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
+};
 use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
 use dependent_models::{PersonDetails, SearchResults};
@@ -231,6 +233,7 @@ impl MediaProvider for OpenlibraryService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let fields = [
