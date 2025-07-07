@@ -8,11 +8,11 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
-import { AddEntityToCollectionsForm } from "../forms/add-entity-to-collections-form";
-import { CreateMeasurementForm } from "../forms/create-measurement-form";
-import { MetadataProgressUpdateForm } from "../forms/metadata-progress-update/progress-update";
-import { ReviewEntityForm } from "../forms/review-entity-form";
-import { CreateOrUpdateCollectionModal } from "./create-or-update-collection-modal";
+import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
+import { CreateMeasurementForm } from "./forms/create-measurement-form";
+import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
+import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/progress-update";
+import { ReviewEntityForm } from "./forms/review-entity-form";
 
 export function LayoutModals() {
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
