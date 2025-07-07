@@ -16,7 +16,6 @@ import {
 import { type ReactNode, useMemo } from "react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { BaseEntityDisplayItem } from "~/components/common";
 import {
 	useMetadataDetails,
 	useMetadataGroupDetails,
@@ -27,6 +26,7 @@ import {
 } from "~/lib/shared/hooks";
 import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
+import { BaseEntityDisplayItem } from "../common/entity-display";
 import { DisplayAverageRatingOverlay } from "./rating-overlay";
 
 export const MetadataDisplayItem = (props: {

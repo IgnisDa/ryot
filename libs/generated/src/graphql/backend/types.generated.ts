@@ -247,6 +247,7 @@ export type CollectionToEntityDetails = {
   collectionId: Scalars['String']['output'];
   collectionName: Scalars['String']['output'];
   createdOn: Scalars['DateTime']['output'];
+  creatorUserId: Scalars['String']['output'];
   information?: Maybe<Scalars['JSON']['output']>;
   lastUpdatedOn: Scalars['DateTime']['output'];
 };

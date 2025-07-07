@@ -22,6 +22,7 @@ pub struct CollectionToEntityDetails {
     pub collection_id: String,
     pub collection_name: String,
     pub created_on: DateTimeUtc,
+    pub creator_user_id: String,
     pub last_updated_on: DateTimeUtc,
     pub information: Option<serde_json::Value>,
 }

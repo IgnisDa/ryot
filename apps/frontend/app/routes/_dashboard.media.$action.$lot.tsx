@@ -51,14 +51,16 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
-	ApplicationGrid,
 	BulkCollectionEditingAffix,
-	CollectionsFilter,
-	DebouncedSearchInput,
 	DisplayListDetailsAndRefresh,
-	FiltersModal,
 	ProRequiredAlert,
 } from "~/components/common";
+import {
+	CollectionsFilter,
+	DebouncedSearchInput,
+	FiltersModal,
+} from "~/components/common/filters";
+import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";

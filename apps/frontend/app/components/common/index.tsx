@@ -10,22 +10,35 @@ import {
 	Flex,
 	Group,
 	Modal,
+	NumberInput,
 	Paper,
 	Stack,
+	Switch,
 	Text,
+	TextInput,
 	Tooltip,
 	rem,
 } from "@mantine/core";
+import { DateInput, DateTimePicker } from "@mantine/dates";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
+	type CollectionExtraInformation,
+	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
+	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
-import { IconArrowsShuffle, IconCancel, IconX } from "@tabler/icons-react";
+import {
+	IconArrowsShuffle,
+	IconCancel,
+	IconPencil,
+	IconX,
+} from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { Form, Link } from "react-router";
+import { Fragment } from "react/jsx-runtime";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -37,11 +50,13 @@ import {
 	useCoreDetails,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
+	useUserCollections,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
 	useBulkEditCollection,
+	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
 import {
 	ExerciseDisplayItem,
@@ -53,6 +68,7 @@ import {
 	MetadataGroupDisplayItem,
 	PersonDisplayItem,
 } from "../media/display-items";
+import { MultiSelectCreatable } from "./multi-select-creatable";
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -124,10 +140,17 @@ export const DisplayCollectionToEntity = (props: {
 	entityLot: EntityLot;
 	col: CollectionToEntityDetailsPartFragment;
 }) => {
+	const userCollections = useUserCollections();
 	const color = useGetRandomMantineColor(props.col.details.collectionName);
 	const removeEntitiesFromCollection =
 		useRemoveEntitiesFromCollectionMutation();
 	const [opened, { open, close }] = useDisclosure(false);
+	const [, setEditEntityCollectionInformationData] =
+		useEditEntityCollectionInformation();
+
+	const thisCollection = userCollections.find(
+		(c) => c.id === props.col.details.collectionId,
+	);
 
 	const handleRemove = () => {
 		openConfirmationModal(
@@ -135,8 +158,8 @@ export const DisplayCollectionToEntity = (props: {
 			() => {
 				removeEntitiesFromCollection.mutate(
 					{
+						creatorUserId: props.col.details.creatorUserId,
 						collectionName: props.col.details.collectionName,
-						creatorUserId: props.col.details.collectionId,
 						entities: [
 							{ entityId: props.entityId, entityLot: props.entityLot },
 						],
@@ -153,6 +176,18 @@ export const DisplayCollectionToEntity = (props: {
 				);
 			},
 		);
+	};
+
+	const handleEdit = () => {
+		close();
+		setEditEntityCollectionInformationData({
+			entityId: props.entityId,
+			entityLot: props.entityLot,
+			collectionId: props.col.details.collectionId,
+			creatorUserId: props.col.details.creatorUserId,
+			collectionName: props.col.details.collectionName,
+			existingInformation: props.col.details.information || {},
+		});
 	};
 
 	return (
@@ -206,22 +241,46 @@ export const DisplayCollectionToEntity = (props: {
 							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
 						</Text>
 					</Group>
-					{props.col.details.information && (
+					{Object.keys(props.col.details.information || {}).length > 0 && (
 						<>
 							<Divider />
-							<Text size="sm" fw={500}>
-								Additional Information:
-							</Text>
+							<Group justify="space-between">
+								<Text size="sm" fw={500}>
+									Additional Information:
+								</Text>
+								<ActionIcon size="sm" variant="subtle" onClick={handleEdit}>
+									<IconPencil size={16} />
+								</ActionIcon>
+							</Group>
 							<Stack gap="xs">
 								{Object.entries(props.col.details.information).map(
-									([key, value]) => (
-										<Group key={key}>
-											<Text size="sm" c="dimmed">
-												{key}:
-											</Text>
-											<Text size="sm">{String(value)}</Text>
-										</Group>
-									),
+									([key, value]) => {
+										const stringValue = String(value);
+										const lot = thisCollection?.informationTemplate?.find(
+											(v) => v.name === key,
+										)?.lot;
+										return (
+											<Group key={key}>
+												<Text size="sm" c="dimmed">
+													{key}:
+												</Text>
+												<Text size="sm">
+													{match(lot)
+														.with(CollectionExtraInformationLot.DateTime, () =>
+															dayjsLib(stringValue).format("LLL"),
+														)
+														.with(CollectionExtraInformationLot.Date, () =>
+															dayjsLib(stringValue).format("LL"),
+														)
+														.with(
+															CollectionExtraInformationLot.StringArray,
+															() => (value as string[]).join(", "),
+														)
+														.otherwise(() => stringValue)}
+												</Text>
+											</Group>
+										);
+									},
 								)}
 							</Stack>
 						</>
@@ -369,9 +428,76 @@ export const BulkCollectionEditingAffix = (props: {
 	);
 };
 
-export * from "./entity-display";
-export * from "./filters";
-export * from "./layout";
-export * from "./multi-select-creatable";
-export * from "./review";
-export * from "./summary";
+export const CollectionTemplateRenderer = ({
+	value,
+	template,
+	onChange,
+}: {
+	value: Scalars["JSON"]["input"];
+	template: CollectionExtraInformation;
+	onChange: (value: Scalars["JSON"]["input"]) => void;
+}) => {
+	return (
+		<Fragment>
+			{match(template.lot)
+				.with(CollectionExtraInformationLot.String, () => (
+					<TextInput
+						value={value || ""}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(e) => onChange(e.currentTarget.value)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Boolean, () => (
+					<Switch
+						label={template.name}
+						checked={value === "true"}
+						required={!!template.required}
+						description={template.description}
+						onChange={(e) =>
+							onChange(e.currentTarget.checked ? "true" : "false")
+						}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Number, () => (
+					<NumberInput
+						value={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(v) => onChange(v)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.Date, () => (
+					<DateInput
+						value={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(v) => onChange(v)}
+					/>
+				))
+				.with(CollectionExtraInformationLot.DateTime, () => (
+					<DateTimePicker
+						value={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						onChange={(v) => onChange(dayjsLib(v).toISOString())}
+					/>
+				))
+				.with(CollectionExtraInformationLot.StringArray, () => (
+					<MultiSelectCreatable
+						values={value}
+						label={template.name}
+						required={!!template.required}
+						description={template.description}
+						data={template.possibleValues || []}
+						setValue={(newValue: string[]) => onChange(newValue)}
+					/>
+				))
+				.exhaustive()}
+		</Fragment>
+	);
+};

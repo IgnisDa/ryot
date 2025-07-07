@@ -1,31 +1,22 @@
-import {
-	Button,
-	MultiSelect,
-	NumberInput,
-	Stack,
-	Switch,
-	TextInput,
-} from "@mantine/core";
-import { DateInput, DateTimePicker } from "@mantine/dates";
+import { Button, MultiSelect, Stack } from "@mantine/core";
 import { useListState } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	CollectionExtraInformationLot,
 	EntityLot,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { groupBy } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { type FormEvent, useMemo } from "react";
 import { Form } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { MultiSelectCreatable } from "~/components/common";
-import { dayjsLib } from "~/lib/shared/date-utils";
+import { CollectionTemplateRenderer } from "~/components/common";
 import {
 	useAddEntitiesToCollectionMutation,
 	useApplicationEvents,
+	useFormValidation,
 	useNonHiddenUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
@@ -49,8 +40,6 @@ export const AddEntityToCollectionsForm = ({
 }: {
 	closeAddEntityToCollectionsDrawer: () => void;
 }) => {
-	const formRef = useRef<HTMLFormElement>(null);
-	const [isFormValid, setIsFormValid] = useState(true);
 	const userDetails = useUserDetails();
 	const collections = useNonHiddenUserCollections();
 	const events = useApplicationEvents();
@@ -106,6 +95,8 @@ export const AddEntityToCollectionsForm = ({
 		Collection & { userExtraInformationData: Scalars["JSON"]["input"] }
 	>([]);
 
+	const { formRef, isFormValid } = useFormValidation(selectedCollections);
+
 	const selectData = useMemo(
 		() =>
 			Object.entries(
@@ -122,12 +113,6 @@ export const AddEntityToCollectionsForm = ({
 			})),
 		[collections, userDetails.id, alreadyInCollections],
 	);
-
-	const checkFormValidity = useCallback(() => {
-		if (formRef.current) {
-			setIsFormValid(formRef.current.checkValidity());
-		}
-	}, []);
 
 	if (!addEntityToCollectionData) return null;
 
@@ -146,7 +131,6 @@ export const AddEntityToCollectionsForm = ({
 			if (!ids.includes(selectedCollections[i].id))
 				selectedCollectionsHandlers.remove(i);
 		}
-		setTimeout(checkFormValidity, 0);
 	};
 
 	const handleCustomFieldChange = (
@@ -161,7 +145,6 @@ export const AddEntityToCollectionsForm = ({
 				[field]: value,
 			});
 		}
-		setTimeout(checkFormValidity, 0);
 	};
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -198,6 +181,7 @@ export const AddEntityToCollectionsForm = ({
 		<Form ref={formRef} onSubmit={handleSubmit}>
 			<Stack>
 				<MultiSelect
+					required
 					searchable
 					data={selectData}
 					label="Select collections"
@@ -205,140 +189,25 @@ export const AddEntityToCollectionsForm = ({
 					onChange={(v) => handleCollectionChange(v)}
 					value={selectedCollections.map((c) => c.id)}
 				/>
-				{selectedCollections.map((selectedCollection) => (
-					<Fragment key={selectedCollection.id}>
-						{selectedCollection.informationTemplate?.map((template) => (
-							<Fragment key={template.name}>
-								{match(template.lot)
-									.with(CollectionExtraInformationLot.String, () => (
-										<TextInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] || ""
-											}
-											onChange={(e) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													e.currentTarget.value,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Boolean, () => (
-										<Switch
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											checked={
-												selectedCollection.userExtraInformationData[
-													template.name
-												] === "true"
-											}
-											onChange={(e) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													e.currentTarget.checked ? "true" : "false",
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Number, () => (
-										<NumberInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													v,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.Date, () => (
-										<DateInput
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													v,
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.DateTime, () => (
-										<DateTimePicker
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											value={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
-											onChange={(v) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													dayjsLib(v).toISOString(),
-												)
-											}
-										/>
-									))
-									.with(CollectionExtraInformationLot.StringArray, () => (
-										<MultiSelectCreatable
-											label={template.name}
-											required={!!template.required}
-											description={template.description}
-											data={template.possibleValues || []}
-											values={
-												selectedCollection.userExtraInformationData[
-													template.name
-												]
-											}
-											setValue={(newValue) =>
-												handleCustomFieldChange(
-													selectedCollection.id,
-													template.name,
-													newValue,
-												)
-											}
-										/>
-									))
-									.exhaustive()}
-							</Fragment>
+				{selectedCollections.map((col) => (
+					<Fragment key={col.id}>
+						{col.informationTemplate?.map((template) => (
+							<CollectionTemplateRenderer
+								key={template.name}
+								template={template}
+								value={col.userExtraInformationData[template.name]}
+								onChange={(value) =>
+									handleCustomFieldChange(col.id, template.name, value)
+								}
+							/>
 						))}
 					</Fragment>
 				))}
 				<Button
 					type="submit"
 					variant="outline"
+					disabled={!isFormValid}
 					loading={addEntitiesToCollection.isPending}
-					disabled={
-						selectedCollections.length === 0 ||
-						!isFormValid ||
-						addEntitiesToCollection.isPending
-					}
 				>
 					Set
 				</Button>

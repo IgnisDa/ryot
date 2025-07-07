@@ -5,7 +5,6 @@ import { IconBellRinging } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { $path } from "safe-routes";
-import { BaseEntityDisplayItem } from "~/components/common";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
@@ -18,6 +17,7 @@ import {
 } from "~/lib/state/fitness";
 import { useFullscreenImage } from "~/lib/state/general";
 import { FitnessEntity } from "~/lib/types";
+import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const ExerciseDisplayItem = (props: {
 	exerciseId: string;

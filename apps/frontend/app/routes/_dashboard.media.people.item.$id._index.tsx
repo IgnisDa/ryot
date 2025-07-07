@@ -29,11 +29,9 @@ import { useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	MediaDetailsLayout,
-	ReviewItemDisplay,
-} from "~/components/common";
+import { DisplayCollectionToEntity } from "~/components/common";
+import { MediaDetailsLayout } from "~/components/common/layout";
+import { ReviewItemDisplay } from "~/components/common/review";
 import {
 	BaseEntityDisplay,
 	MediaScrollArea,

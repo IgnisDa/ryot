@@ -46,13 +46,15 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
-	ApplicationGrid,
 	BulkCollectionEditingAffix,
+	DisplayListDetailsAndRefresh,
+} from "~/components/common";
+import {
 	CollectionsFilter,
 	DebouncedSearchInput,
-	DisplayListDetailsAndRefresh,
 	FiltersModal,
-} from "~/components/common";
+} from "~/components/common/filters";
+import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataGroupDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";

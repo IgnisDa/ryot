@@ -6,11 +6,11 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconStarFilled } from "@tabler/icons-react";
 import { match } from "ts-pattern";
-import { DisplayThreePointReview } from "~/components/common";
 import { reviewYellow } from "~/lib/shared/constants";
 import { useUserPreferences } from "~/lib/shared/hooks";
 import { useReviewEntity } from "~/lib/state/media";
 import classes from "~/styles/common.module.css";
+import { DisplayThreePointReview } from "../common/review";
 
 export const DisplayAverageRatingOverlay = (props: {
 	entityId: string;

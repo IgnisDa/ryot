@@ -52,6 +52,7 @@ async fn add_single_entity_to_collection(
         Some(etc) => {
             let mut to_update: collection_to_entity::ActiveModel = etc.into();
             to_update.last_updated_on = ActiveValue::Set(Utc::now());
+            to_update.information = ActiveValue::Set(entity.information.clone());
             to_update.update(&ss.db).await?
         }
         None => {

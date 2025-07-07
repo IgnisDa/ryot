@@ -1,64 +1,39 @@
-import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
 	ActionIcon,
 	Anchor,
 	Box,
-	Button,
 	Checkbox,
 	Container,
 	Flex,
 	Group,
 	Image,
-	Input,
-	Modal,
-	MultiSelect,
 	Paper,
-	Select,
 	Stack,
-	TagsInput,
 	Text,
-	TextInput,
-	Textarea,
 	Title,
-	Tooltip,
 } from "@mantine/core";
 import { useDidUpdate, useHover, useListState } from "@mantine/hooks";
-import { notifications } from "@mantine/notifications";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
-	type CollectionExtraInformation,
-	CollectionExtraInformationLot,
-	CreateOrUpdateCollectionDocument,
 	DeleteCollectionDocument,
 	EntityLot,
 	GraphqlSortOrder,
 	type UserCollectionsListQuery,
 	UsersListDocument,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	getActionIntent,
-	processSubmission,
-	truncate,
-	zodCheckboxAsString,
-} from "@ryot/ts-utils";
-import {
-	IconEdit,
-	IconPlus,
-	IconTrash,
-	IconTrashFilled,
-} from "@tabler/icons-react";
+import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
+import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { ClientError } from "graphql-request";
-import { useEffect, useState } from "react";
-import { Form, Link, useLoaderData, useNavigation } from "react-router";
+import { Form, Link, useLoaderData } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DebouncedSearchInput, ProRequiredAlert } from "~/components/common";
-import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
+import { ProRequiredAlert } from "~/components/common";
+import { DebouncedSearchInput } from "~/components/common/filters";
 import {
 	useAppSearchParam,
 	useConfirmSubmit,
@@ -73,11 +48,8 @@ import {
 	queryClient,
 	queryFactory,
 } from "~/lib/shared/query-factory";
-import {
-	convertEnumToSelectData,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
-import { zodCommaDelimitedString } from "~/lib/shared/validation";
+import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,
@@ -108,40 +80,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("createOrUpdate", async () => {
-			const submission = processSubmission(formData, createOrUpdateSchema);
-			try {
-				await serverGqlService.authenticatedRequest(
-					request,
-					CreateOrUpdateCollectionDocument,
-					{ input: submission },
-				);
-				return Response.json(
-					{},
-					{
-						headers: await createToastHeaders({
-							type: "success",
-							message: submission.updateId
-								? "Collection updated"
-								: "Collection created",
-						}),
-					},
-				);
-			} catch (e) {
-				let message = "An error occurred";
-				if (e instanceof ClientError) {
-					const err = e.response.errors?.[0].message;
-					if (err) message = err;
-				}
-				return Response.json(
-					{ error: JSON.stringify(e) },
-					{
-						status: 400,
-						headers: await createToastHeaders({ type: "error", message }),
-					},
-				);
-			}
-		})
 		.with("delete", async () => {
 			const submission = processSubmission(
 				formData,
@@ -172,44 +110,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const createOrUpdateSchema = z.object({
-	name: z.string(),
-	updateId: z.string().optional(),
-	description: z.string().optional(),
-	collaborators: zodCommaDelimitedString,
-	extraInformation: z
-		.object({ isHidden: zodCheckboxAsString.optional() })
-		.optional(),
-	informationTemplate: z
-		.array(
-			z.object({
-				name: z.string(),
-				description: z.string(),
-				defaultValue: z.string().optional(),
-				required: zodCheckboxAsString.optional(),
-				possibleValues: zodCommaDelimitedString.optional(),
-				lot: z.nativeEnum(CollectionExtraInformationLot),
-			}),
-		)
-		.optional(),
-});
-
-type UpdateCollectionInput = {
-	id?: string;
-	name?: string;
-	isDefault?: boolean;
-	description?: string;
-	collaborators?: Collection["collaborators"];
-	informationTemplate?: CollectionExtraInformation[] | null;
-};
-
 export default function Page() {
-	const transition = useNavigation();
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
 	const loaderData = useLoaderData<typeof loader>();
-	const [toUpdateCollection, setToUpdateCollection] =
-		useState<UpdateCollectionInput | null>(null);
+	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
 
 	const query = params.get("query") || undefined;
@@ -219,10 +124,6 @@ export default function Page() {
 			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
 				?.extraInformation?.isHidden,
 	);
-
-	useEffect(() => {
-		if (transition.state !== "submitting") setToUpdateCollection(null);
-	}, [transition.state]);
 
 	const filteredCollections = collections
 		.filter((c) =>
@@ -244,19 +145,10 @@ export default function Page() {
 						<ActionIcon
 							color="green"
 							variant="outline"
-							onClick={() => setToUpdateCollection({})}
+							onClick={() => openCollectionModal(null, loaderData.usersList)}
 						>
 							<IconPlus size={20} />
 						</ActionIcon>
-						<Modal
-							centered
-							size="lg"
-							withCloseButton={false}
-							opened={toUpdateCollection !== null}
-							onClose={() => setToUpdateCollection(null)}
-						>
-							<CreateOrUpdateModal toUpdateCollection={toUpdateCollection} />
-						</Modal>
 					</Flex>
 				</Group>
 				<DebouncedSearchInput
@@ -292,7 +184,7 @@ export default function Page() {
 								key={c.id}
 								index={index}
 								collection={c}
-								setToUpdateCollection={setToUpdateCollection}
+								usersList={loaderData.usersList}
 							/>
 						);
 					}}
@@ -310,12 +202,13 @@ const IMAGES_CONTAINER_WIDTH = 250;
 const DisplayCollection = (props: {
 	index: number;
 	collection: Collection;
-	setToUpdateCollection: (c: UpdateCollectionInput) => void;
+	usersList: UsersListQuery["usersList"];
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
 	const fallbackImageUrl = useFallbackImageUrl(props.collection.name);
+	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const additionalDisplay = [];
 
 	const { data: collectionImages } = useQuery({
@@ -433,14 +326,12 @@ const DisplayCollection = (props: {
 									color="blue"
 									variant="outline"
 									onClick={() => {
-										props.setToUpdateCollection({
-											id: props.collection.id,
-											name: props.collection.name,
-											isDefault: props.collection.isDefault,
-											collaborators: props.collection.collaborators,
-											description: props.collection.description ?? undefined,
-											informationTemplate: props.collection.informationTemplate,
-										});
+										openCollectionModal(
+											{
+												collectionId: props.collection.id,
+											},
+											props.usersList,
+										);
 									}}
 								>
 									<IconEdit size={18} />
@@ -529,190 +420,5 @@ const CollectionImageDisplay = (props: {
 		>
 			<Image src={props.image} h="100%" />
 		</Box>
-	);
-};
-
-const CreateOrUpdateModal = (props: {
-	toUpdateCollection: UpdateCollectionInput | null;
-}) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
-	const userDetails = useUserDetails();
-	const [parent] = useAutoAnimate();
-	const [informationTemplate, setInformationTemplate] =
-		useListState<CollectionExtraInformation>(
-			props.toUpdateCollection?.informationTemplate || [],
-		);
-
-	return (
-		<Form method="POST" action={withQuery(".", { intent: "createOrUpdate" })}>
-			<Stack>
-				<Title order={3}>
-					{props.toUpdateCollection?.id ? "Update" : "Create"} collection
-				</Title>
-				<TextInput
-					required
-					name="name"
-					label="Name"
-					defaultValue={props.toUpdateCollection?.name}
-					readOnly={props.toUpdateCollection?.isDefault}
-					description={
-						props.toUpdateCollection?.isDefault
-							? "Can not edit a default collection"
-							: undefined
-					}
-				/>
-				<Textarea
-					autosize
-					name="description"
-					label="Description"
-					defaultValue={props.toUpdateCollection?.description}
-				/>
-				<Tooltip
-					label={PRO_REQUIRED_MESSAGE}
-					disabled={coreDetails.isServerKeyValidated}
-				>
-					<Checkbox
-						label="Hide collection"
-						name="extraInformation.isHidden"
-						disabled={!coreDetails.isServerKeyValidated}
-						defaultChecked={
-							props.toUpdateCollection?.collaborators?.find(
-								(c) => c.collaborator.id === userDetails.id,
-							)?.extraInformation?.isHidden || undefined
-						}
-					/>
-				</Tooltip>
-				<Tooltip
-					label={PRO_REQUIRED_MESSAGE}
-					disabled={coreDetails.isServerKeyValidated}
-				>
-					<MultiSelect
-						searchable
-						name="collaborators"
-						disabled={!coreDetails.isServerKeyValidated}
-						description="Add collaborators to this collection"
-						defaultValue={(props.toUpdateCollection?.collaborators || []).map(
-							(c) => c.collaborator.id,
-						)}
-						data={loaderData.usersList.map((u) => ({
-							value: u.id,
-							label: u.name,
-							disabled: u.id === userDetails.id,
-						}))}
-					/>
-				</Tooltip>
-				<Input.Wrapper
-					labelProps={{ w: "100%" }}
-					label={
-						<Group wrap="nowrap" justify="space-between">
-							<Input.Label size="xs">Information template</Input.Label>
-							<Anchor
-								size="xs"
-								onClick={() => {
-									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											color: "red",
-											message: PRO_REQUIRED_MESSAGE,
-										});
-										return;
-									}
-									setInformationTemplate.append({
-										name: "",
-										description: "",
-										lot: CollectionExtraInformationLot.String,
-									});
-								}}
-							>
-								Add field
-							</Anchor>
-						</Group>
-					}
-					description="Associate extra information when adding an entity to this collection"
-				>
-					<Stack gap="xs" mt="xs" ref={parent}>
-						{informationTemplate.map((field, index) => (
-							<Paper withBorder key={index.toString()} p="xs">
-								<TextInput
-									required
-									size="xs"
-									label="Name"
-									defaultValue={field.name}
-									name={`informationTemplate[${index}].name`}
-								/>
-								<Textarea
-									required
-									size="xs"
-									label="Description"
-									defaultValue={field.description}
-									name={`informationTemplate[${index}].description`}
-								/>
-								<Group wrap="nowrap">
-									<Select
-										flex={1}
-										required
-										size="xs"
-										label="Input type"
-										defaultValue={field.lot}
-										name={`informationTemplate[${index}].lot`}
-										data={convertEnumToSelectData(
-											CollectionExtraInformationLot,
-										)}
-										onChange={(v) => {
-											setInformationTemplate.setItem(index, {
-												...field,
-												lot: v as CollectionExtraInformationLot,
-											});
-										}}
-									/>
-									{field.lot !== CollectionExtraInformationLot.StringArray ? (
-										<TextInput
-											flex={1}
-											size="xs"
-											label="Default value"
-											defaultValue={field.defaultValue || undefined}
-											name={`informationTemplate[${index}].defaultValue`}
-										/>
-									) : null}
-								</Group>
-								{field.lot === CollectionExtraInformationLot.StringArray ? (
-									<TagsInput
-										size="xs"
-										label="Possible values"
-										defaultValue={field.possibleValues || []}
-										name={`informationTemplate[${index}].possibleValues`}
-									/>
-								) : null}
-								<Group mt="xs" justify="space-around">
-									<Checkbox
-										size="sm"
-										label="Required"
-										defaultChecked={field.required || undefined}
-										name={`informationTemplate[${index}].required`}
-									/>
-									<Button
-										size="xs"
-										color="red"
-										variant="subtle"
-										leftSection={<IconTrash />}
-										onClick={() => setInformationTemplate.remove(index)}
-									>
-										Remove field
-									</Button>
-								</Group>
-							</Paper>
-						))}
-					</Stack>
-				</Input.Wrapper>
-				<Button
-					type="submit"
-					variant="outline"
-					value={props.toUpdateCollection?.id}
-					name={props.toUpdateCollection ? "updateId" : undefined}
-				>
-					{props.toUpdateCollection?.id ? "Update" : "Create"}
-				</Button>
-			</Stack>
-		</Form>
 	);
 };

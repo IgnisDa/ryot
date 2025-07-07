@@ -13,6 +13,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
 	useRevalidator,
@@ -330,4 +331,21 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 	});
 
 	return mutation;
+};
+
+export const useFormValidation = (dependency?: unknown) => {
+	const formRef = useRef<HTMLFormElement>(null);
+	const [isFormValid, setIsFormValid] = useState(true);
+
+	const checkFormValidity = useCallback(() => {
+		if (formRef.current) {
+			setIsFormValid(formRef.current.checkValidity());
+		}
+	}, []);
+
+	useEffect(() => {
+		checkFormValidity();
+	}, [checkFormValidity, dependency]);
+
+	return { formRef, isFormValid, checkFormValidity };
 };

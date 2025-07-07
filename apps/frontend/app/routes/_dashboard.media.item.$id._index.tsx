@@ -64,12 +64,12 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { DisplayCollectionToEntity } from "~/components/common";
+import { MediaDetailsLayout } from "~/components/common/layout";
 import {
-	DisplayCollectionToEntity,
 	DisplayThreePointReview,
-	MediaDetailsLayout,
 	ReviewItemDisplay,
-} from "~/components/common";
+} from "~/components/common/review";
 import {
 	MediaScrollArea,
 	PartialMetadataDisplay,
@@ -532,7 +532,7 @@ export default function Page() {
 						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
 							{getVerb(Verb.Read, loaderData.metadataDetails.lot)}
-							ting{" "}
+							ing{" "}
 							{inProgress.podcastExtraInformation
 								? `EP-${inProgress.podcastExtraInformation.episode}`
 								: inProgress.showExtraInformation
@@ -856,7 +856,7 @@ export default function Page() {
 																Verb.Read,
 																loaderData.metadataDetails.lot,
 															)}
-															ting it
+															ing it
 														</Menu.Item>
 													) : null}
 													<Menu.Item

@@ -46,7 +46,7 @@ import {
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
-import { LayoutModals } from "~/components/routes/dashboard/modals/layout-modals";
+import { LayoutModals } from "~/components/routes/dashboard/layout-modals";
 import { Footer } from "~/components/routes/dashboard/navigation/footer";
 import { LinksGroup } from "~/components/routes/dashboard/navigation/links-group";
 import {

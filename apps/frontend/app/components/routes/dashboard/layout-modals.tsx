@@ -1,5 +1,9 @@
 import { Button, Drawer, Modal, Stack, Text } from "@mantine/core";
-import { FullscreenImageModal } from "~/components/common";
+import { FullscreenImageModal } from "~/components/common/layout";
+import {
+	useCreateOrUpdateCollectionModal,
+	useEditEntityCollectionInformation,
+} from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/general";
 import {
@@ -7,10 +11,12 @@ import {
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
-import { AddEntityToCollectionsForm } from "../forms/add-entity-to-collections-form";
-import { CreateMeasurementForm } from "../forms/create-measurement-form";
-import { MetadataProgressUpdateForm } from "../forms/metadata-progress-update/progress-update";
-import { ReviewEntityForm } from "../forms/review-entity-form";
+import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
+import { CreateMeasurementForm } from "./forms/create-measurement-form";
+import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
+import { EditEntityCollectionInformationForm } from "./forms/edit-entity-collection-information-form";
+import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/progress-update";
+import { ReviewEntityForm } from "./forms/review-entity-form";
 
 export function LayoutModals() {
 	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
@@ -21,11 +27,19 @@ export function LayoutModals() {
 		useAddEntityToCollections();
 	const closeAddEntityToCollectionsDrawer = () =>
 		setAddEntityToCollectionsData(null);
+	const [
+		editEntityCollectionInformationData,
+		setEditEntityCollectionInformationData,
+	] = useEditEntityCollectionInformation();
+	const closeEditEntityCollectionInformationModal = () =>
+		setEditEntityCollectionInformationData(null);
 	const [measurementsDrawerOpen, setMeasurementsDrawerOpen] =
 		useMeasurementsDrawerOpen();
 	const closeMeasurementsDrawer = () => setMeasurementsDrawerOpen(false);
 	const { completeOnboardingTour, isOnLastOnboardingTourStep } =
 		useOnboardingTour();
+	const { isOpen: isCollectionModalOpen, close: closeCollectionModal } =
+		useCreateOrUpdateCollectionModal();
 
 	return (
 		<>
@@ -88,6 +102,27 @@ export function LayoutModals() {
 					closeMeasurementModal={closeMeasurementsDrawer}
 				/>
 			</Drawer>
+			<Modal
+				centered
+				withCloseButton={false}
+				onClose={closeEditEntityCollectionInformationModal}
+				opened={editEntityCollectionInformationData !== null}
+			>
+				<EditEntityCollectionInformationForm
+					closeEditEntityCollectionInformationModal={
+						closeEditEntityCollectionInformationModal
+					}
+				/>
+			</Modal>
+			<Modal
+				centered
+				size="lg"
+				withCloseButton={false}
+				opened={isCollectionModalOpen}
+				onClose={closeCollectionModal}
+			>
+				<CreateOrUpdateCollectionModal onClose={closeCollectionModal} />
+			</Modal>
 		</>
 	);
 }

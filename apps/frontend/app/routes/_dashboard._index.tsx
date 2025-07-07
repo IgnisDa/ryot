@@ -39,12 +39,10 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import {
-	ApplicationGrid,
-	DisplaySummarySection,
-	ProRequiredAlert,
-} from "~/components/common";
+import { ProRequiredAlert } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
+import { ApplicationGrid } from "~/components/common/layout";
+import { DisplaySummarySection } from "~/components/common/summary";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
