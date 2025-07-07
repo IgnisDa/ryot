@@ -436,7 +436,7 @@ export default function Page() {
 					) : null}
 					{mediaSearch ? (
 						<>
-							<Group gap="xs" wrap="nowrap">
+							<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 								<DebouncedSearchInput
 									initialValue={loaderData.query.query}
 									enhancedQueryParams={loaderData.cookieName}
@@ -452,37 +452,45 @@ export default function Page() {
 										},
 									}}
 								/>
-								{mediaSearch.mediaSources.length > 1 ? (
-									<Select
-										value={mediaSearch.url.source}
-										onChange={(v) => {
-											if (v) setP("source", v);
-										}}
-										data={mediaSearch.mediaSources.map((o) => ({
-											value: o.toString(),
-											label: startCase(o.toLowerCase()),
-										}))}
-									/>
-								) : null}
-								{mediaSearch.url.source === MediaSource.GoogleBooks ? (
-									<Checkbox
-										label="Pass raw query"
-										checked={mediaSearch.url.googleBooksPassRawQuery}
-										onChange={(e) =>
-											setP("googleBooksPassRawQuery", String(e.target.checked))
-										}
-									/>
-								) : null}
-								{mediaSearch.url.source === MediaSource.Igdb ? (
-									<Checkbox
-										label="Allow games with parent"
-										checked={mediaSearch.url.igdbAllowGamesWithParent}
-										onChange={(e) =>
-											setP("igdbAllowGamesWithParent", String(e.target.checked))
-										}
-									/>
-								) : null}
-							</Group>
+								<Group gap="xs" wrap="nowrap">
+									{mediaSearch.mediaSources.length > 1 ? (
+										<Select
+											value={mediaSearch.url.source}
+											onChange={(v) => {
+												if (v) setP("source", v);
+											}}
+											data={mediaSearch.mediaSources.map((o) => ({
+												value: o.toString(),
+												label: startCase(o.toLowerCase()),
+											}))}
+										/>
+									) : null}
+									{mediaSearch.url.source === MediaSource.GoogleBooks ? (
+										<Checkbox
+											label="Pass raw query"
+											checked={mediaSearch.url.googleBooksPassRawQuery}
+											onChange={(e) =>
+												setP(
+													"googleBooksPassRawQuery",
+													String(e.target.checked),
+												)
+											}
+										/>
+									) : null}
+									{mediaSearch.url.source === MediaSource.Igdb ? (
+										<Checkbox
+											label="Allow games with parent"
+											checked={mediaSearch.url.igdbAllowGamesWithParent}
+											onChange={(e) =>
+												setP(
+													"igdbAllowGamesWithParent",
+													String(e.target.checked),
+												)
+											}
+										/>
+									) : null}
+								</Group>
+							</Flex>
 							{mediaSearch.search === false ? (
 								<Text>
 									Something is wrong. Please try with an alternate provider.
