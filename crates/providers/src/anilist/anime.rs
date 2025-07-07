@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::SearchDetails;
+use common_models::{MetadataSearchSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use dependent_models::SearchResults;
 use media_models::MetadataDetails;
@@ -36,6 +36,7 @@ impl MediaProvider for AnilistAnimeService {
         query: &str,
         page: Option<i32>,
         display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,

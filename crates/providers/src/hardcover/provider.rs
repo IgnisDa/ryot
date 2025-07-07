@@ -1,6 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
+use common_models::{
+    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
+};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
@@ -154,6 +156,7 @@ query {{
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let response = get_search_response(query, page, "book", &self.client).await?;

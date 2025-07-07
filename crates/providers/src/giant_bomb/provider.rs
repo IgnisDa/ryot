@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{EntityAssets, PersonSourceSpecifics};
+use common_models::{EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics};
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -28,6 +28,7 @@ impl MediaProvider for GiantBombService {
         query: &str,
         page: Option<i32>,
         _display_nsfw: bool,
+        _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
