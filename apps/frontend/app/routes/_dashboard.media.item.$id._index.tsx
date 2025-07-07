@@ -532,7 +532,7 @@ export default function Page() {
 						<Alert icon={<IconAlertCircle />} variant="outline">
 							You are currently{" "}
 							{getVerb(Verb.Read, loaderData.metadataDetails.lot)}
-							ting{" "}
+							ing{" "}
 							{inProgress.podcastExtraInformation
 								? `EP-${inProgress.podcastExtraInformation.episode}`
 								: inProgress.showExtraInformation
