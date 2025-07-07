@@ -24,7 +24,7 @@ import {
 import { IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Form, useRevalidator } from "react-router";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import {
@@ -58,28 +58,18 @@ export const CreateOrUpdateCollectionModal = (props: {
 		collaborators: string[];
 		informationTemplate: CollectionExtraInformation[];
 	}>({
-		name: "",
-		description: "",
-		isHidden: false,
-		collaborators: [],
-		informationTemplate: [],
+		name: toUpdateCollection?.name || "",
+		description: toUpdateCollection?.description || "",
+		informationTemplate: toUpdateCollection?.informationTemplate || [],
+		collaborators: (toUpdateCollection?.collaborators || []).map(
+			(c) => c.collaborator.id,
+		),
+		isHidden: Boolean(
+			toUpdateCollection?.collaborators?.find(
+				(c) => c.collaborator.id === userDetails.id,
+			)?.extraInformation?.isHidden,
+		),
 	});
-
-	useEffect(() => {
-		setFormData({
-			name: toUpdateCollection?.name || "",
-			description: toUpdateCollection?.description || "",
-			informationTemplate: toUpdateCollection?.informationTemplate || [],
-			collaborators: (toUpdateCollection?.collaborators || []).map(
-				(c) => c.collaborator.id,
-			),
-			isHidden: Boolean(
-				toUpdateCollection?.collaborators?.find(
-					(c) => c.collaborator.id === userDetails.id,
-				)?.extraInformation?.isHidden,
-			),
-		});
-	}, [toUpdateCollection, userDetails.id]);
 
 	const { formRef, isFormValid } = useFormValidation(formData);
 
