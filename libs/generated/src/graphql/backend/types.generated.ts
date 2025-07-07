@@ -1315,6 +1315,12 @@ export type MetadataSearchInput = {
   lot: MediaLot;
   search: SearchInput;
   source: MediaSource;
+  sourceSpecifics?: InputMaybe<MetadataSearchSourceSpecificsInput>;
+};
+
+export type MetadataSearchSourceSpecificsInput = {
+  googleBooksPassRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
+  igdbAllowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type MovieSpecifics = {
