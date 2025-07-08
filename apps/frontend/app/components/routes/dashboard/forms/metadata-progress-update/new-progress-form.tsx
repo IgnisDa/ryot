@@ -159,12 +159,12 @@ export const MetadataNewProgressUpdateForm = ({
 			<Button
 				size="xs"
 				variant="outline"
-				disabled={
-					watchTime === WatchTimes.CustomDates &&
-					startDate === null &&
-					finishDate === null
-				}
 				className={OnboardingTourStepTargets.AddAudiobookToWatchedHistory}
+				disabled={
+					startDate === null &&
+					finishDate === null &&
+					watchTime === WatchTimes.CustomDates
+				}
 				onClick={() => {
 					advanceOnboardingTourStep();
 					handleSubmit();
