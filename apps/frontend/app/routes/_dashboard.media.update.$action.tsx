@@ -14,7 +14,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -35,7 +34,10 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { useCoreDetails } from "~/lib/shared/hooks";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import { createS3FileUploader, serverGqlService } from "~/lib/utilities.server";
+import {
+	parseFormDataWithS3Upload,
+	serverGqlService,
+} from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.update.$action";
 
 enum Action {
@@ -76,8 +78,7 @@ export const meta = () => {
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const uploader = createS3FileUploader("metadata");
-	const formData = await parseFormData(request, uploader);
+	const formData = await parseFormDataWithS3Upload(request, "metadata");
 	const submission = processSubmission(formData, schema);
 	// biome-ignore lint/suspicious/noExplicitAny: required here
 	const input: any = {

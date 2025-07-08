@@ -1,5 +1,6 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
 import type { FileUpload } from "@mjackson/form-data-parser";
+import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
@@ -384,4 +385,28 @@ export const redirectToFirstPageIfOnInvalidPage = async (input: {
 		throw redirect(`?${searchParams.toString()}`);
 	}
 	return totalPages;
+};
+
+export const parseFormDataWithFileSize = async (
+	request: Request,
+	uploader: (file: FileUpload) => Promise<string | null>,
+) => {
+	const coreDetails = await getCoreDetails();
+	return parseFormData(
+		request,
+		{ maxFileSize: coreDetails.maxFileSizeMb * 1024 * 1024 },
+		uploader,
+	);
+};
+
+export const parseFormDataWithTemporaryUpload = async (request: Request) => {
+	return parseFormDataWithFileSize(request, temporaryFileUploadHandler);
+};
+
+export const parseFormDataWithS3Upload = async (
+	request: Request,
+	prefix: string,
+) => {
+	const uploader = createS3FileUploader(prefix);
+	return parseFormDataWithFileSize(request, uploader);
 };

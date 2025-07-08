@@ -23,7 +23,6 @@ import {
 	Tooltip,
 } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	DeployExportJobDocument,
 	DeployImportJobDocument,
@@ -61,8 +60,8 @@ import {
 } from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
+	parseFormDataWithTemporaryUpload,
 	serverGqlService,
-	temporaryFileUploadHandler,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.imports-and-exports._index";
 
@@ -78,10 +77,7 @@ export const meta = () => {
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const formData = await parseFormData(
-		request.clone(),
-		temporaryFileUploadHandler,
-	);
+	const formData = await parseFormDataWithTemporaryUpload(request.clone());
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("deployImport", async () => {
