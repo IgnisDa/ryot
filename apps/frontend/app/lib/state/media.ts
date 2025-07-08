@@ -36,7 +36,12 @@ const getUpdateMetadata = async (metadataId: string) => {
 	const meta = await queryClient.ensureQueryData(
 		getMetadataDetailsQuery(metadataId),
 	);
-	if (!meta.isPartial || ![MediaLot.Show, MediaLot.Podcast].includes(meta.lot))
+	if (
+		!meta.isPartial ||
+		![MediaLot.Show, MediaLot.Podcast, MediaLot.Show, MediaLot.Anime].includes(
+			meta.lot,
+		)
+	)
 		return meta;
 
 	const { metadataDetails } = await clientGqlService.request(
