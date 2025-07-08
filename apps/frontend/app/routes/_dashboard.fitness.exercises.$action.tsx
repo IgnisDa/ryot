@@ -10,7 +10,6 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
-import { parseFormData } from "@mjackson/form-data-parser";
 import {
 	CreateCustomExerciseDocument,
 	ExerciseDetailsDocument,
@@ -43,8 +42,8 @@ import { useCoreDetails } from "~/lib/shared/hooks";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
-	createS3FileUploader,
 	createToastHeaders,
+	parseFormDataWithS3Upload,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.$action";
@@ -84,8 +83,10 @@ export const meta = () => {
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
-	const uploader = createS3FileUploader("exercises");
-	const formData = await parseFormData(request.clone(), uploader);
+	const formData = await parseFormDataWithS3Upload(
+		request.clone(),
+		"exercises",
+	);
 	const submission = processSubmission(formData, schema);
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as Array<ExerciseMuscle>)

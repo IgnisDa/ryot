@@ -315,6 +315,7 @@ query CoreDetails {
 		smtpEnabled
 		oidcEnabled
 		signupAllowed
+		maxFileSizeMb
 		repositoryLink
 		isDemoInstance
 		disableTelemetry

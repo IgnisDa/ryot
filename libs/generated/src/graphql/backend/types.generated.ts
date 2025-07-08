@@ -263,6 +263,7 @@ export type CoreDetails = {
   isDemoInstance: Scalars['Boolean']['output'];
   isServerKeyValidated: Scalars['Boolean']['output'];
   localAuthDisabled: Scalars['Boolean']['output'];
+  maxFileSizeMb: Scalars['Int']['output'];
   metadataGroupSourceLotMappings: Array<MetadataGroupSourceLotMapping>;
   metadataLotSourceMappings: Array<MetadataLotSourceMappings>;
   metadataProviderLanguages: Array<ProviderLanguageInformation>;
