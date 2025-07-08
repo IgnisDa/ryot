@@ -146,6 +146,7 @@ impl SupportingService {
             disable_telemetry: self.config.disable_telemetry,
             smtp_enabled: self.config.server.smtp.is_enabled(),
             signup_allowed: self.config.users.allow_registration,
+            max_file_size_mb: self.config.server.max_file_size_mb,
             people_search_sources: PEOPLE_SEARCH_SOURCES.to_vec(),
             is_demo_instance: self.config.server.is_demo_instance,
             local_auth_disabled: self.config.users.disable_local_auth,

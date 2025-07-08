@@ -66,6 +66,7 @@ pub struct CoreDetails {
     pub signup_allowed: bool,
     pub is_demo_instance: bool,
     pub disable_telemetry: bool,
+    pub max_file_size_mb: usize,
     pub repository_link: String,
     pub frontend: FrontendConfig,
     pub token_valid_for_days: i32,
