@@ -14,6 +14,7 @@ import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
 import isInteger from "lodash/isInteger";
+import isFiniteNumber from "lodash/isFinite";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
 import kebabCase from "lodash/kebabCase";
@@ -143,6 +144,7 @@ export {
 	isEmpty,
 	isEqual,
 	isInteger,
+	isFiniteNumber,
 	isNumber,
 	isString,
 	kebabCase,
