@@ -55,9 +55,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 
 export const useMetadataProgressUpdate = () => {
 	const [isLoading, setIsLoading] = useState(false);
-	const [metadataProgress, _setMetadataProgress] = useAtom(
-		metadataProgressUpdateAtom,
-	);
+	const [progress, setProgress] = useAtom(metadataProgressUpdateAtom);
 	const setMetadataProgress = async (
 		draft: UpdateProgressData | null,
 		determineNext?: boolean,
@@ -73,26 +71,26 @@ export const useMetadataProgressUpdate = () => {
 			const nextEntry = userMetadataDetails?.nextEntry;
 			if (nextEntry) {
 				match(metadataDetails.lot)
-					.with(MediaLot.Show, () => {
-						draft.showEpisodeNumber = nextEntry.episode;
-						draft.showSeasonNumber = nextEntry.season;
-					})
-					.with(MediaLot.Podcast, () => {
-						draft.podcastEpisodeNumber = nextEntry.episode;
+					.with(MediaLot.Manga, () => {
+						draft.mangaChapterNumber = nextEntry.chapter;
 					})
 					.with(MediaLot.Anime, () => {
 						draft.animeEpisodeNumber = nextEntry.episode;
 					})
-					.with(MediaLot.Manga, () => {
-						draft.mangaChapterNumber = nextEntry.chapter;
+					.with(MediaLot.Podcast, () => {
+						draft.podcastEpisodeNumber = nextEntry.episode;
+					})
+					.with(MediaLot.Show, () => {
+						draft.showSeasonNumber = nextEntry.season;
+						draft.showEpisodeNumber = nextEntry.episode;
 					})
 					.otherwise(() => undefined);
 			}
 		}
 		setIsLoading(false);
-		_setMetadataProgress(draft);
+		setProgress(draft);
 	};
-	return [metadataProgress, setMetadataProgress, isLoading] as const;
+	return [progress, setMetadataProgress, isLoading] as const;
 };
 
 export type ReviewEntityData = {
