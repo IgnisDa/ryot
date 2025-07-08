@@ -18,16 +18,16 @@ import {
 
 export type UpdateProgressData = {
 	metadataId: string;
-	providerWatchedOn?: string | null;
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: string | null;
-	mangaVolumeNumber?: number | null;
 	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
+	showSeasonNumber?: number | null;
+	providerWatchedOn?: string | null;
+	mangaVolumeNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: string | null;
 	podcastAllEpisodesBefore?: boolean;
+	podcastEpisodeNumber?: number | null;
 	mangaAllChaptersOrVolumesBefore?: boolean;
 };
 
@@ -45,10 +45,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 
 	const { metadataDetails } = await clientGqlService.request(
 		MetadataDetailsDocument,
-		{
-			metadataId,
-			ensureUpdated: true,
-		},
+		{ metadataId, ensureUpdated: true },
 	);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
