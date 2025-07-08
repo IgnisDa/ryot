@@ -13,6 +13,7 @@ import inRange from "lodash/inRange";
 import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
+import isFiniteNumber from "lodash/isFinite";
 import isInteger from "lodash/isInteger";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
@@ -142,6 +143,7 @@ export {
 	isBoolean,
 	isEmpty,
 	isEqual,
+	isFiniteNumber,
 	isInteger,
 	isNumber,
 	isString,

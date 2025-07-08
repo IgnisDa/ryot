@@ -10,6 +10,7 @@ use dependent_utils::{
     associate_user_with_entity, handle_after_metadata_seen_tasks, metadata_progress_update,
 };
 use enum_models::EntityLot;
+use futures::try_join;
 use media_models::{MetadataProgressUpdateInput, UpdateSeenItemInput};
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
 use supporting_service::SupportingService;
@@ -79,8 +80,10 @@ pub async fn delete_seen_item(
     let seen_id = si.id.clone();
     let metadata_id = si.metadata_id.clone();
     si.delete(&ss.db).await.trace_ok();
-    handle_after_metadata_seen_tasks(cloned_seen, ss).await?;
-    associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss).await?;
+    try_join!(
+        handle_after_metadata_seen_tasks(cloned_seen, ss),
+        associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss)
+    )?;
     Ok(StringIdObject { id: seen_id })
 }
 

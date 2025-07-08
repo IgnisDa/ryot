@@ -3,7 +3,7 @@ import {
 	MediaLot,
 	type MetadataProgressUpdateCommonInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils";
+import { isFiniteNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "~/components/routes/dashboard/types";
 import type { BulkUpdateContext } from "./form-types";
@@ -136,32 +136,30 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 		context.metadataToUpdate.mangaAllChaptersOrVolumesBefore
 	) {
 		const latestHistoryItem = context.history[0];
-
-		const hasValidChapter = isNumber(
+		const mangaVolumeNumber = Number(
+			context.metadataToUpdate.mangaVolumeNumber,
+		);
+		const mangaChapterNumber = Number(
 			context.metadataToUpdate.mangaChapterNumber,
 		);
-		const hasValidVolume = isNumber(context.metadataToUpdate.mangaVolumeNumber);
+
+		const hasValidChapter = isFiniteNumber(mangaChapterNumber);
+		const hasValidVolume = isFiniteNumber(mangaVolumeNumber);
 
 		if (
 			(hasValidChapter && hasValidVolume) ||
 			(!hasValidChapter && !hasValidVolume)
 		) {
-			notifications.show({
-				color: "red",
-				message:
-					"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
-			});
-			return;
+			const message =
+				"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided";
+			notifications.show({ color: "red", message: message });
+			throw new Error(message);
 		}
 
-		if (context.metadataToUpdate.mangaVolumeNumber) {
+		if (mangaVolumeNumber) {
 			const lastSeenVolume =
 				latestHistoryItem?.mangaExtraInformation?.volume || 0;
-			for (
-				let i = lastSeenVolume + 1;
-				i < context.metadataToUpdate.mangaVolumeNumber;
-				i++
-			) {
+			for (let i = lastSeenVolume + 1; i < mangaVolumeNumber; i++) {
 				context.updates.push({
 					metadataId: context.metadataToUpdate.metadataId,
 					change: createUpdateChange({
@@ -176,8 +174,8 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 			}
 		}
 
-		if (context.metadataToUpdate.mangaChapterNumber) {
-			const targetChapter = Number(context.metadataToUpdate.mangaChapterNumber);
+		if (mangaChapterNumber) {
+			const targetChapter = Number(mangaChapterNumber);
 			const markedChapters = new Set();
 
 			for (const historyItem of context.history) {

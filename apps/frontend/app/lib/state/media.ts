@@ -8,6 +8,7 @@ import { atom, useAtom } from "jotai";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -17,16 +18,16 @@ import {
 
 export type UpdateProgressData = {
 	metadataId: string;
-	providerWatchedOn?: string | null;
-	showSeasonNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	podcastEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: string | null;
-	mangaVolumeNumber?: number | null;
 	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
+	showSeasonNumber?: number | null;
+	providerWatchedOn?: string | null;
+	mangaVolumeNumber?: number | null;
+	showEpisodeNumber?: number | null;
+	animeEpisodeNumber?: number | null;
+	mangaChapterNumber?: string | null;
 	podcastAllEpisodesBefore?: boolean;
+	podcastEpisodeNumber?: number | null;
 	mangaAllChaptersOrVolumesBefore?: boolean;
 };
 
@@ -36,15 +37,15 @@ const getUpdateMetadata = async (metadataId: string) => {
 	const meta = await queryClient.ensureQueryData(
 		getMetadataDetailsQuery(metadataId),
 	);
-	if (!meta.isPartial || ![MediaLot.Show, MediaLot.Podcast].includes(meta.lot))
+	if (
+		!meta.isPartial ||
+		!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(meta.lot)
+	)
 		return meta;
 
 	const { metadataDetails } = await clientGqlService.request(
 		MetadataDetailsDocument,
-		{
-			metadataId,
-			ensureUpdated: true,
-		},
+		{ metadataId, ensureUpdated: true },
 	);
 	await queryClient.invalidateQueries({
 		queryKey: getMetadataDetailsQuery(metadataId).queryKey,
@@ -54,9 +55,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 
 export const useMetadataProgressUpdate = () => {
 	const [isLoading, setIsLoading] = useState(false);
-	const [metadataProgress, _setMetadataProgress] = useAtom(
-		metadataProgressUpdateAtom,
-	);
+	const [progress, setProgress] = useAtom(metadataProgressUpdateAtom);
 	const setMetadataProgress = async (
 		draft: UpdateProgressData | null,
 		determineNext?: boolean,
@@ -72,26 +71,26 @@ export const useMetadataProgressUpdate = () => {
 			const nextEntry = userMetadataDetails?.nextEntry;
 			if (nextEntry) {
 				match(metadataDetails.lot)
-					.with(MediaLot.Show, () => {
-						draft.showEpisodeNumber = nextEntry.episode;
-						draft.showSeasonNumber = nextEntry.season;
-					})
-					.with(MediaLot.Podcast, () => {
-						draft.podcastEpisodeNumber = nextEntry.episode;
+					.with(MediaLot.Manga, () => {
+						draft.mangaChapterNumber = nextEntry.chapter;
 					})
 					.with(MediaLot.Anime, () => {
 						draft.animeEpisodeNumber = nextEntry.episode;
 					})
-					.with(MediaLot.Manga, () => {
-						draft.mangaChapterNumber = nextEntry.chapter;
+					.with(MediaLot.Podcast, () => {
+						draft.podcastEpisodeNumber = nextEntry.episode;
+					})
+					.with(MediaLot.Show, () => {
+						draft.showSeasonNumber = nextEntry.season;
+						draft.showEpisodeNumber = nextEntry.episode;
 					})
 					.otherwise(() => undefined);
 			}
 		}
 		setIsLoading(false);
-		_setMetadataProgress(draft);
+		setProgress(draft);
 	};
-	return [metadataProgress, setMetadataProgress, isLoading] as const;
+	return [progress, setMetadataProgress, isLoading] as const;
 };
 
 export type ReviewEntityData = {
