@@ -13,8 +13,8 @@ import inRange from "lodash/inRange";
 import isBoolean from "lodash/isBoolean";
 import isEmpty from "lodash/isEmpty";
 import isEqual from "lodash/isEqual";
-import isInteger from "lodash/isInteger";
 import isFiniteNumber from "lodash/isFinite";
+import isInteger from "lodash/isInteger";
 import isNumber from "lodash/isNumber";
 import isString from "lodash/isString";
 import kebabCase from "lodash/kebabCase";
@@ -143,8 +143,8 @@ export {
 	isBoolean,
 	isEmpty,
 	isEqual,
-	isInteger,
 	isFiniteNumber,
+	isInteger,
 	isNumber,
 	isString,
 	kebabCase,
