@@ -146,12 +146,10 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 			(hasValidChapter && hasValidVolume) ||
 			(!hasValidChapter && !hasValidVolume)
 		) {
-			notifications.show({
-				color: "red",
-				message:
-					"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided",
-			});
-			return;
+			const message =
+				"Exactly one of mangaChapterNumber or mangaVolumeNumber must be provided";
+			notifications.show({ color: "red", message: message });
+			throw new Error(message);
 		}
 
 		if (context.metadataToUpdate.mangaVolumeNumber) {
