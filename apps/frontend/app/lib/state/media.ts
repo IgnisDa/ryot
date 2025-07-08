@@ -8,6 +8,7 @@ import { atom, useAtom } from "jotai";
 import { useState } from "react";
 import type { DeepPartial } from "ts-essentials";
 import { match } from "ts-pattern";
+import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -38,9 +39,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 	);
 	if (
 		!meta.isPartial ||
-		![MediaLot.Show, MediaLot.Podcast, MediaLot.Show, MediaLot.Anime].includes(
-			meta.lot,
-		)
+		!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(meta.lot)
 	)
 		return meta;
 

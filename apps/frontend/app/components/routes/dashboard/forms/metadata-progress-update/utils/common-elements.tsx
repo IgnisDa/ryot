@@ -1,10 +1,11 @@
 import { Select } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import type { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { useGetWatchProviders } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
 import { Verb } from "~/lib/types";
 import { WatchTimes } from "../../../types";
+import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 
 interface WatchTimeSelectProps {
 	value: WatchTimes;
@@ -24,12 +25,7 @@ export const WatchTimeSelect = ({
 			onChange={(v) => onChange(v as WatchTimes)}
 			label={`When did you ${getVerb(Verb.Read, metadataLot)} it?`}
 			data={Object.values(WatchTimes).filter((v) =>
-				[
-					MediaLot.Show,
-					MediaLot.Podcast,
-					MediaLot.Anime,
-					MediaLot.Manga,
-				].includes(metadataLot)
+				METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(metadataLot)
 					? v !== WatchTimes.JustStartedIt
 					: true,
 			)}
