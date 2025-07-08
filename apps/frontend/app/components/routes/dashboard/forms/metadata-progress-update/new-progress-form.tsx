@@ -65,10 +65,10 @@ export const MetadataNewProgressUpdateForm = ({
 		const updates = new Array<MetadataProgressUpdateInput>();
 
 		processBulkUpdates({
-			history,
-			watchTime,
 			common,
+			history,
 			updates,
+			watchTime,
 			metadataDetails,
 			metadataToUpdate,
 			startDateFormatted,
@@ -77,18 +77,15 @@ export const MetadataNewProgressUpdateForm = ({
 		});
 
 		const change: MetadataProgressUpdateChange = match(watchTime)
+			.with(WatchTimes.IDontRemember, () => ({
+				createNewCompleted: { withoutDates: common },
+			}))
 			.with(WatchTimes.JustStartedIt, () => ({
-				createNewInProgress: {
-					...common,
-					startedOn: currentDateFormatted,
-				},
+				createNewInProgress: { ...common, startedOn: currentDateFormatted },
 			}))
 			.with(WatchTimes.JustCompletedNow, () => ({
 				createNewCompleted: {
-					finishedOnDate: {
-						...common,
-						timestamp: currentDateFormatted,
-					},
+					finishedOnDate: { ...common, timestamp: currentDateFormatted },
 				},
 			}))
 			.with(WatchTimes.CustomDates, () =>
@@ -98,15 +95,9 @@ export const MetadataNewProgressUpdateForm = ({
 					commonFields: common,
 				}),
 			)
-			.with(WatchTimes.IDontRemember, () => ({
-				createNewCompleted: { withoutDates: common },
-			}))
 			.exhaustive();
 
-		updates.push({
-			change,
-			metadataId: metadataToUpdate.metadataId,
-		});
+		updates.push({ change, metadataId: metadataToUpdate.metadataId });
 		await deployBulkMetadataProgressUpdate.mutateAsync(updates);
 		onSubmit();
 	};
@@ -119,8 +110,8 @@ export const MetadataNewProgressUpdateForm = ({
 				setFinishDate(new Date());
 			})
 			.with(
-				WatchTimes.IDontRemember,
 				WatchTimes.CustomDates,
+				WatchTimes.IDontRemember,
 				WatchTimes.JustStartedIt,
 				() => {
 					setStartDate(null);
@@ -142,9 +133,9 @@ export const MetadataNewProgressUpdateForm = ({
 
 	return (
 		<Stack ref={parent} gap="sm">
+			<ShowForm metadataDetails={metadataDetails} />
 			<AnimeForm metadataDetails={metadataDetails} />
 			<MangaForm metadataDetails={metadataDetails} />
-			<ShowForm metadataDetails={metadataDetails} />
 			<PodcastForm metadataDetails={metadataDetails} />
 			<WatchTimeSelect
 				value={watchTime}
@@ -161,8 +152,8 @@ export const MetadataNewProgressUpdateForm = ({
 			) : null}
 			{watchTime !== WatchTimes.JustStartedIt ? (
 				<ProviderSelect
-					metadataLot={metadataDetails.lot}
 					onChange={handleProviderChange}
+					metadataLot={metadataDetails.lot}
 				/>
 			) : null}
 			<Button
