@@ -1,0 +1,19 @@
+tasks:
+  build:
+    command: "wxt build"
+
+  build-firefox:
+    command: "wxt build -b firefox"
+
+  dev:
+    command: wxt
+    local: true
+
+  dev-firefox:
+    command: "wxt -b firefox"
+
+  zip:
+    command: "wxt zip"
+
+  zip-firefox:
+    command: "wxt zip -b firefox"

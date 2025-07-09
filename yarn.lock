@@ -7542,6 +7542,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ryot/browser-extension@workspace:apps/browser-extension":
+  version: 0.0.0-use.local
+  resolution: "@ryot/browser-extension@workspace:apps/browser-extension"
+  dependencies:
+    "@types/react": "npm:19.1.2"
+    "@types/react-dom": "npm:19.1.3"
+    "@wxt-dev/module-react": "npm:1.1.3"
+    react: "npm:19.1.0"
+    react-dom: "npm:19.1.0"
+    wxt: "npm:0.20.6"
+  languageName: unknown
+  linkType: soft
+
 "@ryot/docs@workspace:apps/docs":
   version: 0.0.0-use.local
   resolution: "@ryot/docs@workspace:apps/docs"
@@ -9118,7 +9131,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:19.1.6, @types/react-dom@npm:^19.1.3":
+"@types/react-dom@npm:19.1.3":
+  version: 19.1.3
+  resolution: "@types/react-dom@npm:19.1.3"
+  peerDependencies:
+    "@types/react": ^19.0.0
+  checksum: 10/e951e683ee5fd823e938a847372cdc161b8f15a88dd80b54b2d6fe9fa189862412e584609aca9355835c388a528b6e71283e7dc13071b22f75bdc4fa676a3b56
+  languageName: node
+  linkType: hard
+
+"@types/react-dom@npm:19.1.6":
   version: 19.1.6
   resolution: "@types/react-dom@npm:19.1.6"
   peerDependencies:
@@ -9690,17 +9712,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@wxt-dev/browser@npm:^0.0.326":
-  version: 0.0.326
-  resolution: "@wxt-dev/browser@npm:0.0.326"
+"@wxt-dev/browser@npm:0.0.317":
+  version: 0.0.317
+  resolution: "@wxt-dev/browser@npm:0.0.317"
   dependencies:
     "@types/filesystem": "npm:*"
     "@types/har-format": "npm:*"
-  checksum: 10/ada4cf73bfc6a4bd8a64ee059f27ae2b371caff32f07e2750a434df77963e309af4fede48d737e07337170a2745e3989f11c369a81fa1917c2f3c885a91431ac
+  checksum: 10/a6c3fc2ec330a96d5f8b390e5314add32b4654d56e09f9f366be9be8e4332f046ae1a428c12a5ff60413adcc5944e26776146cf0e4c2cd0b882982c476bb0c88
   languageName: node
   linkType: hard
 
-"@wxt-dev/module-react@npm:^1.1.3":
+"@wxt-dev/module-react@npm:1.1.3":
   version: 1.1.3
   resolution: "@wxt-dev/module-react@npm:1.1.3"
   dependencies:
@@ -12328,7 +12350,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv-expand@npm:^12.0.2":
+"dotenv-expand@npm:^12.0.1":
   version: 12.0.2
   resolution: "dotenv-expand@npm:12.0.2"
   dependencies:
@@ -12351,7 +12373,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv@npm:^16.3.1, dotenv@npm:^16.4.5, dotenv@npm:^16.5.0":
+"dotenv@npm:^16.3.1, dotenv@npm:^16.4.5, dotenv@npm:^16.4.7, dotenv@npm:^16.5.0":
   version: 16.6.1
   resolution: "dotenv@npm:16.6.1"
   checksum: 10/1d1897144344447ffe62aa1a6d664f4cd2e0784e0aff787eeeec1940ded32f8e4b5b506d665134fc87157baa086fce07ec6383970a2b6d2e7985beaed6a4cc14
@@ -15600,7 +15622,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"linkedom@npm:^0.18.10":
+"linkedom@npm:^0.18.9":
   version: 0.18.11
   resolution: "linkedom@npm:0.18.11"
   dependencies:
@@ -17105,7 +17127,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"open@npm:^10.1.2":
+"open@npm:^10.1.0":
   version: 10.1.2
   resolution: "open@npm:10.1.2"
   dependencies:
@@ -18210,7 +18232,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-dom@npm:19.1.0, react-dom@npm:^19.1.0":
+"react-dom@npm:19.1.0":
   version: 19.1.0
   resolution: "react-dom@npm:19.1.0"
   dependencies:
@@ -18587,7 +18609,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react@npm:19.1.0, react@npm:^19.1.0":
+"react@npm:19.1.0":
   version: 19.1.0
   resolution: "react@npm:19.1.0"
   checksum: 10/d0180689826fd9de87e839c365f6f361c561daea397d61d724687cae88f432a307d1c0f53a0ee95ddbe3352c10dac41d7ff1ad85530fb24951b27a39e5398db4
@@ -20788,7 +20810,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:5.8.3, typescript@npm:^5.8.3":
+"typescript@npm:5.8.3":
   version: 5.8.3
   resolution: "typescript@npm:5.8.3"
   bin:
@@ -20798,7 +20820,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>, typescript@patch:typescript@npm%3A^5.8.3#optional!builtin<compat/typescript>":
+"typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>":
   version: 5.8.3
   resolution: "typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=5adc0c"
   bin:
@@ -21357,7 +21379,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite-node@npm:3.2.4, vite-node@npm:^2.1.4 || ^3.1.2":
+"vite-node@npm:3.2.4, vite-node@npm:^2.1.4 || ^3.0.0":
   version: 3.2.4
   resolution: "vite-node@npm:3.2.4"
   dependencies:
@@ -21418,7 +21440,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:6.3.5, vite@npm:^5.0.0 || ^6.0.0 || ^7.0.0-0, vite@npm:^5.4.19 || ^6.3.4, vite@npm:^6.3.2":
+"vite@npm:6.3.5, vite@npm:^5.0.0 || ^6.0.0 || ^7.0.0-0, vite@npm:^5.4.17 || ^6.2.5, vite@npm:^6.3.2":
   version: 6.3.5
   resolution: "vite@npm:6.3.5"
   dependencies:
@@ -21903,30 +21925,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"wxt-react-starter@workspace:apps/browser-extension":
-  version: 0.0.0-use.local
-  resolution: "wxt-react-starter@workspace:apps/browser-extension"
-  dependencies:
-    "@types/react": "npm:^19.1.2"
-    "@types/react-dom": "npm:^19.1.3"
-    "@wxt-dev/module-react": "npm:^1.1.3"
-    react: "npm:^19.1.0"
-    react-dom: "npm:^19.1.0"
-    typescript: "npm:^5.8.3"
-    wxt: "npm:^0.20.6"
-  languageName: unknown
-  linkType: soft
-
-"wxt@npm:^0.20.6":
-  version: 0.20.7
-  resolution: "wxt@npm:0.20.7"
+"wxt@npm:0.20.6":
+  version: 0.20.6
+  resolution: "wxt@npm:0.20.6"
   dependencies:
     "@1natsu/wait-element": "npm:^4.1.2"
     "@aklinker1/rollup-plugin-visualizer": "npm:5.12.0"
     "@webext-core/fake-browser": "npm:^1.3.2"
     "@webext-core/isolated-element": "npm:^1.1.2"
     "@webext-core/match-patterns": "npm:^1.0.3"
-    "@wxt-dev/browser": "npm:^0.0.326"
+    "@wxt-dev/browser": "npm:0.0.317"
     "@wxt-dev/storage": "npm:^1.0.0"
     async-mutex: "npm:^0.5.0"
     c12: "npm:^3.0.3"
@@ -21935,8 +21943,8 @@ __metadata:
     ci-info: "npm:^4.2.0"
     consola: "npm:^3.4.2"
     defu: "npm:^6.1.4"
-    dotenv: "npm:^16.5.0"
-    dotenv-expand: "npm:^12.0.2"
+    dotenv: "npm:^16.4.7"
+    dotenv-expand: "npm:^12.0.1"
     esbuild: "npm:^0.25.0"
     fast-glob: "npm:^3.3.3"
     filesize: "npm:^10.1.6"
@@ -21948,14 +21956,14 @@ __metadata:
     is-wsl: "npm:^3.1.0"
     json5: "npm:^2.2.3"
     jszip: "npm:^3.10.1"
-    linkedom: "npm:^0.18.10"
+    linkedom: "npm:^0.18.9"
     magicast: "npm:^0.3.5"
     minimatch: "npm:^10.0.1"
     nano-spawn: "npm:^0.2.0"
     normalize-path: "npm:^3.0.0"
     nypm: "npm:^0.6.0"
     ohash: "npm:^2.0.11"
-    open: "npm:^10.1.2"
+    open: "npm:^10.1.0"
     ora: "npm:^8.2.0"
     perfect-debounce: "npm:^1.0.0"
     picocolors: "npm:^1.1.1"
@@ -21963,13 +21971,13 @@ __metadata:
     publish-browser-extension: "npm:^2.3.0 || ^3.0.0"
     scule: "npm:^1.3.0"
     unimport: "npm:^3.13.1 || ^4.0.0 || ^5.0.0"
-    vite: "npm:^5.4.19 || ^6.3.4"
-    vite-node: "npm:^2.1.4 || ^3.1.2"
+    vite: "npm:^5.4.17 || ^6.2.5"
+    vite-node: "npm:^2.1.4 || ^3.0.0"
     web-ext-run: "npm:^0.2.3"
   bin:
     wxt: bin/wxt.mjs
     wxt-publish-extension: bin/wxt-publish-extension.cjs
-  checksum: 10/8c5536ec13a88fe1db02c69d3d3b8e36e6d8205ab9ef9a0427b540c22ecba7f4a43b19e8202bf8f586c24bcf5a0783127289774fcb90d51442b02d63e5228fd7
+  checksum: 10/a735b758cd323bafef7bcf929c03b4a6a6f41aa58052909596b081149f1c6f43f703d0c121e8e799ae1bfa64e5f3800c4acee8014293c97c74cb75c4b32a1c87
   languageName: node
   linkType: hard
 
