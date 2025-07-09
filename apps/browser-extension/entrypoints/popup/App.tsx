@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { storage } from "#imports";
 import "./App.css";
 
@@ -26,6 +26,11 @@ const App = () => {
 		setSubmitted(true);
 		setTimeout(() => setSubmitted(false), 2000);
 		setIsSubmitting(false);
+	};
+
+	const handleClear = async () => {
+		await storage.removeItem(STORAGE_KEY);
+		setUrl("");
 	};
 
 	return (
