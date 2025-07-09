@@ -1011,6 +1011,7 @@ export enum IntegrationProvider {
   PlexSink = 'PLEX_SINK',
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
+  RyotBrowserExtension = 'RYOT_BROWSER_EXTENSION',
   Sonarr = 'SONARR',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
