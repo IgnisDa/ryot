@@ -377,14 +377,10 @@ pub async fn update_metadata(
                 .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
                 .collect_vec();
 
-            let free_creators = details
-                .creators
-                .is_empty()
+            let free_creators = (!details.creators.is_empty())
                 .then_some(())
                 .map(|_| details.creators);
-            let watch_providers = details
-                .watch_providers
-                .is_empty()
+            let watch_providers = (!details.watch_providers.is_empty())
                 .then_some(())
                 .map(|_| details.watch_providers);
 

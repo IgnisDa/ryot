@@ -38,7 +38,7 @@ impl MediaProvider for NonMediaTmdbService {
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let language = &self.base.language;
-        let type_ = match source_specifics {
+        let person_type = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
                 ..
@@ -49,7 +49,7 @@ impl MediaProvider for NonMediaTmdbService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/search/{}", URL, type_))
+            .get(format!("{}/search/{}", URL, person_type))
             .query(&json!({
                 "page": page,
                 "language": language,
@@ -85,7 +85,7 @@ impl MediaProvider for NonMediaTmdbService {
         identifier: &str,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let type_ = match source_specifics {
+        let person_type = match source_specifics {
             Some(PersonSourceSpecifics {
                 is_tmdb_company: Some(true),
                 ..
@@ -95,7 +95,7 @@ impl MediaProvider for NonMediaTmdbService {
         let details: TmdbNonMediaEntity = self
             .base
             .client
-            .get(format!("{}/{}/{}", URL, type_, identifier))
+            .get(format!("{}/{}/{}", URL, person_type, identifier))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
@@ -106,14 +106,18 @@ impl MediaProvider for NonMediaTmdbService {
         let mut images = vec![];
         let description = details.description.or(details.biography);
         let mut related_metadata = vec![];
-        if type_ == "person" {
+        if person_type == "person" {
             let ((), cred_det) = try_join!(
-                self.base.save_all_images(type_, identifier, &mut images),
+                self.base
+                    .save_all_images(person_type, identifier, &mut images),
                 async {
                     let resp = self
                         .base
                         .client
-                        .get(format!("{}/{}/{}/combined_credits", URL, type_, identifier))
+                        .get(format!(
+                            "{}/{}/{}/combined_credits",
+                            URL, person_type, identifier
+                        ))
                         .query(&json!({ "language": self.base.language }))
                         .send()
                         .await
@@ -157,7 +161,7 @@ impl MediaProvider for NonMediaTmdbService {
             }
 
             self.base
-                .save_all_images(type_, identifier, &mut images)
+                .save_all_images(person_type, identifier, &mut images)
                 .await?;
         }
 

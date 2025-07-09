@@ -53,6 +53,7 @@ import { z } from "zod";
 import {
 	BulkCollectionEditingAffix,
 	DisplayCollectionEntity,
+	DisplayListDetailsAndRefresh,
 } from "~/components/common";
 import {
 	DebouncedSearchInput,
@@ -215,7 +216,7 @@ export default function Page() {
 								) : null}
 							</Group>
 							<Text size="sm">
-								{details.totalItems} items, created by {details.user.name}{" "}
+								Created by {details.user.name}{" "}
 								{dayjsLib(details.details.createdOn).fromNow()}
 							</Text>
 						</Box>
@@ -276,6 +277,13 @@ export default function Page() {
 										<FiltersModalForm />
 									</FiltersModal>
 								</Group>
+								<DisplayListDetailsAndRefresh
+									total={details.totalItems}
+									cacheId={loaderData.collectionContents.cacheId}
+									isRandomSortOrderSelected={
+										loaderData.query.sortBy === CollectionContentsSortBy.Random
+									}
+								/>
 								{details.results.items.length > 0 ? (
 									<ApplicationGrid>
 										{details.results.items.map((lm) => {

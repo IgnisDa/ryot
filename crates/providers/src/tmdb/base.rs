@@ -54,13 +54,13 @@ impl TmdbService {
 
     pub async fn save_all_images(
         &self,
-        type_: &str,
+        media_type: &str,
         identifier: &str,
         images: &mut Vec<String>,
     ) -> Result<()> {
         let rsp = self
             .client
-            .get(format!("{}/{}/{}/images", URL, type_, identifier))
+            .get(format!("{}/{}/{}/images", URL, media_type, identifier))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -90,17 +90,17 @@ impl TmdbService {
 
     pub async fn get_all_suggestions(
         &self,
-        type_: &str,
+        media_type: &str,
         identifier: &str,
     ) -> Result<Vec<PartialMetadataWithoutId>> {
-        let lot = match type_ {
+        let lot = match media_type {
             "movie" => MediaLot::Movie,
             "tv" => MediaLot::Show,
             _ => unreachable!(),
         };
 
         self.fetch_paginated_data(
-            format!("{}/{}/{}/recommendations", URL, type_, identifier),
+            format!("{}/{}/{}/recommendations", URL, media_type, identifier),
             json!({ "page": 1 }),
             None,
             |entry| async move {
@@ -119,12 +119,15 @@ impl TmdbService {
 
     pub async fn get_all_watch_providers(
         &self,
-        type_: &str,
+        media_type: &str,
         identifier: &str,
     ) -> Result<Vec<WatchProvider>> {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
-            .get(format!("{}/{}/{}/watch/providers", URL, type_, identifier))
+            .get(format!(
+                "{}/{}/{}/watch/providers",
+                URL, media_type, identifier
+            ))
             .query(&json!({ "language": self.language }))
             .send()
             .await
@@ -179,12 +182,15 @@ impl TmdbService {
 
     pub async fn get_external_identifiers(
         &self,
-        type_: &str,
+        media_type: &str,
         identifier: &str,
     ) -> Result<MetadataExternalIdentifiers> {
         let rsp = self
             .client
-            .get(format!("{}/{}/{}/external_ids", URL, type_, identifier))
+            .get(format!(
+                "{}/{}/{}/external_ids",
+                URL, media_type, identifier
+            ))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;

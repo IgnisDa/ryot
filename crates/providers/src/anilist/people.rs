@@ -160,7 +160,7 @@ impl MediaProvider for NonMediaAnilistService {
                         identifier: data.id.to_string(),
                         title: data.title.and_then(|t| t.native).unwrap_or_default(),
                         image: data.cover_image.and_then(|c| c.extra_large),
-                        lot: match data.type_.as_deref() {
+                        lot: match data.media_type.as_deref() {
                             Some("ANIME") => MediaLot::Anime,
                             Some("MANGA") => MediaLot::Manga,
                             _ => unreachable!(),
@@ -246,7 +246,7 @@ impl MediaProvider for NonMediaAnilistService {
                                             .cover_image
                                             .as_ref()
                                             .and_then(|c| c.extra_large.clone()),
-                                        lot: match data.type_.as_deref() {
+                                        lot: match data.media_type.as_deref() {
                                             Some("ANIME") => MediaLot::Anime,
                                             Some("MANGA") => MediaLot::Manga,
                                             _ => unreachable!(),
@@ -288,7 +288,7 @@ impl MediaProvider for NonMediaAnilistService {
                                         source: MediaSource::Anilist,
                                         identifier: data.id.to_string(),
                                         image: data.cover_image.and_then(|c| c.extra_large),
-                                        lot: match data.type_.as_deref() {
+                                        lot: match data.media_type.as_deref() {
                                             Some("ANIME") => MediaLot::Anime,
                                             Some("MANGA") => MediaLot::Manga,
                                             _ => unreachable!(),

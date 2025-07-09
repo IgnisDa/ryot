@@ -80,7 +80,7 @@ pub struct MediaSearchItem {
     #[serde(rename = "bannerImage")]
     pub banner_image: Option<String>,
     #[serde(rename = "type")]
-    pub type_: Option<String>,
+    pub media_type: Option<String>,
 }
 
 #[nest_struct]
@@ -160,6 +160,9 @@ pub struct MediaDetails {
     pub chapters: Option<i32>,
     pub volumes: Option<i32>,
     pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub media_type: Option<String>,
+    pub genres: Option<Vec<Option<String>>>,
     #[serde(rename = "coverImage")]
     pub cover_image: Option<
         nest! {
@@ -169,9 +172,6 @@ pub struct MediaDetails {
             pub large: Option<String>,
         },
     >,
-    #[serde(rename = "type")]
-    pub type_: Option<String>,
-    pub genres: Option<Vec<Option<String>>>,
     pub tags: Option<
         Vec<
             Option<
@@ -520,7 +520,7 @@ pub async fn media_details(
             })
             .collect_vec()
     });
-    let (lot, anime_specifics, manga_specifics) = match media.type_.as_deref() {
+    let (lot, anime_specifics, manga_specifics) = match media.media_type.as_deref() {
         Some("ANIME") => (
             MediaLot::Anime,
             Some(AnimeSpecifics {
@@ -563,7 +563,7 @@ pub async fn media_details(
                     source: MediaSource::Anilist,
                     identifier: data.id.to_string(),
                     image: data.cover_image.unwrap().extra_large,
-                    lot: match data.type_.as_deref() {
+                    lot: match data.media_type.as_deref() {
                         Some("ANIME") => MediaLot::Anime,
                         Some("MANGA") => MediaLot::Manga,
                         _ => unreachable!(),
