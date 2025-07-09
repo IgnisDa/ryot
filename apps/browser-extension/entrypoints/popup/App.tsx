@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { storage } from "#imports";
-import "./App.css";
 
 const STORAGE_KEY = "local:integration-url";
 
@@ -61,17 +60,22 @@ const App = () => {
 	};
 
 	return (
-		<div className="app">
-			<h1 className="title">Ryot</h1>
-			<form onSubmit={handleSubmit} className="form">
-				<label htmlFor="url-input" className="label">
+		<div className="w-[300px] p-5 font-sans">
+			<h1 className="text-center m-0 mb-5 text-2xl font-semibold text-gray-800">
+				Ryot
+			</h1>
+			<form onSubmit={handleSubmit} className="flex flex-col gap-3">
+				<label
+					htmlFor="url-input"
+					className="text-sm font-medium text-gray-600 mb-1"
+				>
 					Integration URL
 				</label>
 				<input
 					type="text"
 					value={url}
 					id="url-input"
-					className={`input ${urlError ? "input-error" : ""}`}
+					className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${urlError ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
 					onChange={(e) => {
 						const newUrl = e.target.value;
 						setUrl(newUrl);
@@ -79,11 +83,13 @@ const App = () => {
 					}}
 					placeholder="Enter your integration URL"
 				/>
-				{urlError && <div className="error-message">{urlError}</div>}
-				<div className="button-container">
+				{urlError && (
+					<div className="text-red-500 text-xs mt-1">{urlError}</div>
+				)}
+				<div className="flex gap-2 mt-2">
 					<button
 						type="submit"
-						className="submit-button"
+						className="flex-[2] py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
 						disabled={isSubmitting || !url.trim() || !!urlError}
 					>
 						{isSubmitting ? "Saving..." : submitted ? "Saved!" : "Submit"}
@@ -92,7 +98,7 @@ const App = () => {
 						<button
 							type="button"
 							onClick={handleClear}
-							className="clear-button"
+							className="flex-1 py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
 						>
 							Clear
 						</button>
