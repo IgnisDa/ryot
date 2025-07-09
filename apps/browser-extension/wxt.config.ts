@@ -4,4 +4,7 @@ export default defineConfig({
 	outDir: "dist",
 	webExt: { disabled: true },
 	modules: ["@wxt-dev/module-react"],
+	manifest: {
+		permissions: ["storage"],
+	},
 });
