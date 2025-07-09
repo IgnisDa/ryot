@@ -41,6 +41,20 @@
 	border-color: #0066cc;
 }
 
+.input-error {
+	border-color: #dc3545;
+}
+
+.input-error:focus {
+	border-color: #dc3545;
+}
+
+.error-message {
+	color: #dc3545;
+	font-size: 12px;
+	margin-top: 4px;
+}
+
 .submit-button {
 	padding: 10px 16px;
 	background-color: #0066cc;
