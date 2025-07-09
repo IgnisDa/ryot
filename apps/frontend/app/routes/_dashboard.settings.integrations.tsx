@@ -78,6 +78,7 @@ import type { Route } from "./+types/_dashboard.settings.integrations";
 const PRO_INTEGRATIONS = [
 	IntegrationProvider.JellyfinPush,
 	IntegrationProvider.YoutubeMusic,
+	IntegrationProvider.RyotBrowserExtension,
 ];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Komga,
