@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { storage } from "#imports";
 import "./App.css";
 
+const STORAGE_KEY = "local:integration-url";
+
 const App = () => {
 	const [url, setUrl] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -9,7 +11,7 @@ const App = () => {
 
 	useEffect(() => {
 		const loadSavedUrl = async () => {
-			const savedUrl = await storage.getItem<string>("local:integration-url");
+			const savedUrl = await storage.getItem<string>(STORAGE_KEY);
 			if (savedUrl) setUrl(savedUrl);
 		};
 
@@ -20,7 +22,7 @@ const App = () => {
 		e.preventDefault();
 		setIsSubmitting(true);
 
-		await storage.setItem("local:integration-url", url);
+		await storage.setItem(STORAGE_KEY, url);
 		setSubmitted(true);
 		setTimeout(() => setSubmitted(false), 2000);
 		setIsSubmitting(false);
