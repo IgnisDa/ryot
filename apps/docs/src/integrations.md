@@ -29,6 +29,11 @@ https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 Keep your webhook urls private to prevent abuse.
 :::
 
+### Ryot Browser Extension  <Badge type="warning" text="PRO" />
+
+The Ryot Browser Extension can automatically scrobble media that you are watching on
+various streaming services.
+
 ### Jellyfin Sink
 
 Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
@@ -148,14 +153,14 @@ metadata provider these urls will be populated automatically. If you don't, you 
 need to manually add the manga to your collection or you can perform the following steps.
 
 1. Navigate to the manga and open the Edit tab
-3. Navigate to the Links tab
-4. Create a link named `AniList` or `MyAnimeList` providing the respective url (not
+2. Navigate to the Links tab
+3. Create a link named `AniList` or `MyAnimeList` providing the respective url (not
    case-sensitive)
-5. On Ryot, create an integration and select Komga as the source
-6. Provide your Base URL. It should look something like this `https://komga.acme.com` or
+4. On Ryot, create an integration and select Komga as the source
+5. Provide your Base URL. It should look something like this `https://komga.acme.com` or
    `http://127.0.0.1:25600`
-7. Provide your Username and Password.
-8. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
+6. Provide your Username and Password.
+7. Provide your preferred metadata provider. Ryot will attempt the others if the preferred
    is unavailable and will fallback to title search otherwise.
 
 ### Plex Yank
