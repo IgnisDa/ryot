@@ -48,13 +48,24 @@ const App = () => {
 					onChange={(e) => setUrl(e.target.value)}
 					placeholder="Enter your integration URL"
 				/>
-				<button
-					type="submit"
-					className="submit-button"
-					disabled={isSubmitting || !url.trim()}
-				>
-					{isSubmitting ? "Saving..." : submitted ? "Saved!" : "Submit"}
-				</button>
+				<div className="button-container">
+					<button
+						type="submit"
+						className="submit-button"
+						disabled={isSubmitting || !url.trim()}
+					>
+						{isSubmitting ? "Saving..." : submitted ? "Saved!" : "Submit"}
+					</button>
+					{url.trim() && (
+						<button
+							type="button"
+							onClick={handleClear}
+							className="clear-button"
+						>
+							Clear
+						</button>
+					)}
+				</div>
 			</form>
 		</div>
 	);

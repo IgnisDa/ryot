@@ -42,7 +42,6 @@
 }
 
 .submit-button {
-	width: 100%;
 	padding: 10px 16px;
 	background-color: #0066cc;
 	color: white;
@@ -52,7 +51,6 @@
 	font-weight: 500;
 	cursor: pointer;
 	transition: background-color 0.2s;
-	margin-top: 8px;
 }
 
 .submit-button:hover:not(:disabled) {
@@ -62,4 +60,31 @@
 .submit-button:disabled {
 	background-color: #ccc;
 	cursor: not-allowed;
+}
+
+.button-container {
+	display: flex;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.submit-button {
+	flex: 2;
+}
+
+.clear-button {
+	flex: 1;
+	padding: 10px 16px;
+	background-color: #dc3545;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+.clear-button:hover {
+	background-color: #c82333;
 }
