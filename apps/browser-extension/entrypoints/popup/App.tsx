@@ -35,6 +35,7 @@ const App = () => {
 			if (savedUrl) {
 				setUrl(savedUrl);
 				validateUrl(savedUrl);
+				setSubmitted(true);
 			}
 		};
 
@@ -49,7 +50,6 @@ const App = () => {
 		setIsSubmitting(true);
 		await storage.setItem(STORAGE_KEY, url);
 		setSubmitted(true);
-		setTimeout(() => setSubmitted(false), 2000);
 		setIsSubmitting(false);
 	};
 
@@ -57,6 +57,7 @@ const App = () => {
 		await storage.removeItem(STORAGE_KEY);
 		setUrl("");
 		setUrlError("");
+		setSubmitted(false);
 	};
 
 	return (
@@ -87,18 +88,20 @@ const App = () => {
 					<div className="text-red-500 text-xs mt-1">{urlError}</div>
 				)}
 				<div className="flex gap-2 mt-2">
-					<button
-						type="submit"
-						className="flex-[2] py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-						disabled={isSubmitting || !url.trim() || !!urlError}
-					>
-						{isSubmitting ? "Saving..." : submitted ? "Saved!" : "Submit"}
-					</button>
+					{!submitted && (
+						<button
+							type="submit"
+							className="flex-[2] py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+							disabled={isSubmitting || !url.trim() || !!urlError}
+						>
+							{isSubmitting ? "Saving..." : "Submit"}
+						</button>
+					)}
 					{url.trim() && (
 						<button
 							type="button"
 							onClick={handleClear}
-							className="flex-1 py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
+							className={`py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600 ${submitted ? "w-full" : "flex-1"}`}
 						>
 							Clear
 						</button>
