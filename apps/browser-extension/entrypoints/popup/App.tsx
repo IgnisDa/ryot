@@ -5,26 +5,30 @@ const STORAGE_KEY = "local:integration-url";
 
 const App = () => {
 	const [url, setUrl] = useState("");
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [submitted, setSubmitted] = useState(false);
-	const [urlError, setUrlError] = useState("");
+	const [formState, setFormState] = useState<{
+		status: "idle" | "submitting" | "submitted";
+		error?: string;
+	}>({ status: "idle" });
 
 	const validateUrl = (urlString: string) => {
 		if (!urlString.trim()) {
-			setUrlError("");
+			setFormState((prev) => ({ ...prev, error: undefined }));
 			return false;
 		}
 
 		try {
 			const url = new URL(urlString);
 			if (url.protocol !== "http:" && url.protocol !== "https:") {
-				setUrlError("URL must start with http:// or https://");
+				setFormState((prev) => ({
+					...prev,
+					error: "URL must start with http:// or https://",
+				}));
 				return false;
 			}
-			setUrlError("");
+			setFormState((prev) => ({ ...prev, error: undefined }));
 			return true;
 		} catch {
-			setUrlError("Please enter a valid URL");
+			setFormState((prev) => ({ ...prev, error: "Please enter a valid URL" }));
 			return false;
 		}
 	};
@@ -35,7 +39,7 @@ const App = () => {
 			if (savedUrl) {
 				setUrl(savedUrl);
 				validateUrl(savedUrl);
-				setSubmitted(true);
+				setFormState({ status: "submitted" });
 			}
 		};
 
@@ -47,17 +51,15 @@ const App = () => {
 
 		if (!validateUrl(url)) return;
 
-		setIsSubmitting(true);
+		setFormState({ status: "submitting" });
 		await storage.setItem(STORAGE_KEY, url);
-		setSubmitted(true);
-		setIsSubmitting(false);
+		setFormState({ status: "submitted" });
 	};
 
 	const handleClear = async () => {
 		await storage.removeItem(STORAGE_KEY);
 		setUrl("");
-		setUrlError("");
-		setSubmitted(false);
+		setFormState({ status: "idle" });
 	};
 
 	return (
@@ -76,7 +78,7 @@ const App = () => {
 					type="text"
 					value={url}
 					id="url-input"
-					className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${urlError ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
+					className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
 					onChange={(e) => {
 						const newUrl = e.target.value;
 						setUrl(newUrl);
@@ -84,24 +86,28 @@ const App = () => {
 					}}
 					placeholder="Enter your integration URL"
 				/>
-				{urlError && (
-					<div className="text-red-500 text-xs mt-1">{urlError}</div>
+				{formState.error && (
+					<div className="text-red-500 text-xs mt-1">{formState.error}</div>
 				)}
 				<div className="flex gap-2 mt-2">
-					{!submitted && (
+					{formState.status !== "submitted" && (
 						<button
 							type="submit"
 							className="flex-[2] py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-							disabled={isSubmitting || !url.trim() || !!urlError}
+							disabled={
+								formState.status === "submitting" ||
+								!url.trim() ||
+								!!formState.error
+							}
 						>
-							{isSubmitting ? "Saving..." : "Submit"}
+							{formState.status === "submitting" ? "Saving..." : "Submit"}
 						</button>
 					)}
 					{url.trim() && (
 						<button
 							type="button"
 							onClick={handleClear}
-							className={`py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600 ${submitted ? "w-full" : "flex-1"}`}
+							className={`py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600 ${formState.status === "submitted" ? "w-full" : "flex-1"}`}
 						>
 							Clear
 						</button>
