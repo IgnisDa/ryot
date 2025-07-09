@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { storage } from "#imports";
 import "./App.css";
 
-function App() {
+const App = () => {
 	const [url, setUrl] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [submitted, setSubmitted] = useState(false);
@@ -51,6 +51,6 @@ function App() {
 			</form>
 		</div>
 	);
-}
+};
 
 export default App;
