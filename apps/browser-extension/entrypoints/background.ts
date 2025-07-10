@@ -7,12 +7,9 @@ export default defineBackground(() => {
 		"https://typedwebhook.tools/webhook/b5cc8c8c-703d-49e9-a774-4f5ea96809e0";
 
 	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-		console.log("[RYOT] Background received message:", message);
 		if (message.type === "SEND_PROGRESS_DATA") {
-			console.log("[RYOT] Processing progress data:", message.data);
 			handleProgressData(message.data)
 				.then((result) => {
-					console.log("[RYOT] Webhook request successful:", result);
 					sendResponse({ success: true, result });
 				})
 				.catch((error) => {

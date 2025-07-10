@@ -72,11 +72,9 @@ export class ProgressTracker {
 
 	private sendCurrentData() {
 		if (!this.video) {
-			console.log("[RYOT] No video element available for progress tracking");
 			return;
 		}
 
-		console.log("[RYOT] Extracting metadata for progress tracking");
 		const metadata = extractMetadata();
 		const siteSpecific = extractSiteSpecificMetadata(window.location.hostname);
 
@@ -93,19 +91,9 @@ export class ProgressTracker {
 			timestamp: new Date().toISOString(),
 		};
 
-		console.log("[RYOT] Progress data prepared:", {
-			title: data.title,
-			progress: data.progress,
-			currentTime: data.currentTime,
-			runtime: data.runtime,
-			domain: data.domain,
-		});
-
 		// Always send progress updates even if title is Unknown or runtime is 0
 		// The backend can handle missing metadata
 
-		console.log("[RYOT] About to call onDataSend callback");
 		this.onDataSend(data);
-		console.log("[RYOT] onDataSend callback completed");
 	}
 }
