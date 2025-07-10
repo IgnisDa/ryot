@@ -26,10 +26,6 @@ export class VideoDetector {
 		this.currentVideo = null;
 	}
 
-	getCurrentVideo(): HTMLVideoElement | null {
-		return this.currentVideo;
-	}
-
 	private detectVideos() {
 		const videos = document.querySelectorAll("video");
 
@@ -73,32 +69,9 @@ export class VideoDetector {
 		}
 
 		let bestVideo: HTMLVideoElement | null = null;
-		const videoDetails: Array<{
-			index: number;
-			src: string;
-			readyState: number;
-			paused: boolean;
-			ended: boolean;
-			duration: number;
-			currentTime: number;
-			className: string;
-			id: string;
-		}> = [];
 
 		for (let i = 0; i < videos.length; i++) {
 			const video = videos[i];
-			const details = {
-				index: i,
-				src: video.src || video.currentSrc || "no-src",
-				readyState: video.readyState,
-				paused: video.paused,
-				ended: video.ended,
-				duration: video.duration || 0,
-				currentTime: video.currentTime || 0,
-				className: video.className || "no-class",
-				id: video.id || "no-id",
-			};
-			videoDetails.push(details);
 
 			if (!video.paused && !video.ended) {
 				bestVideo = video;
