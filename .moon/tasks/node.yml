@@ -5,6 +5,7 @@ fileGroups:
     - "app/**/*"
     - "lib/**/*"
     - "src/**/*"
+    - "**/*.{js,ts,tsx}"
 
   configs:
     - "*.{js,json}"
