@@ -4,7 +4,7 @@ export default defineBackground(() => {
 	console.log("[RYOT] Background script initialized");
 
 	const WEBHOOK_URL =
-		"https://webhook.site/26a6767d-0e5c-4291-babe-32a98445eaca";
+		"https://typedwebhook.tools/webhook/ed0178a4-02aa-4d34-a0d7-e6c0fe358b60";
 
 	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 		if (message.type === "SEND_PROGRESS_DATA") {
