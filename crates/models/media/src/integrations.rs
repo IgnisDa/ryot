@@ -75,6 +75,8 @@ pub struct IntegrationProviderSpecifics {
 
     pub youtube_music_timezone: Option<String>,
     pub youtube_music_auth_cookie: Option<String>,
+
+    pub ryot_browser_extension_disabled_sites: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
