@@ -11,7 +11,7 @@ tasks:
 
   dev-firefox:
     command: "wxt -b firefox"
-
+    local: true
   zip:
     command: "wxt zip"
 
