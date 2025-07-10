@@ -12,5 +12,7 @@ export default defineConfig({
 		permissions: ["storage"],
 		name: "Ryot Browser Extension",
 		host_permissions: ["<all_urls>"],
+		description:
+			"Automatically scrobble media that you are watching on various streaming services to your self-hosted Ryot tracker.",
 	},
 });
