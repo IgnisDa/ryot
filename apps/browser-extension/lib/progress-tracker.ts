@@ -91,9 +91,6 @@ export class ProgressTracker {
 			timestamp: new Date().toISOString(),
 		};
 
-		// Always send progress updates even if title is Unknown or runtime is 0
-		// The backend can handle missing metadata
-
 		this.onDataSend(data);
 	}
 }

@@ -52,10 +52,8 @@ export default defineContentScript({
 		function initIframeMode() {
 			progressTracker = new ProgressTracker((data) => {
 				try {
-					// Send to top-level window instead of just parent
 					window.top?.postMessage({ type: "iframe-video-progress", data }, "*");
 				} catch {
-					// Fallback to parent frame
 					try {
 						const parentOrigin = document.referrer
 							? new URL(document.referrer).origin
