@@ -1014,7 +1014,7 @@ export type IntegrationProviderSpecifics = {
   radarrProfileId?: Maybe<Scalars['Int']['output']>;
   radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
   radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
-  ryotBrowserExtensionDisabledSites?: Maybe<Scalars['String']['output']>;
+  ryotBrowserExtensionDisabledSites?: Maybe<Array<Scalars['String']['output']>>;
   sonarrApiKey?: Maybe<Scalars['String']['output']>;
   sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
   sonarrProfileId?: Maybe<Scalars['Int']['output']>;
@@ -1042,7 +1042,7 @@ export type IntegrationSourceSpecificsInput = {
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   radarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
-  ryotBrowserExtensionDisabledSites?: InputMaybe<Scalars['String']['input']>;
+  ryotBrowserExtensionDisabledSites?: InputMaybe<Array<Scalars['String']['input']>>;
   sonarrApiKey?: InputMaybe<Scalars['String']['input']>;
   sonarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
@@ -3494,7 +3494,7 @@ export type UserCollectionsListQuery = { userCollectionsList: { cacheId: string,
 export type UserIntegrationsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot: IntegrationLot, name?: string | null, provider: IntegrationProvider, createdOn: string, isDisabled?: boolean | null, lastFinishedAt?: string | null, maximumProgress?: string | null, minimumProgress?: string | null, syncToOwnedCollection?: boolean | null, extraSettings: { disableOnContinuousErrors: boolean }, triggerResult: Array<{ error?: string | null, finishedAt: string }>, providerSpecifics?: { plexYankToken?: string | null, plexYankBaseUrl?: string | null, plexSinkUsername?: string | null, audiobookshelfToken?: string | null, audiobookshelfBaseUrl?: string | null, komgaBaseUrl?: string | null, komgaUsername?: string | null, komgaPassword?: string | null, komgaProvider?: MediaSource | null, radarrBaseUrl?: string | null, radarrApiKey?: string | null, radarrProfileId?: number | null, radarrRootFolderPath?: string | null, radarrSyncCollectionIds?: Array<string> | null, sonarrProfileId?: number | null, sonarrApiKey?: string | null, sonarrBaseUrl?: string | null, sonarrRootFolderPath?: string | null, sonarrSyncCollectionIds?: Array<string> | null, jellyfinPushBaseUrl?: string | null, jellyfinPushUsername?: string | null, jellyfinPushPassword?: string | null, youtubeMusicTimezone?: string | null, youtubeMusicAuthCookie?: string | null, ryotBrowserExtensionDisabledSites?: string | null } | null }> };
+export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot: IntegrationLot, name?: string | null, provider: IntegrationProvider, createdOn: string, isDisabled?: boolean | null, lastFinishedAt?: string | null, maximumProgress?: string | null, minimumProgress?: string | null, syncToOwnedCollection?: boolean | null, extraSettings: { disableOnContinuousErrors: boolean }, triggerResult: Array<{ error?: string | null, finishedAt: string }>, providerSpecifics?: { plexYankToken?: string | null, plexYankBaseUrl?: string | null, plexSinkUsername?: string | null, audiobookshelfToken?: string | null, audiobookshelfBaseUrl?: string | null, komgaBaseUrl?: string | null, komgaUsername?: string | null, komgaPassword?: string | null, komgaProvider?: MediaSource | null, radarrBaseUrl?: string | null, radarrApiKey?: string | null, radarrProfileId?: number | null, radarrRootFolderPath?: string | null, radarrSyncCollectionIds?: Array<string> | null, sonarrProfileId?: number | null, sonarrApiKey?: string | null, sonarrBaseUrl?: string | null, sonarrRootFolderPath?: string | null, sonarrSyncCollectionIds?: Array<string> | null, jellyfinPushBaseUrl?: string | null, jellyfinPushUsername?: string | null, jellyfinPushPassword?: string | null, youtubeMusicTimezone?: string | null, youtubeMusicAuthCookie?: string | null, ryotBrowserExtensionDisabledSites?: Array<string> | null } | null }> };
 
 export type UserNotificationPlatformsQueryVariables = Exact<{ [key: string]: never; }>;
 

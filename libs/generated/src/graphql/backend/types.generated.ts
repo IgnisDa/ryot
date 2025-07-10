@@ -1035,7 +1035,7 @@ export type IntegrationProviderSpecifics = {
   radarrProfileId?: Maybe<Scalars['Int']['output']>;
   radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
   radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
-  ryotBrowserExtensionDisabledSites?: Maybe<Scalars['String']['output']>;
+  ryotBrowserExtensionDisabledSites?: Maybe<Array<Scalars['String']['output']>>;
   sonarrApiKey?: Maybe<Scalars['String']['output']>;
   sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
   sonarrProfileId?: Maybe<Scalars['Int']['output']>;
@@ -1063,7 +1063,7 @@ export type IntegrationSourceSpecificsInput = {
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   radarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
-  ryotBrowserExtensionDisabledSites?: InputMaybe<Scalars['String']['input']>;
+  ryotBrowserExtensionDisabledSites?: InputMaybe<Array<Scalars['String']['input']>>;
   sonarrApiKey?: InputMaybe<Scalars['String']['input']>;
   sonarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;

@@ -208,7 +208,14 @@ const createOrUpdateSchema = z.object({
 			jellyfinPushPassword: z.string().optional(),
 			youtubeMusicTimezone: z.string().optional(),
 			youtubeMusicAuthCookie: z.string().optional(),
-			ryotBrowserExtensionDisabledSites: z.string().optional(),
+			ryotBrowserExtensionDisabledSites: z
+				.string()
+				.optional()
+				.transform((val) =>
+					val
+						? val.split("\n").filter((line) => line.trim() !== "")
+						: undefined,
+				),
 		})
 		.optional(),
 });
@@ -737,8 +744,9 @@ const CreateOrUpdateModal = (props: {
 									placeholder="instagram.com&#10;twitter.com&#10;leadsquared.com"
 									description="Extension is enabled on all sites by default. Enter one domain per line where extension should be disabled"
 									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.ryotBrowserExtensionDisabledSites || undefined
+										props.integrationData?.providerSpecifics?.ryotBrowserExtensionDisabledSites?.join(
+											"\n",
+										) || undefined
 									}
 								/>
 							</>
