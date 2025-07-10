@@ -40,3 +40,8 @@ export interface FormState {
 	status: "idle" | "submitting" | "submitted";
 	error?: string;
 }
+
+export interface ExtendedHTMLVideoElement extends HTMLVideoElement {
+	__iframe?: HTMLIFrameElement;
+	__isProxy?: boolean;
+}

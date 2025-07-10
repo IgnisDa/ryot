@@ -1,3 +1,5 @@
+import type { ExtendedHTMLVideoElement } from "../types/progress";
+
 export class VideoDetector {
 	private currentVideo: HTMLVideoElement | null = null;
 	private observer: MutationObserver | null = null;
@@ -134,7 +136,8 @@ export class VideoDetector {
 		} else if (videoIframes.length > 0) {
 			const targetIframe = videoIframes[0];
 			const currentIframeSrc =
-				this.currentVideo && (this.currentVideo as any).__iframe?.src;
+				this.currentVideo &&
+				(this.currentVideo as ExtendedHTMLVideoElement).__iframe?.src;
 			const isAlreadyTracking = currentIframeSrc === targetIframe.src;
 
 			if (!isAlreadyTracking) {
@@ -201,7 +204,6 @@ export class VideoDetector {
 	private createProxyVideoElement(
 		iframe: HTMLIFrameElement,
 	): HTMLVideoElement | null {
-
 		const proxyVideo = document.createElement("video") as HTMLVideoElement;
 
 		Object.defineProperty(proxyVideo, "src", {
@@ -239,8 +241,8 @@ export class VideoDetector {
 			configurable: true,
 		});
 
-		(proxyVideo as any).__iframe = iframe;
-		(proxyVideo as any).__isProxy = true;
+		(proxyVideo as ExtendedHTMLVideoElement).__iframe = iframe;
+		(proxyVideo as ExtendedHTMLVideoElement).__isProxy = true;
 
 		return proxyVideo;
 	}

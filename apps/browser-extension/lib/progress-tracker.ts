@@ -1,4 +1,4 @@
-import type { RawMediaData } from "../types/progress";
+import type { ExtendedHTMLVideoElement, RawMediaData } from "../types/progress";
 import {
 	extractMetadata,
 	extractSiteSpecificMetadata,
@@ -25,7 +25,7 @@ export class ProgressTracker {
 		this.video = video;
 		this.isTracking = true;
 
-		const isProxy = !!(video as any).__isProxy;
+		const isProxy = !!(video as ExtendedHTMLVideoElement).__isProxy;
 
 		if (isProxy) {
 			this.setupProxyVideoTracking();
