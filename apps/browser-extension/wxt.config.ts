@@ -8,5 +8,8 @@ export default defineConfig({
 	vite: () => ({
 		plugins: [tailwindcss()],
 	}),
-	manifest: { permissions: ["storage"] },
+	manifest: {
+		permissions: ["storage"],
+		host_permissions: ["<all_urls>"],
+	},
 });
