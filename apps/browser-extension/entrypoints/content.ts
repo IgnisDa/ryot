@@ -7,18 +7,16 @@ export default defineContentScript({
 	matches: ["<all_urls>"],
 	runAt: "document_start",
 	main() {
-		console.log("[RYOT] Extension loaded on:", window.location.href);
-
 		let videoDetector: VideoDetector | null = null;
 		let progressTracker: ProgressTracker | null = null;
 		let apiClient: ApiClient | null = null;
 
 		function handleDataSend(data: RawMediaData) {
-			console.log("[RYOT] Sending progress data:", {
-				domain: data.domain,
-				title: data.title,
-				progress: data.progress,
-			});
+			console.log(
+				"[RYOT] Sending progress:",
+				data.title,
+				`${Math.round((data.progress || 0) * 100)}%`,
+			);
 
 			if (apiClient) {
 				apiClient.sendProgressData(data);
@@ -26,10 +24,7 @@ export default defineContentScript({
 		}
 
 		function onVideoFound(video: HTMLVideoElement) {
-			console.log("[RYOT] Video detected:", {
-				src: video.src || video.currentSrc,
-				duration: video.duration,
-			});
+			console.log("[RYOT] Video detected:", video.src || video.currentSrc);
 
 			if (progressTracker) {
 				progressTracker.startTracking(video);

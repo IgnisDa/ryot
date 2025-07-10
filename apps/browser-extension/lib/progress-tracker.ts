@@ -8,6 +8,7 @@ export class ProgressTracker {
 	private video: HTMLVideoElement | null = null;
 	private isTracking = false;
 	private lastProgressTime = 0;
+	private proxyTrackingInterval: NodeJS.Timeout | null = null;
 	private onDataSend: (data: RawMediaData) => void;
 
 	constructor(onDataSend: (data: RawMediaData) => void) {
@@ -24,9 +25,15 @@ export class ProgressTracker {
 		this.video = video;
 		this.isTracking = true;
 
-		video.addEventListener("timeupdate", this.onVideoProgress);
-		video.addEventListener("play", this.onVideoProgress);
-		video.addEventListener("pause", this.onVideoProgress);
+		const isProxy = !!(video as any).__isProxy;
+
+		if (isProxy) {
+			this.setupProxyVideoTracking();
+		} else {
+			video.addEventListener("timeupdate", this.onVideoProgress);
+			video.addEventListener("play", this.onVideoProgress);
+			video.addEventListener("pause", this.onVideoProgress);
+		}
 
 		this.sendCurrentData();
 	}
@@ -36,6 +43,11 @@ export class ProgressTracker {
 			this.video.removeEventListener("timeupdate", this.onVideoProgress);
 			this.video.removeEventListener("play", this.onVideoProgress);
 			this.video.removeEventListener("pause", this.onVideoProgress);
+		}
+
+		if (this.proxyTrackingInterval) {
+			clearInterval(this.proxyTrackingInterval);
+			this.proxyTrackingInterval = null;
 		}
 
 		this.video = null;
@@ -86,5 +98,17 @@ export class ProgressTracker {
 		};
 
 		this.onDataSend(data);
+	}
+
+	private setupProxyVideoTracking() {
+		if (this.proxyTrackingInterval) {
+			clearInterval(this.proxyTrackingInterval);
+		}
+
+		this.proxyTrackingInterval = setInterval(() => {
+			if (this.isTracking && this.video) {
+				this.sendCurrentData();
+			}
+		}, 5000);
 	}
 }

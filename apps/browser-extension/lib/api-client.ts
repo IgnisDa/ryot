@@ -8,7 +8,6 @@ export class ApiClient {
 				data: data,
 			});
 		} catch (error) {
-			// Fire and forget - no error handling needed for Phase 1
 			console.error("[RYOT] Failed to send message to background:", error);
 		}
 	}
