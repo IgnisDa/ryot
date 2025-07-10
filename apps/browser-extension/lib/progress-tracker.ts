@@ -24,16 +24,16 @@ export class ProgressTracker {
 	private video: HTMLVideoElement | null = null;
 	private isTracking = false;
 	private lastProgressTime = 0;
-	private webhookUrl: string;
 	private onDataSend: (data: RawMediaData) => void;
 
-	constructor(webhookUrl: string, onDataSend: (data: RawMediaData) => void) {
-		this.webhookUrl = webhookUrl;
+	constructor(onDataSend: (data: RawMediaData) => void) {
 		this.onDataSend = onDataSend;
 	}
 
 	startTracking(video: HTMLVideoElement) {
-		if (this.video === video) return;
+		if (this.video === video) {
+			return;
+		}
 
 		this.stopTracking();
 
@@ -67,17 +67,23 @@ export class ProgressTracker {
 	}
 
 	private onVideoProgress = () => {
-		if (!this.video || !this.isTracking) return;
+		if (!this.video || !this.isTracking) {
+			return;
+		}
 
 		const now = Date.now();
-		if (now - this.lastProgressTime < 2000) return;
+		if (now - this.lastProgressTime < 2000) {
+			return;
+		}
 
 		this.lastProgressTime = now;
 		this.sendCurrentData();
 	};
 
 	private sendCurrentData() {
-		if (!this.video) return;
+		if (!this.video) {
+			return;
+		}
 
 		const metadata = extractMetadata();
 		const siteSpecific = extractSiteSpecificMetadata(window.location.hostname);

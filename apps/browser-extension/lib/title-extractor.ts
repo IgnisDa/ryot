@@ -74,7 +74,8 @@ function extractNetflixMetadata(): Partial<ExtractedMetadata> {
 
 	const titleElement = document.querySelector('[data-uia="video-title"]');
 	if (titleElement) {
-		metadata.title = titleElement.textContent?.trim() || "";
+		const title = titleElement.textContent?.trim() || "";
+		metadata.title = title;
 	}
 
 	return metadata;
@@ -85,7 +86,8 @@ function extractYouTubeMetadata(): Partial<ExtractedMetadata> {
 
 	const titleElement = document.querySelector("h1.title yt-formatted-string");
 	if (titleElement) {
-		metadata.title = titleElement.textContent?.trim() || "";
+		const title = titleElement.textContent?.trim() || "";
+		metadata.title = title;
 	}
 
 	return metadata;
@@ -96,7 +98,8 @@ function extractPrimeVideoMetadata(): Partial<ExtractedMetadata> {
 
 	const titleElement = document.querySelector('[data-automation-id="title"]');
 	if (titleElement) {
-		metadata.title = titleElement.textContent?.trim() || "";
+		const title = titleElement.textContent?.trim() || "";
+		metadata.title = title;
 	}
 
 	return metadata;
