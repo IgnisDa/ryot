@@ -6,7 +6,9 @@ import type { RawMediaData } from "../types/progress";
 export default defineContentScript({
 	matches: ["<all_urls>"],
 	runAt: "document_start",
+	allFrames: true,
 	main() {
+		const isIframe = window !== window.top;
 		let videoDetector: VideoDetector | null = null;
 		let progressTracker: ProgressTracker | null = null;
 		let apiClient: ApiClient | null = null;
@@ -48,11 +50,42 @@ export default defineContentScript({
 		}
 
 		function init() {
+			if (isIframe) {
+				initIframeMode();
+			} else {
+				initMainFrameMode();
+			}
+		}
+
+		function initIframeMode() {
+			progressTracker = new ProgressTracker((data) => {
+				const parentOrigin = document.referrer
+					? new URL(document.referrer).origin
+					: "*";
+				window.parent.postMessage(
+					{ type: "iframe-video-progress", data },
+					parentOrigin,
+				);
+			});
+			videoDetector = new VideoDetector(onVideoFound);
+			videoDetector.start();
+		}
+
+		function initMainFrameMode() {
 			apiClient = new ApiClient();
 			progressTracker = new ProgressTracker(handleDataSend);
 			videoDetector = new VideoDetector(onVideoFound);
 
 			videoDetector.start();
+
+			window.addEventListener("message", (event) => {
+				if (
+					event.data?.type === "iframe-video-progress" &&
+					event.source !== window
+				) {
+					handleDataSend(event.data.data);
+				}
+			});
 
 			document.addEventListener("visibilitychange", handleVisibilityChange);
 

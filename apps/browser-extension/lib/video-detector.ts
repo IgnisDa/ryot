@@ -1,5 +1,3 @@
-import type { ExtendedHTMLVideoElement } from "../types/progress";
-
 export class VideoDetector {
 	private currentVideo: HTMLVideoElement | null = null;
 	private observer: MutationObserver | null = null;
@@ -66,29 +64,10 @@ export class VideoDetector {
 			].join(", "),
 		);
 
-		const videoIframes = Array.from(iframes).filter((iframe) => {
-			const src = iframe.src.toLowerCase();
-			const className = iframe.className.toLowerCase();
-			const id = iframe.id.toLowerCase();
-
-			return (
-				src.includes("video") ||
-				src.includes("player") ||
-				src.includes("embed") ||
-				src.includes("vidsrc") ||
-				src.includes("stream") ||
-				className.includes("video") ||
-				className.includes("player") ||
-				id.includes("video") ||
-				id.includes("player")
-			);
-		});
-
 		if (
 			videos.length === 0 &&
 			canvases.length === 0 &&
-			videoContainers.length === 0 &&
-			videoIframes.length === 0
+			videoContainers.length === 0
 		) {
 			return;
 		}
@@ -133,21 +112,6 @@ export class VideoDetector {
 		if (bestVideo && bestVideo !== this.currentVideo) {
 			this.currentVideo = bestVideo;
 			this.onVideoFound(bestVideo);
-		} else if (videoIframes.length > 0) {
-			const targetIframe = videoIframes[0];
-			const currentIframeSrc =
-				this.currentVideo &&
-				(this.currentVideo as ExtendedHTMLVideoElement).__iframe?.src;
-			const isAlreadyTracking = currentIframeSrc === targetIframe.src;
-
-			if (!isAlreadyTracking) {
-				const proxyVideo = this.createProxyVideoElement(targetIframe);
-
-				if (proxyVideo) {
-					this.currentVideo = proxyVideo;
-					this.onVideoFound(proxyVideo);
-				}
-			}
 		}
 	}
 
@@ -199,52 +163,6 @@ export class VideoDetector {
 			childList: true,
 			subtree: true,
 		});
-	}
-
-	private createProxyVideoElement(
-		iframe: HTMLIFrameElement,
-	): HTMLVideoElement | null {
-		const proxyVideo = document.createElement("video") as HTMLVideoElement;
-
-		Object.defineProperty(proxyVideo, "src", {
-			get: () => iframe.src,
-			configurable: true,
-		});
-
-		Object.defineProperty(proxyVideo, "currentSrc", {
-			get: () => iframe.src,
-			configurable: true,
-		});
-
-		Object.defineProperty(proxyVideo, "duration", {
-			get: () => 7200,
-			configurable: true,
-		});
-
-		Object.defineProperty(proxyVideo, "currentTime", {
-			get: () => 0,
-			configurable: true,
-		});
-
-		Object.defineProperty(proxyVideo, "paused", {
-			get: () => false,
-			configurable: true,
-		});
-
-		Object.defineProperty(proxyVideo, "ended", {
-			get: () => false,
-			configurable: true,
-		});
-
-		Object.defineProperty(proxyVideo, "readyState", {
-			get: () => 4,
-			configurable: true,
-		});
-
-		(proxyVideo as ExtendedHTMLVideoElement).__iframe = iframe;
-		(proxyVideo as ExtendedHTMLVideoElement).__isProxy = true;
-
-		return proxyVideo;
 	}
 
 	private setupPeriodicScan() {

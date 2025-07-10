@@ -1,4 +1,4 @@
-import type { ExtendedHTMLVideoElement, RawMediaData } from "../types/progress";
+import type { RawMediaData } from "../types/progress";
 import {
 	extractMetadata,
 	extractSiteSpecificMetadata,
@@ -25,15 +25,9 @@ export class ProgressTracker {
 		this.video = video;
 		this.isTracking = true;
 
-		const isProxy = !!(video as ExtendedHTMLVideoElement).__isProxy;
-
-		if (isProxy) {
-			this.setupProxyVideoTracking();
-		} else {
-			video.addEventListener("timeupdate", this.onVideoProgress);
-			video.addEventListener("play", this.onVideoProgress);
-			video.addEventListener("pause", this.onVideoProgress);
-		}
+		video.addEventListener("timeupdate", this.onVideoProgress);
+		video.addEventListener("play", this.onVideoProgress);
+		video.addEventListener("pause", this.onVideoProgress);
 
 		this.sendCurrentData();
 	}
@@ -98,17 +92,5 @@ export class ProgressTracker {
 		};
 
 		this.onDataSend(data);
-	}
-
-	private setupProxyVideoTracking() {
-		if (this.proxyTrackingInterval) {
-			clearInterval(this.proxyTrackingInterval);
-		}
-
-		this.proxyTrackingInterval = setInterval(() => {
-			if (this.isTracking && this.video) {
-				this.sendCurrentData();
-			}
-		}, 5000);
 	}
 }
