@@ -10,6 +10,7 @@ export default defineConfig({
 	}),
 	manifest: {
 		permissions: ["storage"],
+		name: "Ryot Browser Extension",
 		host_permissions: ["<all_urls>"],
 	},
 });
