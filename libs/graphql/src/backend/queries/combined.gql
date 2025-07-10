@@ -105,6 +105,7 @@ query UserIntegrations {
 			jellyfinPushPassword
 			youtubeMusicTimezone
 			youtubeMusicAuthCookie
+			ryotBrowserExtensionDisabledSites
 		}
 	}
 }
