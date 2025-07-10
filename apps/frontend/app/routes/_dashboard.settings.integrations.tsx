@@ -22,6 +22,7 @@ import {
 	type TableData,
 	Text,
 	TextInput,
+	Textarea,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -207,6 +208,7 @@ const createOrUpdateSchema = z.object({
 			jellyfinPushPassword: z.string().optional(),
 			youtubeMusicTimezone: z.string().optional(),
 			youtubeMusicAuthCookie: z.string().optional(),
+			ryotBrowserExtensionDisabledSites: z.string().optional(),
 		})
 		.optional(),
 });
@@ -725,6 +727,21 @@ const CreateOrUpdateModal = (props: {
 											?.sonarrSyncCollectionIds,
 								}}
 							/>
+						))
+						.with(IntegrationProvider.RyotBrowserExtension, () => (
+							<>
+								<Textarea
+									rows={4}
+									label="Disabled Sites"
+									name="providerSpecifics.ryotBrowserExtensionDisabledSites"
+									placeholder="instagram.com&#10;twitter.com&#10;leadsquared.com"
+									description="Extension is enabled on all sites by default. Enter one domain per line where extension should be disabled"
+									defaultValue={
+										props.integrationData?.providerSpecifics
+											?.ryotBrowserExtensionDisabledSites || undefined
+									}
+								/>
+							</>
 						))
 						.otherwise(() => undefined)}
 					{provider && (
