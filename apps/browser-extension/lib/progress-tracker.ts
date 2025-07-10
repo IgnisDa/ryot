@@ -1,24 +1,8 @@
+import type { RawMediaData } from "../types/progress";
 import {
 	extractMetadata,
 	extractSiteSpecificMetadata,
 } from "./title-extractor";
-
-export interface RawMediaData {
-	title: string;
-	year?: string;
-	runtime?: number;
-	domain: string;
-	url: string;
-	season?: number;
-	episode?: number;
-	episodeTitle?: string;
-	documentTitle: string;
-	h1Elements: string[];
-	dataAttributes: Record<string, string>;
-	currentTime?: number;
-	progress?: number;
-	timestamp: string;
-}
 
 export class ProgressTracker {
 	private video: HTMLVideoElement | null = null;

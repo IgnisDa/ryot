@@ -35,3 +35,8 @@ export interface FinalProgressData {
 	runtime?: number;
 	timestamp: string;
 }
+
+export interface FormState {
+	status: "idle" | "submitting" | "submitted";
+	error?: string;
+}

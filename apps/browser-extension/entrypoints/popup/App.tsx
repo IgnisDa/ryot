@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { storage } from "#imports";
+import type { FormState } from "../../types/progress";
 
 const STORAGE_KEY = "local:integration-url";
 
 const App = () => {
 	const [url, setUrl] = useState("");
-	const [formState, setFormState] = useState<{
-		status: "idle" | "submitting" | "submitted";
-		error?: string;
-	}>({ status: "idle" });
+	const [formState, setFormState] = useState<FormState>({ status: "idle" });
 
 	const validateUrl = (urlString: string) => {
 		if (!urlString.trim()) {

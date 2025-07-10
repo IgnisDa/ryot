@@ -1,4 +1,4 @@
-import type { RawMediaData } from "./progress-tracker";
+import type { RawMediaData } from "../types/progress";
 
 export class ApiClient {
 	async sendProgressData(data: RawMediaData): Promise<void> {

@@ -1,13 +1,4 @@
-export interface ExtractedMetadata {
-	title: string;
-	year?: string;
-	season?: number;
-	episode?: number;
-	episodeTitle?: string;
-	documentTitle: string;
-	h1Elements: string[];
-	dataAttributes: Record<string, string>;
-}
+import type { ExtractedMetadata } from "../types/progress";
 
 export function extractTitle(): string {
 	const title = document.title;
