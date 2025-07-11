@@ -1,4 +1,6 @@
+import { storage } from "#imports";
 import { ApiClient } from "../lib/api-client";
+import { STORAGE_KEYS } from "../lib/constants";
 import { ProgressTracker } from "../lib/progress-tracker";
 import { VideoDetector } from "../lib/video-detector";
 import type { RawMediaData } from "../types/progress";
@@ -41,7 +43,20 @@ export default defineContentScript({
 			videoDetector?.start();
 		}
 
-		function init() {
+		async function init() {
+			const integrationUrl = await storage.getItem<string>(
+				STORAGE_KEYS.INTEGRATION_URL,
+			);
+
+			if (!integrationUrl) {
+				console.log(
+					"[RYOT] Integration URL not set, video monitoring disabled",
+				);
+				return;
+			}
+
+			console.log("[RYOT] Integration URL found, starting video monitoring");
+
 			if (isIframe) {
 				initIframeMode();
 			} else {
@@ -102,10 +117,39 @@ export default defineContentScript({
 			}).observe(document, { subtree: true, childList: true });
 		}
 
+		let isInitialized = false;
+
+		async function initIfNeeded() {
+			if (isInitialized) return;
+
+			const integrationUrl = await storage.getItem<string>(
+				STORAGE_KEYS.INTEGRATION_URL,
+			);
+			if (integrationUrl) {
+				await init();
+				isInitialized = true;
+			}
+		}
+
+		storage.watch(STORAGE_KEYS.INTEGRATION_URL, async (newValue) => {
+			if (newValue && !isInitialized) {
+				console.log("[RYOT] Integration URL added, starting video monitoring");
+				await init();
+				isInitialized = true;
+			} else if (!newValue && isInitialized) {
+				console.log(
+					"[RYOT] Integration URL removed, stopping video monitoring",
+				);
+				videoDetector?.stop();
+				progressTracker?.stopTracking();
+				isInitialized = false;
+			}
+		});
+
 		if (document.readyState === "loading") {
-			document.addEventListener("DOMContentLoaded", init);
+			document.addEventListener("DOMContentLoaded", initIfNeeded);
 		} else {
-			init();
+			initIfNeeded();
 		}
 	},
 });

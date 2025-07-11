@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { storage } from "#imports";
+import { STORAGE_KEYS } from "../../lib/constants";
 import type { FormState } from "../../types/progress";
-
-const STORAGE_KEY = "local:integration-url";
 
 const App = () => {
 	const [url, setUrl] = useState("");
@@ -33,7 +32,9 @@ const App = () => {
 
 	useEffect(() => {
 		const loadSavedUrl = async () => {
-			const savedUrl = await storage.getItem<string>(STORAGE_KEY);
+			const savedUrl = await storage.getItem<string>(
+				STORAGE_KEYS.INTEGRATION_URL,
+			);
 			if (savedUrl) {
 				setUrl(savedUrl);
 				validateUrl(savedUrl);
@@ -50,12 +51,12 @@ const App = () => {
 		if (!validateUrl(url)) return;
 
 		setFormState({ status: "submitting" });
-		await storage.setItem(STORAGE_KEY, url);
+		await storage.setItem(STORAGE_KEYS.INTEGRATION_URL, url);
 		setFormState({ status: "submitted" });
 	};
 
 	const handleClear = async () => {
-		await storage.removeItem(STORAGE_KEY);
+		await storage.removeItem(STORAGE_KEYS.INTEGRATION_URL);
 		setUrl("");
 		setFormState({ status: "idle" });
 	};
