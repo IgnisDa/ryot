@@ -3,10 +3,8 @@ export interface ExtractedMetadata {
 	year?: string;
 	season?: number;
 	episode?: number;
-	h1Elements: string[];
 	episodeTitle?: string;
 	documentTitle: string;
-	dataAttributes: Record<string, string>;
 }
 
 export interface RawMediaData extends ExtractedMetadata {
