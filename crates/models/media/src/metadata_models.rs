@@ -158,17 +158,19 @@ pub struct MetadataGroupSearchItem {
 
 #[skip_serializing_none]
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    Clone,
-    FromJsonQueryResult,
     Eq,
-    PartialEq,
-    Default,
-    InputObject,
     Hash,
+    Clone,
+    Debug,
+    Default,
+    PartialEq,
+    Serialize,
+    InputObject,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
 )]
+#[graphql(input_name = "UniqueMediaIdentifierInput")]
 pub struct UniqueMediaIdentifier {
     pub lot: MediaLot,
     pub identifier: String,
@@ -212,6 +214,13 @@ pub struct CreateCustomMetadataInput {
 pub struct UpdateCustomMetadataInput {
     pub existing_metadata_id: String,
     pub update: CreateCustomMetadataInput,
+}
+
+#[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
+pub struct MetadataLookupInput {
+    pub title: String,
+    pub runtime: Option<Decimal>,
+    pub document_title: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone)]

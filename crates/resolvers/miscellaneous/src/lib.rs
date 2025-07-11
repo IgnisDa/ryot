@@ -16,8 +16,9 @@ use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataProgressUpdateInput, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataLookupInput, MetadataProgressUpdateInput,
+    UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -219,6 +220,16 @@ impl MiscellaneousQuery {
     ) -> Result<TrendingMetadataIdsResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.trending_metadata().await
+    }
+
+    /// Lookup metadata by title, document title, and runtime.
+    async fn metadata_lookup(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: MetadataLookupInput,
+    ) -> Result<UniqueMediaIdentifier> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_lookup(input).await
     }
 }
 
