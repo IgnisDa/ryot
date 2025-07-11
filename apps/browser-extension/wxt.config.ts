@@ -1,4 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
+import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "wxt";
 
 export default defineConfig({
@@ -6,7 +7,7 @@ export default defineConfig({
 	webExt: { disabled: true },
 	modules: ["@wxt-dev/module-react"],
 	vite: () => ({
-		plugins: [tailwindcss()],
+		plugins: [tailwindcss(), tsconfigPaths()],
 	}),
 	manifest: {
 		permissions: ["storage"],
