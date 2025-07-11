@@ -1,3 +1,4 @@
+import { MESSAGE_TYPES } from "../lib/constants";
 import type { RawMediaData } from "../types/progress";
 
 export default defineBackground(() => {
@@ -7,7 +8,7 @@ export default defineBackground(() => {
 		"https://typedwebhook.tools/webhook/f24477bc-3ad0-4075-a82a-5b068af2f2da";
 
 	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-		if (message.type === "SEND_PROGRESS_DATA") {
+		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
 			handleProgressData(message.data)
 				.then((result) => {
 					sendResponse({ success: true, result });

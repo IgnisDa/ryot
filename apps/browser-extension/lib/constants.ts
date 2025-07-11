@@ -1,0 +1,3 @@
+export const MESSAGE_TYPES = {
+	SEND_PROGRESS_DATA: "SEND_PROGRESS_DATA",
+} as const;
