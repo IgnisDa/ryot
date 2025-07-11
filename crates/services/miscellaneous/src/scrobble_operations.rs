@@ -3,8 +3,8 @@ use media_models::{MetadataLookupInput, UniqueMediaIdentifier};
 use supporting_service::SupportingService;
 
 pub async fn metadata_lookup(
-    _service: &SupportingService,
-    _input: MetadataLookupInput,
+    ss: &SupportingService,
+    input: MetadataLookupInput,
 ) -> Result<UniqueMediaIdentifier> {
     todo!()
 }
