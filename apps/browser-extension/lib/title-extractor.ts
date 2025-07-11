@@ -1,6 +1,6 @@
 import type { ExtractedMetadata } from "../types/progress";
 
-export function extractTitle(): string {
+function extractTitle(): string {
 	const title = document.title;
 	const h1Elements = Array.from(document.querySelectorAll("h1")).map(
 		(el) => el.textContent?.trim() || "",
@@ -13,7 +13,7 @@ export function extractTitle(): string {
 	return title || "Unknown";
 }
 
-export function extractDataAttributes(): Record<string, string> {
+function extractDataAttributes(): Record<string, string> {
 	const attributes: Record<string, string> = {};
 	const elementsWithData = document.querySelectorAll(
 		"[data-title], [data-video-title], [data-name]",
