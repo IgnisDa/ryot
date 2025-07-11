@@ -1,8 +1,5 @@
 import type { RawMediaData } from "../types/progress";
-import {
-	extractMetadata,
-	extractSiteSpecificMetadata,
-} from "./title-extractor";
+import { extractMetadata } from "./title-extractor";
 
 export class ProgressTracker {
 	private video: HTMLVideoElement | null = null;
@@ -70,11 +67,9 @@ export class ProgressTracker {
 		}
 
 		const metadata = extractMetadata();
-		const siteSpecific = extractSiteSpecificMetadata(window.location.hostname);
 
 		const data: RawMediaData = {
 			...metadata,
-			...siteSpecific,
 			domain: window.location.hostname,
 			url: window.location.href,
 			runtime: this.video.duration || undefined,
