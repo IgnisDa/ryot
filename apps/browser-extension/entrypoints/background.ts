@@ -17,20 +17,6 @@ function extractGraphQLEndpoint(integrationUrl: string): string {
 	}
 }
 
-function extractAccessToken(integrationUrl: string): string {
-	try {
-		const url = new URL(integrationUrl);
-		const pathParts = url.pathname.split("/");
-		const tokenPart = pathParts[pathParts.length - 1];
-		if (!tokenPart || !tokenPart.startsWith("int_")) {
-			throw new Error("Invalid integration URL format");
-		}
-		return tokenPart;
-	} catch (_error) {
-		throw new Error(`Cannot extract access token from URL: ${integrationUrl}`);
-	}
-}
-
 export default defineBackground(() => {
 	console.log("[RYOT] Background script initialized");
 
@@ -64,13 +50,7 @@ export default defineBackground(() => {
 			}
 
 			const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
-			const accessToken = extractAccessToken(integrationUrl);
-
-			const client = new GraphQLClient(graphqlEndpoint, {
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-				},
-			});
+			const client = new GraphQLClient(graphqlEndpoint);
 
 			const input: MetadataLookupInput = {
 				title: data.title,
