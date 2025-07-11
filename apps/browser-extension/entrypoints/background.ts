@@ -1,11 +1,38 @@
-import { MESSAGE_TYPES } from "../lib/constants";
+import {
+	MetadataLookupDocument,
+	type MetadataLookupInput,
+	type MetadataLookupQuery,
+} from "@ryot/generated/graphql/backend/graphql";
+import { GraphQLClient } from "graphql-request";
+import { storage } from "#imports";
+import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
 import type { RawMediaData } from "../types/progress";
+
+function extractGraphQLEndpoint(integrationUrl: string): string {
+	try {
+		const url = new URL(integrationUrl);
+		return `${url.origin}/backend/graphql`;
+	} catch (_error) {
+		throw new Error(`Invalid integration URL: ${integrationUrl}`);
+	}
+}
+
+function extractAccessToken(integrationUrl: string): string {
+	try {
+		const url = new URL(integrationUrl);
+		const pathParts = url.pathname.split("/");
+		const tokenPart = pathParts[pathParts.length - 1];
+		if (!tokenPart || !tokenPart.startsWith("int_")) {
+			throw new Error("Invalid integration URL format");
+		}
+		return tokenPart;
+	} catch (_error) {
+		throw new Error(`Cannot extract access token from URL: ${integrationUrl}`);
+	}
+}
 
 export default defineBackground(() => {
 	console.log("[RYOT] Background script initialized");
-
-	const WEBHOOK_URL =
-		"https://typedwebhook.tools/webhook/f24477bc-3ad0-4075-a82a-5b068af2f2da";
 
 	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
@@ -14,7 +41,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, result });
 				})
 				.catch((error) => {
-					console.error("[RYOT] Webhook request failed:", error);
+					console.error("[RYOT] GraphQL request failed:", error);
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -22,28 +49,52 @@ export default defineBackground(() => {
 		}
 	});
 
-	async function handleProgressData(
-		data: RawMediaData,
-	): Promise<{ status: number; statusText: string; ok: boolean }> {
+	async function handleProgressData(data: RawMediaData): Promise<{
+		success: boolean;
+		data?: MetadataLookupQuery["metadataLookup"];
+		error?: string;
+	}> {
 		try {
-			const response = await fetch(WEBHOOK_URL, {
-				method: "POST",
+			const integrationUrl = await storage.getItem<string>(
+				STORAGE_KEYS.INTEGRATION_URL,
+			);
+
+			if (!integrationUrl) {
+				throw new Error("Integration URL not found in storage");
+			}
+
+			const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
+			const accessToken = extractAccessToken(integrationUrl);
+
+			const client = new GraphQLClient(graphqlEndpoint, {
 				headers: {
-					"Content-Type": "application/json",
+					Authorization: `Bearer ${accessToken}`,
 				},
-				body: JSON.stringify(data),
 			});
 
-			const result = {
-				status: response.status,
-				statusText: response.statusText,
-				ok: response.ok,
+			const input: MetadataLookupInput = {
+				title: data.title,
+				documentTitle: data.documentTitle,
+				runtime: data.runtime?.toString(),
 			};
 
-			return result;
+			console.log("[RYOT] Making GraphQL request to:", graphqlEndpoint);
+			console.log("[RYOT] With input:", input);
+
+			const result = await client.request(MetadataLookupDocument, { input });
+
+			console.log("[RYOT] GraphQL response:", result);
+
+			return {
+				success: true,
+				data: result.metadataLookup,
+			};
 		} catch (error) {
-			console.error("[RYOT] Webhook request failed:", error);
-			throw error;
+			console.error("[RYOT] GraphQL request failed:", error);
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : "Unknown error",
+			};
 		}
 	}
 });
