@@ -1242,6 +1242,12 @@ export type MetadataGroupSourceLotMapping = {
   source: MediaSource;
 };
 
+export type MetadataLookupInput = {
+  documentTitle?: InputMaybe<Scalars['String']['input']>;
+  runtime?: InputMaybe<Scalars['Decimal']['input']>;
+  title: Scalars['String']['input'];
+};
+
 export type MetadataLotSourceMappings = {
   __typename?: 'MetadataLotSourceMappings';
   lot: MediaLot;
@@ -1916,6 +1922,8 @@ export type QueryRoot = {
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: IdResults;
+  /** Lookup metadata by title, document title, and runtime. */
+  metadataLookup: UniqueMediaIdentifier;
   /** Search for a list of media for a given type. */
   metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
@@ -2029,6 +2037,11 @@ export type QueryRootMetadataGroupDetailsArgs = {
 
 export type QueryRootMetadataGroupSearchArgs = {
   input: MetadataGroupSearchInput;
+};
+
+
+export type QueryRootMetadataLookupArgs = {
+  input: MetadataLookupInput;
 };
 
 
@@ -2340,6 +2353,13 @@ export type ShowSpecificsInput = {
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
+};
+
+export type UniqueMediaIdentifier = {
+  __typename?: 'UniqueMediaIdentifier';
+  identifier: Scalars['String']['output'];
+  lot: MediaLot;
+  source: MediaSource;
 };
 
 export type UpdateCustomExerciseInput = {

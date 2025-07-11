@@ -1211,6 +1211,12 @@ export type MetadataGroupSourceLotMapping = {
   source: MediaSource;
 };
 
+export type MetadataLookupInput = {
+  documentTitle?: InputMaybe<Scalars['String']['input']>;
+  runtime?: InputMaybe<Scalars['Decimal']['input']>;
+  title: Scalars['String']['input'];
+};
+
 export type MetadataLotSourceMappings = {
   lot: MediaLot;
   sources: Array<MediaSource>;
@@ -1868,6 +1874,8 @@ export type QueryRoot = {
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: IdResults;
+  /** Lookup metadata by title, document title, and runtime. */
+  metadataLookup: UniqueMediaIdentifier;
   /** Search for a list of media for a given type. */
   metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
@@ -1981,6 +1989,11 @@ export type QueryRootMetadataGroupDetailsArgs = {
 
 export type QueryRootMetadataGroupSearchArgs = {
   input: MetadataGroupSearchInput;
+};
+
+
+export type QueryRootMetadataLookupArgs = {
+  input: MetadataLookupInput;
 };
 
 
@@ -2277,6 +2290,12 @@ export type ShowSpecificsInput = {
 
 export type StringIdObject = {
   id: Scalars['String']['output'];
+};
+
+export type UniqueMediaIdentifier = {
+  identifier: Scalars['String']['output'];
+  lot: MediaLot;
+  source: MediaSource;
 };
 
 export type UpdateCustomExerciseInput = {
@@ -3685,6 +3704,13 @@ export type CollectionRecommendationsQueryVariables = Exact<{
 
 export type CollectionRecommendationsQuery = { collectionRecommendations: { items: Array<string>, details: { total: number, nextPage?: number | null } } };
 
+export type MetadataLookupQueryVariables = Exact<{
+  input: MetadataLookupInput;
+}>;
+
+
+export type MetadataLookupQuery = { metadataLookup: { lot: MediaLot, source: MediaSource, identifier: string } };
+
 export type SeenPodcastExtraInformationPartFragment = { episode: number };
 
 export type SeenShowExtraInformationPartFragment = { episode: number, season: number };
@@ -3829,3 +3855,4 @@ export const UserWorkoutTemplatesListDocument = {"kind":"Document","definitions"
 export const UserAnalyticsParametersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserAnalyticsParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userAnalyticsParameters"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}}]}}]}}]} as unknown as DocumentNode<UserAnalyticsParametersQuery, UserAnalyticsParametersQueryVariables>;
 export const TrendingMetadataDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"TrendingMetadata"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"trendingMetadata"}}]}}]} as unknown as DocumentNode<TrendingMetadataQuery, TrendingMetadataQueryVariables>;
 export const CollectionRecommendationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"CollectionRecommendations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CollectionRecommendationsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"collectionRecommendations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"}},{"kind":"Field","name":{"kind":"Name","value":"details"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"nextPage"}}]}}]}}]}}]} as unknown as DocumentNode<CollectionRecommendationsQuery, CollectionRecommendationsQueryVariables>;
+export const MetadataLookupDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MetadataLookup"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"MetadataLookupInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"metadataLookup"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"source"}},{"kind":"Field","name":{"kind":"Name","value":"identifier"}}]}}]}}]} as unknown as DocumentNode<MetadataLookupQuery, MetadataLookupQueryVariables>;
