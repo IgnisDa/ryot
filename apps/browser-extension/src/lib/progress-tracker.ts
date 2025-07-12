@@ -1,4 +1,5 @@
 import type { RawMediaData } from "./extension-types";
+import { logger } from "./logger";
 import type { MetadataCache } from "./metadata-cache";
 import { extractTitle } from "./title-extractor";
 
@@ -75,16 +76,14 @@ export class ProgressTracker {
 		const cachedLookup = await this.metadataCache.getMetadataForCurrentPage();
 
 		if (!cachedLookup) {
-			console.error(
-				"[RYOT] No cached metadata found, cannot send progress data",
-			);
+			logger.error("No cached metadata found, cannot send progress data");
 			return;
 		}
 
 		const title = extractTitle();
 
 		if (!title) {
-			console.log("[RYOT] No title available, skipping progress update");
+			logger.debug("No title available, skipping progress update");
 			return;
 		}
 

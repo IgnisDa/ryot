@@ -5,6 +5,7 @@ import type {
 	MetadataLookupData,
 	RawMediaData,
 } from "../lib/extension-types";
+import { logger } from "../lib/logger";
 import { MetadataCache } from "../lib/metadata-cache";
 import { extractTitle } from "../lib/title-extractor";
 
@@ -96,7 +97,7 @@ export default defineContentScript({
 					data: { rawData: progressData, metadata },
 				});
 			} catch (error) {
-				console.error("[RYOT] Failed to send progress update:", error);
+				logger.error("Failed to send progress update", { error });
 			}
 		}
 
@@ -112,17 +113,16 @@ export default defineContentScript({
 
 			while (isRunning && currentUrl === window.location.href) {
 				if (!document.contains(video) || video.ended) {
-					console.log("[RYOT] Video removed or ended, returning to main loop");
+					logger.debug("Video removed or ended, returning to main loop");
 					break;
 				}
 
 				const progressData = extractProgressData(video);
 				if (progressData) {
-					console.log(
-						"[RYOT] Sending progress:",
-						progressData.title,
-						`${Math.round(progressData.progress || 0)}%`,
-					);
+					logger.debug("Sending progress", {
+						title: progressData.title,
+						progress: `${Math.round(progressData.progress || 0)}%`,
+					});
 					await sendProgressUpdate(progressData, metadata);
 				}
 
@@ -132,7 +132,7 @@ export default defineContentScript({
 
 		async function startMainLoop() {
 			isRunning = true;
-			console.log("[RYOT] Starting main monitoring loop");
+			logger.debug("Starting main monitoring loop");
 
 			await updateExtensionStatus({
 				state: "idle",
@@ -159,7 +159,9 @@ export default defineContentScript({
 						continue;
 					}
 
-					console.log("[RYOT] Video detected:", video.src || video.currentSrc);
+					logger.debug("Video detected", {
+						src: video.src || video.currentSrc,
+					});
 					await updateExtensionStatus({
 						state: "video_detected",
 						message: "Video found, starting tracking...",
@@ -168,7 +170,7 @@ export default defineContentScript({
 
 					await startTrackingWithMetadataAndVideo(metadata, video);
 				} catch (error) {
-					console.error("[RYOT] Main loop error:", error);
+					logger.error("Main loop error", { error });
 					await sleep(5000);
 				}
 			}
@@ -176,11 +178,11 @@ export default defineContentScript({
 
 		function stopMainLoop() {
 			isRunning = false;
-			console.log("[RYOT] Stopping main monitoring loop");
+			logger.debug("Stopping main monitoring loop");
 		}
 
 		async function handleUrlChange() {
-			console.log("[RYOT] URL changed, restarting extension");
+			logger.debug("URL changed, restarting extension");
 			stopMainLoop();
 			currentUrl = window.location.href;
 
@@ -199,11 +201,11 @@ export default defineContentScript({
 			);
 
 			if (!integrationUrl) {
-				console.log("[RYOT] Integration URL not set, monitoring disabled");
+				logger.info("Integration URL not set, monitoring disabled");
 				return;
 			}
 
-			console.log("[RYOT] Integration URL found, initializing extension");
+			logger.info("Integration URL found, initializing extension");
 
 			metadataCache = new MetadataCache();
 
@@ -217,10 +219,10 @@ export default defineContentScript({
 
 			document.addEventListener("visibilitychange", () => {
 				if (document.hidden) {
-					console.log("[RYOT] Page hidden, stopping loop");
+					logger.debug("Page hidden, stopping loop");
 					stopMainLoop();
 				} else {
-					console.log("[RYOT] Page visible, restarting loop");
+					logger.debug("Page visible, restarting loop");
 					if (!isRunning) {
 						init();
 					}

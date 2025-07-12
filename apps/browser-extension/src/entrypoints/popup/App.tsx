@@ -11,6 +11,7 @@ const App = () => {
 	const [formState, setFormState] = useState<FormState>({ status: "idle" });
 	const [extensionStatus, setExtensionStatus] =
 		useState<ExtensionStatus | null>(null);
+	const [debugMode, setDebugMode] = useState(false);
 
 	const validateUrl = (urlString: string) => {
 		if (!urlString.trim()) {
@@ -56,12 +57,20 @@ const App = () => {
 					setExtensionStatus(response.data);
 				}
 			} catch (error) {
-				console.error("Failed to get extension status:", error);
+				console.error("[RYOT] [ERROR] Failed to get extension status:", error);
 			}
+		};
+
+		const loadDebugMode = async () => {
+			const savedDebugMode = await storage.getItem<boolean>(
+				STORAGE_KEYS.DEBUG_MODE,
+			);
+			setDebugMode(savedDebugMode || false);
 		};
 
 		loadSavedUrl();
 		loadExtensionStatus();
+		loadDebugMode();
 
 		const handleStorageChange = () => {
 			loadExtensionStatus();
@@ -85,7 +94,13 @@ const App = () => {
 		setUrl("");
 		setFormState({ status: "idle" });
 		setExtensionStatus(null);
+		setDebugMode(false);
 		setCurrentPage("main");
+	};
+
+	const handleDebugModeChange = async (enabled: boolean) => {
+		setDebugMode(enabled);
+		await storage.setItem(STORAGE_KEYS.DEBUG_MODE, enabled);
 	};
 
 	if (currentPage === "settings") {
@@ -103,6 +118,24 @@ const App = () => {
 					<div className="w-10" />
 				</div>
 				<div className="space-y-4">
+					<div className="p-4 bg-gray-50 rounded-md">
+						<h3 className="font-medium text-gray-800 mb-3">Debug Mode</h3>
+						<div className="flex items-center gap-3">
+							<input
+								type="checkbox"
+								id="debug-mode"
+								checked={debugMode}
+								onChange={(e) => handleDebugModeChange(e.target.checked)}
+								className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
+							/>
+							<label htmlFor="debug-mode" className="text-sm text-gray-700">
+								Enable debug logging
+							</label>
+						</div>
+						<p className="text-xs text-gray-500 mt-2">
+							Show detailed debug logs in browser console for troubleshooting.
+						</p>
+					</div>
 					<div className="p-4 bg-gray-50 rounded-md">
 						<h3 className="font-medium text-gray-800 mb-2">Reset Extension</h3>
 						<p className="text-sm text-gray-600 mb-3">

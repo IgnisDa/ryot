@@ -9,6 +9,7 @@ import type {
 	ExtensionStatus,
 	ProgressDataWithMetadata,
 } from "../lib/extension-types";
+import { logger } from "../lib/logger";
 
 function extractGraphQLEndpoint(integrationUrl: string) {
 	try {
@@ -20,7 +21,7 @@ function extractGraphQLEndpoint(integrationUrl: string) {
 }
 
 export default defineBackground(() => {
-	console.log("[RYOT] Background script initialized");
+	logger.info("Background script initialized");
 
 	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 		if (message.type === MESSAGE_TYPES.GET_STATUS) {
@@ -29,7 +30,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, data: status });
 				})
 				.catch((error) => {
-					console.error("[RYOT] Failed to get status:", error);
+					logger.error("Failed to get status", { error });
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -42,7 +43,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, result });
 				})
 				.catch((error) => {
-					console.error("[RYOT] Progress data request failed:", error);
+					logger.error("Progress data request failed", { error });
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -55,7 +56,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, data: result });
 				})
 				.catch((error) => {
-					console.error("[RYOT] Metadata lookup failed:", error);
+					logger.error("Metadata lookup failed", { error });
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -77,14 +78,16 @@ export default defineBackground(() => {
 		const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
 		const client = new GraphQLClient(graphqlEndpoint);
 
-		console.log("[RYOT] Making metadata lookup request to:", graphqlEndpoint);
-		console.log("[RYOT] With title:", data.title);
+		logger.debug("Making metadata lookup request", {
+			endpoint: graphqlEndpoint,
+			title: data.title,
+		});
 
 		const result = await client.request(MetadataLookupDocument, {
 			title: data.title,
 		});
 
-		console.log("[RYOT] Metadata lookup response:", result);
+		logger.debug("Metadata lookup response", { result });
 
 		return result.metadataLookup;
 	}
@@ -116,8 +119,10 @@ export default defineBackground(() => {
 				},
 			};
 
-			console.log("[RYOT] Sending integration data to:", integrationUrl);
-			console.log("[RYOT] Integration payload:", integrationPayload);
+			logger.debug("Sending integration data", {
+				url: integrationUrl,
+				payload: integrationPayload,
+			});
 
 			await fetch(integrationUrl, {
 				method: "POST",
@@ -125,11 +130,11 @@ export default defineBackground(() => {
 				headers: { "Content-Type": "application/json" },
 			});
 
-			console.log("[RYOT] Integration data sent successfully");
+			logger.info("Integration data sent successfully");
 
 			return { success: true };
 		} catch (error) {
-			console.error("[RYOT] Integration data request failed:", error);
+			logger.error("Integration data request failed", { error });
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : "Unknown error",

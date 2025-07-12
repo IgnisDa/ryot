@@ -6,6 +6,7 @@ export const MESSAGE_TYPES = {
 } as const;
 
 export const STORAGE_KEYS = {
+	DEBUG_MODE: "local:debug-mode",
 	INTEGRATION_URL: "local:integration-url",
 	EXTENSION_STATUS: "local:extension-status",
 } as const;

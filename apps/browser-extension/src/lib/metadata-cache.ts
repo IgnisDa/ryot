@@ -1,6 +1,7 @@
 import { storage } from "#imports";
 import { MESSAGE_TYPES } from "./constants";
 import type { MetadataLookupData } from "./extension-types";
+import { logger } from "./logger";
 import { extractTitle } from "./title-extractor";
 
 export class MetadataCache {
@@ -33,7 +34,7 @@ export class MetadataCache {
 		const currentUrl = window.location.href;
 
 		if (!title) {
-			console.log("[RYOT] No title available yet, skipping metadata lookup");
+			logger.debug("No title available yet, skipping metadata lookup");
 			return null;
 		}
 
@@ -46,16 +47,18 @@ export class MetadataCache {
 			if (response.success && response.data) {
 				const cacheKey = this.getCacheKey(currentUrl, title);
 				await storage.setItem(cacheKey, response.data);
-				console.log("[RYOT] Metadata lookup successful for:", title);
-				console.log("[RYOT] Response data:", response.data);
-				console.log("[RYOT] Cached at key:", cacheKey);
+				logger.debug("Metadata lookup successful", {
+					title,
+					responseData: response.data,
+					cacheKey,
+				});
 				return response.data as MetadataLookupData;
 			}
 
-			console.error("[RYOT] Metadata lookup failed:", response.error);
+			logger.error("Metadata lookup failed", { error: response.error });
 			return null;
 		} catch (error) {
-			console.error("[RYOT] Failed to lookup metadata:", error);
+			logger.error("Failed to lookup metadata", { error });
 			return null;
 		}
 	}
