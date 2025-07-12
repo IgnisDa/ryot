@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct IntegrationMediaSeen {
-    identifier: String,
     lot: MediaLot,
     progress: Decimal,
+    identifier: String,
     show_season_number: Option<i32>,
     show_episode_number: Option<i32>,
 }
