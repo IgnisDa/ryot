@@ -12,9 +12,9 @@ use crate::{SeenShowExtraInformation, UniqueMediaIdentifier};
 
 #[derive(Debug, Clone, SimpleObject)]
 pub struct TmdbMetadataLookupResult {
-    pub identifier: String,
     pub lot: MediaLot,
     pub title: String,
+    pub identifier: String,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
