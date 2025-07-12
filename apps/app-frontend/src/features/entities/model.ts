@@ -10,9 +10,13 @@ type ApiViewRuntimeEntity =
 	ApiPostResponseData<"/view-runtime/execute">["items"][number];
 type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
 
-const entityField = (schemaSlug: string, field: string) => {
-	return `entity.${schemaSlug}.${field}`;
-};
+const entityColumnExpression = (
+	schemaSlug: string,
+	column: string,
+): NonNullable<ViewRuntimeRequest["fields"]>[number]["expression"] => ({
+	type: "reference",
+	reference: { type: "entity-column", slug: schemaSlug, column },
+});
 
 export type AppEntityImage =
 	| null
@@ -32,13 +36,13 @@ export function createEntityRuntimeRequest(
 ): ViewRuntimeRequest {
 	return {
 		fields: [],
-		filters: [],
 		eventJoins: [],
+		computedFields: [],
 		pagination: { page: 1, limit: 1000 },
 		entitySchemaSlugs: [entitySchemaSlug],
 		sort: {
 			direction: "asc",
-			fields: [entityField(entitySchemaSlug, "@name")],
+			expression: entityColumnExpression(entitySchemaSlug, "name"),
 		},
 	};
 }
