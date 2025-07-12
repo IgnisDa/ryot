@@ -1,16 +1,7 @@
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, type ImageSchemaType } from "~/lib/db/schema";
-import {
-	ViewRuntimeNotFoundError,
-	ViewRuntimeValidationError,
-} from "~/lib/views/errors";
-import {
-	buildSchemaMap,
-	type ViewRuntimeSchemaLike,
-} from "~/lib/views/reference";
-import { validateViewRuntimeReferences } from "~/lib/views/validator";
-import type { EntitySchemaPropertiesShape } from "../entity-schemas/service";
+import type { ViewRuntimeSchemaLike } from "~/lib/views/reference";
 import {
 	buildResolvedPropertiesExpression,
 	buildTableCellsExpression,
@@ -27,7 +18,7 @@ import type {
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 
-type ViewRuntimeSchemaRow = ViewRuntimeSchemaLike & {
+export type ViewRuntimeSchemaRow = ViewRuntimeSchemaLike & {
 	id: string;
 };
 
@@ -56,10 +47,6 @@ type PaginationResult = PaginationInput & {
 	totalPages: number;
 	hasNextPage: boolean;
 	hasPreviousPage: boolean;
-};
-
-const entitySchemaVisibleToUserClause = (userId: string) => {
-	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
 };
 
 const buildFilteredEntitiesCte = (input: {
@@ -94,52 +81,6 @@ const buildFilteredEntitiesCte = (input: {
 				${filterClause}
 		)
 	`;
-};
-
-const fetchRuntimeSchemas = async (input: {
-	userId: string;
-	entitySchemaSlugs: string[];
-}) => {
-	const uniqueSlugs = [...new Set(input.entitySchemaSlugs)];
-	const rows = await db
-		.select({
-			id: entitySchema.id,
-			slug: entitySchema.slug,
-			propertiesSchema: entitySchema.propertiesSchema,
-		})
-		.from(entitySchema)
-		.where(
-			and(
-				inArray(entitySchema.slug, uniqueSlugs),
-				entitySchemaVisibleToUserClause(input.userId),
-			),
-		);
-
-	const schemas = rows.map((row) => ({
-		...row,
-		propertiesSchema: row.propertiesSchema as EntitySchemaPropertiesShape,
-	}));
-	const schemasBySlug = new Map<string, ViewRuntimeSchemaRow[]>();
-	for (const schema of schemas) {
-		const existingSchemas = schemasBySlug.get(schema.slug) ?? [];
-		existingSchemas.push(schema);
-		schemasBySlug.set(schema.slug, existingSchemas);
-	}
-
-	const foundSchemaSlugs = new Set(schemasBySlug.keys());
-	for (const slug of uniqueSlugs) {
-		if (!foundSchemaSlugs.has(slug)) {
-			throw new ViewRuntimeNotFoundError(`Schema '${slug}' not found`);
-		}
-
-		if ((schemasBySlug.get(slug)?.length ?? 0) > 1) {
-			throw new ViewRuntimeValidationError(
-				`Schema '${slug}' resolves to multiple visible schemas`,
-			);
-		}
-	}
-
-	return schemas;
 };
 
 export const calculatePagination = (
@@ -211,51 +152,48 @@ export const mapQueryRowToItem = (
 	} satisfies ViewRuntimeSemanticItem;
 };
 
-export const executeViewRuntimeQuery = async (
-	request: ViewRuntimeRequest,
-	userId: string,
-): Promise<ViewRuntimeResponse> => {
-	const runtimeSchemas = await fetchRuntimeSchemas({
-		userId,
-		entitySchemaSlugs: request.entitySchemaSlugs,
-	});
-	const schemaMap = buildSchemaMap(runtimeSchemas);
-	validateViewRuntimeReferences(request, schemaMap);
+export const executePreparedViewQuery = async (input: {
+	userId: string;
+	request: ViewRuntimeRequest;
+	runtimeSchemas: ViewRuntimeSchemaRow[];
+	schemaMap: Map<string, ViewRuntimeSchemaRow>;
+}): Promise<ViewRuntimeResponse> => {
 	const filterWhereClause = buildFilterWhereClause({
-		schemaMap,
 		alias: "entity",
-		filters: request.filters,
-		entitySchemaSlugs: request.entitySchemaSlugs,
+		schemaMap: input.schemaMap,
+		filters: input.request.filters,
 		schemaSlugExpression: sql`${entitySchema.slug}`,
+		entitySchemaSlugs: input.request.entitySchemaSlugs,
 	});
 	const filteredEntitiesCte = buildFilteredEntitiesCte({
-		userId,
+		userId: input.userId,
 		filterWhereClause,
-		entitySchemaIds: runtimeSchemas.map((schema) => schema.id),
+		entitySchemaIds: input.runtimeSchemas.map((schema) => schema.id),
 	});
 	const sortExpression = buildSortExpression({
-		schemaMap,
-		field: request.sort.fields,
 		alias: "filtered_entities",
+		schemaMap: input.schemaMap,
+		field: input.request.sort.fields,
 	});
-	const offset = (request.pagination.page - 1) * request.pagination.limit;
+	const offset =
+		(input.request.pagination.page - 1) * input.request.pagination.limit;
 	const resolvedProperties =
-		request.layout === "table"
+		input.request.layout === "table"
 			? sql`null::jsonb`
 			: buildResolvedPropertiesExpression({
-					request,
-					schemaMap,
+					request: input.request,
+					schemaMap: input.schemaMap,
 					alias: "paginated_entities",
 				});
 	const cells =
-		request.layout === "table"
+		input.request.layout === "table"
 			? buildTableCellsExpression({
-					request,
-					schemaMap,
+					request: input.request,
+					schemaMap: input.schemaMap,
 					alias: "paginated_entities",
 				})
 			: sql`null::jsonb`;
-	const direction = sql.raw(request.sort.direction.toUpperCase());
+	const direction = sql.raw(input.request.sort.direction.toUpperCase());
 
 	const dataResult = await db.execute<QueryRow>(sql`
 		with
@@ -278,7 +216,7 @@ export const executeViewRuntimeQuery = async (
 				from sorted_entities
 				order by sort_index
 				offset ${offset}
-				limit ${request.pagination.limit}
+				limit ${input.request.pagination.limit}
 			)
 		select
 			id,
@@ -299,15 +237,15 @@ export const executeViewRuntimeQuery = async (
 	const total = dataResult.rows[0]?.total ?? 0;
 	const pagination = calculatePagination({
 		total,
-		page: request.pagination.page,
-		limit: request.pagination.limit,
+		page: input.request.pagination.page,
+		limit: input.request.pagination.limit,
 	});
 
-	if (request.layout === "table") {
+	if (input.request.layout === "table") {
 		return {
-			meta: { pagination, table: buildTableMeta(request) },
+			meta: { pagination, table: buildTableMeta(input.request) },
 			items: dataResult.rows.flatMap((row) => {
-				const item = mapQueryRowToItem(row, request.layout);
+				const item = mapQueryRowToItem(row, input.request.layout);
 				return item && "cells" in item ? [item] : [];
 			}),
 		} satisfies ViewRuntimeTableResponse;
@@ -316,7 +254,7 @@ export const executeViewRuntimeQuery = async (
 	return {
 		meta: { pagination },
 		items: dataResult.rows.flatMap((row) => {
-			const item = mapQueryRowToItem(row, request.layout);
+			const item = mapQueryRowToItem(row, input.request.layout);
 			return item && "resolvedProperties" in item ? [item] : [];
 		}),
 	} satisfies ViewRuntimeSemanticResponse;
