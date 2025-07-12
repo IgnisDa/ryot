@@ -56,7 +56,11 @@ pub async fn update_all_monitored_metadata_and_notify_users(
         let promises = chunk
             .into_iter()
             .map(|m| update_metadata_and_notify_users(m, ss));
-        join_all(promises).await;
+        for result in join_all(promises).await {
+            if let Err(e) = result {
+                ryot_log!(warn, "Monitored metadata update failed: {:?}", e);
+            }
+        }
     }
     Ok(())
 }
@@ -79,7 +83,11 @@ pub async fn update_all_monitored_people_and_notify_users(
         let promises = chunk
             .into_iter()
             .map(|p| update_person_and_notify_users(p, ss));
-        join_all(promises).await;
+        for result in join_all(promises).await {
+            if let Err(e) = result {
+                ryot_log!(warn, "Monitored person update failed: {:?}", e);
+            }
+        }
     }
     Ok(())
 }
