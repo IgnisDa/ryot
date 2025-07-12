@@ -1,7 +1,15 @@
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
+import {
+	buildComputedFieldMap,
+	orderComputedFields,
+} from "~/lib/views/computed-fields";
 import { ViewRuntimeValidationError } from "~/lib/views/errors";
-import type { RuntimeRef, ViewExpression } from "~/lib/views/expression";
+import type {
+	RuntimeRef,
+	ViewComputedField,
+	ViewExpression,
+} from "~/lib/views/expression";
 import { getPropertyDisplayKind } from "~/lib/views/policy";
 import {
 	getEventJoinColumnPropertyType,
@@ -20,6 +28,15 @@ type SqlExpression = ReturnType<typeof sql>;
 type DisplayValueCandidate = {
 	value: SqlExpression;
 	kind: ResolvedDisplayValue["kind"];
+};
+
+type DisplayExpressionResolverInput<
+	TSchema extends ViewRuntimeSchemaLike,
+	TJoin extends ViewRuntimeEventJoinLike,
+> = {
+	alias: string;
+	computedFields?: ViewComputedField[];
+	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 };
 
 const getEventJoinColumnName = (joinKey: string) => `event_join_${joinKey}`;
@@ -118,8 +135,8 @@ const buildDisplayValueCandidate = <
 	TJoin extends ViewRuntimeEventJoinLike,
 >(input: {
 	alias: string;
-	reference: RuntimeRef;
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
+	reference: Exclude<RuntimeRef, { type: "computed-field" }>;
 }): DisplayValueCandidate => {
 	const parsedReference = input.reference;
 
@@ -219,43 +236,76 @@ const buildDisplayValueCandidate = <
 	};
 };
 
-const buildResolvedDisplayValueExpression = <
+const createDisplayExpressionResolver = <
 	TSchema extends ViewRuntimeSchemaLike,
 	TJoin extends ViewRuntimeEventJoinLike,
->(input: {
-	alias: string;
-	expression: ViewExpression;
-	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
-}): SqlExpression => {
-	if (input.expression.type === "literal") {
-		return buildResolvedDisplayValueObject({
-			kind: getLiteralDisplayKind(input.expression.value),
-			value: buildLiteralValueExpression(input.expression.value),
+>(
+	input: DisplayExpressionResolverInput<TSchema, TJoin>,
+) => {
+	const computedFieldCache = new Map<string, SqlExpression>();
+	const computedFieldMap = buildComputedFieldMap(input.computedFields);
+	const orderedComputedFields = orderComputedFields(input.computedFields);
+
+	const buildResolvedDisplayValueExpression = (
+		expression: ViewExpression,
+	): SqlExpression => {
+		if (expression.type === "literal") {
+			return buildResolvedDisplayValueObject({
+				kind: getLiteralDisplayKind(expression.value),
+				value: buildLiteralValueExpression(expression.value),
+			});
+		}
+
+		if (expression.type === "reference") {
+			if (expression.reference.type === "computed-field") {
+				const computedField = computedFieldMap.get(expression.reference.key);
+				if (!computedField) {
+					throw new ViewRuntimeValidationError(
+						`Computed field '${expression.reference.key}' is not part of this runtime request`,
+					);
+				}
+
+				const cached = computedFieldCache.get(expression.reference.key);
+				if (cached) {
+					return cached;
+				}
+
+				const resolved = buildResolvedDisplayValueExpression(
+					computedField.expression,
+				);
+				computedFieldCache.set(expression.reference.key, resolved);
+				return resolved;
+			}
+
+			const candidate = buildDisplayValueCandidate({
+				alias: input.alias,
+				context: input.context,
+				reference: expression.reference,
+			});
+
+			return sql`case when ${candidate.value} is not null then ${buildResolvedDisplayValueObject(candidate)} else ${buildNullResolvedDisplayValueObject()} end`;
+		}
+
+		const values: SqlExpression[] = expression.values.map((value) => {
+			return buildResolvedDisplayValueExpression(value);
 		});
+		const whenClauses: SqlExpression[] = values.map((value) => {
+			return sql`when ${buildResolvedValuePresenceExpression(value)} is not null then ${value}`;
+		});
+
+		return sql`case ${sql.join(whenClauses, sql` `)} else ${buildNullResolvedDisplayValueObject()} end`;
+	};
+
+	for (const computedField of orderedComputedFields) {
+		if (!computedFieldCache.has(computedField.key)) {
+			computedFieldCache.set(
+				computedField.key,
+				buildResolvedDisplayValueExpression(computedField.expression),
+			);
+		}
 	}
 
-	if (input.expression.type === "reference") {
-		const candidate = buildDisplayValueCandidate({
-			alias: input.alias,
-			context: input.context,
-			reference: input.expression.reference,
-		});
-
-		return sql`case when ${candidate.value} is not null then ${buildResolvedDisplayValueObject(candidate)} else ${buildNullResolvedDisplayValueObject()} end`;
-	}
-
-	const values: SqlExpression[] = input.expression.values.map((expression) => {
-		return buildResolvedDisplayValueExpression({
-			expression,
-			alias: input.alias,
-			context: input.context,
-		});
-	});
-	const whenClauses: SqlExpression[] = values.map((value: SqlExpression) => {
-		return sql`when ${buildResolvedValuePresenceExpression(value)} is not null then ${value}`;
-	});
-
-	return sql`case ${sql.join(whenClauses, sql` `)} else ${buildNullResolvedDisplayValueObject()} end`;
+	return buildResolvedDisplayValueExpression;
 };
 
 export const buildResolvedFieldsExpression = <
@@ -264,14 +314,17 @@ export const buildResolvedFieldsExpression = <
 >(input: {
 	alias: string;
 	fields: ViewRuntimeField[];
+	computedFields?: ViewComputedField[];
 	context: ViewRuntimeReferenceContext<TSchema, TJoin>;
 }) => {
+	const resolveExpression = createDisplayExpressionResolver({
+		alias: input.alias,
+		context: input.context,
+		computedFields: input.computedFields,
+	});
+
 	const fieldExpressions = input.fields.map((field) => {
-		const resolvedValue = buildResolvedDisplayValueExpression({
-			alias: input.alias,
-			context: input.context,
-			expression: field.expression,
-		});
+		const resolvedValue = resolveExpression(field.expression);
 
 		return sql`jsonb_build_object(
 			'key', cast(${field.key} as text),
