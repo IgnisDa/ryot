@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { router } from "expo-router";
-import { ChevronDown, ChevronRight } from "lucide-react-native";
+import { ChevronDown, ChevronRight, LogOut } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
@@ -9,13 +9,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useUser } from "@/lib/atoms";
+import { useAuthClient, useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem, NavigationSubItem } from "@/lib/navigation";
 import { navHref, useActiveNav, useNavigationData, useSetNavSheetOpen } from "@/lib/navigation";
 
 export function TrackerSheet() {
 	const user = useUser();
+	const authClient = useAuthClient();
 	const setOpen = useSetNavSheetOpen();
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
@@ -43,6 +44,12 @@ export function TrackerSheet() {
 	function handleSubItemPress(subItem: NavigationSubItem) {
 		router.push(`/views/${subItem.slug}`);
 		close();
+	}
+
+	async function handleLogout() {
+		await authClient.signOut().catch(() => {});
+		close();
+		router.replace("/auth");
 	}
 
 	return (
@@ -233,6 +240,17 @@ export function TrackerSheet() {
 								{userItem.name}
 							</Text>
 						</Box>
+						<Pressable
+							onPress={handleLogout}
+							accessibilityRole="button"
+							accessibilityLabel="Log Out"
+							className="flex-row items-center gap-2 min-h-11"
+						>
+							<Box className="opacity-40">
+								<LogOut size={16} strokeWidth={1.5} color="#78716c" />
+							</Box>
+							<Text className="text-[14px] text-muted-foreground font-heading">Log Out</Text>
+						</Pressable>
 					</Box>
 				</ScrollView>
 			</Animated.View>
