@@ -3639,6 +3639,7 @@ dependencies = [
 name = "miscellaneous-service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "application-utils",
  "async-graphql",
  "background-models",
@@ -3657,6 +3658,7 @@ dependencies = [
  "media-models",
  "migrations",
  "nanoid",
+ "providers",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
