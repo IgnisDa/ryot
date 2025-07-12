@@ -16,8 +16,5 @@ function extractTitle() {
 export function extractMetadata(): ExtractedMetadata {
 	const title = extractTitle();
 
-	return {
-		title,
-		documentTitle: document.title,
-	};
+	return { title, documentTitle: document.title };
 }
