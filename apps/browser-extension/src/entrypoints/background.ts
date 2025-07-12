@@ -1,4 +1,7 @@
-import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	MediaLot,
+	MetadataLookupDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
@@ -105,11 +108,11 @@ export default defineBackground(() => {
 			const integrationPayload = {
 				url: rawData.url,
 				data: {
-					lot: metadata.data.lot,
 					progress: rawData.progress,
 					identifier: metadata.data.identifier,
 					show_season_number: metadata.showInformation?.season,
 					show_episode_number: metadata.showInformation?.episode,
+					lot: metadata.data.lot === MediaLot.Movie ? "movie" : "show",
 				},
 			};
 
