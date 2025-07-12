@@ -1,6 +1,6 @@
 import type { RawMediaData } from "./extension-types";
 import type { MetadataCache } from "./metadata-cache";
-import { extractMetadata } from "./title-extractor";
+import { extractTitle } from "./title-extractor";
 
 export class ProgressTracker {
 	private video: HTMLVideoElement | null = null;
@@ -81,12 +81,11 @@ export class ProgressTracker {
 			return;
 		}
 
-		const metadata = extractMetadata();
+		const title = extractTitle();
 
 		const data: RawMediaData = {
-			title: metadata.title,
+			title,
 			url: window.location.href,
-			documentTitle: document.title,
 			domain: window.location.hostname,
 			timestamp: new Date().toISOString(),
 			runtime: this.video.duration || undefined,

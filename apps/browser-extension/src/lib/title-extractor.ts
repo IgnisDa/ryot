@@ -1,6 +1,4 @@
-import type { ExtractedMetadata } from "./extension-types";
-
-function extractTitle() {
+export function extractTitle() {
 	const title = document.title;
 	const h1Elements = Array.from(document.querySelectorAll("h1")).map(
 		(el) => el.textContent?.trim() || "",
@@ -11,10 +9,4 @@ function extractTitle() {
 	}
 
 	return title || "Unknown";
-}
-
-export function extractMetadata(): ExtractedMetadata {
-	const title = extractTitle();
-
-	return { title, documentTitle: document.title };
 }

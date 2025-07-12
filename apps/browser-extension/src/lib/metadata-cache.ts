@@ -1,7 +1,7 @@
 import { storage } from "#imports";
 import { MESSAGE_TYPES } from "./constants";
 import type { MetadataLookupData } from "./extension-types";
-import { extractMetadata } from "./title-extractor";
+import { extractTitle } from "./title-extractor";
 
 export class MetadataCache {
 	private getCacheKey(url: string): `local:${string}` {
@@ -17,19 +17,19 @@ export class MetadataCache {
 	}
 
 	async lookupAndCacheMetadata() {
-		const metadata = extractMetadata();
+		const title = extractTitle();
 		const currentUrl = window.location.href;
 
 		try {
 			const response = await browser.runtime.sendMessage({
+				data: { title },
 				type: MESSAGE_TYPES.METADATA_LOOKUP,
-				data: { title: metadata.title },
 			});
 
 			if (response.success && response.data) {
 				const cacheKey = this.getCacheKey(currentUrl);
 				await storage.setItem(cacheKey, response.data);
-				console.log("[RYOT] Metadata cached for:", metadata.title);
+				console.log("[RYOT] Metadata cached for:", title);
 				return response.data;
 			}
 
