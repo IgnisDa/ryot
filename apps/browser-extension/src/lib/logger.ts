@@ -6,6 +6,16 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 class Logger {
 	private debugMode: boolean | null = null;
 
+	constructor() {
+		this.setupStorageListener();
+	}
+
+	private setupStorageListener() {
+		storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
+			this.debugMode = null;
+		});
+	}
+
 	private async getDebugMode(): Promise<boolean> {
 		if (this.debugMode === null) {
 			this.debugMode =
@@ -78,7 +88,7 @@ class Logger {
 		await this.log("error", message, data);
 	}
 
-	async updateDebugMode(): Promise<void> {
+	invalidateCache(): void {
 		this.debugMode = null;
 	}
 }
