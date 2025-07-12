@@ -1,3 +1,4 @@
+import type { ViewExpression } from "~/lib/views/expression";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "./schemas";
 
 export const buildEntityFieldReference = (
@@ -5,6 +6,18 @@ export const buildEntityFieldReference = (
 	field: string,
 ) => {
 	return `entity.${schemaSlug}.${field}`;
+};
+
+export const buildEntityReferenceExpression = (
+	schemaSlug: string,
+	field: string,
+): ViewExpression => {
+	return {
+		type: "reference",
+		reference: field.startsWith("@")
+			? { type: "entity-column", slug: schemaSlug, column: field.slice(1) }
+			: { type: "schema-property", slug: schemaSlug, property: field },
+	};
 };
 
 export const createDefaultDisplayConfiguration = (
@@ -15,7 +28,10 @@ export const createDefaultDisplayConfiguration = (
 			? [
 					{
 						label: "Name",
-						property: [buildEntityFieldReference(entitySchemaSlug, "@name")],
+						expression: buildEntityReferenceExpression(
+							entitySchemaSlug,
+							"@name",
+						),
 					},
 				]
 			: [],
@@ -24,20 +40,20 @@ export const createDefaultDisplayConfiguration = (
 		badgeProperty: null,
 		subtitleProperty: null,
 		titleProperty: entitySchemaSlug
-			? [buildEntityFieldReference(entitySchemaSlug, "@name")]
+			? buildEntityReferenceExpression(entitySchemaSlug, "@name")
 			: null,
 		imageProperty: entitySchemaSlug
-			? [buildEntityFieldReference(entitySchemaSlug, "@image")]
+			? buildEntityReferenceExpression(entitySchemaSlug, "@image")
 			: null,
 	},
 	list: {
 		badgeProperty: null,
 		subtitleProperty: null,
 		titleProperty: entitySchemaSlug
-			? [buildEntityFieldReference(entitySchemaSlug, "@name")]
+			? buildEntityReferenceExpression(entitySchemaSlug, "@name")
 			: null,
 		imageProperty: entitySchemaSlug
-			? [buildEntityFieldReference(entitySchemaSlug, "@image")]
+			? buildEntityReferenceExpression(entitySchemaSlug, "@image")
 			: null,
 	},
 });
