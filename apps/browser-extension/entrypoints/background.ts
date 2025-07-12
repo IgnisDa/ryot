@@ -23,7 +23,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, result });
 				})
 				.catch((error) => {
-					console.error("[RYOT] GraphQL request failed:", error);
+					console.error("[RYOT] Progress data request failed:", error);
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -72,7 +72,6 @@ export default defineBackground(() => {
 
 	async function handleProgressData(data: RawMediaData): Promise<{
 		success: boolean;
-		data?: MetadataLookupData;
 		error?: string;
 	}> {
 		try {
@@ -84,24 +83,26 @@ export default defineBackground(() => {
 				throw new Error("Integration URL not found in storage");
 			}
 
-			const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
-			const client = new GraphQLClient(graphqlEndpoint);
+			console.log("[RYOT] Sending progress data to:", integrationUrl);
+			console.log("[RYOT] Progress data:", data);
 
-			console.log("[RYOT] Making GraphQL request to:", graphqlEndpoint);
-			console.log("[RYOT] With title:", data.title);
-
-			const result = await client.request(MetadataLookupDocument, {
-				title: data.title,
+			const response = await fetch(integrationUrl, {
+				method: "POST",
+				body: JSON.stringify(data),
+				headers: { "Content-Type": "application/json" },
 			});
 
-			console.log("[RYOT] GraphQL response:", result);
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			console.log("[RYOT] Progress data sent successfully");
 
 			return {
 				success: true,
-				data: result.metadataLookup,
 			};
 		} catch (error) {
-			console.error("[RYOT] GraphQL request failed:", error);
+			console.error("[RYOT] Progress data request failed:", error);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : "Unknown error",
