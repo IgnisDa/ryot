@@ -9,6 +9,7 @@
 
   ```bash
   moon run frontend:typecheck # for frontend changes
+  moon run browser-extension:typecheck # for browser extension changes
   moon run docs:build # for docs changes
   moon run website:typecheck # for website changes
   cargo check --workspace # for backend changes

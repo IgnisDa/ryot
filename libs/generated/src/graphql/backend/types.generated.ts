@@ -1011,6 +1011,7 @@ export enum IntegrationProvider {
   PlexSink = 'PLEX_SINK',
   PlexYank = 'PLEX_YANK',
   Radarr = 'RADARR',
+  RyotBrowserExtension = 'RYOT_BROWSER_EXTENSION',
   Sonarr = 'SONARR',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
@@ -1034,6 +1035,7 @@ export type IntegrationProviderSpecifics = {
   radarrProfileId?: Maybe<Scalars['Int']['output']>;
   radarrRootFolderPath?: Maybe<Scalars['String']['output']>;
   radarrSyncCollectionIds?: Maybe<Array<Scalars['String']['output']>>;
+  ryotBrowserExtensionDisabledSites?: Maybe<Array<Scalars['String']['output']>>;
   sonarrApiKey?: Maybe<Scalars['String']['output']>;
   sonarrBaseUrl?: Maybe<Scalars['String']['output']>;
   sonarrProfileId?: Maybe<Scalars['Int']['output']>;
@@ -1061,6 +1063,7 @@ export type IntegrationSourceSpecificsInput = {
   radarrProfileId?: InputMaybe<Scalars['Int']['input']>;
   radarrRootFolderPath?: InputMaybe<Scalars['String']['input']>;
   radarrSyncCollectionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  ryotBrowserExtensionDisabledSites?: InputMaybe<Array<Scalars['String']['input']>>;
   sonarrApiKey?: InputMaybe<Scalars['String']['input']>;
   sonarrBaseUrl?: InputMaybe<Scalars['String']['input']>;
   sonarrProfileId?: InputMaybe<Scalars['Int']['input']>;
@@ -1237,6 +1240,12 @@ export type MetadataGroupSourceLotMapping = {
   __typename?: 'MetadataGroupSourceLotMapping';
   lot: MediaLot;
   source: MediaSource;
+};
+
+export type MetadataLookupResponse = {
+  __typename?: 'MetadataLookupResponse';
+  data: UniqueMediaIdentifier;
+  showInformation?: Maybe<SeenShowExtraInformation>;
 };
 
 export type MetadataLotSourceMappings = {
@@ -1913,6 +1922,8 @@ export type QueryRoot = {
   metadataGroupDetails: MetadataGroupDetails;
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: IdResults;
+  /** Lookup metadata by title. */
+  metadataLookup: MetadataLookupResponse;
   /** Search for a list of media for a given type. */
   metadataSearch: IdResults;
   /** Search for a list of people from a given source. */
@@ -2026,6 +2037,11 @@ export type QueryRootMetadataGroupDetailsArgs = {
 
 export type QueryRootMetadataGroupSearchArgs = {
   input: MetadataGroupSearchInput;
+};
+
+
+export type QueryRootMetadataLookupArgs = {
+  title: Scalars['String']['input'];
 };
 
 
@@ -2337,6 +2353,13 @@ export type ShowSpecificsInput = {
 export type StringIdObject = {
   __typename?: 'StringIdObject';
   id: Scalars['String']['output'];
+};
+
+export type UniqueMediaIdentifier = {
+  __typename?: 'UniqueMediaIdentifier';
+  identifier: Scalars['String']['output'];
+  lot: MediaLot;
+  source: MediaSource;
 };
 
 export type UpdateCustomExerciseInput = {

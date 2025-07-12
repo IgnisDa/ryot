@@ -63,4 +63,5 @@ pub enum IntegrationProvider {
     JellyfinPush,
     JellyfinSink,
     Audiobookshelf,
+    RyotBrowserExtension,
 }

@@ -1,22 +1,17 @@
 use std::sync::Arc;
 
 use async_graphql::Result;
-
 use common_models::StringIdObject;
-
 use database_models::{access_link, integration, notification_platform, user};
 use database_utils::server_key_validation_guard;
 use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
-
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     UpdateUserNotificationPlatformInput, UserResetResult,
 };
-
 use openidconnect::Nonce;
-
 use supporting_service::SupportingService;
 use user_models::{UpdateUserInput, UserPreferences};
 

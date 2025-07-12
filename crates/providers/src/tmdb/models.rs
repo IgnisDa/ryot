@@ -47,6 +47,7 @@ pub struct TmdbEntry {
     pub poster_path: Option<String>,
     pub release_date: Option<String>,
     pub first_air_date: Option<String>,
+    pub media_type: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

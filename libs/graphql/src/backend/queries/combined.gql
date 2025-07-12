@@ -105,6 +105,7 @@ query UserIntegrations {
 			jellyfinPushPassword
 			youtubeMusicTimezone
 			youtubeMusicAuthCookie
+			ryotBrowserExtensionDisabledSites
 		}
 	}
 }
@@ -542,6 +543,20 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 		details {
 			total
 			nextPage
+		}
+	}
+}
+
+query MetadataLookup($title: String!) {
+	metadataLookup(title: $title) {
+		data {
+			lot
+			source
+			identifier
+		}
+		showInformation {
+			season
+			episode
 		}
 	}
 }

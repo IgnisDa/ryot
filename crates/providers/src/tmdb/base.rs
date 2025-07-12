@@ -6,7 +6,9 @@ use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage,
 use enum_models::MediaLot;
 use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
-use media_models::{MetadataExternalIdentifiers, PartialMetadataWithoutId, WatchProvider};
+use media_models::{
+    MetadataExternalIdentifiers, PartialMetadataWithoutId, TmdbMetadataLookupResult, WatchProvider,
+};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -301,6 +303,43 @@ impl TmdbService {
             },
         )
         .await
+    }
+
+    pub async fn multi_search(&self, query: &str) -> Result<Vec<TmdbMetadataLookupResult>> {
+        let response: TmdbListResponse = self
+            .client
+            .get(format!("{}/search/multi", URL))
+            .query(&json!({
+                "page": 1,
+                "query": query,
+                "language": self.language,
+            }))
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+
+        let results = response
+            .results
+            .into_iter()
+            .filter_map(|entry| {
+                let media_type = entry.media_type.as_deref()?;
+                let lot = match media_type {
+                    "tv" => MediaLot::Show,
+                    "movie" => MediaLot::Movie,
+                    _ => return None,
+                };
+                Some(TmdbMetadataLookupResult {
+                    lot,
+                    identifier: entry.id.to_string(),
+                    title: entry.title.unwrap_or_default(),
+                })
+            })
+            .collect();
+
+        Ok(results)
     }
 }
 
