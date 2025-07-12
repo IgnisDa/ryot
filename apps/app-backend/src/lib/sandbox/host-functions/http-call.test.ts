@@ -12,7 +12,10 @@ describe("httpCall", () => {
 			expect(input).toBe("https://example.com/test");
 			expect(init?.body).toBe('{"hello":"world"}');
 			expect(init?.method).toBe("POST");
-			expect(init?.headers).toEqual({ "x-test": "1" });
+			expect(init?.headers).toEqual({
+				"User-Agent": "Ryot ( https://github.com/ignisda/ryot )",
+				"x-test": "1",
+			});
 
 			return new Response("ok", {
 				status: 200,
