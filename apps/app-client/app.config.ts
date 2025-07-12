@@ -12,7 +12,10 @@ const config: ExpoConfig = {
 	name: isDebug ? "Ryot Debug" : "Ryot",
 	updates: { checkAutomatically: "NEVER" },
 	experiments: { typedRoutes: true, reactCompiler: true },
-	ios: { supportsTablet: true, bundleIdentifier: "io.ryot.app" },
+	ios: {
+		supportsTablet: true,
+		bundleIdentifier: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
+	},
 	splash: {
 		resizeMode: "contain",
 		backgroundColor: "#fd7e14",
@@ -24,7 +27,7 @@ const config: ExpoConfig = {
 		favicon: "./assets/images/favicon.png",
 	},
 	android: {
-		package: "io.ryot.app",
+		package: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
 		adaptiveIcon: {
 			backgroundColor: "#fd7e14",
 			foregroundImage: "./assets/images/adaptive-icon.png",
