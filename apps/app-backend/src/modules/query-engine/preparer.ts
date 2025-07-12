@@ -2,8 +2,9 @@ import { match } from "ts-pattern";
 
 import { QueryEngineNotFoundError } from "~/lib/views/errors";
 import { nullViewExpression } from "~/lib/views/expression";
-import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib/views/reference";
 import {
+	type QueryEngineEventJoinLike,
+	type QueryEngineEventSchemaLike,
 	buildEventJoinMap,
 	buildSchemaMap,
 	type QueryEngineSchemaLike,
