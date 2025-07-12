@@ -11,6 +11,75 @@ use providers::tmdb::TmdbService;
 use regex::Regex;
 use supporting_service::SupportingService;
 
+static CLEANING_PATTERNS: &[&str] = &[
+    r"\([12]\d{3}\)",
+    r"\[[12]\d{3}\]",
+    r"S\d+E\d+",
+    r"Season\s+\d+",
+    r"Episode\s+\d+",
+    r"(?i)(720p|1080p|4K|HD|SD|CAM|TS|TC|DVDRip|BRRip|BluRay|WEBRip|WEB-DL|HDTV)",
+    r"(?i)\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$",
+    r"(?i)(PROPER|REPACK|EXTENDED|UNRATED|DIRECTOR.?S.?CUT)",
+    r"\[.*?\]",
+    r"\{.*?\}",
+];
+
+static BASE_EXTRACTION_PATTERNS: &[&str] = &[
+    r"^(.+?)\s+\([12]\d{3}\)",
+    r"^(.+?)\s+S\d+E\d+",
+    r"^(.+?)\s+Season\s+\d+",
+    r"^(.+?)\s+season\s+\d+",
+];
+
+static SEASON_EPISODE_PATTERNS: &[&str] = &[
+    r"S(\d+)E(\d+)",
+    r"Season\s+(\d+)\s+Episode\s+(\d+)",
+    r"season\s+(\d+)\s+episode\s+(\d+)",
+    r"S(\d+)\s+E(\d+)",
+];
+
+fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &str) -> String {
+    let mut result = text.to_string();
+    for pattern in patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            result = re.replace_all(&result, replacement).to_string();
+        }
+    }
+    result.trim().to_string()
+}
+
+fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
+    for pattern in patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if let Some(captures) = re.captures(text) {
+                if let Some(capture) = captures.get(1) {
+                    return Some(capture.as_str().trim().to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> {
+    for pattern in patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if let Some(captures) = re.captures(text) {
+                if let (Some(first_match), Some(second_match)) = (captures.get(1), captures.get(2))
+                {
+                    if let (Ok(first), Ok(second)) = (
+                        first_match.as_str().parse::<i32>(),
+                        second_match.as_str().parse::<i32>(),
+                    ) {
+                        return Some((first, second));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 pub async fn metadata_lookup(
     ss: &Arc<SupportingService>,
     title: String,
@@ -65,48 +134,11 @@ async fn smart_search(
 }
 
 fn clean_title(title: &str) -> String {
-    let patterns = vec![
-        r"\([12]\d{3}\)",
-        r"\[[12]\d{3}\]",
-        r"S\d+E\d+",
-        r"Season\s+\d+",
-        r"Episode\s+\d+",
-        r"(?i)(720p|1080p|4K|HD|SD|CAM|TS|TC|DVDRip|BRRip|BluRay|WEBRip|WEB-DL|HDTV)",
-        r"(?i)\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$",
-        r"(?i)(PROPER|REPACK|EXTENDED|UNRATED|DIRECTOR.?S.?CUT)",
-        r"\[.*?\]",
-        r"\{.*?\}",
-    ];
-
-    let mut cleaned = title.to_string();
-    for pattern in patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            cleaned = re.replace_all(&cleaned, "").to_string();
-        }
-    }
-
-    cleaned.trim().to_string()
+    apply_patterns_with_replacement(title, CLEANING_PATTERNS, "")
 }
 
 fn extract_base_title(title: &str) -> String {
-    let base_patterns = vec![
-        r"^(.+?)\s+\([12]\d{3}\)",
-        r"^(.+?)\s+S\d+E\d+",
-        r"^(.+?)\s+Season\s+\d+",
-        r"^(.+?)\s+season\s+\d+",
-    ];
-
-    for pattern in base_patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            if let Some(captures) = re.captures(title) {
-                if let Some(base_title) = captures.get(1) {
-                    return base_title.as_str().trim().to_string();
-                }
-            }
-        }
-    }
-
-    clean_title(title)
+    find_first_capture_group(title, BASE_EXTRACTION_PATTERNS).unwrap_or_else(|| clean_title(title))
 }
 
 fn calculate_similarity(a: &str, b: &str) -> f64 {
@@ -175,29 +207,6 @@ fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenSho
 }
 
 fn extract_season_episode(title: &str) -> Option<SeenShowExtraInformation> {
-    let patterns = vec![
-        r"S(\d+)E(\d+)",
-        r"Season\s+(\d+)\s+Episode\s+(\d+)",
-        r"season\s+(\d+)\s+episode\s+(\d+)",
-        r"S(\d+)\s+E(\d+)",
-    ];
-
-    for pattern in patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            if let Some(captures) = re.captures(title) {
-                if let (Some(season_match), Some(episode_match)) =
-                    (captures.get(1), captures.get(2))
-                {
-                    if let (Ok(season), Ok(episode)) = (
-                        season_match.as_str().parse::<i32>(),
-                        episode_match.as_str().parse::<i32>(),
-                    ) {
-                        return Some(SeenShowExtraInformation { season, episode });
-                    }
-                }
-            }
-        }
-    }
-
-    None
+    find_two_capture_groups(title, SEASON_EPISODE_PATTERNS)
+        .map(|(season, episode)| SeenShowExtraInformation { season, episode })
 }
