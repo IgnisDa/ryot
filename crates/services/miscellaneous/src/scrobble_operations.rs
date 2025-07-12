@@ -2,8 +2,11 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_graphql::Result;
-use enum_models::MediaSource;
-use media_models::{MetadataLookupResponse, TmdbMetadataLookupResult, UniqueMediaIdentifier};
+use enum_models::{MediaLot, MediaSource};
+use media_models::{
+    MetadataLookupResponse, SeenShowExtraInformation, TmdbMetadataLookupResult,
+    UniqueMediaIdentifier,
+};
 use providers::tmdb::TmdbService;
 use regex::Regex;
 use supporting_service::SupportingService;
@@ -28,7 +31,7 @@ pub async fn metadata_lookup(
         identifier: best_match.identifier.clone(),
     };
 
-    let show_information = None;
+    let show_information = extract_show_information(&title, &best_match.lot);
 
     Ok(MetadataLookupResponse {
         data,
@@ -161,4 +164,40 @@ fn find_best_match<'a>(
     }
 
     Ok(best_match)
+}
+
+fn extract_show_information(title: &str, media_lot: &MediaLot) -> Option<SeenShowExtraInformation> {
+    if !matches!(media_lot, MediaLot::Show) {
+        return None;
+    }
+
+    extract_season_episode(title)
+}
+
+fn extract_season_episode(title: &str) -> Option<SeenShowExtraInformation> {
+    let patterns = vec![
+        r"S(\d+)E(\d+)",
+        r"Season\s+(\d+)\s+Episode\s+(\d+)",
+        r"season\s+(\d+)\s+episode\s+(\d+)",
+        r"S(\d+)\s+E(\d+)",
+    ];
+
+    for pattern in patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if let Some(captures) = re.captures(title) {
+                if let (Some(season_match), Some(episode_match)) =
+                    (captures.get(1), captures.get(2))
+                {
+                    if let (Ok(season), Ok(episode)) = (
+                        season_match.as_str().parse::<i32>(),
+                        episode_match.as_str().parse::<i32>(),
+                    ) {
+                        return Some(SeenShowExtraInformation { season, episode });
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
