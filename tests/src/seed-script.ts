@@ -13,6 +13,9 @@ type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
 type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
+type SavedViewQueryInput = Omit<SavedViewQueryDefinition, "eventJoins"> & {
+	eventJoins?: SavedViewQueryDefinition["eventJoins"];
+};
 type SavedViewDisplayConfiguration =
 	CreateSavedViewBody["displayConfiguration"];
 type SavedViewTableColumn =
@@ -23,7 +26,7 @@ type SavedViewSpec = {
 	icon: string;
 	trackerId?: string;
 	accentColor: string;
-	queryDefinition: SavedViewQueryDefinition;
+	queryDefinition: SavedViewQueryInput;
 	displayConfiguration: SavedViewDisplayConfiguration;
 };
 
@@ -190,10 +193,121 @@ async function createSavedView(
 	name: string,
 	icon: string,
 	accentColor: string,
-	queryDefinition: SavedViewQueryDefinition,
+	queryDefinition: SavedViewQueryInput,
 	displayConfiguration: SavedViewDisplayConfiguration,
 	trackerId?: string,
 ) {
+	const expandEntityBuiltinReference = (value: string) => {
+		if (!value.startsWith("@")) {
+			return [value];
+		}
+
+		return queryDefinition.entitySchemaSlugs.map((schemaSlug) => {
+			return `entity.${schemaSlug}.${value}`;
+		});
+	};
+
+	const normalizeFilterReference = (value: string) => {
+		if (value.startsWith("event.") || value.startsWith("entity.")) {
+			return value;
+		}
+
+		if (value.startsWith("@")) {
+			if (queryDefinition.entitySchemaSlugs.length !== 1) {
+				throw new Error(
+					`Cannot normalize ambiguous filter reference '${value}' for saved view '${name}'`,
+				);
+			}
+
+			return `entity.${queryDefinition.entitySchemaSlugs[0]}.${value}`;
+		}
+
+		return value.split(".").length === 2 ? `entity.${value}` : value;
+	};
+
+	const normalizeDisplayReferences = (values: string[] | null) => {
+		if (!values) {
+			return null;
+		}
+
+		return values.flatMap((value) => {
+			if (value.startsWith("event.") || value.startsWith("entity.")) {
+				return [value];
+			}
+
+			if (value.startsWith("@")) {
+				return expandEntityBuiltinReference(value);
+			}
+
+			return value.split(".").length === 2 ? [`entity.${value}`] : [value];
+		});
+	};
+
+	const normalizeSortFields = (values: string[]) => {
+		return values.flatMap((value) => {
+			if (value.startsWith("event.") || value.startsWith("entity.")) {
+				return [value];
+			}
+
+			if (value.startsWith("@")) {
+				return expandEntityBuiltinReference(value);
+			}
+
+			return value.split(".").length === 2 ? [`entity.${value}`] : [value];
+		});
+	};
+
+	const normalizedQueryDefinition = {
+		...queryDefinition,
+		eventJoins: queryDefinition.eventJoins ?? [],
+		filters: queryDefinition.filters.map((filter) => ({
+			...filter,
+			field: normalizeFilterReference(filter.field),
+		})),
+		sort: {
+			...queryDefinition.sort,
+			fields: normalizeSortFields(queryDefinition.sort.fields),
+		},
+	};
+	const normalizedDisplayConfiguration = {
+		grid: {
+			...displayConfiguration.grid,
+			imageProperty: normalizeDisplayReferences(
+				displayConfiguration.grid.imageProperty,
+			),
+			titleProperty: normalizeDisplayReferences(
+				displayConfiguration.grid.titleProperty,
+			),
+			badgeProperty: normalizeDisplayReferences(
+				displayConfiguration.grid.badgeProperty,
+			),
+			subtitleProperty: normalizeDisplayReferences(
+				displayConfiguration.grid.subtitleProperty,
+			),
+		},
+		list: {
+			...displayConfiguration.list,
+			imageProperty: normalizeDisplayReferences(
+				displayConfiguration.list.imageProperty,
+			),
+			titleProperty: normalizeDisplayReferences(
+				displayConfiguration.list.titleProperty,
+			),
+			badgeProperty: normalizeDisplayReferences(
+				displayConfiguration.list.badgeProperty,
+			),
+			subtitleProperty: normalizeDisplayReferences(
+				displayConfiguration.list.subtitleProperty,
+			),
+		},
+		table: {
+			columns: displayConfiguration.table.columns.map((column) => ({
+				...column,
+				property: normalizeDisplayReferences(column.property) ?? [],
+			})),
+		},
+	};
+
 	apiClient.incrementRequestCount();
 	const client = apiClient.getClient();
 	const { data, response } = await client.POST("/saved-views", {
@@ -202,8 +316,8 @@ async function createSavedView(
 			icon,
 			accentColor,
 			trackerId,
-			queryDefinition,
-			displayConfiguration,
+			queryDefinition: normalizedQueryDefinition,
+			displayConfiguration: normalizedDisplayConfiguration,
 		},
 	});
 
@@ -222,7 +336,17 @@ function propertyReference(...fields: string[]) {
 }
 
 function schemaField(schemaSlug: string, property: string) {
-	return `${schemaSlug}.${property}`;
+	if (
+		property === "name" ||
+		property === "image" ||
+		property === "createdAt" ||
+		property === "updatedAt" ||
+		property.startsWith("@")
+	) {
+		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
+	}
+
+	return `entity.${schemaSlug}.${property}`;
 }
 
 function cardConfig(
