@@ -96,7 +96,7 @@ export class ProgressTracker {
 			runtime: this.video.duration || undefined,
 			currentTime: this.video.currentTime || undefined,
 			progress: this.video.duration
-				? this.video.currentTime / this.video.duration
+				? (this.video.currentTime / this.video.duration) * 100
 				: undefined,
 		};
 
