@@ -22,10 +22,22 @@ export default defineContentScript({
 				`${Math.round((data.progress || 0) * 100)}%`,
 			);
 
+			if (!metadataCache) {
+				console.error("[RYOT] MetadataCache not available for progress data");
+				return;
+			}
+
+			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
+
+			if (!cachedMetadata) {
+				console.error("[RYOT] No cached metadata available for progress data");
+				return;
+			}
+
 			try {
 				await browser.runtime.sendMessage({
-					data: data,
 					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
+					data: { rawData: data, metadata: cachedMetadata },
 				});
 			} catch (error) {
 				console.error("[RYOT] Failed to send message to background:", error);

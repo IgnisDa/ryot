@@ -2,7 +2,10 @@ import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql"
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
-import type { ExtensionStatus, RawMediaData } from "../lib/extension-types";
+import type {
+	ExtensionStatus,
+	ProgressDataWithMetadata,
+} from "../lib/extension-types";
 
 function extractGraphQLEndpoint(integrationUrl: string) {
 	try {
@@ -83,7 +86,7 @@ export default defineBackground(() => {
 		return result.metadataLookup;
 	}
 
-	async function handleProgressData(data: RawMediaData) {
+	async function handleProgressData(progressData: ProgressDataWithMetadata) {
 		try {
 			const integrationUrl = await storage.getItem<string>(
 				STORAGE_KEYS.INTEGRATION_URL,
@@ -93,20 +96,37 @@ export default defineBackground(() => {
 				throw new Error("Integration URL not found in storage");
 			}
 
-			console.log("[RYOT] Sending progress data to:", integrationUrl);
-			console.log("[RYOT] Progress data:", data);
+			const { rawData, metadata } = progressData;
+
+			if (!rawData.progress) {
+				throw new Error("No progress data available");
+			}
+
+			const integrationPayload = {
+				url: rawData.url,
+				data: {
+					lot: metadata.data.lot,
+					progress: rawData.progress,
+					identifier: metadata.data.identifier,
+					show_season_number: metadata.showInformation?.season,
+					show_episode_number: metadata.showInformation?.episode,
+				},
+			};
+
+			console.log("[RYOT] Sending integration data to:", integrationUrl);
+			console.log("[RYOT] Integration payload:", integrationPayload);
 
 			await fetch(integrationUrl, {
 				method: "POST",
-				body: JSON.stringify(data),
+				body: JSON.stringify(integrationPayload),
 				headers: { "Content-Type": "application/json" },
 			});
 
-			console.log("[RYOT] Progress data sent successfully");
+			console.log("[RYOT] Integration data sent successfully");
 
 			return { success: true };
 		} catch (error) {
-			console.error("[RYOT] Progress data request failed:", error);
+			console.error("[RYOT] Integration data request failed:", error);
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : "Unknown error",

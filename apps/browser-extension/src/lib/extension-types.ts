@@ -12,6 +12,11 @@ export interface RawMediaData {
 	currentTime?: number;
 }
 
+export interface ProgressDataWithMetadata {
+	rawData: RawMediaData;
+	metadata: MetadataLookupData;
+}
+
 export interface FormState {
 	error?: string;
 	status: "idle" | "submitting" | "submitted";
