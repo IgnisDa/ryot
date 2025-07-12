@@ -43,11 +43,11 @@ pub struct TmdbEntry {
     pub id: i32,
     #[serde(alias = "name")]
     pub title: Option<String>,
+    pub media_type: Option<String>,
     #[serde(alias = "logo_path", alias = "profile_path")]
     pub poster_path: Option<String>,
     pub release_date: Option<String>,
     pub first_air_date: Option<String>,
-    pub media_type: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -65,17 +65,17 @@ impl MediaProvider for TmdbMovieService {
             .results
             .into_iter()
             .map(|d| MetadataSearchItem {
-                identifier: d.id.to_string(),
                 title: d.title.unwrap(),
-                publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
+                identifier: d.id.to_string(),
                 image: d.poster_path.map(|p| self.base.get_image_url(p)),
+                publish_year: d.release_date.and_then(|r| convert_date_to_year(&r)),
             })
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
-                total: search.total_results,
                 next_page,
+                total: search.total_results,
             },
             items: resp.to_vec(),
         })
