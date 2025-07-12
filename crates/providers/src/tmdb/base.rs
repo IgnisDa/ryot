@@ -310,9 +310,9 @@ impl TmdbService {
             .client
             .get(format!("{}/search/multi", URL))
             .query(&json!({
+                "page": 1,
                 "query": query,
                 "language": self.language,
-                "page": 1
             }))
             .send()
             .await
@@ -327,13 +327,13 @@ impl TmdbService {
             .filter_map(|entry| {
                 let media_type = entry.media_type.as_deref()?;
                 let lot = match media_type {
-                    "movie" => MediaLot::Movie,
                     "tv" => MediaLot::Show,
+                    "movie" => MediaLot::Movie,
                     _ => return None,
                 };
                 Some(TmdbMetadataLookupResult {
-                    identifier: entry.id.to_string(),
                     lot,
+                    identifier: entry.id.to_string(),
                     title: entry.title.unwrap_or_default(),
                 })
             })
