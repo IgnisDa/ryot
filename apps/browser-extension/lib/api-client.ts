@@ -2,7 +2,7 @@ import { MESSAGE_TYPES } from "./constants";
 import type { RawMediaData } from "./extension-types";
 
 export class ApiClient {
-	async sendProgressData(data: RawMediaData): Promise<void> {
+	async sendProgressData(data: RawMediaData) {
 		try {
 			await browser.runtime.sendMessage({
 				type: MESSAGE_TYPES.SEND_PROGRESS_DATA,

@@ -1,7 +1,6 @@
 import type { MetadataLookupQuery } from "@ryot/generated/graphql/backend/graphql";
 
 export type MetadataLookupData = MetadataLookupQuery["metadataLookup"];
-export type CachedLookupData = MetadataLookupData | null;
 
 export interface ExtractedMetadata {
 	title: string;

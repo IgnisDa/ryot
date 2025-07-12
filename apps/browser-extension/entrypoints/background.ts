@@ -4,7 +4,7 @@ import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
 import type { MetadataLookupData, RawMediaData } from "../lib/extension-types";
 
-function extractGraphQLEndpoint(integrationUrl: string): string {
+function extractGraphQLEndpoint(integrationUrl: string) {
 	try {
 		const url = new URL(integrationUrl);
 		return `${url.origin}/backend/graphql`;
@@ -46,7 +46,7 @@ export default defineBackground(() => {
 
 	async function handleMetadataLookup(data: {
 		title: string;
-	}): Promise<MetadataLookupData> {
+	}) {
 		const integrationUrl = await storage.getItem<string>(
 			STORAGE_KEYS.INTEGRATION_URL,
 		);
@@ -70,10 +70,7 @@ export default defineBackground(() => {
 		return result.metadataLookup;
 	}
 
-	async function handleProgressData(data: RawMediaData): Promise<{
-		success: boolean;
-		error?: string;
-	}> {
+	async function handleProgressData(data: RawMediaData) {
 		try {
 			const integrationUrl = await storage.getItem<string>(
 				STORAGE_KEYS.INTEGRATION_URL,

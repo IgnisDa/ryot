@@ -1,6 +1,6 @@
 import { storage } from "#imports";
 import { MESSAGE_TYPES } from "./constants";
-import type { CachedLookupData, MetadataLookupData } from "./extension-types";
+import type { MetadataLookupData } from "./extension-types";
 import { extractMetadata } from "./title-extractor";
 
 export class MetadataCache {
@@ -8,7 +8,7 @@ export class MetadataCache {
 		return `local:cached-metadata:${url}`;
 	}
 
-	async getMetadataForCurrentPage(): Promise<CachedLookupData> {
+	async getMetadataForCurrentPage() {
 		const currentUrl = window.location.href;
 		const cacheKey = this.getCacheKey(currentUrl);
 		const cachedData = await storage.getItem<MetadataLookupData>(cacheKey);
@@ -16,7 +16,7 @@ export class MetadataCache {
 		return cachedData || null;
 	}
 
-	async lookupAndCacheMetadata(): Promise<CachedLookupData> {
+	async lookupAndCacheMetadata() {
 		const metadata = extractMetadata();
 		const currentUrl = window.location.href;
 

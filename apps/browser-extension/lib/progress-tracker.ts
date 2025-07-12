@@ -1,4 +1,4 @@
-import type { CachedLookupData, RawMediaData } from "./extension-types";
+import type { RawMediaData } from "./extension-types";
 import type { MetadataCache } from "./metadata-cache";
 import { extractMetadata } from "./title-extractor";
 
@@ -72,8 +72,7 @@ export class ProgressTracker {
 			return;
 		}
 
-		const cachedLookup: CachedLookupData =
-			await this.metadataCache.getMetadataForCurrentPage();
+		const cachedLookup = await this.metadataCache.getMetadataForCurrentPage();
 
 		if (!cachedLookup) {
 			console.error(

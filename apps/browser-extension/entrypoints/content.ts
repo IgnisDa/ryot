@@ -1,7 +1,7 @@
 import { storage } from "#imports";
 import { ApiClient } from "../lib/api-client";
 import { STORAGE_KEYS } from "../lib/constants";
-import type { CachedLookupData, RawMediaData } from "../lib/extension-types";
+import type { RawMediaData } from "../lib/extension-types";
 import { MetadataCache } from "../lib/metadata-cache";
 import { ProgressTracker } from "../lib/progress-tracker";
 import { VideoDetector } from "../lib/video-detector";
@@ -45,8 +45,7 @@ export default defineContentScript({
 			console.log("[RYOT] URL changed, checking metadata for new URL");
 
 			if (metadataCache) {
-				const cachedMetadata: CachedLookupData =
-					await metadataCache.getMetadataForCurrentPage();
+				const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
 
 				if (cachedMetadata) {
 					console.log("[RYOT] Found cached metadata for new URL");
@@ -86,8 +85,7 @@ export default defineContentScript({
 
 			metadataCache = new MetadataCache();
 
-			const cachedMetadata: CachedLookupData =
-				await metadataCache.getMetadataForCurrentPage();
+			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
 
 			if (cachedMetadata) {
 				console.log("[RYOT] Using cached metadata for current page");
