@@ -1,9 +1,11 @@
+import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
 import type { ExtensionStatus, FormState } from "../../lib/extension-types";
 
 const App = () => {
+	const [currentPage, setCurrentPage] = useState<"main" | "settings">("main");
 	const [url, setUrl] = useState("");
 	const [formState, setFormState] = useState<FormState>({ status: "idle" });
 	const [extensionStatus, setExtensionStatus] =
@@ -81,34 +83,80 @@ const App = () => {
 		await storage.removeItem(STORAGE_KEYS.INTEGRATION_URL);
 		setUrl("");
 		setFormState({ status: "idle" });
+		setCurrentPage("main");
 	};
+
+	if (currentPage === "settings") {
+		return (
+			<div className="w-[300px] p-5 font-sans">
+				<div className="flex items-center justify-between mb-5">
+					<button
+						type="button"
+						onClick={() => setCurrentPage("main")}
+						className="text-blue-600 text-sm hover:text-blue-700 transition-colors"
+					>
+						← Back
+					</button>
+					<h1 className="text-xl font-semibold text-gray-800">Settings</h1>
+					<div className="w-10" />
+				</div>
+				<div className="space-y-4">
+					<div className="p-4 bg-gray-50 rounded-md">
+						<h3 className="font-medium text-gray-800 mb-2">Integration URL</h3>
+						<p className="text-sm text-gray-600 mb-3">
+							Clear your integration URL to reset the extension.
+						</p>
+						<button
+							type="button"
+							onClick={handleClear}
+							className="w-full py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
+						>
+							Clear Integration URL
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="w-[300px] p-5 font-sans">
-			<h1 className="text-center m-0 mb-5 text-2xl font-semibold text-gray-800">
-				Ryot
-			</h1>
-			<form onSubmit={handleSubmit} className="flex flex-col gap-3">
-				<label
-					htmlFor="url-input"
-					className="text-sm font-medium text-gray-600 mb-1"
+			<div className="flex items-center justify-between mb-5">
+				<h1 className="text-2xl font-semibold text-gray-800">Ryot</h1>
+				<button
+					type="button"
+					onClick={() => setCurrentPage("settings")}
+					className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+					title="Settings"
 				>
-					Integration URL
-				</label>
-				<input
-					type="text"
-					value={url}
-					id="url-input"
-					className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
-					onChange={(e) => {
-						const newUrl = e.target.value;
-						setUrl(newUrl);
-						validateUrl(newUrl);
-					}}
-					placeholder="Enter your integration URL"
-				/>
-				{formState.error && (
-					<div className="text-red-500 text-xs mt-1">{formState.error}</div>
+					<Settings size={18} />
+				</button>
+			</div>
+			<form onSubmit={handleSubmit} className="flex flex-col gap-3">
+				{formState.status !== "submitted" && (
+					<>
+						<label
+							htmlFor="url-input"
+							className="text-sm font-medium text-gray-600 mb-1"
+						>
+							Integration URL
+						</label>
+						<input
+							type="text"
+							value={url}
+							id="url-input"
+							className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
+							onChange={(e) => {
+								const newUrl = e.target.value;
+								setUrl(newUrl);
+								validateUrl(newUrl);
+							}}
+							placeholder="Enter your integration URL"
+						/>
+						{formState.error && (
+							<div className="text-red-500 text-xs mt-1">{formState.error}</div>
+						)}
+					</>
 				)}
 				<div className="flex gap-2 mt-2">
 					{formState.status !== "submitted" && (
@@ -152,13 +200,6 @@ const App = () => {
 									Status: Ready
 								</div>
 							)}
-							<button
-								type="button"
-								onClick={handleClear}
-								className="w-full mt-2 py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
-							>
-								Clear
-							</button>
 						</div>
 					)}
 				</div>
