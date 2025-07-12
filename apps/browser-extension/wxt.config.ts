@@ -3,6 +3,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "wxt";
 
 export default defineConfig({
+	srcDir: "src",
 	outDir: "dist",
 	webExt: { disabled: true },
 	modules: ["@wxt-dev/module-react"],

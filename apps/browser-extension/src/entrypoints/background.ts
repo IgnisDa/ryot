@@ -2,10 +2,7 @@ import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql"
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
-import type {
-	ExtensionStatus,
-	RawMediaData,
-} from "../lib/extension-types";
+import type { ExtensionStatus, RawMediaData } from "../lib/extension-types";
 
 function extractGraphQLEndpoint(integrationUrl: string) {
 	try {
