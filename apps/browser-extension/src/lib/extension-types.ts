@@ -23,7 +23,7 @@ export interface FormState {
 }
 
 export interface ExtensionStatus {
-	message?: string;
+	message: string;
 	videoTitle?: string;
 	state:
 		| "idle"
