@@ -1,5 +1,5 @@
-import type { RawMediaData } from "../types/progress";
 import { MESSAGE_TYPES } from "./constants";
+import type { RawMediaData } from "./extension-types";
 
 export class ApiClient {
 	async sendProgressData(data: RawMediaData): Promise<void> {

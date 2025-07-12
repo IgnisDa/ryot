@@ -1,4 +1,4 @@
-import type { ExtractedMetadata } from "../types/progress";
+import type { ExtractedMetadata } from "./extension-types";
 
 function extractTitle(): string {
 	const title = document.title;

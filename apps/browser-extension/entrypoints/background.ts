@@ -1,11 +1,8 @@
-import {
-	MetadataLookupDocument,
-	type MetadataLookupQuery,
-} from "@ryot/generated/graphql/backend/graphql";
+import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
-import type { RawMediaData } from "../types/progress";
+import type { MetadataLookupData, RawMediaData } from "../lib/extension-types";
 
 function extractGraphQLEndpoint(integrationUrl: string): string {
 	try {
@@ -32,11 +29,50 @@ export default defineBackground(() => {
 
 			return true;
 		}
+
+		if (message.type === MESSAGE_TYPES.METADATA_LOOKUP) {
+			handleMetadataLookup(message.data)
+				.then((result) => {
+					sendResponse({ success: true, data: result });
+				})
+				.catch((error) => {
+					console.error("[RYOT] Metadata lookup failed:", error);
+					sendResponse({ success: false, error: error.message });
+				});
+
+			return true;
+		}
 	});
+
+	async function handleMetadataLookup(data: {
+		title: string;
+	}): Promise<MetadataLookupData> {
+		const integrationUrl = await storage.getItem<string>(
+			STORAGE_KEYS.INTEGRATION_URL,
+		);
+
+		if (!integrationUrl) {
+			throw new Error("Integration URL not found in storage");
+		}
+
+		const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
+		const client = new GraphQLClient(graphqlEndpoint);
+
+		console.log("[RYOT] Making metadata lookup request to:", graphqlEndpoint);
+		console.log("[RYOT] With title:", data.title);
+
+		const result = await client.request(MetadataLookupDocument, {
+			title: data.title,
+		});
+
+		console.log("[RYOT] Metadata lookup response:", result);
+
+		return result.metadataLookup;
+	}
 
 	async function handleProgressData(data: RawMediaData): Promise<{
 		success: boolean;
-		data?: MetadataLookupQuery["metadataLookup"];
+		data?: MetadataLookupData;
 		error?: string;
 	}> {
 		try {

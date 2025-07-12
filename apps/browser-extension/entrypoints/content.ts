@@ -1,19 +1,21 @@
 import { storage } from "#imports";
 import { ApiClient } from "../lib/api-client";
 import { STORAGE_KEYS } from "../lib/constants";
+import type { CachedLookupData, RawMediaData } from "../lib/extension-types";
+import { MetadataCache } from "../lib/metadata-cache";
 import { ProgressTracker } from "../lib/progress-tracker";
 import { VideoDetector } from "../lib/video-detector";
-import type { RawMediaData } from "../types/progress";
 
 export default defineContentScript({
+	allFrames: true,
 	matches: ["<all_urls>"],
 	runAt: "document_start",
-	allFrames: true,
 	main() {
 		const isIframe = window !== window.top;
-		let videoDetector: VideoDetector | null = null;
-		let progressTracker: ProgressTracker | null = null;
 		let apiClient: ApiClient | null = null;
+		let videoDetector: VideoDetector | null = null;
+		let metadataCache: MetadataCache | null = null;
+		let progressTracker: ProgressTracker | null = null;
 
 		function handleDataSend(data: RawMediaData) {
 			console.log(
@@ -39,8 +41,33 @@ export default defineContentScript({
 			}
 		}
 
-		function handleUrlChange() {
-			videoDetector?.start();
+		async function handleUrlChange() {
+			console.log("[RYOT] URL changed, checking metadata for new URL");
+
+			if (metadataCache) {
+				const cachedMetadata: CachedLookupData =
+					await metadataCache.getMetadataForCurrentPage();
+
+				if (cachedMetadata) {
+					console.log("[RYOT] Found cached metadata for new URL");
+					videoDetector?.start();
+				} else {
+					console.log(
+						"[RYOT] No cached metadata, performing lookup for new URL",
+					);
+					const lookupResult = await metadataCache.lookupAndCacheMetadata();
+
+					if (lookupResult) {
+						console.log("[RYOT] Metadata lookup successful for new URL");
+						videoDetector?.start();
+					} else {
+						console.log(
+							"[RYOT] Metadata lookup failed for new URL, stopping video monitoring",
+						);
+						progressTracker?.stopTracking();
+					}
+				}
+			}
 		}
 
 		async function init() {
@@ -55,8 +82,34 @@ export default defineContentScript({
 				return;
 			}
 
-			console.log("[RYOT] Integration URL found, starting video monitoring");
+			console.log("[RYOT] Integration URL found, checking metadata");
 
+			metadataCache = new MetadataCache();
+
+			const cachedMetadata: CachedLookupData =
+				await metadataCache.getMetadataForCurrentPage();
+
+			if (cachedMetadata) {
+				console.log("[RYOT] Using cached metadata for current page");
+				startVideoMonitoring();
+			} else {
+				console.log("[RYOT] No cached metadata, performing lookup");
+				const lookupResult = await metadataCache.lookupAndCacheMetadata();
+
+				if (lookupResult) {
+					console.log(
+						"[RYOT] Metadata lookup successful, starting video monitoring",
+					);
+					startVideoMonitoring();
+				} else {
+					console.log(
+						"[RYOT] Metadata lookup failed, video monitoring disabled",
+					);
+				}
+			}
+		}
+
+		function startVideoMonitoring() {
 			if (isIframe) {
 				initIframeMode();
 			} else {
@@ -84,14 +137,17 @@ export default defineContentScript({
 						);
 					}
 				}
-			});
+			}, metadataCache as MetadataCache);
 			videoDetector = new VideoDetector(onVideoFound);
 			videoDetector.start();
 		}
 
 		function initMainFrameMode() {
 			apiClient = new ApiClient();
-			progressTracker = new ProgressTracker(handleDataSend);
+			progressTracker = new ProgressTracker(
+				handleDataSend,
+				metadataCache as MetadataCache,
+			);
 			videoDetector = new VideoDetector(onVideoFound);
 
 			videoDetector.start();

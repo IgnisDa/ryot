@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { storage } from "#imports";
 import { STORAGE_KEYS } from "../../lib/constants";
-import type { FormState } from "../../types/progress";
+import type { FormState } from "../../lib/extension-types";
 
 const App = () => {
 	const [url, setUrl] = useState("");
