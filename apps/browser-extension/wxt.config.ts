@@ -6,7 +6,7 @@ export default defineConfig({
 	srcDir: "src",
 	outDir: "dist",
 	webExt: { disabled: true },
-	modules: ["@wxt-dev/module-react"],
+	modules: ["@wxt-dev/module-react", "@wxt-dev/auto-icons"],
 	vite: () => ({
 		plugins: [tailwindcss(), tsconfigPaths()],
 	}),
