@@ -38,6 +38,8 @@ static SEASON_EPISODE_PATTERNS: &[&str] = &[
     r"S(\d+)\s+E(\d+)",
 ];
 
+static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
+
 fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &str) -> String {
     let mut result = text.to_string();
     for pattern in patterns {
@@ -80,7 +82,8 @@ pub async fn metadata_lookup(
         return Err(anyhow!("No media found for title: {}", title).into());
     }
 
-    let best_match = find_best_match(&search_results, &title)?;
+    let publish_year = extract_year_from_title(&title);
+    let best_match = find_best_match(&search_results, &title, publish_year)?;
 
     let data = UniqueMediaIdentifier {
         lot: best_match.lot,
@@ -129,6 +132,11 @@ fn extract_base_title(title: &str) -> String {
     find_first_capture_group(title, BASE_EXTRACTION_PATTERNS).unwrap_or_else(|| clean_title(title))
 }
 
+fn extract_year_from_title(title: &str) -> Option<i32> {
+    find_first_capture_group(title, YEAR_EXTRACTION_PATTERNS)
+        .and_then(|year_str| year_str.parse().ok())
+}
+
 fn calculate_similarity(a: &str, b: &str) -> f64 {
     let a_lower = a.to_lowercase();
     let b_lower = b.to_lowercase();
@@ -163,6 +171,7 @@ fn calculate_similarity(a: &str, b: &str) -> f64 {
 fn find_best_match<'a>(
     results: &'a [TmdbMetadataLookupResult],
     original_title: &str,
+    publish_year: Option<i32>,
 ) -> Result<&'a TmdbMetadataLookupResult> {
     if results.is_empty() {
         return Err(anyhow!("No valid results found").into());
@@ -175,7 +184,16 @@ fn find_best_match<'a>(
 
     for result in results {
         let title_to_compare = &result.title;
-        let score = calculate_similarity(&cleaned_original, title_to_compare);
+        let mut score = calculate_similarity(&cleaned_original, title_to_compare);
+
+        if let (Some(original_year), Some(result_year)) = (publish_year, result.publish_year) {
+            let year_diff = (original_year - result_year).abs();
+            if year_diff == 0 {
+                score += 0.2;
+            } else if year_diff <= 1 {
+                score += 0.1;
+            }
+        }
 
         if score > best_score {
             best_score = score;

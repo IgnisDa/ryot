@@ -2,6 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
+use common_utils::convert_date_to_year;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
 use enum_models::MediaLot;
 use enum_models::MediaSource;
@@ -335,6 +336,7 @@ impl TmdbService {
                     lot,
                     identifier: entry.id.to_string(),
                     title: entry.title.unwrap_or_default(),
+                    publish_year: entry.release_date.and_then(|r| convert_date_to_year(&r)),
                 })
             })
             .collect();

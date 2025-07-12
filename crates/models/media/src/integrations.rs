@@ -15,6 +15,7 @@ pub struct TmdbMetadataLookupResult {
     pub lot: MediaLot,
     pub title: String,
     pub identifier: String,
+    pub publish_year: Option<i32>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]
