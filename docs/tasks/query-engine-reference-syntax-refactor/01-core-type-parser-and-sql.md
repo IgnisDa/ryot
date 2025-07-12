@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -58,32 +58,32 @@ inside `apps/app-backend`.
 
 ## Acceptance criteria
 
-- [ ] `RuntimeRef` schema and TypeScript type use `property: string[]` for
+- [x] `RuntimeRef` schema and TypeScript type use `property: string[]` for
   `schema-property` and `event-join-property`.
-- [ ] `parseFieldPath("entity.book.sandboxScriptId")` returns
+- [x] `parseFieldPath("entity.book.sandboxScriptId")` returns
   `{ type: "entity-column", slug: "book", column: "sandboxScriptId" }`.
-- [ ] `parseFieldPath("entity.book.properties.author")` returns
+- [x] `parseFieldPath("entity.book.properties.author")` returns
   `{ type: "schema-property", slug: "book", property: ["author"] }`.
-- [ ] `parseFieldPath("entity.book.properties.metadata.source")` returns
+- [x] `parseFieldPath("entity.book.properties.metadata.source")` returns
   `{ type: "schema-property", slug: "book", property: ["metadata", "source"] }`.
-- [ ] `parseFieldPath("event.review.createdAt")` returns
+- [x] `parseFieldPath("event.review.createdAt")` returns
   `{ type: "event-join-column", joinKey: "review", column: "createdAt" }`.
-- [ ] `parseFieldPath("event.review.properties.rating")` returns
+- [x] `parseFieldPath("event.review.properties.rating")` returns
   `{ type: "event-join-property", joinKey: "review", property: ["rating"] }`.
-- [ ] `parseFieldPath("entity.book.@sandboxScriptId")` throws `Invalid field path`.
-- [ ] `parseFieldPath("entity.book.author")` throws `Invalid field path`.
-- [ ] `parseFieldPath("event.review.@createdAt")` throws `Invalid field path`.
-- [ ] `parseFieldPath("event.review.rating")` throws `Invalid field path`.
-- [ ] SQL generated for `property: ["author"]` is identical to what was previously
+- [x] `parseFieldPath("entity.book.@sandboxScriptId")` throws `Invalid field path`.
+- [x] `parseFieldPath("entity.book.author")` throws `Invalid field path`.
+- [x] `parseFieldPath("event.review.@createdAt")` throws `Invalid field path`.
+- [x] `parseFieldPath("event.review.rating")` throws `Invalid field path`.
+- [x] SQL generated for `property: ["author"]` is identical to what was previously
   generated for `property: "author"`.
-- [ ] SQL generated for `property: ["metadata", "source"]` chains
+- [x] SQL generated for `property: ["metadata", "source"]` chains
   `-> 'metadata' ->> 'source'` (text) or `-> 'metadata' -> 'source'` (JSON).
-- [ ] `getPropertyType(schema, ["metadata", "source"])` returns `"string"` for the
+- [x] `getPropertyType(schema, ["metadata", "source"])` returns `"string"` for the
   smartphone fixture schema.
-- [ ] `getPropertyType(schema, ["metadata", "nonexistent"])` returns `null`.
-- [ ] All error messages from the validator and analyzer use the new path syntax
+- [x] `getPropertyType(schema, ["metadata", "nonexistent"])` returns `null`.
+- [x] All error messages from the validator and analyzer use the new path syntax
   (no `@`, property paths joined with `.`).
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass in
+- [x] `bun run typecheck`, `bun run test`, and `bun run lint` pass in
   `apps/app-backend`.
 
 ## Blocked by
