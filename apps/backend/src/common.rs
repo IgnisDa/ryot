@@ -29,7 +29,9 @@ use integration_service::IntegrationService;
 use itertools::Itertools;
 use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
 use miscellaneous_service::MiscellaneousService;
-use router_resolver::{config_handler, graphql_playground, integration_webhook, upload_file};
+use router_resolver::{
+    config_handler, graphql_playground_handler, integration_webhook_handler, upload_file_handler,
+};
 use sea_orm::DatabaseConnection;
 use statistics_resolver::StatisticsQuery;
 use statistics_service::StatisticsService;
@@ -134,7 +136,7 @@ pub async fn create_app_services(
     let webhook_routes = Router::new()
         .route(
             "/integrations/{integration_slug}",
-            post(integration_webhook),
+            post(integration_webhook_handler),
         )
         .layer(GovernorLayer {
             config: governor_conf,
@@ -142,14 +144,14 @@ pub async fn create_app_services(
 
     let mut gql = post(graphql_handler);
     if config.server.graphql_playground_enabled {
-        gql = gql.get(graphql_playground);
+        gql = gql.get(graphql_playground_handler);
     }
 
     let app_router = Router::new()
         .nest("/webhooks", webhook_routes)
         .route("/config", get(config_handler))
         .route("/graphql", gql)
-        .route("/upload", post(upload_file))
+        .route("/upload", post(upload_file_handler))
         .layer(Extension(config.clone()))
         .layer(Extension(integration_service.clone()))
         .layer(Extension(schema))

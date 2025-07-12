@@ -13,7 +13,7 @@ use integration_service::IntegrationService;
 use nanoid::nanoid;
 use serde_json::json;
 
-pub async fn graphql_playground() -> impl IntoResponse {
+pub async fn graphql_playground_handler() -> impl IntoResponse {
     Html(playground_source(GraphQLPlaygroundConfig::new(
         "/backend/graphql",
     )))
@@ -27,7 +27,7 @@ pub async fn config_handler(
 
 /// Upload a file to the temporary file system. Primarily to be used for uploading
 /// import files.
-pub async fn upload_file(
+pub async fn upload_file_handler(
     mut files: Multipart,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let mut res = vec![];
@@ -45,7 +45,7 @@ pub async fn upload_file(
     Ok(Json(json!(res)))
 }
 
-pub async fn integration_webhook(
+pub async fn integration_webhook_handler(
     Path(integration_slug): Path<String>,
     Extension(integration_service): Extension<Arc<IntegrationService>>,
     payload: String,
