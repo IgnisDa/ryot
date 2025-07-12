@@ -148,7 +148,9 @@ describe("View runtime E2E", () => {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
-			propertiesSchema: { fields: { rating: { type: "number" } } },
+			propertiesSchema: {
+				fields: { label: { type: "string" }, rating: { type: "number" } },
+			},
 		});
 
 		const { data, response } = await executeViewRuntime(client, cookies, {
@@ -159,20 +161,20 @@ describe("View runtime E2E", () => {
 			fields: [
 				buildRuntimeField("title", ["computed.entityLabel"]),
 				buildRuntimeField("badge", ["computed.reviewOrLabel"]),
-				buildRuntimeField("rawReview", ["computed.reviewScore"]),
+				buildRuntimeField("rawReview", ["computed.reviewLabel"]),
 			],
 			eventJoins: [
 				{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 			],
 			computedFields: [
 				buildComputedField("entityLabel", [entityField(schema.slug, "name")]),
-				buildComputedField("reviewScore", ["event.review.rating"]),
+				buildComputedField("reviewLabel", ["event.review.label"]),
 				buildComputedField("reviewOrLabel", {
 					type: "coalesce",
 					values: [
 						{
 							type: "reference",
-							reference: { key: "reviewScore", type: "computed-field" },
+							reference: { key: "reviewLabel", type: "computed-field" },
 						},
 						{
 							type: "reference",
@@ -188,6 +190,174 @@ describe("View runtime E2E", () => {
 			{ key: "title", kind: "text", value: "Alpha Phone" },
 			{ key: "badge", kind: "text", value: "Alpha Phone" },
 			{ key: "rawReview", kind: "null", value: null },
+		]);
+	});
+
+	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const categoryExpression = {
+			type: "reference" as const,
+			reference: {
+				slug: schema.slug,
+				property: "category",
+				type: "schema-property" as const,
+			},
+		};
+		const nameExpression = {
+			type: "reference" as const,
+			reference: {
+				column: "name",
+				slug: schema.slug,
+				type: "entity-column" as const,
+			},
+		};
+		const yearExpression = {
+			type: "reference" as const,
+			reference: {
+				property: "year",
+				slug: schema.slug,
+				type: "schema-property" as const,
+			},
+		};
+
+		const { data, response } = await executeViewRuntime(client, cookies, {
+			eventJoins: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 1 },
+			sort: { direction: "asc", expression: nameExpression },
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				left: nameExpression,
+				right: { type: "literal", value: "Gamma Phone" },
+			},
+			computedFields: [
+				{
+					key: "nextYear",
+					expression: {
+						operator: "add",
+						type: "arithmetic",
+						left: yearExpression,
+						right: { type: "literal", value: 1 },
+					},
+				},
+			],
+			fields: [
+				buildRuntimeField("nextYear", ["computed.nextYear"]),
+				buildRuntimeField("rounded", {
+					type: "round",
+					expression: {
+						type: "arithmetic",
+						operator: "divide",
+						left: yearExpression,
+						right: { type: "literal", value: 3 },
+					},
+				}),
+				buildRuntimeField("floored", {
+					type: "floor",
+					expression: {
+						type: "arithmetic",
+						operator: "divide",
+						left: yearExpression,
+						right: { type: "literal", value: 3 },
+					},
+				}),
+				buildRuntimeField("wholeYear", {
+					type: "integer",
+					expression: yearExpression,
+				}),
+				buildRuntimeField("label", {
+					type: "concat",
+					values: [
+						{ type: "literal", value: "Gamma / " },
+						categoryExpression,
+						{ type: "literal", value: " / " },
+						yearExpression,
+					],
+				}),
+				buildRuntimeField("badge", {
+					type: "conditional",
+					whenTrue: { type: "literal", value: "modern" },
+					whenFalse: { type: "literal", value: "classic" },
+					condition: {
+						operator: "gte",
+						type: "comparison",
+						left: yearExpression,
+						right: { type: "literal", value: 2020 },
+					},
+				}),
+			],
+		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "nextYear", kind: "number", value: 2021 },
+			{ key: "rounded", kind: "number", value: 673 },
+			{ key: "floored", kind: "number", value: 673 },
+			{ key: "wholeYear", kind: "number", value: 2020 },
+			{ key: "label", kind: "text", value: "Gamma / phone / 2020" },
+			{ key: "badge", kind: "text", value: "modern" },
+		]);
+	});
+
+	it("truncates integer normalization toward zero for fractional values", async () => {
+		const { client, cookies, schema } =
+			await createSingleSchemaRuntimeFixture();
+		const yearExpression = {
+			type: "reference" as const,
+			reference: {
+				property: "year",
+				slug: schema.slug,
+				type: "schema-property" as const,
+			},
+		};
+
+		const { data, response } = await executeViewRuntime(client, cookies, {
+			eventJoins: [],
+			computedFields: [],
+			entitySchemaSlugs: [schema.slug],
+			pagination: { page: 1, limit: 1 },
+			filter: {
+				operator: "eq",
+				type: "comparison",
+				right: { type: "literal", value: "Alpha Phone" },
+				left: {
+					type: "reference",
+					reference: {
+						column: "name",
+						slug: schema.slug,
+						type: "entity-column",
+					},
+				},
+			},
+			sort: {
+				direction: "asc",
+				expression: {
+					type: "reference",
+					reference: {
+						column: "name",
+						slug: schema.slug,
+						type: "entity-column",
+					},
+				},
+			},
+			fields: [
+				buildRuntimeField("integerNormalized", {
+					type: "integer",
+					expression: {
+						type: "arithmetic",
+						operator: "divide",
+						left: yearExpression,
+						right: { type: "literal", value: 365 },
+					},
+				}),
+			],
+		} as unknown as Parameters<typeof executeViewRuntime>[2]);
+
+		expect(response.status).toBe(200);
+		expect(data?.data.items[0]?.fields).toEqual([
+			{ key: "integerNormalized", kind: "number", value: 5 },
 		]);
 	});
 
@@ -547,7 +717,7 @@ describe("View runtime E2E", () => {
 			cookies,
 			name: "Null Tablet",
 			entitySchemaId: tabletSchema.schemaId,
-			properties: { maker: "Ghost", releaseYear: 2030 },
+			properties: { maker: "Ghost" },
 		});
 
 		const nullsLastResult = await executeViewRuntime(
@@ -560,7 +730,7 @@ describe("View runtime E2E", () => {
 					direction: "asc",
 					fields: [
 						entityField(smartphoneSlug, "year"),
-						entityField(tabletSlug, "releaseLabel"),
+						entityField(tabletSlug, "releaseYear"),
 					],
 				},
 			}),
@@ -757,7 +927,9 @@ describe("View runtime E2E", () => {
 		);
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain("Sort fields are required");
+		expect(result.error?.error?.message).toContain(
+			"Sort expressions must resolve to a sortable scalar value",
+		);
 	});
 
 	it("filters with contains using ilike on string properties and entity @name", async () => {
@@ -987,7 +1159,7 @@ describe("View runtime E2E", () => {
 
 		expect(result.response.status).toBe(400);
 		expect(result.error?.error?.message).toContain(
-			"must match the array item type",
+			"requires a scalar or object item expression",
 		);
 	});
 

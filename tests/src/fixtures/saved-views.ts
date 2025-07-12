@@ -23,18 +23,73 @@ type ViewExpression =
 	| { type: "reference"; reference: RuntimeRef }
 	| { type: "coalesce"; values: ViewExpression[] };
 
+type ViewPredicate =
+	| {
+			type: "comparison";
+			left: ViewExpression;
+			right: ViewExpression;
+			operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+	  }
+	| { type: "in"; expression: ViewExpression; values: ViewExpression[] }
+	| { type: "contains"; expression: ViewExpression; value: ViewExpression }
+	| { type: "isNull"; expression: ViewExpression }
+	| { type: "isNotNull"; expression: ViewExpression }
+	| { type: "and"; predicates: ViewPredicate[] }
+	| { type: "or"; predicates: ViewPredicate[] }
+	| { type: "not"; predicate: ViewPredicate };
+
+type LegacyFilter = {
+	op:
+		| "eq"
+		| "neq"
+		| "gt"
+		| "gte"
+		| "lt"
+		| "lte"
+		| "in"
+		| "contains"
+		| "isNull"
+		| "isNotNull";
+	field: string;
+	value?: unknown;
+};
+
+type LegacySort = {
+	direction: "asc" | "desc";
+	fields: string[];
+};
+
 type ExpressionInput = ViewExpression | string[];
 
 type CreateSavedViewInput = Partial<
-	Omit<CreateSavedViewBody, "displayConfiguration">
+	Omit<CreateSavedViewBody, "displayConfiguration" | "queryDefinition">
 > & {
 	displayConfiguration?: DisplayConfigurationInput;
+	queryDefinition?: unknown;
 };
 
 type UpdateSavedViewInput = Partial<
-	Omit<UpdateSavedViewBody, "displayConfiguration">
+	Omit<UpdateSavedViewBody, "displayConfiguration" | "queryDefinition">
 > & {
 	displayConfiguration?: DisplayConfigurationInput;
+	queryDefinition?: unknown;
+};
+
+type LegacyQueryDefinition = {
+	entitySchemaSlugs: string[];
+	eventJoins?: unknown[];
+	computedFields?: unknown[];
+	sort: LegacySort;
+	filters?: LegacyFilter[];
+	filter?: ViewPredicate | null;
+};
+
+type NormalizedQueryDefinition = {
+	filter: ViewPredicate | null;
+	eventJoins: unknown[];
+	computedFields: unknown[];
+	entitySchemaSlugs: string[];
+	sort: { direction: "asc" | "desc"; expression: ViewExpression };
 };
 
 type DisplayConfigurationInput = {
@@ -130,6 +185,120 @@ const toExpression = (input: ExpressionInput | null): ViewExpression | null => {
 		: { type: "coalesce", values };
 };
 
+const toPredicate = (filter: LegacyFilter): ViewPredicate => {
+	const expression = toExpression([filter.field]) ?? literalExpression(null);
+	if (filter.op === "isNull") {
+		return { type: "isNull", expression };
+	}
+
+	if (filter.op === "isNotNull") {
+		return { type: "isNotNull", expression };
+	}
+
+	if (filter.op === "contains") {
+		return {
+			type: "contains",
+			expression,
+			value: literalExpression(filter.value ?? null),
+		};
+	}
+
+	if (filter.op === "in") {
+		return {
+			type: "in",
+			expression,
+			values: Array.isArray(filter.value)
+				? filter.value.map((value) => literalExpression(value))
+				: [literalExpression(filter.value ?? null)],
+		};
+	}
+
+	return {
+		type: "comparison",
+		left: expression,
+		right: literalExpression(filter.value ?? null),
+		operator: filter.op,
+	};
+};
+
+const getFilterGroupKey = (filter: LegacyFilter) => {
+	const reference = parseReference(filter.field);
+	return reference.type === "entity-column" ||
+		reference.type === "schema-property"
+		? reference.slug
+		: `${reference.type}:${JSON.stringify(reference)}`;
+};
+
+const combinePredicates = (predicates: ViewPredicate[], type: "and" | "or") => {
+	if (!predicates.length) {
+		return null;
+	}
+
+	if (predicates.length === 1) {
+		return predicates[0] ?? null;
+	}
+
+	return { type, predicates } satisfies ViewPredicate;
+};
+
+const toFilterPredicate = (
+	filters?: LegacyFilter[],
+	filter?: ViewPredicate | null,
+) => {
+	if (filter !== undefined) {
+		return filter;
+	}
+
+	if (!filters?.length) {
+		return null;
+	}
+
+	const grouped = new Map<string, ViewPredicate[]>();
+	for (const entry of filters) {
+		const key = getFilterGroupKey(entry);
+		const existing = grouped.get(key) ?? [];
+		existing.push(toPredicate(entry));
+		grouped.set(key, existing);
+	}
+
+	const groupedPredicates = Array.from(grouped.values())
+		.map((predicates) => combinePredicates(predicates, "and"))
+		.filter((predicate): predicate is ViewPredicate => predicate !== null);
+
+	return combinePredicates(groupedPredicates, "or");
+};
+
+const isNormalizedQueryDefinition = (
+	input: unknown,
+): input is NormalizedQueryDefinition => {
+	if (!input || typeof input !== "object") {
+		return false;
+	}
+
+	const value = input as { filter?: unknown; sort?: { expression?: unknown } };
+	return "filter" in value && Boolean(value.sort?.expression);
+};
+
+const normalizeQueryDefinition = (
+	input: unknown,
+): NormalizedQueryDefinition => {
+	if (isNormalizedQueryDefinition(input)) {
+		return input;
+	}
+
+	const legacy = input as LegacyQueryDefinition;
+	return {
+		computedFields: legacy.computedFields ?? [],
+		eventJoins: legacy.eventJoins ?? [],
+		entitySchemaSlugs: legacy.entitySchemaSlugs,
+		filter: toFilterPredicate(legacy.filters, legacy.filter),
+		sort: {
+			direction: legacy.sort.direction,
+			expression: toExpression(legacy.sort.fields) ?? literalExpression(null),
+		},
+	};
+};
+
 const normalizeDisplayConfiguration = (
 	input: DisplayConfigurationInput,
 ): CreateSavedViewBody["displayConfiguration"] =>
@@ -156,13 +325,17 @@ const normalizeDisplayConfiguration = (
 		},
 	}) as unknown as CreateSavedViewBody["displayConfiguration"];
 
-const defaultQueryDefinition = {
-	filters: [],
+const defaultQueryDefinition: NormalizedQueryDefinition = {
+	filter: null,
 	eventJoins: [],
 	computedFields: [],
 	entitySchemaSlugs: ["book"],
-	sort: { fields: [entityField("book", "name")], direction: "asc" },
-} as CreateSavedViewBody["queryDefinition"];
+	sort: {
+		direction: "asc",
+		expression:
+			toExpression([entityField("book", "name")]) ?? literalExpression(null),
+	},
+};
 
 const defaultDisplayConfiguration = {
 	table: {
@@ -185,25 +358,37 @@ const defaultDisplayConfiguration = {
 export function buildSavedViewBody(
 	overrides: CreateSavedViewInput = {},
 ): CreateSavedViewBody {
-	const displayConfiguration = overrides.displayConfiguration
-		? normalizeDisplayConfiguration(overrides.displayConfiguration)
+	const {
+		displayConfiguration: displayOverride,
+		queryDefinition,
+		...rest
+	} = overrides;
+	const displayConfiguration = displayOverride
+		? normalizeDisplayConfiguration(displayOverride)
 		: normalizeDisplayConfiguration(defaultDisplayConfiguration);
 
 	return {
 		icon: "star",
 		accentColor: "#FF5733",
-		queryDefinition: defaultQueryDefinition,
 		name: `Saved View ${crypto.randomUUID()}`,
-		...overrides,
+		...rest,
 		displayConfiguration,
+		queryDefinition: normalizeQueryDefinition(
+			queryDefinition ?? defaultQueryDefinition,
+		) as unknown as CreateSavedViewBody["queryDefinition"],
 	};
 }
 
 export function buildUpdatedSavedViewBody(
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	const displayConfiguration = overrides.displayConfiguration
-		? normalizeDisplayConfiguration(overrides.displayConfiguration)
+	const {
+		displayConfiguration: displayOverride,
+		queryDefinition,
+		...rest
+	} = overrides;
+	const displayConfiguration = displayOverride
+		? normalizeDisplayConfiguration(displayOverride)
 		: normalizeDisplayConfiguration({
 				table: {
 					columns: [
@@ -230,16 +415,21 @@ export function buildUpdatedSavedViewBody(
 		isDisabled: false,
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
-		queryDefinition: {
-			computedFields: [],
-			eventJoins: [],
-			entitySchemaSlugs: ["book", "anime"],
-			sort: { fields: [entityField("book", "createdAt")], direction: "desc" },
-			filters: [
-				{ op: "gte", field: entityField("book", "publishYear"), value: 2020 },
-			],
-		} as UpdateSavedViewBody["queryDefinition"],
-		...overrides,
+		...rest,
+		queryDefinition: normalizeQueryDefinition(
+			queryDefinition ?? {
+				eventJoins: [],
+				computedFields: [],
+				entitySchemaSlugs: ["book", "anime"],
+				filters: [
+					{ op: "gte", field: entityField("book", "publishYear"), value: 2020 },
+				],
+				sort: {
+					fields: [entityField("book", "createdAt")],
+					direction: "desc",
+				},
+			},
+		) as unknown as UpdateSavedViewBody["queryDefinition"],
 		displayConfiguration,
 	};
 }
