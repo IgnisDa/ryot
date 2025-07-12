@@ -1,19 +1,10 @@
 use anyhow::{Result, bail};
 use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enum_models::{MediaLot, MediaSource};
+use enum_models::MediaSource;
 use media_models::ImportOrExportMetadataItemSeen;
-use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct IntegrationMediaSeen {
-    lot: MediaLot,
-    progress: Decimal,
-    identifier: String,
-    show_season_number: Option<i32>,
-    show_episode_number: Option<i32>,
-}
+use crate::utils::IntegrationMediaSeen;
 
 pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
     let payload = match serde_json::from_str::<IntegrationMediaSeen>(&payload) {
