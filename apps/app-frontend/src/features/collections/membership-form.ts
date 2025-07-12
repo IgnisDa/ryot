@@ -1,16 +1,13 @@
-import type {
-	AppPropertyDefinition,
-	AppSchema,
-	AppSchemaRuleCondition,
-} from "@ryot/ts-utils";
-import {
-	fromAppSchemaObject,
-	getDefaultPropertyLabel,
-	isAppPropertyRequired,
-} from "@ryot/ts-utils";
-import { match } from "ts-pattern";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
+import { getDefaultPropertyLabel, isAppPropertyRequired } from "@ryot/ts-utils";
 import { z } from "zod";
 import type { AppEntity } from "~/features/entities/model";
+import {
+	buildPrimitivePropertiesSchema,
+	getUnsupportedRequiredProperties,
+	isPrimitiveProperty,
+	reconcilePrimitiveProperties,
+} from "../property-schemas/primitive-schema-utils";
 import type { AppCollection } from "./model";
 
 export type CollectionMembershipFormValues = {
@@ -45,26 +42,7 @@ export function reconcileMembershipProperties(
 	schema: AppSchema,
 	currentProperties: Record<string, unknown>,
 ): Record<string, unknown> {
-	const properties: Record<string, unknown> = {};
-
-	for (const [key, propertyDef] of Object.entries(schema.fields)) {
-		if (!isPrimitiveProperty(propertyDef)) {
-			continue;
-		}
-
-		const currentValue = currentProperties[key];
-		if (isValidPropertyValue(propertyDef, currentValue)) {
-			properties[key] = currentValue;
-			continue;
-		}
-
-		const defaultValue = getDefaultValue(propertyDef);
-		if (isAppPropertyRequired(propertyDef) && defaultValue !== undefined) {
-			properties[key] = defaultValue;
-		}
-	}
-
-	return properties;
+	return reconcilePrimitiveProperties(schema, currentProperties);
 }
 
 export const buildDefaultMembershipFormValues = (
@@ -157,14 +135,13 @@ export const buildMembershipFormSchema = (
 				return;
 			}
 
-			const unsupportedRequiredProperties =
-				getUnsupportedRequiredProperties(schema);
-			if (unsupportedRequiredProperties.length > 0) {
+			const unsupportedRequiredKeys = getUnsupportedRequiredProperties(schema);
+			if (unsupportedRequiredKeys.length > 0) {
 				ctx.addIssue({
 					code: "custom",
 					path: ["properties"],
 					message: getUnsupportedRequiredPropertiesMessage(
-						unsupportedRequiredProperties,
+						unsupportedRequiredKeys,
 					),
 				});
 			}
@@ -190,7 +167,7 @@ export const buildMembershipFormSchema = (
 				}
 			}
 
-			const result = buildMembershipPropertiesSchema(schema).safeParse(
+			const result = buildPrimitivePropertiesSchema(schema).safeParse(
 				value.properties,
 			);
 
@@ -214,7 +191,7 @@ export function toMembershipPayload(
 ): CollectionMembershipPayload {
 	const schema = selectedCollection?.membershipPropertiesSchema;
 	const properties = schema
-		? buildMembershipPropertiesSchema(schema).parse(values.properties)
+		? buildPrimitivePropertiesSchema(schema).parse(values.properties)
 		: values.properties;
 
 	return {
@@ -252,93 +229,10 @@ export function getMembershipPropertyEntries(
 	return entries;
 }
 
-export function getUnsupportedRequiredProperties(schema: AppSchema): string[] {
-	return Object.entries(schema.fields)
-		.filter(
-			([, propertyDef]) =>
-				isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
-		)
-		.map(([key]) => key);
-}
+export { getUnsupportedRequiredProperties };
 
 export function getUnsupportedRequiredPropertiesMessage(
 	propertyKeys: string[],
 ): string {
 	return `This collection requires unsupported properties: ${propertyKeys.join(", ")}.`;
-}
-
-const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
-	return match(propertyDef.type)
-		.with("string", "date", "datetime", () => "")
-		.with("number", "integer", () => 0)
-		.with("boolean", () => false)
-		.otherwise(() => undefined);
-};
-
-function isPrimitiveProperty(propertyDef: AppPropertyDefinition) {
-	return match(propertyDef.type)
-		.with(
-			"boolean",
-			"date",
-			"datetime",
-			"integer",
-			"number",
-			"string",
-			() => true,
-		)
-		.otherwise(() => false);
-}
-
-function isValidPropertyValue(
-	propertyDef: AppPropertyDefinition,
-	value: unknown,
-) {
-	return match(propertyDef.type)
-		.with("string", "date", "datetime", () => typeof value === "string")
-		.with("number", () => typeof value === "number" && Number.isFinite(value))
-		.with("integer", () => Number.isInteger(value))
-		.with("boolean", () => typeof value === "boolean")
-		.otherwise(() => false);
-}
-
-const buildMembershipPropertiesSchema = (propertiesSchema: AppSchema) => {
-	const fields: AppSchema["fields"] = {};
-	const supportedKeys = new Set<string>();
-
-	for (const [key, propertyDef] of Object.entries(propertiesSchema.fields)) {
-		if (!isPrimitiveProperty(propertyDef)) {
-			continue;
-		}
-
-		supportedKeys.add(key);
-		fields[key] = propertyDef;
-	}
-
-	return fromAppSchemaObject(
-		{
-			fields,
-			rules: propertiesSchema.rules?.filter(
-				(rule) =>
-					isSupportedPrimitiveRuleCondition(rule.when, supportedKeys) &&
-					rule.path.length === 1 &&
-					supportedKeys.has(rule.path[0] ?? ""),
-			),
-		},
-		{ unknownKeys: "strip" },
-	);
-};
-
-function isSupportedPrimitiveRuleCondition(
-	condition: AppSchemaRuleCondition,
-	supportedKeys: Set<string>,
-): boolean {
-	return match(condition)
-		.with({ operator: "all" }, { operator: "any" }, (cond) =>
-			cond.conditions.every((value) =>
-				isSupportedPrimitiveRuleCondition(value, supportedKeys),
-			),
-		)
-		.otherwise(
-			(cond) => cond.path.length === 1 && supportedKeys.has(cond.path[0] ?? ""),
-		);
 }

@@ -11,9 +11,11 @@ import {
 	Text,
 } from "@mantine/core";
 import { useMemo } from "react";
+import { FormError } from "~/components/PageStates";
 import { SectionHeader } from "~/components/SectionHeader";
 import type { AppEntity } from "~/features/entities/model";
 import { GeneratedPropertyField } from "~/features/generated-property-fields";
+import { createFormSubmitHandler } from "~/hooks/forms";
 import { useModalForm } from "~/hooks/modal-form";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
@@ -146,27 +148,17 @@ function LogEventForm(props: {
 					.filter(Boolean);
 
 				return (
-					<form
-						onSubmit={(event) => {
-							event.preventDefault();
-							event.stopPropagation();
-							void eventForm.handleSubmit();
-						}}
-					>
+					<form onSubmit={createFormSubmitHandler(eventForm.handleSubmit)}>
 						<eventForm.AppForm>
 							<Stack gap="md">
-								{props.errorMessage && (
-									<Text c="red" size="sm">
-										{props.errorMessage}
-									</Text>
-								)}
+								<FormError message={props.errorMessage} />
 
 								{hasUnsupportedRequiredProperties && (
-									<Text c="red" size="sm">
-										{getUnsupportedRequiredPropertiesMessage(
+									<FormError
+										message={getUnsupportedRequiredPropertiesMessage(
 											unsupportedRequiredProperties,
 										)}
-									</Text>
+									/>
 								)}
 
 								<eventForm.AppField
@@ -338,9 +330,7 @@ export function EntityEventsSection(props: {
 			{eventsQuery.isError && (
 				<Paper p="sm" withBorder radius="md">
 					<Stack gap="xs">
-						<Text c="red" size="sm">
-							Failed to load events.
-						</Text>
+						<FormError message="Failed to load events." />
 						<Group>
 							<Button
 								size="xs"
