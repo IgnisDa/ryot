@@ -1,6 +1,5 @@
 import {
 	MetadataLookupDocument,
-	type MetadataLookupInput,
 	type MetadataLookupQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
@@ -52,16 +51,12 @@ export default defineBackground(() => {
 			const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
 			const client = new GraphQLClient(graphqlEndpoint);
 
-			const input: MetadataLookupInput = {
-				title: data.title,
-				documentTitle: data.documentTitle,
-				runtime: data.runtime?.toString(),
-			};
-
 			console.log("[RYOT] Making GraphQL request to:", graphqlEndpoint);
-			console.log("[RYOT] With input:", input);
+			console.log("[RYOT] With title:", data.title);
 
-			const result = await client.request(MetadataLookupDocument, { input });
+			const result = await client.request(MetadataLookupDocument, {
+				title: data.title,
+			});
 
 			console.log("[RYOT] GraphQL response:", result);
 
