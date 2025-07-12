@@ -1,3 +1,4 @@
+import { debounce, throttle } from "@ryot/ts-utils";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
 import type {
@@ -19,15 +20,9 @@ export default defineContentScript({
 		let currentUrl = window.location.href;
 
 		const cleanup = {
-			urlMonitorInterval: null as NodeJS.Timeout | null,
 			abortController: new AbortController(),
 
 			cleanupAll() {
-				if (this.urlMonitorInterval) {
-					clearInterval(this.urlMonitorInterval);
-					this.urlMonitorInterval = null;
-				}
-
 				this.abortController.abort();
 				isRunning = false;
 
@@ -118,20 +113,23 @@ export default defineContentScript({
 			}
 		}
 
-		async function startTrackingWithMetadataAndVideo(
+		function startTrackingWithMetadataAndVideo(
 			metadata: MetadataLookupData,
 			video: HTMLVideoElement,
 		) {
-			await updateExtensionStatus({
+			updateExtensionStatus({
 				state: "tracking_active",
 				message: "Tracking active",
 				videoTitle: extractTitle() || "Unknown",
 			});
 
-			while (isRunning && currentUrl === window.location.href) {
-				if (!document.contains(video) || video.ended) {
-					logger.debug("Video removed or ended, returning to main loop");
-					break;
+			const sendProgress = () => {
+				if (
+					!document.contains(video) ||
+					!isRunning ||
+					currentUrl !== window.location.href
+				) {
+					return;
 				}
 
 				const progressData = extractProgressData(video);
@@ -140,53 +138,120 @@ export default defineContentScript({
 						title: progressData.title,
 						progress: `${Math.round(progressData.progress || 0)}%`,
 					});
-					await sendProgressUpdate(progressData, metadata);
+					sendProgressUpdate(progressData, metadata);
 				}
+			};
 
-				await sleep(10000);
-			}
+			const throttledProgressUpdate = throttle(sendProgress, 8000);
+
+			video.addEventListener("timeupdate", throttledProgressUpdate, {
+				signal: cleanup.abortController.signal,
+			});
+			video.addEventListener("play", sendProgress, {
+				signal: cleanup.abortController.signal,
+			});
+			video.addEventListener("pause", sendProgress, {
+				signal: cleanup.abortController.signal,
+			});
+			video.addEventListener(
+				"ended",
+				() => {
+					logger.debug("Video ended, stopping tracking");
+					sendProgress();
+				},
+				{
+					signal: cleanup.abortController.signal,
+				},
+			);
+
+			sendProgress();
 		}
 
 		async function startMainLoop() {
 			isRunning = true;
-			logger.debug("Starting main monitoring loop");
+			logger.debug("Starting video detection");
 
 			await updateExtensionStatus({
 				state: "idle",
 				message: "Starting extension...",
 			});
 
-			while (isRunning && currentUrl === window.location.href) {
+			setupVideoDetection();
+		}
+
+		function setupVideoDetection() {
+			const checkForVideos = debounce(async () => {
+				if (!isRunning || currentUrl !== window.location.href) return;
+
 				try {
 					const metadata = await getOrLookupMetadata();
-
-					if (!metadata) {
-						await sleep(5000);
-						continue;
-					}
+					if (!metadata) return;
 
 					const video = findBestVideo();
-
-					if (!video) {
-						await sleep(2000);
-						continue;
-					}
+					if (!video) return;
 
 					logger.debug("Video detected", {
 						src: video.src || video.currentSrc,
 					});
+
 					await updateExtensionStatus({
 						state: "video_detected",
 						message: "Video found, starting tracking...",
 						videoTitle: extractTitle() || "Unknown",
 					});
 
-					await startTrackingWithMetadataAndVideo(metadata, video);
+					startTrackingWithMetadataAndVideo(metadata, video);
 				} catch (error) {
-					logger.error("Main loop error", { error });
-					await sleep(5000);
+					logger.error("Video detection error", { error });
 				}
+			}, 500);
+
+			const observer = new MutationObserver((mutations) => {
+				for (const mutation of mutations) {
+					if (mutation.type === "childList") {
+						for (const node of mutation.addedNodes) {
+							if (node.nodeType === Node.ELEMENT_NODE) {
+								const element = node as Element;
+								if (
+									element.tagName === "VIDEO" ||
+									element.querySelector("video") ||
+									element.matches(
+										'[class*="video"], [class*="player"], [id*="video"], [id*="player"]',
+									)
+								) {
+									checkForVideos();
+									return;
+								}
+							}
+						}
+					} else if (
+						mutation.type === "attributes" &&
+						mutation.target instanceof HTMLVideoElement
+					) {
+						if (
+							mutation.attributeName === "src" ||
+							mutation.attributeName === "currentSrc"
+						) {
+							checkForVideos();
+						}
+					}
+				}
+			});
+
+			if (document.body) {
+				observer.observe(document.body, {
+					childList: true,
+					subtree: true,
+					attributes: true,
+					attributeFilter: ["src", "currentSrc"],
+				});
 			}
+
+			cleanup.abortController.signal.addEventListener("abort", () => {
+				observer.disconnect();
+			});
+
+			checkForVideos();
 		}
 
 		function stopMainLoop() {
@@ -208,6 +273,48 @@ export default defineContentScript({
 			await init();
 		}
 
+		function setupNavigationListeners() {
+			window.addEventListener("popstate", handleUrlChange, {
+				signal: cleanup.abortController.signal,
+			});
+
+			const originalPushState = history.pushState;
+			const originalReplaceState = history.replaceState;
+
+			history.pushState = function (...args) {
+				originalPushState.apply(this, args);
+				handleUrlChange();
+			};
+
+			history.replaceState = function (...args) {
+				originalReplaceState.apply(this, args);
+				handleUrlChange();
+			};
+
+			cleanup.abortController.signal.addEventListener("abort", () => {
+				history.pushState = originalPushState;
+				history.replaceState = originalReplaceState;
+			});
+		}
+
+		function setupVisibilityListener() {
+			document.addEventListener(
+				"visibilitychange",
+				() => {
+					if (document.hidden) {
+						logger.debug("Page hidden, stopping loop");
+						stopMainLoop();
+					} else {
+						logger.debug("Page visible, restarting loop");
+						if (!isRunning) {
+							startMainLoop();
+						}
+					}
+				},
+				{ signal: cleanup.abortController.signal },
+			);
+		}
+
 		async function init() {
 			const integrationUrl = await storage.getItem<string>(
 				STORAGE_KEYS.INTEGRATION_URL,
@@ -222,31 +329,8 @@ export default defineContentScript({
 
 			metadataCache = new MetadataCache();
 
-			if (!cleanup.urlMonitorInterval) {
-				let lastUrl = window.location.href;
-				cleanup.urlMonitorInterval = setInterval(() => {
-					if (window.location.href !== lastUrl) {
-						lastUrl = window.location.href;
-						handleUrlChange();
-					}
-				}, 1000);
-
-				document.addEventListener(
-					"visibilitychange",
-					() => {
-						if (document.hidden) {
-							logger.debug("Page hidden, stopping loop");
-							stopMainLoop();
-						} else {
-							logger.debug("Page visible, restarting loop");
-							if (!isRunning) {
-								startMainLoop();
-							}
-						}
-					},
-					{ signal: cleanup.abortController.signal },
-				);
-			}
+			setupNavigationListeners();
+			setupVisibilityListener();
 
 			await startMainLoop();
 		}
