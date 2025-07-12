@@ -39,6 +39,6 @@ export const activeSubItemAtom = atomWithPlatformStorage<string | null>(
 	null,
 );
 
-export const railOpenAtom = atom(false);
+export const navSheetOpenAtom = atom(false);
 export const subFlyoutOpenAtom = atom(false);
 export const searchOpenAtom = atom(false);
