@@ -96,21 +96,15 @@ export default defineBackground(() => {
 			console.log("[RYOT] Sending progress data to:", integrationUrl);
 			console.log("[RYOT] Progress data:", data);
 
-			const response = await fetch(integrationUrl, {
+			await fetch(integrationUrl, {
 				method: "POST",
 				body: JSON.stringify(data),
 				headers: { "Content-Type": "application/json" },
 			});
 
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
-
 			console.log("[RYOT] Progress data sent successfully");
 
-			return {
-				success: true,
-			};
+			return { success: true };
 		} catch (error) {
 			console.error("[RYOT] Progress data request failed:", error);
 			return {
