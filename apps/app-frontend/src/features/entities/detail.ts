@@ -1,4 +1,5 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
+import { match } from "ts-pattern";
 
 export interface EntityDetailProperty {
 	key: string;
@@ -16,15 +17,20 @@ function formatEntityDetailPropertyValue(
 		return null;
 	}
 
-	switch (propertyDef.type) {
-		case "boolean":
-			return typeof value === "boolean" ? (value ? "Yes" : "No") : null;
-		case "integer":
-		case "number":
-			return typeof value === "number" ? value.toLocaleString() : null;
-		case "string":
-			return typeof value === "string" && value.trim() !== "" ? value : null;
-		case "date": {
+	return match(propertyDef.type)
+		.with("boolean", () =>
+			typeof value === "boolean" ? (value ? "Yes" : "No") : null,
+		)
+		.with("integer", () =>
+			typeof value === "number" ? value.toLocaleString() : null,
+		)
+		.with("number", () =>
+			typeof value === "number" ? value.toLocaleString() : null,
+		)
+		.with("string", () =>
+			typeof value === "string" && value.trim() !== "" ? value : null,
+		)
+		.with("date", () => {
 			if (typeof value === "string" && value.trim() !== "") {
 				try {
 					const date = new Date(value);
@@ -40,8 +46,8 @@ function formatEntityDetailPropertyValue(
 				}
 			}
 			return null;
-		}
-		case "datetime": {
+		})
+		.with("datetime", () => {
 			if (typeof value === "string" && value.trim() !== "") {
 				try {
 					const date = new Date(value);
@@ -59,8 +65,8 @@ function formatEntityDetailPropertyValue(
 				}
 			}
 			return null;
-		}
-		case "array": {
+		})
+		.with("array", () => {
 			if (Array.isArray(value) && value.length > 0) {
 				const items = value
 					.map((item) => {
@@ -84,8 +90,8 @@ function formatEntityDetailPropertyValue(
 				}
 			}
 			return null;
-		}
-		case "object": {
+		})
+		.with("object", () => {
 			if (value && typeof value === "object" && !Array.isArray(value)) {
 				const entries = Object.entries(value).filter(
 					([, val]) => val !== null && val !== undefined,
@@ -95,8 +101,8 @@ function formatEntityDetailPropertyValue(
 				}
 			}
 			return null;
-		}
-	}
+		})
+		.exhaustive();
 }
 
 export function getEntityDetailProperties(
