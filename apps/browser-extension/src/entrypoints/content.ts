@@ -1,5 +1,4 @@
 import { storage } from "#imports";
-import { ApiClient } from "../lib/api-client";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
 import type { ExtensionStatus, RawMediaData } from "../lib/extension-types";
 import { MetadataCache } from "../lib/metadata-cache";
@@ -12,19 +11,25 @@ export default defineContentScript({
 	runAt: "document_start",
 	main() {
 		const isIframe = window !== window.top;
-		let apiClient: ApiClient | null = null;
 		let videoDetector: VideoDetector | null = null;
 		let metadataCache: MetadataCache | null = null;
 		let progressTracker: ProgressTracker | null = null;
 
-		function handleDataSend(data: RawMediaData) {
+		async function handleDataSend(data: RawMediaData) {
 			console.log(
 				"[RYOT] Sending progress:",
 				data.title,
 				`${Math.round((data.progress || 0) * 100)}%`,
 			);
 
-			apiClient?.sendProgressData(data);
+			try {
+				await browser.runtime.sendMessage({
+					data: data,
+					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
+				});
+			} catch (error) {
+				console.error("[RYOT] Failed to send message to background:", error);
+			}
 		}
 
 		async function onVideoFound(video: HTMLVideoElement) {
@@ -164,7 +169,6 @@ export default defineContentScript({
 		}
 
 		function initMainFrameMode() {
-			apiClient = new ApiClient();
 			progressTracker = new ProgressTracker(
 				handleDataSend,
 				metadataCache as MetadataCache,
