@@ -50,35 +50,26 @@ fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &
 }
 
 fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
-    for pattern in patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            if let Some(captures) = re.captures(text) {
-                if let Some(capture) = captures.get(1) {
-                    return Some(capture.as_str().trim().to_string());
-                }
-            }
-        }
-    }
-    None
+    patterns
+        .iter()
+        .find_map(|pattern| {
+            let re = Regex::new(pattern).ok()?;
+            let captures = re.captures(text)?;
+            let capture = captures.get(1)?;
+            Some(capture.as_str().trim().to_string())
+        })
 }
 
 fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> {
-    for pattern in patterns {
-        if let Ok(re) = Regex::new(pattern) {
-            if let Some(captures) = re.captures(text) {
-                if let (Some(first_match), Some(second_match)) = (captures.get(1), captures.get(2))
-                {
-                    if let (Ok(first), Ok(second)) = (
-                        first_match.as_str().parse::<i32>(),
-                        second_match.as_str().parse::<i32>(),
-                    ) {
-                        return Some((first, second));
-                    }
-                }
-            }
-        }
-    }
-    None
+    patterns
+        .iter()
+        .find_map(|pattern| {
+            let re = Regex::new(pattern).ok()?;
+            let captures = re.captures(text)?;
+            let first = captures.get(1)?.as_str().parse().ok()?;
+            let second = captures.get(2)?.as_str().parse().ok()?;
+            Some((first, second))
+        })
 }
 
 pub async fn metadata_lookup(
