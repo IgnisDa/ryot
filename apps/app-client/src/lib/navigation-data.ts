@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import { sortBy } from "@ryot/ts-utils";
 
 type ApiTracker =
 	paths["/trackers"]["get"]["responses"][200]["content"]["application/json"]["data"][number];
@@ -23,15 +24,8 @@ export type NavigationItem = {
 	accentColor: string | null;
 };
 
-export function sortByOrderThenName<T extends { sortOrder: number; name: string }>(
-	items: T[],
-): T[] {
-	return items.toSorted((a, b) => {
-		if (a.sortOrder !== b.sortOrder) {
-			return a.sortOrder - b.sortOrder;
-		}
-		return a.name.localeCompare(b.name);
-	});
+export function sortByOrderThenName<T extends { sortOrder: number; name: string }>(items: T[]) {
+	return sortBy(items, [(item) => item.sortOrder, (item) => item.name]);
 }
 
 export function unwrapData<T>(body: { data: T[] } | undefined): T[] {
