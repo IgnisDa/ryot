@@ -154,6 +154,7 @@ tower-http = { version = "=0.6.4", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.41", features = ["attributes"] }
 tracing-subscriber = "=0.3.19"
 unkey = "=0.6.0"
+url = "=2.5.4"
 uuid = { version = "=1.17.0", features = ["v4"], default-features = false }
 
 [profile.release]

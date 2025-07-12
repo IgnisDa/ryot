@@ -3246,6 +3246,7 @@ dependencies = [
  "chrono-tz",
  "common-models",
  "common-utils",
+ "convert_case 0.8.0",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -3271,6 +3272,7 @@ dependencies = [
  "tokio",
  "tracing",
  "traits",
+ "url",
  "uuid",
 ]
 
