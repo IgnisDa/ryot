@@ -7742,6 +7742,7 @@ __metadata:
   resolution: "@ryot/browser-extension@workspace:apps/browser-extension"
   dependencies:
     "@ryot/generated": "workspace:*"
+    "@ryot/ts-utils": "workspace:*"
     "@tailwindcss/vite": "npm:4.1.11"
     "@types/react": "npm:19.1.2"
     "@types/react-dom": "npm:19.1.3"
