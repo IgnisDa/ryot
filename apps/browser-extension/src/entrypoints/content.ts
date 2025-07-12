@@ -18,6 +18,23 @@ export default defineContentScript({
 		let isRunning = false;
 		let currentUrl = window.location.href;
 
+		const cleanup = {
+			urlMonitorInterval: null as NodeJS.Timeout | null,
+			abortController: new AbortController(),
+
+			cleanupAll() {
+				if (this.urlMonitorInterval) {
+					clearInterval(this.urlMonitorInterval);
+					this.urlMonitorInterval = null;
+				}
+
+				this.abortController.abort();
+				isRunning = false;
+
+				logger.debug("All resources cleaned up");
+			},
+		};
+
 		function sleep(ms: number): Promise<void> {
 			return new Promise((resolve) => setTimeout(resolve, ms));
 		}
@@ -205,33 +222,51 @@ export default defineContentScript({
 
 			metadataCache = new MetadataCache();
 
-			let lastUrl = window.location.href;
-			setInterval(() => {
-				if (window.location.href !== lastUrl) {
-					lastUrl = window.location.href;
-					handleUrlChange();
-				}
-			}, 1000);
-
-			document.addEventListener("visibilitychange", () => {
-				if (document.hidden) {
-					logger.debug("Page hidden, stopping loop");
-					stopMainLoop();
-				} else {
-					logger.debug("Page visible, restarting loop");
-					if (!isRunning) {
-						init();
+			if (!cleanup.urlMonitorInterval) {
+				let lastUrl = window.location.href;
+				cleanup.urlMonitorInterval = setInterval(() => {
+					if (window.location.href !== lastUrl) {
+						lastUrl = window.location.href;
+						handleUrlChange();
 					}
-				}
-			});
+				}, 1000);
+
+				document.addEventListener(
+					"visibilitychange",
+					() => {
+						if (document.hidden) {
+							logger.debug("Page hidden, stopping loop");
+							stopMainLoop();
+						} else {
+							logger.debug("Page visible, restarting loop");
+							if (!isRunning) {
+								startMainLoop();
+							}
+						}
+					},
+					{ signal: cleanup.abortController.signal },
+				);
+			}
 
 			await startMainLoop();
 		}
 
+		window.addEventListener(
+			"beforeunload",
+			() => {
+				cleanup.cleanupAll();
+			},
+			{ signal: cleanup.abortController.signal },
+		);
+
 		if (document.readyState === "loading") {
-			document.addEventListener("DOMContentLoaded", () => {
-				init();
-			});
+			document.addEventListener(
+				"DOMContentLoaded",
+				() => {
+					init();
+				},
+				{ signal: cleanup.abortController.signal },
+			);
 		} else {
 			init();
 		}
