@@ -8,5 +8,9 @@ export function extractTitle() {
 		return h1Elements[0];
 	}
 
-	return title || "Unknown";
+	if (!title || title === "Unknown") {
+		return null;
+	}
+
+	return title;
 }

@@ -20,6 +20,11 @@ export class MetadataCache {
 		const title = extractTitle();
 		const currentUrl = window.location.href;
 
+		if (!title) {
+			console.log("[RYOT] No title available yet, skipping metadata lookup");
+			return null;
+		}
+
 		try {
 			const response = await browser.runtime.sendMessage({
 				data: { title },
