@@ -73,6 +73,9 @@ impl IntegrationService {
                 sink::plex::sink_progress(payload, &self.0.db, specifics.plex_sink_username).await
             }
             IntegrationProvider::GenericJson => sink::generic_json::sink_progress(payload).await,
+            IntegrationProvider::RyotBrowserExtension => {
+                sink::ryot_browser_extension::sink_progress(payload).await
+            }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };
         match maybe_progress_update {

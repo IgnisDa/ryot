@@ -46,3 +46,9 @@ pub struct IntegrationMediaSeen {
     pub show_season_number: Option<i32>,
     pub show_episode_number: Option<i32>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserExtensionMediaSeen {
+    pub url: String,
+    pub data: IntegrationMediaSeen,
+}
