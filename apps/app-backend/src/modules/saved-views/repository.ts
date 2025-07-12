@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { type DbClient, db } from "~/lib/db";
+import { assertPersisted, type DbClient, db } from "~/lib/db";
 import { savedView } from "~/lib/db/schema";
 import type {
 	CreateSavedViewBody,
@@ -150,11 +150,7 @@ export const createSavedViewForUser = async (input: SavedViewCreateInput) => {
 		})
 		.returning(savedViewSelection);
 
-	if (!createdView) {
-		throw new Error("Could not persist saved view");
-	}
-
-	return toSavedView(createdView);
+	return toSavedView(assertPersisted(createdView, "saved view"));
 };
 
 export const createSavedViewsForUser = async (input: {
