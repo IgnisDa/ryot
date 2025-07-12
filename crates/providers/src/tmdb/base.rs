@@ -3,6 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use common_utils::convert_date_to_year;
+use common_utils::ryot_log;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
 use enum_models::MediaLot;
 use enum_models::MediaSource;
@@ -307,6 +308,7 @@ impl TmdbService {
     }
 
     pub async fn multi_search(&self, query: &str) -> Result<Vec<TmdbMetadataLookupResult>> {
+        ryot_log!(debug, "tmdb multi_search: query={}", query);
         let response: TmdbListResponse = self
             .client
             .get(format!("{}/search/multi", URL))
