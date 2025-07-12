@@ -1,5 +1,6 @@
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import logo from "~/assets/icon.png";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
 import type { ExtensionStatus, FormState } from "../../lib/extension-types";
@@ -124,7 +125,10 @@ const App = () => {
 	return (
 		<div className="w-[300px] p-5 font-sans">
 			<div className="flex items-center justify-between mb-5">
-				<h1 className="text-2xl font-semibold text-gray-800">Ryot</h1>
+				<div className="flex items-center gap-2">
+					<img src={logo} alt="Ryot Logo" className="w-8 h-8" />
+					<h1 className="text-2xl font-semibold text-gray-800">Ryot</h1>
+				</div>
 				<button
 					type="button"
 					onClick={() => setCurrentPage("settings")}
