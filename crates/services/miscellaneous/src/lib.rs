@@ -24,8 +24,8 @@ use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataLookupInput, MetadataProgressUpdateInput, ReviewPostedEvent,
-    UniqueMediaIdentifier, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
+    ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -356,11 +356,8 @@ impl MiscellaneousService {
         background_operations::perform_background_jobs(&self.0).await
     }
 
-    pub async fn metadata_lookup(
-        &self,
-        input: MetadataLookupInput,
-    ) -> Result<UniqueMediaIdentifier> {
-        scrobble_operations::metadata_lookup(&self.0, input).await
+    pub async fn metadata_lookup(&self, title: String) -> Result<MetadataLookupResponse> {
+        scrobble_operations::metadata_lookup(&self.0, title).await
     }
 
     #[cfg(debug_assertions)]

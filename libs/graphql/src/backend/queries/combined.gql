@@ -547,10 +547,16 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 	}
 }
 
-query MetadataLookup($input: MetadataLookupInput!) {
-	metadataLookup(input: $input) {
-		lot
-		source
-		identifier
+query MetadataLookup($title: String!) {
+	metadataLookup(title: $title) {
+		data {
+			lot
+			source
+			identifier
+		}
+		showInformation {
+			season
+			episode
+		}
 	}
 }

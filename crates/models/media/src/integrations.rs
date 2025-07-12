@@ -8,11 +8,19 @@ use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 
+use crate::{SeenShowExtraInformation, UniqueMediaIdentifier};
+
 #[derive(Debug, Clone, SimpleObject)]
 pub struct TmdbMetadataLookupResult {
     pub identifier: String,
     pub lot: MediaLot,
     pub title: String,
+}
+
+#[derive(Debug, Clone, SimpleObject)]
+pub struct MetadataLookupResponse {
+    pub data: UniqueMediaIdentifier,
+    pub show_information: Option<SeenShowExtraInformation>,
 }
 
 #[skip_serializing_none]
