@@ -3659,6 +3659,7 @@ dependencies = [
  "migrations",
  "nanoid",
  "providers",
+ "regex",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",

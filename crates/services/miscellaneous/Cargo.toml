@@ -24,6 +24,7 @@ media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 providers = { path = "../../providers" }
+regex = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
