@@ -1,12 +1,19 @@
 use async_graphql::{InputObject, SimpleObject};
 use enum_models::{
-    IntegrationProvider, MediaSource, NotificationPlatformLot, UserNotificationContent,
+    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot, UserNotificationContent,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+#[derive(Debug, Clone, SimpleObject)]
+pub struct TmdbMetadataLookupResult {
+    pub identifier: String,
+    pub lot: MediaLot,
+    pub title: String,
+}
 
 #[skip_serializing_none]
 #[derive(
