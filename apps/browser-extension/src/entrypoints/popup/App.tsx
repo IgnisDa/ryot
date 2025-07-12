@@ -80,9 +80,10 @@ const App = () => {
 	};
 
 	const handleClear = async () => {
-		await storage.removeItem(STORAGE_KEYS.INTEGRATION_URL);
+		await storage.clear("local");
 		setUrl("");
 		setFormState({ status: "idle" });
+		setExtensionStatus(null);
 		setCurrentPage("main");
 	};
 
@@ -102,16 +103,17 @@ const App = () => {
 				</div>
 				<div className="space-y-4">
 					<div className="p-4 bg-gray-50 rounded-md">
-						<h3 className="font-medium text-gray-800 mb-2">Integration URL</h3>
+						<h3 className="font-medium text-gray-800 mb-2">Reset Extension</h3>
 						<p className="text-sm text-gray-600 mb-3">
-							Clear your integration URL to reset the extension.
+							Clear all extension data including integration URL, cached
+							metadata, and status information.
 						</p>
 						<button
 							type="button"
 							onClick={handleClear}
 							className="w-full py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
 						>
-							Clear Integration URL
+							Clear All Data
 						</button>
 					</div>
 				</div>
