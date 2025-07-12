@@ -922,7 +922,7 @@ describe("Saved views E2E", () => {
 						imageProperty: null,
 						badgeProperty: null,
 						subtitleProperty: null,
-						titleProperty: [entityField("book", "@nam")],
+						titleProperty: entityColumnExpression("book", "nam"),
 					},
 					list: {
 						imageProperty: null,
@@ -936,7 +936,7 @@ describe("Saved views E2E", () => {
 
 		expect(result.response.status).toBe(400);
 		expect(result.error?.error?.message).toContain(
-			"Unsupported entity column 'entity.book.@nam'",
+			"Unsupported entity column 'entity.book.nam'",
 		);
 	});
 
