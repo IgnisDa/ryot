@@ -45,6 +45,7 @@ export type ViewRuntimeReferenceContext<
 
 const entityRuntimeColumns = {
 	image: { display: true, filter: false },
+	id: { display: true, filter: true, property: { type: "string" as const } },
 	name: { display: true, filter: true, property: { type: "string" as const } },
 	createdAt: {
 		filter: true,
