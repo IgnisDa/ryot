@@ -273,7 +273,9 @@ export function StoryRingRow({ items }: { items: ContinueItem[] }) {
 
 export function UpNextSection({ items }: { items: UpNextItem[] }) {
 	const { width } = useWindowDimensions();
-	const cardWidth = (width - 56 - 12) / 2;
+	const effectiveWidth = Math.min(width, 860);
+	const cols = effectiveWidth >= 640 ? 3 : 2;
+	const cardWidth = (effectiveWidth - 56 - 12 * (cols - 1)) / cols;
 	const posterHeight = cardWidth * 1.5;
 
 	return (
@@ -429,11 +431,11 @@ export function RateTheseSection({ items }: { items: RateItem[] }) {
 		<Box>
 			<SectionLabel color={SECTION_ACCENTS.rateThese} label="Rate These" />
 			{idx >= items.length ? (
-				<Box className="items-center py-6">
+				<Box className="items-center py-6 web:max-w-[480px]">
 					<Text className="text-[13px] font-sans text-muted-foreground">All caught up ✓</Text>
 				</Box>
 			) : (
-				<Box style={{ paddingBottom: 10 }}>
+				<Box className="web:max-w-[480px]" style={{ paddingBottom: 10 }}>
 					{/* Back card hint — next item peeking behind */}
 					{idx + 1 < items.length ? (
 						<Box
