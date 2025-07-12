@@ -5,9 +5,9 @@
 	"type": "module",
 	"scripts": {
 		"typecheck": "tsc",
-		"lint": "oxlint . && oxfmt .",
 		"build-chrome": "wxt zip -b chrome",
 		"build-firefox": "wxt zip -b firefox",
+		"lint": "oxlint . --fix && oxfmt . --write",
 		"build": "bun run build-chrome && bun run build-firefox"
 	},
 	"dependencies": {
