@@ -50,26 +50,22 @@ fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &
 }
 
 fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
-    patterns
-        .iter()
-        .find_map(|pattern| {
-            let re = Regex::new(pattern).ok()?;
-            let captures = re.captures(text)?;
-            let capture = captures.get(1)?;
-            Some(capture.as_str().trim().to_string())
-        })
+    patterns.iter().find_map(|pattern| {
+        let re = Regex::new(pattern).ok()?;
+        let captures = re.captures(text)?;
+        let capture = captures.get(1)?;
+        Some(capture.as_str().trim().to_string())
+    })
 }
 
 fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> {
-    patterns
-        .iter()
-        .find_map(|pattern| {
-            let re = Regex::new(pattern).ok()?;
-            let captures = re.captures(text)?;
-            let first = captures.get(1)?.as_str().parse().ok()?;
-            let second = captures.get(2)?.as_str().parse().ok()?;
-            Some((first, second))
-        })
+    patterns.iter().find_map(|pattern| {
+        let re = Regex::new(pattern).ok()?;
+        let captures = re.captures(text)?;
+        let first = captures.get(1)?.as_str().parse().ok()?;
+        let second = captures.get(2)?.as_str().parse().ok()?;
+        Some((first, second))
+    })
 }
 
 pub async fn metadata_lookup(
@@ -419,9 +415,6 @@ mod tests {
 
     #[test]
     fn test_discussed_examples() {
-        // Test the examples mentioned in our discussion
-
-        // "Andor (2022) S01E01"
         assert_eq!(clean_title("Andor (2022) S01E01"), "Andor");
         assert_eq!(extract_base_title("Andor (2022) S01E01"), "Andor");
         let episode_info = extract_season_episode("Andor (2022) S01E01");
@@ -430,7 +423,6 @@ mod tests {
         assert_eq!(info.season, 1);
         assert_eq!(info.episode, 1);
 
-        // "The Rapacious Jailbreaker (1974)"
         assert_eq!(
             clean_title("The Rapacious Jailbreaker (1974)"),
             "The Rapacious Jailbreaker"
@@ -440,11 +432,9 @@ mod tests {
             "The Rapacious Jailbreaker"
         );
 
-        // "Transformers One"
         assert_eq!(clean_title("Transformers One"), "Transformers One");
         assert_eq!(extract_base_title("Transformers One"), "Transformers One");
 
-        // "Breaking Bad season 1 episode 2"
         assert_eq!(
             clean_title("Breaking Bad season 1 episode 2"),
             "Breaking Bad"
@@ -462,33 +452,26 @@ mod tests {
 
     #[test]
     fn test_edge_cases() {
-        // Test edge cases and potential issues
-
-        // Multiple years in title
         assert_eq!(clean_title("Movie (1999) vs (2020)"), "Movie vs");
 
-        // Season/episode with leading zeros
         let episode_info = extract_season_episode("Show S01E01");
         assert!(episode_info.is_some());
         let info = episode_info.unwrap();
         assert_eq!(info.season, 1);
         assert_eq!(info.episode, 1);
 
-        // Season/episode without leading zeros
         let episode_info = extract_season_episode("Show S1E1");
         assert!(episode_info.is_some());
         let info = episode_info.unwrap();
         assert_eq!(info.season, 1);
         assert_eq!(info.episode, 1);
 
-        // High season/episode numbers
         let episode_info = extract_season_episode("Long Show S15E23");
         assert!(episode_info.is_some());
         let info = episode_info.unwrap();
         assert_eq!(info.season, 15);
         assert_eq!(info.episode, 23);
 
-        // Multiple season/episode patterns in one title (should match first)
         let episode_info = extract_season_episode("Show S01E01 Season 2 Episode 3");
         assert!(episode_info.is_some());
         let info = episode_info.unwrap();
