@@ -1,7 +1,7 @@
 import { storage } from "#imports";
 import { ApiClient } from "../lib/api-client";
-import { STORAGE_KEYS } from "../lib/constants";
-import type { RawMediaData } from "../lib/extension-types";
+import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
+import type { ExtensionStatus, RawMediaData } from "../lib/extension-types";
 import { MetadataCache } from "../lib/metadata-cache";
 import { ProgressTracker } from "../lib/progress-tracker";
 import { VideoDetector } from "../lib/video-detector";
@@ -27,8 +27,15 @@ export default defineContentScript({
 			apiClient?.sendProgressData(data);
 		}
 
-		function onVideoFound(video: HTMLVideoElement) {
+		async function onVideoFound(video: HTMLVideoElement) {
 			console.log("[RYOT] Video detected:", video.src || video.currentSrc);
+
+			const videoTitle = document.title || "Unknown Video";
+			await updateExtensionStatus({
+				videoTitle,
+				state: "tracking_active",
+				message: "Sending progress updates...",
+			});
 
 			progressTracker?.startTracking(video);
 		}
@@ -41,6 +48,10 @@ export default defineContentScript({
 			}
 		}
 
+		async function updateExtensionStatus(status: ExtensionStatus) {
+			await storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status);
+		}
+
 		async function handleUrlChange() {
 			console.log("[RYOT] URL changed, checking metadata for new URL");
 
@@ -49,11 +60,16 @@ export default defineContentScript({
 
 				if (cachedMetadata) {
 					console.log("[RYOT] Found cached metadata for new URL");
+					await updateExtensionStatus({ state: "ready", message: "Ready" });
 					videoDetector?.start();
 				} else {
 					console.log(
 						"[RYOT] No cached metadata, performing lookup for new URL",
 					);
+					await updateExtensionStatus({
+						state: "lookup_in_progress",
+						message: "Lookup under way...",
+					});
 					const lookupResult = await metadataCache.lookupAndCacheMetadata();
 
 					if (lookupResult) {
@@ -63,6 +79,7 @@ export default defineContentScript({
 						console.log(
 							"[RYOT] Metadata lookup failed for new URL, stopping video monitoring",
 						);
+						await updateExtensionStatus({ state: "ready", message: "Ready" });
 						progressTracker?.stopTracking();
 					}
 				}
@@ -83,6 +100,8 @@ export default defineContentScript({
 
 			console.log("[RYOT] Integration URL found, checking metadata");
 
+			await updateExtensionStatus({ state: "ready", message: "Ready" });
+
 			metadataCache = new MetadataCache();
 
 			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
@@ -92,6 +111,10 @@ export default defineContentScript({
 				startVideoMonitoring();
 			} else {
 				console.log("[RYOT] No cached metadata, performing lookup");
+				await updateExtensionStatus({
+					state: "lookup_in_progress",
+					message: "Lookup under way...",
+				});
 				const lookupResult = await metadataCache.lookupAndCacheMetadata();
 
 				if (lookupResult) {

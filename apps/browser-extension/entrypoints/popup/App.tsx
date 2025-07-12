@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { storage } from "#imports";
-import { STORAGE_KEYS } from "../../lib/constants";
-import type { FormState } from "../../lib/extension-types";
+import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
+import type { ExtensionStatus, FormState } from "../../lib/extension-types";
 
 const App = () => {
 	const [url, setUrl] = useState("");
 	const [formState, setFormState] = useState<FormState>({ status: "idle" });
+	const [extensionStatus, setExtensionStatus] =
+		useState<ExtensionStatus | null>(null);
 
 	const validateUrl = (urlString: string) => {
 		if (!urlString.trim()) {
@@ -42,7 +44,27 @@ const App = () => {
 			}
 		};
 
+		const loadExtensionStatus = async () => {
+			try {
+				const response = await browser.runtime.sendMessage({
+					type: MESSAGE_TYPES.GET_STATUS,
+				});
+				if (response.success) {
+					setExtensionStatus(response.data);
+				}
+			} catch (error) {
+				console.error("Failed to get extension status:", error);
+			}
+		};
+
 		loadSavedUrl();
+		loadExtensionStatus();
+
+		const handleStorageChange = () => {
+			loadExtensionStatus();
+		};
+
+		storage.watch(STORAGE_KEYS.EXTENSION_STATUS, handleStorageChange);
 	}, []);
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -102,14 +124,42 @@ const App = () => {
 							{formState.status === "submitting" ? "Saving..." : "Submit"}
 						</button>
 					)}
-					{url.trim() && (
-						<button
-							type="button"
-							onClick={handleClear}
-							className={`py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600 ${formState.status === "submitted" ? "w-full" : "flex-1"}`}
-						>
-							Clear
-						</button>
+					{formState.status === "submitted" && (
+						<div className="w-full">
+							{extensionStatus ? (
+								<div className="p-3 bg-gray-100 rounded-md">
+									<div className="text-sm font-medium text-gray-800 mb-1">
+										Status:{" "}
+										{extensionStatus.state === "ready"
+											? "Ready"
+											: extensionStatus.state === "lookup_in_progress"
+												? "Lookup under way..."
+												: "Tracking active"}
+									</div>
+									{extensionStatus.videoTitle && (
+										<div className="text-xs text-gray-600 mb-1">
+											{extensionStatus.videoTitle}
+										</div>
+									)}
+									{extensionStatus.message && (
+										<div className="text-xs text-gray-500">
+											{extensionStatus.message}
+										</div>
+									)}
+								</div>
+							) : (
+								<div className="p-3 bg-gray-100 rounded-md text-sm text-gray-600">
+									Status: Ready
+								</div>
+							)}
+							<button
+								type="button"
+								onClick={handleClear}
+								className="w-full mt-2 py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
+							>
+								Clear
+							</button>
+						</div>
 					)}
 				</div>
 			</form>

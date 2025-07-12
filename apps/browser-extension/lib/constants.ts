@@ -1,8 +1,11 @@
 export const MESSAGE_TYPES = {
-	SEND_PROGRESS_DATA: "SEND_PROGRESS_DATA",
+	GET_STATUS: "GET_STATUS",
+	STATUS_UPDATE: "STATUS_UPDATE",
 	METADATA_LOOKUP: "METADATA_LOOKUP",
+	SEND_PROGRESS_DATA: "SEND_PROGRESS_DATA",
 } as const;
 
 export const STORAGE_KEYS = {
 	INTEGRATION_URL: "local:integration-url",
+	EXTENSION_STATUS: "local:extension-status",
 } as const;

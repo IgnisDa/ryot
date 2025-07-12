@@ -2,7 +2,10 @@ import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql"
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
-import type { MetadataLookupData, RawMediaData } from "../lib/extension-types";
+import type {
+	ExtensionStatus,
+	RawMediaData,
+} from "../lib/extension-types";
 
 function extractGraphQLEndpoint(integrationUrl: string) {
 	try {
@@ -17,6 +20,19 @@ export default defineBackground(() => {
 	console.log("[RYOT] Background script initialized");
 
 	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+		if (message.type === MESSAGE_TYPES.GET_STATUS) {
+			getCurrentStatus()
+				.then((status) => {
+					sendResponse({ success: true, data: status });
+				})
+				.catch((error) => {
+					console.error("[RYOT] Failed to get status:", error);
+					sendResponse({ success: false, error: error.message });
+				});
+
+			return true;
+		}
+
 		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
 			handleProgressData(message.data)
 				.then((result) => {
@@ -105,5 +121,12 @@ export default defineBackground(() => {
 				error: error instanceof Error ? error.message : "Unknown error",
 			};
 		}
+	}
+
+	async function getCurrentStatus() {
+		const status = await storage.getItem<ExtensionStatus>(
+			STORAGE_KEYS.EXTENSION_STATUS,
+		);
+		return status || { state: "ready", message: "Ready" };
 	}
 });

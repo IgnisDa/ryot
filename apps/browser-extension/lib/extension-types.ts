@@ -24,3 +24,9 @@ export interface FormState {
 	error?: string;
 	status: "idle" | "submitting" | "submitted";
 }
+
+export interface ExtensionStatus {
+	message?: string;
+	videoTitle?: string;
+	state: "ready" | "lookup_in_progress" | "tracking_active";
+}
