@@ -1,6 +1,10 @@
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
-import type { ExtensionStatus, RawMediaData } from "../lib/extension-types";
+import type {
+	ExtensionStatus,
+	MetadataLookupData,
+	RawMediaData,
+} from "../lib/extension-types";
 import { MetadataCache } from "../lib/metadata-cache";
 import { ProgressTracker } from "../lib/progress-tracker";
 import { VideoDetector } from "../lib/video-detector";
@@ -14,6 +18,7 @@ export default defineContentScript({
 		let videoDetector: VideoDetector | null = null;
 		let metadataCache: MetadataCache | null = null;
 		let progressTracker: ProgressTracker | null = null;
+		let currentMetadata: MetadataLookupData | null = null;
 
 		async function handleDataSend(data: RawMediaData) {
 			console.log(
@@ -22,14 +27,7 @@ export default defineContentScript({
 				`${Math.round((data.progress || 0) * 100)}%`,
 			);
 
-			if (!metadataCache) {
-				console.error("[RYOT] MetadataCache not available for progress data");
-				return;
-			}
-
-			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
-
-			if (!cachedMetadata) {
+			if (!currentMetadata) {
 				console.error("[RYOT] No cached metadata available for progress data");
 				return;
 			}
@@ -37,7 +35,7 @@ export default defineContentScript({
 			try {
 				await browser.runtime.sendMessage({
 					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
-					data: { rawData: data, metadata: cachedMetadata },
+					data: { rawData: data, metadata: currentMetadata },
 				});
 			} catch (error) {
 				console.error("[RYOT] Failed to send message to background:", error);
@@ -68,6 +66,7 @@ export default defineContentScript({
 
 			if (cachedMetadata) {
 				console.log("[RYOT] Using cached metadata for current page");
+				currentMetadata = cachedMetadata;
 				await updateExtensionStatus({
 					videoTitle,
 					state: "tracking_active",
@@ -86,6 +85,7 @@ export default defineContentScript({
 
 				if (lookupResult) {
 					console.log("[RYOT] Metadata lookup successful, starting tracking");
+					currentMetadata = lookupResult;
 					await updateExtensionStatus({
 						videoTitle,
 						state: "tracking_active",
@@ -121,6 +121,9 @@ export default defineContentScript({
 
 			// Stop any current tracking
 			progressTracker?.stopTracking();
+
+			// Reset metadata cache
+			currentMetadata = null;
 
 			// Reset to idle state and wait for video detection
 			await updateExtensionStatus({

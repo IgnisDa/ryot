@@ -49,7 +49,7 @@ export class MetadataCache {
 				console.log("[RYOT] Metadata lookup successful for:", title);
 				console.log("[RYOT] Response data:", response.data);
 				console.log("[RYOT] Cached at key:", cacheKey);
-				return response.data;
+				return response.data as MetadataLookupData;
 			}
 
 			console.error("[RYOT] Metadata lookup failed:", response.error);
