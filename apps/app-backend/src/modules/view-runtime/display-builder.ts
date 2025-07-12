@@ -1,8 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
-	buildComputedFieldMap,
 	getComputedFieldOrThrow,
-	orderComputedFields,
+	prepareComputedFields,
 } from "~/lib/views/computed-fields";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import {
@@ -114,8 +113,9 @@ const createDisplayExpressionResolver = <
 	input: DisplayExpressionResolverInput<TSchema, TJoin>,
 ) => {
 	const computedFieldCache = new Map<string, SqlExpression>();
-	const computedFieldMap = buildComputedFieldMap(input.computedFields);
-	const orderedComputedFields = orderComputedFields(input.computedFields);
+	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
+		input.computedFields,
+	);
 	const scalarCompiler = createScalarExpressionCompiler({
 		alias: input.alias,
 		context: input.context,

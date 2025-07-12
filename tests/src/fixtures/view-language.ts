@@ -51,6 +51,27 @@ export const literalExpression = (value: unknown | null): ViewExpression => ({
 	type: "literal",
 });
 
+export const entityColumnExpression = (
+	slug: string,
+	column: string,
+): ViewExpression => ({
+	type: "reference",
+	reference: { type: "entity-column", slug, column },
+});
+
+export const schemaPropertyExpression = (
+	slug: string,
+	property: string,
+): ViewExpression => ({
+	type: "reference",
+	reference: { type: "schema-property", slug, property },
+});
+
+export const computedFieldExpression = (key: string): ViewExpression => ({
+	type: "reference",
+	reference: { type: "computed-field", key },
+});
+
 export const entityField = (schemaSlug: string, property: string) => {
 	if (entityBuiltinFields.has(property) || property.startsWith("@")) {
 		return `entity.${schemaSlug}.${property.startsWith("@") ? property : `@${property}`}`;
