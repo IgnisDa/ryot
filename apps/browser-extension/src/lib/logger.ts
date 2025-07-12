@@ -4,43 +4,43 @@ import { STORAGE_KEYS } from "./constants";
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 class Logger {
-	private debugMode: boolean | null = null;
+	private debugMode = false;
 
 	constructor() {
 		this.setupStorageListener();
+		this.loadDebugMode();
 	}
 
 	private setupStorageListener() {
 		storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
-			this.debugMode = null;
+			this.loadDebugMode();
 		});
 	}
 
-	private async getDebugMode(): Promise<boolean> {
-		if (this.debugMode === null) {
-			this.debugMode =
-				(await storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)) ?? false;
-		}
-		return this.debugMode;
+	private loadDebugMode() {
+		storage
+			.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)
+			.then((enabled) => {
+				this.debugMode = enabled ?? false;
+			})
+			.catch(() => {
+				this.debugMode = false;
+			});
 	}
 
-	private async shouldLog(level: LogLevel): Promise<boolean> {
+	private shouldLog(level: LogLevel): boolean {
 		if (level === "error" || level === "warn" || level === "info") {
 			return true;
 		}
-		return await this.getDebugMode();
+		return this.debugMode;
 	}
 
 	private formatMessage(level: LogLevel, message: string): string {
 		return `[RYOT] [${level.toUpperCase()}] ${message}`;
 	}
 
-	private async log(
-		level: LogLevel,
-		message: string,
-		data?: object,
-	): Promise<void> {
-		if (!(await this.shouldLog(level))) {
+	private log(level: LogLevel, message: string, data?: object): void {
+		if (!this.shouldLog(level)) {
 			return;
 		}
 
@@ -72,24 +72,24 @@ class Logger {
 		}
 	}
 
-	async debug(message: string, data?: object): Promise<void> {
-		await this.log("debug", message, data);
+	debug(message: string, data?: object): void {
+		this.log("debug", message, data);
 	}
 
-	async info(message: string, data?: object): Promise<void> {
-		await this.log("info", message, data);
+	info(message: string, data?: object): void {
+		this.log("info", message, data);
 	}
 
-	async warn(message: string, data?: object): Promise<void> {
-		await this.log("warn", message, data);
+	warn(message: string, data?: object): void {
+		this.log("warn", message, data);
 	}
 
-	async error(message: string, data?: object): Promise<void> {
-		await this.log("error", message, data);
+	error(message: string, data?: object): void {
+		this.log("error", message, data);
 	}
 
 	invalidateCache(): void {
-		this.debugMode = null;
+		this.loadDebugMode();
 	}
 }
 
