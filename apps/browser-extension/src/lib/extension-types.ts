@@ -19,5 +19,10 @@ export interface FormState {
 export interface ExtensionStatus {
 	message?: string;
 	videoTitle?: string;
-	state: "ready" | "lookup_in_progress" | "tracking_active";
+	state:
+		| "idle"
+		| "video_detected"
+		| "lookup_in_progress"
+		| "tracking_active"
+		| "lookup_failed";
 }

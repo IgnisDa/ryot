@@ -181,20 +181,41 @@ const App = () => {
 					{formState.status === "submitted" && (
 						<div className="w-full">
 							{extensionStatus ? (
-								<div className="p-3 bg-gray-100 rounded-md">
-									<div className="text-sm font-medium text-gray-800 mb-1">
+								<div
+									className={`p-3 rounded-md ${
+										extensionStatus.state === "lookup_failed"
+											? "bg-red-50"
+											: extensionStatus.state === "tracking_active"
+												? "bg-green-50"
+												: "bg-gray-100"
+									}`}
+								>
+									<div
+										className={`text-sm font-medium mb-1 ${
+											extensionStatus.state === "lookup_failed"
+												? "text-red-800"
+												: extensionStatus.state === "tracking_active"
+													? "text-green-800"
+													: "text-gray-800"
+										}`}
+									>
 										Status:{" "}
-										{extensionStatus.state === "ready"
-											? "Ready"
-											: extensionStatus.state === "lookup_in_progress"
-												? "Lookup under way..."
-												: "Tracking active"}
+										{extensionStatus.state === "idle"
+											? "Waiting for video detection..."
+											: extensionStatus.state === "video_detected"
+												? "Video found, checking metadata..."
+												: extensionStatus.state === "lookup_in_progress"
+													? "Metadata lookup under way..."
+													: extensionStatus.state === "tracking_active"
+														? "Tracking active"
+														: "Metadata lookup failed - extension inactive"}
 									</div>
-									{extensionStatus.videoTitle && (
-										<div className="text-xs text-gray-600 mb-1">
-											{extensionStatus.videoTitle}
-										</div>
-									)}
+									{extensionStatus.videoTitle &&
+										extensionStatus.state !== "idle" && (
+											<div className="text-xs text-gray-600 mb-1">
+												{extensionStatus.videoTitle}
+											</div>
+										)}
 									{extensionStatus.message && (
 										<div className="text-xs text-gray-500">
 											{extensionStatus.message}
@@ -203,7 +224,7 @@ const App = () => {
 								</div>
 							) : (
 								<div className="p-3 bg-gray-100 rounded-md text-sm text-gray-600">
-									Status: Ready
+									Waiting for video detection...
 								</div>
 							)}
 						</div>

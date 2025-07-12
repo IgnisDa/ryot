@@ -38,11 +38,58 @@ export default defineContentScript({
 			const videoTitle = document.title || "Unknown Video";
 			await updateExtensionStatus({
 				videoTitle,
-				state: "tracking_active",
-				message: "Sending progress updates...",
+				state: "video_detected",
+				message: "Video found, checking metadata...",
 			});
 
-			progressTracker?.startTracking(video);
+			if (!metadataCache) {
+				console.error("[RYOT] MetadataCache not initialized");
+				await updateExtensionStatus({
+					state: "lookup_failed",
+					message: "Extension error - metadata cache not available",
+				});
+				return;
+			}
+
+			// Check for cached metadata first
+			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
+
+			if (cachedMetadata) {
+				console.log("[RYOT] Using cached metadata for current page");
+				await updateExtensionStatus({
+					videoTitle,
+					state: "tracking_active",
+					message: "Tracking active (cached metadata)",
+				});
+				progressTracker?.startTracking(video);
+			} else {
+				console.log("[RYOT] No cached metadata, performing lookup");
+				await updateExtensionStatus({
+					videoTitle,
+					state: "lookup_in_progress",
+					message: "Metadata lookup under way...",
+				});
+
+				const lookupResult = await metadataCache.lookupAndCacheMetadata();
+
+				if (lookupResult) {
+					console.log("[RYOT] Metadata lookup successful, starting tracking");
+					await updateExtensionStatus({
+						videoTitle,
+						state: "tracking_active",
+						message: "Tracking active",
+					});
+					progressTracker?.startTracking(video);
+				} else {
+					console.log(
+						"[RYOT] Metadata lookup failed, video monitoring disabled",
+					);
+					await updateExtensionStatus({
+						state: "lookup_failed",
+						message: "Metadata lookup failed - extension inactive",
+					});
+				}
+			}
 		}
 
 		function handleVisibilityChange() {
@@ -58,37 +105,18 @@ export default defineContentScript({
 		}
 
 		async function handleUrlChange() {
-			console.log("[RYOT] URL changed, checking metadata for new URL");
+			console.log("[RYOT] URL changed, resetting to idle state");
 
-			if (metadataCache) {
-				const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
+			// Stop any current tracking
+			progressTracker?.stopTracking();
 
-				if (cachedMetadata) {
-					console.log("[RYOT] Found cached metadata for new URL");
-					await updateExtensionStatus({ state: "ready", message: "Ready" });
-					videoDetector?.start();
-				} else {
-					console.log(
-						"[RYOT] No cached metadata, performing lookup for new URL",
-					);
-					await updateExtensionStatus({
-						state: "lookup_in_progress",
-						message: "Lookup under way...",
-					});
-					const lookupResult = await metadataCache.lookupAndCacheMetadata();
+			// Reset to idle state and wait for video detection
+			await updateExtensionStatus({
+				state: "idle",
+				message: "Waiting for video detection...",
+			});
 
-					if (lookupResult) {
-						console.log("[RYOT] Metadata lookup successful for new URL");
-						videoDetector?.start();
-					} else {
-						console.log(
-							"[RYOT] Metadata lookup failed for new URL, stopping video monitoring",
-						);
-						await updateExtensionStatus({ state: "ready", message: "Ready" });
-						progressTracker?.stopTracking();
-					}
-				}
-			}
+			// Video detector will continue running and will trigger onVideoFound when a video is detected
 		}
 
 		async function init() {
@@ -103,36 +131,15 @@ export default defineContentScript({
 				return;
 			}
 
-			console.log("[RYOT] Integration URL found, checking metadata");
+			console.log("[RYOT] Integration URL found, waiting for video detection");
 
-			await updateExtensionStatus({ state: "ready", message: "Ready" });
+			await updateExtensionStatus({
+				state: "idle",
+				message: "Waiting for video detection...",
+			});
 
 			metadataCache = new MetadataCache();
-
-			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
-
-			if (cachedMetadata) {
-				console.log("[RYOT] Using cached metadata for current page");
-				startVideoMonitoring();
-			} else {
-				console.log("[RYOT] No cached metadata, performing lookup");
-				await updateExtensionStatus({
-					state: "lookup_in_progress",
-					message: "Lookup under way...",
-				});
-				const lookupResult = await metadataCache.lookupAndCacheMetadata();
-
-				if (lookupResult) {
-					console.log(
-						"[RYOT] Metadata lookup successful, starting video monitoring",
-					);
-					startVideoMonitoring();
-				} else {
-					console.log(
-						"[RYOT] Metadata lookup failed, video monitoring disabled",
-					);
-				}
-			}
+			startVideoMonitoring();
 		}
 
 		function startVideoMonitoring() {

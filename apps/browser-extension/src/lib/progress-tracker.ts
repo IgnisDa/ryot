@@ -83,6 +83,11 @@ export class ProgressTracker {
 
 		const title = extractTitle();
 
+		if (!title) {
+			console.log("[RYOT] No title available, skipping progress update");
+			return;
+		}
+
 		const data: RawMediaData = {
 			title,
 			url: window.location.href,
