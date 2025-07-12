@@ -10,33 +10,12 @@ type UpdateSavedViewBody = NonNullable<
 type ReorderSavedViewsBody = NonNullable<
 	paths["/saved-views/reorder"]["post"]["requestBody"]
 >["content"]["application/json"];
-
-type RuntimeRef =
-	| { type: "entity-column"; slug: string; column: string }
-	| { type: "schema-property"; slug: string; property: string }
-	| { type: "computed-field"; key: string }
-	| { type: "event-join-column"; joinKey: string; column: string }
-	| { type: "event-join-property"; joinKey: string; property: string };
-
 type ViewExpression =
-	| { type: "literal"; value: unknown | null }
-	| { type: "reference"; reference: RuntimeRef }
-	| { type: "coalesce"; values: ViewExpression[] };
-
-type ViewPredicate =
-	| {
-			type: "comparison";
-			left: ViewExpression;
-			right: ViewExpression;
-			operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
-	  }
-	| { type: "in"; expression: ViewExpression; values: ViewExpression[] }
-	| { type: "contains"; expression: ViewExpression; value: ViewExpression }
-	| { type: "isNull"; expression: ViewExpression }
-	| { type: "isNotNull"; expression: ViewExpression }
-	| { type: "and"; predicates: ViewPredicate[] }
-	| { type: "or"; predicates: ViewPredicate[] }
-	| { type: "not"; predicate: ViewPredicate };
+	CreateSavedViewBody["queryDefinition"]["sort"]["expression"];
+type ViewPredicate = NonNullable<
+	CreateSavedViewBody["queryDefinition"]["filter"]
+>;
+type RuntimeRef = Extract<ViewExpression, { type: "reference" }>["reference"];
 
 type LegacyFilter = {
 	op:
@@ -72,7 +51,10 @@ type UpdateSavedViewInput = Partial<
 	Omit<UpdateSavedViewBody, "displayConfiguration" | "queryDefinition">
 > & {
 	displayConfiguration?: DisplayConfigurationInput;
-	queryDefinition?: unknown;
+	queryDefinition?:
+		| NormalizedQueryDefinition
+		| LegacyQueryDefinition
+		| UpdateSavedViewBody["queryDefinition"];
 };
 
 type LegacyQueryDefinition = {
@@ -301,19 +283,36 @@ const normalizeQueryDefinition = (
 
 const normalizeDisplayConfiguration = (
 	input: DisplayConfigurationInput,
+	allowNulls = true,
 ): CreateSavedViewBody["displayConfiguration"] =>
 	({
 		grid: {
-			badgeProperty: toExpression(input.grid.badgeProperty),
-			titleProperty: toExpression(input.grid.titleProperty),
-			imageProperty: toExpression(input.grid.imageProperty),
-			subtitleProperty: toExpression(input.grid.subtitleProperty),
+			badgeProperty:
+				toExpression(input.grid.badgeProperty) ??
+				(allowNulls ? null : literalExpression(null)),
+			titleProperty:
+				toExpression(input.grid.titleProperty) ??
+				(allowNulls ? null : literalExpression(null)),
+			imageProperty:
+				toExpression(input.grid.imageProperty) ??
+				(allowNulls ? null : literalExpression(null)),
+			subtitleProperty:
+				toExpression(input.grid.subtitleProperty) ??
+				(allowNulls ? null : literalExpression(null)),
 		},
 		list: {
-			badgeProperty: toExpression(input.list.badgeProperty),
-			titleProperty: toExpression(input.list.titleProperty),
-			imageProperty: toExpression(input.list.imageProperty),
-			subtitleProperty: toExpression(input.list.subtitleProperty),
+			badgeProperty:
+				toExpression(input.list.badgeProperty) ??
+				(allowNulls ? null : literalExpression(null)),
+			titleProperty:
+				toExpression(input.list.titleProperty) ??
+				(allowNulls ? null : literalExpression(null)),
+			imageProperty:
+				toExpression(input.list.imageProperty) ??
+				(allowNulls ? null : literalExpression(null)),
+			subtitleProperty:
+				toExpression(input.list.subtitleProperty) ??
+				(allowNulls ? null : literalExpression(null)),
 		},
 		table: {
 			columns: input.table.columns.map((column) => ({
@@ -388,7 +387,7 @@ export function buildUpdatedSavedViewBody(
 		...rest
 	} = overrides;
 	const displayConfiguration = displayOverride
-		? normalizeDisplayConfiguration(displayOverride)
+		? normalizeDisplayConfiguration(displayOverride, false)
 		: normalizeDisplayConfiguration({
 				table: {
 					columns: [
