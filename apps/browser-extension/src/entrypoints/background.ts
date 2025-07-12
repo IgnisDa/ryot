@@ -146,8 +146,6 @@ export default defineBackground(() => {
 		const status = await storage.getItem<ExtensionStatus>(
 			STORAGE_KEYS.EXTENSION_STATUS,
 		);
-		return (
-			status || { state: "idle", message: "Waiting for video detection..." }
-		);
+		return status || { state: "idle", message: "Nothing to do..." };
 	}
 });

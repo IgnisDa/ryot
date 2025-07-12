@@ -232,16 +232,7 @@ const App = () => {
 													: "text-gray-800"
 										}`}
 									>
-										Status:{" "}
-										{extensionStatus.state === "idle"
-											? "Waiting for video detection..."
-											: extensionStatus.state === "video_detected"
-												? "Video found, checking metadata..."
-												: extensionStatus.state === "lookup_in_progress"
-													? "Metadata lookup under way..."
-													: extensionStatus.state === "tracking_active"
-														? "Tracking active"
-														: "Metadata lookup failed - extension inactive"}
+										Status: {extensionStatus.message}
 									</div>
 									{extensionStatus.videoTitle &&
 										extensionStatus.state !== "idle" && (

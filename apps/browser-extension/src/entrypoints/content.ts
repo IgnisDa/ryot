@@ -151,10 +151,6 @@ export default defineContentScript({
 					const video = findBestVideo();
 
 					if (!video) {
-						await updateExtensionStatus({
-							state: "idle",
-							message: "Waiting for video detection...",
-						});
 						await sleep(2000);
 						continue;
 					}
