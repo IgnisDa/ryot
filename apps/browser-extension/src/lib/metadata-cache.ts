@@ -46,7 +46,9 @@ export class MetadataCache {
 			if (response.success && response.data) {
 				const cacheKey = this.getCacheKey(currentUrl, title);
 				await storage.setItem(cacheKey, response.data);
-				console.log("[RYOT] Metadata cached for:", title, "at", currentUrl);
+				console.log("[RYOT] Metadata lookup successful for:", title);
+				console.log("[RYOT] Response data:", response.data);
+				console.log("[RYOT] Cached at key:", cacheKey);
 				return response.data;
 			}
 
