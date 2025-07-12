@@ -6,132 +6,191 @@ import type {
 	RawMediaData,
 } from "../lib/extension-types";
 import { MetadataCache } from "../lib/metadata-cache";
-import { ProgressTracker } from "../lib/progress-tracker";
-import { VideoDetector } from "../lib/video-detector";
+import { extractTitle } from "../lib/title-extractor";
 
 export default defineContentScript({
 	allFrames: true,
 	matches: ["<all_urls>"],
 	runAt: "document_start",
 	main() {
-		const isIframe = window !== window.top;
-		let videoDetector: VideoDetector | null = null;
 		let metadataCache: MetadataCache | null = null;
-		let progressTracker: ProgressTracker | null = null;
-		let currentMetadata: MetadataLookupData | null = null;
+		let isRunning = false;
+		let currentUrl = window.location.href;
 
-		async function handleDataSend(data: RawMediaData) {
-			console.log(
-				"[RYOT] Sending progress:",
-				data.title,
-				`${Math.round((data.progress || 0) * 100)}%`,
-			);
-
-			if (!currentMetadata) {
-				console.error("[RYOT] No cached metadata available for progress data");
-				return;
-			}
-
-			try {
-				await browser.runtime.sendMessage({
-					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
-					data: { rawData: data, metadata: currentMetadata },
-				});
-			} catch (error) {
-				console.error("[RYOT] Failed to send message to background:", error);
-			}
-		}
-
-		async function onVideoFound(video: HTMLVideoElement) {
-			console.log("[RYOT] Video detected:", video.src || video.currentSrc);
-
-			const videoTitle = document.title || "Unknown Video";
-			await updateExtensionStatus({
-				videoTitle,
-				state: "video_detected",
-				message: "Video found, checking metadata...",
-			});
-
-			if (!metadataCache) {
-				console.error("[RYOT] MetadataCache not initialized");
-				await updateExtensionStatus({
-					state: "lookup_failed",
-					message: "Extension error - metadata cache not available",
-				});
-				return;
-			}
-
-			// Check for cached metadata first
-			const cachedMetadata = await metadataCache.getMetadataForCurrentPage();
-
-			if (cachedMetadata) {
-				console.log("[RYOT] Using cached metadata for current page");
-				currentMetadata = cachedMetadata;
-				await updateExtensionStatus({
-					videoTitle,
-					state: "tracking_active",
-					message: "Tracking active (cached metadata)",
-				});
-				progressTracker?.startTracking(video);
-			} else {
-				console.log("[RYOT] No cached metadata, performing lookup");
-				await updateExtensionStatus({
-					videoTitle,
-					state: "lookup_in_progress",
-					message: "Metadata lookup under way...",
-				});
-
-				const lookupResult = await metadataCache.lookupAndCacheMetadata();
-
-				if (lookupResult) {
-					console.log("[RYOT] Metadata lookup successful, starting tracking");
-					currentMetadata = lookupResult;
-					await updateExtensionStatus({
-						videoTitle,
-						state: "tracking_active",
-						message: "Tracking active",
-					});
-					progressTracker?.startTracking(video);
-				} else {
-					console.log(
-						"[RYOT] Metadata lookup failed, video monitoring disabled",
-					);
-					await updateExtensionStatus({
-						state: "lookup_failed",
-						message: "Metadata lookup failed - extension inactive",
-					});
-				}
-			}
-		}
-
-		function handleVisibilityChange() {
-			if (document.hidden) {
-				progressTracker?.pauseTracking();
-			} else {
-				progressTracker?.resumeTracking();
-			}
+		function sleep(ms: number): Promise<void> {
+			return new Promise((resolve) => setTimeout(resolve, ms));
 		}
 
 		async function updateExtensionStatus(status: ExtensionStatus) {
 			await storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status);
 		}
 
-		async function handleUrlChange() {
-			console.log("[RYOT] URL changed, resetting to idle state");
+		async function getOrLookupMetadata(): Promise<MetadataLookupData | null> {
+			const title = extractTitle();
+			if (!title) return null;
 
-			// Stop any current tracking
-			progressTracker?.stopTracking();
+			if (!metadataCache) return null;
 
-			// Reset metadata cache
-			currentMetadata = null;
+			let metadata = await metadataCache.getMetadataForCurrentPage();
 
-			// Reset to idle state and wait for video detection
+			if (!metadata) {
+				await updateExtensionStatus({
+					state: "lookup_in_progress",
+					message: "Metadata lookup under way...",
+				});
+
+				metadata = await metadataCache.lookupAndCacheMetadata();
+
+				if (!metadata) {
+					await updateExtensionStatus({
+						state: "lookup_failed",
+						message: "Metadata lookup failed - extension inactive",
+					});
+					return null;
+				}
+			}
+
+			return metadata;
+		}
+
+		function findBestVideo(): HTMLVideoElement | null {
+			const videos = document.querySelectorAll("video");
+
+			for (const video of videos) {
+				if (!video.paused && !video.ended && video.readyState > 0) {
+					return video;
+				}
+			}
+
+			for (const video of videos) {
+				if (video.readyState > 0) {
+					return video;
+				}
+			}
+
+			return null;
+		}
+
+		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
+			const title = extractTitle();
+			if (!title || !video.duration || video.duration <= 0) return null;
+
+			return {
+				title,
+				runtime: video.duration,
+				url: window.location.href,
+				currentTime: video.currentTime,
+				domain: window.location.hostname,
+				timestamp: new Date().toISOString(),
+				progress: (video.currentTime / video.duration) * 100,
+			};
+		}
+
+		async function sendProgressUpdate(
+			progressData: RawMediaData,
+			metadata: MetadataLookupData,
+		) {
+			try {
+				await browser.runtime.sendMessage({
+					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
+					data: { rawData: progressData, metadata },
+				});
+			} catch (error) {
+				console.error("[RYOT] Failed to send progress update:", error);
+			}
+		}
+
+		async function startTrackingWithMetadataAndVideo(
+			metadata: MetadataLookupData,
+			video: HTMLVideoElement,
+		) {
 			await updateExtensionStatus({
-				state: "idle",
-				message: "Waiting for video detection...",
+				state: "tracking_active",
+				message: "Tracking active",
+				videoTitle: extractTitle() || "Unknown",
 			});
 
-			// Video detector will continue running and will trigger onVideoFound when a video is detected
+			while (isRunning && currentUrl === window.location.href) {
+				if (!document.contains(video) || video.ended) {
+					console.log("[RYOT] Video removed or ended, returning to main loop");
+					break;
+				}
+
+				const progressData = extractProgressData(video);
+				if (progressData) {
+					console.log(
+						"[RYOT] Sending progress:",
+						progressData.title,
+						`${Math.round(progressData.progress || 0)}%`,
+					);
+					await sendProgressUpdate(progressData, metadata);
+				}
+
+				await sleep(10000);
+			}
+		}
+
+		async function startMainLoop() {
+			isRunning = true;
+			console.log("[RYOT] Starting main monitoring loop");
+
+			await updateExtensionStatus({
+				state: "idle",
+				message: "Starting extension...",
+			});
+
+			while (isRunning && currentUrl === window.location.href) {
+				try {
+					const metadata = await getOrLookupMetadata();
+
+					if (!metadata) {
+						await sleep(5000);
+						continue;
+					}
+
+					const video = findBestVideo();
+
+					if (!video) {
+						await updateExtensionStatus({
+							state: "idle",
+							message: "Waiting for video detection...",
+						});
+						await sleep(2000);
+						continue;
+					}
+
+					console.log("[RYOT] Video detected:", video.src || video.currentSrc);
+					await updateExtensionStatus({
+						state: "video_detected",
+						message: "Video found, starting tracking...",
+						videoTitle: extractTitle() || "Unknown",
+					});
+
+					await startTrackingWithMetadataAndVideo(metadata, video);
+				} catch (error) {
+					console.error("[RYOT] Main loop error:", error);
+					await sleep(5000);
+				}
+			}
+		}
+
+		function stopMainLoop() {
+			isRunning = false;
+			console.log("[RYOT] Stopping main monitoring loop");
+		}
+
+		async function handleUrlChange() {
+			console.log("[RYOT] URL changed, restarting extension");
+			stopMainLoop();
+			currentUrl = window.location.href;
+
+			await updateExtensionStatus({
+				state: "idle",
+				message: "Page changed, restarting...",
+			});
+
+			await sleep(1000);
+			await init();
 		}
 
 		async function init() {
@@ -140,119 +199,43 @@ export default defineContentScript({
 			);
 
 			if (!integrationUrl) {
-				console.log(
-					"[RYOT] Integration URL not set, video monitoring disabled",
-				);
+				console.log("[RYOT] Integration URL not set, monitoring disabled");
 				return;
 			}
 
-			console.log("[RYOT] Integration URL found, waiting for video detection");
-
-			await updateExtensionStatus({
-				state: "idle",
-				message: "Waiting for video detection...",
-			});
+			console.log("[RYOT] Integration URL found, initializing extension");
 
 			metadataCache = new MetadataCache();
-			startVideoMonitoring();
-		}
 
-		function startVideoMonitoring() {
-			if (isIframe) {
-				initIframeMode();
-			} else {
-				initMainFrameMode();
-			}
-		}
-
-		function initIframeMode() {
-			progressTracker = new ProgressTracker((data) => {
-				try {
-					window.top?.postMessage({ type: "iframe-video-progress", data }, "*");
-				} catch {
-					try {
-						const parentOrigin = document.referrer
-							? new URL(document.referrer).origin
-							: "*";
-						window.parent.postMessage(
-							{ type: "iframe-video-progress", data },
-							parentOrigin,
-						);
-					} catch (fallbackError) {
-						console.error(
-							"[RYOT] Failed to send iframe progress:",
-							fallbackError,
-						);
-					}
+			let lastUrl = window.location.href;
+			setInterval(() => {
+				if (window.location.href !== lastUrl) {
+					lastUrl = window.location.href;
+					handleUrlChange();
 				}
-			}, metadataCache as MetadataCache);
-			videoDetector = new VideoDetector(onVideoFound);
-			videoDetector.start();
-		}
+			}, 1000);
 
-		function initMainFrameMode() {
-			progressTracker = new ProgressTracker(
-				handleDataSend,
-				metadataCache as MetadataCache,
-			);
-			videoDetector = new VideoDetector(onVideoFound);
-
-			videoDetector.start();
-
-			window.addEventListener("message", (event) => {
-				if (
-					event.data?.type === "iframe-video-progress" &&
-					event.source !== window
-				) {
-					handleDataSend(event.data.data);
+			document.addEventListener("visibilitychange", () => {
+				if (document.hidden) {
+					console.log("[RYOT] Page hidden, stopping loop");
+					stopMainLoop();
+				} else {
+					console.log("[RYOT] Page visible, restarting loop");
+					if (!isRunning) {
+						init();
+					}
 				}
 			});
 
-			document.addEventListener("visibilitychange", handleVisibilityChange);
-
-			let lastUrl = window.location.href;
-			new MutationObserver(() => {
-				const currentUrl = window.location.href;
-				if (currentUrl !== lastUrl) {
-					lastUrl = currentUrl;
-					handleUrlChange();
-				}
-			}).observe(document, { subtree: true, childList: true });
+			await startMainLoop();
 		}
-
-		let isInitialized = false;
-
-		async function initIfNeeded() {
-			if (isInitialized) return;
-
-			const integrationUrl = await storage.getItem<string>(
-				STORAGE_KEYS.INTEGRATION_URL,
-			);
-			if (integrationUrl) {
-				await init();
-				isInitialized = true;
-			}
-		}
-
-		storage.watch(STORAGE_KEYS.INTEGRATION_URL, async (newValue) => {
-			if (newValue && !isInitialized) {
-				console.log("[RYOT] Integration URL added, starting video monitoring");
-				await init();
-				isInitialized = true;
-			} else if (!newValue && isInitialized) {
-				console.log(
-					"[RYOT] Integration URL removed, stopping video monitoring",
-				);
-				videoDetector?.stop();
-				progressTracker?.stopTracking();
-				isInitialized = false;
-			}
-		});
 
 		if (document.readyState === "loading") {
-			document.addEventListener("DOMContentLoaded", initIfNeeded);
+			document.addEventListener("DOMContentLoaded", () => {
+				init();
+			});
 		} else {
-			initIfNeeded();
+			init();
 		}
 	},
 });
