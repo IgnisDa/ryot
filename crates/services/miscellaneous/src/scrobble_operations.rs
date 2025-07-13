@@ -51,19 +51,26 @@ fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &
     space_re.replace_all(result.trim(), " ").to_string()
 }
 
-fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
+fn extract_captures<T>(
+    text: &str,
+    patterns: &[&str],
+    extractor: impl Fn(&regex::Captures) -> Option<T>,
+) -> Option<T> {
     patterns.iter().find_map(|pattern| {
         let re = Regex::new(pattern).ok()?;
         let captures = re.captures(text)?;
-        let capture = captures.get(1)?;
-        Some(capture.as_str().trim().to_string())
+        extractor(&captures)
+    })
+}
+
+fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
+    extract_captures(text, patterns, |captures| {
+        captures.get(1).map(|cap| cap.as_str().trim().to_string())
     })
 }
 
 fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> {
-    patterns.iter().find_map(|pattern| {
-        let re = Regex::new(pattern).ok()?;
-        let captures = re.captures(text)?;
+    extract_captures(text, patterns, |captures| {
         let first = captures.get(1)?.as_str().parse().ok()?;
         let second = captures.get(2)?.as_str().parse().ok()?;
         Some((first, second))
@@ -168,6 +175,30 @@ fn calculate_similarity(a: &str, b: &str) -> f64 {
     common_words.len() as f64 / total_words as f64
 }
 
+fn calculate_match_score(
+    result: &TmdbMetadataLookupResult,
+    cleaned_original: &str,
+    publish_year: Option<i32>,
+    has_episode_indicators: bool,
+) -> f64 {
+    let mut score = calculate_similarity(cleaned_original, &result.title);
+
+    if let (Some(original_year), Some(result_year)) = (publish_year, result.publish_year) {
+        let year_diff = (original_year - result_year).abs();
+        if year_diff == 0 {
+            score += 0.2;
+        } else if year_diff <= 1 {
+            score += 0.1;
+        }
+    }
+
+    if has_episode_indicators && matches!(result.lot, MediaLot::Show) {
+        score += 0.5;
+    }
+
+    score
+}
+
 fn find_best_match<'a>(
     results: &'a [TmdbMetadataLookupResult],
     original_title: &str,
@@ -180,31 +211,18 @@ fn find_best_match<'a>(
     let cleaned_original = clean_title(original_title);
     let has_episode_indicators = extract_season_episode(original_title).is_some();
 
-    let mut best_match = &results[0];
-    let mut best_score = 0.0;
-
-    for result in results {
-        let title_to_compare = &result.title;
-        let mut score = calculate_similarity(&cleaned_original, title_to_compare);
-
-        if let (Some(original_year), Some(result_year)) = (publish_year, result.publish_year) {
-            let year_diff = (original_year - result_year).abs();
-            if year_diff == 0 {
-                score += 0.2;
-            } else if year_diff <= 1 {
-                score += 0.1;
-            }
-        }
-
-        if has_episode_indicators && matches!(result.lot, MediaLot::Show) {
-            score += 0.5;
-        }
-
-        if score > best_score {
-            best_score = score;
-            best_match = result;
-        }
-    }
+    let best_match = results
+        .iter()
+        .max_by(|a, b| {
+            let score_a =
+                calculate_match_score(a, &cleaned_original, publish_year, has_episode_indicators);
+            let score_b =
+                calculate_match_score(b, &cleaned_original, publish_year, has_episode_indicators);
+            score_a
+                .partial_cmp(&score_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap();
 
     Ok(best_match)
 }
@@ -227,12 +245,24 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
+    const ANDOR_WITH_YEAR: &str = "Andor (2022)";
+    const ANDOR_CLEAN: &str = "Andor";
+    const ANDOR_EPISODE: &str = "Andor S01E01";
+    const ANDOR_COMPLEX: &str = "Andor (2022) S01E01 720p WEBRip";
+    const MATRIX_WITH_YEAR: &str = "The Matrix (1999)";
+    const MATRIX_CLEAN: &str = "The Matrix";
+    const BREAKING_BAD_EPISODE: &str = "Breaking Bad S01E01";
+    const BREAKING_BAD_CLEAN: &str = "Breaking Bad";
+    const BREAKING_BAD_SEASON_EPISODE: &str = "Breaking Bad Season 1 Episode 2";
+    const BREAKING_BAD_SEASON_EPISODE_COMPLEX: &str =
+        "Breaking Bad Season 1 Episode 2 1080p BluRay";
+
     #[rstest]
-    #[case("Andor (2022)", "Andor")]
-    #[case("The Matrix (1999)", "The Matrix")]
+    #[case(ANDOR_WITH_YEAR, ANDOR_CLEAN)]
+    #[case(MATRIX_WITH_YEAR, MATRIX_CLEAN)]
     #[case("Movie [2020]", "Movie")]
     #[case("Show Name (2023) Extra", "Show Name Extra")]
-    #[case("Breaking Bad S01E01", "Breaking Bad")]
+    #[case(BREAKING_BAD_EPISODE, BREAKING_BAD_CLEAN)]
     #[case("Game of Thrones S8E6", "Game of Thrones")]
     #[case("The Office Season 2", "The Office")]
     #[case("Friends Episode 10", "Friends")]
@@ -260,10 +290,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Andor (2022)", "Andor")]
-    #[case("The Matrix (1999)", "The Matrix")]
+    #[case(ANDOR_WITH_YEAR, ANDOR_CLEAN)]
+    #[case(MATRIX_WITH_YEAR, MATRIX_CLEAN)]
     #[case("Movie Name (2020) Extra", "Movie Name")]
-    #[case("Breaking Bad S01E01", "Breaking Bad")]
+    #[case(BREAKING_BAD_EPISODE, BREAKING_BAD_CLEAN)]
     #[case("Game of Thrones S8E6", "Game of Thrones")]
     #[case("The Office Season 2", "The Office")]
     #[case("Friends season 1", "Friends")]
@@ -275,13 +305,13 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Andor S01E01", 1, 1)]
+    #[case(ANDOR_EPISODE, 1, 1)]
     #[case("Breaking Bad S5E14", 5, 14)]
     #[case("Game of Thrones S8 E6", 8, 6)]
-    #[case("Breaking Bad Season 1 Episode 2", 1, 2)]
+    #[case(BREAKING_BAD_SEASON_EPISODE, 1, 2)]
     #[case("The Office season 2 episode 10", 2, 10)]
-    #[case("Andor (2022) S01E01 720p WEBRip", 1, 1)]
-    #[case("Breaking Bad Season 1 Episode 2 1080p BluRay", 1, 2)]
+    #[case(ANDOR_COMPLEX, 1, 1)]
+    #[case(BREAKING_BAD_SEASON_EPISODE_COMPLEX, 1, 2)]
     fn test_extract_season_episode_valid(
         #[case] input: &str,
         #[case] expected_season: i32,
@@ -303,7 +333,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Andor", "Andor", 1.0)]
+    #[case(ANDOR_CLEAN, ANDOR_CLEAN, 1.0)]
     #[case("BREAKING BAD", "breaking bad", 1.0)]
     #[case("", "", 1.0)]
     fn test_calculate_similarity_exact_match(
@@ -315,17 +345,17 @@ mod tests {
     }
 
     #[rstest]
-    #[case("Andor", "Breaking Bad", 0.0)]
+    #[case(ANDOR_CLEAN, BREAKING_BAD_CLEAN, 0.0)]
     #[case("Movie", "Show", 0.0)]
-    #[case("Andor", "", 0.0)]
-    #[case("", "Andor", 0.0)]
+    #[case(ANDOR_CLEAN, "", 0.0)]
+    #[case("", ANDOR_CLEAN, 0.0)]
     fn test_calculate_similarity_no_match(#[case] a: &str, #[case] b: &str, #[case] expected: f64) {
         assert_eq!(calculate_similarity(a, b), expected);
     }
 
     #[rstest]
-    #[case("Andor", "Andor: A Star Wars Story")]
-    #[case("Breaking Bad", "Bad")]
+    #[case(ANDOR_CLEAN, "Andor: A Star Wars Story")]
+    #[case(BREAKING_BAD_CLEAN, "Bad")]
     #[case("Star Wars", "Wars of Stars")]
     #[case("Game of Thrones", "Thrones Game")]
     fn test_calculate_similarity_partial_match(#[case] a: &str, #[case] b: &str) {
@@ -336,7 +366,7 @@ mod tests {
 
     #[test]
     fn test_extract_show_information_for_tv_shows() {
-        let result = extract_show_information("Andor S01E01", &MediaLot::Show);
+        let result = extract_show_information(ANDOR_EPISODE, &MediaLot::Show);
         assert!(result.is_some());
         let info = result.unwrap();
         assert_eq!(info.season, 1);
@@ -345,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_extract_show_information_for_movies() {
-        let result = extract_show_information("The Matrix (1999)", &MediaLot::Movie);
+        let result = extract_show_information(MATRIX_WITH_YEAR, &MediaLot::Movie);
         assert!(result.is_none());
     }
 
@@ -357,9 +387,9 @@ mod tests {
 
     #[test]
     fn test_discussed_examples() {
-        assert_eq!(clean_title("Andor (2022) S01E01"), "Andor");
-        assert_eq!(extract_base_title("Andor (2022) S01E01"), "Andor");
-        let episode_info = extract_season_episode("Andor (2022) S01E01");
+        assert_eq!(clean_title(ANDOR_COMPLEX), ANDOR_CLEAN);
+        assert_eq!(extract_base_title(ANDOR_COMPLEX), ANDOR_CLEAN);
+        let episode_info = extract_season_episode(ANDOR_COMPLEX);
         assert!(episode_info.is_some());
         let info = episode_info.unwrap();
         assert_eq!(info.season, 1);
@@ -377,15 +407,12 @@ mod tests {
         assert_eq!(clean_title("Transformers One"), "Transformers One");
         assert_eq!(extract_base_title("Transformers One"), "Transformers One");
 
+        assert_eq!(clean_title(BREAKING_BAD_SEASON_EPISODE), BREAKING_BAD_CLEAN);
         assert_eq!(
-            clean_title("Breaking Bad season 1 episode 2"),
-            "Breaking Bad"
+            extract_base_title(BREAKING_BAD_SEASON_EPISODE),
+            BREAKING_BAD_CLEAN
         );
-        assert_eq!(
-            extract_base_title("Breaking Bad season 1 episode 2"),
-            "Breaking Bad"
-        );
-        let episode_info = extract_season_episode("Breaking Bad season 1 episode 2");
+        let episode_info = extract_season_episode(BREAKING_BAD_SEASON_EPISODE);
         assert!(episode_info.is_some());
         let info = episode_info.unwrap();
         assert_eq!(info.season, 1);
