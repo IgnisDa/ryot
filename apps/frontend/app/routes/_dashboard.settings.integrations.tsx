@@ -725,8 +725,8 @@ const CreateOrUpdateModal = (props: {
 								<Textarea
 									rows={4}
 									label="Disabled Sites"
+									placeholder="netflix.com&#10;hbo.com"
 									name="providerSpecifics.ryotBrowserExtensionDisabledSites"
-									placeholder="instagram.com&#10;twitter.com&#10;leadsquared.com"
 									description="Extension is enabled on all sites by default. Enter one domain per line where extension should be disabled"
 									defaultValue={
 										props.integrationData?.providerSpecifics?.ryotBrowserExtensionDisabledSites?.join(
