@@ -6,7 +6,7 @@ use common_models::{
     UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
-use media_models::MetadataProgressUpdateCacheInput;
+use media_models::{MetadataLookupResponse, MetadataProgressUpdateCacheInput};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -93,6 +93,7 @@ pub enum ApplicationCacheValue {
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
     ListennotesSettings(ListennotesSettings),
@@ -105,7 +106,6 @@ pub enum ApplicationCacheValue {
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     UserMeasurementsList(UserMeasurementsListResponse),
-    MetadataLookup(media_models::MetadataLookupResponse),
     MetadataProgressUpdateCompletedCache(EmptyCacheValue),
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),

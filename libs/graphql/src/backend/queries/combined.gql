@@ -551,14 +551,19 @@ query MetadataLookup($title: String!) {
 	metadataLookup(title: $title) {
 		cacheId
 		response {
-			data {
-				lot
-				source
-				identifier
+			... on MetadataLookupFoundResult {
+				data {
+					lot
+					source
+					identifier
+				}
+				showInformation {
+					season
+					episode
+				}
 			}
-			showInformation {
-				season
-				episode
+			... on MetadataLookupNotFound {
+				notFound
 			}
 		}
 	}

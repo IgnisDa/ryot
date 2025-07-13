@@ -1,4 +1,4 @@
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, SimpleObject, Union};
 use enum_models::{
     IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot, UserNotificationContent,
 };
@@ -19,9 +19,20 @@ pub struct TmdbMetadataLookupResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
-pub struct MetadataLookupResponse {
+pub struct MetadataLookupFoundResult {
     pub data: UniqueMediaIdentifier,
     pub show_information: Option<SeenShowExtraInformation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
+pub struct MetadataLookupNotFound {
+    pub not_found: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Union)]
+pub enum MetadataLookupResponse {
+    Found(MetadataLookupFoundResult),
+    NotFound(MetadataLookupNotFound),
 }
 
 #[skip_serializing_none]

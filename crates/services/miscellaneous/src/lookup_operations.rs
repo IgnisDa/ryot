@@ -9,8 +9,8 @@ use common_models::MetadataLookupCacheInput;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    MetadataLookupResponse, SeenShowExtraInformation, TmdbMetadataLookupResult,
-    UniqueMediaIdentifier,
+    MetadataLookupFoundResult, MetadataLookupNotFound, MetadataLookupResponse,
+    SeenShowExtraInformation, TmdbMetadataLookupResult, UniqueMediaIdentifier,
 };
 use providers::tmdb::TmdbService;
 use regex::Regex;
@@ -160,24 +160,27 @@ pub async fn metadata_lookup(
 
     let search_results = smart_search(&tmdb_service, &title).await?;
 
-    if search_results.is_empty() {
-        return Err(anyhow!("No media found for title: {}", title).into());
-    }
+    let response = match search_results.is_empty() {
+        true => MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true }),
+        false => {
+            let publish_year = extract_year_from_title(&title);
+            let best_match = find_best_match(&search_results, &title, publish_year)?;
 
-    let publish_year = extract_year_from_title(&title);
-    let best_match = find_best_match(&search_results, &title, publish_year)?;
+            let data = UniqueMediaIdentifier {
+                lot: best_match.lot,
+                source: MediaSource::Tmdb,
+                identifier: best_match.identifier.clone(),
+            };
 
-    let data = UniqueMediaIdentifier {
-        lot: best_match.lot,
-        source: MediaSource::Tmdb,
-        identifier: best_match.identifier.clone(),
-    };
+            let show_information = extract_show_information(&title, &best_match.lot);
 
-    let show_information = extract_show_information(&title, &best_match.lot);
+            let found_result = MetadataLookupFoundResult {
+                data,
+                show_information,
+            };
 
-    let response = MetadataLookupResponse {
-        data,
-        show_information,
+            MetadataLookupResponse::Found(found_result)
+        }
     };
 
     let cache_id = cc

@@ -1248,11 +1248,18 @@ export type MetadataGroupSourceLotMapping = {
   source: MediaSource;
 };
 
-export type MetadataLookupResponse = {
-  __typename?: 'MetadataLookupResponse';
+export type MetadataLookupFoundResult = {
+  __typename?: 'MetadataLookupFoundResult';
   data: UniqueMediaIdentifier;
   showInformation?: Maybe<SeenShowExtraInformation>;
 };
+
+export type MetadataLookupNotFound = {
+  __typename?: 'MetadataLookupNotFound';
+  notFound: Scalars['Boolean']['output'];
+};
+
+export type MetadataLookupResponse = MetadataLookupFoundResult | MetadataLookupNotFound;
 
 export type MetadataLotSourceMappings = {
   __typename?: 'MetadataLotSourceMappings';
