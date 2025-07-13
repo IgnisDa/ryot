@@ -13,7 +13,7 @@ to be installed and active in Jellyfin.
    webhook Url.
 2. In the Jellyfin webhook plugin settings, add a new webhook using the
    following settings:
-    - Webhook Url => `<paste_url_copied>`
+    - Webhook URL => `<paste_url_copied>`
     - Payload format => `Default`
     - Listen to events only for => Choose your user
     - Events => `Play`, `Pause`, `Resume`, `Stop`, `Progress` and `MarkPlayed`
