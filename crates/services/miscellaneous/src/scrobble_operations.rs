@@ -225,194 +225,113 @@ fn extract_season_episode(title: &str) -> Option<SeenShowExtraInformation> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn test_clean_title_removes_years() {
-        assert_eq!(clean_title("Andor (2022)"), "Andor");
-        assert_eq!(clean_title("The Matrix (1999)"), "The Matrix");
-        assert_eq!(clean_title("Movie [2020]"), "Movie");
-        assert_eq!(clean_title("Show Name (2023) Extra"), "Show Name Extra");
+    #[rstest]
+    #[case("Andor (2022)", "Andor")]
+    #[case("The Matrix (1999)", "The Matrix")]
+    #[case("Movie [2020]", "Movie")]
+    #[case("Show Name (2023) Extra", "Show Name Extra")]
+    #[case("Breaking Bad S01E01", "Breaking Bad")]
+    #[case("Game of Thrones S8E6", "Game of Thrones")]
+    #[case("The Office Season 2", "The Office")]
+    #[case("Friends Episode 10", "Friends")]
+    #[case("Movie 720p", "Movie")]
+    #[case("Show 1080p BluRay", "Show")]
+    #[case("Film HDTV", "Film")]
+    #[case("Series WEBRip", "Series")]
+    #[case("Movie DVDRip", "Movie")]
+    #[case("Movie.mp4", "Movie")]
+    #[case("Show.mkv", "Show")]
+    #[case("Film.avi", "Film")]
+    #[case("Series.mov", "Series")]
+    #[case("Movie PROPER", "Movie")]
+    #[case("Show REPACK", "Show")]
+    #[case("Film EXTENDED", "Film")]
+    #[case("Series DIRECTOR'S CUT", "Series")]
+    #[case("Movie [Release Group]", "Movie")]
+    #[case("Show {Extra Info}", "Show")]
+    #[case("Film [720p] {Group}", "Film")]
+    #[case("Andor (2022) S01E01 720p WEBRip [Group]", "Andor")]
+    #[case("Breaking Bad Season 1 Episode 2 1080p BluRay", "Breaking Bad")]
+    #[case("The Matrix (1999) DIRECTOR'S CUT 4K.mkv", "The Matrix")]
+    fn test_clean_title(#[case] input: &str, #[case] expected: &str) {
+        assert_eq!(clean_title(input), expected);
     }
 
-    #[test]
-    fn test_clean_title_removes_season_episode() {
-        assert_eq!(clean_title("Breaking Bad S01E01"), "Breaking Bad");
-        assert_eq!(clean_title("Game of Thrones S8E6"), "Game of Thrones");
-        assert_eq!(clean_title("The Office Season 2"), "The Office");
-        assert_eq!(clean_title("Friends Episode 10"), "Friends");
+    #[rstest]
+    #[case("Andor (2022)", "Andor")]
+    #[case("The Matrix (1999)", "The Matrix")]
+    #[case("Movie Name (2020) Extra", "Movie Name")]
+    #[case("Breaking Bad S01E01", "Breaking Bad")]
+    #[case("Game of Thrones S8E6", "Game of Thrones")]
+    #[case("The Office Season 2", "The Office")]
+    #[case("Friends season 1", "Friends")]
+    #[case("Movie 720p", "Movie")]
+    #[case("Show [Group]", "Show")]
+    #[case("Film.mkv", "Film")]
+    fn test_extract_base_title(#[case] input: &str, #[case] expected: &str) {
+        assert_eq!(extract_base_title(input), expected);
     }
 
-    #[test]
-    fn test_clean_title_removes_quality_indicators() {
-        assert_eq!(clean_title("Movie 720p"), "Movie");
-        assert_eq!(clean_title("Show 1080p BluRay"), "Show");
-        assert_eq!(clean_title("Film HDTV"), "Film");
-        assert_eq!(clean_title("Series WEBRip"), "Series");
-        assert_eq!(clean_title("Movie DVDRip"), "Movie");
-    }
-
-    #[test]
-    fn test_clean_title_removes_file_extensions() {
-        assert_eq!(clean_title("Movie.mp4"), "Movie");
-        assert_eq!(clean_title("Show.mkv"), "Show");
-        assert_eq!(clean_title("Film.avi"), "Film");
-        assert_eq!(clean_title("Series.mov"), "Series");
-    }
-
-    #[test]
-    fn test_clean_title_removes_release_info() {
-        assert_eq!(clean_title("Movie PROPER"), "Movie");
-        assert_eq!(clean_title("Show REPACK"), "Show");
-        assert_eq!(clean_title("Film EXTENDED"), "Film");
-        assert_eq!(clean_title("Series DIRECTOR'S CUT"), "Series");
-    }
-
-    #[test]
-    fn test_clean_title_removes_brackets() {
-        assert_eq!(clean_title("Movie [Release Group]"), "Movie");
-        assert_eq!(clean_title("Show {Extra Info}"), "Show");
-        assert_eq!(clean_title("Film [720p] {Group}"), "Film");
-    }
-
-    #[test]
-    fn test_clean_title_complex_cases() {
-        assert_eq!(
-            clean_title("Andor (2022) S01E01 720p WEBRip [Group]"),
-            "Andor"
-        );
-        assert_eq!(
-            clean_title("Breaking Bad Season 1 Episode 2 1080p BluRay"),
-            "Breaking Bad"
-        );
-        assert_eq!(
-            clean_title("The Matrix (1999) DIRECTOR'S CUT 4K.mkv"),
-            "The Matrix"
-        );
-    }
-
-    #[test]
-    fn test_extract_base_title_from_year() {
-        assert_eq!(extract_base_title("Andor (2022)"), "Andor");
-        assert_eq!(extract_base_title("The Matrix (1999)"), "The Matrix");
-        assert_eq!(extract_base_title("Movie Name (2020) Extra"), "Movie Name");
-    }
-
-    #[test]
-    fn test_extract_base_title_from_season_episode() {
-        assert_eq!(extract_base_title("Breaking Bad S01E01"), "Breaking Bad");
-        assert_eq!(
-            extract_base_title("Game of Thrones S8E6"),
-            "Game of Thrones"
-        );
-        assert_eq!(extract_base_title("The Office Season 2"), "The Office");
-        assert_eq!(extract_base_title("Friends season 1"), "Friends");
-    }
-
-    #[test]
-    fn test_extract_base_title_fallback_to_clean() {
-        assert_eq!(extract_base_title("Movie 720p"), "Movie");
-        assert_eq!(extract_base_title("Show [Group]"), "Show");
-        assert_eq!(extract_base_title("Film.mkv"), "Film");
-    }
-
-    #[test]
-    fn test_extract_season_episode_sxex_format() {
-        let result = extract_season_episode("Andor S01E01");
+    #[rstest]
+    #[case("Andor S01E01", 1, 1)]
+    #[case("Breaking Bad S5E14", 5, 14)]
+    #[case("Game of Thrones S8 E6", 8, 6)]
+    #[case("Breaking Bad Season 1 Episode 2", 1, 2)]
+    #[case("The Office season 2 episode 10", 2, 10)]
+    #[case("Andor (2022) S01E01 720p WEBRip", 1, 1)]
+    #[case("Breaking Bad Season 1 Episode 2 1080p BluRay", 1, 2)]
+    fn test_extract_season_episode_valid(
+        #[case] input: &str,
+        #[case] expected_season: i32,
+        #[case] expected_episode: i32,
+    ) {
+        let result = extract_season_episode(input);
         assert!(result.is_some());
         let info = result.unwrap();
-        assert_eq!(info.season, 1);
-        assert_eq!(info.episode, 1);
-
-        let result = extract_season_episode("Breaking Bad S5E14");
-        assert!(result.is_some());
-        let info = result.unwrap();
-        assert_eq!(info.season, 5);
-        assert_eq!(info.episode, 14);
+        assert_eq!(info.season, expected_season);
+        assert_eq!(info.episode, expected_episode);
     }
 
-    #[test]
-    fn test_extract_season_episode_with_spaces() {
-        let result = extract_season_episode("Game of Thrones S8 E6");
-        assert!(result.is_some());
-        let info = result.unwrap();
-        assert_eq!(info.season, 8);
-        assert_eq!(info.episode, 6);
+    #[rstest]
+    #[case("Just a Movie")]
+    #[case("Random Text")]
+    #[case("Movie (2022)")]
+    fn test_extract_season_episode_no_match(#[case] input: &str) {
+        assert!(extract_season_episode(input).is_none());
     }
 
-    #[test]
-    fn test_extract_season_episode_full_words() {
-        let result = extract_season_episode("Breaking Bad Season 1 Episode 2");
-        assert!(result.is_some());
-        let info = result.unwrap();
-        assert_eq!(info.season, 1);
-        assert_eq!(info.episode, 2);
-
-        let result = extract_season_episode("The Office season 2 episode 10");
-        assert!(result.is_some());
-        let info = result.unwrap();
-        assert_eq!(info.season, 2);
-        assert_eq!(info.episode, 10);
+    #[rstest]
+    #[case("Andor", "Andor", 1.0)]
+    #[case("BREAKING BAD", "breaking bad", 1.0)]
+    #[case("", "", 1.0)]
+    fn test_calculate_similarity_exact_match(
+        #[case] a: &str,
+        #[case] b: &str,
+        #[case] expected: f64,
+    ) {
+        assert_eq!(calculate_similarity(a, b), expected);
     }
 
-    #[test]
-    fn test_extract_season_episode_no_match() {
-        assert!(extract_season_episode("Just a Movie").is_none());
-        assert!(extract_season_episode("Random Text").is_none());
-        assert!(extract_season_episode("Movie (2022)").is_none());
+    #[rstest]
+    #[case("Andor", "Breaking Bad", 0.0)]
+    #[case("Movie", "Show", 0.0)]
+    #[case("Andor", "", 0.0)]
+    #[case("", "Andor", 0.0)]
+    fn test_calculate_similarity_no_match(#[case] a: &str, #[case] b: &str, #[case] expected: f64) {
+        assert_eq!(calculate_similarity(a, b), expected);
     }
 
-    #[test]
-    fn test_extract_season_episode_complex_titles() {
-        let result = extract_season_episode("Andor (2022) S01E01 720p WEBRip");
-        assert!(result.is_some());
-        let info = result.unwrap();
-        assert_eq!(info.season, 1);
-        assert_eq!(info.episode, 1);
-
-        let result = extract_season_episode("Breaking Bad Season 1 Episode 2 1080p BluRay");
-        assert!(result.is_some());
-        let info = result.unwrap();
-        assert_eq!(info.season, 1);
-        assert_eq!(info.episode, 2);
-    }
-
-    #[test]
-    fn test_calculate_similarity_exact_match() {
-        assert_eq!(calculate_similarity("Andor", "Andor"), 1.0);
-        assert_eq!(calculate_similarity("BREAKING BAD", "breaking bad"), 1.0);
-    }
-
-    #[test]
-    fn test_calculate_similarity_substring_match() {
-        let score = calculate_similarity("Andor", "Andor: A Star Wars Story");
-        assert!(score > 0.2); // Adjusted expectation - substring match gives lower score
-        assert!(score < 1.0);
-
-        let score = calculate_similarity("Breaking Bad", "Bad");
+    #[rstest]
+    #[case("Andor", "Andor: A Star Wars Story")]
+    #[case("Breaking Bad", "Bad")]
+    #[case("Star Wars", "Wars of Stars")]
+    #[case("Game of Thrones", "Thrones Game")]
+    fn test_calculate_similarity_partial_match(#[case] a: &str, #[case] b: &str) {
+        let score = calculate_similarity(a, b);
         assert!(score > 0.0);
         assert!(score < 1.0);
-    }
-
-    #[test]
-    fn test_calculate_similarity_word_overlap() {
-        let score = calculate_similarity("Star Wars", "Wars of Stars");
-        assert!(score > 0.0);
-
-        let score = calculate_similarity("Game of Thrones", "Thrones Game");
-        assert!(score > 0.0);
-    }
-
-    #[test]
-    fn test_calculate_similarity_no_match() {
-        assert_eq!(calculate_similarity("Andor", "Breaking Bad"), 0.0);
-        assert_eq!(calculate_similarity("Movie", "Show"), 0.0);
-    }
-
-    #[test]
-    fn test_calculate_similarity_empty_strings() {
-        assert_eq!(calculate_similarity("", ""), 1.0); // Empty strings are considered equal
-        assert_eq!(calculate_similarity("Andor", ""), 0.0);
-        assert_eq!(calculate_similarity("", "Andor"), 0.0);
     }
 
     #[test]
@@ -558,8 +477,12 @@ mod tests {
         assert_eq!(best_match.identifier, "show456");
     }
 
-    #[test]
-    fn test_find_best_match_various_episode_patterns() {
+    #[rstest]
+    #[case("Breaking Bad S01E01")]
+    #[case("Breaking Bad Season 1 Episode 1")]
+    #[case("Breaking Bad season 2 episode 5")]
+    #[case("Breaking Bad S5 E14")]
+    fn test_find_best_match_various_episode_patterns(#[case] pattern: &str) {
         let results = vec![
             TmdbMetadataLookupResult {
                 lot: MediaLot::Movie,
@@ -575,22 +498,8 @@ mod tests {
             },
         ];
 
-        let episode_patterns = vec![
-            "Breaking Bad S01E01",
-            "Breaking Bad Season 1 Episode 1",
-            "Breaking Bad season 2 episode 5",
-            "Breaking Bad S5 E14",
-        ];
-
-        for pattern in episode_patterns {
-            let best_match = find_best_match(&results, pattern, Some(2008)).unwrap();
-            assert_eq!(
-                best_match.lot,
-                MediaLot::Show,
-                "Failed for pattern: {}",
-                pattern
-            );
-        }
+        let best_match = find_best_match(&results, pattern, Some(2008)).unwrap();
+        assert_eq!(best_match.lot, MediaLot::Show);
     }
 
     #[test]

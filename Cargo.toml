@@ -104,6 +104,7 @@ paginate = "=1.1.11"
 rand = "=0.9.1"
 regex = "=1.11.1"
 reqwest = { version = "=0.12.18", features = ["json", "stream"] }
+rstest = "=0.25.0"
 rust_decimal = "=1.37.1"
 rust_decimal_macros = "=1.37.1"
 rust_iso3166 = "=0.1.14"

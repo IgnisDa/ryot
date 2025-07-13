@@ -37,5 +37,8 @@ traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }
 uuid = { workspace = true }
 
+[dev-dependencies]
+rstest = { workspace = true }
+
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
