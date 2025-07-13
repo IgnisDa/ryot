@@ -3,7 +3,7 @@
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
+		"moduleResolution": "nodenext",
 		"outDir": "../../.moon/cache/types/apps/docs"
 	}
 }

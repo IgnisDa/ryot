@@ -9,7 +9,7 @@
 	"compilerOptions": {
 		"module": "ESNext",
 		"jsx": "react-jsx",
-		"moduleResolution": "Bundler",
+		"moduleResolution": "bundler",
 		"outDir": "../../.moon/cache/types/libs/transactional",
 		"paths": {
 			"@ryot/ts-utils/*": ["../ts-utils/src/*"],

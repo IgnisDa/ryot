@@ -24,7 +24,7 @@
 		"isolatedModules": true,
 		"esModuleInterop": true,
 		"resolveJsonModule": true,
-		"moduleResolution": "Bundler",
+		"moduleResolution": "bundler",
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
 		"forceConsistentCasingInFileNames": true,
 		"rootDirs": [".", "./.react-router/types"],
