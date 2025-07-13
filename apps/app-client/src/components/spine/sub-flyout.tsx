@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Plus } from "lucide-react-native";
 import Animated, {
@@ -60,7 +61,12 @@ export function SpineSubFlyout({ onNavigate, pinned = false }: Props) {
 							className="min-h-11 py-2 px-2 justify-center"
 						>
 							<Text
-								className={`text-[18px] ${isActive ? "text-primary font-heading-semibold" : "text-foreground font-heading"}`}
+								className={clsx(
+									"text-[18px]",
+									isActive
+										? "text-primary font-heading-semibold"
+										: "text-foreground font-heading",
+								)}
 							>
 								{item}
 							</Text>
