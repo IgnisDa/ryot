@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_graphql::Result;
+use common_models::MetadataLookupCacheInput;
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     MetadataLookupResponse, SeenShowExtraInformation, TmdbMetadataLookupResult,
@@ -81,6 +83,14 @@ pub async fn metadata_lookup(
     ss: &Arc<SupportingService>,
     title: String,
 ) -> Result<MetadataLookupResponse> {
+    let cc = &ss.cache_service;
+    let key = ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
+        title: title.clone(),
+    });
+    if let Some((_cache_id, response)) = cc.get_value::<MetadataLookupResponse>(key.clone()).await {
+        return Ok(response);
+    }
+
     let tmdb_service = TmdbService::new(ss.clone()).await;
 
     let search_results = smart_search(&tmdb_service, &title).await?;
@@ -100,10 +110,15 @@ pub async fn metadata_lookup(
 
     let show_information = extract_show_information(&title, &best_match.lot);
 
-    Ok(MetadataLookupResponse {
+    let response = MetadataLookupResponse {
         data,
         show_information,
-    })
+    };
+
+    let _cache_id = cc
+        .set_key(key, ApplicationCacheValue::MetadataLookup(response.clone()))
+        .await?;
+    Ok(response)
 }
 
 async fn smart_search(

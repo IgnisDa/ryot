@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
-    MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
-    YoutubeMusicSongListened,
+    ApplicationDateRange, MetadataGroupSearchInput, MetadataLookupCacheInput,
+    MetadataRecentlyConsumedCacheInput, MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput,
+    UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::MetadataProgressUpdateCacheInput;
@@ -56,6 +56,7 @@ pub enum ApplicationCacheKey {
     TmdbSettings,
     ListennotesSettings,
     TrendingMetadataIds,
+    MetadataLookup(MetadataLookupCacheInput),
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
@@ -104,6 +105,7 @@ pub enum ApplicationCacheValue {
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),
     UserMeasurementsList(UserMeasurementsListResponse),
+    MetadataLookup(media_models::MetadataLookupResponse),
     MetadataProgressUpdateCompletedCache(EmptyCacheValue),
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),

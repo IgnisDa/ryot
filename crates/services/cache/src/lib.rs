@@ -55,6 +55,7 @@ impl CacheService {
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 
             ApplicationCacheKey::TrendingMetadataIds
+            | ApplicationCacheKey::MetadataLookup { .. }
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::CollectionRecommendations { .. }
             | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,

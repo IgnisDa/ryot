@@ -18,7 +18,7 @@ pub struct TmdbMetadataLookupResult {
     pub publish_year: Option<i32>,
 }
 
-#[derive(Debug, Clone, SimpleObject)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
 pub struct MetadataLookupResponse {
     pub data: UniqueMediaIdentifier,
     pub show_information: Option<SeenShowExtraInformation>,
