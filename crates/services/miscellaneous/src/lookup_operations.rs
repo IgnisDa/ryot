@@ -1,4 +1,7 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{Arc, OnceLock},
+};
 
 use anyhow::anyhow;
 use async_graphql::Result;
@@ -42,14 +45,48 @@ static SEASON_EPISODE_PATTERNS: &[&str] = &[
 
 static YEAR_EXTRACTION_PATTERNS: &[&str] = &[r"\(([12]\d{3})\)", r"\[([12]\d{3})\]"];
 
+static COMPILED_CLEANING_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_BASE_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_SEASON_EPISODE_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_YEAR_EXTRACTION_PATTERNS: OnceLock<Vec<Regex>> = OnceLock::new();
+static COMPILED_SPACE_REGEX: OnceLock<Regex> = OnceLock::new();
+
+fn get_compiled_patterns<'a>(patterns: &[&str], cache: &'a OnceLock<Vec<Regex>>) -> &'a Vec<Regex> {
+    cache.get_or_init(|| {
+        patterns
+            .iter()
+            .filter_map(|pattern| Regex::new(pattern).ok())
+            .collect()
+    })
+}
+
+fn get_space_regex() -> &'static Regex {
+    COMPILED_SPACE_REGEX.get_or_init(|| Regex::new(r"\s+").unwrap())
+}
+
+fn compile_patterns_on_demand(patterns: &[&str]) -> Vec<Regex> {
+    patterns
+        .iter()
+        .filter_map(|pattern| Regex::new(pattern).ok())
+        .collect()
+}
+
 fn apply_patterns_with_replacement(text: &str, patterns: &[&str], replacement: &str) -> String {
     let mut result = text.to_string();
-    for pattern in patterns {
-        if let Ok(re) = Regex::new(pattern) {
+
+    if patterns.as_ptr() == CLEANING_PATTERNS.as_ptr() {
+        let compiled_patterns = get_compiled_patterns(patterns, &COMPILED_CLEANING_PATTERNS);
+        for re in compiled_patterns {
+            result = re.replace_all(&result, replacement).to_string();
+        }
+    } else {
+        let compiled_patterns = compile_patterns_on_demand(patterns);
+        for re in &compiled_patterns {
             result = re.replace_all(&result, replacement).to_string();
         }
     }
-    let space_re = Regex::new(r"\s+").unwrap();
+
+    let space_re = get_space_regex();
     space_re.replace_all(result.trim(), " ").to_string()
 }
 
@@ -58,11 +95,39 @@ fn extract_captures<T>(
     patterns: &[&str],
     extractor: impl Fn(&regex::Captures) -> Option<T>,
 ) -> Option<T> {
-    patterns.iter().find_map(|pattern| {
-        let re = Regex::new(pattern).ok()?;
-        let captures = re.captures(text)?;
-        extractor(&captures)
-    })
+    match patterns.as_ptr() {
+        ptr if ptr == BASE_EXTRACTION_PATTERNS.as_ptr() => {
+            let compiled_patterns =
+                get_compiled_patterns(patterns, &COMPILED_BASE_EXTRACTION_PATTERNS);
+            compiled_patterns.iter().find_map(|re| {
+                let captures = re.captures(text)?;
+                extractor(&captures)
+            })
+        }
+        ptr if ptr == SEASON_EPISODE_PATTERNS.as_ptr() => {
+            let compiled_patterns =
+                get_compiled_patterns(patterns, &COMPILED_SEASON_EPISODE_PATTERNS);
+            compiled_patterns.iter().find_map(|re| {
+                let captures = re.captures(text)?;
+                extractor(&captures)
+            })
+        }
+        ptr if ptr == YEAR_EXTRACTION_PATTERNS.as_ptr() => {
+            let compiled_patterns =
+                get_compiled_patterns(patterns, &COMPILED_YEAR_EXTRACTION_PATTERNS);
+            compiled_patterns.iter().find_map(|re| {
+                let captures = re.captures(text)?;
+                extractor(&captures)
+            })
+        }
+        _ => {
+            let compiled_patterns = compile_patterns_on_demand(patterns);
+            compiled_patterns.iter().find_map(|re| {
+                let captures = re.captures(text)?;
+                extractor(&captures)
+            })
+        }
+    }
 }
 
 fn find_first_capture_group(text: &str, patterns: &[&str]) -> Option<String> {
