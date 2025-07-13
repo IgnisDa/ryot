@@ -1,6 +1,6 @@
 import { debounce, throttle } from "@ryot/ts-utils";
 import { storage } from "#imports";
-import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
+import { MESSAGE_TYPES, MIN_VIDEO_DURATION_SECONDS, STORAGE_KEYS } from "../lib/constants";
 import type {
 	ExtensionStatus,
 	MetadataLookupData,
@@ -71,13 +71,18 @@ export default defineContentScript({
 			const videos = document.querySelectorAll("video");
 
 			for (const video of videos) {
-				if (!video.paused && !video.ended && video.readyState > 0) {
+				if (
+					!video.paused &&
+					!video.ended &&
+					video.readyState > 0 &&
+					video.duration >= MIN_VIDEO_DURATION_SECONDS
+				) {
 					return video;
 				}
 			}
 
 			for (const video of videos) {
-				if (video.readyState > 0) {
+				if (video.readyState > 0 && video.duration >= MIN_VIDEO_DURATION_SECONDS) {
 					return video;
 				}
 			}
@@ -87,7 +92,7 @@ export default defineContentScript({
 
 		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 			const title = extractTitle();
-			if (!title || !video.duration || video.duration <= 0) return null;
+			if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) return null;
 
 			return {
 				title,

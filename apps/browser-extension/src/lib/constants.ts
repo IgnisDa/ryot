@@ -9,3 +9,5 @@ export const STORAGE_KEYS = {
 	INTEGRATION_URL: "local:integration-url",
 	EXTENSION_STATUS: "local:extension-status",
 } as const;
+
+export const MIN_VIDEO_DURATION_SECONDS = 600;
