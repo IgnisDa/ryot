@@ -4,8 +4,8 @@
 	"private": true,
 	"main": "expo-router/entry",
 	"scripts": {
-		"typecheck": "tsc",
 		"test": "bun test --only-failures",
+		"typecheck": "tsc && oxlint . --type-aware",
 		"lint": "oxlint . --fix && oxfmt . --write",
 		"ios": "APP_VARIANT=development expo run:ios",
 		"android": "APP_VARIANT=development expo run:android",

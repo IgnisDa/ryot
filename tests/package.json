@@ -3,8 +3,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"typecheck": "tsc",
 		"test": "bun test --only-failures",
+		"typecheck": "tsc && oxlint . --type-aware",
 		"lint": "oxlint . --fix && oxfmt . --write"
 	},
 	"devDependencies": {

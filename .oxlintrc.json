@@ -1,5 +1,4 @@
 {
-	// TODO: Enable https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-deprecated.html#typescript-no-deprecated when https://github.com/oxc-project/oxc/issues/19932 is fixed
 	"env": { "node": true, "browser": true },
 	"settings": { "react": { "version": "19.0.0" } },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
@@ -7,15 +6,13 @@
 	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
 	"overrides": [
 		{
-			"files": ["**/property-schemas/schemas.ts"],
-			"rules": { "import/no-mutable-exports": "off" }
-		},
-		{
 			"files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"],
 			"rules": {
 				"typescript/no-unsafe-argument": "off",
+				"typescript/no-misused-promises": "off",
 				"typescript/no-inferrable-types": "off",
-				"typescript/no-unsafe-assignment": "off"
+				"typescript/no-unsafe-assignment": "off",
+				"typescript/no-floating-promises": "off"
 			}
 		}
 	],
@@ -32,13 +29,11 @@
 	],
 	"rules": {
 		"curly": "error",
-		"import/first": "error",
 		"no-else-return": "warn",
 		"import/no-cycle": "error",
 		"react-in-jsx-scope": "off",
 		"no-param-reassign": "error",
 		"eqeqeq": ["error", "smart"],
-		"promise/no-nesting": "warn",
 		"default-param-last": "error",
 		"react/rules-of-hooks": "error",
 		"import/no-duplicates": "error",
@@ -47,25 +42,30 @@
 		"react/self-closing-comp": "error",
 		"typescript/require-await": "warn",
 		"react/no-array-index-key": "warn",
-		"unicorn/no-useless-spread": "warn",
+		"typescript/no-deprecated": "error",
 		"import/no-named-as-default": "off",
-		"import/no-mutable-exports": "error",
 		"typescript/no-explicit-any": "warn",
+		"typescript/await-thenable": "error",
 		"typescript/prefer-as-const": "error",
 		"react-hooks/exhaustive-deps": "error",
 		"typescript/only-throw-error": "error",
 		"react/jsx-no-useless-fragment": "warn",
 		"react/jsx-curly-brace-presence": "warn",
+		"typescript/no-misused-promises": "error",
 		"typescript/no-inferrable-types": "error",
 		"typescript/prefer-optional-chain": "warn",
+		"typescript/no-floating-promises": "error",
 		"typescript/no-non-null-assertion": "warn",
 		"unicorn/prefer-number-properties": "error",
 		"unicorn/no-await-expression-member": "warn",
 		"typescript/consistent-type-imports": "warn",
+		"typescript/no-unnecessary-condition": "warn",
+		"typescript/prefer-nullish-coalescing": "warn",
 		"typescript/prefer-enum-initializers": "error",
-		"unicorn/prefer-string-starts-ends-with": "warn",
 		"typescript/no-import-type-side-effects": "warn",
 		"react/jsx-no-constructed-context-values": "warn",
+		"typescript/switch-exhaustiveness-check": "error",
+		"typescript/no-unnecessary-type-assertion": "warn",
 		"typescript/no-unused-vars": [
 			"error",
 			{
