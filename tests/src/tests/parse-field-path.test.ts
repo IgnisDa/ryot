@@ -4,23 +4,23 @@ import { parseFieldPath } from "~/fixtures";
 describe("parseFieldPath", () => {
 	it("parses entity built-in column references (3 segments, no @)", () => {
 		expect(parseFieldPath("entity.smartphones.id")).toEqual({
-			column: "id",
+			path: ["id"],
+			type: "entity",
 			slug: "smartphones",
-			type: "entity-column",
 		});
 
 		expect(parseFieldPath("entity.smartphones.sandboxScriptId")).toEqual({
+			type: "entity",
 			slug: "smartphones",
-			type: "entity-column",
-			column: "sandboxScriptId",
+			path: ["sandboxScriptId"],
 		});
 	});
 
 	it("parses entity schema property references (properties keyword)", () => {
 		expect(parseFieldPath("entity.smartphones.properties.year")).toEqual({
-			property: ["year"],
+			type: "entity",
 			slug: "smartphones",
-			type: "schema-property",
+			path: ["properties", "year"],
 		});
 	});
 
@@ -28,25 +28,25 @@ describe("parseFieldPath", () => {
 		expect(
 			parseFieldPath("entity.smartphones.properties.metadata.source"),
 		).toEqual({
+			type: "entity",
 			slug: "smartphones",
-			type: "schema-property",
-			property: ["metadata", "source"],
+			path: ["properties", "metadata", "source"],
 		});
 	});
 
 	it("parses event column references (3 segments, no @)", () => {
 		expect(parseFieldPath("event.review.createdAt")).toEqual({
+			type: "event",
 			joinKey: "review",
-			column: "createdAt",
-			type: "event-join-column",
+			path: ["createdAt"],
 		});
 	});
 
 	it("parses event schema property references (properties keyword)", () => {
 		expect(parseFieldPath("event.review.properties.rating")).toEqual({
+			type: "event",
 			joinKey: "review",
-			property: ["rating"],
-			type: "event-join-property",
+			path: ["properties", "rating"],
 		});
 	});
 

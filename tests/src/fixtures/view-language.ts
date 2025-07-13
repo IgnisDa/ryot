@@ -26,7 +26,7 @@ export const entityColumnExpression = (
 	column: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "entity-column", slug, column },
+	reference: { type: "entity", slug, path: [column] },
 });
 
 export const schemaPropertyExpression = (
@@ -34,7 +34,7 @@ export const schemaPropertyExpression = (
 	property: string,
 ): ViewExpression => ({
 	type: "reference",
-	reference: { type: "schema-property", slug, property: [property] },
+	reference: { type: "entity", slug, path: ["properties", property] },
 });
 
 export const computedFieldExpression = (key: string): ViewExpression => ({
@@ -63,14 +63,14 @@ export const parseFieldPath = (field: string): RuntimeRef => {
 				throw new Error(`Invalid field path: ${field}`);
 			}
 
-			return { property: rest, joinKey: segment, type: "event-join-property" };
+			return { joinKey: segment, path: [tail, ...rest], type: "event" };
 		}
 
 		if (rest.length > 0 || !eventJoinBuiltinColumns.has(tail)) {
 			throw new Error(`Invalid field path: ${field}`);
 		}
 
-		return { column: tail, joinKey: segment, type: "event-join-column" };
+		return { joinKey: segment, path: [tail], type: "event" };
 	}
 
 	if (namespace !== "entity" || !segment || !tail) {
@@ -82,14 +82,14 @@ export const parseFieldPath = (field: string): RuntimeRef => {
 			throw new Error(`Invalid field path: ${field}`);
 		}
 
-		return { slug: segment, property: rest, type: "schema-property" };
+		return { slug: segment, path: [tail, ...rest], type: "entity" };
 	}
 
 	if (rest.length > 0 || !entityBuiltinColumns.has(tail)) {
 		throw new Error(`Invalid field path: ${field}`);
 	}
 
-	return { slug: segment, column: tail, type: "entity-column" };
+	return { slug: segment, path: [tail], type: "entity" };
 };
 
 export const entityField = (schemaSlug: string, property: string) => {
