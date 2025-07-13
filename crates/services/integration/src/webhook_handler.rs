@@ -74,7 +74,12 @@ impl IntegrationService {
             }
             IntegrationProvider::GenericJson => sink::generic_json::sink_progress(payload).await,
             IntegrationProvider::RyotBrowserExtension => {
-                sink::ryot_browser_extension::sink_progress(payload).await
+                let specifics = integration.clone().provider_specifics.unwrap();
+                sink::ryot_browser_extension::sink_progress(
+                    payload,
+                    specifics.ryot_browser_extension_disabled_sites,
+                )
+                .await
             }
             _ => return Err(Error::new("Unsupported integration source".to_owned())),
         };

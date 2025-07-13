@@ -31,11 +31,22 @@ fn clean_provider_name(url: &str) -> String {
     "Unknown".to_string()
 }
 
-pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
+pub async fn sink_progress(
+    payload: String,
+    disabled_sites: Option<Vec<String>>,
+) -> Result<Option<ImportResult>> {
     let payload = match serde_json::from_str::<BrowserExtensionMediaSeen>(&payload) {
         Ok(val) => val,
         Err(err) => bail!(err),
     };
+
+    if let Some(disabled_sites) = disabled_sites {
+        for disabled_site in disabled_sites {
+            if payload.url.contains(&disabled_site) {
+                return Ok(None);
+            }
+        }
+    }
 
     let media_seen = payload.data;
     let provider_name = clean_provider_name(&payload.url);
