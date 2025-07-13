@@ -76,7 +76,12 @@ const App = () => {
 			loadExtensionStatus();
 		};
 
-		storage.watch(STORAGE_KEYS.EXTENSION_STATUS, handleStorageChange);
+		const unwatch = storage.watch(
+			STORAGE_KEYS.EXTENSION_STATUS,
+			handleStorageChange,
+		);
+
+		return unwatch;
 	}, []);
 
 	const handleSubmit = async (e: React.FormEvent) => {
