@@ -59,7 +59,7 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
         .select_only()
         .column(metadata::Column::Id)
         .filter(metadata::Column::Id.is_in(cached))
-        .order_by_desc(metadata::Column::Title)
+        .order_by_desc(metadata::Column::LastUpdatedOn)
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;
