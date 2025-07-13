@@ -90,7 +90,6 @@ export default defineContentScript({
 
 			return {
 				title,
-				url: window.location.href,
 				progress: (video.currentTime / video.duration) * 100,
 			};
 		}

@@ -1,7 +1,4 @@
-import {
-	MediaLot,
-	MetadataLookupDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
@@ -23,7 +20,7 @@ function extractGraphQLEndpoint(integrationUrl: string) {
 export default defineBackground(() => {
 	logger.info("Background script initialized");
 
-	browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+	browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		if (message.type === MESSAGE_TYPES.GET_STATUS) {
 			getCurrentStatus()
 				.then((status) => {
@@ -38,7 +35,7 @@ export default defineBackground(() => {
 		}
 
 		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
-			handleProgressData(message.data)
+			handleProgressData(message.data, sender.tab?.url)
 				.then((result) => {
 					sendResponse({ success: true, result });
 				})
@@ -92,7 +89,10 @@ export default defineBackground(() => {
 		return result.metadataLookup;
 	}
 
-	async function handleProgressData(progressData: ProgressDataWithMetadata) {
+	async function handleProgressData(
+		progressData: ProgressDataWithMetadata,
+		tabUrl?: string,
+	) {
 		try {
 			const integrationUrl = await storage.getItem<string>(
 				STORAGE_KEYS.INTEGRATION_URL,
@@ -108,14 +108,18 @@ export default defineBackground(() => {
 				throw new Error("No progress data available");
 			}
 
+			if (!tabUrl) {
+				throw new Error("Tab URL not available");
+			}
+
 			const integrationPayload = {
-				url: rawData.url,
+				url: tabUrl,
 				data: {
 					progress: rawData.progress,
 					identifier: metadata.data.identifier,
+					lot: metadata.data.lot.toLowerCase(),
 					show_season_number: metadata.showInformation?.season,
 					show_episode_number: metadata.showInformation?.episode,
-					lot: metadata.data.lot === MediaLot.Movie ? "movie" : "show",
 				},
 			};
 

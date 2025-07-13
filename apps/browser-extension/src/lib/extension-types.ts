@@ -3,9 +3,8 @@ import type { MetadataLookupQuery } from "@ryot/generated/graphql/backend/graphq
 export type MetadataLookupData = MetadataLookupQuery["metadataLookup"];
 
 export interface RawMediaData {
-	url: string;
 	title: string;
-	progress?: number;
+	progress: number;
 }
 
 export interface ProgressDataWithMetadata {
