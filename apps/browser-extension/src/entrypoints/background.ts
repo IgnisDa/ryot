@@ -27,7 +27,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, data: status });
 				})
 				.catch((error) => {
-					logger.error("Failed to get status", { error });
+					logger.debug("Failed to get status", { error });
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -40,7 +40,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, result });
 				})
 				.catch((error) => {
-					logger.error("Progress data request failed", { error });
+					logger.debug("Progress data request failed", { error });
 					sendResponse({ success: false, error: error.message });
 				});
 
@@ -53,7 +53,7 @@ export default defineBackground(() => {
 					sendResponse({ success: true, data: result });
 				})
 				.catch((error) => {
-					logger.error("Metadata lookup failed", { error });
+					logger.debug("Metadata lookup failed", { error });
 					sendResponse({ success: false, error: error.message });
 				});
 

@@ -6,7 +6,6 @@ import { extractTitle } from "./title-extractor";
 
 export class MetadataCache {
 	private getCacheKey(url: string, title: string): `local:${string}` {
-		// Create a stable cache key using both URL and title
 		const cleanTitle = title
 			.trim()
 			.toLowerCase()
@@ -55,7 +54,7 @@ export class MetadataCache {
 				return response.data as MetadataLookupData;
 			}
 
-			logger.error("Metadata lookup failed", { error: response.error });
+			logger.debug("Metadata lookup failed", { error: response.error });
 			return null;
 		} catch (error) {
 			logger.error("Failed to lookup metadata", { error });
