@@ -5,11 +5,7 @@ export type MetadataLookupData = MetadataLookupQuery["metadataLookup"];
 export interface RawMediaData {
 	url: string;
 	title: string;
-	domain: string;
-	runtime?: number;
 	progress?: number;
-	timestamp: string;
-	currentTime?: number;
 }
 
 export interface ProgressDataWithMetadata {

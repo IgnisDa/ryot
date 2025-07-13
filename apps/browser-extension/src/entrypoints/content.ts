@@ -90,11 +90,7 @@ export default defineContentScript({
 
 			return {
 				title,
-				runtime: video.duration,
 				url: window.location.href,
-				currentTime: video.currentTime,
-				domain: window.location.hostname,
-				timestamp: new Date().toISOString(),
 				progress: (video.currentTime / video.duration) * 100,
 			};
 		}
