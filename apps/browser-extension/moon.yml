@@ -1,19 +1,4 @@
 tasks:
-  build-dev-chrome:
-    command: "wxt build -b chrome"
-    outputs:
-      - "dist/chrome-mv3"
-
-  build-dev-firefox:
-    command: "wxt build -b firefox"
-    outputs:
-      - "dist/firefox-mv2"
-
-  build-dev:
-    deps:
-      - build-dev-chrome
-      - build-dev-firefox
-
   build-chrome:
     command: "wxt zip -b chrome"
     outputs:
