@@ -227,7 +227,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         title: String,
-    ) -> Result<MetadataLookupResponse> {
+    ) -> Result<CachedResponse<MetadataLookupResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.metadata_lookup(title).await
     }

@@ -123,6 +123,12 @@ export type CachedCollectionsListResponse = {
   response: Array<CollectionItem>;
 };
 
+export type CachedMetadataLookupResponse = {
+  __typename?: 'CachedMetadataLookupResponse';
+  cacheId: Scalars['UUID']['output'];
+  response: MetadataLookupResponse;
+};
+
 export type CachedSearchIdResponse = {
   __typename?: 'CachedSearchIdResponse';
   cacheId: Scalars['UUID']['output'];
@@ -1923,7 +1929,7 @@ export type QueryRoot = {
   /** Search for a list of groups from a given source. */
   metadataGroupSearch: IdResults;
   /** Lookup metadata by title. */
-  metadataLookup: MetadataLookupResponse;
+  metadataLookup: CachedMetadataLookupResponse;
   /** Search for a list of media for a given type. */
   metadataSearch: IdResults;
   /** Search for a list of people from a given source. */

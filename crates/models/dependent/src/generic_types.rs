@@ -53,6 +53,10 @@ pub struct SortInput<T: InputType + Default> {
     name = "CachedUserMeasurementsListResponse",
     params(UserMeasurementsListResponse)
 ))]
+#[graphql(concrete(
+    name = "CachedMetadataLookupResponse",
+    params(media_models::MetadataLookupResponse)
+))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
     pub cache_id: Uuid,

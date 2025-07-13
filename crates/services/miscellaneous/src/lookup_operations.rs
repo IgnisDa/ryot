@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_graphql::Result;
 use common_models::MetadataLookupCacheInput;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue};
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     MetadataLookupResponse, SeenShowExtraInformation, TmdbMetadataLookupResult,
@@ -82,13 +82,13 @@ fn find_two_capture_groups(text: &str, patterns: &[&str]) -> Option<(i32, i32)> 
 pub async fn metadata_lookup(
     ss: &Arc<SupportingService>,
     title: String,
-) -> Result<MetadataLookupResponse> {
+) -> Result<CachedResponse<MetadataLookupResponse>> {
     let cc = &ss.cache_service;
     let key = ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
         title: title.clone(),
     });
-    if let Some((_cache_id, response)) = cc.get_value::<MetadataLookupResponse>(key.clone()).await {
-        return Ok(response);
+    if let Some((cache_id, response)) = cc.get_value::<MetadataLookupResponse>(key.clone()).await {
+        return Ok(CachedResponse { cache_id, response });
     }
 
     let tmdb_service = TmdbService::new(ss.clone()).await;
@@ -115,10 +115,10 @@ pub async fn metadata_lookup(
         show_information,
     };
 
-    let _cache_id = cc
+    let cache_id = cc
         .set_key(key, ApplicationCacheValue::MetadataLookup(response.clone()))
         .await?;
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
 
 async fn smart_search(

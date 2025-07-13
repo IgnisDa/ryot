@@ -549,14 +549,17 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 
 query MetadataLookup($title: String!) {
 	metadataLookup(title: $title) {
-		data {
-			lot
-			source
-			identifier
-		}
-		showInformation {
-			season
-			episode
+		cacheId
+		response {
+			data {
+				lot
+				source
+				identifier
+			}
+			showInformation {
+				season
+				episode
+			}
 		}
 	}
 }

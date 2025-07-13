@@ -39,10 +39,10 @@ mod core_operations;
 mod custom_metadata;
 mod entity_details;
 mod list_operations;
+mod lookup_operations;
 mod metadata_operations;
 mod progress_operations;
 mod review_operations;
-mod scrobble_operations;
 mod search_operations;
 mod trending_and_events;
 mod user_details;
@@ -356,8 +356,11 @@ impl MiscellaneousService {
         background_operations::perform_background_jobs(&self.0).await
     }
 
-    pub async fn metadata_lookup(&self, title: String) -> Result<MetadataLookupResponse> {
-        scrobble_operations::metadata_lookup(&self.0, title).await
+    pub async fn metadata_lookup(
+        &self,
+        title: String,
+    ) -> Result<CachedResponse<MetadataLookupResponse>> {
+        lookup_operations::metadata_lookup(&self.0, title).await
     }
 
     #[cfg(debug_assertions)]
