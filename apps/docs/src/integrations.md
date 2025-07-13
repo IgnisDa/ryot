@@ -29,11 +29,6 @@ https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 Keep your webhook urls private to prevent abuse.
 :::
 
-### Ryot Browser Extension  <Badge type="warning" text="PRO" />
-
-The Ryot Browser Extension can automatically scrobble media that you are watching on
-various streaming services.
-
 ### Jellyfin Sink
 
 Automatically add new [Jellyin](https://jellyfin.org/) movie and show plays to Ryot. It
@@ -121,6 +116,31 @@ format. The format of the JSON file should be `CompleteExport` as described in t
 
 You can use this to build integrations with other services that Ryot does not support
 natively.
+
+### Ryot Browser Extension  <Badge type="warning" text="PRO" />
+
+The Ryot Browser Extension can automatically scrobble media that you are watching on
+various streaming services.
+
+::: tip
+The extension works on most video streaming sites and will automatically extract media
+information and sync your viewing progress to Ryot.
+:::
+
+1. Download the appropriate extension for your browser from <a
+   :href="`${variables.repoUrl}/releases`" target="_blank">GitHub releases</a>:
+   - **Chrome/Edge/Brave**: Download `ryotbrowser-extension-*-chrome.zip`
+   - **Firefox**: Download `ryotbrowser-extension-*-firefox.zip`
+2. Install the extension:
+   - **Chrome/Edge/Brave**: Go to `chrome://extensions/`, enable "Developer mode", click
+     "Load unpacked", and select the extracted folder
+   - **Firefox**: Go to `about:debugging`, click "This Firefox", click "Load Temporary
+     Add-on", and select the zip file
+3. Configure the extension:
+   - Click on the extension icon in your browser toolbar
+   - Enter your Ryot instance URL and authentication details
+   - The extension will automatically detect and track media playback on supported
+     streaming services
 
 ## Yank integrations
 
