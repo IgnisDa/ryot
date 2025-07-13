@@ -16,7 +16,7 @@ import { extractTitle } from "../lib/title-extractor";
 
 export default defineContentScript({
 	allFrames: true,
-	matches: ["<all_urls>"],
+	matches: ["*://*/*"],
 	runAt: "document_start",
 	main() {
 		let metadataCache: MetadataCache | null = null;
