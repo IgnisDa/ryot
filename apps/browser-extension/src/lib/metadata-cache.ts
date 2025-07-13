@@ -5,24 +5,20 @@ import { logger } from "./logger";
 import { extractTitle } from "./title-extractor";
 
 export class MetadataCache {
-	private getCacheKey(url: string, title: string): `local:${string}` {
+	private getCacheKey(title: string): `local:${string}` {
 		const cleanTitle = title
 			.trim()
 			.toLowerCase()
 			.replace(/[^a-z0-9]/g, "_");
-		const urlHash = btoa(url).replace(/[/+=]/g, "_");
-		return `local:cached-metadata:${urlHash}:${cleanTitle}`;
+		return `local:cached-metadata:${cleanTitle}`;
 	}
 
 	async getMetadataForCurrentPage() {
-		const currentUrl = window.location.href;
 		const title = extractTitle();
 
-		if (!title) {
-			return null;
-		}
+		if (!title) return null;
 
-		const cacheKey = this.getCacheKey(currentUrl, title);
+		const cacheKey = this.getCacheKey(title);
 		const cachedData = await storage.getItem<MetadataLookupData>(cacheKey);
 
 		return cachedData || null;
@@ -30,7 +26,6 @@ export class MetadataCache {
 
 	async lookupAndCacheMetadata() {
 		const title = extractTitle();
-		const currentUrl = window.location.href;
 
 		if (!title) {
 			logger.debug("No title available yet, skipping metadata lookup");
@@ -44,12 +39,12 @@ export class MetadataCache {
 			});
 
 			if (response.success && response.data) {
-				const cacheKey = this.getCacheKey(currentUrl, title);
+				const cacheKey = this.getCacheKey(title);
 				await storage.setItem(cacheKey, response.data);
 				logger.debug("Metadata lookup successful", {
 					title,
-					responseData: response.data,
 					cacheKey,
+					responseData: response.data,
 				});
 				return response.data as MetadataLookupData;
 			}
