@@ -55,7 +55,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
-import { withFragment, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	PRO_REQUIRED_MESSAGE,
@@ -523,10 +523,7 @@ const CreateOrUpdateModal = (props: {
 						<Anchor
 							size="xs"
 							target="_blank"
-							href={withFragment(
-								`${coreDetails.docsLink}/integrations.html`,
-								kebabCase(provider),
-							)}
+							href={`${coreDetails.docsLink}/integrations/${kebabCase(provider)}.html`}
 						>
 							Click here to see the documentation for this source
 						</Anchor>
@@ -635,22 +632,10 @@ const CreateOrUpdateModal = (props: {
 									required
 									label="Auth Cookie"
 									name="providerSpecifics.youtubeMusicAuthCookie"
+									description="Follow the link above to obtain the correct cookie"
 									defaultValue={
 										props.integrationData?.providerSpecifics
 											?.youtubeMusicAuthCookie || undefined
-									}
-									description={
-										<Text size="xs" c="dimmed">
-											Please follow the{" "}
-											<Anchor
-												target="_blank"
-												rel="noreferrer noopener"
-												href="https://docs.ryot.io/integrations#youtube-music"
-											>
-												docs
-											</Anchor>{" "}
-											to get the correct cookie
-										</Text>
 									}
 								/>
 							</>
