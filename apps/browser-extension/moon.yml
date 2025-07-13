@@ -1,19 +1,11 @@
 tasks:
-  build:
-    command: "wxt build"
+  build-chrome:
+    command: "wxt zip -b chrome"
 
   build-firefox:
-    command: "wxt build -b firefox"
-
-  dev:
-    command: wxt
-    local: true
-
-  dev-firefox:
-    command: "wxt -b firefox"
-    local: true
-  zip:
-    command: "wxt zip"
-
-  zip-firefox:
     command: "wxt zip -b firefox"
+
+  build:
+    deps:
+      - build-chrome
+      - build-firefox
