@@ -1,15 +1,16 @@
 {
 	"extends": "./.wxt/tsconfig.json",
 	"compilerOptions": {
-		"allowImportingTsExtensions": true,
-		"jsx": "react-jsx",
-		"outDir": "../../.moon/cache/types/apps/browser-extension",
 		"baseUrl": ".",
+		"strict": true,
+		"jsx": "react-jsx",
+		"allowImportingTsExtensions": true,
+		"outDir": "../../.moon/cache/types/apps/browser-extension",
 		"paths": {
-			"@ryot/generated/*": ["../../libs/generated/src/*"],
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
-			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"],
-			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"]
+			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"],
+			"@ryot/ts-utils": ["../../libs/ts-utils/src/index.ts"]
 		}
 	},
 	"references": [

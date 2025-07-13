@@ -1,9 +1,7 @@
 {
-	"extends": "../../tsconfig.options.json",
 	"include": ["**/*"],
-	"references": [],
+	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
-		"paths": {},
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
 		"outDir": "../../.moon/cache/types/apps/docs"

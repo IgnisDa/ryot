@@ -1,20 +1,19 @@
 {
 	"extends": "../../tsconfig.options.json",
-	"compilerOptions": {
-		"module": "esnext",
-		"moduleResolution": "node",
-		"lib": ["ESNext", "DOM"],
-		"preserveConstEnums": true,
-		"strict": true,
-		"outDir": "../../.moon/cache/types/libs/graphql",
-		"paths": {
-			"@ryot/generated/*": ["../generated/src/*"]
-		}
-	},
-	"exclude": [],
 	"references": [
 		{
 			"path": "../generated"
 		}
-	]
+	],
+	"compilerOptions": {
+		"strict": true,
+		"module": "esnext",
+		"lib": ["ESNext", "DOM"],
+		"preserveConstEnums": true,
+		"moduleResolution": "node",
+		"outDir": "../../.moon/cache/types/libs/graphql",
+		"paths": {
+			"@ryot/generated/*": ["../generated/src/*"]
+		}
+	}
 }
