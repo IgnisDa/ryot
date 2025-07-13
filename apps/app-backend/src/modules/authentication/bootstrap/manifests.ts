@@ -16,7 +16,7 @@ import { podcastPropertiesJsonSchema } from "~/lib/media/podcast";
 import { showPropertiesJsonSchema } from "~/lib/media/show";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { visualNovelPropertiesJsonSchema } from "~/lib/media/visual-novel";
-import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
+import { createDefaultDisplayConfiguration } from "~/modules/saved-views/constants";
 
 export const authenticationBuiltinTrackers = () => [
 	{

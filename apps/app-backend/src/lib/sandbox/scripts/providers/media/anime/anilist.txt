@@ -123,7 +123,7 @@ function collectImages(coverImage, bannerImage) {
     }
   }
 
-  return [...imageSet];
+  return [...imageSet].map((url) => ({ kind: "remote", url }));
 }
 
 function collectGenres(genres, tags) {
@@ -440,7 +440,8 @@ query MediaDetailsQuery($id: Int!) {
       sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
       description,
       assets: {
-        remoteImages: collectImages(media.coverImage, media.bannerImage),
+        images: collectImages(media.coverImage, media.bannerImage),
+        videos: [],
       },
       airingSchedule: parseAiringSchedule(
         media.airingSchedule,
