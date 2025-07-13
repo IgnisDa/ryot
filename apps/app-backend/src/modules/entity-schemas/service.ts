@@ -54,8 +54,9 @@ const isProviderUsable = (provider: { scriptMetadata?: unknown }): boolean => {
 	const parsed = sandboxScriptMetadataSchema.safeParse(provider.scriptMetadata);
 	const requiredKeys = parsed.success ? (parsed.data.requiredAppConfigKeys ?? []) : [];
 	return requiredKeys.every((key) => {
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const envKey = appConfigPathIndex[key as AppConfigPath];
-		return envKey && appConfigEnvIndex[envKey] != null;
+		return appConfigEnvIndex[envKey] != null;
 	});
 };
 

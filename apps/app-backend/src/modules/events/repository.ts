@@ -42,6 +42,7 @@ const createdEventSelection = {
 
 const toListedEvent = (row: EventRow): ListedEvent => ({
 	...row,
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	properties: row.properties as EventPropertiesShape,
 });
 
@@ -100,6 +101,7 @@ export const getEventCreateScopeForUser = async (input: {
 	return foundScope
 		? {
 				...foundScope,
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				propertiesSchema: foundScope.propertiesSchema as AppSchema | null,
 			}
 		: foundScope;

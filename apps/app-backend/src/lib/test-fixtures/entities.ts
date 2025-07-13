@@ -35,30 +35,34 @@ export const createListedEntity = (overrides: Partial<ListedEntity> = {}): Liste
 export const createEntityDeps = (
 	overrides: Partial<EntityServiceDeps> = {},
 ): EntityServiceDeps => ({
-	findEntityByExternalIdForUser: async () => undefined,
-	getEntityByIdForUser: async (input) => createListedEntity({ id: input.entityId }),
-	getEntityScopeForUser: async (input) => ({
-		isBuiltin: false,
-		entityId: input.entityId,
-		entityUserId: input.userId,
-		entitySchemaId: "schema_1",
-		entitySchemaSlug: "custom",
-	}),
-	getEntitySchemaScopeForUser: async (input) => ({
-		slug: "custom",
-		isBuiltin: false,
-		userId: input.userId,
-		id: input.entitySchemaId,
-		propertiesSchema: createRequiredTitlePropertiesSchema(),
-	}),
-	createEntityForUser: async (input) =>
-		createListedEntity({
-			name: input.name,
-			image: input.image,
-			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
-			externalId: input.externalId ?? null,
-			sandboxScriptId: input.sandboxScriptId ?? null,
+	findEntityByExternalIdForUser: () => Promise.resolve(undefined),
+	getEntityByIdForUser: (input) => Promise.resolve(createListedEntity({ id: input.entityId })),
+	getEntityScopeForUser: (input) =>
+		Promise.resolve({
+			isBuiltin: false,
+			entityId: input.entityId,
+			entityUserId: input.userId,
+			entitySchemaId: "schema_1",
+			entitySchemaSlug: "custom",
 		}),
+	getEntitySchemaScopeForUser: (input) =>
+		Promise.resolve({
+			slug: "custom",
+			isBuiltin: false,
+			userId: input.userId,
+			id: input.entitySchemaId,
+			propertiesSchema: createRequiredTitlePropertiesSchema(),
+		}),
+	createEntityForUser: (input) =>
+		Promise.resolve(
+			createListedEntity({
+				name: input.name,
+				image: input.image,
+				properties: input.properties,
+				entitySchemaId: input.entitySchemaId,
+				externalId: input.externalId ?? null,
+				sandboxScriptId: input.sandboxScriptId ?? null,
+			}),
+		),
 	...overrides,
 });

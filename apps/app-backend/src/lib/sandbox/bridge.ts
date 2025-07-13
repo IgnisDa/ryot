@@ -19,7 +19,7 @@ export class BridgeServer {
 	private readonly keyPrefix = "sandbox:session:";
 	private readonly apiFunctions = new Map<string, Record<string, BoundHostFunction>>();
 
-	async start() {
+	start() {
 		this.server = Bun.serve({
 			port: 0,
 			hostname: "127.0.0.1",
@@ -100,6 +100,7 @@ export class BridgeServer {
 				return sendJson(404, { error: "Execution not found" });
 			}
 
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			const sessionData = JSON.parse(value) as {
 				token: string;
 				expiresAt: number;
@@ -158,6 +159,7 @@ export class BridgeServer {
 		const chunks: Array<Uint8Array> = [];
 
 		try {
+			// oxlint-disable-next-line no-unnecessary-condition
 			while (true) {
 				// oxlint-disable-next-line no-await-in-loop
 				const { done, value } = await reader.read();
@@ -190,10 +192,12 @@ export class BridgeServer {
 
 		const text = new TextDecoder().decode(bytes).trim();
 		if (!text) {
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			return {} as { args?: Array<unknown> };
 		}
 
 		try {
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			return JSON.parse(text) as { args?: Array<unknown> };
 		} catch {
 			throw new Error("Invalid JSON body");

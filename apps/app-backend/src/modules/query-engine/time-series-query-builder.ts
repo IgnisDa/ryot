@@ -123,7 +123,7 @@ export const executeTimeSeriesQuery = async (input: {
 		data: {
 			buckets: result.rows.map((row) => ({
 				value: Number(row.value ?? 0),
-				date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
+				date: row.date instanceof Date ? row.date.toISOString() : row.date,
 			})),
 		},
 	};

@@ -28,6 +28,7 @@ export const setCachedValue: HostFunction<CachedValueContext> = async (
 	let serialized: string;
 	try {
 		const result = JSON.stringify(value);
+		// oxlint-disable-next-line no-unnecessary-condition
 		if (result === undefined) {
 			return apiFailure("setCachedValue value must be JSON-serializable");
 		}

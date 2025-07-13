@@ -41,7 +41,7 @@ const toSavedView = (row: SavedViewRow): ListedSavedView => {
 		displayConfiguration: displayConfigurationSchema.parse(row.displayConfiguration),
 		queryDefinition: {
 			...queryDefinition,
-			eventJoins: queryDefinition.eventJoins ?? [],
+			eventJoins: queryDefinition.eventJoins,
 		},
 	};
 };
@@ -63,7 +63,7 @@ const getNextSavedViewSortOrderForUser = async (input: {
 		.from(savedView)
 		.where(and(eq(savedView.userId, input.userId), withSavedViewScope(input.trackerId)));
 
-	return Number(orderRow?.maxSortOrder ?? -1) + 1;
+	return (orderRow?.maxSortOrder ?? -1) + 1;
 };
 
 export const listSavedViewsForUser = async (input: {
