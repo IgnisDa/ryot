@@ -150,8 +150,9 @@ export default defineContentScript({
 				if (progressData) {
 					logger.debug("Sending progress", {
 						title: progressData.title,
-						showInformation: metadata.response.showInformation,
 						progress: `${progressData.progress || 0}%`,
+						showInformation:
+							"notFound" in metadata ? null : metadata.showInformation,
 					});
 					sendProgressUpdate(progressData, metadata);
 				}

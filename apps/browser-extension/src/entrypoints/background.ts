@@ -108,22 +108,18 @@ export default defineBackground(() => {
 
 			const { rawData, metadata } = progressData;
 
-			if (!rawData.progress) {
-				throw new Error("No progress data available");
-			}
-
-			if (!tabUrl) {
-				throw new Error("Tab URL not available");
+			if (!rawData.progress || !tabUrl || "notFound" in metadata) {
+				return;
 			}
 
 			const integrationPayload = {
 				url: tabUrl,
 				data: {
 					progress: rawData.progress,
-					identifier: metadata.response.data.identifier,
-					lot: metadata.response.data.lot.toLowerCase(),
-					show_season_number: metadata.response.showInformation?.season,
-					show_episode_number: metadata.response.showInformation?.episode,
+					identifier: metadata.data.identifier,
+					lot: metadata.data.lot.toLowerCase(),
+					show_season_number: metadata.showInformation?.season,
+					show_episode_number: metadata.showInformation?.episode,
 				},
 			};
 
