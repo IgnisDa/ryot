@@ -80,8 +80,8 @@ export default defineBackground(() => {
 		const client = new GraphQLClient(graphqlEndpoint);
 
 		logger.debug("Making metadata lookup request", {
-			endpoint: graphqlEndpoint,
 			title: data.title,
+			endpoint: graphqlEndpoint,
 		});
 
 		const result = await client.request(MetadataLookupDocument, {

@@ -46,7 +46,7 @@ export class MetadataCache {
 					cacheKey,
 					responseData: response.data,
 				});
-				return response.data as MetadataLookupData;
+				return response.data.response as MetadataLookupData;
 			}
 
 			logger.debug("Metadata lookup failed", { error: response.error });
