@@ -23,7 +23,6 @@ jobs:
         id: claude-review
         uses: anthropics/claude-code-action@cefe963a6b4ae0e511c59b9d6cb6b7b5923714a1
         with:
-          use_sticky_comment: true
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           direct_prompt: |
             Please review this pull request and provide feedback on:
