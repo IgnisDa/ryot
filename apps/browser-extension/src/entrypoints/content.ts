@@ -25,6 +25,7 @@ export default defineContentScript({
 			cleanupAll() {
 				this.abortController.abort();
 				isRunning = false;
+				logger.cleanup();
 
 				logger.debug("All resources cleaned up");
 			},

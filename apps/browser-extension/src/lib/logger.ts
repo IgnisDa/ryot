@@ -5,6 +5,7 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 
 class Logger {
 	private debugMode = false;
+	private unwatchStorage?: () => void;
 
 	constructor() {
 		this.setupStorageListener();
@@ -12,9 +13,16 @@ class Logger {
 	}
 
 	private setupStorageListener() {
-		storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
+		this.unwatchStorage = storage.watch(STORAGE_KEYS.DEBUG_MODE, () => {
 			this.loadDebugMode();
 		});
+	}
+
+	public cleanup(): void {
+		if (this.unwatchStorage) {
+			this.unwatchStorage();
+			this.unwatchStorage = undefined;
+		}
 	}
 
 	private loadDebugMode() {

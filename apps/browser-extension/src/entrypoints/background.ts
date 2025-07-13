@@ -20,6 +20,10 @@ function extractGraphQLEndpoint(integrationUrl: string) {
 export default defineBackground(() => {
 	logger.info("Background script initialized");
 
+	self.addEventListener("beforeunload", () => {
+		logger.cleanup();
+	});
+
 	browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 		if (message.type === MESSAGE_TYPES.GET_STATUS) {
 			getCurrentStatus()
