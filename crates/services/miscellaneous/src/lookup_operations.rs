@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::anyhow;
 use async_graphql::Result;
@@ -125,20 +125,18 @@ async fn smart_search(
     tmdb_service: &TmdbService,
     title: &str,
 ) -> Result<Vec<TmdbMetadataLookupResult>> {
-    let search_strategies = vec![
+    let strategies = HashSet::from([
         title.to_string(),
         clean_title(title),
         extract_base_title(title),
-    ];
+    ]);
 
-    for strategy in search_strategies {
-        if strategy.trim().is_empty() {
-            continue;
-        }
-
-        if let Ok(results) = tmdb_service.multi_search(&strategy).await {
-            if !results.is_empty() {
-                return Ok(results);
+    for strategy in strategies {
+        if !strategy.trim().is_empty() {
+            if let Ok(results) = tmdb_service.multi_search(&strategy).await {
+                if !results.is_empty() {
+                    return Ok(results);
+                }
             }
         }
     }
