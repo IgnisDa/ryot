@@ -2,11 +2,14 @@ tasks:
   build-chrome:
     command: "wxt zip -b chrome"
     outputs:
+      - "dist/chrome-mv3"
       - "dist/*-chrome.zip"
 
   build-firefox:
     command: "wxt zip -b firefox"
     outputs:
+      - "dist/firefox-mv2"
+      - "dist/*-sources.zip"
       - "dist/*-firefox.zip"
 
   build:
