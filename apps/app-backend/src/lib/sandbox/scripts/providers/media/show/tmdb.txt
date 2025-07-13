@@ -457,9 +457,9 @@ driver("details", async function (context) {
 	return {
 		name: title,
 		properties: {
+			images,
 			showSeasons,
 			providerRating,
-			assets: { images, videos: [] },
 			isNsfw: showData?.adult === true ? true : null,
 			genres: collectGenres(showData?.genres),
 			sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
