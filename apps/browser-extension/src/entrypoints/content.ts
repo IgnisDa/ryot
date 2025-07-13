@@ -1,6 +1,10 @@
 import { debounce, throttle } from "@ryot/ts-utils";
 import { storage } from "#imports";
-import { MESSAGE_TYPES, MIN_VIDEO_DURATION_SECONDS, STORAGE_KEYS } from "../lib/constants";
+import {
+	MESSAGE_TYPES,
+	MIN_VIDEO_DURATION_SECONDS,
+	STORAGE_KEYS,
+} from "../lib/constants";
 import type {
 	ExtensionStatus,
 	MetadataLookupData,
@@ -69,30 +73,39 @@ export default defineContentScript({
 
 		function findBestVideo(): HTMLVideoElement | null {
 			const videos = document.querySelectorAll("video");
+			let bestVideo: HTMLVideoElement | null = null;
+			let highestScore = -1;
 
 			for (const video of videos) {
 				if (
-					!video.paused &&
-					!video.ended &&
-					video.readyState > 0 &&
-					video.duration >= MIN_VIDEO_DURATION_SECONDS
+					video.readyState <= 0 ||
+					video.duration < MIN_VIDEO_DURATION_SECONDS
 				) {
-					return video;
+					continue;
+				}
+
+				let score = 0;
+				if (!video.paused && !video.ended) score += 10;
+				if (video.readyState > 2) score += 5;
+				if (video.duration > 0) score += 1;
+
+				if (score > highestScore) {
+					highestScore = score;
+					bestVideo = video;
 				}
 			}
 
-			for (const video of videos) {
-				if (video.readyState > 0 && video.duration >= MIN_VIDEO_DURATION_SECONDS) {
-					return video;
-				}
-			}
-
-			return null;
+			return bestVideo;
 		}
 
 		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 			const title = extractTitle();
-			if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) return null;
+			if (
+				!title ||
+				!video.duration ||
+				video.duration < MIN_VIDEO_DURATION_SECONDS
+			)
+				return null;
 
 			return {
 				title,
