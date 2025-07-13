@@ -136,11 +136,10 @@ information and sync your viewing progress to Ryot.
      "Load unpacked", and select the extracted folder
    - **Firefox**: Go to `about:debugging`, click "This Firefox", click "Load Temporary
      Add-on", and select the zip file
-3. Configure the extension:
+3. Generate a slug in the integration settings page and copy the newly generated webhook URL.
+4. Configure the extension:
    - Click on the extension icon in your browser toolbar
-   - Enter your Ryot instance URL and authentication details
-   - The extension will automatically detect and track media playback on supported
-     streaming services
+   - Enter your webhook URL
 
 ## Yank integrations
 
