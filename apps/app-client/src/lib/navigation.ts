@@ -1,5 +1,4 @@
 import { atom } from "jotai";
-import { atomWithPlatformStorage } from "./atoms";
 
 export type Tracker = {
 	id: string;
@@ -29,16 +28,5 @@ const HARDCODED_TRACKERS: Tracker[] = [
 
 export const trackersAtom = atom<Tracker[]>(HARDCODED_TRACKERS);
 
-export const activeTrackerIdAtom = atomWithPlatformStorage<string | null>(
-	"nav-active-tracker",
-	"home",
-);
-
-export const activeSubItemAtom = atomWithPlatformStorage<string | null>(
-	"nav-active-sub-item",
-	null,
-);
-
 export const navSheetOpenAtom = atom(false);
-export const subFlyoutOpenAtom = atom(false);
 export const searchOpenAtom = atom(false);
