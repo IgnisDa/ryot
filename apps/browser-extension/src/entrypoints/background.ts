@@ -120,10 +120,10 @@ export default defineBackground(() => {
 				url: tabUrl,
 				data: {
 					progress: rawData.progress,
-					identifier: metadata.data.identifier,
-					lot: metadata.data.lot.toLowerCase(),
-					show_season_number: metadata.showInformation?.season,
-					show_episode_number: metadata.showInformation?.episode,
+					identifier: metadata.response.data.identifier,
+					lot: metadata.response.data.lot.toLowerCase(),
+					show_season_number: metadata.response.showInformation?.season,
+					show_episode_number: metadata.response.showInformation?.episode,
 				},
 			};
 
