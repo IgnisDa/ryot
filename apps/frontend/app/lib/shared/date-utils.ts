@@ -19,10 +19,14 @@ export { dayjs as dayjsLib };
 export const convertTimestampToUtcString = <T extends Date | string | null | undefined>(
 	dateTime: T,
 ): TimestampToStringResult<T> => {
-	if (!dateTime) return null as TimestampToStringResult<T>;
+	if (!dateTime) {
+		return null as TimestampToStringResult<T>;
+	}
 
 	const parsed = dayjs(dateTime);
-	if (!parsed.isValid()) return null as TimestampToStringResult<T>;
+	if (!parsed.isValid()) {
+		return null as TimestampToStringResult<T>;
+	}
 
 	return parsed.utc().format() as TimestampToStringResult<T>;
 };
@@ -37,9 +41,15 @@ export const getDateFromTimeSpan = (timeSpan: TimeSpan) =>
 		.exhaustive();
 
 export const getTimeOfDay = (hours: number) => {
-	if (hours >= 5 && hours < 12) return "Morning";
-	if (hours >= 12 && hours < 17) return "Afternoon";
-	if (hours >= 17 && hours < 21) return "Evening";
+	if (hours >= 5 && hours < 12) {
+		return "Morning";
+	}
+	if (hours >= 12 && hours < 17) {
+		return "Afternoon";
+	}
+	if (hours >= 17 && hours < 21) {
+		return "Evening";
+	}
 	return "Night";
 };
 

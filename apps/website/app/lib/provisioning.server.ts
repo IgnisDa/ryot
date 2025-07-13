@@ -37,7 +37,9 @@ async function getCloudAuthDetails(
 	email: string,
 	oidcIssuerId: string | null,
 ): Promise<CloudAuthDetails> {
-	if (oidcIssuerId) return { provider: "google", email };
+	if (oidcIssuerId) {
+		return { provider: "google", email };
+	}
 
 	const { getPasswordChangeSession } = await getServerGqlService().request(
 		GetPasswordChangeSessionDocument,
@@ -159,7 +161,9 @@ export async function provisionNewPurchase(
 	const renewOn = renewalDate ? formatDateToNaiveDate(renewalDate) : undefined;
 
 	const emailElement = PurchaseCompleteEmail({ renewOn, details, planType });
-	if (!emailElement) throw new Error("Failed to create email element");
+	if (!emailElement) {
+		throw new Error("Failed to create email element");
+	}
 
 	await sendEmail({
 		element: emailElement,
@@ -181,15 +185,21 @@ export async function provisionNewPurchase(
 		paddleCustomerId?: string | null;
 	} = {};
 
-	if (ryotUserId && ryotUserId !== customer.ryotUserId) updateData.ryotUserId = ryotUserId;
-	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) updateData.unkeyKeyId = unkeyKeyId;
+	if (ryotUserId && ryotUserId !== customer.ryotUserId) {
+		updateData.ryotUserId = ryotUserId;
+	}
+	if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) {
+		updateData.unkeyKeyId = unkeyKeyId;
+	}
 
 	if (customer.paymentProvider === "paddle" && paymentProviderCustomerId) {
-		if (paymentProviderCustomerId !== customer.paddleCustomerId)
+		if (paymentProviderCustomerId !== customer.paddleCustomerId) {
 			updateData.paddleCustomerId = paymentProviderCustomerId;
+		}
 	} else if (customer.paymentProvider === "polar" && paymentProviderCustomerId) {
-		if (paymentProviderCustomerId !== customer.polarCustomerId)
+		if (paymentProviderCustomerId !== customer.polarCustomerId) {
 			updateData.polarCustomerId = paymentProviderCustomerId;
+		}
 	}
 
 	if (Object.keys(updateData).length > 0) {

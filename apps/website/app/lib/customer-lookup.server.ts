@@ -28,7 +28,9 @@ export async function findCustomerById(customerId: string) {
 
 export async function findCustomerByPaddleCustomData(customData: unknown) {
 	const parsed = paddleCustomDataSchema.safeParse(customData);
-	if (!parsed.success) return undefined;
+	if (!parsed.success) {
+		return undefined;
+	}
 
 	return findCustomerById(parsed.data.customerId);
 }
@@ -41,10 +43,14 @@ export async function findCustomerWithFallback(
 ) {
 	if (primaryId) {
 		const customer = await primaryLookup(primaryId);
-		if (customer) return customer;
+		if (customer) {
+			return customer;
+		}
 	}
 
-	if (fallbackId && fallbackLookup) return (await fallbackLookup(fallbackId)) ?? null;
+	if (fallbackId && fallbackLookup) {
+		return (await fallbackLookup(fallbackId)) ?? null;
+	}
 
 	return null;
 }

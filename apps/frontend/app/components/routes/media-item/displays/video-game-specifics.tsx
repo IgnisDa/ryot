@@ -12,7 +12,9 @@ export function VideoGameSpecificsDisplay(props: { specifics?: VideoGameSpecific
 		timeToBeat && (timeToBeat.hastily || timeToBeat.normally || timeToBeat.completely);
 	const hasPlatformReleases = platformReleases && platformReleases.length > 0;
 
-	if (!hasPlatformReleases && !hasTimeToBeatData) return null;
+	if (!hasPlatformReleases && !hasTimeToBeatData) {
+		return null;
+	}
 
 	return (
 		<Stack gap="md">
@@ -27,7 +29,9 @@ export function VideoGameSpecificsDisplay(props: { specifics?: VideoGameSpecific
 							{ value: timeToBeat.normally, label: "Normally" },
 							{ value: timeToBeat.completely, label: "Completely" },
 						].map(({ value, label }) => {
-							if (!value) return null;
+							if (!value) {
+								return null;
+							}
 							const duration = dayjsLib.duration(value, "seconds");
 
 							return (
