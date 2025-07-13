@@ -38,7 +38,7 @@ order.
 ## From `v5.*` to `v6.*`
 
 ::: warning Integrations deleted
-All integrations will need to be recreated. Please take a look at the [docs](./integrations.md)
+All integrations will need to be recreated. Please take a look at the [docs](./integrations/overview.md)
 for the new webhook format.
 :::
 
@@ -70,7 +70,7 @@ for the new webhook format.
 
 ::: warning Webhook URL changes
 If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
-prefix. Please take a look at the [integration](./integrations.md#sink-integrations) docs for the
+prefix. Please take a look at the [integration](./integrations/overview.md#sink-integrations) docs for the
 new format.
 :::
 

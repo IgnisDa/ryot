@@ -3,7 +3,7 @@
 You can import your watched movies and shows from [Plex](https://plex.tv).
 
 ::: info
-After importing, you can also set up an [integration](../integrations.md#plex-sink) for
+After importing, you can also set up an [integration](../integrations/plex-sink.md) for
 continuous updates.
 :::
 

@@ -3,7 +3,7 @@
 You can import your watched movies and shows from [Jellyfin](https://jellyfin.org).
 
 ::: info
-After importing, you can also set up an [integration](../integrations.md#jellyfin-sink)
+After importing, you can also set up an [integration](../integrations/jellyfin-sink.md)
 for continuous updates.
 :::
 

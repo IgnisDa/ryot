@@ -22,6 +22,7 @@ const getSourceFiles = (dir: string) =>
 		});
 
 const importingSourceFiles = getSourceFiles("importing");
+const integrationsSourceFiles = getSourceFiles("integrations");
 const guidesSourceFiles = getSourceFiles("guides");
 
 // https://vitepress.dev/reference/site-config
@@ -62,7 +63,15 @@ export default defineConfig({
 					{ text: "Community", link: "/importing/community" },
 				],
 			},
-			{ text: "Integrations", link: "/integrations" },
+			{
+				collapsed: true,
+				text: "Integrations",
+				link: "/integrations/overview",
+				items: [
+					{ text: "Overview", link: "/integrations/overview" },
+					...integrationsSourceFiles,
+				],
+			},
 			{
 				text: "Guides",
 				collapsed: true,
