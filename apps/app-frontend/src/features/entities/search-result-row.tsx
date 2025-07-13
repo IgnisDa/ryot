@@ -229,6 +229,7 @@ export function SearchResultRow(props: {
 	isLifecycleLoading: boolean;
 	onToggleActions: () => void;
 	addError: string | undefined;
+	primaryAction: "add" | "backlog";
 	lifecycleErrorMessage: string | null;
 	actionState: SearchResultRowActionState;
 	onTogglePanel: (panel: "log" | "rate") => void;
@@ -241,6 +242,8 @@ export function SearchResultRow(props: {
 			? (props.item.imageProperty.value?.url ?? undefined)
 			: undefined;
 	const isTracked = props.actionState.doneActions.includes("track");
+	const isBacklogged = props.actionState.doneActions.includes("backlog");
+	const isQueueMode = props.primaryAction === "backlog";
 	const canUseLifecycleActions =
 		!props.isLifecycleLoading && !props.lifecycleErrorMessage;
 	const displayError =
@@ -308,37 +311,71 @@ export function SearchResultRow(props: {
 					</Stack>
 				</Group>
 				<Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
-					<Button
-						size="compact-sm"
-						onClick={props.onAdd}
-						variant={isTracked ? "light" : "filled"}
-						loading={props.actionState.pendingAction === "add"}
-						disabled={
-							isTracked ||
-							(isWorking && props.actionState.pendingAction !== "add")
-						}
-						leftSection={
-							props.actionState.pendingAction ===
-							"add" ? undefined : isTracked ? (
-								<CheckCircle size={14} />
-							) : (
-								<Plus size={14} />
-							)
-						}
-						style={
-							isTracked
-								? {
-										backgroundColor: "var(--mantine-color-green-0)",
-										color: "var(--mantine-color-green-7)",
-									}
-								: {
-										backgroundColor: props.accentColor,
-										color: "white",
-									}
-						}
-					>
-						{isTracked ? "Added" : "Add"}
-					</Button>
+					{isQueueMode ? (
+						<Button
+							size="compact-sm"
+							onClick={props.onBacklog}
+							variant={isBacklogged ? "light" : "filled"}
+							loading={props.actionState.pendingAction === "backlog"}
+							disabled={
+								isBacklogged ||
+								(isWorking && props.actionState.pendingAction !== "backlog")
+							}
+							leftSection={
+								props.actionState.pendingAction ===
+								"backlog" ? undefined : isBacklogged ? (
+									<CheckCircle size={14} />
+								) : (
+									<Bookmark size={14} />
+								)
+							}
+							style={
+								isBacklogged
+									? {
+											backgroundColor: "var(--mantine-color-green-0)",
+											color: "var(--mantine-color-green-7)",
+										}
+									: {
+											backgroundColor: props.accentColor,
+											color: "white",
+										}
+							}
+						>
+							{isBacklogged ? "Queued" : "Queue"}
+						</Button>
+					) : (
+						<Button
+							size="compact-sm"
+							onClick={props.onAdd}
+							variant={isTracked ? "light" : "filled"}
+							loading={props.actionState.pendingAction === "add"}
+							disabled={
+								isTracked ||
+								(isWorking && props.actionState.pendingAction !== "add")
+							}
+							leftSection={
+								props.actionState.pendingAction ===
+								"add" ? undefined : isTracked ? (
+									<CheckCircle size={14} />
+								) : (
+									<Plus size={14} />
+								)
+							}
+							style={
+								isTracked
+									? {
+											backgroundColor: "var(--mantine-color-green-0)",
+											color: "var(--mantine-color-green-7)",
+										}
+									: {
+											backgroundColor: props.accentColor,
+											color: "white",
+										}
+							}
+						>
+							{isTracked ? "Added" : "Add"}
+						</Button>
+					)}
 					<Button
 						size="compact-sm"
 						disabled={isWorking}
