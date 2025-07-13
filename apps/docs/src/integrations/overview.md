@@ -29,13 +29,13 @@ https://app.ryot.io/backend/_i/int_a6cGGXEq6KOI # example
 Keep your webhook urls private to prevent abuse.
 :::
 
+- [Ryot Browser Extension](./ryot-browser-extension.md) - Automatically scrobble media from
+  streaming services <Badge type="warning" text="PRO" />
 - [Jellyfin Sink](./jellyfin-sink.md) - Automatically add new Jellyfin movie and show plays
 - [Emby](./emby.md) - Automatically add new Emby movie and show plays
 - [Plex Sink](./plex-sink.md) - Automatically add Plex show and movie plays
 - [Kodi](./kodi.md) - Sync current movie or TV show you are watching
 - [Generic Json](./generic-json.md) - Import data using generic JSON format
-- [Ryot Browser Extension](./ryot-browser-extension.md) - Automatically scrobble media from
-  streaming services <Badge type="warning" text="PRO" />
 
 ## Yank integrations
 
