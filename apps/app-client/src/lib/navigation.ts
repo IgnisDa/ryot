@@ -39,7 +39,7 @@ export function useNavigationData(userName?: string): UseNavigationDataResult {
 		queryFn: async () => {
 			const response = await apiClient.GET("/trackers");
 			if (response.error) {
-				throw response.error;
+				throw new Error(JSON.stringify(response.error));
 			}
 			return response.data;
 		},
@@ -50,7 +50,7 @@ export function useNavigationData(userName?: string): UseNavigationDataResult {
 		queryFn: async () => {
 			const response = await apiClient.GET("/saved-views");
 			if (response.error) {
-				throw response.error;
+				throw new Error(JSON.stringify(response.error));
 			}
 			return response.data;
 		},

@@ -28,7 +28,7 @@ export function ShellNavigation({ children }: Props) {
 	const { width: screenWidth } = useWindowDimensions();
 
 	const activeTracker = trackers.find((t) => t.slug === activeTrackerSlug);
-	const subItemCount = activeTracker?.subItems?.length;
+	const subItemCount = activeTracker?.subItems.length;
 
 	useEffect(() => {
 		setSubFlyoutOpen((subItemCount ?? 0) > 0);
