@@ -2,44 +2,36 @@
 	"expo": {
 		"name": "Ryot",
 		"slug": "ryot",
+		"scheme": "ryot",
 		"version": "1.0.0",
 		"orientation": "portrait",
-		"icon": "./assets/images/icon.png",
-		"scheme": "ryot",
 		"userInterfaceStyle": "automatic",
-		"updates": {
-			"checkAutomatically": "NEVER"
-		},
+		"icon": "./assets/images/icon.png",
+		"updates": { "checkAutomatically": "NEVER" },
+		"experiments": { "typedRoutes": true, "reactCompiler": true },
+		"ios": { "supportsTablet": true, "bundleIdentifier": "io.ryot.app" },
 		"splash": {
-			"image": "./assets/images/splash-icon.png",
 			"resizeMode": "contain",
-			"backgroundColor": "#ffffff"
-		},
-		"ios": {
-			"supportsTablet": true,
-			"bundleIdentifier": "io.ryot.app"
-		},
-		"android": {
-			"adaptiveIcon": {
-				"foregroundImage": "./assets/images/adaptive-icon.png",
-				"backgroundColor": "#fd7e14"
-			},
-			"package": "io.ryot.app"
+			"backgroundColor": "#fd7e14",
+			"image": "./assets/images/splash-icon.png"
 		},
 		"web": {
 			"bundler": "metro",
 			"output": "single",
 			"favicon": "./assets/images/favicon.png"
 		},
+		"android": {
+			"package": "io.ryot.app",
+			"adaptiveIcon": {
+				"backgroundColor": "#fd7e14",
+				"foregroundImage": "./assets/images/adaptive-icon.png"
+			}
+		},
 		"plugins": [
+			"expo-font",
 			"expo-router",
 			"expo-web-browser",
-			"expo-font",
 			"@react-native-community/datetimepicker"
-		],
-		"experiments": {
-			"typedRoutes": true,
-			"reactCompiler": true
-		}
+		]
 	}
 }
