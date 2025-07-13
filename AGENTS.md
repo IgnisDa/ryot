@@ -9,6 +9,10 @@
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
 - **Linting**: Linting uses `biome`. Prefer using `--write` to auto-fix issues. For example: `bun turbo --filter=@ryot/app-backend lint -- --write`.
 
+## YAGNI
+
+Apply YAGNI (You Ain't Gonna Need It) strictly. Do not add functionality, abstractions, configuration options, or generalization that the user has not explicitly requested. If a proposed change introduces something that won't be immediately used, push back and explain why it is premature.
+
 ## Coding Standards
 
 - **Pattern matching**: Prefer `match` from `ts-pattern` over `switch` statements for type-safe pattern matching.
