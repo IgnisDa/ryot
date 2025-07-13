@@ -4,7 +4,13 @@ import { dayjs } from "@ryot/ts-utils";
 
 import { expectDataResult } from "~/lib/test-helpers";
 import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
-import type { QueryEngineResponse, ResolvedDisplayValue } from "~/modules/query-engine";
+import type {
+	AggregateQueryEngineRequest,
+	EventsQueryEngineRequest,
+	QueryEngineResponse,
+	ResolvedDisplayValue,
+	TimeSeriesQueryEngineRequest,
+} from "~/modules/query-engine";
 
 import {
 	getContinueItems,
@@ -776,19 +782,19 @@ describe("getRecentActivityItems", () => {
 	});
 
 	it("sends events mode request with limit 12", async () => {
-		let capturedRequest: unknown;
+		let capturedRequest: EventsQueryEngineRequest | undefined;
 
 		await getRecentActivityItems("user_1", {
 			executeQuery: (_userId, request) => {
-				capturedRequest = request;
+				if (request.mode === "events") {
+					capturedRequest = request;
+				}
 				return Promise.resolve(makeEventsResult([]));
 			},
 		});
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((capturedRequest as { mode: string }).mode).toBe("events");
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((capturedRequest as { pagination: { limit: number } }).pagination.limit).toBe(12);
+		expect(capturedRequest?.mode).toBe("events");
+		expect(capturedRequest?.pagination.limit).toBe(12);
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
@@ -919,11 +925,13 @@ describe("getWeekActivity", () => {
 	});
 
 	it("sends time-series mode request for current ISO week with day bucket", async () => {
-		let capturedRequest: unknown;
+		let capturedRequest: TimeSeriesQueryEngineRequest | undefined;
 
 		await getWeekActivity("user_1", {
 			executeQuery: (_userId, request) => {
-				capturedRequest = request;
+				if (request.mode === "timeSeries") {
+					capturedRequest = request;
+				}
 				return Promise.resolve({
 					mode: "timeSeries" as const,
 					data: { buckets: [] },
@@ -931,12 +939,9 @@ describe("getWeekActivity", () => {
 			},
 		});
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((capturedRequest as { mode: string }).mode).toBe("timeSeries");
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((capturedRequest as { bucket: string }).bucket).toBe("day");
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		expect((capturedRequest as { metric: { type: string } }).metric.type).toBe("count");
+		expect(capturedRequest?.mode).toBe("timeSeries");
+		expect(capturedRequest?.bucket).toBe("day");
+		expect(capturedRequest?.metric.type).toBe("count");
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
@@ -1029,11 +1034,13 @@ describe("getLibraryStats", () => {
 	});
 
 	it("sends aggregate mode request with correct aggregation keys", async () => {
-		let capturedRequest: unknown;
+		let capturedRequest: AggregateQueryEngineRequest | undefined;
 
 		await getLibraryStats("user_1", {
 			executeQuery: (_userId, request) => {
-				capturedRequest = request;
+				if (request.mode === "aggregate") {
+					capturedRequest = request;
+				}
 				return Promise.resolve(
 					makeAggregateResult([
 						{ key: "total", kind: "number", value: 0 },
@@ -1047,13 +1054,8 @@ describe("getLibraryStats", () => {
 			},
 		});
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		const req = capturedRequest as {
-			mode: string;
-			aggregations: Array<{ key: string }>;
-		};
-		expect(req.mode).toBe("aggregate");
-		expect(req.aggregations.map((a) => a.key)).toEqual([
+		expect(capturedRequest?.mode).toBe("aggregate");
+		expect(capturedRequest?.aggregations.map((a) => a.key)).toEqual([
 			"total",
 			"inBacklog",
 			"inProgress",
@@ -1064,11 +1066,13 @@ describe("getLibraryStats", () => {
 	});
 
 	it("uses in-library relationship filter", async () => {
-		let capturedRequest: unknown;
+		let capturedRequest: AggregateQueryEngineRequest | undefined;
 
 		await getLibraryStats("user_1", {
 			executeQuery: (_userId, request) => {
-				capturedRequest = request;
+				if (request.mode === "aggregate") {
+					capturedRequest = request;
+				}
 				return Promise.resolve(
 					makeAggregateResult([
 						{ key: "total", kind: "number", value: 0 },
@@ -1082,14 +1086,7 @@ describe("getLibraryStats", () => {
 			},
 		});
 
-		expect(
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			(
-				capturedRequest as {
-					relationships: Array<{ relationshipSchemaSlug: string }>;
-				}
-			).relationships,
-		).toEqual([{ relationshipSchemaSlug: "in-library" }]);
+		expect(capturedRequest?.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {
