@@ -131,7 +131,8 @@ export default defineContentScript({
 				if (progressData) {
 					logger.debug("Sending progress", {
 						title: progressData.title,
-						progress: `${Math.round(progressData.progress || 0)}%`,
+						showInformation: metadata.showInformation,
+						progress: `${progressData.progress || 0}%`,
 					});
 					sendProgressUpdate(progressData, metadata);
 				}
