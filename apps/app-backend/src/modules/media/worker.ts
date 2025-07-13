@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { type AppSchema, normalizeSlug } from "@ryot/ts-utils";
+import { normalizeSlug } from "@ryot/ts-utils";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
 
@@ -338,10 +338,7 @@ export const processMediaImportJob = async (
 	if (!scope) {
 		throw new Error("Entity schema not found");
 	}
-	const schemaFieldKeys = Object.keys(
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		(scope.propertiesSchema as AppSchema).fields,
-	);
+	const schemaFieldKeys = Object.keys(scope.propertiesSchema.fields);
 	const properties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
 		if (details.properties[key] !== undefined) {
@@ -351,8 +348,7 @@ export const processMediaImportJob = async (
 	const validatedProperties = parseAppSchemaProperties({
 		properties,
 		kind: "Media",
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		propertiesSchema: scope.propertiesSchema as AppSchema,
+		propertiesSchema: scope.propertiesSchema,
 	});
 	const parsedImages = imagesSchema.safeParse(validatedProperties.images);
 	if (!parsedImages.success) {
@@ -464,8 +460,7 @@ export const processPersonPopulateJob = async (
 	}
 
 	const details = detailsParsed.data;
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	const schemaFieldKeys = Object.keys((personSchema.propertiesSchema as AppSchema).fields);
+	const schemaFieldKeys = Object.keys(personSchema.propertiesSchema.fields);
 	const filteredProperties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
 		if (details.properties[key] !== undefined) {
