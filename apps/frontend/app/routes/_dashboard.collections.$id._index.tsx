@@ -96,12 +96,10 @@ const searchParamsSchema = z.object({
 	query: z.string().optional(),
 	defaultTab: z.string().optional(),
 	[pageQueryParam]: zodIntAsString.optional(),
-	entityLot: z.nativeEnum(EntityLot).optional(),
-	metadataLot: z.nativeEnum(MediaLot).optional(),
-	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFiltersValue.order),
-	sortBy: z
-		.nativeEnum(CollectionContentsSortBy)
-		.default(defaultFiltersValue.sort),
+	entityLot: z.enum(EntityLot).optional(),
+	metadataLot: z.enum(MediaLot).optional(),
+	orderBy: z.enum(GraphqlSortOrder).default(defaultFiltersValue.order),
+	sortBy: z.enum(CollectionContentsSortBy).default(defaultFiltersValue.sort),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

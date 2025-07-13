@@ -100,10 +100,10 @@ const defaultFilters = {
 
 const searchParamsSchema = z.object({
 	query: z.string().optional(),
-	[pageQueryParam]: zodIntAsString.default("1"),
-	orderBy: z.nativeEnum(GraphqlSortOrder).default(defaultFilters.orderBy),
+	[pageQueryParam]: zodIntAsString.default(1),
+	orderBy: z.enum(GraphqlSortOrder).default(defaultFilters.orderBy),
 	sortBy: z
-		.nativeEnum(UserTemplatesOrWorkoutsListSortBy)
+		.enum(UserTemplatesOrWorkoutsListSortBy)
 		.default(defaultFilters.sortBy),
 });
 
@@ -112,7 +112,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { entity } = parseParameters(
 		params,
-		z.object({ entity: z.nativeEnum(FitnessEntity) }),
+		z.object({ entity: z.enum(FitnessEntity) }),
 	);
 	const cookieName = await getSearchEnhancedCookieName(
 		`${entity}.list`,

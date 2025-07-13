@@ -113,7 +113,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action, lot } = parseParameters(
 		params,
 		z.object({
-			action: z.nativeEnum(Action),
+			action: z.enum(Action),
 			lot: z.string().transform((v) => getLot(v) as MediaLot),
 		}),
 	);
@@ -124,7 +124,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const schema = z.object({
 		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default(1),
 	});
 	const query = parseSearchQuery(request, schema);
 	const [
@@ -139,15 +139,15 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				collections: zodCollectionFilter,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
+				sortBy: z.enum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
-					.nativeEnum(ApplicationTimeRange)
+					.enum(ApplicationTimeRange)
 					.default(defaultFilters.mineDateRange),
 				sortOrder: z
-					.nativeEnum(GraphqlSortOrder)
+					.enum(GraphqlSortOrder)
 					.default(defaultFilters.mineSortOrder),
 				generalFilter: z
-					.nativeEnum(MediaGeneralFilter)
+					.enum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
@@ -184,9 +184,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			);
 			invariant(metadataSourcesForLot);
 			const searchSchemaWithDefaults = searchSchema.extend({
-				source: z
-					.nativeEnum(MediaSource)
-					.default(metadataSourcesForLot.sources[0]),
+				source: z.enum(MediaSource).default(metadataSourcesForLot.sources[0]),
 			});
 			const urlParse = parseSearchQuery(request, searchSchemaWithDefaults);
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;

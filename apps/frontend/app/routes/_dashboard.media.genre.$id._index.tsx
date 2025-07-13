@@ -28,7 +28,7 @@ import {
 import type { Route } from "./+types/_dashboard.media.genre.$id._index";
 
 const searchParamsSchema = z.object({
-	[pageQueryParam]: zodIntAsString.default("1"),
+	[pageQueryParam]: zodIntAsString.default(1),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

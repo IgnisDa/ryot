@@ -115,13 +115,13 @@ const searchParamsSchema = z.object({
 	query: z.string().optional(),
 	collection: z.string().optional(),
 	[pageQueryParam]: zodIntAsString.optional(),
-	type: z.nativeEnum(ExerciseLot).optional(),
-	level: z.nativeEnum(ExerciseLevel).optional(),
-	force: z.nativeEnum(ExerciseForce).optional(),
-	sortBy: z.nativeEnum(ExerciseSortBy).optional(),
-	muscle: z.nativeEnum(ExerciseMuscle).optional(),
-	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
-	equipment: z.nativeEnum(ExerciseEquipment).optional(),
+	type: z.enum(ExerciseLot).optional(),
+	level: z.enum(ExerciseLevel).optional(),
+	force: z.enum(ExerciseForce).optional(),
+	sortBy: z.enum(ExerciseSortBy).optional(),
+	muscle: z.enum(ExerciseMuscle).optional(),
+	mechanic: z.enum(ExerciseMechanic).optional(),
+	equipment: z.enum(ExerciseEquipment).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

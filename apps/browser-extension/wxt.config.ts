@@ -8,7 +8,12 @@ export default defineConfig({
 	webExt: { disabled: true },
 	modules: ["@wxt-dev/module-react", "@wxt-dev/auto-icons"],
 	vite: () => ({
-		plugins: [tailwindcss(), tsconfigPaths()],
+		plugins: [
+			tailwindcss(),
+			// FIXME: Remove when https://github.com/aleclarson/vite-tsconfig-paths/issues/176
+			// biome-ignore lint/suspicious/noExplicitAny: remove when fixed
+			tsconfigPaths() as any,
+		],
 	}),
 	manifest: {
 		permissions: ["storage"],

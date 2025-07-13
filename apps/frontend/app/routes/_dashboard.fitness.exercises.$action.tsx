@@ -60,7 +60,7 @@ enum Action {
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.nativeEnum(Action) }),
+		z.object({ action: z.enum(Action) }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
@@ -159,12 +159,12 @@ const schema = z.object({
 	muscles: optionalString,
 	images: optionalStringArray,
 	instructions: optionalString,
-	lot: z.nativeEnum(ExerciseLot),
+	lot: z.enum(ExerciseLot),
 	shouldDelete: zodBoolAsString.optional(),
-	level: z.nativeEnum(ExerciseLevel),
-	force: z.nativeEnum(ExerciseForce).optional(),
-	mechanic: z.nativeEnum(ExerciseMechanic).optional(),
-	equipment: z.nativeEnum(ExerciseEquipment).optional(),
+	level: z.enum(ExerciseLevel),
+	force: z.enum(ExerciseForce).optional(),
+	mechanic: z.enum(ExerciseMechanic).optional(),
+	equipment: z.enum(ExerciseEquipment).optional(),
 });
 
 export default function Page() {
