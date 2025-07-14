@@ -50,14 +50,14 @@ export const OAUTH_CALLBACK_URL = `${serverVariables.FRONTEND_URL}/callback`;
 
 export const pricesSchema = z.array(
 	z.object({
-		type: z.enum(ProductTypes.enum),
+		type: z.nativeEnum(ProductTypes.enum),
 		prices: z.array(
 			z.object({
 				trial: z.number().optional(),
 				amount: z.number().optional(),
 				priceId: z.string().optional(),
 				linkToGithub: z.boolean().optional(),
-				name: z.enum(PlanTypes.enum),
+				name: z.nativeEnum(PlanTypes.enum),
 			}),
 		),
 	}),
