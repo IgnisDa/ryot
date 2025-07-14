@@ -3,9 +3,6 @@
 	"private": true,
 	"type": "module",
 	"version": "0.1.0",
-	"scripts": {
-		"postinstall": "wxt prepare"
-	},
 	"dependencies": {
 		"@ryot/generated": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
