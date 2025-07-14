@@ -77,7 +77,7 @@ derive_more = { version = "=2.0.1", features = [
     "sum",
 ], default-features = false }
 dotenvy = "=0.15.7"
-dotenv-build = "0.1.1"
+dotenv-build = "=0.1.1"
 educe = { version = "=0.6.0", features = [
     "Debug",
     "Default",
@@ -108,7 +108,7 @@ rstest = "=0.25.0"
 rust_decimal = "=1.37.1"
 rust_decimal_macros = "=1.37.1"
 rust_iso3166 = "=0.1.14"
-rustypipe = { version = "0.11.4", features = ["userdata"] }
+rustypipe = { version = "=0.11.4", features = ["userdata"] }
 schematic = { version = "=0.18.5", features = [
     "config",
     "env",
