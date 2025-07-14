@@ -211,7 +211,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				metadataSearch = false;
 			}
 			return [
-				metadataSearch === false ? 0 : metadataSearch.details.total,
+				metadataSearch === false ? 0 : metadataSearch.response.details.total,
 				undefined,
 				{
 					url: urlParse,
@@ -495,16 +495,16 @@ export default function Page() {
 								<Text>
 									Something is wrong. Please try with an alternate provider.
 								</Text>
-							) : mediaSearch.search.details.total > 0 ? (
+							) : mediaSearch.search.response.details.total > 0 ? (
 								<>
 									<Box>
 										<Text display="inline" fw="bold">
-											{mediaSearch.search.details.total}
+											{mediaSearch.search.response.details.total}
 										</Text>{" "}
 										items found
 									</Box>
 									<ApplicationGrid>
-										{mediaSearch.search.items.map((b, index) => (
+										{mediaSearch.search.response.items.map((b, index) => (
 											<MediaSearchItem
 												key={b}
 												item={b}
@@ -538,7 +538,7 @@ export default function Page() {
 const MediaSearchItem = (props: {
 	isFirstItem: boolean;
 	isEligibleForNextTourStep: boolean;
-	item: MetadataSearchQuery["metadataSearch"]["items"][number];
+	item: MetadataSearchQuery["metadataSearch"]["response"]["items"][number];
 }) => {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 

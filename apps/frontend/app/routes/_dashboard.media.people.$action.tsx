@@ -159,7 +159,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 					},
 				);
 				return [
-					peopleSearch.details.total,
+					peopleSearch.response.details.total,
 					undefined,
 					{ search: peopleSearch, url: urlParse },
 					true,
@@ -384,13 +384,13 @@ export default function Page() {
 						<>
 							<Box>
 								<Text display="inline" fw="bold">
-									{loaderData.search.search.details.total}
+									{loaderData.search.search.response.details.total}
 								</Text>{" "}
 								items found
 							</Box>
-							{loaderData.search.search.details.total > 0 ? (
+							{loaderData.search.search.response.details.total > 0 ? (
 								<ApplicationGrid>
-									{loaderData.search.search.items.map((person) => (
+									{loaderData.search.search.response.items.map((person) => (
 										<PersonDisplayItem
 											key={person}
 											personId={person}

@@ -112,7 +112,7 @@ const useTimeSpanSettings = () => {
 	const startDate =
 		timeSpanSettings.startDate ||
 		(timeSpanSettings.range === "All Time" &&
-			loaderData.userAnalyticsParameters.startDate) ||
+			loaderData.userAnalyticsParameters.response.startDate) ||
 		formatDateToNaiveDate(
 			getStartTimeFromRange(timeSpanSettings.range) || new Date(),
 		);
@@ -120,7 +120,7 @@ const useTimeSpanSettings = () => {
 	const endDate =
 		timeSpanSettings.endDate ||
 		(timeSpanSettings.range === "All Time" &&
-			loaderData.userAnalyticsParameters.endDate) ||
+			loaderData.userAnalyticsParameters.response.endDate) ||
 		formatDateToNaiveDate(dayjsLib());
 	return { timeSpanSettings, setTimeSpanSettings, startDate, endDate };
 };
@@ -134,7 +134,7 @@ const useGetUserAnalytics = () => {
 		queryFn: async () => {
 			return await clientGqlService
 				.request(UserAnalyticsDocument, { input })
-				.then((data) => data.userAnalytics);
+				.then((data) => data.userAnalytics.response);
 		},
 	});
 	return userAnalytics;
@@ -451,10 +451,10 @@ const CustomDateSelectModal = (props: {
 					w="fit-content"
 					onChange={setValue}
 					minDate={dayjsLib(
-						loaderData.userAnalyticsParameters.startDate,
+						loaderData.userAnalyticsParameters.response.startDate,
 					).toDate()}
 					maxDate={dayjsLib(
-						loaderData.userAnalyticsParameters.endDate,
+						loaderData.userAnalyticsParameters.response.endDate,
 					).toDate()}
 				/>
 				<Button
@@ -725,7 +725,7 @@ type ChartContainerProps = {
 	disableCounter?: boolean;
 	children: (
 		count: number,
-		data: UserAnalyticsQuery["userAnalytics"],
+		data: UserAnalyticsQuery["userAnalytics"]["response"],
 	) => {
 		render: ReactNode;
 		totalItems: number;
