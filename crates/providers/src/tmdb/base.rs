@@ -349,29 +349,27 @@ impl TmdbService {
 
 async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<TmdbSettings> {
     let cc = &ss.cache_service;
-    let maybe_settings = cc
-        .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
-        .await;
-    if let Some((_id, setting)) = maybe_settings {
-        return Ok(setting);
-    }
-    let config_future = client.get(format!("{}/configuration", URL)).send();
-    let languages_future = client
-        .get(format!("{}/configuration/languages", URL))
-        .send();
+    let cached_response = cc
+        .get_or_set_with_callback(
+            ApplicationCacheKey::TmdbSettings,
+            |data| ApplicationCacheValue::TmdbSettings(data),
+            || async {
+                let config_future = client.get(format!("{}/configuration", URL)).send();
+                let languages_future = client
+                    .get(format!("{}/configuration/languages", URL))
+                    .send();
 
-    let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-    let data_1: TmdbConfiguration = config_resp.json().await?;
-    let data_2: Vec<TmdbLanguage> = languages_resp.json().await?;
-    let settings = TmdbSettings {
-        image_url: data_1.images.secure_base_url,
-        languages: data_2,
-    };
-    cc.set_key(
-        ApplicationCacheKey::TmdbSettings,
-        ApplicationCacheValue::TmdbSettings(settings.clone()),
-    )
-    .await
-    .ok();
-    Ok(settings)
+                let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
+                let data_1: TmdbConfiguration = config_resp.json().await?;
+                let data_2: Vec<TmdbLanguage> = languages_resp.json().await?;
+                let settings = TmdbSettings {
+                    image_url: data_1.images.secure_base_url,
+                    languages: data_2,
+                };
+                Ok(settings)
+            },
+        )
+        .await
+        .unwrap();
+    Ok(cached_response.response)
 }

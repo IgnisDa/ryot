@@ -11,8 +11,7 @@ use common_models::{
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, IgdbSettings, MetadataPersonRelated, PersonDetails,
-    SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -558,21 +557,15 @@ impl IgdbService {
 
     async fn get_client_config(&self) -> Result<Client> {
         let cc = &self.ss.cache_service;
-        let maybe_settings = cc
-            .get_value::<IgdbSettings>(ApplicationCacheKey::IgdbSettings)
-            .await;
-        let access_token = if let Some((_id, value)) = maybe_settings {
-            value
-        } else {
-            let access_token = self.get_access_token().await;
-            cc.set_key(
+        let cached_response = cc
+            .get_or_set_with_callback(
                 ApplicationCacheKey::IgdbSettings,
-                ApplicationCacheValue::IgdbSettings(access_token.clone()),
+                |data| ApplicationCacheValue::IgdbSettings(data),
+                || async { Ok(self.get_access_token().await) },
             )
             .await
-            .ok();
-            access_token
-        };
+            .unwrap();
+        let access_token = cached_response.response;
         Ok(get_base_http_client(Some(vec![
             (
                 HeaderName::from_static("client-id"),
