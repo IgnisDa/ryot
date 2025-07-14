@@ -22,15 +22,12 @@ pub async fn collection_recommendations(
     input: CollectionRecommendationsInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
-    let cache_key =
-        ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
-            collection_id: input.collection_id.clone(),
-        });
-
     let (_cache_id, required_set) = ss
         .cache_service
         .get_or_set_with_callback(
-            cache_key,
+            ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
+                collection_id: input.collection_id.clone(),
+            }),
             ApplicationCacheValue::CollectionRecommendations,
             || async {
                 let mut data = vec![];
