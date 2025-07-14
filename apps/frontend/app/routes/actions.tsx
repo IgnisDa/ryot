@@ -165,14 +165,14 @@ const reviewSchema = z
 		reviewId: z.string().optional(),
 		shouldDelete: zodBoolAsString.optional(),
 		isSpoiler: zodCheckboxAsString.optional(),
-		entityLot: z.enum(EntityLot).optional(),
-		visibility: z.enum(Visibility).optional(),
+		entityLot: z.nativeEnum(EntityLot).optional(),
+		visibility: z.nativeEnum(Visibility).optional(),
 	})
 	.merge(MetadataSpecificsSchema);
 
 const markEntityAsPartialSchema = z.object({
 	entityId: z.string(),
-	entityLot: z.enum(EntityLot),
+	entityLot: z.nativeEnum(EntityLot),
 });
 
 const expireCacheKeySchema = z.object({

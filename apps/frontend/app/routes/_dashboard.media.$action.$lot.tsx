@@ -113,7 +113,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action, lot } = parseParameters(
 		params,
 		z.object({
-			action: z.enum(Action),
+			action: z.nativeEnum(Action),
 			lot: z.string().transform((v) => getLot(v) as MediaLot),
 		}),
 	);
@@ -139,15 +139,15 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				collections: zodCollectionFilter,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				sortBy: z.enum(MediaSortBy).default(defaultFilters.mineSortBy),
+				sortBy: z.nativeEnum(MediaSortBy).default(defaultFilters.mineSortBy),
 				dateRange: z
-					.enum(ApplicationTimeRange)
+					.nativeEnum(ApplicationTimeRange)
 					.default(defaultFilters.mineDateRange),
 				sortOrder: z
-					.enum(GraphqlSortOrder)
+					.nativeEnum(GraphqlSortOrder)
 					.default(defaultFilters.mineSortOrder),
 				generalFilter: z
-					.enum(MediaGeneralFilter)
+					.nativeEnum(MediaGeneralFilter)
 					.default(defaultFilters.mineGeneralFilter),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
@@ -184,7 +184,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			);
 			invariant(metadataSourcesForLot);
 			const searchSchemaWithDefaults = searchSchema.extend({
-				source: z.enum(MediaSource).default(metadataSourcesForLot.sources[0]),
+				source: z
+					.nativeEnum(MediaSource)
+					.default(metadataSourcesForLot.sources[0]),
 			});
 			const urlParse = parseSearchQuery(request, searchSchemaWithDefaults);
 			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;

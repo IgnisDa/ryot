@@ -130,7 +130,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const deleteSchema = z.object({ notificationId: z.string() });
 
 const createSchema = z.object({
-	lot: z.enum(NotificationPlatformLot),
+	lot: z.nativeEnum(NotificationPlatformLot),
 	chatId: z.string().optional(),
 	baseUrl: z.string().optional(),
 	apiToken: z.string().optional(),

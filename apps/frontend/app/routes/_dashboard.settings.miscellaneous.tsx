@@ -46,7 +46,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 };
 
 const jobSchema = z.object({
-	jobName: z.enum(BackgroundJob),
+	jobName: z.nativeEnum(BackgroundJob),
 });
 
 export default function Page() {

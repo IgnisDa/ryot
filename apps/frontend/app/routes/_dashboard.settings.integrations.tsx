@@ -178,7 +178,7 @@ const createOrUpdateSchema = z.object({
 	maximumProgress: z.string().optional(),
 	isDisabled: zodCheckboxAsString.optional(),
 	syncToOwnedCollection: zodCheckboxAsString.optional(),
-	provider: z.enum(IntegrationProvider).optional(),
+	provider: z.nativeEnum(IntegrationProvider).optional(),
 	extraSettings: z.object({
 		disableOnContinuousErrors: zodCheckboxAsString,
 	}),
@@ -192,7 +192,7 @@ const createOrUpdateSchema = z.object({
 			komgaBaseUrl: z.string().optional(),
 			komgaUsername: z.string().optional(),
 			komgaPassword: z.string().optional(),
-			komgaProvider: z.enum(MediaSource).optional(),
+			komgaProvider: z.nativeEnum(MediaSource).optional(),
 			radarrBaseUrl: z.string().optional(),
 			radarrApiKey: z.string().optional(),
 			radarrProfileId: z.number().optional(),

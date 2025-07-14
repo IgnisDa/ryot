@@ -58,7 +58,7 @@ import {
 import type { Route } from "./+types/_dashboard.fitness.measurements.list";
 
 const searchParamsSchema = z.object({
-	timeSpan: z.enum(TimeSpan).optional(),
+	timeSpan: z.nativeEnum(TimeSpan).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;

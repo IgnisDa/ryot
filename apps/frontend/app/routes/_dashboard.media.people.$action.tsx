@@ -91,13 +91,13 @@ const searchSchema = z.object({
 	isAnilistStudio: zodBoolAsString.optional(),
 	isHardcoverPublisher: zodBoolAsString.optional(),
 	isGiantBombCompany: zodBoolAsString.optional(),
-	source: z.enum(MediaSource).default(MediaSource.Tmdb),
+	source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
 });
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.enum(Action) }),
+		z.object({ action: z.nativeEnum(Action) }),
 	);
 	const cookieName = await getSearchEnhancedCookieName(
 		`people.${action}`,
@@ -114,9 +114,11 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			.with(Action.List, async () => {
 				const listSchema = z.object({
 					collections: zodCollectionFilter,
-					orderBy: z.enum(GraphqlSortOrder).default(defaultFilters.orderBy),
+					orderBy: z
+						.nativeEnum(GraphqlSortOrder)
+						.default(defaultFilters.orderBy),
 					sortBy: z
-						.enum(PersonAndMetadataGroupsSortBy)
+						.nativeEnum(PersonAndMetadataGroupsSortBy)
 						.default(defaultFilters.sortBy),
 				});
 				const urlParse = parseSearchQuery(request, listSchema);

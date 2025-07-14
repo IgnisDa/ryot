@@ -47,7 +47,7 @@ enum Action {
 
 const searchParamsSchema = z.object({
 	id: z.string().optional(),
-	lot: z.enum(MediaLot).optional(),
+	lot: z.nativeEnum(MediaLot).optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -55,7 +55,7 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.enum(Action) }),
+		z.object({ action: z.nativeEnum(Action) }),
 	);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const details = await match(action)
@@ -136,9 +136,9 @@ const schema = z.object({
 	images: optionalStringArray,
 	videos: optionalStringArray,
 	description: optionalString,
-	action: z.enum(Action),
+	action: z.nativeEnum(Action),
 	isNsfw: z.boolean().optional(),
-	lot: z.enum(MediaLot),
+	lot: z.nativeEnum(MediaLot),
 	publishYear: z.number().optional(),
 });
 
