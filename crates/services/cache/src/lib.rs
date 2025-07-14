@@ -1,11 +1,12 @@
 use std::{collections::HashMap, future::Future, sync::Arc};
 
-use async_graphql::Result;
+use async_graphql::{OutputType, Result};
 use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, GetCacheKeyResponse,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, ExpireCacheKeyInput,
+    GetCacheKeyResponse,
 };
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
@@ -183,21 +184,21 @@ impl CacheService {
         key: ApplicationCacheKey,
         cache_value_constructor: impl FnOnce(T) -> ApplicationCacheValue,
         generator: F,
-    ) -> Result<(Uuid, T)>
+    ) -> Result<CachedResponse<T>>
     where
-        T: DeserializeOwned + Clone,
         F: FnOnce() -> Fut,
         Fut: Future<Output = Result<T>>,
+        T: DeserializeOwned + Clone + OutputType,
     {
-        if let Some((cache_id, cached_value)) = self.get_value::<T>(key.clone()).await {
-            return Ok((cache_id, cached_value));
+        if let Some((cache_id, response)) = self.get_value::<T>(key.clone()).await {
+            return Ok(CachedResponse { cache_id, response });
         }
 
-        let generated_value = generator().await?;
+        let response = generator().await?;
         let cache_id = self
-            .set_key(key, cache_value_constructor(generated_value.clone()))
+            .set_key(key, cache_value_constructor(response.clone()))
             .await?;
-        Ok((cache_id, generated_value))
+        Ok(CachedResponse { cache_id, response })
     }
 
     pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<()> {

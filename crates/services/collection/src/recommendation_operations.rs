@@ -22,7 +22,7 @@ pub async fn collection_recommendations(
     input: CollectionRecommendationsInput,
     ss: &Arc<SupportingService>,
 ) -> Result<SearchResults<String>> {
-    let (_cache_id, required_set) = ss
+    let cached_response = ss
         .cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::CollectionRecommendations(CollectionRecommendationsCachedInput {
@@ -65,6 +65,7 @@ ORDER BY RANDOM() LIMIT 10;
             },
         )
         .await?;
+    let required_set = cached_response.response;
     ryot_log!(debug, "Required set: {:?}", required_set);
 
     let preferences = user_by_id(user_id, ss).await?.preferences;

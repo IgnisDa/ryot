@@ -41,8 +41,7 @@ pub async fn user_metadata_list(
     input: UserMetadataListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<UserMetadataListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserMetadataList(UserLevelCacheKey {
                 input: input.clone(),
@@ -218,17 +217,14 @@ pub async fn user_metadata_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_collections_list(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<UserCollectionsListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserCollectionsList(UserLevelCacheKey {
                 input: (),
@@ -334,9 +330,7 @@ pub async fn user_collections_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_metadata_groups_list(
@@ -344,8 +338,7 @@ pub async fn user_metadata_groups_list(
     ss: &Arc<SupportingService>,
     input: UserMetadataGroupsListInput,
 ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserMetadataGroupsList(UserLevelCacheKey {
                 input: input.clone(),
@@ -428,9 +421,7 @@ pub async fn user_metadata_groups_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_people_list(
@@ -438,8 +429,7 @@ pub async fn user_people_list(
     input: UserPeopleListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<UserPeopleListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserPeopleList(UserLevelCacheKey {
                 input: input.clone(),
@@ -520,9 +510,7 @@ pub async fn user_people_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_workouts_list(
@@ -530,8 +518,7 @@ pub async fn user_workouts_list(
     input: UserTemplatesOrWorkoutsListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserWorkoutsList(UserLevelCacheKey {
                 input: input.clone(),
@@ -582,9 +569,7 @@ pub async fn user_workouts_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_workout_templates_list(
@@ -592,8 +577,7 @@ pub async fn user_workout_templates_list(
     ss: &Arc<SupportingService>,
     input: UserTemplatesOrWorkoutsListInput,
 ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserWorkoutTemplatesList(UserLevelCacheKey {
                 input: input.clone(),
@@ -644,9 +628,7 @@ pub async fn user_workout_templates_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_exercises_list(
@@ -654,8 +636,7 @@ pub async fn user_exercises_list(
     input: UserExercisesListInput,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<UserExercisesListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserExercisesList(UserLevelCacheKey {
                 input: input.clone(),
@@ -767,9 +748,7 @@ pub async fn user_exercises_list(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn user_measurements_list(
@@ -777,8 +756,7 @@ pub async fn user_measurements_list(
     ss: &Arc<SupportingService>,
     input: UserMeasurementsListInput,
 ) -> Result<CachedResponse<UserMeasurementsListResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::UserMeasurementsList(UserLevelCacheKey {
                 input: input.clone(),
@@ -800,7 +778,5 @@ pub async fn user_measurements_list(
                 Ok(resp)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }

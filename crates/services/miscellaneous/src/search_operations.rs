@@ -25,8 +25,7 @@ pub async fn metadata_search(
     user_id: &String,
     input: MetadataSearchInput,
 ) -> Result<CachedResponse<MetadataSearchResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
                 input: input.clone(),
@@ -74,9 +73,7 @@ pub async fn metadata_search(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn people_search(
@@ -84,8 +81,7 @@ pub async fn people_search(
     user_id: &String,
     input: PeopleSearchInput,
 ) -> Result<CachedResponse<PeopleSearchResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
                 input: input.clone(),
@@ -131,9 +127,7 @@ pub async fn people_search(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 pub async fn metadata_group_search(
@@ -141,8 +135,7 @@ pub async fn metadata_group_search(
     user_id: &String,
     input: MetadataGroupSearchInput,
 ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
                 input: input.clone(),
@@ -190,7 +183,5 @@ pub async fn metadata_group_search(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }

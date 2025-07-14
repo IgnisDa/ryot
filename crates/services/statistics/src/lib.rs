@@ -38,8 +38,7 @@ impl StatisticsService {
         &self,
         user_id: &String,
     ) -> Result<CachedResponse<ApplicationDateRange>> {
-        let (cache_id, response) = self
-            .0
+        self.0
             .cache_service
             .get_or_set_with_callback(
                 ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
@@ -70,9 +69,7 @@ impl StatisticsService {
                     Ok(response)
                 },
             )
-            .await?;
-
-        Ok(CachedResponse { cache_id, response })
+            .await
     }
 
     async fn daily_user_activities(
@@ -274,8 +271,7 @@ impl StatisticsService {
         user_id: &String,
         input: UserAnalyticsInput,
     ) -> Result<CachedResponse<UserAnalytics>> {
-        let (cache_id, response) = self
-            .0
+        self.0
             .cache_service
             .get_or_set_with_callback(
                 ApplicationCacheKey::UserAnalytics(UserLevelCacheKey {
@@ -389,8 +385,6 @@ impl StatisticsService {
                     Ok(response)
                 },
             )
-            .await?;
-
-        Ok(CachedResponse { cache_id, response })
+            .await
     }
 }

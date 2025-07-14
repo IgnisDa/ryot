@@ -148,8 +148,7 @@ pub async fn metadata_lookup(
     ss: &Arc<SupportingService>,
     title: String,
 ) -> Result<CachedResponse<MetadataLookupResponse>> {
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
                 title: title.clone(),
@@ -187,9 +186,7 @@ pub async fn metadata_lookup(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { cache_id, response })
+        .await
 }
 
 async fn smart_search(

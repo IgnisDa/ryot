@@ -29,15 +29,12 @@ pub async fn collection_contents(
     input: CollectionContentsInput,
     ss: &Arc<SupportingService>,
 ) -> Result<CachedResponse<CollectionContentsResponse>> {
-    let key = ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
-        input: input.clone(),
-        user_id: user_id.to_owned(),
-    });
-
-    let (cache_id, response) = ss
-        .cache_service
+    ss.cache_service
         .get_or_set_with_callback(
-            key,
+            ApplicationCacheKey::UserCollectionContents(UserLevelCacheKey {
+                input: input.clone(),
+                user_id: user_id.to_owned(),
+            }),
             |val| ApplicationCacheValue::UserCollectionContents(Box::new(val)),
             || async {
                 let preferences = user_by_id(user_id, ss).await?.preferences;
@@ -173,7 +170,5 @@ pub async fn collection_contents(
                 Ok(response)
             },
         )
-        .await?;
-
-    Ok(CachedResponse { response, cache_id })
+        .await
 }
