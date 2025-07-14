@@ -13,7 +13,7 @@
 		"tests/backend-api"
 	],
 	"engines": {
-		"node": "20.10.0"
+		"node": "24.4.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",

@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:20.10.0-bookworm-slim
+ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
 
 FROM $NODE_BASE_IMAGE AS frontend-build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
