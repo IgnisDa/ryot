@@ -56,7 +56,7 @@
 		"tiny-invariant": "1.3.3",
 		"ts-pattern": "5.7.1",
 		"ufo": "1.6.1",
-		"zod": "4.0.5"
+		"zod": "3.25.67"
 	},
 	"devDependencies": {
 		"@react-router/dev": "7.6.3",

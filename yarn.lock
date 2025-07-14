@@ -7803,7 +7803,7 @@ __metadata:
     uuid: "npm:11.1.0"
     vite: "npm:7.0.4"
     vite-tsconfig-paths: "npm:5.1.4"
-    zod: "npm:4.0.5"
+    zod: "npm:3.25.67"
   languageName: unknown
   linkType: soft
 
@@ -7865,7 +7865,7 @@ __metadata:
     react-router: "npm:7.6.3"
     tailwind-merge: "npm:3.3.1"
     tiny-invariant: "npm:1.3.3"
-    zod: "npm:4.0.5"
+    zod: "npm:3.25.67"
   languageName: unknown
   linkType: soft
 
@@ -7934,7 +7934,7 @@ __metadata:
     ufo: "npm:1.6.1"
     vite: "npm:7.0.4"
     vite-tsconfig-paths: "npm:5.1.4"
-    zod: "npm:4.0.5"
+    zod: "npm:3.25.67"
   languageName: unknown
   linkType: soft
 
@@ -22399,10 +22399,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:4.0.5":
-  version: 4.0.5
-  resolution: "zod@npm:4.0.5"
-  checksum: 10/f057f46e685e91ea280039ecda026c91facabdcbf869b3bae482ed13d34dce2efe9ee1f513fb1c8c0fde3b32e5904391f5ca015ec50b0924abf83a2b6f9dba65
+"zod@npm:3.25.67":
+  version: 3.25.67
+  resolution: "zod@npm:3.25.67"
+  checksum: 10/0e35432dcca7f053e63f5dd491a87c78abe0d981817547252c3b6d05f0f58788695d1a69724759c6501dff3fd62929be24c9f314a3625179bee889150f7a61fa
   languageName: node
   linkType: hard
 
