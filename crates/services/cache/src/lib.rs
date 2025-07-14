@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, future::Future, sync::Arc};
 
 use async_graphql::Result;
 use chrono::{Duration, Utc};
@@ -176,6 +176,28 @@ impl CacheService {
             .get(key.to_string())
             .and_then(|v| serde_json::from_value::<T>(v.to_owned()).ok())?;
         Some((value.id, db_value))
+    }
+
+    pub async fn get_or_set_with_callback<T, F, Fut>(
+        &self,
+        key: ApplicationCacheKey,
+        cache_value_constructor: impl FnOnce(T) -> ApplicationCacheValue,
+        generator: F,
+    ) -> Result<(Uuid, T)>
+    where
+        T: DeserializeOwned + Clone,
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        if let Some((cache_id, cached_value)) = self.get_value::<T>(key.clone()).await {
+            return Ok((cache_id, cached_value));
+        }
+
+        let generated_value = generator().await?;
+        let cache_id = self
+            .set_key(key, cache_value_constructor(generated_value.clone()))
+            .await?;
+        Ok((cache_id, generated_value))
     }
 
     pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<()> {
