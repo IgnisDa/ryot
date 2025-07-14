@@ -1123,7 +1123,6 @@ dependencies = [
  "config",
  "database-models",
  "dependent-models",
- "media-models",
  "sea-orm",
  "sea-query",
  "serde",

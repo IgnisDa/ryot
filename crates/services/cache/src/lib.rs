@@ -5,8 +5,7 @@ use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, ExpireCacheKeyInput,
-    GetCacheKeyResponse,
+    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, GetCacheKeyResponse,
 };
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
@@ -204,29 +203,5 @@ impl CacheService {
             .await?;
         ryot_log!(debug, "Expired cache: {by:?}, response: {expired:?}");
         Ok(())
-    }
-
-    pub async fn get_or_compute_metadata_lookup<F, Fut>(
-        &self,
-        key: ApplicationCacheKey,
-        compute_fn: F,
-    ) -> Result<CachedResponse<media_models::MetadataLookupResponse>>
-    where
-        F: FnOnce() -> Fut,
-        Fut: std::future::Future<Output = Result<media_models::MetadataLookupResponse>>,
-    {
-        if let Some((cache_id, response)) = self
-            .get_value::<media_models::MetadataLookupResponse>(key.clone())
-            .await
-        {
-            return Ok(CachedResponse { cache_id, response });
-        }
-
-        let response = compute_fn().await?;
-        let cache_id = self
-            .set_key(key, ApplicationCacheValue::MetadataLookup(response.clone()))
-            .await?;
-
-        Ok(CachedResponse { cache_id, response })
     }
 }
