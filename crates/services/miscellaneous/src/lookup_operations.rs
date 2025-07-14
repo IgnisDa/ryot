@@ -154,7 +154,7 @@ pub async fn metadata_lookup(
             ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
                 title: title.clone(),
             }),
-            |val| ApplicationCacheValue::MetadataLookup(val),
+            ApplicationCacheValue::MetadataLookup,
             || async {
                 let tmdb_service = TmdbService::new(ss.clone()).await;
                 let search_results = smart_search(&tmdb_service, &title).await?;

@@ -31,7 +31,7 @@ pub async fn collection_recommendations(
         .cache_service
         .get_or_set_with_callback(
             cache_key,
-            |val| ApplicationCacheValue::CollectionRecommendations(val),
+            ApplicationCacheValue::CollectionRecommendations,
             || async {
                 let mut data = vec![];
                 #[derive(Debug, FromQueryResult)]
