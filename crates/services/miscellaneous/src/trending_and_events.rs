@@ -19,34 +19,30 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
     let key = ApplicationCacheKey::TrendingMetadataIds;
     let cached_response = ss
         .cache_service
-        .get_or_set_with_callback(
-            key,
-            |data| ApplicationCacheValue::TrendingMetadataIds(data),
-            || async {
-                let mut trending_ids = HashSet::new();
-                let provider_configs = MediaLot::iter()
-                    .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
+        .get_or_set_with_callback(key, ApplicationCacheValue::TrendingMetadataIds, || async {
+            let mut trending_ids = HashSet::new();
+            let provider_configs = MediaLot::iter()
+                .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
 
-                for (lot, source) in provider_configs {
-                    let provider = match get_metadata_provider(lot, source, ss).await {
-                        Ok(p) => p,
-                        Err(_) => continue,
-                    };
-                    let media = match provider.get_trending_media().await {
-                        Ok(m) => m,
-                        Err(_) => continue,
-                    };
-                    for item in media {
-                        if let Ok((metadata, _)) = commit_metadata(item, ss, None).await {
-                            trending_ids.insert(metadata.id);
-                        }
+            for (lot, source) in provider_configs {
+                let provider = match get_metadata_provider(lot, source, ss).await {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                let media = match provider.get_trending_media().await {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                for item in media {
+                    if let Ok((metadata, _)) = commit_metadata(item, ss, None).await {
+                        trending_ids.insert(metadata.id);
                     }
                 }
+            }
 
-                let vec = trending_ids.into_iter().collect_vec();
-                Ok(vec)
-            },
-        )
+            let vec = trending_ids.into_iter().collect_vec();
+            Ok(vec)
+        })
         .await?;
     let (_id, cached) = (cached_response.cache_id, cached_response.response);
     let actually_in_db = Metadata::find()

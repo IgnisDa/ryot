@@ -560,7 +560,7 @@ impl IgdbService {
         let cached_response = cc
             .get_or_set_with_callback(
                 ApplicationCacheKey::IgdbSettings,
-                |data| ApplicationCacheValue::IgdbSettings(data),
+                ApplicationCacheValue::IgdbSettings,
                 || async { Ok(self.get_access_token().await) },
             )
             .await

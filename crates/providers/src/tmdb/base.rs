@@ -352,7 +352,7 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
     let cached_response = cc
         .get_or_set_with_callback(
             ApplicationCacheKey::TmdbSettings,
-            |data| ApplicationCacheValue::TmdbSettings(data),
+            ApplicationCacheValue::TmdbSettings,
             || async {
                 let config_future = client.get(format!("{}/configuration", URL)).send();
                 let languages_future = client

@@ -176,7 +176,7 @@ impl ListennotesService {
         let cached_response = cc
             .get_or_set_with_callback(
                 ApplicationCacheKey::ListennotesSettings,
-                |data| ApplicationCacheValue::ListennotesSettings(data),
+                ApplicationCacheValue::ListennotesSettings,
                 || async {
                     #[derive(Debug, Serialize, Deserialize, Default)]
                     #[serde(rename_all = "snake_case")]
