@@ -124,7 +124,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const schema = z.object({
 		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default(1),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
 	const [

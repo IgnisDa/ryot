@@ -96,7 +96,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	);
 	const schema = z.object({
 		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default(1),
+		[pageQueryParam]: zodIntAsString.default("1"),
 	});
 	const query = parseSearchQuery(request, schema);
 	const [totalResults, list, search, respectCoreDetailsPageSize, listInput] =
