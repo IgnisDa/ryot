@@ -2,9 +2,6 @@
 	"extends": "../../tsconfig.options.json",
 	"references": [
 		{
-			"path": "../../libs/generated"
-		},
-		{
 			"path": "../generated"
 		}
 	],
