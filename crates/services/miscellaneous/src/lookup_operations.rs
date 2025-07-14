@@ -6,7 +6,7 @@ use std::{
 use anyhow::anyhow;
 use async_graphql::Result;
 use common_models::MetadataLookupCacheInput;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
+use dependent_models::{ApplicationCacheKey, CachedResponse};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     MetadataLookupFoundResult, MetadataLookupNotFound, MetadataLookupResponse,
@@ -148,45 +148,43 @@ pub async fn metadata_lookup(
     ss: &Arc<SupportingService>,
     title: String,
 ) -> Result<CachedResponse<MetadataLookupResponse>> {
-    let cc = &ss.cache_service;
     let key = ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
         title: title.clone(),
     });
-    if let Some((cache_id, response)) = cc.get_value::<MetadataLookupResponse>(key.clone()).await {
-        return Ok(CachedResponse { cache_id, response });
-    }
 
-    let tmdb_service = TmdbService::new(ss.clone()).await;
+    ss.cache_service
+        .get_or_compute_metadata_lookup(key, || async {
+            let tmdb_service = TmdbService::new(ss.clone()).await;
+            let search_results = smart_search(&tmdb_service, &title).await?;
 
-    let search_results = smart_search(&tmdb_service, &title).await?;
+            let response = match search_results.is_empty() {
+                true => {
+                    MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true })
+                }
+                false => {
+                    let publish_year = extract_year_from_title(&title);
+                    let best_match = find_best_match(&search_results, &title, publish_year)?;
 
-    let response = match search_results.is_empty() {
-        true => MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true }),
-        false => {
-            let publish_year = extract_year_from_title(&title);
-            let best_match = find_best_match(&search_results, &title, publish_year)?;
+                    let data = UniqueMediaIdentifier {
+                        lot: best_match.lot,
+                        source: MediaSource::Tmdb,
+                        identifier: best_match.identifier.clone(),
+                    };
 
-            let data = UniqueMediaIdentifier {
-                lot: best_match.lot,
-                source: MediaSource::Tmdb,
-                identifier: best_match.identifier.clone(),
+                    let show_information = extract_show_information(&title, &best_match.lot);
+
+                    let found_result = MetadataLookupFoundResult {
+                        data,
+                        show_information,
+                    };
+
+                    MetadataLookupResponse::Found(found_result)
+                }
             };
 
-            let show_information = extract_show_information(&title, &best_match.lot);
-
-            let found_result = MetadataLookupFoundResult {
-                data,
-                show_information,
-            };
-
-            MetadataLookupResponse::Found(found_result)
-        }
-    };
-
-    let cache_id = cc
-        .set_key(key, ApplicationCacheValue::MetadataLookup(response.clone()))
-        .await?;
-    Ok(CachedResponse { cache_id, response })
+            Ok(response)
+        })
+        .await
 }
 
 async fn smart_search(
