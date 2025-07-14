@@ -4,6 +4,7 @@
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
   and some common commands.
+- Prefer to use the Serena MCP for code edits etc.
 - When making changes to the code, run the following commands generously to ensure that the
   changes you are making do not break anything:
 
