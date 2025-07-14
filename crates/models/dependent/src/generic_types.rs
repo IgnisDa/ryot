@@ -1,13 +1,16 @@
 use async_graphql::{InputObject, InputType, OutputType, SimpleObject};
-use common_models::{SearchDetails, SearchInput};
+use common_models::{ApplicationDateRange, SearchDetails, SearchInput};
 use database_models::{collection, metadata_group, user};
 use enum_models::MediaLot;
 use media_models::{
     CollectionContentsFilter, CollectionContentsSortBy, EntityWithLot, GenreListItem,
-    GraphqlSortOrder, MediaFilter, MediaSortBy, PersonAndMetadataGroupsSortBy, ReviewItem,
+    GraphqlSortOrder, MediaFilter, MediaSortBy, MetadataLookupResponse,
+    PersonAndMetadataGroupsSortBy, ReviewItem,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::UserAnalytics;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -36,26 +39,28 @@ pub struct SortInput<T: InputType + Default> {
 }
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
+#[graphql(concrete(name = "CachedUserAnalyticsResponse", params(UserAnalytics)))]
 #[graphql(concrete(name = "CachedSearchIdResponse", params(UserMetadataListResponse)))]
+#[graphql(concrete(name = "CachedMetadataLookupResponse", params(MetadataLookupResponse)))]
 #[graphql(concrete(
+    params(UserCollectionsListResponse),
     name = "CachedCollectionsListResponse",
-    params(UserCollectionsListResponse)
 ))]
 #[graphql(concrete(
+    params(CollectionContentsResponse),
     name = "CachedCollectionContentsResponse",
-    params(CollectionContentsResponse)
 ))]
 #[graphql(concrete(
+    params(UserMetadataRecommendationsResponse),
     name = "CachedUserMetadataRecommendationsResponse",
-    params(UserMetadataRecommendationsResponse)
 ))]
 #[graphql(concrete(
+    params(UserMeasurementsListResponse),
     name = "CachedUserMeasurementsListResponse",
-    params(UserMeasurementsListResponse)
 ))]
 #[graphql(concrete(
-    name = "CachedMetadataLookupResponse",
-    params(media_models::MetadataLookupResponse)
+    params(ApplicationDateRange),
+    name = "CachedUserAnalyticsParametersResponse",
 ))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,

@@ -7,9 +7,9 @@ use common_models::{
 };
 use database_models::{daily_user_activity, prelude::DailyUserActivity};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, DailyUserActivitiesResponse, DailyUserActivityItem,
-    FitnessAnalyticsEquipment, FitnessAnalyticsExercise, FitnessAnalyticsMuscle, UserAnalytics,
-    UserFitnessAnalytics,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, DailyUserActivitiesResponse,
+    DailyUserActivityItem, FitnessAnalyticsEquipment, FitnessAnalyticsExercise,
+    FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
 };
 use dependent_utils::calculate_user_activities_and_summary;
 use enum_models::{ExerciseEquipment, ExerciseMuscle};
@@ -37,8 +37,8 @@ impl StatisticsService {
     pub async fn user_analytics_parameters(
         &self,
         user_id: &String,
-    ) -> Result<ApplicationDateRange> {
-        let (_id, response) = self
+    ) -> Result<CachedResponse<ApplicationDateRange>> {
+        let (cache_id, response) = self
             .0
             .cache_service
             .get_or_set_with_callback(
@@ -72,7 +72,7 @@ impl StatisticsService {
             )
             .await?;
 
-        Ok(response)
+        Ok(CachedResponse { cache_id, response })
     }
 
     async fn daily_user_activities(
@@ -273,8 +273,8 @@ impl StatisticsService {
         &self,
         user_id: &String,
         input: UserAnalyticsInput,
-    ) -> Result<UserAnalytics> {
-        let (_id, response) = self
+    ) -> Result<CachedResponse<UserAnalytics>> {
+        let (cache_id, response) = self
             .0
             .cache_service
             .get_or_set_with_callback(
@@ -391,6 +391,6 @@ impl StatisticsService {
             )
             .await?;
 
-        Ok(response)
+        Ok(CachedResponse { cache_id, response })
     }
 }

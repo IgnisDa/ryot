@@ -387,10 +387,13 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
 		}
 	}
 }
@@ -410,20 +413,26 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
 		}
 	}
 }
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
 		}
 	}
 }
@@ -528,8 +537,11 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserAnalyticsParameters {
 	userAnalyticsParameters {
-		endDate
-		startDate
+		cacheId
+		response {
+			endDate
+			startDate
+		}
 	}
 }
 

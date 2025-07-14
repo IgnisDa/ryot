@@ -202,7 +202,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         input: MetadataSearchInput,
-    ) -> Result<MetadataSearchResponse> {
+    ) -> Result<CachedResponse<MetadataSearchResponse>> {
         search_operations::metadata_search(&self.0, user_id, input).await
     }
 
@@ -210,7 +210,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         input: PeopleSearchInput,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<CachedResponse<PeopleSearchResponse>> {
         search_operations::people_search(&self.0, user_id, input).await
     }
 
@@ -218,7 +218,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         input: MetadataGroupSearchInput,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
         search_operations::metadata_group_search(&self.0, user_id, input).await
     }
 

@@ -6,7 +6,7 @@ use common_models::{
 };
 use database_utils::user_by_id;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, MetadataGroupSearchResponse,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, MetadataGroupSearchResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults,
 };
 use dependent_utils::{
@@ -24,8 +24,8 @@ pub async fn metadata_search(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: MetadataSearchInput,
-) -> Result<MetadataSearchResponse> {
-    let (_id, response) = ss
+) -> Result<CachedResponse<MetadataSearchResponse>> {
+    let (cache_id, response) = ss
         .cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::MetadataSearch(UserLevelCacheKey {
@@ -76,15 +76,15 @@ pub async fn metadata_search(
         )
         .await?;
 
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn people_search(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: PeopleSearchInput,
-) -> Result<PeopleSearchResponse> {
-    let (_id, response) = ss
+) -> Result<CachedResponse<PeopleSearchResponse>> {
+    let (cache_id, response) = ss
         .cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::PeopleSearch(UserLevelCacheKey {
@@ -133,15 +133,15 @@ pub async fn people_search(
         )
         .await?;
 
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
 
 pub async fn metadata_group_search(
     ss: &Arc<SupportingService>,
     user_id: &String,
     input: MetadataGroupSearchInput,
-) -> Result<MetadataGroupSearchResponse> {
-    let (_id, response) = ss
+) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
+    let (cache_id, response) = ss
         .cache_service
         .get_or_set_with_callback(
             ApplicationCacheKey::MetadataGroupSearch(UserLevelCacheKey {
@@ -192,5 +192,5 @@ pub async fn metadata_group_search(
         )
         .await?;
 
-    Ok(response)
+    Ok(CachedResponse { cache_id, response })
 }
