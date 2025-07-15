@@ -7776,6 +7776,7 @@ __metadata:
     jotai: "npm:2.12.5"
     js-cookie: "npm:3.0.5"
     jwt-decode: "npm:4.0.0"
+    lodash: "npm:4.17.21"
     mantine-datatable: "npm:8.1.2"
     nanoid: "npm:5.1.5"
     postcss: "npm:8.5.6"
