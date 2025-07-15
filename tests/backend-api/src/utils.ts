@@ -154,7 +154,7 @@ export async function searchTmdbMovie(
 		},
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
-	return metadataSearch.items;
+	return metadataSearch.response.items;
 }
 
 export async function waitFor(ms: number) {
