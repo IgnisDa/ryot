@@ -1,7 +1,7 @@
 import { NumberInput, Progress, rem } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { useOnClickOutside } from "usehooks-ts";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { forceUpdateEverySecond } from "~/lib/shared/hooks";
@@ -35,7 +35,10 @@ export const EditSetRestTimer = (props: {
 		editRestTimerRef.current?.select();
 	}, [editRestTimerRef]);
 
-	useOnClickOutside(editRestTimerRef, props.onClickOutside);
+	useOnClickOutside(
+		editRestTimerRef as RefObject<HTMLDivElement>,
+		props.onClickOutside,
+	);
 
 	if (!currentWorkout) return null;
 

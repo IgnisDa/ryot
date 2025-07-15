@@ -19,8 +19,5 @@
 		"@biomejs/biome": "1.9.4",
 		"tsconfig-moon": "1.4.0",
 		"typescript": "5.8.3"
-	},
-	"resolutions": {
-		"@types/react": "18.3.4"
 	}
 }
