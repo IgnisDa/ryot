@@ -9,12 +9,12 @@
   changes you are making do not break anything:
 
   ```bash
-  moon run docs:build # for docs
-  cargo check --workspace # for backend
-  moon run website:typecheck # for website
-  moon run frontend:typecheck # for frontend
-  moon run browser-extension:typecheck # for browser extension
-  moon run backend-api-tests:typecheck # for backend API tests
+  moon run docs:build
+  cargo check --workspace
+  moon run website:typecheck
+  moon run frontend:typecheck
+  moon run browser-extension:typecheck
+  moon run backend-api-tests:typecheck
   ```
 
 - When running tests, compile the backend in release mode and implement the feature first,
