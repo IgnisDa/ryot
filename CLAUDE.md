@@ -14,6 +14,7 @@
   moon run docs:build # for docs changes
   moon run website:typecheck # for website changes
   cargo check --workspace # for backend changes
+  moon r backend-api-tests:typecheck # for backend API tests changes
   ```
 
 - When running tests, compile the backend in release mode and implement the feature first,
