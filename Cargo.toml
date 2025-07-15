@@ -113,7 +113,10 @@ rstest = "=0.25.0"
 rust_decimal = "=1.37.2"
 rust_decimal_macros = "=1.37.1"
 rust_iso3166 = "=0.1.14"
-rustypipe = { version = "=0.11.4", features = ["userdata"] }
+rustypipe = { version = "=0.11.4", features = [
+    "userdata",
+    "rustls-tls-webpki-roots",
+], default-features = false }
 schematic = { version = "=0.18.10", features = [
     "config",
     "env",
