@@ -16,7 +16,7 @@ export default defineConfig({
 		reactRouterDevTools(),
 		reactRouter(),
 		safeRoutes(),
-		tsconfigPaths(),
+		tsconfigPaths({ ignoreConfigErrors: true }),
 		remixPWA(),
 	],
 });

@@ -12,7 +12,7 @@ export default defineConfig({
 			tailwindcss(),
 			// FIXME: Remove when https://github.com/aleclarson/vite-tsconfig-paths/issues/176
 			// biome-ignore lint/suspicious/noExplicitAny: remove when fixed
-			tsconfigPaths() as any,
+			tsconfigPaths({ ignoreConfigErrors: true }) as any,
 		],
 	}),
 	manifest: {

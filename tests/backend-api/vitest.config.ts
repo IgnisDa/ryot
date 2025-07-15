@@ -6,7 +6,7 @@ config();
 
 export default defineConfig({
 	// FIXME: Remove when https://github.com/aleclarson/vite-tsconfig-paths/issues/176
-	plugins: [tsconfigPaths() as Plugin],
+	plugins: [tsconfigPaths({ ignoreConfigErrors: true }) as Plugin],
 	test: {
 		globals: true,
 		testTimeout: 60000,
