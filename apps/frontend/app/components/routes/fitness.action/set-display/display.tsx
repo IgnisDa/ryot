@@ -1,6 +1,5 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
-	ActionIcon,
 	Box,
 	Divider,
 	Flex,
@@ -9,7 +8,6 @@ import {
 	Paper,
 	Text,
 	TextInput,
-	Transition,
 	UnstyledButton,
 } from "@mantine/core";
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
@@ -17,10 +15,8 @@ import { notifications } from "@mantine/notifications";
 import { SetLot } from "@ryot/generated/graphql/backend/graphql";
 import { isString, snakeCase, startCase } from "@ryot/ts-utils";
 import {
-	IconCheck,
 	IconClipboard,
 	IconHeartSpark,
-	IconStopwatch,
 	IconTrash,
 	IconZzz,
 } from "@tabler/icons-react";
@@ -31,7 +27,6 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { DisplaySetStatistics } from "~/components/fitness/utils";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
-import { dayjsLib } from "~/lib/shared/date-utils";
 import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
 import { getSetColor } from "~/lib/shared/media-utils";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
@@ -49,11 +44,8 @@ import {
 import { StatInput } from "../stat-display-and-input";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
-import {
-	isSetConfirmationDisabled,
-	usePreviousSetData,
-	useSetConfirmationHandler,
-} from "./functions";
+import { SetActionButton } from "./action-button";
+import { usePreviousSetData } from "./functions";
 import { RpeModal } from "./rpe-modal";
 import { DisplaySetRestTimer, EditSetRestTimer } from "./support";
 
@@ -92,14 +84,6 @@ export const SetDisplay = (props: {
 	);
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
-
-	const handleSetConfirmation = useSetConfirmationHandler({
-		setIdx: props.setIdx,
-		stopTimer: props.stopTimer,
-		startTimer: props.startTimer,
-		exerciseIdx: props.exerciseIdx,
-		isWorkoutPaused: props.isWorkoutPaused,
-	});
 
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
@@ -338,62 +322,14 @@ export const SetDisplay = (props: {
 						justify="center"
 						style={props.isCreatingTemplate ? { display: "none" } : undefined}
 					>
-						<Transition
-							mounted
-							duration={200}
-							timingFunction="ease-in-out"
-							transition={{
-								in: {},
-								out: {},
-								transitionProperty: "all",
-							}}
-						>
-							{(style) =>
-								set.displayRestTimeTrigger ? (
-									<ActionIcon
-										color="blue"
-										style={style}
-										variant="outline"
-										onClick={() => {
-											invariant(set.restTimer);
-											props.startTimer(set.restTimer.duration, {
-												setIdentifier: set.identifier,
-												exerciseIdentifier: exercise.identifier,
-											});
-											setCurrentWorkout(
-												produce(currentWorkout, (draft) => {
-													const currentExercise =
-														draft.exercises[props.exerciseIdx];
-													const currentSet = currentExercise.sets[props.setIdx];
-													currentSet.displayRestTimeTrigger = false;
-													currentSet.restTimerStartedAt =
-														dayjsLib().toISOString();
-												}),
-											);
-										}}
-									>
-										<IconStopwatch />
-									</ActionIcon>
-								) : (
-									<ActionIcon
-										color="green"
-										style={style}
-										onClick={handleSetConfirmation}
-										variant={set.confirmedAt ? "filled" : "outline"}
-										disabled={isSetConfirmationDisabled(
-											exercise.lot,
-											set.statistic,
-										)}
-										className={clsx(
-											isOnboardingTourStep &&
-												OnboardingTourStepTargets.ConfirmSetForExercise,
-										)}
-									>
-										<IconCheck />
-									</ActionIcon>
-								)
-							}
-						</Transition>
+						<SetActionButton
+							setIdx={props.setIdx}
+							stopTimer={props.stopTimer}
+							startTimer={props.startTimer}
+							exerciseIdx={props.exerciseIdx}
+							isWorkoutPaused={props.isWorkoutPaused}
+							isOnboardingTourStep={isOnboardingTourStep}
+						/>
 					</Group>
 				</Flex>
 				{set.note ? (
