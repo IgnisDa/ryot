@@ -114,7 +114,7 @@ export const isSetConfirmationDisabled = (
 	}
 };
 
-const handleSetConfirmation = async (params: {
+export const handleSetConfirmation = async (params: {
 	setIdx: number;
 	exerciseIdx: number;
 	stopTimer: () => void;
