@@ -126,7 +126,7 @@ export const useSetConfirmationHandler = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const playCheckSound = usePlayFitnessSound("/check.mp3");
+	const playCheckSound = usePlayFitnessSound("check.mp3");
 
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const isOnboardingTourStep =
