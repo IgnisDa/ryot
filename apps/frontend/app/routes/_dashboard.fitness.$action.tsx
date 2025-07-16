@@ -20,6 +20,7 @@ import {
 	WorkoutModals,
 	useWorkoutModals,
 } from "~/components/routes/fitness.action/modals";
+import type { FuncStartTimer } from "~/components/routes/fitness.action/types";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/routes/fitness.action/utils";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserPreferences } from "~/lib/shared/hooks";
@@ -149,7 +150,7 @@ export default function Page() {
 			data: { event: "open-link", link: window.location.href },
 		});
 	};
-	const startTimer = (
+	const startTimer: FuncStartTimer = (
 		duration: number,
 		triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
 	) => {
