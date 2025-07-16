@@ -76,12 +76,12 @@ export const SetDisplay = (props: {
 	const [isEditingRestTimer, setIsEditingRestTimer] = useState(false);
 	const [isRpeModalOpen, setIsRpeModalOpen] = useState(false);
 	const [value, setValue] = useDebouncedState(set.note || "", 500);
-	const { data: previousSetData } = usePreviousSetData(
-		props.setIdx,
-		props.exerciseIdx,
-		currentWorkout,
-		exercise.exerciseId,
-	);
+	const { data: previousSetData } = usePreviousSetData({
+		setIdx: props.setIdx,
+		exerciseIdx: props.exerciseIdx,
+		currentWorkout: currentWorkout,
+		exerciseId: exercise.exerciseId,
+	});
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
