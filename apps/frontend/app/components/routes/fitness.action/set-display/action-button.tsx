@@ -13,12 +13,12 @@ import {
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
 import { OnboardingTourStepTargets } from "~/lib/state/general";
+import { usePlayFitnessSound } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import {
 	isSetConfirmationDisabled,
 	useSetConfirmationHandler,
 } from "./functions";
-import { usePlayFitnessSound } from "../hooks";
 
 interface SetActionButtonProps {
 	setIdx: number;
@@ -52,7 +52,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	invariant(set);
 
-	const timerStartedSound = usePlayFitnessSound("timer-started.mp3");
+	const timerStartedSound = usePlayFitnessSound("timer-started");
 
 	const handleSetConfirmation = useSetConfirmationHandler({
 		setIdx: props.setIdx,

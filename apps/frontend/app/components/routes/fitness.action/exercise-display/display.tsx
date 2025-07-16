@@ -94,7 +94,7 @@ export const ExerciseDisplay = (props: {
 		{ open: openDetailsModal, close: closeDetailsModal },
 	] = useDisclosure(false);
 
-	const playAddSetSound = usePlayFitnessSound("add-set.mp3");
+	const playAddSetSound = usePlayFitnessSound("add-set");
 
 	const selectedUnitSystem = exercise.unitSystem;
 	const isOnboardingTourStep =

@@ -137,7 +137,7 @@ export default function Page() {
 		}
 	}, 1000);
 
-	const timerCompleteSound = usePlayFitnessSound("timer-completed.mp3");
+	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
 	const playCompleteTimerSound = () => {
 		timerCompleteSound();
