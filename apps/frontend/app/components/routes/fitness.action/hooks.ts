@@ -145,7 +145,10 @@ export const usePerformTasksAfterSetConfirmed = () => {
 
 export const usePlayFitnessSound = (fileName: string) => {
 	const userPreferences = useUserPreferences();
-	const sound = useMemo(() => new Howl({ src: [`/sounds/${fileName}`] }), []);
+	const sound = useMemo(
+		() => new Howl({ src: [`/sounds/${fileName}.mp3`] }),
+		[],
+	);
 
 	const playSound = () => {
 		if (!userPreferences.fitness.logging.muteSounds) sound.play();
