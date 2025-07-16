@@ -82,11 +82,11 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							variant="outline"
 							onClick={() => {
 								timerStartedSound();
-								props.startTimer(
-									dayjsLib
+								props.startTimer({
+									duration: dayjsLib
 										.duration(Number(set.statistic.duration), "minute")
 										.asSeconds(),
-								);
+								});
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
 										const currentExercise = draft.exercises[props.exerciseIdx];
@@ -109,9 +109,12 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							variant="outline"
 							onClick={() => {
 								invariant(set.restTimer);
-								props.startTimer(set.restTimer.duration, {
-									setIdentifier: set.identifier,
-									exerciseIdentifier: exercise.identifier,
+								props.startTimer({
+									duration: set.restTimer.duration,
+									triggeredBy: {
+										setIdentifier: set.identifier,
+										exerciseIdentifier: exercise.identifier,
+									},
 								});
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {

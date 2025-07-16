@@ -154,9 +154,12 @@ export const useSetConfirmationHandler = (props: {
 		}
 
 		if (set.restTimer && newConfirmed && !promptForRestTimer) {
-			props.startTimer(set.restTimer.duration, {
-				setIdentifier: set.identifier,
-				exerciseIdentifier: exercise.identifier,
+			props.startTimer({
+				duration: set.restTimer.duration,
+				triggeredBy: {
+					setIdentifier: set.identifier,
+					exerciseIdentifier: exercise.identifier,
+				},
 			});
 		}
 

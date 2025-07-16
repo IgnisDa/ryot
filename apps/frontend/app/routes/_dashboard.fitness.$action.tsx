@@ -29,7 +29,6 @@ import {
 	sendNotificationToServiceWorker,
 } from "~/lib/shared/service-worker";
 import {
-	type SetIdentifier,
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useMeasurementsDrawerOpen,
@@ -151,11 +150,11 @@ export default function Page() {
 			data: { event: "open-link", link: window.location.href },
 		});
 	};
-	const startTimer: FuncStartTimer = (
-		duration: number,
-		triggeredBy?: SetIdentifier,
-		confirmSetOnFinish?: SetIdentifier,
-	) => {
+	const startTimer: FuncStartTimer = ({
+		duration,
+		triggeredBy,
+		confirmSetOnFinish,
+	}) => {
 		setCurrentTimer({
 			triggeredBy,
 			confirmSetOnFinish,
