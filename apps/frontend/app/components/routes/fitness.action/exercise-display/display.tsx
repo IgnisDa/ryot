@@ -374,10 +374,10 @@ export const ExerciseDisplay = (props: {
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}
 									key={`${exercise.identifier}-${idx}`}
-									isCreatingTemplate={props.isCreatingTemplate}
 									isWorkoutPaused={props.isWorkoutPaused}
 									openTimerDrawer={props.openTimerDrawer}
 									toBeDisplayedColumns={toBeDisplayedColumns}
+									isCreatingTemplate={props.isCreatingTemplate}
 								/>
 							))}
 							<Button
