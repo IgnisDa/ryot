@@ -154,9 +154,11 @@ export default function Page() {
 	const startTimer: FuncStartTimer = (
 		duration: number,
 		triggeredBy?: SetIdentifier,
+		confirmSetOnFinish?: SetIdentifier,
 	) => {
 		setCurrentTimer({
 			triggeredBy,
+			confirmSetOnFinish,
 			totalTime: duration,
 			willEndAt: dayjsLib().add(duration, "second").toISOString(),
 		});

@@ -280,6 +280,7 @@ export type CurrentWorkoutTimer = {
 	totalTime: number;
 	wasPausedAt?: string;
 	triggeredBy?: SetIdentifier;
+	confirmSetOnFinish?: SetIdentifier;
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
