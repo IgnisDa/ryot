@@ -46,6 +46,7 @@ query UserDetails {
 						muteSounds
 						caloriesBurntUnit
 						promptForRestTimer
+						startTimerForDurationExercises
 					}
 					measurements {
 						statistics {
