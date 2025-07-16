@@ -4,9 +4,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { Howl } from "howler";
 import { produce } from "immer";
-import { useMemo } from "react";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserPreferences } from "~/lib/shared/hooks";
 import {
@@ -22,7 +20,10 @@ import {
 } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/general";
 import { FitnessAction } from "~/lib/types";
-import { usePerformTasksAfterSetConfirmed } from "../hooks";
+import {
+	usePerformTasksAfterSetConfirmed,
+	usePlayFitnessSound,
+} from "../hooks";
 import type { FuncStartTimer } from "../types";
 
 export const getGlobalSetIndex = (
@@ -125,10 +126,7 @@ export const useSetConfirmationHandler = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const checkSound = useMemo(() => new Howl({ src: ["/check.mp3"] }), []);
-	const playCheckSound = () => {
-		if (!userPreferences.fitness.logging.muteSounds) checkSound.play();
-	};
+	const playCheckSound = usePlayFitnessSound("/check.mp3");
 
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const isOnboardingTourStep =

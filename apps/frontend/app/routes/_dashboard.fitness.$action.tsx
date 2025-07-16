@@ -1,10 +1,9 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
 import { changeCase, isString, parseParameters } from "@ryot/ts-utils";
-import { Howl } from "howler";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -15,6 +14,7 @@ import { WorkoutHeader } from "~/components/routes/fitness.action/header";
 import {
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
+	usePlayFitnessSound,
 } from "~/components/routes/fitness.action/hooks";
 import {
 	WorkoutModals,
@@ -137,12 +137,10 @@ export default function Page() {
 		}
 	}, 1000);
 
-	const timerCompleteSound = useMemo(
-		() => new Howl({ src: ["/timer-completed.mp3"] }),
-		[],
-	);
+	const timerCompleteSound = usePlayFitnessSound("/timer-completed.mp3");
+
 	const playCompleteTimerSound = () => {
-		if (!userPreferences.fitness.logging.muteSounds) timerCompleteSound.play();
+		timerCompleteSound();
 		if (document.visibilityState === "visible") return;
 		sendNotificationToServiceWorker({
 			title: "Timer completed",
