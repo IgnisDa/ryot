@@ -18,6 +18,7 @@ import {
 	isSetConfirmationDisabled,
 	useSetConfirmationHandler,
 } from "./functions";
+import { usePlayFitnessSound } from "../hooks";
 
 interface SetActionButtonProps {
 	setIdx: number;
@@ -38,6 +39,7 @@ const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
 	return (
 		durationBasedLots.includes(exerciseLot) &&
 		!set.confirmedAt &&
+		!set.displayConfirmTrigger &&
 		isString(set.statistic.duration)
 	);
 };
@@ -49,6 +51,8 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 	invariant(exercise);
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	invariant(set);
+
+	const timerStartedSound = usePlayFitnessSound("timer-started.mp3");
 
 	const handleSetConfirmation = useSetConfirmationHandler({
 		setIdx: props.setIdx,
@@ -77,10 +81,18 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							style={style}
 							variant="outline"
 							onClick={() => {
+								timerStartedSound();
 								props.startTimer(
 									dayjsLib
 										.duration(Number(set.statistic.duration), "minute")
 										.asSeconds(),
+								);
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const currentExercise = draft.exercises[props.exerciseIdx];
+										const currentSet = currentExercise.sets[props.setIdx];
+										currentSet.displayConfirmTrigger = true;
+									}),
 								);
 							}}
 						>
