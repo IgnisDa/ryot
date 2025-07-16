@@ -110,6 +110,7 @@ pub struct UserFitnessLoggingPreferences {
     #[educe(Default = "kcal")]
     pub calories_burnt_unit: String,
     pub prompt_for_rest_timer: bool,
+    pub start_timer_for_duration_exercises: bool,
 }
 
 #[derive(

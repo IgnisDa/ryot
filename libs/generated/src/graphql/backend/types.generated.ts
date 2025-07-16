@@ -2583,12 +2583,14 @@ export type UserFitnessLoggingPreferences = {
   caloriesBurntUnit: Scalars['String']['output'];
   muteSounds: Scalars['Boolean']['output'];
   promptForRestTimer: Scalars['Boolean']['output'];
+  startTimerForDurationExercises: Scalars['Boolean']['output'];
 };
 
 export type UserFitnessLoggingPreferencesInput = {
   caloriesBurntUnit: Scalars['String']['input'];
   muteSounds: Scalars['Boolean']['input'];
   promptForRestTimer: Scalars['Boolean']['input'];
+  startTimerForDurationExercises: Scalars['Boolean']['input'];
 };
 
 export type UserFitnessMeasurementsPreferences = {
