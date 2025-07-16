@@ -22,6 +22,7 @@ import {
 	useCurrentWorkoutStopwatchAtom,
 	useCurrentWorkoutTimerAtom,
 } from "~/lib/state/fitness";
+import type { FuncStartTimer } from "./types";
 import { formatTimerDuration, getStopwatchMilliSeconds, styles } from "./utils";
 
 const restTimerOptions = [180, 300, 480, "Custom"];
@@ -30,8 +31,8 @@ export const TimerAndStopwatchDrawer = (props: {
 	opened: boolean;
 	onClose: () => void;
 	stopTimer: () => void;
+	startTimer: FuncStartTimer;
 	pauseOrResumeTimer: () => void;
-	startTimer: (duration: number) => void;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
@@ -75,12 +76,12 @@ export const TimerAndStopwatchDrawer = (props: {
 											draft.timerDrawerLot = "timer";
 										}),
 									);
-									if (isNumber(option)) props.startTimer(option);
+									if (isNumber(option)) props.startTimer({ duration: option });
 									else {
 										const input = prompt("Enter duration in seconds");
 										if (!input) return;
 										const intInput = Number.parseInt(input);
-										if (intInput) props.startTimer(intInput);
+										if (intInput) props.startTimer({ duration: intInput });
 										else alert("Invalid input");
 									}
 								}}
