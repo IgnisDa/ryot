@@ -51,6 +51,13 @@ export type AppServiceWorkerMessageData = {
 	event: "remove-timer-completed-notification";
 };
 
+export interface SendNotificationProps {
+	body: string;
+	title: string;
+	tag?: AppServiceWorkerNotificationTag;
+	data?: AppServiceWorkerNotificationData;
+}
+
 export type TimestampToStringResult<T> = T extends Date | string
 	? string
 	: null;

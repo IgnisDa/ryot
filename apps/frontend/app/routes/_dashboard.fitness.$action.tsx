@@ -144,12 +144,12 @@ export default function Page() {
 	const playCompleteTimerSound = () => {
 		if (!userPreferences.fitness.logging.muteSounds) timerCompleteSound.play();
 		if (document.visibilityState === "visible") return;
-		sendNotificationToServiceWorker(
-			"Timer completed",
-			"Let's get this done!",
-			"timer-completed",
-			{ event: "open-link", link: window.location.href },
-		);
+		sendNotificationToServiceWorker({
+			title: "Timer completed",
+			body: "Let's get this done!",
+			tag: "timer-completed",
+			data: { event: "open-link", link: window.location.href },
+		});
 	};
 	const startTimer = (
 		duration: number,
