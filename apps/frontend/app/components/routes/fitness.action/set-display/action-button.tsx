@@ -1,10 +1,13 @@
 import { ActionIcon, Transition } from "@mantine/core";
-import { IconCheck, IconStopwatch } from "@tabler/icons-react";
+import { ExerciseLot } from "@ryot/generated/graphql/backend/graphql";
+import { isString } from "@ryot/ts-utils";
+import { IconCheck, IconPlayerPlay, IconStopwatch } from "@tabler/icons-react";
 import clsx from "clsx";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
+	type ExerciseSet,
 	useCurrentWorkout,
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
@@ -24,6 +27,20 @@ interface SetActionButtonProps {
 	startTimer: FuncStartTimer;
 	isOnboardingTourStep: boolean;
 }
+
+const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
+	const durationBasedLots = [
+		ExerciseLot.DistanceAndDuration,
+		ExerciseLot.Duration,
+		ExerciseLot.RepsAndDuration,
+		ExerciseLot.RepsAndDurationAndDistance,
+	];
+	return (
+		durationBasedLots.includes(exerciseLot) &&
+		!set.confirmedAt &&
+		isString(set.statistic.duration)
+	);
+};
 
 export const SetActionButton = (props: SetActionButtonProps) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -52,31 +69,54 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 				transitionProperty: "all",
 			}}
 		>
-			{(style) =>
-				set.displayRestTimeTrigger ? (
-					<ActionIcon
-						color="blue"
-						style={style}
-						variant="outline"
-						onClick={() => {
-							invariant(set.restTimer);
-							props.startTimer(set.restTimer.duration, {
-								setIdentifier: set.identifier,
-								exerciseIdentifier: exercise.identifier,
-							});
-							setCurrentWorkout(
-								produce(currentWorkout, (draft) => {
-									const currentExercise = draft.exercises[props.exerciseIdx];
-									const currentSet = currentExercise.sets[props.setIdx];
-									currentSet.displayRestTimeTrigger = false;
-									currentSet.restTimerStartedAt = dayjsLib().toISOString();
-								}),
-							);
-						}}
-					>
-						<IconStopwatch />
-					</ActionIcon>
-				) : (
+			{(style) => {
+				if (shouldShowPlayButton(exercise.lot, set)) {
+					return (
+						<ActionIcon
+							color="blue"
+							style={style}
+							variant="outline"
+							onClick={() => {
+								props.startTimer(
+									dayjsLib
+										.duration(Number(set.statistic.duration), "minute")
+										.asSeconds(),
+								);
+							}}
+						>
+							<IconPlayerPlay />
+						</ActionIcon>
+					);
+				}
+
+				if (set.displayRestTimeTrigger) {
+					return (
+						<ActionIcon
+							color="blue"
+							style={style}
+							variant="outline"
+							onClick={() => {
+								invariant(set.restTimer);
+								props.startTimer(set.restTimer.duration, {
+									setIdentifier: set.identifier,
+									exerciseIdentifier: exercise.identifier,
+								});
+								setCurrentWorkout(
+									produce(currentWorkout, (draft) => {
+										const currentExercise = draft.exercises[props.exerciseIdx];
+										const currentSet = currentExercise.sets[props.setIdx];
+										currentSet.displayRestTimeTrigger = false;
+										currentSet.restTimerStartedAt = dayjsLib().toISOString();
+									}),
+								);
+							}}
+						>
+							<IconStopwatch />
+						</ActionIcon>
+					);
+				}
+
+				return (
 					<ActionIcon
 						color="green"
 						style={style}
@@ -90,8 +130,8 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 					>
 						<IconCheck />
 					</ActionIcon>
-				)
-			}
+				);
+			}}
 		</Transition>
 	);
 };
