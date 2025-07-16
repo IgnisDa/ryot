@@ -43,29 +43,29 @@ export const getGlobalSetIndex = (
 	return globalIndex;
 };
 
-export const usePreviousSetData = (
-	setIdx: number,
-	exerciseIdx: number,
-	currentWorkout: InProgressWorkout,
-	exerciseId: string,
-) => {
+export const usePreviousSetData = (input: {
+	setIdx: number;
+	exerciseId: string;
+	exerciseIdx: number;
+	currentWorkout: InProgressWorkout;
+}) => {
 	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exerciseId),
+		getUserExerciseDetailsQuery(input.exerciseId),
 	);
 
 	return useQuery({
 		enabled: !!userExerciseDetails,
 		queryKey: [
 			"previousSetData",
-			`exercise-${exerciseIdx}`,
-			`set-${setIdx}`,
+			`exercise-${input.exerciseIdx}`,
+			`set-${input.setIdx}`,
 			userExerciseDetails?.history,
 		],
 		queryFn: async () => {
 			const globalSetIndex = getGlobalSetIndex(
-				setIdx,
-				exerciseIdx,
-				currentWorkout,
+				input.setIdx,
+				input.exerciseIdx,
+				input.currentWorkout,
 			);
 
 			const allPreviousSets: WorkoutSetStatistic[] = [];
@@ -114,8 +114,8 @@ export const useSetConfirmationHandler = (props: {
 	setIdx: number;
 	exerciseIdx: number;
 	stopTimer: () => void;
-	startTimer: FuncStartTimer;
 	isWorkoutPaused: boolean;
+	startTimer: FuncStartTimer;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
