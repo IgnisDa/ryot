@@ -1,5 +1,6 @@
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
+import type { SetIdentifier } from "~/lib/state/fitness";
 import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
@@ -18,11 +19,8 @@ interface ModalsProps {
 	setSupersetModalOpened: (value: string | null) => void;
 	currentWorkoutExercises?: Array<{ identifier: string }>;
 	setAssetsModalOpened: (value: string | null | undefined) => void;
+	startTimer: (duration: number, triggeredBy?: SetIdentifier) => void;
 	setIsReorderDrawerOpened: (value: string | null | undefined) => void;
-	startTimer: (
-		duration: number,
-		triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
-	) => void;
 }
 
 export function WorkoutModals({

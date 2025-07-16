@@ -270,11 +270,16 @@ export const currentWorkoutToCreateWorkoutInput = (
 	return input;
 };
 
+export type SetIdentifier = {
+	setIdentifier: string;
+	exerciseIdentifier: string;
+};
+
 export type CurrentWorkoutTimer = {
 	willEndAt: string;
 	totalTime: number;
 	wasPausedAt?: string;
-	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string };
+	triggeredBy?: SetIdentifier;
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(

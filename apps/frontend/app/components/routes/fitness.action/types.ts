@@ -1,4 +1,6 @@
+import type { SetIdentifier } from "~/lib/state/fitness";
+
 export type FuncStartTimer = (
 	duration: number,
-	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
+	triggeredBy?: SetIdentifier,
 ) => void;
