@@ -92,7 +92,7 @@ export type InProgressWorkout = {
 	timerDrawerLot: "timer" | "stopwatch";
 };
 
-type CurrentWorkout = InProgressWorkout | null;
+export type CurrentWorkout = InProgressWorkout | null;
 
 const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
 	CURRENT_WORKOUT_KEY,
