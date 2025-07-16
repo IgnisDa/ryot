@@ -52,6 +52,11 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
 	invariant(set);
 
+	const setIdentifier = {
+		setIdentifier: set.identifier,
+		exerciseIdentifier: exercise.identifier,
+	};
+
 	const timerStartedSound = usePlayFitnessSound("timer-started");
 
 	const handleSetConfirmation = useSetConfirmationHandler({
@@ -83,6 +88,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							onClick={() => {
 								timerStartedSound();
 								props.startTimer({
+									confirmSetOnFinish: setIdentifier,
 									duration: dayjsLib
 										.duration(Number(set.statistic.duration), "minute")
 										.asSeconds(),
@@ -110,11 +116,8 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							onClick={() => {
 								invariant(set.restTimer);
 								props.startTimer({
+									triggeredBy: setIdentifier,
 									duration: set.restTimer.duration,
-									triggeredBy: {
-										setIdentifier: set.identifier,
-										exerciseIdentifier: exercise.identifier,
-									},
 								});
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
