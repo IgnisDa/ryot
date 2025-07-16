@@ -4,7 +4,9 @@
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
   and some common commands.
-- Prefer to use the [Serena MCP](https://github.com/oraios/serena) for searching for code.
+- Prefer to use the Serena MCP for searching for Rust code (reference
+  [issue](https://github.com/oraios/serena/issues/208)). For Typescript, use inbuilt
+  methods.
 - When making changes to the code, run the following commands generously to ensure that the
   changes you are making do not break anything:
 
