@@ -4,13 +4,14 @@ import variables from "../variables";
 
 # Ryot Browser Extension <Badge type="warning" text="PRO" />
 
-The Ryot Browser Extension can automatically scrobble media that you are watching on
-various streaming services.
-
 ::: tip
-The extension works on most video streaming sites and will automatically extract media
-information and sync your viewing progress to Ryot.
+This extension is currently in beta and may not work perfectly on all sites. If you
+encounter any issues, please report them on the issue tracker on GitHub.
 :::
+
+The Ryot Browser Extension can automatically scrobble media that you are watching on
+various streaming services. It works on most video streaming sites and will automatically
+extract media information to sync with Ryot.
 
 1. Download the appropriate extension for your browser from <a
    :href="`${variables.repoUrl}/releases`" target="_blank">GitHub releases</a>:
