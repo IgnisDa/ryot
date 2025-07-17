@@ -3,7 +3,8 @@ use std::sync::Arc;
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{MetadataSearchSourceSpecifics, PersonSourceSpecifics};
+use common_models::{MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails};
+use common_utils::{PAGE_SIZE, convert_date_to_year};
 use config::SpotifyConfig;
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -17,6 +18,7 @@ use reqwest::{
     header::{AUTHORIZATION, HeaderValue},
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -28,10 +30,39 @@ struct SpotifyTokenResponse {
     access_token: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyTrack {
+    id: String,
+    name: String,
+    album: SpotifyAlbum,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbum {
+    images: Vec<SpotifyImage>,
+    release_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyImage {
+    url: String,
+    width: Option<i32>,
+    height: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifySearchResponse {
+    tracks: SpotifyTracksResponse,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyTracksResponse {
+    total: i32,
+    items: Vec<SpotifyTrack>,
+}
+
 pub struct SpotifyService {
     client: Client,
-    config: SpotifyConfig,
-    ss: Arc<SupportingService>,
 }
 
 async fn get_spotify_access_token(
@@ -74,11 +105,14 @@ impl SpotifyService {
             HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
         )]));
 
-        Self {
-            ss,
-            client,
-            config: config.clone(),
-        }
+        Self { client }
+    }
+
+    fn get_largest_image(&self, images: &[SpotifyImage]) -> Option<String> {
+        images
+            .iter()
+            .max_by_key(|img| img.width.unwrap_or(0) * img.height.unwrap_or(0))
+            .map(|img| img.url.clone())
     }
 }
 
@@ -90,12 +124,57 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_search(
         &self,
-        _query: &str,
-        _page: Option<i32>,
+        query: &str,
+        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        todo!("Implement Spotify metadata_search")
+        let page = page.unwrap_or(1);
+        let offset = (page - 1) * PAGE_SIZE;
+
+        let response = self
+            .client
+            .get(format!("{}/search", SPOTIFY_API_URL))
+            .query(&json!({
+                "q": query,
+                "type": "track",
+                "offset": offset,
+                "limit": PAGE_SIZE,
+            }))
+            .send()
+            .await?;
+
+        let search_response: SpotifySearchResponse = response.json().await?;
+
+        let next_page = (search_response.tracks.total > (page * PAGE_SIZE)).then(|| page + 1);
+
+        let items = search_response
+            .tracks
+            .items
+            .into_iter()
+            .map(|track| {
+                let publish_year = track
+                    .album
+                    .release_date
+                    .as_ref()
+                    .and_then(|date| convert_date_to_year(date));
+
+                MetadataSearchItem {
+                    publish_year,
+                    title: track.name,
+                    identifier: track.id,
+                    image: self.get_largest_image(&track.album.images),
+                }
+            })
+            .collect();
+
+        Ok(SearchResults {
+            items,
+            details: SearchDetails {
+                next_page,
+                total: search_response.tracks.total,
+            },
+        })
     }
 
     async fn metadata_group_details(
