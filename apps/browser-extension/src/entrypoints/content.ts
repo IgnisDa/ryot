@@ -20,14 +20,33 @@ export default defineContentScript({
 		let isRunning = false;
 		let currentUrl = window.location.href;
 
+		let retryAttempts = 0;
+		const MAX_RETRY_ATTEMPTS = 10;
+		const RETRY_INTERVALS = [
+			2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000,
+		];
+		let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+		async function getHasFoundVideo(): Promise<boolean> {
+			return (
+				(await storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)) || false
+			);
+		}
+
+		async function setHasFoundVideo(value: boolean): Promise<void> {
+			await storage.setItem(STORAGE_KEYS.HAS_FOUND_VIDEO, value);
+		}
+
 		const cleanup = {
 			abortController: new AbortController(),
 
-			cleanupAll() {
+			async cleanupAll() {
 				this.abortController.abort();
+				clearRetryTimeout();
 				isRunning = false;
+				await setHasFoundVideo(false);
+				retryAttempts = 0;
 				logger.cleanup();
-
 				logger.debug("All resources cleaned up");
 			},
 		};
@@ -170,6 +189,85 @@ export default defineContentScript({
 			sendProgress();
 		}
 
+		async function detectVideoWithRetry() {
+			const hasFoundVideo = await getHasFoundVideo();
+			if (hasFoundVideo || retryAttempts >= MAX_RETRY_ATTEMPTS) {
+				return;
+			}
+
+			const metadata = await getOrLookupMetadata();
+			if (!metadata) {
+				scheduleRetry();
+				return;
+			}
+
+			const video = findBestVideo();
+			if (!video) {
+				scheduleRetry();
+				return;
+			}
+
+			await setHasFoundVideo(true);
+			clearRetryTimeout();
+			logger.debug(`Video detected after ${retryAttempts} attempts`);
+			await updateExtensionStatus(ExtensionStatus.VideoDetected);
+			startTrackingWithMetadataAndVideo(metadata, video);
+		}
+
+		function scheduleRetry() {
+			if (retryAttempts >= MAX_RETRY_ATTEMPTS) {
+				logger.debug("Max retry attempts reached, giving up video detection");
+				return;
+			}
+
+			const delay = RETRY_INTERVALS[retryAttempts] || 20000;
+			retryAttempts++;
+
+			logger.debug(`Scheduling retry attempt ${retryAttempts} in ${delay}ms`);
+
+			retryTimeoutId = setTimeout(() => {
+				detectVideoWithRetry();
+			}, delay);
+		}
+
+		function clearRetryTimeout() {
+			if (retryTimeoutId) {
+				clearTimeout(retryTimeoutId);
+				retryTimeoutId = null;
+			}
+		}
+
+		function setupVideoElementListeners() {
+			const videos = document.querySelectorAll("video");
+			for (const video of videos) {
+				attachVideoReadinessListeners(video);
+			}
+		}
+
+		function attachVideoReadinessListeners(video: HTMLVideoElement) {
+			const checkVideoReady = async () => {
+				const hasFoundVideo = await getHasFoundVideo();
+				if (
+					!hasFoundVideo &&
+					video.readyState > 0 &&
+					video.duration >= MIN_VIDEO_DURATION_SECONDS
+				) {
+					logger.debug("Video became ready, triggering detection");
+					detectVideoWithRetry();
+				}
+			};
+
+			video.addEventListener("loadedmetadata", checkVideoReady, {
+				signal: cleanup.abortController.signal,
+			});
+			video.addEventListener("durationchange", checkVideoReady, {
+				signal: cleanup.abortController.signal,
+			});
+			video.addEventListener("canplay", checkVideoReady, {
+				signal: cleanup.abortController.signal,
+			});
+		}
+
 		async function startMainLoop() {
 			isRunning = true;
 			logger.debug("Starting video detection");
@@ -180,26 +278,14 @@ export default defineContentScript({
 		}
 
 		function setupVideoDetection() {
+			detectVideoWithRetry();
+			setupVideoElementListeners();
+
 			const checkForVideos = debounce(async () => {
-				if (!isRunning || currentUrl !== window.location.href) return;
-
-				try {
-					const metadata = await getOrLookupMetadata();
-					if (!metadata) return;
-
-					const video = findBestVideo();
-					if (!video) return;
-
-					logger.debug("Video detected", {
-						src: video.src || video.currentSrc,
-					});
-
-					await updateExtensionStatus(ExtensionStatus.VideoDetected);
-
-					startTrackingWithMetadataAndVideo(metadata, video);
-				} catch (error) {
-					logger.error("Video detection error", { error });
-				}
+				const hasFoundVideo = await getHasFoundVideo();
+				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo)
+					return;
+				detectVideoWithRetry();
 			}, 500);
 
 			const observer = new MutationObserver((mutations) => {
@@ -208,6 +294,15 @@ export default defineContentScript({
 						for (const node of mutation.addedNodes) {
 							if (node.nodeType === Node.ELEMENT_NODE) {
 								const element = node as Element;
+
+								if (element.tagName === "VIDEO") {
+									attachVideoReadinessListeners(element as HTMLVideoElement);
+								} else if (element.querySelector("video")) {
+									for (const video of element.querySelectorAll("video")) {
+										attachVideoReadinessListeners(video);
+									}
+								}
+
 								if (
 									element.tagName === "VIDEO" ||
 									element.querySelector("video") ||
@@ -245,6 +340,7 @@ export default defineContentScript({
 
 			cleanup.abortController.signal.addEventListener("abort", () => {
 				observer.disconnect();
+				clearRetryTimeout();
 			});
 
 			checkForVideos();
@@ -256,12 +352,15 @@ export default defineContentScript({
 		}
 
 		async function handleUrlChange() {
-			logger.debug("URL changed, restarting extension");
+			logger.debug("URL changed, resetting video detection");
 			stopMainLoop();
+			clearRetryTimeout();
+
+			retryAttempts = 0;
+			await setHasFoundVideo(false);
+
 			currentUrl = window.location.href;
-
 			await updateExtensionStatus(ExtensionStatus.Idle);
-
 			await sleep(1000);
 			await init();
 		}
@@ -293,10 +392,13 @@ export default defineContentScript({
 		function setupVisibilityListener() {
 			document.addEventListener(
 				"visibilitychange",
-				() => {
+				async () => {
 					if (document.hidden) {
 						logger.debug("Page hidden, stopping loop");
 						stopMainLoop();
+						clearRetryTimeout();
+						await setHasFoundVideo(false);
+						retryAttempts = 0;
 					} else {
 						logger.debug("Page visible, restarting loop");
 						if (!isRunning) {
