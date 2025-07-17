@@ -15,8 +15,6 @@ import {
 	type InProgressWorkout,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
-} from "~/lib/state/fitness";
-import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
@@ -24,10 +22,7 @@ import {
 } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/general";
 import { FitnessAction } from "~/lib/types";
-import {
-	usePerformTasksAfterSetConfirmed,
-	usePlayFitnessSound,
-} from "../hooks";
+import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";
 
 export const getGlobalSetIndex = (
@@ -216,6 +211,7 @@ export const useSetConfirmationHandler = (props: {
 	exerciseIdx: number;
 	stopTimer: () => void;
 	isWorkoutPaused: boolean;
+	playCheckSound: () => void;
 	startTimer: FuncStartTimer;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -227,14 +223,11 @@ export const useSetConfirmationHandler = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const playCheckSound = usePlayFitnessSound("check");
-
 	return async () => {
 		await handleSetConfirmation({
 			set,
 			exercise,
 			currentTimer,
-			playCheckSound,
 			currentWorkout,
 			userPreferences,
 			setCurrentWorkout,
@@ -245,6 +238,7 @@ export const useSetConfirmationHandler = (props: {
 			startTimer: props.startTimer,
 			performTasksAfterSetConfirmed,
 			exerciseIdx: props.exerciseIdx,
+			playCheckSound: props.playCheckSound,
 			isWorkoutPaused: props.isWorkoutPaused,
 		});
 	};
