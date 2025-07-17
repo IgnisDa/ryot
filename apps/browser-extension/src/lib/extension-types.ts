@@ -18,12 +18,10 @@ export interface FormState {
 	status: "idle" | "submitting" | "submitted";
 }
 
-export interface ExtensionStatus {
-	message: string;
-	state:
-		| "idle"
-		| "video_detected"
-		| "lookup_in_progress"
-		| "tracking_active"
-		| "lookup_failed";
+export enum ExtensionStatus {
+	Idle = "idle",
+	VideoDetected = "video_detected",
+	LookupInProgress = "lookup_in_progress",
+	TrackingActive = "tracking_active",
+	LookupFailed = "lookup_failed",
 }

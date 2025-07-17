@@ -1,10 +1,30 @@
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import { match } from "ts-pattern";
 import logo from "~/assets/icon.png";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
-import type { ExtensionStatus, FormState } from "../../lib/extension-types";
+import { ExtensionStatus, type FormState } from "../../lib/extension-types";
 import { logger } from "../../lib/logger";
+
+const getStatusMessage = (status: ExtensionStatus): string => {
+	return match(status)
+		.with(ExtensionStatus.Idle, () => "Idle, please watch a video to start")
+		.with(
+			ExtensionStatus.VideoDetected,
+			() => "Video found, starting tracking...",
+		)
+		.with(
+			ExtensionStatus.LookupInProgress,
+			() => "Metadata lookup under way...",
+		)
+		.with(ExtensionStatus.TrackingActive, () => "Tracking active")
+		.with(
+			ExtensionStatus.LookupFailed,
+			() => "Metadata lookup failed - extension inactive",
+		)
+		.exhaustive();
+};
 
 const App = () => {
 	const [currentPage, setCurrentPage] = useState<"main" | "settings">("main");
@@ -241,38 +261,34 @@ const App = () => {
 							{extensionStatus ? (
 								<div
 									className={`p-3 rounded-md ${
-										extensionStatus.state === "lookup_failed"
+										extensionStatus === ExtensionStatus.LookupFailed
 											? "bg-red-50"
-											: extensionStatus.state === "tracking_active"
+											: extensionStatus === ExtensionStatus.TrackingActive
 												? "bg-green-50"
 												: "bg-gray-100"
 									}`}
 								>
 									<div
 										className={`text-sm font-medium mb-1 ${
-											extensionStatus.state === "lookup_failed"
+											extensionStatus === ExtensionStatus.LookupFailed
 												? "text-red-800"
-												: extensionStatus.state === "tracking_active"
+												: extensionStatus === ExtensionStatus.TrackingActive
 													? "text-green-800"
 													: "text-gray-800"
 										}`}
 									>
-										Status: {extensionStatus.message}
+										Status: {getStatusMessage(extensionStatus)}
 									</div>
-									{currentVideoTitle && extensionStatus.state !== "idle" && (
-										<div className="text-xs text-gray-600 mb-1">
-											{currentVideoTitle}
-										</div>
-									)}
-									{extensionStatus.message && (
-										<div className="text-xs text-gray-500">
-											{extensionStatus.message}
-										</div>
-									)}
+									{currentVideoTitle &&
+										extensionStatus !== ExtensionStatus.Idle && (
+											<div className="text-xs text-gray-600 mb-1">
+												{currentVideoTitle}
+											</div>
+										)}
 								</div>
 							) : (
 								<div className="p-3 bg-gray-100 rounded-md text-sm text-gray-600">
-									Waiting for video detection...
+									{getStatusMessage(ExtensionStatus.Idle)}
 								</div>
 							)}
 						</div>

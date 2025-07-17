@@ -2,10 +2,8 @@ import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql"
 import { GraphQLClient } from "graphql-request";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
-import type {
-	ExtensionStatus,
-	ProgressDataWithMetadata,
-} from "../lib/extension-types";
+import type { ProgressDataWithMetadata } from "../lib/extension-types";
+import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
 
 function extractGraphQLEndpoint(integrationUrl: string) {
@@ -163,7 +161,7 @@ export default defineBackground(() => {
 		const status = await storage.getItem<ExtensionStatus>(
 			STORAGE_KEYS.EXTENSION_STATUS,
 		);
-		return status || { state: "idle", message: "Nothing to do..." };
+		return status || ExtensionStatus.Idle;
 	}
 
 	async function getCurrentCachedTitle() {

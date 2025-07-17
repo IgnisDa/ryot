@@ -5,11 +5,8 @@ import {
 	MIN_VIDEO_DURATION_SECONDS,
 	STORAGE_KEYS,
 } from "../lib/constants";
-import type {
-	ExtensionStatus,
-	MetadataLookupData,
-	RawMediaData,
-} from "../lib/extension-types";
+import type { MetadataLookupData, RawMediaData } from "../lib/extension-types";
+import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
 import { MetadataCache } from "../lib/metadata-cache";
 import { extractMetadataTitle } from "../lib/metadata-extractor";
@@ -52,18 +49,12 @@ export default defineContentScript({
 			let metadata = await metadataCache.getMetadataForCurrentPage();
 
 			if (!metadata) {
-				await updateExtensionStatus({
-					state: "lookup_in_progress",
-					message: "Metadata lookup under way...",
-				});
+				await updateExtensionStatus(ExtensionStatus.LookupInProgress);
 
 				metadata = await metadataCache.lookupAndCacheMetadata();
 
 				if (!metadata) {
-					await updateExtensionStatus({
-						state: "lookup_failed",
-						message: "Metadata lookup failed - extension inactive",
-					});
+					await updateExtensionStatus(ExtensionStatus.LookupFailed);
 					return null;
 				}
 			}
@@ -131,10 +122,7 @@ export default defineContentScript({
 			metadata: MetadataLookupData,
 			video: HTMLVideoElement,
 		) {
-			updateExtensionStatus({
-				state: "tracking_active",
-				message: "Tracking active",
-			});
+			updateExtensionStatus(ExtensionStatus.TrackingActive);
 
 			const sendProgress = () => {
 				if (
@@ -186,10 +174,7 @@ export default defineContentScript({
 			isRunning = true;
 			logger.debug("Starting video detection");
 
-			await updateExtensionStatus({
-				state: "idle",
-				message: "Starting extension...",
-			});
+			await updateExtensionStatus(ExtensionStatus.Idle);
 
 			setupVideoDetection();
 		}
@@ -209,10 +194,7 @@ export default defineContentScript({
 						src: video.src || video.currentSrc,
 					});
 
-					await updateExtensionStatus({
-						state: "video_detected",
-						message: "Video found, starting tracking...",
-					});
+					await updateExtensionStatus(ExtensionStatus.VideoDetected);
 
 					startTrackingWithMetadataAndVideo(metadata, video);
 				} catch (error) {
@@ -278,10 +260,7 @@ export default defineContentScript({
 			stopMainLoop();
 			currentUrl = window.location.href;
 
-			await updateExtensionStatus({
-				state: "idle",
-				message: "Page changed, restarting...",
-			});
+			await updateExtensionStatus(ExtensionStatus.Idle);
 
 			await sleep(1000);
 			await init();

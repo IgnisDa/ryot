@@ -7707,6 +7707,7 @@ __metadata:
     react: "npm:19.1.0"
     react-dom: "npm:19.1.0"
     tailwindcss: "npm:4.1.11"
+    ts-pattern: "npm:5.7.1"
     vite-tsconfig-paths: "npm:5.1.4"
     wxt: "npm:0.20.7"
   languageName: unknown
