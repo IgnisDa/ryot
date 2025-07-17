@@ -4377,6 +4377,7 @@ dependencies = [
  "config",
  "const-str",
  "convert_case 0.8.0",
+ "data-encoding",
  "database-models",
  "dependent-models",
  "educe",
