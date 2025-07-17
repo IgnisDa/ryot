@@ -215,6 +215,7 @@ impl SupportingService {
                                     | MediaSource::Vndb
                                     | MediaSource::Custom
                                     | MediaSource::Anilist
+                                    | MediaSource::Spotify
                                     | MediaSource::GiantBomb
                                     | MediaSource::Hardcover
                                     | MediaSource::Myanimelist

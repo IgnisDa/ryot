@@ -65,7 +65,7 @@ meta! {
         MediaSource::Myanimelist,
     ];
     Movie, vec![MediaSource::Tmdb];
-    Music, vec![MediaSource::YoutubeMusic];
+    Music, vec![MediaSource::YoutubeMusic, MediaSource::Spotify];
     Show, vec![MediaSource::Tmdb];
     VisualNovel, vec![MediaSource::Vndb];
 }
@@ -101,6 +101,7 @@ pub enum MediaSource {
     Itunes,
     Anilist,
     Audible,
+    Spotify,
     GiantBomb,
     Hardcover,
     Myanimelist,
@@ -125,10 +126,11 @@ meta! {
     Openlibrary, None;
     MangaUpdates, None;
     Tmdb, Some(MediaLot::Movie);
+    Spotify, Some(MediaLot::Music);
     Igdb, Some(MediaLot::VideoGame);
-    GiantBomb, Some(MediaLot::VideoGame);
     Hardcover, Some(MediaLot::Book);
     YoutubeMusic, Some(MediaLot::Music);
+    GiantBomb, Some(MediaLot::VideoGame);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize, Serialize)]
