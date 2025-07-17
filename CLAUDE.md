@@ -4,7 +4,6 @@
   checking, running tests, etc.) should use `moon` commands.
 - You can read @apps/docs/src/contributing.md for an overview of the project architecture
   and some common commands.
-- Prefer to use the [Serena MCP](https://github.com/oraios/serena) for edits and searching.
 - When making changes to the code, run the following commands generously to ensure that the
   changes you are making do not break anything:
 
