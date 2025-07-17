@@ -144,7 +144,8 @@ export default function Page() {
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
-	const latestUserSummary = loaderData.userAnalytics.activities.items.at(0);
+	const latestUserSummary =
+		loaderData.userAnalytics.response.activities.items.at(0);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
 		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,

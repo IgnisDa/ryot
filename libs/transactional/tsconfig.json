@@ -1,19 +1,19 @@
 {
-	"extends": "../../tsconfig.options.json",
 	"include": ["**/*"],
+	"extends": "../../tsconfig.options.json",
 	"references": [
 		{
 			"path": "../ts-utils"
 		}
 	],
 	"compilerOptions": {
-		"paths": {
-			"@ryot/ts-utils": ["../ts-utils/src/index.ts"],
-			"@ryot/ts-utils/*": ["../ts-utils/src/*"]
-		},
 		"module": "ESNext",
 		"jsx": "react-jsx",
-		"moduleResolution": "Bundler",
-		"outDir": "../../.moon/cache/types/libs/transactional"
+		"moduleResolution": "bundler",
+		"outDir": "../../.moon/cache/types/libs/transactional",
+		"paths": {
+			"@ryot/ts-utils/*": ["../ts-utils/src/*"],
+			"@ryot/ts-utils": ["../ts-utils/src/index.ts"]
+		}
 	}
 }

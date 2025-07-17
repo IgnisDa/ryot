@@ -242,6 +242,34 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: gh release upload --clobber "${REF_NAME}" "tmp/script.ryot.zip"
 
+  upload-browser-extensions:
+    needs:
+      - pre-workflow-checks
+      - build-docker
+    if: needs.pre-workflow-checks.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MOON_TOOLCHAIN_FORCE_GLOBALS: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Setup Moon
+        uses: moonrepo/setup-toolchain@937d7dbbc1ec218aa8641c792d5821addebd9f03
+        with:
+          auto-install: true
+      - name: Build browser extensions
+        run: |
+          moon run browser-extension:build
+      - name: Upload browser extensions to releases
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          gh release upload --clobber "${REF_NAME}" apps/browser-extension/dist/*.zip
+
   deploy-docs:
     needs:
       - pre-workflow-checks

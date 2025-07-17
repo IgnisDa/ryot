@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:20.10.0-bookworm-slim
+ARG NODE_BASE_IMAGE=node:24.4.0-bookworm-slim
 
 FROM $NODE_BASE_IMAGE AS frontend-build-base
 ENV MOON_TOOLCHAIN_FORCE_GLOBALS=true
@@ -33,9 +33,7 @@ LABEL org.opencontainers.image.source="https://github.com/IgnisDa/ryot"
 LABEL org.opencontainers.image.description="The only self hosted tracker you will ever need!"
 ENV FRONTEND_UMAMI_SCRIPT_URL="https://umami.diptesh.me/script.js"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
-RUN apt-get update && apt-get install -y --no-install-recommends wget curl ca-certificates procps libc6
-RUN wget http://ftp.debian.org/debian/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u1_${TARGETARCH}.deb && dpkg -i libssl1.1_1.1.1w-0+deb11u1_${TARGETARCH}.deb && rm -rf libssl1.1_1.1.1w-0+deb11u1_${TARGETARCH}.deb
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends wget curl ca-certificates procps libc6 && rm -rf /var/lib/apt/lists/*
 COPY --from=caddy:2.9.1 /usr/bin/caddy /usr/local/bin/caddy
 RUN npm install --global concurrently@9.1.2 && concurrently --version
 RUN useradd -m -u 1001 ryot

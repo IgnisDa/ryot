@@ -22,6 +22,7 @@ import {
 	type TableData,
 	Text,
 	TextInput,
+	Textarea,
 	Title,
 	Tooltip,
 } from "@mantine/core";
@@ -54,7 +55,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
-import { withFragment, withQuery } from "ufo";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	PRO_REQUIRED_MESSAGE,
@@ -78,6 +79,7 @@ import type { Route } from "./+types/_dashboard.settings.integrations";
 const PRO_INTEGRATIONS = [
 	IntegrationProvider.JellyfinPush,
 	IntegrationProvider.YoutubeMusic,
+	IntegrationProvider.RyotBrowserExtension,
 ];
 const YANK_INTEGRATIONS = [
 	IntegrationProvider.Komga,
@@ -206,6 +208,14 @@ const createOrUpdateSchema = z.object({
 			jellyfinPushPassword: z.string().optional(),
 			youtubeMusicTimezone: z.string().optional(),
 			youtubeMusicAuthCookie: z.string().optional(),
+			ryotBrowserExtensionDisabledSites: z
+				.string()
+				.optional()
+				.transform((val) =>
+					val
+						? val.split("\n").filter((line) => line.trim() !== "")
+						: undefined,
+				),
 		})
 		.optional(),
 });
@@ -513,10 +523,7 @@ const CreateOrUpdateModal = (props: {
 						<Anchor
 							size="xs"
 							target="_blank"
-							href={withFragment(
-								`${coreDetails.docsLink}/integrations.html`,
-								kebabCase(provider),
-							)}
+							href={`${coreDetails.docsLink}/integrations/${kebabCase(provider)}.html`}
 						>
 							Click here to see the documentation for this source
 						</Anchor>
@@ -625,22 +632,10 @@ const CreateOrUpdateModal = (props: {
 									required
 									label="Auth Cookie"
 									name="providerSpecifics.youtubeMusicAuthCookie"
+									description="Follow the link above to obtain the correct cookie"
 									defaultValue={
 										props.integrationData?.providerSpecifics
 											?.youtubeMusicAuthCookie || undefined
-									}
-									description={
-										<Text size="xs" c="dimmed">
-											Please follow the{" "}
-											<Anchor
-												target="_blank"
-												rel="noreferrer noopener"
-												href="https://docs.ryot.io/integrations#youtube-music"
-											>
-												docs
-											</Anchor>{" "}
-											to get the correct cookie
-										</Text>
 									}
 								/>
 							</>
@@ -724,6 +719,22 @@ const CreateOrUpdateModal = (props: {
 											?.sonarrSyncCollectionIds,
 								}}
 							/>
+						))
+						.with(IntegrationProvider.RyotBrowserExtension, () => (
+							<>
+								<Textarea
+									rows={4}
+									label="Disabled Sites"
+									placeholder="netflix.com&#10;hbo.com"
+									name="providerSpecifics.ryotBrowserExtensionDisabledSites"
+									description="Extension is enabled on all sites by default. Enter one domain per line where extension should be disabled"
+									defaultValue={
+										props.integrationData?.providerSpecifics?.ryotBrowserExtensionDisabledSites?.join(
+											"\n",
+										) || undefined
+									}
+								/>
+							</>
 						))
 						.otherwise(() => undefined)}
 					{provider && (

@@ -8,6 +8,7 @@ import {
 } from "humanize-duration-ts";
 import camelCase from "lodash/camelCase";
 import cloneDeep from "lodash/cloneDeep";
+import debounce from "lodash/debounce";
 import groupBy from "lodash/groupBy";
 import inRange from "lodash/inRange";
 import isBoolean from "lodash/isBoolean";
@@ -27,6 +28,7 @@ import snakeCase from "lodash/snakeCase";
 import sortBy from "lodash/sortBy";
 import startCase from "lodash/startCase";
 import sum from "lodash/sum";
+import throttle from "lodash/throttle";
 import truncate from "lodash/truncate";
 import type { Params } from "react-router";
 import { twMerge } from "tailwind-merge";
@@ -138,6 +140,7 @@ export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 export {
 	camelCase,
 	cloneDeep,
+	debounce,
 	groupBy,
 	inRange,
 	isBoolean,
@@ -157,5 +160,6 @@ export {
 	sortBy,
 	startCase,
 	sum,
+	throttle,
 	truncate,
 };

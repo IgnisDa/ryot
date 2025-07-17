@@ -97,8 +97,8 @@ pub async fn user_upcoming_calendar_events(
     Ok(events)
 }
 
-pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<()> {
-    let date_to_calculate_from = get_current_date(&service.timezone).pred_opt().unwrap();
+pub async fn recalculate_calendar_events(ss: &SupportingService) -> Result<()> {
+    let date_to_calculate_from = get_current_date(&ss.timezone).pred_opt().unwrap();
 
     let selected_metadata = Metadata::find()
         .filter(metadata::Column::LastUpdatedOn.gte(date_to_calculate_from))
@@ -108,12 +108,12 @@ pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<
                 .or(metadata::Column::IsPartial.is_null()),
         );
 
-    let mut meta_stream = selected_metadata.clone().stream(&service.db).await?;
+    let mut meta_stream = selected_metadata.clone().stream(&ss.db).await?;
     let mut calendar_event_ids_to_delete = Vec::new();
 
     while let Some(meta) = meta_stream.try_next().await? {
         ryot_log!(trace, "Processing metadata id = {:#?}", meta.id);
-        let calendar_events = meta.find_related(CalendarEvent).all(&service.db).await?;
+        let calendar_events = meta.find_related(CalendarEvent).all(&ss.db).await?;
         for cal_event in calendar_events {
             let mut need_to_delete = true;
             if let Some(show) = cal_event.metadata_show_extra_information {
@@ -175,13 +175,13 @@ pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<
         );
         CalendarEvent::delete_many()
             .filter(calendar_event::Column::Id.is_in(calendar_event_ids_to_delete))
-            .exec(&service.db)
+            .exec(&ss.db)
             .await?;
     }
 
     ryot_log!(debug, "Finished deleting invalid calendar events");
 
-    let mut metadata_stream = selected_metadata.stream(&service.db).await?;
+    let mut metadata_stream = selected_metadata.stream(&ss.db).await?;
 
     let mut calendar_events_inserts = vec![];
     let mut metadata_updates = vec![];
@@ -241,7 +241,7 @@ pub async fn recalculate_calendar_events(service: &SupportingService) -> Result<
     }
     for cal_insert in calendar_events_inserts {
         ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
-        cal_insert.insert(&service.db).await.ok();
+        cal_insert.insert(&ss.db).await.ok();
     }
     ryot_log!(debug, "Finished updating calendar events");
     Ok(())

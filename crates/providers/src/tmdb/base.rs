@@ -2,11 +2,15 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
+use common_utils::convert_date_to_year;
+use common_utils::ryot_log;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
 use enum_models::MediaLot;
 use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
-use media_models::{MetadataExternalIdentifiers, PartialMetadataWithoutId, WatchProvider};
+use media_models::{
+    MetadataExternalIdentifiers, PartialMetadataWithoutId, TmdbMetadataLookupResult, WatchProvider,
+};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -302,33 +306,70 @@ impl TmdbService {
         )
         .await
     }
+
+    pub async fn multi_search(&self, query: &str) -> Result<Vec<TmdbMetadataLookupResult>> {
+        ryot_log!(debug, "tmdb multi_search: query={}", query);
+        let response: TmdbListResponse = self
+            .client
+            .get(format!("{}/search/multi", URL))
+            .query(&json!({
+                "page": 1,
+                "query": query,
+                "language": self.language,
+            }))
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?
+            .json()
+            .await
+            .map_err(|e| anyhow!(e))?;
+
+        let results = response
+            .results
+            .into_iter()
+            .filter_map(|entry| {
+                let media_type = entry.media_type.as_deref()?;
+                let lot = match media_type {
+                    "tv" => MediaLot::Show,
+                    "movie" => MediaLot::Movie,
+                    _ => return None,
+                };
+                Some(TmdbMetadataLookupResult {
+                    lot,
+                    identifier: entry.id.to_string(),
+                    title: entry.title.unwrap_or_default(),
+                    publish_year: entry.release_date.and_then(|r| convert_date_to_year(&r)),
+                })
+            })
+            .collect();
+
+        Ok(results)
+    }
 }
 
 async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<TmdbSettings> {
     let cc = &ss.cache_service;
-    let maybe_settings = cc
-        .get_value::<TmdbSettings>(ApplicationCacheKey::TmdbSettings)
-        .await;
-    if let Some((_id, setting)) = maybe_settings {
-        return Ok(setting);
-    }
-    let config_future = client.get(format!("{}/configuration", URL)).send();
-    let languages_future = client
-        .get(format!("{}/configuration/languages", URL))
-        .send();
+    let cached_response = cc
+        .get_or_set_with_callback(
+            ApplicationCacheKey::TmdbSettings,
+            ApplicationCacheValue::TmdbSettings,
+            || async {
+                let config_future = client.get(format!("{}/configuration", URL)).send();
+                let languages_future = client
+                    .get(format!("{}/configuration/languages", URL))
+                    .send();
 
-    let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-    let data_1: TmdbConfiguration = config_resp.json().await?;
-    let data_2: Vec<TmdbLanguage> = languages_resp.json().await?;
-    let settings = TmdbSettings {
-        image_url: data_1.images.secure_base_url,
-        languages: data_2,
-    };
-    cc.set_key(
-        ApplicationCacheKey::TmdbSettings,
-        ApplicationCacheValue::TmdbSettings(settings.clone()),
-    )
-    .await
-    .ok();
-    Ok(settings)
+                let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
+                let data_1: TmdbConfiguration = config_resp.json().await?;
+                let data_2: Vec<TmdbLanguage> = languages_resp.json().await?;
+                let settings = TmdbSettings {
+                    image_url: data_1.images.secure_base_url,
+                    languages: data_2,
+                };
+                Ok(settings)
+            },
+        )
+        .await
+        .unwrap();
+    Ok(cached_response.response)
 }

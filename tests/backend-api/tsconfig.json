@@ -1,24 +1,6 @@
 {
 	"exclude": ["node_modules", "dist"],
 	"include": ["src/**/*.ts", "vitest.config.ts"],
-	"compilerOptions": {
-		"target": "es2022",
-		"module": "ESNext",
-		"lib": ["ES2022", "DOM"],
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"noEmit": true,
-		"strict": true,
-		"skipLibCheck": true,
-		"moduleResolution": "node",
-		"outDir": "../../.moon/cache/types/tests/backend-api",
-		"baseUrl": ".",
-		"paths": {
-			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"]
-		},
-		"types": ["vitest/globals", "node"]
-	},
 	"references": [
 		{
 			"path": "../../libs/generated"
@@ -26,5 +8,23 @@
 		{
 			"path": "../../libs/graphql"
 		}
-	]
+	],
+	"compilerOptions": {
+		"noEmit": true,
+		"strict": true,
+		"baseUrl": ".",
+		"target": "es2022",
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"lib": ["ES2022", "DOM"],
+		"esModuleInterop": true,
+		"moduleResolution": "node",
+		"types": ["vitest/globals", "node"],
+		"forceConsistentCasingInFileNames": true,
+		"outDir": "../../.moon/cache/types/tests/backend-api",
+		"paths": {
+			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
+			"@ryot/generated/*": ["../../libs/generated/src/*"]
+		}
+	}
 }

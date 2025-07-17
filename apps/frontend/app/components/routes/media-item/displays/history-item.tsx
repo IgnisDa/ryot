@@ -35,8 +35,8 @@ export const HistoryItem = (props: {
 	setTab: (tab: string) => void;
 	metadataDetails: MetadataDetails;
 	userMetadataDetails: UserMetadataDetails;
-	podcastVirtuosoRef: RefObject<VirtuosoHandle>;
-	reviewsVirtuosoRef: RefObject<VirtuosoHandle>;
+	podcastVirtuosoRef: RefObject<VirtuosoHandle | null>;
+	reviewsVirtuosoRef: RefObject<VirtuosoHandle | null>;
 }) => {
 	const coreDetails = useCoreDetails();
 	const submit = useConfirmSubmit();
@@ -52,10 +52,11 @@ export const HistoryItem = (props: {
 				)
 		: null;
 	const scrollToVirtuosoElement = (
-		ref: RefObject<VirtuosoHandle>,
+		ref: RefObject<VirtuosoHandle | null>,
 		tab: string,
 		index?: number,
 	) => {
+		if (!ref || !ref.current) return;
 		if (!coreDetails.isServerKeyValidated) {
 			notifications.show({
 				color: "red",

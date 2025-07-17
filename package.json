@@ -2,6 +2,7 @@
 	"name": "@ryot/root",
 	"packageManager": "yarn@4.1.1",
 	"workspaces": [
+		"apps/browser-extension",
 		"apps/docs",
 		"apps/frontend",
 		"apps/website",
@@ -12,14 +13,11 @@
 		"tests/backend-api"
 	],
 	"engines": {
-		"node": "20.10.0"
+		"node": "24.4.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"tsconfig-moon": "1.4.0",
 		"typescript": "5.8.3"
-	},
-	"resolutions": {
-		"@types/react": "18.3.4"
 	}
 }

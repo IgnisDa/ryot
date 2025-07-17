@@ -16,8 +16,9 @@ use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataProgressUpdateInput, UpdateCustomMetadataInput,
-    UpdateSeenItemInput, UserCalendarEventInput, UserUpcomingCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
+    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
@@ -94,7 +95,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataSearchInput,
-    ) -> Result<MetadataSearchResponse> {
+    ) -> Result<CachedResponse<MetadataSearchResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_search(&user_id, input).await
@@ -195,7 +196,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<CachedResponse<PeopleSearchResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.people_search(&user_id, input).await
@@ -206,7 +207,7 @@ impl MiscellaneousQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: MetadataGroupSearchInput,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.metadata_group_search(&user_id, input).await
@@ -219,6 +220,16 @@ impl MiscellaneousQuery {
     ) -> Result<TrendingMetadataIdsResponse> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         service.trending_metadata().await
+    }
+
+    /// Lookup metadata by title.
+    async fn metadata_lookup(
+        &self,
+        gql_ctx: &Context<'_>,
+        title: String,
+    ) -> Result<CachedResponse<MetadataLookupResponse>> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        service.metadata_lookup(title).await
     }
 }
 

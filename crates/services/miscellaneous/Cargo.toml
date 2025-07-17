@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
 async-graphql = { workspace = true }
 background-models = { path = "../../models/background" }
@@ -22,6 +23,8 @@ itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
+providers = { path = "../../providers" }
+regex = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
@@ -33,6 +36,9 @@ tracing = { workspace = true }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }
 uuid = { workspace = true }
+
+[dev-dependencies]
+rstest = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use common_models::{
-    ApplicationDateRange, MetadataGroupSearchInput, MetadataRecentlyConsumedCacheInput,
-    MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
-    YoutubeMusicSongListened,
+    ApplicationDateRange, MetadataGroupSearchInput, MetadataLookupCacheInput,
+    MetadataRecentlyConsumedCacheInput, MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput,
+    UserLevelCacheKey, YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
-use media_models::MetadataProgressUpdateCacheInput;
+use media_models::{MetadataLookupResponse, MetadataProgressUpdateCacheInput};
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -56,6 +56,7 @@ pub enum ApplicationCacheKey {
     TmdbSettings,
     ListennotesSettings,
     TrendingMetadataIds,
+    MetadataLookup(MetadataLookupCacheInput),
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
@@ -92,6 +93,7 @@ pub enum ApplicationCacheValue {
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
     ListennotesSettings(ListennotesSettings),

@@ -33,7 +33,9 @@ pub async fn create_or_update_user_integration(
     let mut provider = ActiveValue::NotSet;
     if let Some(p) = input.provider {
         match p {
-            IntegrationProvider::JellyfinPush | IntegrationProvider::YoutubeMusic => {
+            IntegrationProvider::JellyfinPush
+            | IntegrationProvider::YoutubeMusic
+            | IntegrationProvider::RyotBrowserExtension => {
                 server_key_validation_guard(ss.is_server_key_validated().await?).await?;
             }
             _ => {}

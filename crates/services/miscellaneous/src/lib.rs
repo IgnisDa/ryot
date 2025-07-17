@@ -24,8 +24,8 @@ use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,
     GenreDetailsInput, GraphqlCalendarEvent, GraphqlMetadataDetails, GroupedCalendarEvent,
-    MarkEntityAsPartialInput, MetadataProgressUpdateInput, ReviewPostedEvent,
-    UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
+    MarkEntityAsPartialInput, MetadataLookupResponse, MetadataProgressUpdateInput,
+    ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
@@ -39,6 +39,7 @@ mod core_operations;
 mod custom_metadata;
 mod entity_details;
 mod list_operations;
+mod lookup_operations;
 mod metadata_operations;
 mod progress_operations;
 mod review_operations;
@@ -201,7 +202,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         input: MetadataSearchInput,
-    ) -> Result<MetadataSearchResponse> {
+    ) -> Result<CachedResponse<MetadataSearchResponse>> {
         search_operations::metadata_search(&self.0, user_id, input).await
     }
 
@@ -209,7 +210,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         input: PeopleSearchInput,
-    ) -> Result<PeopleSearchResponse> {
+    ) -> Result<CachedResponse<PeopleSearchResponse>> {
         search_operations::people_search(&self.0, user_id, input).await
     }
 
@@ -217,7 +218,7 @@ impl MiscellaneousService {
         &self,
         user_id: &String,
         input: MetadataGroupSearchInput,
-    ) -> Result<MetadataGroupSearchResponse> {
+    ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
         search_operations::metadata_group_search(&self.0, user_id, input).await
     }
 
@@ -353,6 +354,13 @@ impl MiscellaneousService {
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
         background_operations::perform_background_jobs(&self.0).await
+    }
+
+    pub async fn metadata_lookup(
+        &self,
+        title: String,
+    ) -> Result<CachedResponse<MetadataLookupResponse>> {
+        lookup_operations::metadata_lookup(&self.0, title).await
     }
 
     #[cfg(debug_assertions)]

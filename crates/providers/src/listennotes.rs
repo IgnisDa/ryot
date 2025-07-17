@@ -6,9 +6,7 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_naive_to_utc};
-use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ListennotesSettings, SearchResults,
-};
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -175,42 +173,38 @@ impl MediaProvider for ListennotesService {
 impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
         let cc = &self.ss.cache_service;
-        let maybe_settings = cc
-            .get_value::<ListennotesSettings>(ApplicationCacheKey::ListennotesSettings)
-            .await;
-        let genres = if let Some((_id, value)) = maybe_settings {
-            value
-        } else {
-            #[derive(Debug, Serialize, Deserialize, Default)]
-            #[serde(rename_all = "snake_case")]
-            pub struct ListennotesIdAndNamedObject {
-                pub id: i32,
-                pub name: String,
-            }
-            #[derive(Debug, Serialize, Deserialize, Default)]
-            struct GenreResponse {
-                genres: Vec<ListennotesIdAndNamedObject>,
-            }
-            let rsp = self
-                .client
-                .get(format!("{}/genres", self.url))
-                .send()
-                .await
-                .unwrap();
-            let data: GenreResponse = rsp.json().await.unwrap_or_default();
-            let mut genres = HashMap::new();
-            for genre in data.genres {
-                genres.insert(genre.id, genre.name);
-            }
-            cc.set_key(
+        let cached_response = cc
+            .get_or_set_with_callback(
                 ApplicationCacheKey::ListennotesSettings,
-                ApplicationCacheValue::ListennotesSettings(genres.clone()),
+                ApplicationCacheValue::ListennotesSettings,
+                || async {
+                    #[derive(Debug, Serialize, Deserialize, Default)]
+                    #[serde(rename_all = "snake_case")]
+                    pub struct ListennotesIdAndNamedObject {
+                        pub id: i32,
+                        pub name: String,
+                    }
+                    #[derive(Debug, Serialize, Deserialize, Default)]
+                    struct GenreResponse {
+                        genres: Vec<ListennotesIdAndNamedObject>,
+                    }
+                    let rsp = self
+                        .client
+                        .get(format!("{}/genres", self.url))
+                        .send()
+                        .await
+                        .unwrap();
+                    let data: GenreResponse = rsp.json().await.unwrap_or_default();
+                    let mut genres = HashMap::new();
+                    for genre in data.genres {
+                        genres.insert(genre.id, genre.name);
+                    }
+                    Ok(genres)
+                },
             )
             .await
-            .ok();
-            genres
-        };
-        Ok(genres)
+            .unwrap();
+        Ok(cached_response.response)
     }
 
     // The API does not return all the episodes for a podcast, and instead needs to be

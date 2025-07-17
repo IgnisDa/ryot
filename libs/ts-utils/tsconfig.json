@@ -1,25 +1,21 @@
 {
 	"extends": "../../tsconfig.options.json",
+	"references": [
+		{
+			"path": "../generated"
+		}
+	],
 	"compilerOptions": {
+		"strict": true,
 		"module": "esnext",
+		"lib": ["ESNext", "DOM"],
 		"moduleResolution": "node",
+		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
 		"allowSyntheticDefaultImports": true,
-		"lib": ["ESNext", "DOM"],
-		"preserveConstEnums": true,
-		"strict": true,
 		"outDir": "../../.moon/cache/types/libs/ts-utils",
 		"paths": {
 			"@ryot/generated/*": ["../generated/src/*"]
 		}
-	},
-	"exclude": [],
-	"references": [
-		{
-			"path": "../../libs/generated"
-		},
-		{
-			"path": "../generated"
-		}
-	]
+	}
 }

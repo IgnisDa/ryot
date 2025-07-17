@@ -11,7 +11,7 @@ import completes/fails. You can see them under "Import History" of the imports p
 ## Notes
 
 - Imports will only import items that have been completed. To import items that are in
-  progress, you need to set up an [integration](../integrations.md) or update the progress
+  progress, you need to set up an [integration](../integrations/overview.md) or update the progress
   manually.
 - Imports are very difficult to have 100% success rate. Though we try our best,
   you might have to manually import some data from your previous provider.

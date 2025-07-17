@@ -1,12 +1,39 @@
-use async_graphql::{InputObject, SimpleObject};
+use async_graphql::{InputObject, SimpleObject, Union};
 use enum_models::{
-    IntegrationProvider, MediaSource, NotificationPlatformLot, UserNotificationContent,
+    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot, UserNotificationContent,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+
+use crate::{SeenShowExtraInformation, UniqueMediaIdentifier};
+
+#[derive(Debug, Clone, SimpleObject)]
+pub struct TmdbMetadataLookupResult {
+    pub lot: MediaLot,
+    pub title: String,
+    pub identifier: String,
+    pub publish_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
+pub struct MetadataLookupFoundResult {
+    pub data: UniqueMediaIdentifier,
+    pub show_information: Option<SeenShowExtraInformation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, SimpleObject)]
+pub struct MetadataLookupNotFound {
+    pub not_found: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Union)]
+pub enum MetadataLookupResponse {
+    Found(MetadataLookupFoundResult),
+    NotFound(MetadataLookupNotFound),
+}
 
 #[skip_serializing_none]
 #[derive(
@@ -75,6 +102,8 @@ pub struct IntegrationProviderSpecifics {
 
     pub youtube_music_timezone: Option<String>,
     pub youtube_music_auth_cookie: Option<String>,
+
+    pub ryot_browser_extension_disabled_sites: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

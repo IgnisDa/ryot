@@ -1,11 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, future::Future, sync::Arc};
 
-use async_graphql::Result;
+use async_graphql::{OutputType, Result};
 use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, GetCacheKeyResponse,
+    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, ExpireCacheKeyInput,
+    GetCacheKeyResponse,
 };
 use sea_orm::{ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
@@ -55,6 +56,7 @@ impl CacheService {
             | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
 
             ApplicationCacheKey::TrendingMetadataIds
+            | ApplicationCacheKey::MetadataLookup { .. }
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::CollectionRecommendations { .. }
             | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
@@ -175,6 +177,28 @@ impl CacheService {
             .get(key.to_string())
             .and_then(|v| serde_json::from_value::<T>(v.to_owned()).ok())?;
         Some((value.id, db_value))
+    }
+
+    pub async fn get_or_set_with_callback<T, F, Fut>(
+        &self,
+        key: ApplicationCacheKey,
+        cache_value_constructor: impl FnOnce(T) -> ApplicationCacheValue,
+        generator: F,
+    ) -> Result<CachedResponse<T>>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<T>>,
+        T: DeserializeOwned + Clone + OutputType,
+    {
+        if let Some((cache_id, response)) = self.get_value::<T>(key.clone()).await {
+            return Ok(CachedResponse { cache_id, response });
+        }
+
+        let response = generator().await?;
+        let cache_id = self
+            .set_key(key, cache_value_constructor(response.clone()))
+            .await?;
+        Ok(CachedResponse { cache_id, response })
     }
 
     pub async fn expire_key(&self, by: ExpireCacheKeyInput) -> Result<()> {

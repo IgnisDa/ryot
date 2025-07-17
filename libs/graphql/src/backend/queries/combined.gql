@@ -105,6 +105,7 @@ query UserIntegrations {
 			jellyfinPushPassword
 			youtubeMusicTimezone
 			youtubeMusicAuthCookie
+			ryotBrowserExtensionDisabledSites
 		}
 	}
 }
@@ -386,10 +387,13 @@ query MetadataGroupDetails($metadataGroupId: String!) {
 
 query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 	metadataGroupSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
 		}
 	}
 }
@@ -409,20 +413,26 @@ query UserMetadataList($input: UserMetadataListInput!) {
 
 query MetadataSearch($input: MetadataSearchInput!) {
 	metadataSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
 		}
 	}
 }
 
 query PeopleSearch($input: PeopleSearchInput!) {
 	peopleSearch(input: $input) {
-		items
-		details {
-			total
-			nextPage
+		cacheId
+		response {
+			items
+			details {
+				total
+				nextPage
+			}
 		}
 	}
 }
@@ -527,8 +537,11 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 
 query UserAnalyticsParameters {
 	userAnalyticsParameters {
-		endDate
-		startDate
+		cacheId
+		response {
+			endDate
+			startDate
+		}
 	}
 }
 
@@ -542,6 +555,28 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 		details {
 			total
 			nextPage
+		}
+	}
+}
+
+query MetadataLookup($title: String!) {
+	metadataLookup(title: $title) {
+		cacheId
+		response {
+			... on MetadataLookupFoundResult {
+				data {
+					lot
+					source
+					identifier
+				}
+				showInformation {
+					season
+					episode
+				}
+			}
+			... on MetadataLookupNotFound {
+				notFound
+			}
 		}
 	}
 }

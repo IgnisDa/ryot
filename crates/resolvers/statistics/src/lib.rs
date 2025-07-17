@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::{ApplicationDateRange, UserAnalyticsInput};
-use dependent_models::UserAnalytics;
+use dependent_models::{CachedResponse, UserAnalytics};
 use statistics_service::StatisticsService;
 use traits::AuthProvider;
 
@@ -17,7 +17,7 @@ impl StatisticsQuery {
     async fn user_analytics_parameters(
         &self,
         gql_ctx: &Context<'_>,
-    ) -> Result<ApplicationDateRange> {
+    ) -> Result<CachedResponse<ApplicationDateRange>> {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_analytics_parameters(&user_id).await
@@ -28,7 +28,7 @@ impl StatisticsQuery {
         &self,
         gql_ctx: &Context<'_>,
         input: UserAnalyticsInput,
-    ) -> Result<UserAnalytics> {
+    ) -> Result<CachedResponse<UserAnalytics>> {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         service.user_analytics(&user_id, input).await

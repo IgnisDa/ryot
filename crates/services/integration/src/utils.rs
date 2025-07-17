@@ -2,8 +2,10 @@ use anyhow::{Result, bail};
 use database_models::metadata;
 use database_utils::ilike_sql;
 use enum_models::{MediaLot, MediaSource};
+use rust_decimal::Decimal;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
 use sea_query::{Alias, Expr, Func, extension::postgres::PgExpr};
+use serde::{Deserialize, Serialize};
 
 pub async fn get_show_by_episode_identifier(
     db: &DatabaseConnection,
@@ -34,4 +36,19 @@ pub async fn get_show_by_episode_identifier(
             episode
         ),
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct IntegrationMediaSeen {
+    pub lot: MediaLot,
+    pub progress: Decimal,
+    pub identifier: String,
+    pub show_season_number: Option<i32>,
+    pub show_episode_number: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserExtensionMediaSeen {
+    pub url: String,
+    pub data: IntegrationMediaSeen,
 }

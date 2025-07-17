@@ -415,6 +415,12 @@ pub struct MetadataRecentlyConsumedCacheInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetadataLookupCacheInput {
+    pub title: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct YoutubeMusicSongListened {
     pub id: String,
     pub listened_on: NaiveDate,
