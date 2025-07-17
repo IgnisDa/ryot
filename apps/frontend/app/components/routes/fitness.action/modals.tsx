@@ -4,10 +4,12 @@ import { UploadAssetsModal } from "./miscellaneous";
 import { ReorderDrawer } from "./reorder";
 import { DisplaySupersetModal } from "./supersets";
 import { TimerAndStopwatchDrawer } from "./timer-and-stopwatch-drawer";
+import type { FuncStartTimer } from "./types";
 
 interface ModalsProps {
 	stopTimer: () => void;
 	timerDrawerOpened: boolean;
+	startTimer: FuncStartTimer;
 	openTimerDrawer: () => void;
 	closeTimerDrawer: () => void;
 	toggleTimerDrawer: () => void;
@@ -19,10 +21,6 @@ interface ModalsProps {
 	currentWorkoutExercises?: Array<{ identifier: string }>;
 	setAssetsModalOpened: (value: string | null | undefined) => void;
 	setIsReorderDrawerOpened: (value: string | null | undefined) => void;
-	startTimer: (
-		duration: number,
-		triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
-	) => void;
 }
 
 export function WorkoutModals({

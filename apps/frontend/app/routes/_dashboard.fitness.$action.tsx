@@ -1,10 +1,14 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
-import { changeCase, isString, parseParameters } from "@ryot/ts-utils";
-import { Howl } from "howler";
+import {
+	changeCase,
+	isNumber,
+	isString,
+	parseParameters,
+} from "@ryot/ts-utils";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { $path } from "safe-routes";
@@ -15,11 +19,14 @@ import { WorkoutHeader } from "~/components/routes/fitness.action/header";
 import {
 	getProgressOfExercise,
 	usePerformTasksAfterSetConfirmed,
+	usePlayFitnessSound,
 } from "~/components/routes/fitness.action/hooks";
 import {
 	WorkoutModals,
 	useWorkoutModals,
 } from "~/components/routes/fitness.action/modals";
+import { handleSetConfirmation } from "~/components/routes/fitness.action/set-display/functions";
+import type { FuncStartTimer } from "~/components/routes/fitness.action/types";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/routes/fitness.action/utils";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserPreferences } from "~/lib/shared/hooks";
@@ -64,27 +71,31 @@ export default function Page() {
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
 	const {
-		assetsModalOpened,
-		setAssetsModalOpened,
-		timerDrawerOpened,
 		openTimerDrawer,
 		closeTimerDrawer,
 		toggleTimerDrawer,
-		isReorderDrawerOpened,
-		setIsReorderDrawerOpened,
 		openReorderDrawer,
-		supersetWithExerciseIdentifier,
+		timerDrawerOpened,
+		assetsModalOpened,
+		setAssetsModalOpened,
+		isReorderDrawerOpened,
 		setSupersetModalOpened,
+		setIsReorderDrawerOpened,
+		supersetWithExerciseIdentifier,
 	} = useWorkoutModals();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
+	const playCheckSound = usePlayFitnessSound("check");
+	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
 	const shouldDisplayWorkoutTimer = Boolean(
 		loaderData.action === FitnessAction.LogWorkout,
 	);
+	const shouldDisplayCancelButton = true;
 	const shouldDisplayReorderButton = Boolean(numberOfExercises > 1);
 	const shouldDisplayFinishButton = Boolean(
 		loaderData.isCreatingTemplate
@@ -94,72 +105,25 @@ export default function Page() {
 						getProgressOfExercise(currentWorkout, idx) !== "not-started",
 				),
 	);
-	const shouldDisplayCancelButton = true;
 
-	useInterval(() => {
-		if (
-			loaderData.action === FitnessAction.LogWorkout &&
-			navigator.serviceWorker.controller &&
-			document.visibilityState === "visible"
-		)
-			postMessageToServiceWorker({
-				event: "remove-timer-completed-notification",
-			});
-	}, 5000);
-	useInterval(() => {
-		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
-			dayjsLib(),
-			"second",
-		);
-		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
-			if (navigator.vibrate) navigator.vibrate(200);
-			if (timeRemaining <= 1) {
-				const triggeredBy = currentTimer?.triggeredBy;
-				if (promptForRestTimer && triggeredBy && currentWorkout) {
-					const exerciseIdx = currentWorkout?.exercises.findIndex(
-						(c) => c.identifier === triggeredBy.exerciseIdentifier,
-					);
-					const setIdx = currentWorkout?.exercises[exerciseIdx]?.sets.findIndex(
-						(s) => s.identifier === triggeredBy.setIdentifier,
-					);
-					if (
-						exerciseIdx !== -1 &&
-						exerciseIdx !== undefined &&
-						userPreferences.fitness.logging.promptForRestTimer
-					) {
-						performTasksAfterSetConfirmed(setIdx, exerciseIdx);
-					}
-				}
-				playCompleteTimerSound();
-				stopTimer();
-				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY_MS);
-			}
-		}
-	}, 1000);
-
-	const timerCompleteSound = useMemo(
-		() => new Howl({ src: ["/timer-completed.mp3"] }),
-		[],
-	);
 	const playCompleteTimerSound = () => {
-		if (!userPreferences.fitness.logging.muteSounds) timerCompleteSound.play();
+		timerCompleteSound();
 		if (document.visibilityState === "visible") return;
-		sendNotificationToServiceWorker(
-			"Timer completed",
-			"Let's get this done!",
-			"timer-completed",
-			{ event: "open-link", link: window.location.href },
-		);
-	};
-	const startTimer = (
-		duration: number,
-		triggeredBy?: { exerciseIdentifier: string; setIdentifier: string },
-	) => {
-		setCurrentTimer({
-			triggeredBy,
-			totalTime: duration,
-			willEndAt: dayjsLib().add(duration, "second").toISOString(),
+		sendNotificationToServiceWorker({
+			title: "Timer completed",
+			body: "Let's get this done!",
+			tag: "timer-completed",
+			data: { event: "open-link", link: window.location.href },
 		});
+	};
+	const startTimer: FuncStartTimer = (input) => {
+		setCurrentTimer({
+			totalTime: input.duration,
+			triggeredBy: input.triggeredBy,
+			confirmSetOnFinish: input.confirmSetOnFinish,
+			willEndAt: dayjsLib().add(input.duration, "second").toISOString(),
+		});
+		if (input.openTimerDrawer) toggleTimerDrawer();
 	};
 	const pauseOrResumeTimer = () => {
 		if (currentTimer)
@@ -194,6 +158,79 @@ export default function Page() {
 		}
 		setCurrentTimer(RESET);
 	};
+
+	useInterval(() => {
+		if (
+			loaderData.action === FitnessAction.LogWorkout &&
+			navigator.serviceWorker.controller &&
+			document.visibilityState === "visible"
+		)
+			postMessageToServiceWorker({
+				event: "remove-timer-completed-notification",
+			});
+	}, 5000);
+	useInterval(() => {
+		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(
+			dayjsLib(),
+			"second",
+		);
+		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
+			if (navigator.vibrate) navigator.vibrate(200);
+			if (timeRemaining <= 1) {
+				const confirmSetOnFinish = currentTimer?.confirmSetOnFinish;
+				const triggeredBy = currentTimer?.triggeredBy;
+				if (promptForRestTimer && triggeredBy && currentWorkout) {
+					const exerciseIdx = currentWorkout?.exercises.findIndex(
+						(c) => c.identifier === triggeredBy.exerciseIdentifier,
+					);
+					const setIdx = currentWorkout?.exercises[exerciseIdx]?.sets.findIndex(
+						(s) => s.identifier === triggeredBy.setIdentifier,
+					);
+					if (
+						exerciseIdx !== -1 &&
+						exerciseIdx !== undefined &&
+						userPreferences.fitness.logging.promptForRestTimer
+					) {
+						performTasksAfterSetConfirmed(setIdx, exerciseIdx);
+					}
+				}
+				playCompleteTimerSound();
+				stopTimer();
+				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY_MS);
+
+				if (confirmSetOnFinish) {
+					const exerciseIdx = currentWorkout?.exercises.findIndex(
+						(e) => e.identifier === confirmSetOnFinish?.exerciseIdentifier,
+					);
+					if (!isNumber(exerciseIdx)) return;
+					const exercise = currentWorkout?.exercises[exerciseIdx];
+					const setIdx = exercise?.sets.findIndex(
+						(s) => s.identifier === confirmSetOnFinish?.setIdentifier,
+					);
+					if (!isNumber(setIdx)) return;
+					const set = exercise?.sets[setIdx];
+					if (!set) return;
+					handleSetConfirmation({
+						set,
+						setIdx,
+						exercise,
+						stopTimer,
+						startTimer,
+						exerciseIdx,
+						currentTimer,
+						currentWorkout,
+						playCheckSound,
+						userPreferences,
+						isWorkoutPaused,
+						setCurrentWorkout,
+						advanceOnboardingTourStep,
+						isOnboardingTourInProgress,
+						performTasksAfterSetConfirmed,
+					});
+				}
+			}
+		}
+	}, 1000);
 
 	return (
 		<Container size="sm">
@@ -239,6 +276,7 @@ export default function Page() {
 										key={ex.identifier}
 										stopTimer={stopTimer}
 										startTimer={startTimer}
+										playCheckSound={playCheckSound}
 										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={openReorderDrawer}

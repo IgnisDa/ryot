@@ -1,22 +1,16 @@
 import type {
 	AppServiceWorkerMessageData,
-	AppServiceWorkerNotificationData,
-	AppServiceWorkerNotificationTag,
+	SendNotificationProps,
 } from "../types";
 import { LOGO_IMAGE_URL } from "./constants";
 
-export const sendNotificationToServiceWorker = (
-	title: string,
-	body: string,
-	tag?: AppServiceWorkerNotificationTag,
-	data?: AppServiceWorkerNotificationData,
-) =>
+export const sendNotificationToServiceWorker = (props: SendNotificationProps) =>
 	navigator.serviceWorker.ready.then((registration) => {
-		registration.showNotification(title, {
-			tag,
-			body,
-			data,
+		registration.showNotification(props.title, {
 			silent: true,
+			tag: props.tag,
+			body: props.body,
+			data: props.data,
 			icon: LOGO_IMAGE_URL,
 		});
 	});

@@ -31,9 +31,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { Howl } from "howler";
 import { produce } from "immer";
-import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -54,7 +52,7 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/general";
-import { getProgressOfExercise } from "../hooks";
+import { getProgressOfExercise, usePlayFitnessSound } from "../hooks";
 import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";
 import { deleteUploadedAsset } from "../utils";
@@ -68,6 +66,7 @@ export const ExerciseDisplay = (props: {
 	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	isCreatingTemplate: boolean;
+	playCheckSound: () => void;
 	openTimerDrawer: () => void;
 	openSupersetModal: (s: string) => void;
 	setOpenAssetsModal: (identifier: string) => void;
@@ -96,10 +95,7 @@ export const ExerciseDisplay = (props: {
 		{ open: openDetailsModal, close: closeDetailsModal },
 	] = useDisclosure(false);
 
-	const addSetSound = useMemo(() => new Howl({ src: ["/add-set.mp3"] }), []);
-	const playAddSetSound = () => {
-		if (!userPreferences.fitness.logging.muteSounds) addSetSound.play();
-	};
+	const playAddSetSound = usePlayFitnessSound("add-set");
 
 	const selectedUnitSystem = exercise.unitSystem;
 	const isOnboardingTourStep =
@@ -378,11 +374,12 @@ export const ExerciseDisplay = (props: {
 									stopTimer={props.stopTimer}
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}
+									playCheckSound={props.playCheckSound}
 									key={`${exercise.identifier}-${idx}`}
-									isCreatingTemplate={props.isCreatingTemplate}
 									isWorkoutPaused={props.isWorkoutPaused}
 									openTimerDrawer={props.openTimerDrawer}
 									toBeDisplayedColumns={toBeDisplayedColumns}
+									isCreatingTemplate={props.isCreatingTemplate}
 								/>
 							))}
 							<Button

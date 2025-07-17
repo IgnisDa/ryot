@@ -3,7 +3,10 @@ import type {
 	UserExerciseDetailsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, sortBy } from "@ryot/ts-utils";
+import { Howl } from "howler";
 import { produce } from "immer";
+import { useMemo } from "react";
+import { useUserPreferences } from "~/lib/shared/hooks";
 import { queryClient } from "~/lib/shared/query-factory";
 import {
 	type InProgressWorkout,
@@ -138,4 +141,18 @@ export const usePerformTasksAfterSetConfirmed = () => {
 	};
 
 	return performTask;
+};
+
+export const usePlayFitnessSound = (fileName: string) => {
+	const userPreferences = useUserPreferences();
+	const sound = useMemo(
+		() => new Howl({ src: [`/sounds/${fileName}.mp3`] }),
+		[],
+	);
+
+	const playSound = () => {
+		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+	};
+
+	return playSound;
 };

@@ -554,7 +554,13 @@ export default function Page() {
 							</Input.Wrapper>
 							<Divider />
 							<Title order={4}>Workout logging</Title>
-							{(["muteSounds", "promptForRestTimer"] as const).map((option) => {
+							{(
+								[
+									"muteSounds",
+									"promptForRestTimer",
+									"startTimerForDurationExercises",
+								] as const
+							).map((option) => {
 								const [label, isGatedBehindServerKeyValidation] = match(option)
 									.with(
 										"muteSounds",
@@ -566,6 +572,13 @@ export default function Page() {
 											[
 												"Prompt for rest timer when confirming sets",
 												true,
+											] as const,
+									)
+									.with(
+										"startTimerForDurationExercises",
+										() =>
+											[
+												"Start timer for exercises where duration is set",
 											] as const,
 									)
 									.exhaustive();

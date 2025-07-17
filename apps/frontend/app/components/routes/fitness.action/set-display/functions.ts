@@ -4,17 +4,17 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
-import { Howl } from "howler";
 import { produce } from "immer";
-import { useMemo } from "react";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserPreferences } from "~/lib/shared/hooks";
 import {
+	type CurrentWorkout,
+	type CurrentWorkoutTimer,
+	type Exercise,
+	type ExerciseSet,
 	type InProgressWorkout,
 	getUserExerciseDetailsQuery,
 	getWorkoutDetails,
-} from "~/lib/state/fitness";
-import {
 	useCurrentWorkout,
 	useCurrentWorkoutTimerAtom,
 	useGetExerciseAtIndex,
@@ -42,29 +42,29 @@ export const getGlobalSetIndex = (
 	return globalIndex;
 };
 
-export const usePreviousSetData = (
-	setIdx: number,
-	exerciseIdx: number,
-	currentWorkout: InProgressWorkout,
-	exerciseId: string,
-) => {
+export const usePreviousSetData = (input: {
+	setIdx: number;
+	exerciseId: string;
+	exerciseIdx: number;
+	currentWorkout: InProgressWorkout;
+}) => {
 	const { data: userExerciseDetails } = useQuery(
-		getUserExerciseDetailsQuery(exerciseId),
+		getUserExerciseDetailsQuery(input.exerciseId),
 	);
 
 	return useQuery({
 		enabled: !!userExerciseDetails,
 		queryKey: [
 			"previousSetData",
-			`exercise-${exerciseIdx}`,
-			`set-${setIdx}`,
+			`exercise-${input.exerciseIdx}`,
+			`set-${input.setIdx}`,
 			userExerciseDetails?.history,
 		],
 		queryFn: async () => {
 			const globalSetIndex = getGlobalSetIndex(
-				setIdx,
-				exerciseIdx,
-				currentWorkout,
+				input.setIdx,
+				input.exerciseIdx,
+				input.currentWorkout,
 			);
 
 			const allPreviousSets: WorkoutSetStatistic[] = [];
@@ -109,12 +109,110 @@ export const isSetConfirmationDisabled = (
 	}
 };
 
+export const handleSetConfirmation = async (params: {
+	setIdx: number;
+	exerciseIdx: number;
+	stopTimer: () => void;
+	isWorkoutPaused: boolean;
+	startTimer: FuncStartTimer;
+	playCheckSound: () => void;
+	set: ExerciseSet | undefined;
+	currentWorkout: CurrentWorkout;
+	exercise: Exercise | undefined;
+	isOnboardingTourInProgress: boolean;
+	advanceOnboardingTourStep: () => void;
+	currentTimer: CurrentWorkoutTimer | null;
+	userPreferences: ReturnType<typeof useUserPreferences>;
+	setCurrentWorkout: (workout: InProgressWorkout) => void;
+	performTasksAfterSetConfirmed: ReturnType<
+		typeof usePerformTasksAfterSetConfirmed
+	>;
+}) => {
+	const {
+		set,
+		setIdx,
+		exercise,
+		stopTimer,
+		startTimer,
+		exerciseIdx,
+		currentTimer,
+		playCheckSound,
+		currentWorkout,
+		userPreferences,
+		isWorkoutPaused,
+		setCurrentWorkout,
+		advanceOnboardingTourStep,
+		isOnboardingTourInProgress,
+		performTasksAfterSetConfirmed,
+	} = params;
+
+	if (!currentWorkout || !exercise || !set) return;
+
+	playCheckSound();
+	const newConfirmed = !set.confirmedAt;
+
+	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
+	const isOnboardingTourStep =
+		isOnboardingTourInProgress &&
+		set?.confirmedAt === null &&
+		exerciseIdx === 0 &&
+		setIdx === 0;
+
+	if (isOnboardingTourStep && newConfirmed) {
+		advanceOnboardingTourStep();
+	}
+
+	if (
+		!newConfirmed &&
+		currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
+		currentTimer?.triggeredBy?.setIdentifier === set.identifier
+	) {
+		stopTimer();
+	}
+
+	if (set.restTimer && newConfirmed && !promptForRestTimer) {
+		startTimer({
+			duration: set.restTimer.duration,
+			triggeredBy: {
+				setIdentifier: set.identifier,
+				exerciseIdentifier: exercise.identifier,
+			},
+		});
+	}
+
+	setCurrentWorkout(
+		produce(currentWorkout, (draft) => {
+			if (isWorkoutPaused) {
+				draft.durations.push({
+					from: dayjsLib().toISOString(),
+				});
+			}
+			const currentExercise = draft.exercises[exerciseIdx];
+			const currentSet = currentExercise.sets[setIdx];
+			currentSet.confirmedAt = newConfirmed
+				? currentWorkout.currentAction === FitnessAction.UpdateWorkout
+					? true
+					: dayjsLib().toISOString()
+				: null;
+			currentExercise.scrollMarginRemoved = true;
+			if (newConfirmed && promptForRestTimer && set.restTimer) {
+				currentSet.displayRestTimeTrigger = true;
+			}
+		}),
+	);
+
+	if (newConfirmed && !promptForRestTimer) {
+		await performTasksAfterSetConfirmed(setIdx, exerciseIdx);
+	}
+};
+
 export const useSetConfirmationHandler = (props: {
 	setIdx: number;
 	exerciseIdx: number;
 	stopTimer: () => void;
-	startTimer: FuncStartTimer;
 	isWorkoutPaused: boolean;
+	playCheckSound: () => void;
+	startTimer: FuncStartTimer;
 }) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const [currentTimer] = useCurrentWorkoutTimerAtom();
@@ -125,66 +223,23 @@ export const useSetConfirmationHandler = (props: {
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const checkSound = useMemo(() => new Howl({ src: ["/check.mp3"] }), []);
-	const playCheckSound = () => {
-		if (!userPreferences.fitness.logging.muteSounds) checkSound.play();
-	};
-
-	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const isOnboardingTourStep =
-		isOnboardingTourInProgress &&
-		set?.confirmedAt === null &&
-		props.exerciseIdx === 0 &&
-		props.setIdx === 0;
-
 	return async () => {
-		if (!currentWorkout || !exercise || !set) return;
-
-		playCheckSound();
-		const newConfirmed = !set.confirmedAt;
-
-		if (isOnboardingTourStep && newConfirmed) {
-			advanceOnboardingTourStep();
-		}
-
-		if (
-			!newConfirmed &&
-			currentTimer?.triggeredBy?.exerciseIdentifier === exercise.identifier &&
-			currentTimer?.triggeredBy?.setIdentifier === set.identifier
-		) {
-			props.stopTimer();
-		}
-
-		if (set.restTimer && newConfirmed && !promptForRestTimer) {
-			props.startTimer(set.restTimer.duration, {
-				setIdentifier: set.identifier,
-				exerciseIdentifier: exercise.identifier,
-			});
-		}
-
-		setCurrentWorkout(
-			produce(currentWorkout, (draft) => {
-				if (props.isWorkoutPaused) {
-					draft.durations.push({
-						from: dayjsLib().toISOString(),
-					});
-				}
-				const currentExercise = draft.exercises[props.exerciseIdx];
-				const currentSet = currentExercise.sets[props.setIdx];
-				currentSet.confirmedAt = newConfirmed
-					? currentWorkout.currentAction === FitnessAction.UpdateWorkout
-						? true
-						: dayjsLib().toISOString()
-					: null;
-				currentExercise.scrollMarginRemoved = true;
-				if (newConfirmed && promptForRestTimer && set.restTimer) {
-					currentSet.displayRestTimeTrigger = true;
-				}
-			}),
-		);
-
-		if (newConfirmed && !promptForRestTimer) {
-			await performTasksAfterSetConfirmed(props.setIdx, props.exerciseIdx);
-		}
+		await handleSetConfirmation({
+			set,
+			exercise,
+			currentTimer,
+			currentWorkout,
+			userPreferences,
+			setCurrentWorkout,
+			setIdx: props.setIdx,
+			advanceOnboardingTourStep,
+			isOnboardingTourInProgress,
+			stopTimer: props.stopTimer,
+			startTimer: props.startTimer,
+			performTasksAfterSetConfirmed,
+			exerciseIdx: props.exerciseIdx,
+			playCheckSound: props.playCheckSound,
+			isWorkoutPaused: props.isWorkoutPaused,
+		});
 	};
 };

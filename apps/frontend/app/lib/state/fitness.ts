@@ -44,6 +44,7 @@ export type ExerciseSet = {
 	identifier: string;
 	rpe?: number | null;
 	restTimerStartedAt?: string;
+	durationTimerTriggered?: true;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
 	displayRestTimeTrigger?: boolean;
@@ -91,7 +92,7 @@ export type InProgressWorkout = {
 	timerDrawerLot: "timer" | "stopwatch";
 };
 
-type CurrentWorkout = InProgressWorkout | null;
+export type CurrentWorkout = InProgressWorkout | null;
 
 const currentWorkoutAtom = atomWithStorage<CurrentWorkout>(
 	CURRENT_WORKOUT_KEY,
@@ -269,11 +270,17 @@ export const currentWorkoutToCreateWorkoutInput = (
 	return input;
 };
 
+export type SetIdentifier = {
+	setIdentifier: string;
+	exerciseIdentifier: string;
+};
+
 export type CurrentWorkoutTimer = {
 	willEndAt: string;
 	totalTime: number;
 	wasPausedAt?: string;
-	triggeredBy?: { exerciseIdentifier: string; setIdentifier: string };
+	triggeredBy?: SetIdentifier;
+	confirmSetOnFinish?: SetIdentifier;
 };
 
 const currentWorkoutTimerAtom = atomWithStorage<CurrentWorkoutTimer | null>(
