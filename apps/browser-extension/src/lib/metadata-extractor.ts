@@ -1,4 +1,4 @@
-export function extractTitle() {
+export function extractMetadataTitle() {
 	const title = document.title;
 	const h1Elements = Array.from(document.querySelectorAll("h1")).map(
 		(el) => el.textContent?.trim() || "",

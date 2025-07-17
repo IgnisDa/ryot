@@ -12,7 +12,7 @@ import type {
 } from "../lib/extension-types";
 import { logger } from "../lib/logger";
 import { MetadataCache } from "../lib/metadata-cache";
-import { extractTitle } from "../lib/title-extractor";
+import { extractMetadataTitle } from "../lib/metadata-extractor";
 
 export default defineContentScript({
 	allFrames: true,
@@ -44,7 +44,7 @@ export default defineContentScript({
 		}
 
 		async function getOrLookupMetadata(): Promise<MetadataLookupData | null> {
-			const title = extractTitle();
+			const title = extractMetadataTitle();
 			if (!title) return null;
 
 			if (!metadataCache) return null;
@@ -99,7 +99,7 @@ export default defineContentScript({
 		}
 
 		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
-			const title = extractTitle();
+			const title = extractMetadataTitle();
 			if (
 				!title ||
 				!video.duration ||
@@ -134,7 +134,7 @@ export default defineContentScript({
 			updateExtensionStatus({
 				state: "tracking_active",
 				message: "Tracking active",
-				videoTitle: extractTitle() || "Unknown",
+				videoTitle: extractMetadataTitle() || "Unknown",
 			});
 
 			const sendProgress = () => {
@@ -213,7 +213,7 @@ export default defineContentScript({
 					await updateExtensionStatus({
 						state: "video_detected",
 						message: "Video found, starting tracking...",
-						videoTitle: extractTitle() || "Unknown",
+						videoTitle: extractMetadataTitle() || "Unknown",
 					});
 
 					startTrackingWithMetadataAndVideo(metadata, video);

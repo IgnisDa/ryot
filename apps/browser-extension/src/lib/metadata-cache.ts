@@ -2,7 +2,7 @@ import { storage } from "#imports";
 import { MESSAGE_TYPES } from "./constants";
 import type { MetadataLookupData } from "./extension-types";
 import { logger } from "./logger";
-import { extractTitle } from "./title-extractor";
+import { extractMetadataTitle } from "./metadata-extractor";
 
 export class MetadataCache {
 	private getCacheKey(title: string): `local:${string}` {
@@ -14,7 +14,7 @@ export class MetadataCache {
 	}
 
 	async getMetadataForCurrentPage() {
-		const title = extractTitle();
+		const title = extractMetadataTitle();
 
 		if (!title) return null;
 
@@ -25,7 +25,7 @@ export class MetadataCache {
 	}
 
 	async lookupAndCacheMetadata() {
-		const title = extractTitle();
+		const title = extractMetadataTitle();
 
 		if (!title) {
 			logger.debug("No title available yet, skipping metadata lookup");
