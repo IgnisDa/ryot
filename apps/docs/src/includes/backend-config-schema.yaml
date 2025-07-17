@@ -126,7 +126,16 @@ movies_and_shows:
     locale: "en"
 
 # Settings related to music.
-music: {}
+music:
+  # Settings related to Spotify.
+  spotify:
+    # The client ID for the Spotify API.
+    # @envvar MUSIC_SPOTIFY_CLIENT_ID
+    client_id: ""
+
+    # The client secret for the Spotify API.
+    # @envvar MUSIC_SPOTIFY_CLIENT_SECRET
+    client_secret: ""
 
 # Settings related to podcasts.
 podcasts:
