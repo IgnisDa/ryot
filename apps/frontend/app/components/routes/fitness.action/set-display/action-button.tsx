@@ -90,6 +90,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 							onClick={() => {
 								timerStartedSound();
 								props.startTimer({
+									openTimerDrawer: true,
 									confirmSetOnFinish: setIdentifier,
 									duration: dayjsLib
 										.duration(Number(set.statistic.duration), "minute")

@@ -123,6 +123,7 @@ export default function Page() {
 			confirmSetOnFinish: input.confirmSetOnFinish,
 			willEndAt: dayjsLib().add(input.duration, "second").toISOString(),
 		});
+		if (input.openTimerDrawer) toggleTimerDrawer();
 	};
 	const pauseOrResumeTimer = () => {
 		if (currentTimer)
