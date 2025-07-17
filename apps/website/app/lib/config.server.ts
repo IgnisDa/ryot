@@ -8,6 +8,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
 import { Issuer } from "openid-client";
+import type { ReactNode } from "react";
 import { createCookie } from "react-router";
 import { Honeypot } from "remix-utils/honeypot/server";
 import { z } from "zod";
@@ -102,7 +103,7 @@ export const getPaddleServerClient = () =>
 export const sendEmail = async (input: {
 	recipient: string;
 	subject: string;
-	element: JSX.Element;
+	element: ReactNode;
 	cc?: string;
 }) => {
 	const client = createTransport({
