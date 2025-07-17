@@ -1,6 +1,11 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
-import { changeCase, isString, parseParameters } from "@ryot/ts-utils";
+import {
+	changeCase,
+	isNumber,
+	isString,
+	parseParameters,
+} from "@ryot/ts-utils";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useState } from "react";
@@ -20,6 +25,7 @@ import {
 	WorkoutModals,
 	useWorkoutModals,
 } from "~/components/routes/fitness.action/modals";
+import { handleSetConfirmation } from "~/components/routes/fitness.action/set-display/functions";
 import type { FuncStartTimer } from "~/components/routes/fitness.action/types";
 import { DEFAULT_SET_TIMEOUT_DELAY_MS } from "~/components/routes/fitness.action/utils";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -79,14 +85,17 @@ export default function Page() {
 	} = useWorkoutModals();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
+		useOnboardingTour();
 	const playCheckSound = usePlayFitnessSound("check");
+	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
 	const shouldDisplayWorkoutTimer = Boolean(
 		loaderData.action === FitnessAction.LogWorkout,
 	);
+	const shouldDisplayCancelButton = true;
 	const shouldDisplayReorderButton = Boolean(numberOfExercises > 1);
 	const shouldDisplayFinishButton = Boolean(
 		loaderData.isCreatingTemplate
@@ -96,7 +105,58 @@ export default function Page() {
 						getProgressOfExercise(currentWorkout, idx) !== "not-started",
 				),
 	);
-	const shouldDisplayCancelButton = true;
+
+	const playCompleteTimerSound = () => {
+		timerCompleteSound();
+		if (document.visibilityState === "visible") return;
+		sendNotificationToServiceWorker({
+			title: "Timer completed",
+			body: "Let's get this done!",
+			tag: "timer-completed",
+			data: { event: "open-link", link: window.location.href },
+		});
+	};
+	const startTimer: FuncStartTimer = (input) => {
+		setCurrentTimer({
+			totalTime: input.duration,
+			triggeredBy: input.triggeredBy,
+			confirmSetOnFinish: input.confirmSetOnFinish,
+			willEndAt: dayjsLib().add(input.duration, "second").toISOString(),
+		});
+	};
+	const pauseOrResumeTimer = () => {
+		if (currentTimer)
+			setCurrentTimer(
+				produce(currentTimer, (draft) => {
+					draft.willEndAt = dayjsLib(draft.willEndAt)
+						.add(dayjsLib().diff(draft.wasPausedAt, "second"), "second")
+						.toISOString();
+					draft.wasPausedAt = draft.wasPausedAt
+						? undefined
+						: dayjsLib().toISOString();
+				}),
+			);
+	};
+	const stopTimer = () => {
+		const triggeredBy = currentTimer?.triggeredBy;
+		if (currentWorkout && triggeredBy) {
+			setCurrentWorkout(
+				produce(currentWorkout, (draft) => {
+					const exercise = draft.exercises.find(
+						(e) => e.identifier === triggeredBy.exerciseIdentifier,
+					);
+					if (exercise) {
+						const setIdx = exercise.sets.findIndex(
+							(s) => s.identifier === triggeredBy.setIdentifier,
+						);
+						const restTimer = exercise.sets[setIdx].restTimer;
+						if (restTimer) restTimer.hasElapsed = true;
+					}
+				}),
+			);
+		}
+		setCurrentTimer(RESET);
+	};
 
 	useInterval(() => {
 		if (
@@ -136,67 +196,40 @@ export default function Page() {
 				playCompleteTimerSound();
 				stopTimer();
 				setTimeout(() => closeTimerDrawer(), DEFAULT_SET_TIMEOUT_DELAY_MS);
+
+				if (confirmSetOnFinish) {
+					const exerciseIdx = currentWorkout?.exercises.findIndex(
+						(e) => e.identifier === confirmSetOnFinish?.exerciseIdentifier,
+					);
+					if (!isNumber(exerciseIdx)) return;
+					const exercise = currentWorkout?.exercises[exerciseIdx];
+					const setIdx = exercise?.sets.findIndex(
+						(s) => s.identifier === confirmSetOnFinish?.setIdentifier,
+					);
+					if (!isNumber(setIdx)) return;
+					const set = exercise?.sets[setIdx];
+					if (!set) return;
+					handleSetConfirmation({
+						set,
+						setIdx,
+						exercise,
+						stopTimer,
+						startTimer,
+						exerciseIdx,
+						currentTimer,
+						currentWorkout,
+						playCheckSound,
+						userPreferences,
+						isWorkoutPaused,
+						setCurrentWorkout,
+						advanceOnboardingTourStep,
+						isOnboardingTourInProgress,
+						performTasksAfterSetConfirmed,
+					});
+				}
 			}
 		}
 	}, 1000);
-
-	const timerCompleteSound = usePlayFitnessSound("timer-completed");
-
-	const playCompleteTimerSound = () => {
-		timerCompleteSound();
-		if (document.visibilityState === "visible") return;
-		sendNotificationToServiceWorker({
-			title: "Timer completed",
-			body: "Let's get this done!",
-			tag: "timer-completed",
-			data: { event: "open-link", link: window.location.href },
-		});
-	};
-	const startTimer: FuncStartTimer = ({
-		duration,
-		triggeredBy,
-		confirmSetOnFinish,
-	}) => {
-		setCurrentTimer({
-			triggeredBy,
-			confirmSetOnFinish,
-			totalTime: duration,
-			willEndAt: dayjsLib().add(duration, "second").toISOString(),
-		});
-	};
-	const pauseOrResumeTimer = () => {
-		if (currentTimer)
-			setCurrentTimer(
-				produce(currentTimer, (draft) => {
-					draft.willEndAt = dayjsLib(draft.willEndAt)
-						.add(dayjsLib().diff(draft.wasPausedAt, "second"), "second")
-						.toISOString();
-					draft.wasPausedAt = draft.wasPausedAt
-						? undefined
-						: dayjsLib().toISOString();
-				}),
-			);
-	};
-	const stopTimer = () => {
-		const triggeredBy = currentTimer?.triggeredBy;
-		if (currentWorkout && triggeredBy) {
-			setCurrentWorkout(
-				produce(currentWorkout, (draft) => {
-					const exercise = draft.exercises.find(
-						(e) => e.identifier === triggeredBy.exerciseIdentifier,
-					);
-					if (exercise) {
-						const setIdx = exercise.sets.findIndex(
-							(s) => s.identifier === triggeredBy.setIdentifier,
-						);
-						const restTimer = exercise.sets[setIdx].restTimer;
-						if (restTimer) restTimer.hasElapsed = true;
-					}
-				}),
-			);
-		}
-		setCurrentTimer(RESET);
-	};
 
 	return (
 		<Container size="sm">
