@@ -4,6 +4,7 @@ import logo from "~/assets/icon.png";
 import { storage } from "#imports";
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
 import type { ExtensionStatus, FormState } from "../../lib/extension-types";
+import { logger } from "../../lib/logger";
 
 const App = () => {
 	const [currentPage, setCurrentPage] = useState<"main" | "settings">("main");
@@ -11,6 +12,9 @@ const App = () => {
 	const [formState, setFormState] = useState<FormState>({ status: "idle" });
 	const [extensionStatus, setExtensionStatus] =
 		useState<ExtensionStatus | null>(null);
+	const [currentVideoTitle, setCurrentVideoTitle] = useState<string | null>(
+		null,
+	);
 	const [debugMode, setDebugMode] = useState(false);
 
 	const validateUrl = (urlString: string) => {
@@ -57,7 +61,20 @@ const App = () => {
 					setExtensionStatus(response.data);
 				}
 			} catch (error) {
-				console.error("[RYOT] [ERROR] Failed to get extension status:", error);
+				logger.error("Failed to get extension status", { error });
+			}
+		};
+
+		const loadCurrentVideoTitle = async () => {
+			try {
+				const response = await browser.runtime.sendMessage({
+					type: MESSAGE_TYPES.GET_CACHED_TITLE,
+				});
+				if (response.success) {
+					setCurrentVideoTitle(response.data);
+				}
+			} catch (error) {
+				logger.error("Failed to get cached title", { error });
 			}
 		};
 
@@ -70,10 +87,12 @@ const App = () => {
 
 		loadSavedUrl();
 		loadExtensionStatus();
+		loadCurrentVideoTitle();
 		loadDebugMode();
 
 		const handleStorageChange = () => {
 			loadExtensionStatus();
+			loadCurrentVideoTitle();
 		};
 
 		const unwatch = storage.watch(
@@ -99,6 +118,7 @@ const App = () => {
 		setUrl("");
 		setFormState({ status: "idle" });
 		setExtensionStatus(null);
+		setCurrentVideoTitle(null);
 		setDebugMode(false);
 		setCurrentPage("main");
 	};
@@ -239,12 +259,11 @@ const App = () => {
 									>
 										Status: {extensionStatus.message}
 									</div>
-									{extensionStatus.videoTitle &&
-										extensionStatus.state !== "idle" && (
-											<div className="text-xs text-gray-600 mb-1">
-												{extensionStatus.videoTitle}
-											</div>
-										)}
+									{currentVideoTitle && extensionStatus.state !== "idle" && (
+										<div className="text-xs text-gray-600 mb-1">
+											{currentVideoTitle}
+										</div>
+									)}
 									{extensionStatus.message && (
 										<div className="text-xs text-gray-500">
 											{extensionStatus.message}

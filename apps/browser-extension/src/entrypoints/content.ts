@@ -134,7 +134,6 @@ export default defineContentScript({
 			updateExtensionStatus({
 				state: "tracking_active",
 				message: "Tracking active",
-				videoTitle: extractMetadataTitle() || "Unknown",
 			});
 
 			const sendProgress = () => {
@@ -213,7 +212,6 @@ export default defineContentScript({
 					await updateExtensionStatus({
 						state: "video_detected",
 						message: "Video found, starting tracking...",
-						videoTitle: extractMetadataTitle() || "Unknown",
 					});
 
 					startTrackingWithMetadataAndVideo(metadata, video);

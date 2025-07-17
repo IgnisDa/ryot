@@ -1,5 +1,5 @@
 import { storage } from "#imports";
-import { MESSAGE_TYPES } from "./constants";
+import { MESSAGE_TYPES, STORAGE_KEYS } from "./constants";
 import type { MetadataLookupData } from "./extension-types";
 import { logger } from "./logger";
 import { extractMetadataTitle } from "./metadata-extractor";
@@ -13,10 +13,20 @@ export class MetadataCache {
 		return `local:cached-metadata:${cleanTitle}`;
 	}
 
+	async setCurrentPageTitle(title: string) {
+		await storage.setItem(STORAGE_KEYS.CURRENT_PAGE_TITLE, title);
+	}
+
+	async getCurrentPageTitle(): Promise<string | null> {
+		return await storage.getItem<string>(STORAGE_KEYS.CURRENT_PAGE_TITLE);
+	}
+
 	async getMetadataForCurrentPage() {
 		const title = extractMetadataTitle();
 
 		if (!title) return null;
+
+		await this.setCurrentPageTitle(title);
 
 		const cacheKey = this.getCacheKey(title);
 		const cachedData = await storage.getItem<MetadataLookupData>(cacheKey);
@@ -31,6 +41,8 @@ export class MetadataCache {
 			logger.debug("No title available yet, skipping metadata lookup");
 			return null;
 		}
+
+		await this.setCurrentPageTitle(title);
 
 		try {
 			const response = await browser.runtime.sendMessage({

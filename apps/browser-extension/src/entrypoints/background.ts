@@ -63,6 +63,19 @@ export default defineBackground(() => {
 
 			return true;
 		}
+
+		if (message.type === MESSAGE_TYPES.GET_CACHED_TITLE) {
+			getCurrentCachedTitle()
+				.then((title) => {
+					sendResponse({ success: true, data: title });
+				})
+				.catch((error) => {
+					logger.debug("Failed to get cached title", { error });
+					sendResponse({ success: false, error: error.message });
+				});
+
+			return true;
+		}
 	});
 
 	async function handleMetadataLookup(data: {
@@ -151,5 +164,12 @@ export default defineBackground(() => {
 			STORAGE_KEYS.EXTENSION_STATUS,
 		);
 		return status || { state: "idle", message: "Nothing to do..." };
+	}
+
+	async function getCurrentCachedTitle() {
+		const title = await storage.getItem<string>(
+			STORAGE_KEYS.CURRENT_PAGE_TITLE,
+		);
+		return title || null;
 	}
 });

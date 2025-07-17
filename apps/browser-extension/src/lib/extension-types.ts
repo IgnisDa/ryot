@@ -20,7 +20,6 @@ export interface FormState {
 
 export interface ExtensionStatus {
 	message: string;
-	videoTitle?: string;
 	state:
 		| "idle"
 		| "video_detected"
