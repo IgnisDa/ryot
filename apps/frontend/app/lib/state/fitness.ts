@@ -44,9 +44,9 @@ export type ExerciseSet = {
 	identifier: string;
 	rpe?: number | null;
 	restTimerStartedAt?: string;
+	durationTimerTriggered?: true;
 	statistic: WorkoutSetStatistic;
 	note?: boolean | string | null;
-	displayConfirmTrigger?: true;
 	displayRestTimeTrigger?: boolean;
 	confirmedAt: string | boolean | null;
 	restTimer?: { duration: number; hasElapsed?: boolean } | null;

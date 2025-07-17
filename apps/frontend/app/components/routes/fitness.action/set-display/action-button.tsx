@@ -30,7 +30,7 @@ const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
 	return (
 		durationBasedLots.includes(exerciseLot) &&
 		!set.confirmedAt &&
-		!set.displayConfirmTrigger &&
+		!set.durationTimerTriggered &&
 		isString(set.statistic.duration)
 	);
 };
@@ -99,7 +99,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 									produce(currentWorkout, (draft) => {
 										const currentExercise = draft.exercises[props.exerciseIdx];
 										const currentSet = currentExercise.sets[props.setIdx];
-										currentSet.displayConfirmTrigger = true;
+										currentSet.durationTimerTriggered = true;
 									}),
 								);
 							}}
