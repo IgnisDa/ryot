@@ -82,7 +82,7 @@ pub async fn get_metadata_provider(
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }
         MediaSource::Custom => return err(),
-        MediaSource::Spotify => Box::new(SpotifyService::new(&ss.config.music.spotify).await),
+        MediaSource::Spotify => Box::new(SpotifyService::new(&ss.config.music.spotify, ss.clone()).await),
     };
     Ok(service)
 }
@@ -112,7 +112,7 @@ pub async fn get_non_metadata_provider(
         }
         MediaSource::Myanimelist => Box::new(NonMediaMalService::new().await),
         MediaSource::Custom => return err(),
-        MediaSource::Spotify => Box::new(SpotifyService::new(&ss.config.music.spotify).await),
+        MediaSource::Spotify => Box::new(SpotifyService::new(&ss.config.music.spotify, ss.clone()).await),
     };
     Ok(service)
 }

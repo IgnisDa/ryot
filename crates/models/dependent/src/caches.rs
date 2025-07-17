@@ -54,6 +54,7 @@ pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,
     TmdbSettings,
+    SpotifyAccessToken,
     ListennotesSettings,
     TrendingMetadataIds,
     MetadataLookup(MetadataLookupCacheInput),
@@ -85,6 +86,7 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
+pub type SpotifyAccessToken = String;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -93,6 +95,7 @@ pub enum ApplicationCacheValue {
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    SpotifyAccessToken(SpotifyAccessToken),
     MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),

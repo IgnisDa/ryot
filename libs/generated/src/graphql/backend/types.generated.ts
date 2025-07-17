@@ -1209,6 +1209,7 @@ export enum MediaSource {
   MangaUpdates = 'MANGA_UPDATES',
   Myanimelist = 'MYANIMELIST',
   Openlibrary = 'OPENLIBRARY',
+  Spotify = 'SPOTIFY',
   Tmdb = 'TMDB',
   Vndb = 'VNDB',
   YoutubeMusic = 'YOUTUBE_MUSIC'

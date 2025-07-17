@@ -65,6 +65,8 @@ impl CacheService {
             | ApplicationCacheKey::TmdbSettings
             | ApplicationCacheKey::ListennotesSettings => 120,
 
+            ApplicationCacheKey::SpotifyAccessToken => 45,
+
             ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => 720,
         }
     }
