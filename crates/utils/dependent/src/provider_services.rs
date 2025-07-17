@@ -13,6 +13,7 @@ use providers::{
     manga_updates::MangaUpdatesService,
     myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
     openlibrary::OpenlibraryService,
+    spotify::SpotifyService,
     tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
     vndb::VndbService,
     youtube_music::YoutubeMusicService,
@@ -81,7 +82,7 @@ pub async fn get_metadata_provider(
             Box::new(MangaUpdatesService::new(&ss.config.anime_and_manga.manga_updates).await)
         }
         MediaSource::Custom => return err(),
-        MediaSource::Spotify => return err(),
+        MediaSource::Spotify => Box::new(SpotifyService::new(&ss.config.music.spotify).await),
     };
     Ok(service)
 }
@@ -111,7 +112,7 @@ pub async fn get_non_metadata_provider(
         }
         MediaSource::Myanimelist => Box::new(NonMediaMalService::new().await),
         MediaSource::Custom => return err(),
-        MediaSource::Spotify => return err(),
+        MediaSource::Spotify => Box::new(SpotifyService::new(&ss.config.music.spotify).await),
     };
     Ok(service)
 }
