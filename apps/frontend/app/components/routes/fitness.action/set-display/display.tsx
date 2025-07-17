@@ -58,6 +58,7 @@ export const SetDisplay = (props: {
 	distanceCol: boolean;
 	stopTimer: () => void;
 	isWorkoutPaused: boolean;
+	playCheckSound: () => void;
 	startTimer: FuncStartTimer;
 	isCreatingTemplate: boolean;
 	openTimerDrawer: () => void;
@@ -327,6 +328,7 @@ export const SetDisplay = (props: {
 							stopTimer={props.stopTimer}
 							startTimer={props.startTimer}
 							exerciseIdx={props.exerciseIdx}
+							playCheckSound={props.playCheckSound}
 							isWorkoutPaused={props.isWorkoutPaused}
 							isOnboardingTourStep={isOnboardingTourStep}
 						/>

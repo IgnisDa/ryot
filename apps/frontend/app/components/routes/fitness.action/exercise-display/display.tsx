@@ -66,6 +66,7 @@ export const ExerciseDisplay = (props: {
 	isWorkoutPaused: boolean;
 	startTimer: FuncStartTimer;
 	isCreatingTemplate: boolean;
+	playCheckSound: () => void;
 	openTimerDrawer: () => void;
 	openSupersetModal: (s: string) => void;
 	setOpenAssetsModal: (identifier: string) => void;
@@ -373,6 +374,7 @@ export const ExerciseDisplay = (props: {
 									stopTimer={props.stopTimer}
 									startTimer={props.startTimer}
 									exerciseIdx={props.exerciseIdx}
+									playCheckSound={props.playCheckSound}
 									key={`${exercise.identifier}-${idx}`}
 									isWorkoutPaused={props.isWorkoutPaused}
 									openTimerDrawer={props.openTimerDrawer}

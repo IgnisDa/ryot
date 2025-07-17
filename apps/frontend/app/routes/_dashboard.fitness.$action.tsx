@@ -65,21 +65,22 @@ export default function Page() {
 	const [_, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
 	const [currentTimer, setCurrentTimer] = useCurrentWorkoutTimerAtom();
 	const {
-		assetsModalOpened,
-		setAssetsModalOpened,
-		timerDrawerOpened,
 		openTimerDrawer,
 		closeTimerDrawer,
 		toggleTimerDrawer,
-		isReorderDrawerOpened,
-		setIsReorderDrawerOpened,
 		openReorderDrawer,
-		supersetWithExerciseIdentifier,
+		timerDrawerOpened,
+		assetsModalOpened,
+		setAssetsModalOpened,
+		isReorderDrawerOpened,
 		setSupersetModalOpened,
+		setIsReorderDrawerOpened,
+		supersetWithExerciseIdentifier,
 	} = useWorkoutModals();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
+	const playCheckSound = usePlayFitnessSound("check");
 
 	const isWorkoutPaused = isString(currentWorkout?.durations.at(-1)?.to);
 	const numberOfExercises = currentWorkout?.exercises.length || 0;
@@ -115,6 +116,7 @@ export default function Page() {
 		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
 			if (navigator.vibrate) navigator.vibrate(200);
 			if (timeRemaining <= 1) {
+				const confirmSetOnFinish = currentTimer?.confirmSetOnFinish;
 				const triggeredBy = currentTimer?.triggeredBy;
 				if (promptForRestTimer && triggeredBy && currentWorkout) {
 					const exerciseIdx = currentWorkout?.exercises.findIndex(
@@ -240,6 +242,7 @@ export default function Page() {
 										key={ex.identifier}
 										stopTimer={stopTimer}
 										startTimer={startTimer}
+										playCheckSound={playCheckSound}
 										isWorkoutPaused={isWorkoutPaused}
 										openTimerDrawer={openTimerDrawer}
 										reorderDrawerToggle={openReorderDrawer}

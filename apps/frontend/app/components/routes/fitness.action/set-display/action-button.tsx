@@ -20,15 +20,6 @@ import {
 	useSetConfirmationHandler,
 } from "./functions";
 
-interface SetActionButtonProps {
-	setIdx: number;
-	exerciseIdx: number;
-	stopTimer: () => void;
-	isWorkoutPaused: boolean;
-	startTimer: FuncStartTimer;
-	isOnboardingTourStep: boolean;
-}
-
 const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
 	const durationBasedLots = [
 		ExerciseLot.DistanceAndDuration,
@@ -43,6 +34,16 @@ const shouldShowPlayButton = (exerciseLot: ExerciseLot, set: ExerciseSet) => {
 		isString(set.statistic.duration)
 	);
 };
+
+interface SetActionButtonProps {
+	setIdx: number;
+	exerciseIdx: number;
+	stopTimer: () => void;
+	isWorkoutPaused: boolean;
+	playCheckSound: () => void;
+	startTimer: FuncStartTimer;
+	isOnboardingTourStep: boolean;
+}
 
 export const SetActionButton = (props: SetActionButtonProps) => {
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
@@ -64,6 +65,7 @@ export const SetActionButton = (props: SetActionButtonProps) => {
 		stopTimer: props.stopTimer,
 		startTimer: props.startTimer,
 		exerciseIdx: props.exerciseIdx,
+		playCheckSound: props.playCheckSound,
 		isWorkoutPaused: props.isWorkoutPaused,
 	});
 
