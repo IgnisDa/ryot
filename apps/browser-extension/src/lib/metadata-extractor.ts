@@ -4,7 +4,7 @@ export function extractMetadataTitle() {
 		(el) => el.textContent?.trim() || "",
 	);
 
-	if (h1Elements.length > 0 && h1Elements[0]) {
+	if (h1Elements[0]) {
 		return h1Elements[0];
 	}
 
