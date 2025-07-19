@@ -5,8 +5,6 @@ import {
 	compareContinueItems,
 	compareRateTheseItems,
 	compareUpNextItems,
-	resolveBuiltInMediaLifecycleState,
-	resolveBuiltInMediaRateTheseMembership,
 } from "./classification";
 import type { BuiltInMediaOverviewResponse } from "./schemas";
 
@@ -26,9 +24,13 @@ export type BuiltInMediaOverviewSourceItem = {
 	entitySchemaSlug: BuiltinMediaEntitySchemaSlug;
 };
 
-type ContinueSourceItem = BuiltInMediaOverviewSourceItem & { progressAt: Date };
-type UpNextSourceItem = BuiltInMediaOverviewSourceItem & { backlogAt: Date };
-type RateTheseSourceItem = BuiltInMediaOverviewSourceItem & {
+export type ContinueSourceItem = BuiltInMediaOverviewSourceItem & {
+	progressAt: Date;
+};
+export type UpNextSourceItem = BuiltInMediaOverviewSourceItem & {
+	backlogAt: Date;
+};
+export type RateTheseSourceItem = BuiltInMediaOverviewSourceItem & {
 	completeAt: Date;
 };
 
@@ -38,58 +40,6 @@ const resolveUpNextBacklogAt = (item: UpNextSourceItem) => item.backlogAt;
 
 const resolveRateTheseCompletedAt = (item: RateTheseSourceItem) =>
 	item.completedOn ?? item.completeAt;
-
-const isContinueSourceItem = (
-	item: BuiltInMediaOverviewSourceItem,
-): item is ContinueSourceItem =>
-	resolveBuiltInMediaLifecycleState(item) === "continue" &&
-	item.progressAt !== null;
-
-const isUpNextSourceItem = (
-	item: BuiltInMediaOverviewSourceItem,
-): item is UpNextSourceItem =>
-	resolveBuiltInMediaLifecycleState(item) === "upNext" &&
-	item.backlogAt !== null;
-
-const isRateTheseSourceItem = (
-	item: BuiltInMediaOverviewSourceItem,
-): item is RateTheseSourceItem =>
-	resolveBuiltInMediaRateTheseMembership(item) && item.completeAt !== null;
-
-const compareContinueSourceItems = (
-	left: BuiltInMediaOverviewSourceItem,
-	right: BuiltInMediaOverviewSourceItem,
-) =>
-	compareContinueItems(
-		{ entityId: left.id, progressAt: left.progressAt },
-		{ entityId: right.id, progressAt: right.progressAt },
-	);
-
-const compareUpNextSourceItems = (
-	left: BuiltInMediaOverviewSourceItem,
-	right: BuiltInMediaOverviewSourceItem,
-) =>
-	compareUpNextItems(
-		{ entityId: left.id, backlogAt: left.backlogAt },
-		{ entityId: right.id, backlogAt: right.backlogAt },
-	);
-
-const compareRateTheseSourceItems = (
-	left: BuiltInMediaOverviewSourceItem,
-	right: BuiltInMediaOverviewSourceItem,
-) =>
-	compareRateTheseItems(
-		{
-			entityId: left.id,
-			completeAt: left.completeAt,
-			completedOn: left.completedOn,
-		},
-		{
-			entityId: right.id,
-			completeAt: right.completeAt,
-			completedOn: right.completedOn,
-		},
-	);
 
 const formatNumber = (value: number) => {
 	if (Number.isInteger(value)) {
@@ -158,11 +108,47 @@ const buildProgressLabel = (input: {
 	return "In progress";
 };
 
-export const buildBuiltInMediaOverviewResponse = (
-	items: BuiltInMediaOverviewSourceItem[],
-): BuiltInMediaOverviewResponse => {
-	const continueItems = items
-		.filter(isContinueSourceItem)
+const compareContinueSourceItems = (
+	left: ContinueSourceItem,
+	right: ContinueSourceItem,
+) =>
+	compareContinueItems(
+		{ entityId: left.id, progressAt: left.progressAt },
+		{ entityId: right.id, progressAt: right.progressAt },
+	);
+
+const compareUpNextSourceItems = (
+	left: UpNextSourceItem,
+	right: UpNextSourceItem,
+) =>
+	compareUpNextItems(
+		{ entityId: left.id, backlogAt: left.backlogAt },
+		{ entityId: right.id, backlogAt: right.backlogAt },
+	);
+
+const compareRateTheseSourceItems = (
+	left: RateTheseSourceItem,
+	right: RateTheseSourceItem,
+) =>
+	compareRateTheseItems(
+		{
+			entityId: left.id,
+			completeAt: left.completeAt,
+			completedOn: left.completedOn,
+		},
+		{
+			entityId: right.id,
+			completeAt: right.completeAt,
+			completedOn: right.completedOn,
+		},
+	);
+
+export const buildBuiltInMediaOverviewResponse = (input: {
+	upNextItems: UpNextSourceItem[];
+	continueItems: ContinueSourceItem[];
+	rateTheseItems: RateTheseSourceItem[];
+}): BuiltInMediaOverviewResponse => {
+	const continueItems = input.continueItems
 		.sort(compareContinueSourceItems)
 		.map((item) => {
 			const currentUnits = resolveCurrentUnits({
@@ -194,8 +180,7 @@ export const buildBuiltInMediaOverviewResponse = (
 			};
 		});
 
-	const upNextItems = items
-		.filter(isUpNextSourceItem)
+	const upNextItems = input.upNextItems
 		.sort(compareUpNextSourceItems)
 		.map((item) => ({
 			id: item.id,
@@ -207,8 +192,7 @@ export const buildBuiltInMediaOverviewResponse = (
 			subtitle: buildSubtitle(item.publishYear),
 		}));
 
-	const rateTheseItems = items
-		.filter(isRateTheseSourceItem)
+	const rateTheseItems = input.rateTheseItems
 		.sort(compareRateTheseSourceItems)
 		.map((item) => ({
 			id: item.id,
