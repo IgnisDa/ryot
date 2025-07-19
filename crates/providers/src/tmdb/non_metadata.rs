@@ -6,11 +6,11 @@ use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
 use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
+use futures::try_join;
 use itertools::Itertools;
 use media_models::PeopleSearchItem;
 use serde_json::json;
 use supporting_service::SupportingService;
-use tokio::try_join;
 use traits::MediaProvider;
 
 use crate::tmdb::base::TmdbService;

@@ -8,6 +8,7 @@ use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage,
 use enum_models::MediaLot;
 use enum_models::MediaSource;
 use futures::stream::{self, StreamExt};
+use futures::try_join;
 use media_models::{
     MetadataExternalIdentifiers, PartialMetadataWithoutId, TmdbMetadataLookupResult, WatchProvider,
 };
@@ -17,7 +18,6 @@ use reqwest::{
 };
 use serde_json::json;
 use supporting_service::SupportingService;
-use tokio::try_join;
 
 use crate::tmdb::models::*;
 
