@@ -23,7 +23,7 @@ const entitySelection = {
 	externalId: entity.externalId,
 	properties: entity.properties,
 	entitySchemaId: entity.entitySchemaId,
-	detailsSandboxScriptId: entity.detailsSandboxScriptId,
+	sandboxScriptId: entity.sandboxScriptId,
 };
 
 const entitySchemaScopeSelection = {
@@ -107,7 +107,7 @@ export const findEntityByExternalIdForUser = async (input: {
 	userId: string;
 	externalId: string;
 	entitySchemaId: string;
-	detailsSandboxScriptId: string;
+	sandboxScriptId: string;
 }) => {
 	const [foundEntity] = await db
 		.select(entitySelection)
@@ -117,7 +117,7 @@ export const findEntityByExternalIdForUser = async (input: {
 				eq(entity.userId, input.userId),
 				eq(entity.externalId, input.externalId),
 				eq(entity.entitySchemaId, input.entitySchemaId),
-				eq(entity.detailsSandboxScriptId, input.detailsSandboxScriptId),
+				eq(entity.sandboxScriptId, input.sandboxScriptId),
 			),
 		)
 		.limit(1);
@@ -132,7 +132,7 @@ export const createEntityForUser = async (input: {
 	externalId?: string | null;
 	image: ImageSchemaType | null;
 	properties: EntityPropertiesShape;
-	detailsSandboxScriptId?: string | null;
+	sandboxScriptId?: string | null;
 }) => {
 	const [createdEntity] = await db
 		.insert(entity)
@@ -143,7 +143,7 @@ export const createEntityForUser = async (input: {
 			properties: input.properties,
 			externalId: input.externalId ?? null,
 			entitySchemaId: input.entitySchemaId,
-			detailsSandboxScriptId: input.detailsSandboxScriptId ?? null,
+			sandboxScriptId: input.sandboxScriptId ?? null,
 		})
 		.returning(entitySelection);
 
