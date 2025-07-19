@@ -3,20 +3,26 @@ use std::sync::Arc;
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails};
-use common_utils::{PAGE_SIZE, convert_date_to_year};
+use common_models::{
+    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
+};
+use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use config::SpotifyConfig;
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, PersonDetails, SearchResults};
+use enum_models::{MediaLot, MediaSource};
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
-    PeopleSearchItem,
+    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
+    MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier,
 };
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
 };
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
@@ -59,6 +65,46 @@ struct SpotifySearchResponse {
 struct SpotifyTracksResponse {
     total: i32,
     items: Vec<SpotifyTrack>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyTrackDetails {
+    id: String,
+    name: String,
+    explicit: bool,
+    popularity: i32,
+    duration_ms: i32,
+    disc_number: Option<i32>,
+    track_number: Option<i32>,
+    album: SpotifyAlbumDetails,
+    artists: Vec<SpotifyArtist>,
+    external_urls: SpotifyExternalUrls,
+    external_ids: Option<SpotifyExternalIds>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbumDetails {
+    id: String,
+    name: String,
+    images: Vec<SpotifyImage>,
+    artists: Vec<SpotifyArtist>,
+    release_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtist {
+    id: String,
+    name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyExternalUrls {
+    spotify: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyExternalIds {
+    isrc: Option<String>,
 }
 
 pub struct SpotifyService {
@@ -118,8 +164,81 @@ impl SpotifyService {
 
 #[async_trait]
 impl MediaProvider for SpotifyService {
-    async fn metadata_details(&self, _identifier: &str) -> Result<MetadataDetails> {
-        todo!("Implement Spotify metadata_details")
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
+        let track_response = self
+            .client
+            .get(format!("{}/tracks/{}", SPOTIFY_API_URL, identifier))
+            .send()
+            .await?;
+
+        let track: SpotifyTrackDetails = track_response.json().await?;
+
+        let by_various_artists = track.artists.len() > 1;
+        let people: Vec<PartialMetadataPerson> = track
+            .artists
+            .into_iter()
+            .map(|artist| PartialMetadataPerson {
+                name: artist.name,
+                identifier: artist.id,
+                role: "Artist".to_string(),
+                source: MediaSource::Spotify,
+                ..Default::default()
+            })
+            .collect();
+
+        let groups = vec![CommitMetadataGroupInput {
+            name: track.album.name,
+            image: self.get_largest_image(&track.album.images),
+            unique: UniqueMediaIdentifier {
+                lot: MediaLot::Music,
+                identifier: track.album.id,
+                source: MediaSource::Spotify,
+            },
+            ..Default::default()
+        }];
+
+        let publish_date = track
+            .album
+            .release_date
+            .as_ref()
+            .and_then(|date_str| convert_string_to_date(date_str));
+        let publish_year = track
+            .album
+            .release_date
+            .as_ref()
+            .and_then(|date| convert_date_to_year(date));
+
+        let assets = EntityAssets {
+            remote_images: self
+                .get_largest_image(&track.album.images)
+                .map(|url| vec![url])
+                .unwrap_or_default(),
+            ..Default::default()
+        };
+
+        let music_specifics = MusicSpecifics {
+            duration: Some(track.duration_ms / 1000),
+            by_various_artists: Some(by_various_artists),
+            ..Default::default()
+        };
+
+        Ok(MetadataDetails {
+            assets,
+            people,
+            groups,
+            suggestions: vec![],
+            publish_year,
+            publish_date,
+            title: track.name,
+            lot: MediaLot::Music,
+            identifier: track.id,
+            source: MediaSource::Spotify,
+            is_nsfw: Some(track.explicit),
+            music_specifics: Some(music_specifics),
+            source_url: Some(track.external_urls.spotify),
+            provider_rating: Some(Decimal::from(track.popularity) / dec!(100)),
+            ..Default::default()
+        })
     }
 
     async fn metadata_search(
