@@ -4,13 +4,13 @@ import type {
 	ApiPostResponseData,
 } from "#/lib/api/types";
 
-type ViewRuntimeRequest = ApiPostRequestBody<"/view-runtime/execute">;
+type QueryEngineRequest = ApiPostRequestBody<"/query-engine/execute">;
 type ApiEntity = ApiGetResponseData<"/entities/{entityId}">;
-type ApiViewRuntimeEntity =
-	ApiPostResponseData<"/view-runtime/execute">["items"][number];
-type ApiEntityInput = ApiEntity | ApiViewRuntimeEntity;
+type ApiQueryEngineEntity =
+	ApiPostResponseData<"/query-engine/execute">["items"][number];
+type ApiEntityInput = ApiEntity | ApiQueryEngineEntity;
 type ViewExpression = NonNullable<
-	ViewRuntimeRequest["fields"]
+	QueryEngineRequest["fields"]
 >[number]["expression"];
 
 export const createEntityColumnExpression = (
@@ -30,13 +30,13 @@ export type AppEntity = Omit<ApiEntity, "createdAt" | "updatedAt" | "image"> & {
 	createdAt: Date;
 	updatedAt: Date;
 	image: AppEntityImage;
-	fields?: ApiViewRuntimeEntity["fields"];
-	entitySchemaSlug?: ApiViewRuntimeEntity["entitySchemaSlug"];
+	fields?: ApiQueryEngineEntity["fields"];
+	entitySchemaSlug?: ApiQueryEngineEntity["entitySchemaSlug"];
 };
 
 export function createEntityRuntimeRequest(
 	entitySchemaSlug: string,
-): ViewRuntimeRequest {
+): QueryEngineRequest {
 	return {
 		fields: [],
 		eventJoins: [],
@@ -76,19 +76,19 @@ export function toAppEntityImage(image: unknown): AppEntityImage {
 	return null;
 }
 
-function isViewRuntimeEntity(
+function isQueryEngineEntity(
 	entity: ApiEntityInput,
-): entity is ApiViewRuntimeEntity {
+): entity is ApiQueryEngineEntity {
 	return "entitySchemaSlug" in entity;
 }
 
 export function toAppEntity(entity: ApiEntityInput): AppEntity {
-	const properties = isViewRuntimeEntity(entity) ? {} : entity.properties;
-	const externalId = isViewRuntimeEntity(entity) ? null : entity.externalId;
-	const detailsSandboxScriptId = isViewRuntimeEntity(entity)
+	const properties = isQueryEngineEntity(entity) ? {} : entity.properties;
+	const externalId = isQueryEngineEntity(entity) ? null : entity.externalId;
+	const detailsSandboxScriptId = isQueryEngineEntity(entity)
 		? null
 		: entity.detailsSandboxScriptId;
-	const fields = isViewRuntimeEntity(entity) ? entity.fields : undefined;
+	const fields = isQueryEngineEntity(entity) ? entity.fields : undefined;
 
 	return {
 		...entity,
@@ -99,7 +99,7 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		image: toAppEntityImage(entity.image),
 		createdAt: new Date(entity.createdAt),
 		updatedAt: new Date(entity.updatedAt),
-		entitySchemaSlug: isViewRuntimeEntity(entity)
+		entitySchemaSlug: isQueryEngineEntity(entity)
 			? entity.entitySchemaSlug
 			: undefined,
 	};

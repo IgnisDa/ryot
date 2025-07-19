@@ -1,4 +1,4 @@
-import { ViewRuntimeValidationError } from "./errors";
+import { QueryEngineValidationError } from "./errors";
 import type { ViewComputedField, ViewExpression } from "./expression";
 import type { ViewPredicate } from "./filtering";
 
@@ -9,7 +9,7 @@ export const buildComputedFieldMap = (
 
 	for (const computedField of computedFields) {
 		if (computedFieldMap.has(computedField.key)) {
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Computed field '${computedField.key}' is defined more than once`,
 			);
 		}
@@ -26,7 +26,7 @@ export const getComputedFieldOrThrow = (
 ) => {
 	const computedField = computedFieldMap.get(key);
 	if (!computedField) {
-		throw new ViewRuntimeValidationError(
+		throw new QueryEngineValidationError(
 			`Computed field '${key}' is not part of this runtime request`,
 		);
 	}
@@ -138,7 +138,7 @@ const orderComputedFieldsFromMap = (
 		const cycleIndex = visiting.indexOf(key);
 		if (cycleIndex !== -1) {
 			const cyclePath = [...visiting.slice(cycleIndex), key].join(" -> ");
-			throw new ViewRuntimeValidationError(
+			throw new QueryEngineValidationError(
 				`Computed field dependency cycle detected: ${cyclePath}`,
 			);
 		}
