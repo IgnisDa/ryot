@@ -664,3 +664,37 @@ describe("sandbox enqueue by script ID", () => {
 		);
 	});
 });
+
+describe("sandbox result observability", () => {
+	it("completed result includes populated timings with a pool hit and denoMetrics", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, cookies, {
+			name: "observability-check",
+			slug: `observability-check-${crypto.randomUUID()}`,
+			code: 'driver("main", async function() { return true; });',
+		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const result = await pollSandboxResult(client, cookies, jobId);
+		expect(result.status).toBe("completed");
+		if (result.status !== "completed") {
+			throw new Error("Expected sandbox job to complete");
+		}
+
+		if (!result.timings) {
+			throw new Error("Expected timings to be present");
+		}
+		expect(result.timings.totalMs).toBeGreaterThan(0);
+		expect(result.timings.processMs).toBeGreaterThanOrEqual(0);
+		expect(result.timings.poolHit).toBe(true);
+
+		if (!result.denoMetrics) {
+			throw new Error("Expected denoMetrics to be present");
+		}
+		expect(typeof result.denoMetrics.startupMs).toBe("number");
+		expect(typeof result.denoMetrics.scriptExecMs).toBe("number");
+	});
+});

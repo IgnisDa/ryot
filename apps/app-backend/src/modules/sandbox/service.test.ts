@@ -141,7 +141,14 @@ describe("getSandboxResult", () => {
 		);
 
 		expect(result).toEqual({
-			data: { error: null, value: null, logs: "done", status: "completed" },
+			data: {
+				error: null,
+				value: null,
+				logs: "done",
+				timings: null,
+				denoMetrics: null,
+				status: "completed",
+			},
 		});
 	});
 
