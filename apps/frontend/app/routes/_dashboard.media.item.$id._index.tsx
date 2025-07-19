@@ -449,6 +449,7 @@ export default function Page() {
 											.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
 											.with(MediaSource.Hardcover, () => "hardcover.png")
 											.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
+											.with(MediaSource.Spotify, () => "spotify.svg")
 											.with(MediaSource.Custom, () => undefined)
 											.exhaustive()}`}
 									/>
@@ -463,6 +464,7 @@ export default function Page() {
 												MediaSource.Vndb,
 												MediaSource.Anilist,
 												MediaSource.Listennotes,
+												MediaSource.Spotify,
 												() => "%",
 											)
 											.with(
