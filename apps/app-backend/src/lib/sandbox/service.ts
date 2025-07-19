@@ -53,6 +53,7 @@ export class SandboxService {
 				context: options.context,
 				scriptId: options.scriptId,
 				apiFunctionDescriptors: options.apiFunctionDescriptors,
+				driverName: options.driverName,
 			},
 			{ jobId },
 		);
@@ -89,6 +90,7 @@ export class SandboxService {
 			context: jobData.context,
 			timeoutMs: jobData.timeoutMs,
 			maxHeapMB: jobData.maxHeapMB,
+			driverName: jobData.driverName,
 		});
 	}
 
@@ -157,6 +159,7 @@ export class SandboxService {
 				code: options.code,
 				apiBase: `http://127.0.0.1:${bridgePort}`,
 				apiFunctions: Object.keys(apiFunctions),
+				driverName: options.driverName,
 			});
 
 			try {
@@ -247,7 +250,7 @@ export class SandboxService {
 
 type SandboxExecutionOptions = Pick<
 	SandboxRunJobData,
-	"code" | "context" | "maxHeapMB" | "timeoutMs"
+	"code" | "context" | "maxHeapMB" | "timeoutMs" | "driverName"
 > & {
 	apiFunctions?: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
 };
