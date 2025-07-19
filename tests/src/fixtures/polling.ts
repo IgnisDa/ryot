@@ -16,6 +16,7 @@ export async function pollUntil<T>(
 	const deadline = dayjs().add(timeoutMs, "millisecond");
 
 	for (;;) {
+		// oxlint-disable-next-line no-await-in-loop
 		const result = await check();
 		if (result !== null) {
 			return result;
@@ -26,6 +27,7 @@ export async function pollUntil<T>(
 			break;
 		}
 
+		// oxlint-disable-next-line no-await-in-loop
 		await delay(Math.min(intervalMs, remainingMs));
 	}
 
