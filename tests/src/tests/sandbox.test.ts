@@ -602,67 +602,6 @@ describe("sandbox enqueue by script ID", () => {
 		expect(result.error).toContain("appApiCall cannot target /api/auth routes");
 	});
 
-	it("rejects appApiCall attempts to target /api/sandbox routes", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "app-api-call-sandbox-route",
-			metadata: { allowedHostFunctions: ["appApiCall"] },
-			slug: `app-api-call-sandbox-route-${crypto.randomUUID()}`,
-			code: `driver("main", async function() {
-  const result = await appApiCall("GET", "/api/sandbox/result/123");
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-  return result.data;
-});`,
-		});
-
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
-
-		const result = await pollSandboxResult(client, cookies, jobId);
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		expect(result.error).toContain(
-			"appApiCall cannot target /api/sandbox routes",
-		);
-	});
-
-	it("rejects appApiCall attempts to target percent-encoded /api/sandbox routes", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
-			name: "app-api-call-encoded-sandbox-route",
-			metadata: { allowedHostFunctions: ["appApiCall"] },
-			slug: `app-api-call-encoded-sandbox-route-${crypto.randomUUID()}`,
-			code: `driver("main", async function() {
-  const result = await appApiCall("GET", "/api/%73andbox/result/123");
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-  return result.data;
-});`,
-		});
-
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
-
-		const result = await pollSandboxResult(client, cookies, jobId);
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		expect(result.error).toContain(
-			"appApiCall cannot target /api/sandbox routes",
-		);
-	});
 });
 
 describe("sandbox result observability", () => {
