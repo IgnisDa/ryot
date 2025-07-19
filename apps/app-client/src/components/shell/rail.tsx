@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { router } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, LogOut } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
@@ -9,7 +9,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useUser } from "@/lib/atoms";
+import { useAuthClient, useUser } from "@/lib/atoms";
 import { TrackerIcon } from "@/lib/icons";
 import type { NavigationItem } from "@/lib/navigation";
 import { navHref, useActiveNav, useNavigationData, useSetSubFlyoutOpen } from "@/lib/navigation";
@@ -68,6 +68,7 @@ function RailItem({
 
 export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	const user = useUser();
+	const authClient = useAuthClient();
 	const setSubFlyoutOpen = useSetSubFlyoutOpen();
 	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
@@ -89,6 +90,11 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 				scheduleOnRN(onClose);
 			});
 		}
+	}
+
+	async function handleLogout() {
+		await authClient.signOut().catch(() => {});
+		router.replace("/auth");
 	}
 
 	const items = (
@@ -139,13 +145,24 @@ export function ShellRail({ translateX, onClose, pinned = false }: Props) {
 	);
 
 	const userSection = (
-		<Box className="border-t-[0.5px] border-t-border px-4 py-3">
+		<Box className="border-t-[0.5px] border-t-border px-4 py-3 gap-2">
 			<Box className="flex-row items-center gap-2">
 				<Box className="opacity-50">
 					<TrackerIcon icon="user" size={14} />
 				</Box>
 				<Text className="text-[13px] text-muted-foreground font-sans">{userItem.name}</Text>
 			</Box>
+			<Pressable
+				onPress={handleLogout}
+				accessibilityRole="button"
+				accessibilityLabel="Log Out"
+				className="flex-row items-center gap-2 min-h-8"
+			>
+				<Box className="opacity-50">
+					<LogOut size={14} strokeWidth={1.5} color="#78716c" />
+				</Box>
+				<Text className="text-[12px] text-muted-foreground font-sans">Log Out</Text>
+			</Pressable>
 		</Box>
 	);
 
