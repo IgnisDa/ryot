@@ -603,10 +603,10 @@ function BacklogCard(props: {
 			>
 				<Box p={8} pb={0} style={{ position: "relative" }}>
 					<Artwork
-						note={note}
 						icon={icon}
-						color={color}
 						height={220}
+						color={color}
+						note={schema?.name}
 						url={props.imageUrl}
 						title={props.item.title}
 					/>
