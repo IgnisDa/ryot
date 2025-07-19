@@ -50,10 +50,11 @@ pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 11] = [
     MediaSource::Spotify,
 ];
 
-pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 4] = [
+pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 5] = [
     MediaSource::Vndb,
     MediaSource::Itunes,
     MediaSource::Custom,
+    MediaSource::Spotify,
     MediaSource::GoogleBooks,
 ];
 
