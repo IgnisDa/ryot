@@ -1049,7 +1049,7 @@ export function BuiltinMediaTrackerOverview(
 	);
 
 	const searchableSchemas = entitySchemasQuery.entitySchemas.filter(
-		(s) => s.searchProviders.length > 0,
+		(s) => s.providers.length > 0,
 	);
 	const typePickerModalId = `builtin-media-type-picker-${props.tracker.id}`;
 

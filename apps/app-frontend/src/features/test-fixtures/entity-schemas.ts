@@ -9,7 +9,7 @@ export function createEntitySchemaFixture(
 		id: "schema-id",
 		isBuiltin: false,
 		icon: "book-open",
-		searchProviders: [],
+		providers: [],
 		accentColor: "#5B7FFF",
 		trackerId: "tracker-id",
 		propertiesSchema: { fields: {} },
