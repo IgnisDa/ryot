@@ -221,7 +221,7 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 }
 
 export function sortEntities(entities: AppEntity[]) {
-	return [...entities].sort((a, b) => {
+	return entities.toSorted((a, b) => {
 		if (a.name !== b.name) {
 			return a.name.localeCompare(b.name);
 		}
