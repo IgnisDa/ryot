@@ -385,6 +385,43 @@ export const relationship = pgTable(
 	],
 );
 
+export const eventSchemaTrigger = pgTable(
+	"event_schema_trigger",
+	{
+		name: text().notNull(),
+		createdAt: timestamp().defaultNow().notNull(),
+		isActive: boolean().notNull().default(true),
+		isBuiltin: boolean().notNull().default(false),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		eventSchemaId: text()
+			.notNull()
+			.references(() => eventSchema.id, { onDelete: "cascade" }),
+		sandboxScriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp()
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
+			.notNull(),
+	},
+	(table) => [
+		index("event_schema_trigger_user_id_idx").on(table.userId),
+		index("event_schema_trigger_event_schema_id_idx").on(table.eventSchemaId),
+		uniqueIndex("event_schema_trigger_builtin_unique")
+			.on(table.eventSchemaId, table.sandboxScriptId)
+			.where(sql`${table.userId} is null`),
+		unique("event_schema_trigger_user_unique").on(
+			table.userId,
+			table.eventSchemaId,
+			table.sandboxScriptId,
+		),
+	],
+);
+
 export const savedView = pgTable(
 	"saved_view",
 	{
