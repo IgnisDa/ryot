@@ -22,7 +22,6 @@ use reqwest::{
     header::{AUTHORIZATION, HeaderValue},
 };
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use supporting_service::SupportingService;
@@ -226,7 +225,6 @@ impl MediaProvider for SpotifyService {
             assets,
             people,
             groups,
-            suggestions: vec![],
             publish_year,
             publish_date,
             title: track.name,
@@ -236,7 +234,7 @@ impl MediaProvider for SpotifyService {
             is_nsfw: Some(track.explicit),
             music_specifics: Some(music_specifics),
             source_url: Some(track.external_urls.spotify),
-            provider_rating: Some(Decimal::from(track.popularity) / dec!(100)),
+            provider_rating: Some(Decimal::from(track.popularity)),
             ..Default::default()
         })
     }
