@@ -12,6 +12,7 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+
 import type { ImageSchemaType } from "../../zod";
 import { user } from "./auth";
 
@@ -93,13 +94,8 @@ export const trackerEntitySchema = pgTable(
 	},
 	(table) => [
 		index("tracker_entity_schema_tracker_id_idx").on(table.trackerId),
-		index("tracker_entity_schema_entity_schema_id_idx").on(
-			table.entitySchemaId,
-		),
-		unique("tracker_entity_schema_unique").on(
-			table.trackerId,
-			table.entitySchemaId,
-		),
+		index("tracker_entity_schema_entity_schema_id_idx").on(table.entitySchemaId),
+		unique("tracker_entity_schema_unique").on(table.trackerId, table.entitySchemaId),
 	],
 );
 
@@ -183,13 +179,8 @@ export const entitySchemaScript = pgTable(
 	},
 	(table) => [
 		index("entity_schema_script_entity_schema_id_idx").on(table.entitySchemaId),
-		index("entity_schema_script_sandbox_script_id_idx").on(
-			table.sandboxScriptId,
-		),
-		unique("entity_schema_script_unique").on(
-			table.entitySchemaId,
-			table.sandboxScriptId,
-		),
+		index("entity_schema_script_sandbox_script_id_idx").on(table.sandboxScriptId),
+		unique("entity_schema_script_unique").on(table.entitySchemaId, table.sandboxScriptId),
 	],
 );
 
@@ -279,11 +270,7 @@ export const event = pgTable(
 		index("event_event_schema_id_idx").on(table.eventSchemaId),
 		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
-		index("event_user_entity_schema_idx").on(
-			table.userId,
-			table.entityId,
-			table.eventSchemaId,
-		),
+		index("event_user_entity_schema_idx").on(table.userId, table.entityId, table.eventSchemaId),
 	],
 );
 
@@ -313,12 +300,8 @@ export const relationshipSchema = pgTable(
 	},
 	(table) => [
 		index("relationship_schema_user_id_idx").on(table.userId),
-		index("relationship_schema_source_entity_schema_id_idx").on(
-			table.sourceEntitySchemaId,
-		),
-		index("relationship_schema_target_entity_schema_id_idx").on(
-			table.targetEntitySchemaId,
-		),
+		index("relationship_schema_source_entity_schema_id_idx").on(table.sourceEntitySchemaId),
+		index("relationship_schema_target_entity_schema_id_idx").on(table.targetEntitySchemaId),
 		unique("relationship_schema_user_slug_unique").on(table.userId, table.slug),
 		uniqueIndex("relationship_schema_builtin_slug_unique")
 			.on(table.slug)
@@ -358,11 +341,7 @@ export const relationship = pgTable(
 			table.relationshipSchemaId,
 		),
 		uniqueIndex("relationship_global_source_target_schema_unique")
-			.on(
-				table.sourceEntityId,
-				table.targetEntityId,
-				table.relationshipSchemaId,
-			)
+			.on(table.sourceEntityId, table.targetEntityId, table.relationshipSchemaId)
 			.where(isNull(table.userId)),
 	],
 );

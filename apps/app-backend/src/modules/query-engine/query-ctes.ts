@@ -1,9 +1,5 @@
 export { buildBaseEntitiesCte } from "./entity-query-ctes";
-export {
-	buildJoinedCte,
-	buildJoinedEntitiesCte,
-	buildLatestEventJoinCte,
-} from "./event-join-ctes";
+export { buildJoinedCte, buildJoinedEntitiesCte, buildLatestEventJoinCte } from "./event-join-ctes";
 export { buildEventFirstCte } from "./event-query-ctes";
 export { buildPaginatedQuerySql } from "./paginated-query-sql";
 export {

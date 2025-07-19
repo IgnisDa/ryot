@@ -1,7 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
+
 import { useApiClient } from "~/hooks/api";
 import type { ApiPostRequestBody } from "~/lib/api/types";
 import { getErrorMessage } from "~/lib/errors";
+
 import { createEntityRuntimeRequest, sortEntities, toAppEntity } from "./model";
 
 export type CreateWithCollectionResult = {
@@ -21,9 +23,7 @@ export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
 	return {
 		...query,
 		entities: sortEntities(
-			query.data?.data.mode === "entities"
-				? query.data.data.data.items.map(toAppEntity)
-				: [],
+			query.data?.data.mode === "entities" ? query.data.data.data.items.map(toAppEntity) : [],
 		),
 	};
 }

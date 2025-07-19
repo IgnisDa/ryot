@@ -1,13 +1,6 @@
-import {
-	createEntityColumnExpression,
-	dayjs,
-	getQueryEngineField,
-} from "@ryot/ts-utils";
-import type {
-	ApiGetResponseData,
-	ApiPostRequestBody,
-	ApiPostResponseData,
-} from "~/lib/api/types";
+import { createEntityColumnExpression, dayjs, getQueryEngineField } from "@ryot/ts-utils";
+
+import type { ApiGetResponseData, ApiPostRequestBody, ApiPostResponseData } from "~/lib/api/types";
 
 type QueryEngineRequest = Extract<
 	ApiPostRequestBody<"/query-engine/execute">,
@@ -33,10 +26,7 @@ export type SearchResultItem = {
 	};
 };
 
-export type AppEntityImage =
-	| null
-	| { kind: "s3"; key: string }
-	| { kind: "remote"; url: string };
+export type AppEntityImage = null | { kind: "s3"; key: string } | { kind: "remote"; url: string };
 
 export type AppEntity = Omit<
 	ApiEntity,
@@ -122,9 +112,7 @@ export const createEntityIdentityFields = (
 		},
 	] satisfies NonNullable<QueryEngineRequest["fields"]>;
 
-export function createEntityRuntimeRequest(
-	entitySchemaSlug: string,
-): QueryEngineRequest {
+export function createEntityRuntimeRequest(entitySchemaSlug: string): QueryEngineRequest {
 	return {
 		mode: "entities",
 		fields: createEntityIdentityFields([entitySchemaSlug]),
@@ -153,28 +141,18 @@ export function toAppEntityImage(image: unknown): AppEntityImage {
 		return { kind: "remote", url: image.url };
 	}
 
-	if (
-		"kind" in image &&
-		image.kind === "s3" &&
-		"key" in image &&
-		typeof image.key === "string"
-	) {
+	if ("kind" in image && image.kind === "s3" && "key" in image && typeof image.key === "string") {
 		return { kind: "s3", key: image.key };
 	}
 
 	return null;
 }
 
-function isQueryEngineEntity(
-	entity: ApiEntityInput,
-): entity is QueryEngineItem {
+function isQueryEngineEntity(entity: ApiEntityInput): entity is QueryEngineItem {
 	return Array.isArray(entity);
 }
 
-function getRequiredQueryEngineStringField(
-	item: QueryEngineItem,
-	key: string,
-): string {
+function getRequiredQueryEngineStringField(item: QueryEngineItem, key: string): string {
 	const value = getQueryEngineField(item, key)?.value;
 	if (typeof value !== "string") {
 		throw new Error(`Missing required query engine field '${key}'`);
@@ -183,10 +161,7 @@ function getRequiredQueryEngineStringField(
 	return value;
 }
 
-function getOptionalQueryEngineStringField(
-	item: QueryEngineItem,
-	key: string,
-): string | null {
+function getOptionalQueryEngineStringField(item: QueryEngineItem, key: string): string | null {
 	const value = getQueryEngineField(item, key)?.value;
 	return typeof value === "string" ? value : null;
 }
@@ -196,11 +171,7 @@ function getRequiredQueryEngineDateLikeField(
 	key: string,
 ): string | number | Date {
 	const value = getQueryEngineField(item, key)?.value;
-	if (
-		typeof value === "string" ||
-		typeof value === "number" ||
-		value instanceof Date
-	) {
+	if (typeof value === "string" || typeof value === "number" || value instanceof Date) {
 		return value;
 	}
 
@@ -210,21 +181,13 @@ function getRequiredQueryEngineDateLikeField(
 export function toAppEntity(entity: ApiEntityInput): AppEntity {
 	const properties = isQueryEngineEntity(entity) ? {} : entity.properties;
 	const externalId = isQueryEngineEntity(entity)
-		? getOptionalQueryEngineStringField(
-				entity,
-				queryEngineEntityFieldKeys.externalId,
-			)
+		? getOptionalQueryEngineStringField(entity, queryEngineEntityFieldKeys.externalId)
 		: entity.externalId;
 	const sandboxScriptId = isQueryEngineEntity(entity)
-		? getOptionalQueryEngineStringField(
-				entity,
-				queryEngineEntityFieldKeys.sandboxScriptId,
-			)
+		? getOptionalQueryEngineStringField(entity, queryEngineEntityFieldKeys.sandboxScriptId)
 		: entity.sandboxScriptId;
 	const fields = isQueryEngineEntity(entity) ? entity : undefined;
-	const entitySchemaId = isQueryEngineEntity(entity)
-		? undefined
-		: entity.entitySchemaId;
+	const entitySchemaId = isQueryEngineEntity(entity) ? undefined : entity.entitySchemaId;
 	const id = isQueryEngineEntity(entity)
 		? getRequiredQueryEngineStringField(entity, queryEngineEntityFieldKeys.id)
 		: entity.id;
@@ -232,23 +195,15 @@ export function toAppEntity(entity: ApiEntityInput): AppEntity {
 		? getRequiredQueryEngineStringField(entity, queryEngineEntityFieldKeys.name)
 		: entity.name;
 	const createdAt = isQueryEngineEntity(entity)
-		? getRequiredQueryEngineDateLikeField(
-				entity,
-				queryEngineEntityFieldKeys.createdAt,
-			)
+		? getRequiredQueryEngineDateLikeField(entity, queryEngineEntityFieldKeys.createdAt)
 		: entity.createdAt;
 	const updatedAt = isQueryEngineEntity(entity)
-		? getRequiredQueryEngineDateLikeField(
-				entity,
-				queryEngineEntityFieldKeys.updatedAt,
-			)
+		? getRequiredQueryEngineDateLikeField(entity, queryEngineEntityFieldKeys.updatedAt)
 		: entity.updatedAt;
 	const entityImage = isQueryEngineEntity(entity)
 		? getQueryEngineField(entity, queryEngineEntityFieldKeys.image)?.value
 		: entity.image;
-	const populatedAt = isQueryEngineEntity(entity)
-		? undefined
-		: dayjs(entity.populatedAt).toDate();
+	const populatedAt = isQueryEngineEntity(entity) ? undefined : dayjs(entity.populatedAt).toDate();
 
 	return {
 		id,
@@ -274,13 +229,9 @@ export function sortEntities(entities: AppEntity[]) {
 	});
 }
 
-type EntityListViewState =
-	| { type: "empty" }
-	| { type: "list"; entities: AppEntity[] };
+type EntityListViewState = { type: "empty" } | { type: "list"; entities: AppEntity[] };
 
-export function getEntityListViewState(
-	entities: AppEntity[],
-): EntityListViewState {
+export function getEntityListViewState(entities: AppEntity[]): EntityListViewState {
 	if (entities.length === 0) {
 		return { type: "empty" };
 	}

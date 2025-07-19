@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createPropertySchemaInputFixture,
 	createPropertySchemaRowFixture,
 } from "~/features/test-fixtures";
+
 import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,
@@ -49,9 +51,7 @@ describe("buildPropertySchemaFormValues", () => {
 describe("isPropertySchemaRowsValid", () => {
 	it("rejects empty and duplicate trimmed keys", () => {
 		expect(isPropertySchemaRowsValid([])).toBeFalse();
-		expect(
-			isPropertySchemaRowsValid([buildDefaultPropertySchemaRow()]),
-		).toBeFalse();
+		expect(isPropertySchemaRowsValid([buildDefaultPropertySchemaRow()])).toBeFalse();
 		expect(
 			isPropertySchemaRowsValid([
 				input({ key: "rating", type: "number" }),

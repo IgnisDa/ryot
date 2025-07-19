@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { z } from "zod";
+
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -93,9 +94,7 @@ export default function Auth() {
 				<Box className="w-full max-w-md px-6 gap-8">
 					<Box className="items-center gap-3">
 						<Box className="items-center gap-1">
-							<Text className="text-xl font-semibold text-foreground">
-								{modeContent.title}
-							</Text>
+							<Text className="text-xl font-semibold text-foreground">{modeContent.title}</Text>
 							<Text className="text-muted-foreground text-sm text-center">
 								{modeContent.subtitle}
 							</Text>
@@ -115,9 +114,7 @@ export default function Auth() {
 									<Text
 										className={clsx(
 											"text-sm font-medium",
-											mode === m
-												? "text-primary-foreground"
-												: "text-muted-foreground",
+											mode === m ? "text-primary-foreground" : "text-muted-foreground",
 										)}
 									>
 										{m === "login" ? "Log in" : "Sign up"}
@@ -149,9 +146,7 @@ export default function Auth() {
 									)}
 								</form.AppField>
 								{authMutation.error && (
-									<Text className="text-destructive text-sm">
-										{authMutation.error.message}
-									</Text>
+									<Text className="text-destructive text-sm">{authMutation.error.message}</Text>
 								)}
 								<form.SubmitButton
 									label={modeContent.actionLabel}
@@ -162,9 +157,7 @@ export default function Auth() {
 					</Box>
 					<Box className="items-center">
 						<Pressable onPress={handleChangeServer}>
-							<Text className="text-muted-foreground text-sm">
-								Change server
-							</Text>
+							<Text className="text-muted-foreground text-sm">Change server</Text>
 						</Pressable>
 					</Box>
 				</Box>

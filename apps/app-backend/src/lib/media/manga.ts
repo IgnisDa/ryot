@@ -1,4 +1,5 @@
 import { toAppSchemaProperties } from "@ryot/ts-utils";
+
 import { imagesSchema, nullableIntSchema, nullableNumberSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
@@ -8,6 +9,4 @@ export const mangaPropertiesSchema = mediaPropertiesSchema.extend({
 	chapters: nullableNumberSchema.describe("Total number of chapters, if known"),
 });
 
-export const mangaPropertiesJsonSchema = toAppSchemaProperties(
-	mangaPropertiesSchema,
-);
+export const mangaPropertiesJsonSchema = toAppSchemaProperties(mangaPropertiesSchema);

@@ -20,11 +20,11 @@ import {
 	parseAsString,
 	parseAsStringEnum,
 } from "nuqs";
+
 import { parseAsCollectionsFilter } from "~/lib/shared/validation";
 import { ApplicationTimeRange } from "~/lib/types";
 
-export type CollectionContents =
-	CollectionContentsQuery["collectionContents"]["response"];
+export type CollectionContents = CollectionContentsQuery["collectionContents"]["response"];
 
 export const defaultQueryState = {
 	page: parseAsInteger.withDefault(1),
@@ -36,30 +36,20 @@ export const defaultQueryState = {
 	metadataLot: parseAsStringEnum(Object.values(MediaLot)),
 	metadataSource: parseAsStringEnum(Object.values(MediaSource)),
 	metadataGeneral: parseAsStringEnum(Object.values(MediaGeneralFilter)),
-	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(
-		GraphqlSortOrder.Desc,
+	orderBy: parseAsStringEnum(Object.values(GraphqlSortOrder)).withDefault(GraphqlSortOrder.Desc),
+	sortBy: parseAsStringEnum(Object.values(CollectionContentsSortBy)).withDefault(
+		CollectionContentsSortBy.LastUpdatedOn,
 	),
-	sortBy: parseAsStringEnum(
-		Object.values(CollectionContentsSortBy),
-	).withDefault(CollectionContentsSortBy.LastUpdatedOn),
 	dateRange: parseAsStringEnum(Object.values(ApplicationTimeRange)).withDefault(
 		ApplicationTimeRange.AllTime,
 	),
-	exerciseTypes: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseLot)),
-	).withDefault([]),
-	exerciseLevels: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseLevel)),
-	).withDefault([]),
-	exerciseForces: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseForce)),
-	).withDefault([]),
-	exerciseMuscles: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseMuscle)),
-	).withDefault([]),
-	exerciseMechanics: parseAsArrayOf(
-		parseAsStringEnum(Object.values(ExerciseMechanic)),
-	).withDefault([]),
+	exerciseTypes: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseLot))).withDefault([]),
+	exerciseLevels: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseLevel))).withDefault([]),
+	exerciseForces: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseForce))).withDefault([]),
+	exerciseMuscles: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseMuscle))).withDefault([]),
+	exerciseMechanics: parseAsArrayOf(parseAsStringEnum(Object.values(ExerciseMechanic))).withDefault(
+		[],
+	),
 	exerciseEquipments: parseAsArrayOf(
 		parseAsStringEnum(Object.values(ExerciseEquipment)),
 	).withDefault([]),

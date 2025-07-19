@@ -32,9 +32,7 @@ export const createEventSchemaDeps = (
 	overrides: Partial<EventSchemaServiceDeps> = {},
 ): EventSchemaServiceDeps => ({
 	getEventSchemaBySlugForUser: async () => undefined,
-	listEventSchemasByEntitySchemaForUser: async () => [
-		createListedEventSchema(),
-	],
+	listEventSchemasByEntitySchemaForUser: async () => [createListedEventSchema()],
 	getEntitySchemaScopeForUser: async (input) => ({
 		slug: "custom",
 		isBuiltin: false,

@@ -1,6 +1,8 @@
 import { type Job, Worker } from "bullmq";
+
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
+
 import { createEventsJobData, createEventsJobName } from "./jobs";
 import { createEvents, processEventSchemaTriggers } from "./service";
 

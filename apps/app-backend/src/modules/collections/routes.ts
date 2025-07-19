@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	createAuthRoute,
@@ -7,6 +8,7 @@ import {
 	createSuccessResult,
 	jsonBody,
 } from "~/lib/openapi";
+
 import {
 	addToCollectionBody,
 	addToCollectionResponseSchema,
@@ -15,11 +17,7 @@ import {
 	removeFromCollectionBody,
 	removeFromCollectionResponseSchema,
 } from "./schemas";
-import {
-	addToCollection,
-	createCollection,
-	removeFromCollection,
-} from "./service";
+import { addToCollection, createCollection, removeFromCollection } from "./service";
 
 const createCollectionRoute = createAuthRoute(
 	createRoute({

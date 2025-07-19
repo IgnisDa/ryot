@@ -1,8 +1,6 @@
 import { z } from "@hono/zod-openapi";
-import {
-	builtinMediaEntitySchemaSlugs,
-	builtinMediaEventSchemaSlugs,
-} from "~/lib/media/constants";
+
+import { builtinMediaEntitySchemaSlugs, builtinMediaEventSchemaSlugs } from "~/lib/media/constants";
 import { itemDataSchema } from "~/lib/openapi";
 import {
 	ImageSchema,
@@ -11,9 +9,7 @@ import {
 	nullableStringSchema,
 } from "~/lib/zod";
 
-const builtinMediaEntitySchemaSlugSchema = z.enum(
-	builtinMediaEntitySchemaSlugs,
-);
+const builtinMediaEntitySchemaSlugSchema = z.enum(builtinMediaEntitySchemaSlugs);
 
 const builtinMediaEventSchemaSlugSchema = z.enum(builtinMediaEventSchemaSlugs);
 
@@ -31,20 +27,19 @@ const builtInMediaOverviewBaseItemSchema = z
 	})
 	.strict();
 
-const builtInMediaOverviewContinueItemSchema =
-	builtInMediaOverviewBaseItemSchema
-		.extend({
-			progressAt: z.date(),
-			labels: z.object({ cta: z.string(), progress: z.string() }).strict(),
-			progress: z
-				.object({
-					totalUnits: nullableNumberSchema,
-					currentUnits: nullableNumberSchema,
-					progressPercent: nullableNumberSchema,
-				})
-				.strict(),
-		})
-		.strict();
+const builtInMediaOverviewContinueItemSchema = builtInMediaOverviewBaseItemSchema
+	.extend({
+		progressAt: z.date(),
+		labels: z.object({ cta: z.string(), progress: z.string() }).strict(),
+		progress: z
+			.object({
+				totalUnits: nullableNumberSchema,
+				currentUnits: nullableNumberSchema,
+				progressPercent: nullableNumberSchema,
+			})
+			.strict(),
+	})
+	.strict();
 
 const builtInMediaOverviewUpNextItemSchema = builtInMediaOverviewBaseItemSchema
 	.extend({
@@ -53,14 +48,13 @@ const builtInMediaOverviewUpNextItemSchema = builtInMediaOverviewBaseItemSchema
 	})
 	.strict();
 
-const builtInMediaOverviewRateTheseItemSchema =
-	builtInMediaOverviewBaseItemSchema
-		.extend({
-			completedAt: z.date(),
-			reviewAt: z.date().nullable(),
-			rating: z.number().int().nullable(),
-		})
-		.strict();
+const builtInMediaOverviewRateTheseItemSchema = builtInMediaOverviewBaseItemSchema
+	.extend({
+		completedAt: z.date(),
+		reviewAt: z.date().nullable(),
+		rating: z.number().int().nullable(),
+	})
+	.strict();
 
 const builtInMediaOverviewRecentActivityItemSchema = z
 	.object({
@@ -93,17 +87,12 @@ const builtInMediaOverviewLibraryItemSchema = z
 		inBacklog: z.number().int().nonnegative(),
 		completed: z.number().int().nonnegative(),
 		inProgress: z.number().int().nonnegative(),
-		entityTypeCounts: z.record(
-			builtinMediaEntitySchemaSlugSchema,
-			z.number().int().nonnegative(),
-		),
+		entityTypeCounts: z.record(builtinMediaEntitySchemaSlugSchema, z.number().int().nonnegative()),
 	})
 	.strict();
 
 const createOverviewSectionSchema = <TItem extends z.ZodTypeAny>(item: TItem) =>
-	z
-		.object({ items: z.array(item), count: z.number().int().nonnegative() })
-		.strict();
+	z.object({ items: z.array(item), count: z.number().int().nonnegative() }).strict();
 
 const builtInMediaOverviewUpNextSectionSchema = createOverviewSectionSchema(
 	builtInMediaOverviewUpNextItemSchema,
@@ -117,11 +106,13 @@ const builtInMediaOverviewRateTheseSectionSchema = createOverviewSectionSchema(
 	builtInMediaOverviewRateTheseItemSchema,
 );
 
-const builtInMediaOverviewRecentActivitySectionSchema =
-	createOverviewSectionSchema(builtInMediaOverviewRecentActivityItemSchema);
+const builtInMediaOverviewRecentActivitySectionSchema = createOverviewSectionSchema(
+	builtInMediaOverviewRecentActivityItemSchema,
+);
 
-const builtInMediaOverviewWeekActivitySectionSchema =
-	createOverviewSectionSchema(builtInMediaOverviewWeekActivityItemSchema);
+const builtInMediaOverviewWeekActivitySectionSchema = createOverviewSectionSchema(
+	builtInMediaOverviewWeekActivityItemSchema,
+);
 
 const builtInMediaOverviewDataSchema = z
 	.object({
@@ -155,9 +146,7 @@ export const builtInMediaOverviewLibraryResponseSchema = itemDataSchema(
 	builtInMediaOverviewLibraryItemSchema,
 );
 
-export const builtInMediaOverviewResponseSchema = itemDataSchema(
-	builtInMediaOverviewDataSchema,
-);
+export const builtInMediaOverviewResponseSchema = itemDataSchema(builtInMediaOverviewDataSchema);
 
 export type BuiltInMediaOverviewUpNextResponse = z.infer<
 	typeof builtInMediaOverviewUpNextSectionSchema
@@ -183,6 +172,4 @@ export type BuiltInMediaOverviewLibraryResponse = z.infer<
 	typeof builtInMediaOverviewLibraryItemSchema
 >;
 
-export type BuiltInMediaOverviewResponse = z.infer<
-	typeof builtInMediaOverviewDataSchema
->;
+export type BuiltInMediaOverviewResponse = z.infer<typeof builtInMediaOverviewDataSchema>;

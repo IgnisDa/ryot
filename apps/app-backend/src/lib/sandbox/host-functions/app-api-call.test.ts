@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
+
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
+
 import { createAppApiCallHostFunction } from "./app-api-call";
 
 describe("appApiCall", () => {
 	it("returns validation failure for a blank userId", async () => {
-		const fn = createAppApiCallHostFunction(async () =>
-			Response.json({ ok: true }),
-		);
+		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
 
 		expect(await fn({ userId: "   " }, "GET", "/system/health")).toEqual(
 			apiFailure("appApiCall requires a non-empty userId in context"),
@@ -14,9 +14,7 @@ describe("appApiCall", () => {
 	});
 
 	it("returns validation failure for a blank method", async () => {
-		const fn = createAppApiCallHostFunction(async () =>
-			Response.json({ ok: true }),
-		);
+		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
 
 		expect(await fn({ userId: "user_1" }, "   ", "/system/health")).toEqual(
 			apiFailure("appApiCall expects a non-empty method string"),
@@ -24,9 +22,7 @@ describe("appApiCall", () => {
 	});
 
 	it("returns validation failure for a blank path", async () => {
-		const fn = createAppApiCallHostFunction(async () =>
-			Response.json({ ok: true }),
-		);
+		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
 
 		expect(await fn({ userId: "user_1" }, "GET", "   ")).toEqual(
 			apiFailure("appApiCall expects a non-empty path string"),
@@ -34,17 +30,13 @@ describe("appApiCall", () => {
 	});
 
 	it("rejects forbidden auth headers", async () => {
-		const fn = createAppApiCallHostFunction(async () =>
-			Response.json({ ok: true }),
-		);
+		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
 
 		expect(
 			await fn({ userId: "user_1" }, "GET", "/system/health", {
 				headers: { authorization: "Bearer nope" },
 			}),
-		).toEqual(
-			apiFailure("appApiCall does not allow the 'authorization' header"),
-		);
+		).toEqual(apiFailure("appApiCall does not allow the 'authorization' header"));
 	});
 
 	it("maps successful JSON responses", async () => {
@@ -109,9 +101,7 @@ describe("appApiCall", () => {
 			),
 		);
 
-		expect(
-			await fn({ userId: "user_1" }, "GET", "/query-engine/execute"),
-		).toEqual({
+		expect(await fn({ userId: "user_1" }, "GET", "/query-engine/execute")).toEqual({
 			...apiFailure("HTTP 400 Bad Request"),
 			data: {
 				status: 400,

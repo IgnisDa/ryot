@@ -1,16 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { defineConfig } from "vitepress";
 
 const getSourceFiles = (dir: string) =>
 	fs
 		.readdirSync(path.resolve(__dirname, `../src/${dir}`))
-		.filter(
-			(file) =>
-				file !== "overview.md" &&
-				file !== "community.md" &&
-				file.endsWith(".md"),
-		)
+		.filter((file) => file !== "overview.md" && file !== "community.md" && file.endsWith(".md"))
 		.sort()
 		.map((file) => {
 			const name = file.replace(".md", "");
@@ -56,10 +52,7 @@ export default defineConfig({
 				collapsed: true,
 				text: "Concepts",
 				link: "/concepts/overview",
-				items: [
-					{ text: "Overview", link: "/concepts/overview" },
-					...conceptsSourceFiles,
-				],
+				items: [{ text: "Overview", link: "/concepts/overview" }, ...conceptsSourceFiles],
 			},
 			{
 				collapsed: true,
@@ -75,10 +68,7 @@ export default defineConfig({
 				collapsed: true,
 				text: "Integrations",
 				link: "/integrations/overview",
-				items: [
-					{ text: "Overview", link: "/integrations/overview" },
-					...integrationsSourceFiles,
-				],
+				items: [{ text: "Overview", link: "/integrations/overview" }, ...integrationsSourceFiles],
 			},
 			{
 				text: "Guides",

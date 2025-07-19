@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { isAPIError } from "better-auth/api";
+
 import { auth, type MaybeAuthType } from "~/lib/auth";
 import { db } from "~/lib/db";
 import {
@@ -10,10 +11,8 @@ import {
 	successResponse,
 } from "~/lib/openapi";
 import { createLibraryEntityForUser } from "~/modules/collections";
-import {
-	createTrackerEntitySchemas,
-	listBuiltinEntitySchemas,
-} from "../entity-schemas/repository";
+
+import { createTrackerEntitySchemas, listBuiltinEntitySchemas } from "../entity-schemas/repository";
 import { createSavedViewsForUser } from "../saved-views/repository";
 import { createBuiltinTrackersForUser } from "../trackers/repository";
 import {
@@ -21,11 +20,7 @@ import {
 	authenticationBuiltinSavedViews,
 	authenticationBuiltinTrackers,
 } from "./bootstrap/manifests";
-import {
-	defaultUserPreferences,
-	signUpBody,
-	signUpResponseSchema,
-} from "./schemas";
+import { defaultUserPreferences, signUpBody, signUpResponseSchema } from "./schemas";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
@@ -92,8 +87,7 @@ export const authenticationApi = new OpenAPIHono<{
 					schemaLinks: authenticationBuiltinEntitySchemas()
 						.filter(
 							(schema): schema is typeof schema & { trackerSlug: string } =>
-								typeof (schema as { trackerSlug?: string }).trackerSlug ===
-								"string",
+								typeof (schema as { trackerSlug?: string }).trackerSlug === "string",
 						)
 						.map((schema) => ({
 							slug: schema.slug,
@@ -115,10 +109,7 @@ export const authenticationApi = new OpenAPIHono<{
 			const libraryEntityInput = buildLibraryEntityInput({
 				entitySchemas: builtinEntitySchemaRows,
 			});
-			await createLibraryEntityForUser(
-				{ userId: signUpResult.user.id, ...libraryEntityInput },
-				tx,
-			);
+			await createLibraryEntityForUser({ userId: signUpResult.user.id, ...libraryEntityInput }, tx);
 		});
 	} catch (error) {
 		if (isAPIError(error)) {

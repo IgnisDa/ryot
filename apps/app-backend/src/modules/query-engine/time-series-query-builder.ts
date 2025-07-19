@@ -1,28 +1,22 @@
 import { dayjs } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
+
 import { db } from "~/lib/db";
+
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import { buildQueryContext, type PreparedQueryContext } from "./preparer";
-import {
-	buildEventFirstCte,
-	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
-} from "./query-ctes";
-import type {
-	QueryEngineTimeSeriesResponse,
-	TimeSeriesQueryEngineRequest,
-} from "./schemas";
+import { buildEventFirstCte, EVENT_FIRST_ENTITY_COLUMN_OVERRIDES } from "./query-ctes";
+import type { QueryEngineTimeSeriesResponse, TimeSeriesQueryEngineRequest } from "./schemas";
 
 type TimeSeriesRow = {
 	date: Date | string;
 	value: number | string | null;
 };
 
-export const buildBucketInterval = (
-	bucket: TimeSeriesQueryEngineRequest["bucket"],
-): string =>
+export const buildBucketInterval = (bucket: TimeSeriesQueryEngineRequest["bucket"]): string =>
 	match(bucket)
 		.with("hour", () => "1 hour")
 		.with("day", () => "1 day")
@@ -128,8 +122,7 @@ export const executeTimeSeriesQuery = async (input: {
 		data: {
 			buckets: result.rows.map((row) => ({
 				value: Number(row.value ?? 0),
-				date:
-					row.date instanceof Date ? row.date.toISOString() : String(row.date),
+				date: row.date instanceof Date ? row.date.toISOString() : String(row.date),
 			})),
 		},
 	};

@@ -13,15 +13,7 @@ type AppApiCallContext = {
 
 const forbiddenHeaders = new Set(["authorization", "cookie", "x-api-key"]);
 
-const validMethods = new Set([
-	"GET",
-	"PUT",
-	"POST",
-	"HEAD",
-	"PATCH",
-	"DELETE",
-	"OPTIONS",
-]);
+const validMethods = new Set(["GET", "PUT", "POST", "HEAD", "PATCH", "DELETE", "OPTIONS"]);
 
 const parseAppApiCallOptions = (options: unknown) => {
 	if (options === undefined || options === null) {
@@ -129,11 +121,7 @@ export const createAppApiCallHostFunction = (
 		try {
 			parsedOptions = parseAppApiCallOptions(options);
 		} catch (error) {
-			return apiFailure(
-				error instanceof Error
-					? error.message
-					: "appApiCall options are invalid",
-			);
+			return apiFailure(error instanceof Error ? error.message : "appApiCall options are invalid");
 		}
 
 		try {
@@ -161,9 +149,7 @@ export const createAppApiCallHostFunction = (
 				statusText: response.statusText,
 			});
 		} catch (error) {
-			return apiFailure(
-				error instanceof Error ? error.message : "appApiCall failed",
-			);
+			return apiFailure(error instanceof Error ? error.message : "appApiCall failed");
 		}
 	};
 };

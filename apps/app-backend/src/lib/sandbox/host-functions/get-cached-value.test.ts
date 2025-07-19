@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { redis } from "~/lib/redis";
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
+
 import { getCachedValue } from "./get-cached-value";
 
 const ctx = { scriptId: "test-script" };
@@ -10,9 +12,7 @@ describe("getCachedValue", () => {
 		const originalGet = redis.get.bind(redis);
 		redis.get = async () => JSON.stringify({ cached: true }) as never;
 		try {
-			expect(await getCachedValue(ctx, "my-key")).toEqual(
-				apiSuccess({ cached: true }),
-			);
+			expect(await getCachedValue(ctx, "my-key")).toEqual(apiSuccess({ cached: true }));
 		} finally {
 			redis.get = originalGet;
 		}
@@ -22,9 +22,7 @@ describe("getCachedValue", () => {
 		const originalGet = redis.get.bind(redis);
 		redis.get = async () => null as never;
 		try {
-			expect(await getCachedValue(ctx, "missing-key")).toEqual(
-				apiSuccess(null),
-			);
+			expect(await getCachedValue(ctx, "missing-key")).toEqual(apiSuccess(null));
 		} finally {
 			redis.get = originalGet;
 		}
@@ -48,9 +46,7 @@ describe("getCachedValue", () => {
 			throw new Error("connection refused");
 		};
 		try {
-			expect(await getCachedValue(ctx, "my-key")).toEqual(
-				apiFailure("connection refused"),
-			);
+			expect(await getCachedValue(ctx, "my-key")).toEqual(apiFailure("connection refused"));
 		} finally {
 			redis.get = originalGet;
 		}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
@@ -16,9 +17,7 @@ async function pollForEventWithSchema(
 			headers: { Cookie: cookies },
 			params: { query: { entityId } },
 		});
-		const found = events.data?.data.find(
-			(event) => event.eventSchemaSlug === eventSchemaSlug,
-		);
+		const found = events.data?.data.find((event) => event.eventSchemaSlug === eventSchemaSlug);
 		if (found) {
 			return found;
 		}
@@ -26,9 +25,7 @@ async function pollForEventWithSchema(
 		await Bun.sleep(500);
 	}
 
-	throw new Error(
-		`Timed out waiting for '${eventSchemaSlug}' event on '${entityId}'`,
-	);
+	throw new Error(`Timed out waiting for '${eventSchemaSlug}' event on '${entityId}'`);
 }
 
 async function listEventsForEntity(
@@ -47,8 +44,10 @@ describe("Event trigger firing", () => {
 	it("logging 100% progress creates a completion event via builtin trigger", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies);
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -61,12 +60,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completionEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completionEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completionEvent.eventSchemaSlug).toBe("complete");
 		expect(completionEvent.properties).toMatchObject({
@@ -77,8 +71,10 @@ describe("Event trigger firing", () => {
 	it("logging less than 100% progress does not create a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies);
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -97,9 +93,7 @@ describe("Event trigger firing", () => {
 			headers: { Cookie: cookies },
 			params: { query: { entityId } },
 		});
-		const completeEvent = events.data?.data.find(
-			(event) => event.eventSchemaSlug === "complete",
-		);
+		const completeEvent = events.data?.data.find((event) => event.eventSchemaSlug === "complete");
 
 		expect(completeEvent).toBeUndefined();
 	}, 20_000);
@@ -107,8 +101,10 @@ describe("Event trigger firing", () => {
 	it("logging 100% progress twice creates two completion events", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies);
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -150,8 +146,10 @@ describe("Event trigger firing", () => {
 	it("logging one show episode at 100% does not complete a multi-episode show", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "show",
 				properties: {
 					images: [],
@@ -187,7 +185,8 @@ describe("Event trigger firing", () => {
 						},
 					],
 				},
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -207,16 +206,16 @@ describe("Event trigger firing", () => {
 		await waitForEventCount(client, cookies, entityId, 1);
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(
-			events.filter((event) => event.eventSchemaSlug === "complete"),
-		).toHaveLength(0);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 	}, 20_000);
 
 	it("logging every regular show episode at 100% creates exactly one completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "show",
 				properties: {
 					images: [],
@@ -252,7 +251,8 @@ describe("Event trigger firing", () => {
 						},
 					],
 				},
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -289,16 +289,16 @@ describe("Event trigger firing", () => {
 		await waitForEventCount(client, cookies, entityId, 3);
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(
-			events.filter((event) => event.eventSchemaSlug === "complete"),
-		).toHaveLength(1);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 	}, 20_000);
 
 	it("show completion ignores seasons named Specials", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "show",
 				properties: {
 					images: [],
@@ -345,7 +345,8 @@ describe("Event trigger firing", () => {
 						},
 					],
 				},
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -362,29 +363,25 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(
-			events.filter((event) => event.eventSchemaSlug === "complete"),
-		).toHaveLength(1);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 	}, 20_000);
 
 	it("logging all anime episodes creates a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "anime",
 				properties: { images: [], episodes: 2 },
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -402,29 +399,25 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(
-			events.filter((event) => event.eventSchemaSlug === "complete"),
-		).toHaveLength(1);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 	}, 20_000);
 
 	it("anime with unknown episode count completes immediately", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "anime",
 				properties: { images: [], episodes: null },
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -437,29 +430,25 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(
-			events.filter((event) => event.eventSchemaSlug === "complete"),
-		).toHaveLength(1);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 	}, 20_000);
 
 	it("logging all manga chapters creates a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "manga",
 				properties: { images: [], volumes: null, chapters: 2 },
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -477,12 +466,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
@@ -490,11 +474,14 @@ describe("Event trigger firing", () => {
 	it("manga with unknown chapter count completes immediately", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "manga",
 				properties: { images: [], volumes: null, chapters: null },
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -507,12 +494,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
@@ -520,8 +502,10 @@ describe("Event trigger firing", () => {
 	it("logging all podcast episodes creates a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "podcast",
 				properties: {
 					images: [],
@@ -547,7 +531,8 @@ describe("Event trigger firing", () => {
 						},
 					],
 				},
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -565,12 +550,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
@@ -578,11 +558,14 @@ describe("Event trigger firing", () => {
 	it("movie completion still happens immediately at 100% progress", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "movie",
 				properties: { images: [] },
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -595,12 +578,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(
-			client,
-			cookies,
-			entityId,
-			"complete",
-		);
+		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
@@ -608,11 +586,14 @@ describe("Event trigger firing", () => {
 	it("movie completion still fires twice when 100% progress is logged twice", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(client, cookies, {
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{
 				entitySchemaSlug: "movie",
 				properties: { images: [] },
-			});
+			},
+		);
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -641,8 +622,6 @@ describe("Event trigger firing", () => {
 		await waitForEventCount(client, cookies, entityId, 4);
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(
-			events.filter((event) => event.eventSchemaSlug === "complete"),
-		).toHaveLength(2);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);
 	}, 20_000);
 });

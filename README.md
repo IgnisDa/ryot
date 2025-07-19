@@ -144,6 +144,6 @@ Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8) 
 <details>
 <summary><strong>Migrating from v9?</strong></summary>
 
-If you were using v9.* of Ryot, please read the [migration guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for instructions to upgrade to v10.
+If you were using v9.\* of Ryot, please read the [migration guide](https://docs.ryot.io/migration.html#from-v9-to-v10) for instructions to upgrade to v10.
 
 </details>

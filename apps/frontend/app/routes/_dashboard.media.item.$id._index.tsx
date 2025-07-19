@@ -50,33 +50,18 @@ import {
 	IconUser,
 	IconVideo,
 } from "@tabler/icons-react";
-import {
-	forwardRef,
-	type ReactNode,
-	useCallback,
-	useRef,
-	useState,
-} from "react";
+import { forwardRef, type ReactNode, useCallback, useRef, useState } from "react";
 import { data, Form, Link, useLoaderData } from "react-router";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import {
-	DisplayCollectionToEntity,
-	EditButton,
-	SkeletonLoader,
-} from "~/components/common";
+
+import { DisplayCollectionToEntity, EditButton, SkeletonLoader } from "~/components/common";
 import { MediaDetailsLayout } from "~/components/common/layout";
-import {
-	DisplayThreePointReview,
-	ReviewItemDisplay,
-} from "~/components/common/review";
-import {
-	MediaScrollArea,
-	PartialMetadataDisplay,
-} from "~/components/media/base-display";
+import { DisplayThreePointReview, ReviewItemDisplay } from "~/components/common/review";
+import { MediaScrollArea, PartialMetadataDisplay } from "~/components/media/base-display";
 import {
 	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
@@ -113,20 +98,14 @@ import {
 	getRatingUnitSuffix,
 	getVerb,
 } from "~/lib/shared/media-utils";
-import {
-	getProviderSourceImage,
-	openConfirmationModal,
-} from "~/lib/shared/ui-utils";
+import { getProviderSourceImage, openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodDateTimeString } from "~/lib/shared/validation";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
-import {
-	OnboardingTourStepTarget,
-	useOnboardingTour,
-} from "~/lib/state/onboarding-tour";
+import { OnboardingTourStepTarget, useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { Verb } from "~/lib/types";
 import {
 	createToastHeaders,
@@ -134,6 +113,7 @@ import {
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
 
 const searchParamsSchema = z.object({ defaultTab: z.string().optional() });
@@ -141,10 +121,7 @@ const searchParamsSchema = z.object({ defaultTab: z.string().optional() });
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { id: metadataId } = parseParameters(
-		params,
-		z.object({ id: z.string() }),
-	);
+	const { id: metadataId } = parseParameters(params, z.object({ id: z.string() }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { query, metadataId };
 };
@@ -159,11 +136,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	return await match(intent)
 		.with("deleteSeenItem", async () => {
 			const submission = processSubmission(formData, seenIdSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				DeleteSeenItemDocument,
-				submission,
-			);
+			await serverGqlService.authenticatedRequest(request, DeleteSeenItemDocument, submission);
 			return data({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -173,24 +146,18 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.with("mergeMetadata", async () => {
 			const submission = processSubmission(formData, mergeMetadataSchema);
-			await serverGqlService.authenticatedRequest(
-				request,
-				MergeMetadataDocument,
-				submission,
-			);
-			return redirectWithToast(
-				$path("/media/item/:id", { id: submission.mergeInto }),
-				{ type: "success", message: "Metadata merged successfully" },
-			);
+			await serverGqlService.authenticatedRequest(request, MergeMetadataDocument, submission);
+			return redirectWithToast($path("/media/item/:id", { id: submission.mergeInto }), {
+				type: "success",
+				message: "Metadata merged successfully",
+			});
 		})
 		.with("editSeenItem", async () => {
 			const submission = processSubmission(formData, editSeenItem);
 			submission.reviewId = submission.reviewId || "";
-			await serverGqlService.authenticatedRequest(
-				request,
-				UpdateSeenItemDocument,
-				{ input: submission },
-			);
+			await serverGqlService.authenticatedRequest(request, UpdateSeenItemDocument, {
+				input: submission,
+			});
 			return data({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
@@ -251,17 +218,10 @@ export default function Page() {
 	const averageRatingDisplay =
 		averageRatingValue == null
 			? null
-			: formatRatingForDisplay(
-					averageRatingValue,
-					userPreferences.general.reviewScale,
-				);
-	const averageRatingSuffix = getRatingUnitSuffix(
-		userPreferences.general.reviewScale,
-	);
+			: formatRatingForDisplay(averageRatingValue, userPreferences.general.reviewScale);
+	const averageRatingSuffix = getRatingUnitSuffix(userPreferences.general.reviewScale);
 
-	const [tab, setTab] = useState<string | null>(
-		loaderData.query.defaultTab || "overview",
-	);
+	const [tab, setTab] = useState<string | null>(loaderData.query.defaultTab || "overview");
 	const podcastVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const reviewsVirtuosoRef = useRef<VirtuosoHandle>(null);
 	const [
@@ -290,8 +250,7 @@ export default function Page() {
 	});
 
 	const title = metadataTitleTranslation || metadataDetails.data?.title || "";
-	const description =
-		metadataDescriptionTranslation || metadataDetails.data?.description;
+	const description = metadataDescriptionTranslation || metadataDetails.data?.description;
 	const nextEntry = userMetadataDetails.data?.nextEntry;
 	const inProgress = userMetadataDetails.data?.inProgress;
 	const firstGroupAssociated = metadataDetails.data?.groups.at(0);
@@ -300,14 +259,11 @@ export default function Page() {
 		firstGroupAssociated?.id,
 		userPreferences.featuresEnabled.media.groups && !!firstGroupAssociated?.id,
 	);
-	const deployBulkMetadataProgressUpdate =
-		useDeployBulkMetadataProgressUpdateMutation(title);
+	const deployBulkMetadataProgressUpdate = useDeployBulkMetadataProgressUpdateMutation(title);
 
 	const changeProgress = useCallback(
 		(change: MetadataProgressUpdateChange) =>
-			deployBulkMetadataProgressUpdate.mutate([
-				{ change, metadataId: loaderData.metadataId },
-			]),
+			deployBulkMetadataProgressUpdate.mutate([{ change, metadataId: loaderData.metadataId }]),
 		[deployBulkMetadataProgressUpdate.mutate, loaderData.metadataId],
 	);
 
@@ -330,12 +286,8 @@ export default function Page() {
 				})}
 			>
 				<Text c="dimmed" fs="italic" span>
-					{metadataGroupTitleTranslation ||
-						metadataGroupDetails?.details.title ||
-						"Group"}{" "}
-					{isNumber(firstGroupAssociated.part)
-						? `#${firstGroupAssociated.part}`
-						: null}
+					{metadataGroupTitleTranslation || metadataGroupDetails?.details.title || "Group"}{" "}
+					{isNumber(firstGroupAssociated.part) ? `#${firstGroupAssociated.part}` : null}
 				</Text>
 			</Link>
 		),
@@ -359,9 +311,7 @@ export default function Page() {
 			`${metadataDetails.data.comicBookSpecifics.pageCount} pages`,
 		metadataDetails.data?.movieSpecifics?.runtime &&
 			humanizeDuration(
-				dayjsLib
-					.duration(metadataDetails.data.movieSpecifics.runtime, "minute")
-					.asMilliseconds(),
+				dayjsLib.duration(metadataDetails.data.movieSpecifics.runtime, "minute").asMilliseconds(),
 			),
 		metadataDetails.data?.showSpecifics?.totalSeasons &&
 			`${metadataDetails.data.showSpecifics.totalSeasons} seasons`,
@@ -369,9 +319,7 @@ export default function Page() {
 			`${metadataDetails.data.showSpecifics.totalEpisodes} episodes`,
 		metadataDetails.data?.showSpecifics?.runtime &&
 			humanizeDuration(
-				dayjsLib
-					.duration(metadataDetails.data.showSpecifics.runtime, "minute")
-					.asMilliseconds(),
+				dayjsLib.duration(metadataDetails.data.showSpecifics.runtime, "minute").asMilliseconds(),
 			),
 		metadataDetails.data?.audioBookSpecifics?.runtime &&
 			humanizeDuration(
@@ -381,14 +329,10 @@ export default function Page() {
 			),
 		metadataDetails.data?.musicSpecifics?.duration &&
 			humanizeDuration(
-				dayjsLib
-					.duration(metadataDetails.data.musicSpecifics.duration, "second")
-					.asMilliseconds(),
+				dayjsLib.duration(metadataDetails.data.musicSpecifics.duration, "second").asMilliseconds(),
 			),
 		metadataDetails.data?.musicSpecifics?.viewCount &&
-			formatQuantityWithCompactNotation(
-				metadataDetails.data.musicSpecifics.viewCount,
-			),
+			formatQuantityWithCompactNotation(metadataDetails.data.musicSpecifics.viewCount),
 		metadataDetails.data?.musicSpecifics?.byVariousArtists && "Various Artists",
 		metadataDetails.data?.musicSpecifics?.trackNumber &&
 			`Track #${metadataDetails.data.musicSpecifics.trackNumber}`,
@@ -398,16 +342,12 @@ export default function Page() {
 
 	const PutOnHoldMenuItem = () => {
 		return (
-			<Menu.Item onClick={() => changeProgressState(SeenState.OnAHold)}>
-				Put on hold
-			</Menu.Item>
+			<Menu.Item onClick={() => changeProgressState(SeenState.OnAHold)}>Put on hold</Menu.Item>
 		);
 	};
 	const DropMenuItem = () => {
 		return (
-			<Menu.Item onClick={() => changeProgressState(SeenState.Dropped)}>
-				Mark as dropped
-			</Menu.Item>
+			<Menu.Item onClick={() => changeProgressState(SeenState.Dropped)}>Mark as dropped</Menu.Item>
 		);
 	};
 	const StateChangeButtons = () => {
@@ -458,8 +398,7 @@ export default function Page() {
 									.reduce((prev, curr) => [prev, " • ", curr])}
 							</Text>
 						) : null}
-						{metadataDetails.data.providerRating ||
-						averageRatingValue != null ? (
+						{metadataDetails.data.providerRating || averageRatingValue != null ? (
 							<Group>
 								{metadataDetails.data.providerRating ? (
 									<Paper
@@ -496,11 +435,7 @@ export default function Page() {
 													MediaSource.GoogleBooks,
 													() => "/5",
 												)
-												.with(
-													MediaSource.Myanimelist,
-													MediaSource.MangaUpdates,
-													() => "/10",
-												)
+												.with(MediaSource.Myanimelist, MediaSource.MangaUpdates, () => "/10")
 												.with(
 													MediaSource.Custom,
 													MediaSource.Itunes,
@@ -519,10 +454,7 @@ export default function Page() {
 								{averageRatingValue != null
 									? match(userPreferences.general.reviewScale)
 											.with(UserReviewScale.ThreePointSmiley, () => (
-												<DisplayThreePointReview
-													size={40}
-													rating={averageRatingValue}
-												/>
+												<DisplayThreePointReview size={40} rating={averageRatingValue} />
 											))
 											.otherwise(() => (
 												<Paper
@@ -534,10 +466,7 @@ export default function Page() {
 														flexDirection: "column",
 													}}
 												>
-													<IconStarFilled
-														size={22}
-														style={{ color: reviewYellow }}
-													/>
+													<IconStarFilled size={22} style={{ color: reviewYellow }} />
 													<Text fz="sm">
 														{averageRatingDisplay}
 														{averageRatingSuffix}
@@ -562,10 +491,7 @@ export default function Page() {
 						) : null}
 						<Tabs variant="outline" value={tab} onChange={(t) => setTab(t)}>
 							<Tabs.List mb="xs">
-								<Tabs.Tab
-									value="overview"
-									leftSection={<IconInfoCircle size={16} />}
-								>
+								<Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
 									Overview
 								</Tabs.Tab>
 								<Tabs.Tab
@@ -576,55 +502,34 @@ export default function Page() {
 								>
 									Actions
 								</Tabs.Tab>
-								<Tabs.Tab
-									value="history"
-									leftSection={<IconRotateClockwise size={16} />}
-								>
+								<Tabs.Tab value="history" leftSection={<IconRotateClockwise size={16} />}>
 									History
 								</Tabs.Tab>
 								{metadataDetails.data.lot === MediaLot.Show ? (
-									<Tabs.Tab
-										value="showSeasons"
-										leftSection={<IconPlayerPlay size={16} />}
-									>
+									<Tabs.Tab value="showSeasons" leftSection={<IconPlayerPlay size={16} />}>
 										Seasons
 									</Tabs.Tab>
 								) : null}
 								{metadataDetails.data.lot === MediaLot.Podcast ? (
-									<Tabs.Tab
-										value="podcastEpisodes"
-										leftSection={<IconPlayerPlay size={16} />}
-									>
+									<Tabs.Tab value="podcastEpisodes" leftSection={<IconPlayerPlay size={16} />}>
 										Episodes
 									</Tabs.Tab>
 								) : null}
 								{!userPreferences.general.disableReviews ? (
-									<Tabs.Tab
-										value="reviews"
-										leftSection={<IconMessageCircle2 size={16} />}
-									>
+									<Tabs.Tab value="reviews" leftSection={<IconMessageCircle2 size={16} />}>
 										Reviews
 									</Tabs.Tab>
 								) : null}
-								<Tabs.Tab
-									value="suggestions"
-									leftSection={<IconBulb size={16} />}
-								>
+								<Tabs.Tab value="suggestions" leftSection={<IconBulb size={16} />}>
 									Suggestions
 								</Tabs.Tab>
 								{!userPreferences.general.disableVideos && videos.length > 0 ? (
-									<Tabs.Tab
-										value="videos"
-										leftSection={<IconVideo size={16} />}
-									>
+									<Tabs.Tab value="videos" leftSection={<IconVideo size={16} />}>
 										Videos
 									</Tabs.Tab>
 								) : null}
 								{!userPreferences.general.disableWatchProviders ? (
-									<Tabs.Tab
-										value="watchProviders"
-										leftSection={<IconMovie size={16} />}
-									>
+									<Tabs.Tab value="watchProviders" leftSection={<IconMovie size={16} />}>
 										Watch On
 									</Tabs.Tab>
 								) : null}
@@ -634,10 +539,7 @@ export default function Page() {
 									<Stack gap="sm">
 										{userPreferences.featuresEnabled.media.genres &&
 										metadataDetails.data.genres.length > 0 ? (
-											<SimpleGrid
-												cols={{ base: 3, xl: 4 }}
-												spacing={{ base: "md", lg: "xs" }}
-											>
+											<SimpleGrid cols={{ base: 3, xl: 4 }} spacing={{ base: "md", lg: "xs" }}>
 												{metadataDetails.data.genres.slice(0, 12).map((g) => (
 													<GenreItem key={g.id} genre={g} />
 												))}
@@ -649,7 +551,7 @@ export default function Page() {
 										{description ? (
 											<ScrollArea maw="600">
 												<div
-													// biome-ignore lint/security/noDangerouslySetInnerHtml: generated by the backend securely
+													// oxlint-disable-next-line react/no-danger
 													dangerouslySetInnerHTML={{ __html: description }}
 												/>
 											</ScrollArea>
@@ -671,10 +573,7 @@ export default function Page() {
 														>
 															<Flex gap="md">
 																{c.items.map((creator) => (
-																	<MetadataCreatorDisplay
-																		data={creator}
-																		key={creator.idOrName}
-																	/>
+																	<MetadataCreatorDisplay data={creator} key={creator.idOrName} />
 																))}
 															</Flex>
 														</ScrollArea>
@@ -707,16 +606,12 @@ export default function Page() {
 																	onClick={() => {
 																		initializeMetadataToUpdate({
 																			metadataId: loaderData.metadataId,
-																			showSeasonNumber:
-																				nextEntry.season || undefined,
-																			showEpisodeNumber:
-																				nextEntry.episode || undefined,
+																			showSeasonNumber: nextEntry.season || undefined,
+																			showEpisodeNumber: nextEntry.episode || undefined,
 																		});
 																	}}
 																>
-																	Mark{" "}
-																	{`S${nextEntry.season}-E${nextEntry.episode}`}{" "}
-																	as seen
+																	Mark {`S${nextEntry.season}-E${nextEntry.episode}`} as seen
 																</Menu.Item>
 																<PutOnHoldMenuItem />
 															</>
@@ -757,10 +652,8 @@ export default function Page() {
 															onClick={() => {
 																initializeMetadataToUpdate({
 																	metadataId: loaderData.metadataId,
-																	mangaVolumeNumber:
-																		nextEntry?.volume || undefined,
-																	mangaChapterNumber:
-																		nextEntry?.chapter || undefined,
+																	mangaVolumeNumber: nextEntry?.volume || undefined,
+																	mangaChapterNumber: nextEntry?.chapter || undefined,
 																});
 															}}
 														>
@@ -786,8 +679,7 @@ export default function Page() {
 																	onClick={() => {
 																		initializeMetadataToUpdate({
 																			metadataId: loaderData.metadataId,
-																			podcastEpisodeNumber:
-																				nextEntry.episode || undefined,
+																			podcastEpisodeNumber: nextEntry.episode || undefined,
 																		});
 																	}}
 																>
@@ -835,7 +727,7 @@ export default function Page() {
 													</>
 												) : !METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
 														metadataDetails.data.lot,
-													) ? (
+												  ) ? (
 													<>
 														<Menu.Label>Not in progress</Menu.Label>
 														{![MediaLot.Anime, MediaLot.Manga].includes(
@@ -845,15 +737,12 @@ export default function Page() {
 																onClick={() =>
 																	changeProgress({
 																		createNewInProgress: {
-																			startedOn: convertTimestampToUtcString(
-																				new Date(),
-																			),
+																			startedOn: convertTimestampToUtcString(new Date()),
 																		},
 																	})
 																}
 															>
-																I'm{" "}
-																{getVerb(Verb.Read, metadataDetails.data.lot)}
+																I'm {getVerb(Verb.Read, metadataDetails.data.lot)}
 																ing it
 															</Menu.Item>
 														) : null}
@@ -864,9 +753,7 @@ export default function Page() {
 																});
 															}}
 														>
-															Add to{" "}
-															{getVerb(Verb.Read, metadataDetails.data.lot)}{" "}
-															history
+															Add to {getVerb(Verb.Read, metadataDetails.data.lot)} history
 														</Menu.Item>
 													</>
 												) : null}
@@ -884,27 +771,17 @@ export default function Page() {
 														metadataLot: metadataDetails.data.lot,
 														existingReview: {
 															showExtraInformation: {
-																episode:
-																	userMetadataDetails.data.nextEntry?.episode ||
-																	undefined,
-																season:
-																	userMetadataDetails.data.nextEntry?.season ||
-																	undefined,
+																episode: userMetadataDetails.data.nextEntry?.episode || undefined,
+																season: userMetadataDetails.data.nextEntry?.season || undefined,
 															},
 															podcastExtraInformation: {
-																episode:
-																	userMetadataDetails.data.nextEntry?.episode ||
-																	undefined,
+																episode: userMetadataDetails.data.nextEntry?.episode || undefined,
 															},
 															mangaExtraInformation: {
-																chapter:
-																	userMetadataDetails.data.nextEntry?.chapter ||
-																	undefined,
+																chapter: userMetadataDetails.data.nextEntry?.chapter || undefined,
 															},
 															animeExtraInformation: {
-																episode:
-																	userMetadataDetails.data.nextEntry?.episode ||
-																	undefined,
+																episode: userMetadataDetails.data.nextEntry?.episode || undefined,
 															},
 														},
 													});
@@ -936,18 +813,9 @@ export default function Page() {
 														(c) => c.details.collectionName,
 													)}
 												/>
-												<Menu.Item onClick={mergeMetadataModalOpen}>
-													Merge media
-												</Menu.Item>
-												<Form
-													method="POST"
-													action={withQuery(".", { intent: "removeItem" })}
-												>
-													<input
-														hidden
-														name="metadataId"
-														defaultValue={loaderData.metadataId}
-													/>
+												<Menu.Item onClick={mergeMetadataModalOpen}>Merge media</Menu.Item>
+												<Form method="POST" action={withQuery(".", { intent: "removeItem" })}>
+													<input hidden name="metadataId" defaultValue={loaderData.metadataId} />
 													<Menu.Item
 														color="red"
 														onClick={(e) => {
@@ -987,12 +855,10 @@ export default function Page() {
 									<Stack h={MEDIA_DETAILS_HEIGHT} gap="xs">
 										<Box>
 											<Text fz={{ base: "sm", md: "md" }}>
-												Seen by all users{" "}
-												{userMetadataDetails.data.seenByAllCount} time
-												{userMetadataDetails.data.seenByAllCount > 1 ? "s" : ""}{" "}
-												and {userMetadataDetails.data.seenByUserCount} time
-												{userMetadataDetails.data &&
-												userMetadataDetails.data.seenByUserCount > 1
+												Seen by all users {userMetadataDetails.data.seenByAllCount} time
+												{userMetadataDetails.data.seenByAllCount > 1 ? "s" : ""} and{" "}
+												{userMetadataDetails.data.seenByUserCount} time
+												{userMetadataDetails.data && userMetadataDetails.data.seenByUserCount > 1
 													? "s"
 													: ""}{" "}
 												by you.
@@ -1082,11 +948,7 @@ export default function Page() {
 										)}
 										components={{
 											List: forwardRef((props, ref) => (
-												<SimpleGrid
-													ref={ref}
-													{...props}
-													cols={{ base: 3, md: 4, lg: 5 }}
-												/>
+												<SimpleGrid ref={ref} {...props} cols={{ base: 3, md: 4, lg: 5 }} />
 											)),
 										}}
 									/>
@@ -1099,11 +961,7 @@ export default function Page() {
 									<MediaScrollArea>
 										<Stack>
 											{videos.map((v) => (
-												<VideoIframe
-													key={v.url}
-													videoId={v.url}
-													videoSource={v.source}
-												/>
+												<VideoIframe key={v.url} videoId={v.url} videoSource={v.source} />
 											))}
 										</Stack>
 									</MediaScrollArea>
@@ -1115,31 +973,20 @@ export default function Page() {
 										<MediaScrollArea>
 											<Stack gap="sm">
 												<Text>
-													JustWatch makes it easy to find out where you can
-													legally watch your favorite movies & TV shows online.
-													Visit{" "}
-													<Anchor
-														target="_blank"
-														href={JUST_WATCH_URL}
-														rel="noopener noreferrer"
-													>
+													JustWatch makes it easy to find out where you can legally watch your
+													favorite movies & TV shows online. Visit{" "}
+													<Anchor target="_blank" href={JUST_WATCH_URL} rel="noopener noreferrer">
 														JustWatch
 													</Anchor>{" "}
 													for more information.
 												</Text>
 												<Text>
-													The following is a list of all available watch
-													providers for this media along with the countries they
-													are available in.
+													The following is a list of all available watch providers for this media
+													along with the countries they are available in.
 												</Text>
 												{metadataDetails.data.watchProviders.map((provider) => (
 													<Flex key={provider.name} align="center" gap="md">
-														<Image
-															h={80}
-															w={80}
-															radius="md"
-															src={provider.image}
-														/>
+														<Image h={80} w={80} radius="md" src={provider.image} />
 														<Text lineClamp={3}>
 															{provider.name}:{" "}
 															<Text size="xs" span>

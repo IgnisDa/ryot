@@ -3,6 +3,7 @@ import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsInteger } from "nuqs";
 import invariant from "tiny-invariant";
+
 import { ApplicationPagination, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
@@ -21,9 +22,7 @@ export default function Page(props: { params: { id: string } }) {
 	const { id: genreId } = props.params;
 	invariant(genreId);
 
-	const { filters: pagination, updateFilters } = useFiltersState(
-		defaultPaginationState,
-	);
+	const { filters: pagination, updateFilters } = useFiltersState(defaultPaginationState);
 
 	const { data: genreDetails } = useQuery({
 		queryKey: queryFactory.media.genreDetails({
@@ -45,12 +44,8 @@ export default function Page(props: { params: { id: string } }) {
 					<>
 						<Group justify="space-between">
 							<Box>
-								<Title id="genre-title">
-									{genreDetails.response.details.name}
-								</Title>
-								<Text>
-									{genreDetails.response.details.numItems} media items
-								</Text>
+								<Title id="genre-title">{genreDetails.response.details.name}</Title>
+								<Text>{genreDetails.response.details.numItems} media items</Text>
 							</Box>
 							<ApplicationPagination
 								value={pagination.page}

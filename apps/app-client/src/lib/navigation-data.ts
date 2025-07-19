@@ -23,9 +23,9 @@ export type NavigationItem = {
 	accentColor: string | null;
 };
 
-export function sortByOrderThenName<
-	T extends { sortOrder: number; name: string },
->(items: T[]): T[] {
+export function sortByOrderThenName<T extends { sortOrder: number; name: string }>(
+	items: T[],
+): T[] {
 	return [...items].sort((a, b) => {
 		if (a.sortOrder !== b.sortOrder) {
 			return a.sortOrder - b.sortOrder;
@@ -38,10 +38,7 @@ export function unwrapData<T>(body: { data: T[] } | undefined): T[] {
 	return body?.data ?? [];
 }
 
-export function buildNavigationItems(
-	trackers: ApiTracker[],
-	views: ApiSavedView[],
-) {
+export function buildNavigationItems(trackers: ApiTracker[], views: ApiSavedView[]) {
 	const enabledTrackers = trackers.filter((t) => !t.isDisabled);
 	const sortedTrackers = sortByOrderThenName(enabledTrackers);
 
@@ -49,9 +46,7 @@ export function buildNavigationItems(
 	const sortedViews = sortByOrderThenName(enabledViews);
 
 	const trackerItems: NavigationItem[] = sortedTrackers.map((tracker) => {
-		const trackerViews = sortedViews.filter(
-			(view) => view.trackerId === tracker.id,
-		);
+		const trackerViews = sortedViews.filter((view) => view.trackerId === tracker.id);
 		return {
 			key: tracker.id,
 			slug: tracker.slug,

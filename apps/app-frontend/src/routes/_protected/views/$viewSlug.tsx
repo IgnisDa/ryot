@@ -1,12 +1,9 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-	createFileRoute,
-	useCanGoBack,
-	useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+
 import {
 	type CreateCollectionFormPayload,
 	CreateCollectionModal,
@@ -33,20 +30,12 @@ function RouteComponent() {
 	const collectionMutations = useCollectionMutations();
 	const [actionError, setActionError] = useState<string | null>(null);
 
-	const runtimeQueryKey = apiClient.queryOptions(
-		"post",
-		"/query-engine/execute",
-	).queryKey;
+	const runtimeQueryKey = apiClient.queryOptions("post", "/query-engine/execute").queryKey;
 
-	const createCollectionModal = useModalForm(
-		async (payload: CreateCollectionFormPayload) => {
-			await collectionMutations.createCollection(
-				payload.name,
-				payload.membershipPropertiesSchema,
-			);
-			await queryClient.invalidateQueries({ queryKey: runtimeQueryKey });
-		},
-	);
+	const createCollectionModal = useModalForm(async (payload: CreateCollectionFormPayload) => {
+		await collectionMutations.createCollection(payload.name, payload.membershipPropertiesSchema);
+		await queryClient.invalidateQueries({ queryKey: runtimeQueryKey });
+	});
 
 	const handleClone = async () => {
 		setActionError(null);
@@ -68,9 +57,7 @@ function RouteComponent() {
 			title: "Delete saved view",
 			confirmProps: { color: "red" },
 			labels: { confirm: "Delete", cancel: "Cancel" },
-			children: (
-				<Text size="sm">Delete this saved view? This cannot be undone.</Text>
-			),
+			children: <Text size="sm">Delete this saved view? This cannot be undone.</Text>,
 			onConfirm: async () => {
 				try {
 					await savedViewMutations.deleteViewBySlug(viewSlug);
@@ -81,9 +68,7 @@ function RouteComponent() {
 
 					await navigate({ to: "/" });
 				} catch (error) {
-					setActionError(
-						getErrorMessage(error, "Failed to delete saved view."),
-					);
+					setActionError(getErrorMessage(error, "Failed to delete saved view."));
 				}
 			},
 		});

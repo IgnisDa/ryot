@@ -72,6 +72,7 @@ Follow SQL semantics: count/countWhere return 0 (kind: "number"), avg/sum/min/ma
 Build `aggregate-query-builder.ts`. Extract shared CTE builders (`buildBaseEntitiesCte`, `buildLatestEventJoinCte`, `buildJoinedEntitiesCte`) from the existing `query-builder.ts` into reusable helpers that both entity mode and aggregate mode import.
 
 The aggregate SQL:
+
 - Reuses entity-mode CTEs up through `filtered_entities`
 - Compiles each aggregation into a SELECT column
 - `countWhere` uses `count(*) FILTER (WHERE $predicate)`

@@ -44,9 +44,7 @@ const Layout = (props: LayoutProps) => (
 					<Heading className="text-2xl pt-4 px-0 font-normal text-brand-heading-gray tracking-tighter leading-3">
 						{props.headingText}
 					</Heading>
-					<Section className="py-7 text-paragraph-gray">
-						{props.children}
-					</Section>
+					<Section className="py-7 text-paragraph-gray">{props.children}</Section>
 					<Hr className="border-[#dfe1e4] my-6" />
 					<Link href="https://ryot.io" className="text-sm text-[#b4becc]">
 						Ryot &copy; {new Date().getFullYear()}

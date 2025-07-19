@@ -1,6 +1,7 @@
 import type { RuntimeRef } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
+
 import { event, eventSchema } from "~/lib/db/schema";
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
@@ -13,6 +14,7 @@ import {
 	getEventSchemaColumnPropertyType,
 	getPropertyType,
 } from "~/lib/views/reference";
+
 import type { QueryEngineContext } from "./schemas";
 import {
 	buildJsonColumnPropertyExpression,
@@ -32,10 +34,7 @@ export const buildEventJoinExpression = (input: {
 
 	if (input.reference.path[0] === "properties") {
 		const propertyPath = input.reference.path.slice(1);
-		const join = getEventJoinForReference(
-			input.context.eventJoinMap,
-			input.reference,
-		);
+		const join = getEventJoinForReference(input.context.eventJoinMap, input.reference);
 		const propertyType = getEventJoinPropertyType(join, propertyPath);
 
 		return buildJsonColumnPropertyExpression({
@@ -48,9 +47,7 @@ export const buildEventJoinExpression = (input: {
 
 	const [column] = input.reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event join reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event join reference path must not be empty");
 	}
 	const propertyType = getEventJoinColumnPropertyType(column);
 	if (!propertyType) {
@@ -75,16 +72,13 @@ export const buildEventAggregateExpression = (input: {
 }) => {
 	const { userId } = input.context;
 	if (!userId) {
-		throw new QueryEngineValidationError(
-			"Event aggregate expressions require a user context",
-		);
+		throw new QueryEngineValidationError("Event aggregate expressions require a user context");
 	}
 
 	const { aggregation, eventSchemaSlug, path } = input.reference;
 	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
 	const entityIdExpr = sql`${sql.raw(safeAlias)}.id`;
-	const actualType: PropertyType =
-		aggregation === "count" ? "integer" : "number";
+	const actualType: PropertyType = aggregation === "count" ? "integer" : "number";
 
 	let subquery: SqlExpression;
 	if (aggregation === "count") {
@@ -99,16 +93,8 @@ export const buildEventAggregateExpression = (input: {
 	} else {
 		const propertyPath = path.slice(1);
 		const propertiesBase = sql.raw("e_agg.properties");
-		const propertyJsonExpr = buildPropertyPathExpression(
-			propertiesBase,
-			propertyPath,
-			"json",
-		);
-		const propertyTextExpr = buildPropertyPathExpression(
-			propertiesBase,
-			propertyPath,
-			"text",
-		);
+		const propertyJsonExpr = buildPropertyPathExpression(propertiesBase, propertyPath, "json");
+		const propertyTextExpr = buildPropertyPathExpression(propertiesBase, propertyPath, "text");
 		const numericValue = sql`case when jsonb_typeof(${propertyJsonExpr}) = 'number' then (${propertyTextExpr})::numeric else null end`;
 		const aggFn = match(aggregation)
 			.with("avg", () => sql.raw("avg"))
@@ -176,16 +162,12 @@ export const buildEventExpression = (input: {
 
 	const [column] = input.reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event reference path must not be empty");
 	}
 
 	const propertyType = getEventColumnPropertyType(column);
 	if (!propertyType) {
-		throw new QueryEngineValidationError(
-			`Unsupported event column 'event.${column}'`,
-		);
+		throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 	}
 
 	const expression = match(column)
@@ -193,17 +175,12 @@ export const buildEventExpression = (input: {
 		.with("createdAt", () => sql`${sql.raw(safeAlias)}.created_at`)
 		.with("updatedAt", () => sql`${sql.raw(safeAlias)}.updated_at`)
 		.otherwise(() => {
-			throw new QueryEngineValidationError(
-				`Unsupported event column 'event.${column}'`,
-			);
+			throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
 		});
 
 	return input.targetType
 		? castExpressionToType(expression, input.targetType)
-		: castExpressionToType(
-				expression,
-				normalizeExpressionPropertyType(propertyType),
-			);
+		: castExpressionToType(expression, normalizeExpressionPropertyType(propertyType));
 };
 
 export const buildEventSchemaExpression = (input: {
@@ -213,22 +190,16 @@ export const buildEventSchemaExpression = (input: {
 }) => {
 	const [column] = input.reference.path;
 	if (!column) {
-		throw new QueryEngineValidationError(
-			"Event schema reference path must not be empty",
-		);
+		throw new QueryEngineValidationError("Event schema reference path must not be empty");
 	}
 
 	if (input.reference.path.length > 1) {
-		throw new QueryEngineValidationError(
-			"Event schema references do not support nested paths",
-		);
+		throw new QueryEngineValidationError("Event schema references do not support nested paths");
 	}
 
 	const propertyType = getEventSchemaColumnPropertyType(column);
 	if (!propertyType) {
-		throw new QueryEngineValidationError(
-			`Unsupported event schema column '${column}'`,
-		);
+		throw new QueryEngineValidationError(`Unsupported event schema column '${column}'`);
 	}
 
 	const safeAlias = sanitizeIdentifier(input.alias, "table alias");
@@ -236,8 +207,5 @@ export const buildEventSchemaExpression = (input: {
 
 	return input.targetType
 		? castExpressionToType(expression, input.targetType)
-		: castExpressionToType(
-				expression,
-				normalizeExpressionPropertyType(propertyType),
-			);
+		: castExpressionToType(expression, normalizeExpressionPropertyType(propertyType));
 };

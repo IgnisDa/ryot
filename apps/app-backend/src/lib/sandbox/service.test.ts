@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import { type SandboxRunJobData, sandboxRunJobName } from "./jobs";
 import { SandboxService } from "./service";
 
@@ -6,9 +7,7 @@ type TestSandboxExecutor = {
 	execute: (options: unknown) => Promise<unknown>;
 	executeQueuedRun: (
 		jobData: SandboxRunJobData,
-		scriptFetcher?: (
-			scriptId: string,
-		) => Promise<{ code: string; metadata: object } | null>,
+		scriptFetcher?: (scriptId: string) => Promise<{ code: string; metadata: object } | null>,
 	) => Promise<unknown>;
 };
 
@@ -21,30 +20,24 @@ type TestSandboxQueueAccessor = {
 	getQueue: () => { getJob: (jobId: string) => Promise<unknown> };
 };
 
-const createJobData = (
-	overrides: Partial<SandboxRunJobData> = {},
-): SandboxRunJobData => ({
+const createJobData = (overrides: Partial<SandboxRunJobData> = {}): SandboxRunJobData => ({
 	userId: "user_1",
 	driverName: "main",
 	scriptId: "script_1",
 	...overrides,
 });
 
-const createScriptFetcher =
-	(metadata?: object) => async (_scriptId: string) => ({
-		metadata: metadata ?? {},
-		code: 'driver("main", async function() { return 1; });',
-	});
+const createScriptFetcher = (metadata?: object) => async (_scriptId: string) => ({
+	metadata: metadata ?? {},
+	code: 'driver("main", async function() { return 1; });',
+});
 
 describe("SandboxService.executeQueuedRun", () => {
 	it("returns error when the script is not found", async () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxExecutor;
 
-		const result = await testService.executeQueuedRun(
-			createJobData(),
-			async () => null,
-		);
+		const result = await testService.executeQueuedRun(createJobData(), async () => null);
 
 		expect(result).toEqual({
 			success: false,
@@ -75,10 +68,7 @@ describe("SandboxService.executeQueuedRun", () => {
 
 		const apiFunctions = (
 			capturedOptions as {
-				apiFunctions: Record<
-					string,
-					(...args: Array<unknown>) => Promise<unknown>
-				>;
+				apiFunctions: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
 			}
 		).apiFunctions;
 		expect(Object.keys(apiFunctions).sort()).toEqual(["getAppConfigValue"]);
@@ -98,10 +88,7 @@ describe("SandboxService.executeQueuedRun", () => {
 
 		const apiFunctions = (
 			capturedOptions as {
-				apiFunctions: Record<
-					string,
-					(...args: Array<unknown>) => Promise<unknown>
-				>;
+				apiFunctions: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
 			}
 		).apiFunctions;
 		expect(Object.keys(apiFunctions).sort()).toEqual([]);
@@ -123,9 +110,7 @@ describe("SandboxService.executeQueuedRun", () => {
 		);
 
 		expect((result as { success: boolean }).success).toBe(false);
-		expect((result as { error: string }).error).toContain(
-			"Sandbox script metadata is invalid",
-		);
+		expect((result as { error: string }).error).toContain("Sandbox script metadata is invalid");
 		expect(executeCalled).toBe(false);
 	});
 
@@ -188,9 +173,10 @@ describe("SandboxService.getJobByIdForUser", () => {
 			},
 		});
 
-		expect(
-			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
-		).resolves.toEqual({ job, jobData: createJobData() });
+		expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toEqual({
+			job,
+			jobData: createJobData(),
+		});
 	});
 
 	it("returns null when the job does not exist", async () => {
@@ -199,9 +185,7 @@ describe("SandboxService.getJobByIdForUser", () => {
 
 		testService.getQueue = () => ({ getJob: async () => null });
 
-		expect(
-			service.getJobByIdForUser({ jobId: "missing", userId: "user_1" }),
-		).resolves.toBeNull();
+		expect(service.getJobByIdForUser({ jobId: "missing", userId: "user_1" })).resolves.toBeNull();
 	});
 
 	it("returns null when the job belongs to another user", async () => {
@@ -212,9 +196,7 @@ describe("SandboxService.getJobByIdForUser", () => {
 			getJob: async () => ({ data: createJobData({ userId: "user_2" }) }),
 		});
 
-		expect(
-			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
-		).resolves.toBeNull();
+		expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toBeNull();
 	});
 
 	it("returns null when the job payload is invalid", async () => {
@@ -225,9 +207,7 @@ describe("SandboxService.getJobByIdForUser", () => {
 			getJob: async () => ({ data: { userId: "user_1" } }),
 		});
 
-		expect(
-			service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" }),
-		).resolves.toBeNull();
+		expect(service.getJobByIdForUser({ jobId: "job_1", userId: "user_1" })).resolves.toBeNull();
 	});
 });
 
@@ -236,9 +216,9 @@ describe("SandboxService worker job processing", () => {
 		const service = new SandboxService();
 		const testService = service as unknown as TestSandboxWorkerProcessor;
 
-		expect(
-			testService.processJob({ name: "unknown", data: {} }),
-		).rejects.toThrow("Unsupported sandbox job: unknown");
+		expect(testService.processJob({ name: "unknown", data: {} })).rejects.toThrow(
+			"Unsupported sandbox job: unknown",
+		);
 	});
 
 	it("rejects invalid sandbox job payloads", async () => {

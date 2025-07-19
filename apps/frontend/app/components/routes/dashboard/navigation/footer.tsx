@@ -1,5 +1,7 @@
 import { Anchor, Flex, Text } from "@mantine/core";
+
 import { useCoreDetails } from "~/lib/shared/hooks";
+
 import { discordLink } from "../utils";
 
 export const Footer = () => {
@@ -8,11 +10,7 @@ export const Footer = () => {
 	return (
 		<Flex gap={80} justify="center">
 			{!coreDetails.isServerKeyValidated ? (
-				<Anchor
-					target="_blank"
-					rel="noopener noreferrer"
-					href={coreDetails.websiteUrl}
-				>
+				<Anchor target="_blank" rel="noopener noreferrer" href={coreDetails.websiteUrl}>
 					<Text c="red" fw="bold">
 						Ryot Pro
 					</Text>
@@ -26,11 +24,7 @@ export const Footer = () => {
 			<Text c="grape" fw="bold" visibleFrom="md">
 				{coreDetails.version}
 			</Text>
-			<Anchor
-				target="_blank"
-				rel="noopener noreferrer"
-				href={coreDetails.repositoryLink}
-			>
+			<Anchor target="_blank" rel="noopener noreferrer" href={coreDetails.repositoryLink}>
 				<Text c="orange" fw="bold">
 					Github
 				</Text>

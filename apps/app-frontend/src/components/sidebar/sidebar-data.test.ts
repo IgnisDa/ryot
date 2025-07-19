@@ -1,9 +1,11 @@
 import { describe, expect, it } from "bun:test";
+
 import type { AppSavedView } from "~/features/saved-views/model";
 import { createSavedViewFixture } from "~/features/test-fixtures";
 import { createTrackerFixture } from "~/features/trackers/test-fixtures";
-import type { SidebarTracker } from "./Sidebar.types";
+
 import { toSidebarData } from "./sidebar-data";
+import type { SidebarTracker } from "./Sidebar.types";
 
 describe("toSidebarData", () => {
 	it("maps live trackers and saved views to sidebar data", () => {
@@ -154,10 +156,7 @@ describe("toSidebarData", () => {
 			trackers,
 		});
 
-		expect(result.trackers.map((tracker) => tracker.id)).toEqual([
-			"tracker-1",
-			"tracker-2",
-		]);
+		expect(result.trackers.map((tracker) => tracker.id)).toEqual(["tracker-1", "tracker-2"]);
 		expect(result.trackers[1]?.isDisabled).toBe(true);
 	});
 
@@ -186,10 +185,7 @@ describe("toSidebarData", () => {
 		const result = toSidebarData({ trackers, views });
 
 		const mediaTracker = result.trackers.find((t) => t.id === "tracker-1");
-		expect(mediaTracker?.views?.map((v) => v.id)).toEqual([
-			"view-enabled",
-			"view-disabled",
-		]);
+		expect(mediaTracker?.views?.map((v) => v.id)).toEqual(["view-enabled", "view-disabled"]);
 	});
 
 	it("keeps standalone disabled views provided by the caller", () => {
@@ -283,10 +279,7 @@ describe("toSidebarData", () => {
 
 		const result = toSidebarData({ trackers, views });
 
-		expect(result.trackers[0]?.views?.map((view) => view.id)).toEqual([
-			"view-1",
-			"view-3",
-		]);
+		expect(result.trackers[0]?.views?.map((view) => view.id)).toEqual(["view-1", "view-3"]);
 		expect(result.views.map((view) => view.id)).toEqual(["view-4", "view-2"]);
 	});
 });

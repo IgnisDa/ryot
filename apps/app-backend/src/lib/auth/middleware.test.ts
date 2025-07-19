@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { setInternalRequestAuth } from "~/app/internal-auth";
+
 import type { MaybeAuthType } from ".";
 import { resolveAuthenticatedUser } from "./middleware";
 
@@ -16,10 +18,9 @@ const authUser: NonNullable<MaybeAuthType["user"]> = {
 
 describe("resolveAuthenticatedUser", () => {
 	it("returns the internal request user when present", async () => {
-		const request = setInternalRequestAuth(
-			new Request("http://ryot.internal/a"),
-			{ userId: "user_1" },
-		);
+		const request = setInternalRequestAuth(new Request("http://ryot.internal/a"), {
+			userId: "user_1",
+		});
 
 		const result = await resolveAuthenticatedUser(request, {
 			getSession: async (_input) => {

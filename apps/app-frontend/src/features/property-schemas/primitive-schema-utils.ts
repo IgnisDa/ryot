@@ -1,30 +1,14 @@
-import type {
-	AppPropertyDefinition,
-	AppSchema,
-	AppSchemaRuleCondition,
-} from "@ryot/ts-utils";
+import type { AppPropertyDefinition, AppSchema, AppSchemaRuleCondition } from "@ryot/ts-utils";
 import { fromAppSchemaObject, isAppPropertyRequired } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 
-export function isPrimitiveProperty(
-	propertyDef: AppPropertyDefinition,
-): boolean {
+export function isPrimitiveProperty(propertyDef: AppPropertyDefinition): boolean {
 	return match(propertyDef.type)
-		.with(
-			"boolean",
-			"date",
-			"datetime",
-			"integer",
-			"number",
-			"string",
-			() => true,
-		)
+		.with("boolean", "date", "datetime", "integer", "number", "string", () => true)
 		.otherwise(() => false);
 }
 
-export const getDefaultValue = (
-	propertyDef: AppPropertyDefinition,
-): unknown => {
+export const getDefaultValue = (propertyDef: AppPropertyDefinition): unknown => {
 	return match(propertyDef.type)
 		.with("string", "date", "datetime", () => "")
 		.with("number", "integer", () => 0)
@@ -32,10 +16,7 @@ export const getDefaultValue = (
 		.otherwise(() => undefined);
 };
 
-export function isValidPropertyValue(
-	propertyDef: AppPropertyDefinition,
-	value: unknown,
-): boolean {
+export function isValidPropertyValue(propertyDef: AppPropertyDefinition, value: unknown): boolean {
 	return match(propertyDef.type)
 		.with("string", "date", "datetime", () => typeof value === "string")
 		.with("number", () => typeof value === "number" && Number.isFinite(value))
@@ -50,13 +31,9 @@ export function isSupportedPrimitiveRuleCondition(
 ): boolean {
 	return match(condition)
 		.with({ operator: "all" }, { operator: "any" }, (cond) =>
-			cond.conditions.every((value) =>
-				isSupportedPrimitiveRuleCondition(value, supportedKeys),
-			),
+			cond.conditions.every((value) => isSupportedPrimitiveRuleCondition(value, supportedKeys)),
 		)
-		.otherwise(
-			(cond) => cond.path.length === 1 && supportedKeys.has(cond.path[0] ?? ""),
-		);
+		.otherwise((cond) => cond.path.length === 1 && supportedKeys.has(cond.path[0] ?? ""));
 }
 
 export const buildPrimitivePropertiesSchema = (propertiesSchema: AppSchema) => {
@@ -115,8 +92,7 @@ export function reconcilePrimitiveProperties(
 export function getUnsupportedRequiredProperties(schema: AppSchema): string[] {
 	return Object.entries(schema.fields)
 		.filter(
-			([, propertyDef]) =>
-				isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
+			([, propertyDef]) => isAppPropertyRequired(propertyDef) && !isPrimitiveProperty(propertyDef),
 		)
 		.map(([key]) => key);
 }

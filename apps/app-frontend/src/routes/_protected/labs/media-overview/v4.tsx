@@ -235,9 +235,7 @@ function colorMix(color: string, alpha: number) {
 }
 
 // Group activity events by date
-function groupByDate(
-	events: typeof ACTIVITY_EVENTS,
-): Record<string, typeof ACTIVITY_EVENTS> {
+function groupByDate(events: typeof ACTIVITY_EVENTS): Record<string, typeof ACTIVITY_EVENTS> {
 	const groups: Record<string, typeof ACTIVITY_EVENTS> = {};
 	for (const event of events) {
 		if (!groups[event.date]) {
@@ -276,13 +274,7 @@ function StatsRibbon() {
 			<Group justify="space-between" gap="xs">
 				{stats.map((s) => (
 					<Box key={s.label} ta="center" style={{ flex: 1 }}>
-						<Text
-							lh={1}
-							fz={20}
-							fw={700}
-							c={s.color}
-							ff="var(--mantine-font-family-monospace)"
-						>
+						<Text lh={1} fz={20} fw={700} c={s.color} ff="var(--mantine-font-family-monospace)">
 							{s.value}
 						</Text>
 						<Text
@@ -371,12 +363,7 @@ function HeroCard() {
 							<Text fz={10} c="dimmed">
 								Progress
 							</Text>
-							<Text
-								fz={10}
-								fw={600}
-								c={schema.accent}
-								ff="var(--mantine-font-family-monospace)"
-							>
+							<Text fz={10} fw={600} c={schema.accent} ff="var(--mantine-font-family-monospace)">
 								{pct}%
 							</Text>
 						</Group>
@@ -492,13 +479,7 @@ function QueueStrip() {
 			<Group justify="space-between" mb="xs">
 				<Group gap={6}>
 					<Bookmark size={12} color={STONE} />
-					<Text
-						fz={10}
-						fw={700}
-						c="dimmed"
-						tt="uppercase"
-						style={{ letterSpacing: "1px" }}
-					>
+					<Text fz={10} fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: "1px" }}>
 						Up Next
 					</Text>
 				</Group>
@@ -540,8 +521,7 @@ function QueueStrip() {
 										py={4}
 										style={{
 											borderRadius: "0 0 4px 4px",
-											background:
-												"linear-gradient(transparent, rgba(0,0,0,0.85))",
+											background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
 										}}
 									>
 										<Text fz={8} fw={600} c="white" truncate lh={1.2}>
@@ -569,14 +549,7 @@ function ActivityFeed() {
 
 	return (
 		<Box>
-			<Text
-				fz={10}
-				fw={700}
-				c="dimmed"
-				mb="sm"
-				tt="uppercase"
-				style={{ letterSpacing: "1px" }}
-			>
+			<Text fz={10} fw={700} c="dimmed" mb="sm" tt="uppercase" style={{ letterSpacing: "1px" }}>
 				Recent Activity
 			</Text>
 			<Stack gap="sm">
@@ -606,9 +579,7 @@ function ActivityFeed() {
 											paddingLeft: 10,
 											borderLeft: `3px solid ${schema.accent}`,
 											borderBottom:
-												i < events.length - 1
-													? "1px solid var(--mantine-color-dark-6)"
-													: undefined,
+												i < events.length - 1 ? "1px solid var(--mantine-color-dark-6)" : undefined,
 										}}
 									>
 										<Box style={{ flex: 1, minWidth: 0 }}>
@@ -639,11 +610,7 @@ function ActivityFeed() {
 												)}
 											</Group>
 										</Box>
-										<Text
-											fz={10}
-											c="dimmed"
-											style={{ flexShrink: 0, whiteSpace: "nowrap" }}
-										>
+										<Text fz={10} c="dimmed" style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
 											{event.time}
 										</Text>
 									</Group>
@@ -669,13 +636,7 @@ function RateTheseSection() {
 			<Group justify="space-between" mb="xs">
 				<Group gap={6}>
 					<Star size={12} color="#D38D5A" />
-					<Text
-						fz={10}
-						fw={700}
-						c="dimmed"
-						tt="uppercase"
-						style={{ letterSpacing: "1px" }}
-					>
+					<Text fz={10} fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: "1px" }}>
 						Rate These
 					</Text>
 				</Group>
@@ -723,11 +684,7 @@ function RateTheseSection() {
 										onClick={() => console.log("rate", item.id, s)}
 										style={{ display: "flex", padding: 2 }}
 									>
-										<Star
-											size={14}
-											color={colorMix(GOLD, 0.4)}
-											strokeWidth={1.5}
-										/>
+										<Star size={14} color={colorMix(GOLD, 0.4)} strokeWidth={1.5} />
 									</UnstyledButton>
 								))}
 							</Group>
@@ -742,10 +699,7 @@ function RateTheseSection() {
 // --- Library breakdown (horizontal bars) ---
 
 function LibraryBreakdown() {
-	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [
-		SchemaSlug,
-		number,
-	][];
+	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
 	const sorted = [...types].sort((a, b) => b[1] - a[1]);
 	const maxCount = Math.max(...sorted.map(([, c]) => c), 1);
 
@@ -759,13 +713,7 @@ function LibraryBreakdown() {
 			}}
 		>
 			<Group justify="space-between" mb="sm">
-				<Text
-					fz={10}
-					fw={700}
-					c="dimmed"
-					tt="uppercase"
-					style={{ letterSpacing: "1px" }}
-				>
+				<Text fz={10} fw={700} c="dimmed" tt="uppercase" style={{ letterSpacing: "1px" }}>
 					Collection
 				</Text>
 				<Text fz={10} c="dimmed">
@@ -901,11 +849,7 @@ function HybridOverview() {
 				<StatsRibbon />
 
 				{/* Two-column body: 55/45 split on desktop */}
-				<SimpleGrid
-					cols={{ base: 1, md: 2 }}
-					spacing="lg"
-					style={{ alignItems: "start" }}
-				>
+				<SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" style={{ alignItems: "start" }}>
 					{/* Left column: actionable items */}
 					<Stack gap="lg">
 						{/* Hero continue card */}

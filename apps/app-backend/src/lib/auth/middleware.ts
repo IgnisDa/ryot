@@ -1,11 +1,13 @@
 import { isAPIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
+
 import { getInternalRequestAuth } from "~/app/internal-auth";
 import { db } from "~/lib/db";
 import { user } from "~/lib/db/schema";
-import { ERROR_CODES, errorResponse } from "../openapi";
+
 import { auth, type MaybeAuthType } from ".";
+import { ERROR_CODES, errorResponse } from "../openapi";
 
 type AuthenticatedUser = NonNullable<MaybeAuthType["user"]>;
 
@@ -31,8 +33,7 @@ const getUserById = async (userId: string) => {
 		foundUser
 			? {
 					...foundUser,
-					preferences:
-						foundUser.preferences as AuthenticatedUser["preferences"],
+					preferences: foundUser.preferences as AuthenticatedUser["preferences"],
 				}
 			: null
 	) as AuthenticatedUser | null;
@@ -41,9 +42,7 @@ const getUserById = async (userId: string) => {
 type ResolveAuthenticatedUserDeps = {
 	getUserById: typeof getUserById;
 	getInternalRequestAuth: typeof getInternalRequestAuth;
-	getSession: (input: {
-		headers: Headers;
-	}) => Promise<{ user: AuthenticatedUser } | null>;
+	getSession: (input: { headers: Headers }) => Promise<{ user: AuthenticatedUser } | null>;
 };
 
 export const resolveAuthenticatedUser = async (
@@ -67,35 +66,24 @@ export const resolveAuthenticatedUser = async (
 	return session?.user ?? null;
 };
 
-export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(
-	async (c, next) => {
-		try {
-			const authenticatedUser = await resolveAuthenticatedUser(c.req.raw);
-			if (!authenticatedUser) {
+export const requireAuth = createMiddleware<{ Variables: MaybeAuthType }>(async (c, next) => {
+	try {
+		const authenticatedUser = await resolveAuthenticatedUser(c.req.raw);
+		if (!authenticatedUser) {
+			return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
+		}
+		c.set("user", authenticatedUser);
+		return next();
+	} catch (error) {
+		if (isAPIError(error)) {
+			if (error.body?.code === "RATE_LIMITED") {
+				const tryAgainIn = error.body.details?.tryAgainIn;
 				return c.json(
-					errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"),
-					401,
+					errorResponse(ERROR_CODES.RATE_LIMITED, `Please try again in ${tryAgainIn}ms.`),
+					429,
 				);
 			}
-			c.set("user", authenticatedUser);
-			return next();
-		} catch (error) {
-			if (isAPIError(error)) {
-				if (error.body?.code === "RATE_LIMITED") {
-					const tryAgainIn = error.body.details?.tryAgainIn;
-					return c.json(
-						errorResponse(
-							ERROR_CODES.RATE_LIMITED,
-							`Please try again in ${tryAgainIn}ms.`,
-						),
-						429,
-					);
-				}
-			}
-			return c.json(
-				errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"),
-				401,
-			);
 		}
-	},
-);
+		return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
+	}
+});

@@ -1,12 +1,9 @@
 import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils";
+
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
+
 import { parseLabeledPropertySchemaInput } from "../property-schemas/service";
 import {
 	createEventSchemaForUser,
@@ -16,8 +13,7 @@ import {
 } from "./repository";
 import type { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
 
-export type EventSchemaPropertiesShape =
-	CreateEventSchemaBody["propertiesSchema"];
+export type EventSchemaPropertiesShape = CreateEventSchemaBody["propertiesSchema"];
 
 type EventSchemaMutationError = "not_found" | "validation";
 
@@ -28,17 +24,12 @@ export type EventSchemaServiceDeps = {
 	listEventSchemasByEntitySchemaForUser: typeof listEventSchemasByEntitySchemaForUser;
 };
 
-export type EventSchemaServiceResult<T> = ServiceResult<
-	T,
-	EventSchemaMutationError
->;
+export type EventSchemaServiceResult<T> = ServiceResult<T, EventSchemaMutationError>;
 
 const duplicateSlugError = "Event schema slug already exists";
-const customEntitySchemaError =
-	"Built-in entity schemas do not support event schema creation";
+const customEntitySchemaError = "Built-in entity schemas do not support event schema creation";
 const entitySchemaNotFoundError = "Entity schema not found";
-const eventSchemaUniqueConstraint =
-	"event_schema_user_entity_schema_slug_unique";
+const eventSchemaUniqueConstraint = "event_schema_user_entity_schema_slug_unique";
 
 const eventSchemaServiceDeps: EventSchemaServiceDeps = {
 	createEventSchemaForUser,
@@ -59,9 +50,7 @@ export const resolveEventSchemaName = (name: string) =>
 export const resolveEventSchemaEntitySchemaId = (entitySchemaId: string) =>
 	resolveRequiredString(entitySchemaId, "Entity schema id");
 
-export const resolveEventSchemaSlug = (
-	input: Pick<CreateEventSchemaBody, "name" | "slug">,
-) => {
+export const resolveEventSchemaSlug = (input: Pick<CreateEventSchemaBody, "name" | "slug">) => {
 	return resolveRequiredSlug({
 		name: input.name,
 		slug: input.slug,
@@ -70,19 +59,14 @@ export const resolveEventSchemaSlug = (
 };
 
 export const parseEventSchemaPropertiesSchema = (input: unknown) =>
-	parseLabeledPropertySchemaInput(
-		input,
-		"Event schema properties",
-	) as EventSchemaPropertiesShape;
+	parseLabeledPropertySchemaInput(input, "Event schema properties") as EventSchemaPropertiesShape;
 
 export const resolveEventSchemaCreateInput = (
 	input: Pick<CreateEventSchemaBody, "name" | "propertiesSchema" | "slug">,
 ) => {
 	const name = resolveEventSchemaName(input.name);
 	const slug = resolveEventSchemaSlug({ name, slug: input.slug });
-	const propertiesSchema = parseEventSchemaPropertiesSchema(
-		input.propertiesSchema,
-	);
+	const propertiesSchema = parseEventSchemaPropertiesSchema(input.propertiesSchema);
 
 	return { name, slug, propertiesSchema };
 };
@@ -99,9 +83,7 @@ export const listEventSchemas = async (
 	input: { entitySchemaId: string; userId: string },
 	deps: EventSchemaServiceDeps = eventSchemaServiceDeps,
 ): Promise<EventSchemaServiceResult<ListedEventSchema[]>> => {
-	const entitySchemaIdResult = resolveEventSchemaEntitySchemaIdResult(
-		input.entitySchemaId,
-	);
+	const entitySchemaIdResult = resolveEventSchemaEntitySchemaIdResult(input.entitySchemaId);
 	if ("error" in entitySchemaIdResult) {
 		return entitySchemaIdResult;
 	}
@@ -128,9 +110,7 @@ export const createEventSchema = async (
 	input: { body: CreateEventSchemaBody; userId: string },
 	deps: EventSchemaServiceDeps = eventSchemaServiceDeps,
 ): Promise<EventSchemaServiceResult<ListedEventSchema>> => {
-	const entitySchemaIdResult = resolveEventSchemaEntitySchemaIdResult(
-		input.body.entitySchemaId,
-	);
+	const entitySchemaIdResult = resolveEventSchemaEntitySchemaIdResult(input.body.entitySchemaId);
 	if ("error" in entitySchemaIdResult) {
 		return entitySchemaIdResult;
 	}

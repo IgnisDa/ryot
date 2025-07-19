@@ -1,21 +1,16 @@
 import { sql } from "drizzle-orm";
-import {
-	getComputedFieldOrThrow,
-	prepareComputedFields,
-} from "~/lib/views/computed-fields";
+
+import { getComputedFieldOrThrow, prepareComputedFields } from "~/lib/views/computed-fields";
 import type { ViewComputedField, ViewExpression } from "~/lib/views/expression";
 import {
 	normalizeExpressionPropertyType,
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import { getPropertyDisplayKind } from "~/lib/views/policy";
+
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
-import type {
-	QueryEngineContext,
-	QueryEngineField,
-	ResolvedDisplayValue,
-} from "./schemas";
+import type { QueryEngineContext, QueryEngineField, ResolvedDisplayValue } from "./schemas";
 import type { SqlExpression } from "./sql-expression-helpers";
 
 const buildResolvedDisplayValueObject = (input: {
@@ -41,9 +36,7 @@ const buildLiteralValueExpression = (value: unknown | null) => {
 	return sql`${JSON.stringify(value)}::jsonb`;
 };
 
-const getLiteralDisplayKind = (
-	value: unknown | null,
-): ResolvedDisplayValue["kind"] => {
+const getLiteralDisplayKind = (value: unknown | null): ResolvedDisplayValue["kind"] => {
 	if (value === null) {
 		return "null";
 	}
@@ -89,9 +82,7 @@ const toDisplayJsonValue = (input: {
 		return input.expression;
 	}
 
-	const propertyType = normalizeExpressionPropertyType(
-		input.typeInfo.propertyType,
-	);
+	const propertyType = normalizeExpressionPropertyType(input.typeInfo.propertyType);
 
 	if (["array", "object"].includes(propertyType)) {
 		return normalizeJsonbNull(input.expression);
@@ -110,9 +101,7 @@ const createDisplayExpressionResolver = (input: {
 	computedFields?: ViewComputedField[];
 	getTypeInfo?: ReturnType<typeof createExpressionTypeResolver>;
 }) => {
-	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(
-		input.computedFields,
-	);
+	const { computedFieldMap, orderedComputedFields } = prepareComputedFields(input.computedFields);
 	const getTypeInfo =
 		input.getTypeInfo ??
 		createExpressionTypeResolver({
@@ -127,9 +116,7 @@ const createDisplayExpressionResolver = (input: {
 	});
 	const displayCache = new Map<string, SqlExpression>();
 
-	const buildResolvedDisplayValueExpression = (
-		expression: ViewExpression,
-	): SqlExpression => {
+	const buildResolvedDisplayValueExpression = (expression: ViewExpression): SqlExpression => {
 		if (expression.type === "literal") {
 			return buildResolvedDisplayValueObject({
 				kind: getLiteralDisplayKind(expression.value),
@@ -137,23 +124,15 @@ const createDisplayExpressionResolver = (input: {
 			});
 		}
 
-		if (
-			expression.type === "reference" &&
-			expression.reference.type === "computed-field"
-		) {
+		if (expression.type === "reference" && expression.reference.type === "computed-field") {
 			const cached = displayCache.get(expression.reference.key);
 			if (cached) {
 				return cached;
 			}
 
-			const computedField = getComputedFieldOrThrow(
-				computedFieldMap,
-				expression.reference.key,
-			);
+			const computedField = getComputedFieldOrThrow(computedFieldMap, expression.reference.key);
 
-			const resolved = buildResolvedDisplayValueExpression(
-				computedField.expression,
-			);
+			const resolved = buildResolvedDisplayValueExpression(computedField.expression);
 			displayCache.set(expression.reference.key, resolved);
 			return resolved;
 		}

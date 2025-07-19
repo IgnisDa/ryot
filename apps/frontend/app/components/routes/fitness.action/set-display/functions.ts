@@ -1,10 +1,8 @@
-import {
-	ExerciseLot,
-	type WorkoutSetStatistic,
-} from "@ryot/generated/graphql/backend/graphql";
+import { ExerciseLot, type WorkoutSetStatistic } from "@ryot/generated/graphql/backend/graphql";
 import { isString } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useUserExerciseDetails, useUserPreferences } from "~/lib/shared/hooks";
 import {
@@ -21,6 +19,7 @@ import {
 } from "~/lib/state/fitness";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
+
 import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";
 
@@ -46,9 +45,7 @@ export const usePreviousSetData = (input: {
 	exerciseIdx: number;
 	currentWorkout: InProgressWorkout;
 }) => {
-	const { data: userExerciseDetails } = useUserExerciseDetails(
-		input.exerciseId,
-	);
+	const { data: userExerciseDetails } = useUserExerciseDetails(input.exerciseId);
 
 	return useQuery({
 		enabled: !!userExerciseDetails,
@@ -91,9 +88,7 @@ export const isSetConfirmationDisabled = (
 		case ExerciseLot.RepsAndDuration:
 			return !isString(setStatistic.reps) || !isString(setStatistic.duration);
 		case ExerciseLot.DistanceAndDuration:
-			return (
-				!isString(setStatistic.distance) || !isString(setStatistic.duration)
-			);
+			return !isString(setStatistic.distance) || !isString(setStatistic.duration);
 		case ExerciseLot.RepsAndWeight:
 			return !isString(setStatistic.reps) || !isString(setStatistic.weight);
 		case ExerciseLot.RepsAndDurationAndDistance:
@@ -121,9 +116,7 @@ export const handleSetConfirmation = async (params: {
 	currentTimer: CurrentWorkoutTimer | null;
 	userPreferences: ReturnType<typeof useUserPreferences>;
 	setCurrentWorkout: (workout: InProgressWorkout) => void;
-	performTasksAfterSetConfirmed: ReturnType<
-		typeof usePerformTasksAfterSetConfirmed
-	>;
+	performTasksAfterSetConfirmed: ReturnType<typeof usePerformTasksAfterSetConfirmed>;
 }) => {
 	const {
 		set,
@@ -148,8 +141,7 @@ export const handleSetConfirmation = async (params: {
 	const newConfirmed = !set.confirmedAt;
 
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
-	const isOnboardingTourStep =
-		set?.confirmedAt === null && exerciseIdx === 0 && setIdx === 0;
+	const isOnboardingTourStep = set?.confirmedAt === null && exerciseIdx === 0 && setIdx === 0;
 
 	if (isOnboardingTourStep && newConfirmed) advanceOnboardingTourStep();
 

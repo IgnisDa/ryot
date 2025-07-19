@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createSavedViewFixture } from "~/features/test-fixtures";
+
 import { sortSavedViewsByOrder } from "./model";
 
 describe("toAppSavedView", () => {
@@ -61,11 +63,7 @@ describe("sortSavedViewsByOrder", () => {
 
 		const sorted = sortSavedViewsByOrder(views);
 
-		expect(sorted.map((view) => view.id)).toEqual([
-			"view-2",
-			"view-3",
-			"view-1",
-		]);
+		expect(sorted.map((view) => view.id)).toEqual(["view-2", "view-3", "view-1"]);
 	});
 
 	it("breaks ties by name ascending", () => {
@@ -77,10 +75,6 @@ describe("sortSavedViewsByOrder", () => {
 
 		const sorted = sortSavedViewsByOrder(views);
 
-		expect(sorted.map((view) => view.id)).toEqual([
-			"view-2",
-			"view-3",
-			"view-1",
-		]);
+		expect(sorted.map((view) => view.id)).toEqual(["view-2", "view-3", "view-1"]);
 	});
 });

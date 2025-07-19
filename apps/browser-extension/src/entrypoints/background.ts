@@ -1,7 +1,9 @@
 import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isFiniteNumber } from "@ryot/ts-utils";
 import { GraphQLClient } from "graphql-request";
+
 import { storage } from "#imports";
+
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
 import type { ProgressDataWithMetadata } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
@@ -78,9 +80,7 @@ export default defineBackground(() => {
 	});
 
 	async function handleMetadataLookup(data: { title: string }) {
-		const integrationUrl = await storage.getItem<string>(
-			STORAGE_KEYS.INTEGRATION_URL,
-		);
+		const integrationUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
 
 		if (!integrationUrl) {
 			throw new Error("Integration URL not found in storage");
@@ -103,14 +103,9 @@ export default defineBackground(() => {
 		return result.metadataLookup;
 	}
 
-	async function handleProgressData(
-		progressData: ProgressDataWithMetadata,
-		tabUrl?: string,
-	) {
+	async function handleProgressData(progressData: ProgressDataWithMetadata, tabUrl?: string) {
 		try {
-			const integrationUrl = await storage.getItem<string>(
-				STORAGE_KEYS.INTEGRATION_URL,
-			);
+			const integrationUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
 
 			if (!integrationUrl) {
 				throw new Error("Integration URL not found in storage");
@@ -118,11 +113,7 @@ export default defineBackground(() => {
 
 			const { rawData, metadata } = progressData;
 
-			if (
-				!isFiniteNumber(rawData.progress) ||
-				!tabUrl ||
-				"notFound" in metadata
-			) {
+			if (!isFiniteNumber(rawData.progress) || !tabUrl || "notFound" in metadata) {
 				return;
 			}
 
@@ -161,16 +152,12 @@ export default defineBackground(() => {
 	}
 
 	async function getCurrentStatus() {
-		const status = await storage.getItem<ExtensionStatus>(
-			STORAGE_KEYS.EXTENSION_STATUS,
-		);
+		const status = await storage.getItem<ExtensionStatus>(STORAGE_KEYS.EXTENSION_STATUS);
 		return status || ExtensionStatus.Idle;
 	}
 
 	async function getCurrentCachedTitle() {
-		const title = await storage.getItem<string>(
-			STORAGE_KEYS.CURRENT_PAGE_TITLE,
-		);
+		const title = await storage.getItem<string>(STORAGE_KEYS.CURRENT_PAGE_TITLE);
 		return title || null;
 	}
 });

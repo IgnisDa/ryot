@@ -1,9 +1,6 @@
 import { getPgClient } from "../setup";
 
-export async function queryInLibraryRelationship(
-	entityId: string,
-	email: string,
-) {
+export async function queryInLibraryRelationship(entityId: string, email: string) {
 	return getPgClient().query<{ id: string }>(
 		`select r.id
 		 from relationship r
@@ -67,10 +64,7 @@ export async function seedMediaEntity(input: {
 	};
 }
 
-export async function insertLibraryMembership(input: {
-	userId: string;
-	mediaEntityId: string;
-}) {
+export async function insertLibraryMembership(input: { userId: string; mediaEntityId: string }) {
 	const pg = getPgClient();
 
 	const libraryResult = await pg.query<{ id: string }>(

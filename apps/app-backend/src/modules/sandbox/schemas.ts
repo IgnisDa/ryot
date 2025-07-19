@@ -1,10 +1,8 @@
 import { z } from "@hono/zod-openapi";
+
 import { dataSchema, itemDataSchema } from "~/lib/openapi";
 import { sandboxTimingSchema } from "~/lib/sandbox/jobs";
-import {
-	type SandboxScriptMetadata,
-	sandboxScriptMetadataSchema,
-} from "~/lib/sandbox/types";
+import { type SandboxScriptMetadata, sandboxScriptMetadataSchema } from "~/lib/sandbox/types";
 import {
 	createIdParamsSchema,
 	createNameWithOptionalSlugSchema,
@@ -20,13 +18,9 @@ export const enqueueSandboxBody = z.object({
 
 export const sandboxJobParams = createIdParamsSchema("jobId");
 
-export const enqueueSandboxResponseSchema = dataSchema(
-	z.object({ jobId: nonEmptyStringSchema }),
-);
+export const enqueueSandboxResponseSchema = dataSchema(z.object({ jobId: nonEmptyStringSchema }));
 
-export type SandboxEnqueueResult = z.infer<
-	typeof enqueueSandboxResponseSchema.shape.data
->;
+export type SandboxEnqueueResult = z.infer<typeof enqueueSandboxResponseSchema.shape.data>;
 
 export const createSandboxScriptBody = createNameWithOptionalSlugSchema({
 	metadata: sandboxScriptMetadataSchema.optional(),
@@ -41,8 +35,7 @@ const sandboxScriptSchema = z.object({
 	metadata: sandboxScriptMetadataSchema,
 });
 
-export const createSandboxScriptResponseSchema =
-	itemDataSchema(sandboxScriptSchema);
+export const createSandboxScriptResponseSchema = itemDataSchema(sandboxScriptSchema);
 
 export const sandboxPendingResultSchema = z.object({
 	status: z.literal("pending"),
@@ -82,6 +75,4 @@ export type SandboxScript = z.infer<typeof sandboxScriptSchema>;
 export type EnqueueSandboxBody = z.infer<typeof enqueueSandboxBody>;
 export type CreateSandboxScriptBody = z.infer<typeof createSandboxScriptBody>;
 export type CreateSandboxScriptMetadata = SandboxScriptMetadata;
-export type PollSandboxResult = z.infer<
-	typeof pollSandboxResultResponseSchema.shape.data
->;
+export type PollSandboxResult = z.infer<typeof pollSandboxResultResponseSchema.shape.data>;

@@ -42,6 +42,7 @@ import { type CSSProperties, type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -56,6 +57,7 @@ import {
 import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useEditEntityCollectionInformation } from "~/lib/state/collection";
+
 import {
 	ExerciseDisplayItem,
 	WorkoutDisplayItem,
@@ -69,10 +71,7 @@ import {
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
 
-export const ProRequiredAlert = (props: {
-	alertText?: string;
-	tooltipLabel?: string;
-}) => {
+export const ProRequiredAlert = (props: { alertText?: string; tooltipLabel?: string }) => {
 	const coreDetails = useCoreDetails();
 
 	return !coreDetails.isServerKeyValidated ? (
@@ -91,10 +90,7 @@ export const DisplayCollectionEntity = (props: {
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
-			<MetadataDisplayItem
-				metadataId={props.entityId}
-				centerElement={props.centerElement}
-			/>
+			<MetadataDisplayItem metadataId={props.entityId} centerElement={props.centerElement} />
 		))
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
@@ -103,22 +99,13 @@ export const DisplayCollectionEntity = (props: {
 			/>
 		))
 		.with(EntityLot.Person, () => (
-			<PersonDisplayItem
-				personId={props.entityId}
-				centerElement={props.centerElement}
-			/>
+			<PersonDisplayItem personId={props.entityId} centerElement={props.centerElement} />
 		))
 		.with(EntityLot.Exercise, () => (
-			<ExerciseDisplayItem
-				exerciseId={props.entityId}
-				centerElement={props.centerElement}
-			/>
+			<ExerciseDisplayItem exerciseId={props.entityId} centerElement={props.centerElement} />
 		))
 		.with(EntityLot.Workout, () => (
-			<WorkoutDisplayItem
-				workoutId={props.entityId}
-				centerElement={props.centerElement}
-			/>
+			<WorkoutDisplayItem workoutId={props.entityId} centerElement={props.centerElement} />
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
@@ -135,20 +122,13 @@ export const DisplayCollectionToEntity = (props: {
 }) => {
 	const userCollections = useUserCollections();
 	const color = useGetRandomMantineColor(props.col.details.collectionName);
-	const removeEntitiesFromCollection =
-		useRemoveEntitiesFromCollectionMutation();
+	const removeEntitiesFromCollection = useRemoveEntitiesFromCollectionMutation();
 	const [opened, { open, close }] = useDisclosure(false);
-	const [, setEditEntityCollectionInformationData] =
-		useEditEntityCollectionInformation();
+	const [, setEditEntityCollectionInformationData] = useEditEntityCollectionInformation();
 
-	const thisCollection = userCollections.find(
-		(c) => c.id === props.col.details.collectionId,
-	);
-	const hasExtraInformationFields =
-		!!thisCollection?.informationTemplate?.length;
-	const userAddedInfoCount = Object.keys(
-		props.col.details.information || {},
-	).length;
+	const thisCollection = userCollections.find((c) => c.id === props.col.details.collectionId);
+	const hasExtraInformationFields = !!thisCollection?.informationTemplate?.length;
+	const userAddedInfoCount = Object.keys(props.col.details.information || {}).length;
 	const hasUserAddedAdditionalInformation = userAddedInfoCount > 0;
 
 	const handleRemove = () => {
@@ -159,9 +139,7 @@ export const DisplayCollectionToEntity = (props: {
 					{
 						creatorUserId: props.col.details.creatorUserId,
 						collectionName: props.col.details.collectionName,
-						entities: [
-							{ entityId: props.entityId, entityLot: props.entityLot },
-						],
+						entities: [{ entityId: props.entityId, entityLot: props.entityLot }],
 					},
 					{
 						onSuccess: () => {
@@ -194,11 +172,7 @@ export const DisplayCollectionToEntity = (props: {
 		<>
 			<Badge key={props.col.details.collectionId} color={color}>
 				<Flex gap={2}>
-					<Text
-						truncate
-						onClick={open}
-						style={{ all: "unset", cursor: "pointer" }}
-					>
+					<Text truncate onClick={open} style={{ all: "unset", cursor: "pointer" }}>
 						{props.col.details.collectionName}
 					</Text>
 					<ActionIcon
@@ -229,27 +203,19 @@ export const DisplayCollectionToEntity = (props: {
 						<Text size="sm" c="dimmed">
 							First Added On:
 						</Text>
-						<Text size="sm">
-							{dayjsLib(props.col.details.createdOn).format("LLL")}
-						</Text>
+						<Text size="sm">{dayjsLib(props.col.details.createdOn).format("LLL")}</Text>
 					</Group>
 					<Group>
 						<Text size="sm" c="dimmed">
 							Updated On:
 						</Text>
-						<Text size="sm">
-							{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}
-						</Text>
+						<Text size="sm">{dayjsLib(props.col.details.lastUpdatedOn).format("LLL")}</Text>
 					</Group>
 					{hasExtraInformationFields ? (
 						<>
 							<Divider />
 							<Group justify="space-between">
-								<Text
-									td={
-										hasUserAddedAdditionalInformation ? "underline" : undefined
-									}
-								>
+								<Text td={hasUserAddedAdditionalInformation ? "underline" : undefined}>
 									{hasUserAddedAdditionalInformation
 										? "Additional Information"
 										: "No Additional Information"}
@@ -260,36 +226,32 @@ export const DisplayCollectionToEntity = (props: {
 							</Group>
 							{hasUserAddedAdditionalInformation ? (
 								<Stack gap="xs">
-									{Object.entries(props.col.details.information).map(
-										([key, value]) => {
-											const stringValue = String(value);
-											const lot = thisCollection?.informationTemplate?.find(
-												(v) => v.name === key,
-											)?.lot;
-											return (
-												<Group key={key}>
-													<Text size="sm" c="dimmed">
-														{key}:
-													</Text>
-													<Text size="sm">
-														{match(lot)
-															.with(
-																CollectionExtraInformationLot.DateTime,
-																() => dayjsLib(stringValue).format("LLL"),
-															)
-															.with(CollectionExtraInformationLot.Date, () =>
-																dayjsLib(stringValue).format("LL"),
-															)
-															.with(
-																CollectionExtraInformationLot.StringArray,
-																() => (value as string[]).join(", "),
-															)
-															.otherwise(() => stringValue)}
-													</Text>
-												</Group>
-											);
-										},
-									)}
+									{Object.entries(props.col.details.information).map(([key, value]) => {
+										const stringValue = String(value);
+										const lot = thisCollection?.informationTemplate?.find(
+											(v) => v.name === key,
+										)?.lot;
+										return (
+											<Group key={key}>
+												<Text size="sm" c="dimmed">
+													{key}:
+												</Text>
+												<Text size="sm">
+													{match(lot)
+														.with(CollectionExtraInformationLot.DateTime, () =>
+															dayjsLib(stringValue).format("LLL"),
+														)
+														.with(CollectionExtraInformationLot.Date, () =>
+															dayjsLib(stringValue).format("LL"),
+														)
+														.with(CollectionExtraInformationLot.StringArray, () =>
+															(value as string[]).join(", "),
+														)
+														.otherwise(() => stringValue)}
+												</Text>
+											</Group>
+										);
+									})}
 								</Stack>
 							) : null}
 						</>
@@ -349,12 +311,7 @@ export const ApplicationPagination = (props: {
 	if (totalPages <= 7) {
 		return (
 			<Center>
-				<Pagination
-					size="sm"
-					total={totalPages}
-					value={props.value}
-					onChange={props.onChange}
-				/>
+				<Pagination size="sm" total={totalPages} value={props.value} onChange={props.onChange} />
 			</Center>
 		);
 	}
@@ -368,11 +325,7 @@ export const ApplicationPagination = (props: {
 		<Center>
 			<Group gap="xs">
 				{props.value > 1 && (
-					<ActionIcon
-						size="sm"
-						variant="default"
-						onClick={() => props.onChange(props.value - 1)}
-					>
+					<ActionIcon size="sm" variant="default" onClick={() => props.onChange(props.value - 1)}>
 						<IconChevronLeft size={16} />
 					</ActionIcon>
 				)}
@@ -392,17 +345,10 @@ export const ApplicationPagination = (props: {
 
 				{props.value < totalPages && (
 					<>
-						<Button
-							size="compact-xs"
-							onClick={() => props.onChange(totalPages)}
-						>
+						<Button size="compact-xs" onClick={() => props.onChange(totalPages)}>
 							{totalPages}
 						</Button>
-						<ActionIcon
-							size="sm"
-							variant="default"
-							onClick={() => props.onChange(props.value + 1)}
-						>
+						<ActionIcon size="sm" variant="default" onClick={() => props.onChange(props.value + 1)}>
 							<IconChevronRight size={16} />
 						</ActionIcon>
 					</>
@@ -427,11 +373,7 @@ export const CopyableTextInput = (props: {
 			rightSection={
 				<CopyButton value={props.value || ""}>
 					{({ copied, copy }) => (
-						<Tooltip
-							withArrow
-							position="left"
-							label={copied ? "Copied" : "Copy"}
-						>
+						<Tooltip withArrow position="left" label={copied ? "Copied" : "Copy"}>
 							<ActionIcon onClick={copy} color={copied ? "teal" : "gray"}>
 								{copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
 							</ActionIcon>
@@ -445,12 +387,7 @@ export const CopyableTextInput = (props: {
 
 export const CreateButton = (props: { to: string }) => (
 	<Box ml="auto" visibleFrom="md">
-		<Button
-			component={Link}
-			variant="transparent"
-			leftSection={<IconPhotoPlus />}
-			to={props.to}
-		>
+		<Button component={Link} variant="transparent" leftSection={<IconPhotoPlus />} to={props.to}>
 			Create
 		</Button>
 	</Box>
@@ -467,29 +404,16 @@ interface EditButtonProps {
 export const EditButton = (props: EditButtonProps) => {
 	const userDetails = useUserDetails();
 	const canCurrentUserUpdate =
-		props.source === MediaSource.Custom &&
-		userDetails.id === props.createdByUserId;
+		props.source === MediaSource.Custom && userDetails.id === props.createdByUserId;
 
 	const editPath = useMemo(() => {
 		switch (props.editRouteType) {
 			case "media":
-				return $path(
-					"/media/item/update/:action",
-					{ action: "edit" },
-					{ id: props.entityId },
-				);
+				return $path("/media/item/update/:action", { action: "edit" }, { id: props.entityId });
 			case "groups":
-				return $path(
-					"/media/groups/update/:action",
-					{ action: "edit" },
-					{ id: props.entityId },
-				);
+				return $path("/media/groups/update/:action", { action: "edit" }, { id: props.entityId });
 			case "people":
-				return $path(
-					"/media/people/update/:action",
-					{ action: "edit" },
-					{ id: props.entityId },
-				);
+				return $path("/media/people/update/:action", { action: "edit" }, { id: props.entityId });
 			default:
 				throw new Error(`Unknown edit route type: ${props.editRouteType}`);
 		}

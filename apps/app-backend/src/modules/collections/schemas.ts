@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+
 import { itemDataSchema } from "~/lib/openapi";
 import {
 	ImageSchema,
@@ -35,28 +36,18 @@ export const addToCollectionDataSchema = membershipDataSchema;
 
 export const removeFromCollectionDataSchema = membershipDataSchema;
 
-export const addToCollectionResponseSchema = itemDataSchema(
-	addToCollectionDataSchema,
-);
+export const addToCollectionResponseSchema = itemDataSchema(addToCollectionDataSchema);
 
-export const removeFromCollectionResponseSchema = itemDataSchema(
-	removeFromCollectionDataSchema,
-);
+export const removeFromCollectionResponseSchema = itemDataSchema(removeFromCollectionDataSchema);
 
 export type AddToCollectionData = z.infer<typeof addToCollectionDataSchema>;
 
 export type AddToCollectionBody = z.infer<typeof addToCollectionBody>;
-export type AddToCollectionResponse = z.infer<
-	typeof addToCollectionResponseSchema
->;
+export type AddToCollectionResponse = z.infer<typeof addToCollectionResponseSchema>;
 
 export type RemoveFromCollectionBody = z.infer<typeof removeFromCollectionBody>;
-export type RemoveFromCollectionData = z.infer<
-	typeof removeFromCollectionDataSchema
->;
-export type RemoveFromCollectionResponse = z.infer<
-	typeof removeFromCollectionResponseSchema
->;
+export type RemoveFromCollectionData = z.infer<typeof removeFromCollectionDataSchema>;
+export type RemoveFromCollectionResponse = z.infer<typeof removeFromCollectionResponseSchema>;
 
 export const collectionResponseSchema = z.object({
 	id: z.string(),
@@ -75,9 +66,7 @@ export const createCollectionBody = z.object({
 	membershipPropertiesSchema: z.unknown().optional(),
 });
 
-export const createCollectionResponseSchema = itemDataSchema(
-	collectionResponseSchema,
-);
+export const createCollectionResponseSchema = itemDataSchema(collectionResponseSchema);
 
 export type CreateCollectionBody = z.infer<typeof createCollectionBody>;
 export type CollectionResponse = z.infer<typeof collectionResponseSchema>;

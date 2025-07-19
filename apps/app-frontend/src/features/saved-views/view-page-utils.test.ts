@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
+
 import { createEntitySavedViewFixture } from "~/features/test-fixtures";
+
 import { createQueryEngineRequest } from "./view-page-utils";
 
 describe("createQueryEngineRequest", () => {
@@ -15,9 +17,7 @@ describe("createQueryEngineRequest", () => {
 			layout: "table",
 		});
 
-		expect(result.fields?.some((field) => field.key === "entityImage")).toBe(
-			false,
-		);
+		expect(result.fields?.some((field) => field.key === "entityImage")).toBe(false);
 	});
 
 	it("preserves saved view relationships in runtime requests", () => {
@@ -35,8 +35,6 @@ describe("createQueryEngineRequest", () => {
 			layout: "grid",
 		});
 
-		expect(result.relationships).toEqual([
-			{ relationshipSchemaSlug: "in-library" },
-		]);
+		expect(result.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
 	});
 });
