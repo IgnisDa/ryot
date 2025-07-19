@@ -7,6 +7,7 @@ const createProgressEvent = (
 ): CreatedEventData => ({
 	id: "event_1",
 	entityId: "entity_1",
+	entitySchemaSlug: "book",
 	entitySchemaId: "schema_1",
 	eventSchemaSlug: "progress",
 	eventSchemaName: "Progress",
@@ -158,7 +159,7 @@ describe("processEventSchemaTriggers", () => {
 		expect(queued).toEqual(["event-schema-trigger-trigger_1-event_1"]);
 	});
 
-	it("passes enriched context including entitySchemaId, eventSchemaSlug, and properties", async () => {
+	it("passes enriched context including entitySchemaId, entitySchemaSlug, eventSchemaSlug, and properties", async () => {
 		let capturedContext: unknown;
 
 		await processEventSchemaTriggers(
@@ -166,6 +167,7 @@ describe("processEventSchemaTriggers", () => {
 				userId: "user_1",
 				createdEvents: [
 					createProgressEvent({
+						entitySchemaSlug: "book",
 						eventSchemaSlug: "progress",
 						entitySchemaId: "schema_book",
 						properties: { progressPercent: 100 },
@@ -190,6 +192,7 @@ describe("processEventSchemaTriggers", () => {
 			trigger: {
 				eventId: "event_1",
 				entityId: "entity_1",
+				entitySchemaSlug: "book",
 				eventSchemaSlug: "progress",
 				entitySchemaId: "schema_book",
 				eventSchemaId: "event_schema_1",
