@@ -90,7 +90,7 @@ pub async fn perform_hp_application_job(
             .await
             .map(|_| ()),
     };
-    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
 pub async fn perform_mp_application_job(
@@ -154,7 +154,7 @@ pub async fn perform_mp_application_job(
                 .await
         }
     };
-    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
 
 pub async fn perform_lp_application_job(
@@ -187,5 +187,5 @@ pub async fn perform_lp_application_job(
                 .await
         }
     };
-    status.map_err(|e| Error::Failed(Arc::new(e.message.into())))
+    status.map_err(|e| Error::Failed(Arc::new(e.to_string().into())))
 }
