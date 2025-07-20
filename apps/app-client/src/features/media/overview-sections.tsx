@@ -252,9 +252,18 @@ function StoryRing({ item }: { item: ContinueItem }) {
 	);
 }
 
-export function StoryRingRow({ items }: { items: ContinueItem[] }) {
+export function StoryRingRow({ items, wrap }: { items: ContinueItem[]; wrap?: boolean }) {
 	if (items.length === 0) {
 		return null;
+	}
+	if (wrap) {
+		return (
+			<Box className="flex-row flex-wrap" style={{ gap: 16 }}>
+				{items.map((item) => (
+					<StoryRing key={item.id} item={item} />
+				))}
+			</Box>
+		);
 	}
 	return (
 		<ScrollView
@@ -269,12 +278,12 @@ export function StoryRingRow({ items }: { items: ContinueItem[] }) {
 	);
 }
 
-// ─── Up Next (2-column grid) ──────────────────────────────────────────────────
+// ─── Up Next (responsive grid) ────────────────────────────────────────────────
 
 export function UpNextSection({ items }: { items: UpNextItem[] }) {
 	const { width } = useWindowDimensions();
-	const effectiveWidth = Math.min(width, 860);
-	const cols = effectiveWidth >= 640 ? 3 : 2;
+	const effectiveWidth = Math.min(width, 1200);
+	const cols = effectiveWidth >= 900 ? 4 : effectiveWidth >= 640 ? 3 : 2;
 	const cardWidth = (effectiveWidth - 56 - 12 * (cols - 1)) / cols;
 	const posterHeight = cardWidth * 1.5;
 
@@ -431,11 +440,11 @@ export function RateTheseSection({ items }: { items: RateItem[] }) {
 		<Box>
 			<SectionLabel color={SECTION_ACCENTS.rateThese} label="Rate These" />
 			{idx >= items.length ? (
-				<Box className="items-center py-6 web:max-w-[480px]">
+				<Box className="items-center py-6">
 					<Text className="text-[13px] font-sans text-muted-foreground">All caught up ✓</Text>
 				</Box>
 			) : (
-				<Box className="web:max-w-[480px]" style={{ paddingBottom: 10 }}>
+				<Box style={{ paddingBottom: 10 }}>
 					{/* Back card hint — next item peeking behind */}
 					{idx + 1 < items.length ? (
 						<Box
