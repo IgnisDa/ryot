@@ -17,7 +17,7 @@ Ryot serves the final configuration loaded at the `/backend/config` endpoint as 
 | `VIDEO_GAMES_TWITCH_CLIENT_ID`       | The client ID issued by Twitch. **Required** to enable video games tracking. [More information](guides/video-games.md)            |
 | `VIDEO_GAMES_TWITCH_CLIENT_SECRET`   | The client secret issued by Twitch. **Required** to enable video games tracking.                                                  |
 | `SERVER_IMPORTER_TRAKT_CLIENT_ID`    | The client ID issued by Trakt. **Required** to enable Trakt import. [More information](guides/trakt.md)                           |
-| `ANIME_AND_MANGA_MAL_CLIENT_ID`      | The client ID issued by MyAnimeList. **Required** to enable MyAnimeList import. [More information](guides/myanimelist.md)         |
+| `ANIME_AND_MANGA_MAL_CLIENT_ID`      | The client ID issued by MyAnimeList. **Required** to enable MyAnimeList import. [More information](guides/anime.md)               |
 
 ## Health endpoint
 

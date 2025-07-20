@@ -1,4 +1,8 @@
-# MyAnimeList
+# Anime
+
+Ryot supports various providers for tracking anime.
+
+## MyAnimeList
 
 Ryot supports importing data from [MyAnimeList](https://myanimelist.net). To enable this
 functionality, you need to register an application with MyAnimeList to obtain a client ID.
