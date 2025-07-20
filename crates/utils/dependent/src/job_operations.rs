@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use common_models::BackgroundJob;
 use database_models::{metadata, prelude::Metadata};

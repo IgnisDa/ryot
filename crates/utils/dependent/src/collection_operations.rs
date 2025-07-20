@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::{
@@ -159,7 +159,7 @@ pub async fn create_or_update_collection(
             let inserted = col
                 .save(&txn)
                 .await
-                .map_err(|_| Error::new("There was an error creating the collection".to_owned()))?;
+                .map_err(|_| anyhow!("There was an error creating the collection"))?;
             let id = inserted.id.unwrap();
             let result = UserToEntity::delete_many()
                 .filter(user_to_entity::Column::CollectionId.eq(&id))

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, bail};
 use common_models::DefaultCollection;
 use database_models::{collection, prelude::Collection};
 use dependent_utils::expire_user_collections_list_cache;
@@ -13,7 +13,7 @@ pub async fn delete_collection(
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     if DefaultCollection::iter().any(|col_name| col_name.to_string() == name) {
-        return Err(Error::new("Can not delete a default collection".to_owned()));
+        bail!("Can not delete a default collection");
     }
     let collection = Collection::find()
         .filter(collection::Column::Name.eq(name))

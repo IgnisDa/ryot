@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDateTime;
 use common_utils::convert_naive_to_utc_datetime;
 use dependent_models::{

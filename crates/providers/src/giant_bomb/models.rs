@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Result, bail};
 use async_graphql::OutputType;
 use chrono::{Datelike, NaiveDate};
 use common_models::SearchDetails;
@@ -132,7 +132,7 @@ impl GiantBombService {
         R: OutputType,
     {
         if search_response.error != "OK" {
-            return Err(anyhow!("GiantBomb API error: {}", search_response.error));
+            bail!("GiantBomb API error: {}", search_response.error);
         }
 
         let items = search_response.results.into_iter().map(mapper).collect();

@@ -1,9 +1,13 @@
-use application_utils::get_current_date;
-use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
-use async_graphql::{Error, Result};
+use std::sync::Arc;
+
+use anyhow::{Result, anyhow};
+use application_utils::{
+    get_current_date, get_podcast_episode_by_number, get_show_episode_by_numbers,
+};
 use chrono::{Days, NaiveDate, Utc};
-use common_models::EntityAssets;
-use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
+use common_models::{
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityAssets, EntityToCollectionInput,
+};
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, get_first_and_last_day_of_month, ryot_log};
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
@@ -32,7 +36,6 @@ use sea_orm::{
 };
 use sea_query::{Alias, Asterisk, Condition, Expr, PgFunc, Query};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 
@@ -390,7 +393,7 @@ pub async fn get_calendar_events(
         user_by_id(&user_id, ss),
         CalEvent::find_by_statement(get_db_stmt(stmt))
             .all(&ss.db)
-            .map_err(|_e| Error::new("Failed to fetch calendar events"))
+            .map_err(|_| anyhow!("Failed to fetch calendar events"))
     )?;
     let show_spoilers_in_calendar = user.preferences.general.show_spoilers_in_calendar;
     let mut events = vec![];

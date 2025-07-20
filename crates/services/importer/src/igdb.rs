@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use csv::Reader;
 use dependent_models::{CollectionToEntityDetails, ImportOrExportMetadataItem};
 use dependent_models::{ImportCompletedItem, ImportResult};

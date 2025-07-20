@@ -1,6 +1,7 @@
 use std::{collections::HashMap, future::Future, sync::Arc};
 
-use async_graphql::{OutputType, Result};
+use anyhow::Result;
+use async_graphql::OutputType;
 use chrono::{Duration, Utc};
 use common_utils::ryot_log;
 use database_models::{application_cache, prelude::ApplicationCache};

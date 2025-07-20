@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use common_models::CollectionExtraInformationLot;
 use database_models::{
@@ -23,8 +23,8 @@ pub async fn handle_entity_added_to_collection_event(
         .find_also_related(Collection)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
-    let collection = collection.ok_or_else(|| Error::new("Collection does not exist"))?;
+        .ok_or_else(|| anyhow!("Collection to entity does not exist"))?;
+    let collection = collection.ok_or_else(|| anyhow!("Collection does not exist"))?;
     let mut fields = collection.clone().information_template.unwrap_or_default();
     if !fields
         .iter()

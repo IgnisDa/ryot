@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{integration, prelude::Integration};
@@ -46,7 +46,7 @@ impl IntegrationService {
             Ok(())
         })
         .await;
-        set_trigger_result(&self.0, result.err().map(|e| e.message), &integration).await?;
+        set_trigger_result(&self.0, result.err().map(|e| e.to_string()), &integration).await?;
         Ok(())
     }
 
@@ -59,10 +59,10 @@ impl IntegrationService {
         let integration = Integration::find_by_id(integration_slug)
             .one(&self.0.db)
             .await?
-            .ok_or_else(|| Error::new("Integration does not exist".to_owned()))?;
+            .ok_or(anyhow!("Integration does not exist"))?;
         let preferences = user_by_id(&integration.user_id, &self.0).await?.preferences;
         if integration.is_disabled.unwrap_or_default() || preferences.general.disable_integrations {
-            return Err(Error::new("Integration is disabled".to_owned()));
+            bail!("Integration is disabled");
         }
         let maybe_progress_update = match integration.provider {
             IntegrationProvider::Kodi => sink::kodi::sink_progress(payload).await,
@@ -81,7 +81,7 @@ impl IntegrationService {
                 )
                 .await
             }
-            _ => return Err(Error::new("Unsupported integration source".to_owned())),
+            _ => bail!("Unsupported integration source"),
         };
         match maybe_progress_update {
             Ok(None) => Ok("No progress update".to_owned()),
@@ -93,7 +93,7 @@ impl IntegrationService {
             }
             Err(e) => {
                 set_trigger_result(&self.0, Some(e.to_string()), &integration).await?;
-                Err(Error::new(e.to_string()))
+                Err(anyhow!(e.to_string()))
             }
         }
     }

@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use enum_models::{MediaLot, MediaSource};
 use media_models::MetadataDetails;
 use providers::{
@@ -25,29 +25,21 @@ use traits::MediaProvider;
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
-    OpenlibraryService::new(&config.books.openlibrary)
-        .await
-        .map_err(Into::into)
+    OpenlibraryService::new(&config.books.openlibrary).await
 }
 
 pub async fn get_google_books_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
-    GoogleBooksService::new(&config.books.google_books)
-        .await
-        .map_err(Into::into)
+    GoogleBooksService::new(&config.books.google_books).await
 }
 
 pub async fn get_hardcover_service(config: &config::AppConfig) -> Result<HardcoverService> {
-    HardcoverService::new(&config.books.hardcover)
-        .await
-        .map_err(Into::into)
+    HardcoverService::new(&config.books.hardcover).await
 }
 
 pub async fn get_tmdb_non_media_service(
     ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
-    NonMediaTmdbService::new(ss.clone())
-        .await
-        .map_err(Into::into)
+    NonMediaTmdbService::new(ss.clone()).await
 }
 
 pub async fn get_metadata_provider(
@@ -55,7 +47,7 @@ pub async fn get_metadata_provider(
     source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
-    let err = || Err(Error::new("This source is not supported".to_owned()));
+    let err = || Err(anyhow!("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
@@ -107,7 +99,7 @@ pub async fn get_non_metadata_provider(
     source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
-    let err = || Err(Error::new("This source is not supported".to_owned()));
+    let err = || Err(anyhow!("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),

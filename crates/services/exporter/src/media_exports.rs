@@ -1,6 +1,6 @@
 use std::{fs::File as StdFile, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::{
@@ -46,7 +46,7 @@ pub async fn export_media(
             let m = Metadata::find_by_id(rm)
                 .one(&service.db)
                 .await?
-                .ok_or_else(|| Error::new("Metadata with the given ID does not exist"))?;
+                .ok_or_else(|| anyhow!("Metadata with the given ID does not exist"))?;
             let seen_history = m
                 .find_related(Seen)
                 .filter(seen::Column::UserId.eq(user_id))
@@ -138,7 +138,7 @@ pub async fn export_media_group(
             let m = MetadataGroup::find_by_id(rm)
                 .one(&service.db)
                 .await?
-                .ok_or_else(|| Error::new("Metadata group with the given ID does not exist"))?;
+                .ok_or_else(|| anyhow!("Metadata group with the given ID does not exist"))?;
             let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, service)
                 .await?
                 .into_iter()
@@ -198,7 +198,7 @@ pub async fn export_people(
             let p = Person::find_by_id(rm)
                 .one(&service.db)
                 .await?
-                .ok_or_else(|| Error::new("Person with the given ID does not exist"))?;
+                .ok_or_else(|| anyhow!("Person with the given ID does not exist"))?;
             let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, service)
                 .await?
                 .into_iter()

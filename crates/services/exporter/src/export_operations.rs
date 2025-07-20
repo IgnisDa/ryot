@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, bail};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
@@ -69,9 +69,7 @@ pub async fn user_exports(
 
 pub async fn perform_export(service: &Arc<SupportingService>, user_id: String) -> Result<()> {
     if !service.config.file_storage.is_enabled() {
-        return Err(Error::new(
-            "File storage needs to be enabled to perform an export.",
-        ));
+        bail!("File storage needs to be enabled to perform an export.",);
     }
     let started_at = Utc::now();
     let export_path =

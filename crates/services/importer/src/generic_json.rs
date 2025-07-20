@@ -1,6 +1,6 @@
 use std::fs;
 
-use async_graphql::Result;
+use anyhow::Result;
 use dependent_models::{CompleteExport, ImportCompletedItem, ImportResult};
 use enum_models::ImportSource;
 use itertools::Itertools;

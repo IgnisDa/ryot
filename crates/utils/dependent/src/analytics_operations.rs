@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::Result;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
-use async_graphql::Result;
 use chrono::{NaiveDate, Timelike};
 use common_models::{DailyUserActivityHourRecord, DailyUserActivityHourRecordEntity};
 use common_utils::ryot_log;

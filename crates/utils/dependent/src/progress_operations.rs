@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
@@ -184,10 +184,10 @@ fn create_extra_information(
     let show_ei = if matches!(media_lot, MediaLot::Show) {
         let season = payload
             .show_season_number
-            .ok_or_else(|| Error::new("Season number is required for show progress update"))?;
+            .ok_or_else(|| anyhow!("Season number is required for show progress update"))?;
         let episode = payload
             .show_episode_number
-            .ok_or_else(|| Error::new("Episode number is required for show progress update"))?;
+            .ok_or_else(|| anyhow!("Episode number is required for show progress update"))?;
         Some(SeenShowExtraInformation { season, episode })
     } else {
         None
@@ -196,7 +196,7 @@ fn create_extra_information(
     let podcast_ei = if matches!(media_lot, MediaLot::Podcast) {
         let episode = payload
             .podcast_episode_number
-            .ok_or_else(|| Error::new("Episode number is required for podcast progress update"))?;
+            .ok_or_else(|| anyhow!("Episode number is required for podcast progress update"))?;
         Some(SeenPodcastExtraInformation { episode })
     } else {
         None
@@ -268,7 +268,7 @@ pub async fn metadata_progress_update(
     let meta = Metadata::find_by_id(&input.metadata_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Metadata not found"))?;
+        .ok_or_else(|| anyhow!("Metadata not found"))?;
     let previous_seen = Seen::find()
         .filter(seen::Column::Progress.lt(100))
         .filter(seen::Column::UserId.eq(user_id))
@@ -281,7 +281,7 @@ pub async fn metadata_progress_update(
     let seen = match input.change {
         MetadataProgressUpdateChange::ChangeLatestInProgress(change_latest_in_progress) => {
             let Some(previous_seen) = previous_seen else {
-                return Err(Error::new("No in progress seen found"));
+                bail!("No in progress seen found");
             };
             let mut state;
             let mut progress = previous_seen.progress;
@@ -293,7 +293,7 @@ pub async fn metadata_progress_update(
                 }
                 MetadataProgressUpdateChangeLatestInProgressInput::Progress(new_progress) => {
                     if new_progress == progress {
-                        return Err(Error::new("No progress update required"));
+                        bail!("No progress update required");
                     }
                     progress = new_progress;
                     state = SeenState::InProgress;
@@ -321,9 +321,7 @@ pub async fn metadata_progress_update(
         }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
             if previous_seen.is_some() {
-                return Err(Error::new(
-                    "An in-progress record already exists for this metadata",
-                ));
+                bail!("An in-progress record already exists for this metadata",);
             };
             commit(CommitInput {
                 ss,

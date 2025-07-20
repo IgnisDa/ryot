@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use application_utils::graphql_to_db_order;
-use async_graphql::Result;
 use common_models::{SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection, collection_to_entity, exercise, metadata, metadata_group, person, prelude::*,

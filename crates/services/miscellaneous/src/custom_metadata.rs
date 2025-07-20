@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use database_models::{
     metadata, metadata_to_genre,
@@ -58,12 +58,10 @@ pub async fn update_custom_metadata(
         .await?
         .unwrap();
     if metadata.source != MediaSource::Custom {
-        return Err(Error::new(
-            "This metadata is not custom and cannot be updated",
-        ));
+        bail!("This metadata is not custom and cannot be updated",);
     }
     if metadata.created_by_user_id != Some(user_id.to_owned()) {
-        return Err(Error::new("You are not authorized to update this metadata"));
+        bail!("You are not authorized to update this metadata");
     }
     MetadataToGenre::delete_many()
         .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))

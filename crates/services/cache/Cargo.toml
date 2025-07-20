@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 async-graphql = { workspace = true }
+anyhow = { workspace = true }
 chrono = { workspace = true }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }

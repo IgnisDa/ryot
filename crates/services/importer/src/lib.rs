@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
 use common_models::BackgroundJob;

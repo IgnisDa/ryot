@@ -20,7 +20,8 @@ impl ImporterQuery {
     ) -> Result<Vec<import_report::Model>> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_import_reports(user_id).await
+        let response = service.user_import_reports(user_id).await?;
+        Ok(response)
     }
 }
 
@@ -43,6 +44,7 @@ impl ImporterMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_import_job(user_id, input).await
+        let response = service.deploy_import_job(user_id, input).await?;
+        Ok(response)
     }
 }

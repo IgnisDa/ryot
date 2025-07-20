@@ -1,8 +1,7 @@
 use std::{result::Result as StdResult, sync::Arc};
 
-use anyhow::anyhow;
+use anyhow::{Result, anyhow};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
-use async_graphql::Result;
 use common_utils::ryot_log;
 use data_encoding::BASE64;
 use dependent_models::ImportOrExportMetadataItem;
@@ -143,8 +142,8 @@ async fn process_item(
             let item_details = get_item_details(client, url, &item.id, None)
                 .await
                 .map_err(|e| ImportFailedItem {
-                    error: Some(e.message),
                     identifier: title.clone(),
+                    error: Some(e.to_string()),
                     step: ImportFailStep::ItemDetailsFromSource,
                     ..Default::default()
                 })?;
@@ -159,8 +158,8 @@ async fn process_item(
                             get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
                                 .await
                                 .map_err(|e| ImportFailedItem {
-                                    error: Some(e.message),
                                     identifier: title.clone(),
+                                    error: Some(e.to_string()),
                                     step: ImportFailStep::ItemDetailsFromSource,
                                     ..Default::default()
                                 })?;
@@ -180,7 +179,7 @@ async fn process_item(
                             .await
                             .map_err(|e| ImportFailedItem {
                                 identifier: title.clone(),
-                                error: Some(e.message),
+                                error: Some(e.to_string()),
                                 step: ImportFailStep::ItemDetailsFromSource,
                                 ..Default::default()
                             })?;

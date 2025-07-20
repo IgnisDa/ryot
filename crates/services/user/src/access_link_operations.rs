@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{access_link, prelude::AccessLink, user};

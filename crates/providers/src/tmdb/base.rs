@@ -1,5 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
+use anyhow::bail;
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use common_utils::convert_date_to_year;
@@ -283,7 +284,7 @@ impl TmdbService {
         let media_lot = match media_type {
             "movie" => MediaLot::Movie,
             "tv" => MediaLot::Show,
-            _ => return Err(anyhow!("Invalid media type")),
+            _ => bail!("Invalid media type"),
         };
 
         self.fetch_paginated_data(

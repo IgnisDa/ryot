@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::ryot_log;
 use database_models::{
     collection, collection_to_entity,

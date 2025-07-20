@@ -24,7 +24,8 @@ impl CollectionQuery {
     ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_collections_list(&user_id).await
+        let response = service.user_collections_list(&user_id).await?;
+        Ok(response)
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -35,7 +36,8 @@ impl CollectionQuery {
     ) -> Result<CachedResponse<CollectionContentsResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.collection_contents(&user_id, input).await
+        let response = service.collection_contents(&user_id, input).await?;
+        Ok(response)
     }
 
     /// Get recommendations for a collection.
@@ -46,7 +48,8 @@ impl CollectionQuery {
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.collection_recommendations(&user_id, input).await
+        let response = service.collection_recommendations(&user_id, input).await?;
+        Ok(response)
     }
 }
 
@@ -69,7 +72,8 @@ impl CollectionMutation {
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_or_update_collection(&user_id, input).await
+        let response = service.create_or_update_collection(&user_id, input).await?;
+        Ok(response)
     }
 
     /// Deploy a background job to add entities to a collection.
@@ -80,9 +84,10 @@ impl CollectionMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
+        let response = service
             .deploy_add_entities_to_collection_job(&user_id, input)
-            .await
+            .await?;
+        Ok(response)
     }
 
     /// Deploy a background job to remove entities from a collection.
@@ -93,9 +98,10 @@ impl CollectionMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
+        let response = service
             .deploy_remove_entities_from_collection_job(&user_id, input)
-            .await
+            .await?;
+        Ok(response)
     }
 
     /// Delete a collection.
@@ -106,6 +112,7 @@ impl CollectionMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.delete_collection(user_id, &collection_name).await
+        let response = service.delete_collection(user_id, &collection_name).await?;
+        Ok(response)
     }
 }

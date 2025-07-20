@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::{BackendError, EntityAssets, IdAndNamedObject};
@@ -20,7 +20,7 @@ use dependent_models::{
 use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
-use jwt_service::{Claims, verify};
+use jwt_service::verify;
 use markdown::to_html as markdown_to_html;
 use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewItem};
 use migrations::AliasedCollectionToEntity;
@@ -52,23 +52,21 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
     let user = User::find_by_id(user_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("No user found"))?;
+        .ok_or_else(|| anyhow!("No user found"))?;
     Ok(user)
 }
 
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {
     let main_user = user_by_id(user_id, ss).await?;
     if main_user.lot != UserLot::Admin {
-        return Err(Error::new(BackendError::AdminOnlyAction.to_string()));
+        bail!(BackendError::AdminOnlyAction.to_string());
     }
     Ok(())
 }
 
 pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Result<()> {
     if !is_server_key_validated {
-        return Err(Error::new(
-            "This feature is only available on the Pro version",
-        ));
+        bail!("This feature is only available on the Pro version",);
     }
     Ok(())
 }
@@ -148,9 +146,7 @@ pub async fn user_workout_details(
         .one(&ss.db)
         .await?;
     let Some(mut e) = maybe_workout else {
-        return Err(Error::new(
-            "Workout with the given ID could not be found for this user.",
-        ));
+        bail!("Workout with the given ID could not be found for this user.");
     };
     let collections =
         entity_in_collections_with_details(&ss.db, user_id, &workout_id, EntityLot::Workout)
@@ -191,9 +187,7 @@ pub async fn user_workout_template_details(
         .one(db)
         .await?;
     let Some(details) = maybe_template else {
-        return Err(Error::new(
-            "Workout template with the given ID could not be found.",
-        ));
+        bail!("Workout template with the given ID could not be found.");
     };
     let collections = entity_in_collections_with_details(
         db,
@@ -273,10 +267,6 @@ where
     query.filter(id_column.in_subquery(subquery.into_query()))
 }
 
-pub fn user_claims_from_token(token: &str, jwt_secret: &str) -> Result<Claims> {
-    verify(token, jwt_secret).map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
-}
-
 /// If the token has an access link, then checks that:
 /// - the access link is not revoked
 /// - if the operation is a mutation, then the access link allows mutations
@@ -288,20 +278,20 @@ pub async fn check_token(
     is_mutation: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let claims = user_claims_from_token(token, &ss.config.users.jwt_secret)?;
+    let claims = verify(token, &ss.config.users.jwt_secret)?;
     let Some(access_link_id) = claims.access_link_id else {
         return Ok(true);
     };
     let access_link = AccessLink::find_by_id(access_link_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new(BackendError::SessionExpired.to_string()))?;
+        .ok_or_else(|| anyhow!(BackendError::SessionExpired.to_string()))?;
     if access_link.is_revoked.unwrap_or_default() {
-        return Err(Error::new(BackendError::SessionExpired.to_string()));
+        bail!(BackendError::SessionExpired.to_string());
     }
     if is_mutation {
         if !access_link.is_mutation_allowed.unwrap_or_default() {
-            return Err(Error::new(BackendError::MutationNotAllowed.to_string()));
+            bail!(BackendError::MutationNotAllowed.to_string());
         }
         return Ok(true);
     }
@@ -432,7 +422,7 @@ pub async fn schedule_user_for_workout_revision(
     let user = User::find_by_id(user_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("User with the given ID does not exist"))?;
+        .ok_or_else(|| anyhow!("User with the given ID does not exist"))?;
     let mut extra_information = user.extra_information.clone().unwrap_or_default();
     extra_information.scheduled_for_workout_revision = true;
     let mut user: user::ActiveModel = user.into();

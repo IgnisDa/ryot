@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::ExportJob;
 use supporting_service::SupportingService;
 

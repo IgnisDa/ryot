@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = { workspace = true }
 argon2 = { workspace = true }
-async-graphql = { workspace = true }
 application-utils = { path = "../../utils/application" }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }

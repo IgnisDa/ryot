@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::{Result, bail};
 use application_utils::graphql_to_db_order;
-use async_graphql::{Error, Result};
 use common_models::{SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection_to_entity,
@@ -51,7 +51,7 @@ pub async fn collection_contents(
                     .one(&ss.db)
                     .await?;
                 let Some(details) = maybe_collection else {
-                    return Err(Error::new("Collection not found".to_owned()));
+                    bail!("Collection not found");
                 };
                 let paginator = CollectionToEntity::find()
                     .left_join(Metadata)

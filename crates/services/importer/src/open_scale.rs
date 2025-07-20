@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDateTime;
 use csv::ReaderBuilder;
 use database_models::user_measurement;

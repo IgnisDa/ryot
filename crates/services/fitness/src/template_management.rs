@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use database_models::{
     exercise,
     prelude::{Exercise, WorkoutTemplate},
@@ -69,7 +69,7 @@ pub async fn create_or_update_user_workout_template(
 
     for exercise in input.exercises {
         let db_ex = exercise_map.get(&exercise.exercise_id).ok_or_else(|| {
-            Error::new(format!(
+            anyhow!(format!(
                 "Exercise with ID {} not found",
                 exercise.exercise_id
             ))
@@ -142,7 +142,7 @@ pub async fn delete_user_workout_template(
         .one(&ss.db)
         .await?
     else {
-        return Err(Error::new("Workout template does not exist for user"));
+        bail!("Workout template does not exist for user");
     };
     wkt.delete(&ss.db).await?;
     expire_user_workout_templates_list_cache(&user_id, ss).await?;

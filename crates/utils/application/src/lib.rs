@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use async_graphql::{Error, Result};
+use anyhow::Result;
 use axum::{
     Extension, RequestPartsExt,
     extract::FromRequestParts,
@@ -31,9 +31,7 @@ use rust_decimal::Decimal;
 use sea_orm::Order;
 
 pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
-    jwt_service::verify(token, jwt_secret)
-        .map(|c| c.sub)
-        .map_err(|e| Error::new(format!("Encountered error: {:?}", e)))
+    jwt_service::verify(token, jwt_secret).map(|c| c.sub)
 }
 
 #[derive(Debug, Default)]

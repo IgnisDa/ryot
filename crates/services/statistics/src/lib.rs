@@ -1,6 +1,6 @@
 use std::{cmp::Reverse, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::{
     ApplicationDateRange, DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord,
     UserAnalyticsInput, UserLevelCacheKey,

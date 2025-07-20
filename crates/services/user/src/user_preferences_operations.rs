@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use database_utils::user_by_id;
 use sea_orm::{ActiveModelTrait, ActiveValue};
 use supporting_service::SupportingService;

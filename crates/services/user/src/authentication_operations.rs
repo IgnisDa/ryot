@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_graphql::Result;
 use chrono::Utc;
 use database_models::{prelude::User, user};
 use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
 use dependent_models::{

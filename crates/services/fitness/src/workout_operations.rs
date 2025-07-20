@@ -1,4 +1,6 @@
-use async_graphql::{Error, Result};
+use std::sync::Arc;
+
+use anyhow::{Result, bail};
 use common_utils::ryot_log;
 use database_models::{
     prelude::{UserToEntity, Workout},
@@ -22,7 +24,6 @@ use futures::{TryStreamExt, try_join};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
 };
-use std::sync::Arc;
 use supporting_service::SupportingService;
 
 pub async fn user_workout_details(
@@ -60,7 +61,7 @@ pub async fn update_user_workout_attributes(
         .one(&ss.db)
         .await?
     else {
-        return Err(Error::new("Workout does not exist for user"));
+        bail!("Workout does not exist for user");
     };
     let mut new_wkt: workout::ActiveModel = wkt.into();
     if let Some(d) = input.start_time {
@@ -95,7 +96,7 @@ pub async fn delete_user_workout(
         .one(&ss.db)
         .await?
     else {
-        return Err(Error::new("Workout does not exist for user"));
+        bail!("Workout does not exist for user");
     };
     for (idx, ex) in wkt.information.exercises.iter().enumerate() {
         let Some(association) = UserToEntity::find()

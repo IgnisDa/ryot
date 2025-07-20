@@ -16,7 +16,8 @@ impl ExporterQuery {
     async fn user_exports(&self, gql_ctx: &Context<'_>) -> Result<Vec<ExportJob>> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_exports(user_id).await
+        let response = service.user_exports(user_id).await?;
+        Ok(response)
     }
 }
 
@@ -35,6 +36,7 @@ impl ExporterMutation {
     async fn deploy_export_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.deploy_export_job(user_id).await
+        let response = service.deploy_export_job(user_id).await?;
+        Ok(response)
     }
 }

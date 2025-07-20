@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::Utc;
 use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{

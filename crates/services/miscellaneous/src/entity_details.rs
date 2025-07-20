@@ -1,6 +1,6 @@
 use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use common_models::SearchDetails;
 use database_models::{
     metadata_group_to_person, metadata_to_genre, metadata_to_metadata_group, metadata_to_person,
@@ -164,7 +164,7 @@ pub async fn metadata_details(
             .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
             .find_also_related(MetadataGroup)
             .all(&ss.db)
-            .map_err(|_e| Error::new("Failed to fetch metadata associations"))
+            .map_err(|_| anyhow!("Failed to fetch metadata associations"))
     )?;
 
     let mut group = vec![];

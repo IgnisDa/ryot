@@ -1,6 +1,6 @@
 use std::{collections::HashMap, result::Result as StdResult, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::ryot_log;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,

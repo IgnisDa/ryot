@@ -1,6 +1,6 @@
 use std::{fs::File as StdFile, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use common_models::SearchInput;
 use common_utils::ryot_log;
 use database_models::prelude::Exercise;
@@ -115,7 +115,7 @@ pub async fn export_exercises(
             let exercise = Exercise::find_by_id(exercise_id.clone())
                 .one(&service.db)
                 .await?
-                .ok_or_else(|| Error::new("Exercise with the given ID does not exist"))?;
+                .ok_or_else(|| anyhow!("Exercise with the given ID does not exist"))?;
             let exp = ImportOrExportExerciseItem {
                 reviews,
                 collections,

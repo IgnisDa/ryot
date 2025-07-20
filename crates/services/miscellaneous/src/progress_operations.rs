@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, bail};
 use common_models::StringIdObject;
 use database_models::{
     prelude::{Review, Seen},
@@ -22,10 +22,10 @@ pub async fn update_seen_item(
     input: UpdateSeenItemInput,
 ) -> Result<bool> {
     let Some(seen) = Seen::find_by_id(input.seen_id).one(&ss.db).await? else {
-        return Err(Error::new("No seen found for this user and metadata"));
+        bail!("No seen found for this user and metadata");
     };
     if &seen.user_id != user_id {
-        return Err(Error::new("No seen found for this user and metadata"));
+        bail!("No seen found for this user and metadata");
     }
     let mut seen: seen::ActiveModel = seen.into();
     if let Some(started_on) = input.started_on {
@@ -50,9 +50,7 @@ pub async fn update_seen_item(
         };
         if let Some(review_item) = review {
             if &review_item.user_id != user_id {
-                return Err(Error::new(
-                    "You cannot associate a review with a seen item that is not yours",
-                ));
+                bail!("You cannot associate a review with a seen item that is not yours",);
             }
         }
         seen.review_id = ActiveValue::Set(to_update_review_id);
@@ -69,13 +67,11 @@ pub async fn delete_seen_item(
 ) -> Result<StringIdObject> {
     let seen_item = Seen::find_by_id(seen_id).one(&ss.db).await?;
     let Some(si) = seen_item else {
-        return Err(Error::new("This seen item does not exist".to_owned()));
+        bail!("This seen item does not exist");
     };
     let cloned_seen = si.clone();
     if &si.user_id != user_id {
-        return Err(Error::new(
-            "This seen item does not belong to this user".to_owned(),
-        ));
+        bail!("This seen item does not belong to this user");
     }
     let seen_id = si.id.clone();
     let metadata_id = si.metadata_id.clone();

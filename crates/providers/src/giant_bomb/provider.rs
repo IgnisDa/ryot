@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics};
@@ -52,10 +52,7 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "GiantBomb API returned status: {}",
-                response.status()
-            ));
+            bail!("GiantBomb API returned status: {}", response.status());
         }
 
         let search_response: GiantBombSearchResponse<GiantBombResource> = response
@@ -84,10 +81,7 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "GiantBomb API returned status: {}",
-                response.status()
-            ));
+            bail!("GiantBomb API returned status: {}", response.status());
         }
 
         let details_response: GiantBombDetailsResponse<GiantBombResource> =
@@ -241,10 +235,7 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "GiantBomb API returned status: {}",
-                response.status()
-            ));
+            bail!("GiantBomb API returned status: {}", response.status());
         }
 
         let items = match search_type {
@@ -270,7 +261,7 @@ impl MediaProvider for GiantBombService {
                         .and_then(|d| extract_year_from_date(Some(d))),
                 })?
             }
-            _ => return Err(anyhow!("Unsupported search type: {}", search_type)),
+            _ => bail!("Unsupported search type: {}", search_type),
         };
 
         Ok(items)
@@ -300,10 +291,7 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "GiantBomb API returned status: {}",
-                response.status()
-            ));
+            bail!("GiantBomb API returned status: {}", response.status());
         }
 
         let details_response: GiantBombDetailsResponse<GiantBombResource> =
@@ -425,10 +413,7 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "GiantBomb API returned status: {}",
-                response.status()
-            ));
+            bail!("GiantBomb API returned status: {}", response.status());
         }
 
         let search_response: GiantBombSearchResponse<GiantBombResource> = response
@@ -460,10 +445,7 @@ impl MediaProvider for GiantBombService {
             .map_err(|e| anyhow!("Failed to send request to GiantBomb: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!(
-                "GiantBomb API returned status: {}",
-                response.status()
-            ));
+            bail!("GiantBomb API returned status: {}", response.status());
         }
 
         let details_response: GiantBombDetailsResponse<GiantBombResource> =

@@ -20,7 +20,8 @@ impl StatisticsQuery {
     ) -> Result<CachedResponse<ApplicationDateRange>> {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_analytics_parameters(&user_id).await
+        let response = service.user_analytics_parameters(&user_id).await?;
+        Ok(response)
     }
 
     /// Get the analytics for the currently logged in user.
@@ -31,6 +32,7 @@ impl StatisticsQuery {
     ) -> Result<CachedResponse<UserAnalytics>> {
         let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_analytics(&user_id, input).await
+        let response = service.user_analytics(&user_id, input).await?;
+        Ok(response)
     }
 }
