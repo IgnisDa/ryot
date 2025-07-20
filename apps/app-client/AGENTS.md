@@ -4,6 +4,8 @@
 
 Use `clsx` for all conditional or dynamic `className` values. Never use template strings or bare ternaries for class composition.
 
+Prefer CSS-based solutions over JS-based ones for layout and responsive behaviour. Use Tailwind responsive variants (`sm:`, `md:`, `lg:`), `aspect-ratio`, and other utility classes instead of `useWindowDimensions`, `onLayout`, or manually computed pixel values. Fall back to JS only when the layout genuinely cannot be expressed in CSS (e.g. precise gap-aware widths on native, or logic that depends on runtime data).
+
 ## Forms
 
 All form text inputs must be submittable via the Enter key. Use `onSubmitEditing` on the last field to trigger submission, and `returnKeyType="go"` to label the action key appropriately. For multi-field forms, intermediate fields should use `returnKeyType="next"` and move focus to the next field on submit.
