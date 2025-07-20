@@ -398,17 +398,16 @@ impl MediaProvider for SpotifyService {
                 identifier: track.id.clone(),
                 source: MediaSource::Spotify,
                 image: get_first_image(&album.images),
-                ..Default::default()
             })
             .collect();
 
         let group = MetadataGroupWithoutId {
-            title: album.name.clone().unwrap_or_default(),
-            identifier: album.id.clone().unwrap_or_default(),
             lot: MediaLot::Music,
             source: MediaSource::Spotify,
             description: album.description.clone(),
+            title: album.name.clone().unwrap_or_default(),
             parts: album.total_tracks.unwrap_or(0) as i32,
+            identifier: album.id.clone().unwrap_or_default(),
             source_url: album
                 .external_urls
                 .as_ref()
@@ -417,7 +416,6 @@ impl MediaProvider for SpotifyService {
                 remote_images: get_images_ordered_by_size(&album.images),
                 ..Default::default()
             },
-            ..Default::default()
         };
 
         Ok((group, items))
