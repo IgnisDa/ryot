@@ -517,11 +517,11 @@ impl MediaProvider for SpotifyService {
         };
 
         Ok(PersonDetails {
+            assets,
+            description,
             name: artist.name,
             identifier: artist.id,
             source: MediaSource::Spotify,
-            assets,
-            description,
             source_url: Some(artist.external_urls.spotify),
             related_metadata: vec![],
             related_metadata_groups: vec![],
