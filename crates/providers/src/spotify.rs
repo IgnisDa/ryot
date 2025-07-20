@@ -106,6 +106,27 @@ struct SpotifyExternalIds {
     isrc: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbumSearchResponse {
+    albums: SpotifyAlbumsResponse,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbumsResponse {
+    total: i32,
+    items: Vec<SpotifyAlbumSearchItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbumSearchItem {
+    id: String,
+    name: String,
+    album_type: String,
+    total_tracks: usize,
+    images: Vec<SpotifyImage>,
+    artists: Vec<SpotifyArtist>,
+}
+
 pub struct SpotifyService {
     client: Client,
 }
@@ -303,11 +324,48 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_group_search(
         &self,
-        _query: &str,
-        _page: Option<i32>,
+        query: &str,
+        page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        todo!("Implement Spotify metadata_group_search")
+        let page = page.unwrap_or(1);
+        let offset = (page - 1) * PAGE_SIZE;
+
+        let response = self
+            .client
+            .get(format!("{}/search", SPOTIFY_API_URL))
+            .query(&json!({
+                "q": query,
+                "type": "album",
+                "offset": offset,
+                "limit": PAGE_SIZE,
+            }))
+            .send()
+            .await?;
+
+        let search_response: SpotifyAlbumSearchResponse = response.json().await?;
+
+        let next_page = (search_response.albums.total > (page * PAGE_SIZE)).then(|| page + 1);
+
+        let items = search_response
+            .albums
+            .items
+            .into_iter()
+            .map(|album| MetadataGroupSearchItem {
+                name: album.name,
+                identifier: album.id,
+                parts: Some(album.total_tracks),
+                image: self.get_largest_image(&album.images),
+            })
+            .collect();
+
+        Ok(SearchResults {
+            items,
+            details: SearchDetails {
+                next_page,
+                total: search_response.albums.total,
+            },
+        })
     }
 
     async fn person_details(
