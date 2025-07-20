@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{
@@ -174,6 +174,9 @@ async fn get_spotify_access_token(
             ApplicationCacheKey::SpotifyAccessToken,
             ApplicationCacheValue::SpotifyAccessToken,
             || async {
+                if config.client_id.is_empty() || config.client_secret.is_empty() {
+                    bail!("Spotify client ID or secret is not configured");
+                }
                 let credentials = format!("{}:{}", config.client_id, config.client_secret);
                 let encoded_credentials = BASE64.encode(credentials.as_bytes());
 
@@ -189,8 +192,7 @@ async fn get_spotify_access_token(
                 Ok(token_response.access_token)
             },
         )
-        .await
-        .unwrap();
+        .await?;
 
     Ok(cached_response.response)
 }
