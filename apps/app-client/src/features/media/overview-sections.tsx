@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { Star } from "lucide-react-native";
 import { useState } from "react";
 import { Image, ImageBackground, ScrollView } from "react-native";
@@ -15,15 +16,15 @@ import { activityLabel, hexToRgba, timeAgo } from "./overview-utils";
 const FALLBACK_COLOR = "#78716c";
 
 export const SECTION_ACCENTS = {
+	upNext: "#8E6A4D",
 	activity: "#6F8B75",
 	continue: "#C9943A",
 	rateThese: "#D38D5A",
-	upNext: "#8E6A4D",
 };
 
-const RING_SM = { gap: 2.5, size: 72, stroke: 3.5 };
 const RING_LG = { gap: 3, size: 96, stroke: 4 };
 const RING_XL = { gap: 3, size: 112, stroke: 4 };
+const RING_SM = { gap: 2.5, size: 72, stroke: 3.5 };
 
 export type ContinueItem = {
 	id: string;
@@ -51,8 +52,8 @@ export type RateItem = {
 	id: string;
 	title: string;
 	image: EntityImage;
-	rating: number | null;
 	completedAt: string;
+	rating: number | null;
 	entitySchemaSlug: string;
 };
 
@@ -90,8 +91,8 @@ export function StatCard({ color, count, label }: { color: string; count: number
 			}}
 		>
 			<Text
-				className="text-[34px] font-heading-semibold leading-[36px] web:text-[40px] web:leading-[44px]"
 				style={{ color }}
+				className="text-[34px] font-heading-semibold leading-[36px] web:text-[40px] web:leading-[44px]"
 			>
 				{count}
 			</Text>
@@ -107,8 +108,8 @@ function SectionLabel({ color, label }: { color: string; label: string }) {
 		<Box className="mb-4 mt-8 flex-row items-center gap-3">
 			<Box className="h-px flex-1" style={{ backgroundColor: hexToRgba(color, 0.35) }} />
 			<Text
-				className="text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
 				style={{ color }}
+				className="text-xs font-sans-semibold uppercase tracking-[2px] web:text-[14px]"
 			>
 				{label}
 			</Text>
@@ -124,10 +125,10 @@ function StarRating({ rating, onChange }: { rating: number; onChange: (r: number
 			{[1, 2, 3, 4, 5].map((i) => (
 				<Pressable key={i} onPress={() => onChange(i === rating ? 0 : i)} hitSlop={8}>
 					<Star
-						fill={i <= rating ? gold : "transparent"}
-						color={i <= rating ? gold : "#a8a29e"}
 						size={20}
 						strokeWidth={1.5}
+						color={i <= rating ? gold : "#a8a29e"}
+						fill={i <= rating ? gold : "transparent"}
 					/>
 				</Pressable>
 			))}
@@ -142,11 +143,11 @@ function StoryRing({
 	xlarge,
 	imageUrl,
 }: {
-	item: ContinueItem;
 	color: string;
-	imageUrl: string | undefined;
 	large?: boolean;
 	xlarge?: boolean;
+	item: ContinueItem;
+	imageUrl: string | undefined;
 }) {
 	const { gap, size, stroke } = xlarge ? RING_XL : large ? RING_LG : RING_SM;
 	const thumbSize = size - stroke * 2 - gap * 2;
@@ -161,50 +162,50 @@ function StoryRing({
 			<Box style={{ height: size, width: size }}>
 				<Svg width={size} height={size} style={{ position: "absolute", left: 0, top: 0 }}>
 					<Circle
+						r={r}
+						fill="none"
 						cx={size / 2}
 						cy={size / 2}
-						r={r}
-						stroke={hexToRgba(color, 0.18)}
 						strokeWidth={stroke}
-						fill="none"
+						stroke={hexToRgba(color, 0.18)}
 					/>
 					<Circle
+						r={r}
+						fill="none"
 						cx={size / 2}
 						cy={size / 2}
-						r={r}
 						stroke={color}
 						strokeWidth={stroke}
-						fill="none"
-						strokeDasharray={`${circ} ${circ}`}
-						strokeDashoffset={dashOffset}
 						strokeLinecap="round"
+						strokeDashoffset={dashOffset}
+						strokeDasharray={`${circ} ${circ}`}
 						transform={`rotate(-90 ${size / 2} ${size / 2})`}
 					/>
 				</Svg>
 				<Box
 					style={{
-						borderRadius: thumbSize / 2,
+						width: thumbSize,
+						top: stroke + gap,
 						height: thumbSize,
 						left: stroke + gap,
 						overflow: "hidden",
 						position: "absolute",
-						top: stroke + gap,
-						width: thumbSize,
+						borderRadius: thumbSize / 2,
 						backgroundColor: hexToRgba(color, 0.18),
 					}}
 				>
 					{imageUrl ? (
 						<Image
+							resizeMode="cover"
 							source={{ uri: imageUrl }}
 							style={{ height: thumbSize, width: thumbSize }}
-							resizeMode="cover"
 						/>
 					) : (
 						<Box className="flex-1 items-center justify-center">
 							<Text
+								numberOfLines={3}
 								style={{ color, fontSize: 7 }}
 								className="text-center font-sans-medium uppercase"
-								numberOfLines={3}
 							>
 								{item.title}
 							</Text>
@@ -213,16 +214,16 @@ function StoryRing({
 				</Box>
 			</Box>
 			<Text
-				className="mt-1 text-center text-xs font-mono text-muted-foreground web:text-[14px]"
-				style={{ width: ringWidth }}
 				numberOfLines={1}
+				style={{ width: ringWidth }}
+				className="mt-1 text-center text-xs font-mono text-muted-foreground web:text-[14px]"
 			>
 				{item.labels.progress}
 			</Text>
 			<Text
-				className="mt-0.5 text-center text-xs font-sans-medium text-foreground web:text-[14px]"
-				style={{ width: ringWidth }}
 				numberOfLines={2}
+				style={{ width: ringWidth }}
+				className="mt-0.5 text-center text-xs font-sans-medium text-foreground web:text-[14px]"
 			>
 				{item.title}
 			</Text>
@@ -234,18 +235,18 @@ export function StoryRingRow({
 	items,
 	large,
 	wrap,
-	wrapGap,
 	xlarge,
+	wrapGap,
 	imageUrls,
 	schemaColorMap,
 }: {
-	items: ContinueItem[];
-	imageUrls: Map<string, string | undefined>;
-	schemaColorMap: Map<string, string>;
-	large?: boolean;
 	wrap?: boolean;
+	large?: boolean;
 	wrapGap?: number;
 	xlarge?: boolean;
+	items: ContinueItem[];
+	schemaColorMap: Map<string, string>;
+	imageUrls: Map<string, string | undefined>;
 }) {
 	if (items.length === 0) {
 		return null;
@@ -255,9 +256,9 @@ export function StoryRingRow({
 			<Box className="flex-row flex-wrap" style={{ gap: wrapGap ?? 16 }}>
 				{items.map((item) => (
 					<StoryRing
-						key={item.id}
 						item={item}
 						large={large}
+						key={item.id}
 						xlarge={xlarge}
 						imageUrl={imageUrls.get(item.id)}
 						color={schemaColorMap.get(item.entitySchemaSlug) ?? FALLBACK_COLOR}
@@ -274,8 +275,8 @@ export function StoryRingRow({
 		>
 			{items.map((item) => (
 				<StoryRing
-					key={item.id}
 					item={item}
+					key={item.id}
 					large={large}
 					xlarge={xlarge}
 					imageUrl={imageUrls.get(item.id)}
@@ -292,9 +293,10 @@ export function UpNextSection({
 	schemaColorMap,
 }: {
 	items: UpNextItem[];
-	imageUrls: Map<string, string | undefined>;
 	schemaColorMap: Map<string, string>;
+	imageUrls: Map<string, string | undefined>;
 }) {
+	const router = useRouter();
 	if (items.length === 0) {
 		return null;
 	}
@@ -306,9 +308,13 @@ export function UpNextSection({
 					const color = schemaColorMap.get(item.entitySchemaSlug) ?? FALLBACK_COLOR;
 					const imageUrl = imageUrls.get(item.id);
 					return (
-						<Pressable key={item.id} className="w-[48%] sm:w-[32%]">
+						<Pressable
+							key={item.id}
+							className="w-[48%] sm:w-[32%]"
+							onPress={() => router.push(`/entity/${item.id}`)}
+						>
 							<Box
-								className="aspect-[2/3] sm:max-h-60"
+								className="aspect-2/3 sm:max-h-60"
 								style={{
 									borderRadius: 10,
 									overflow: "hidden",
@@ -333,16 +339,16 @@ export function UpNextSection({
 									style={{ backgroundColor: hexToRgba(color, 0.32) }}
 								>
 									<Text
-										className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
 										style={{ color }}
+										className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
 									>
 										{item.entitySchemaSlug}
 									</Text>
 								</Box>
 							</Box>
 							<Text
-								className="mt-1.5 text-[13px] font-sans-medium text-foreground web:text-[15px]"
 								numberOfLines={2}
+								className="mt-1.5 text-[13px] font-sans-medium text-foreground web:text-[15px]"
 							>
 								{item.title}
 							</Text>
@@ -362,14 +368,15 @@ export function UpNextSection({
 function RateCard({
 	item,
 	color,
-	imageUrl,
 	onNext,
+	imageUrl,
 }: {
-	item: RateItem;
 	color: string;
-	imageUrl: string | undefined;
+	item: RateItem;
 	onNext: () => void;
+	imageUrl: string | undefined;
 }) {
+	const router = useRouter();
 	const [cardWidth, setCardWidth] = useState(0);
 	const [rating, setRating] = useState(0);
 	const posterHeight = cardWidth > 0 ? Math.min(Math.round(cardWidth * 0.65), 300) : 210;
@@ -378,23 +385,26 @@ function RateCard({
 	return (
 		<Box
 			style={{
+				borderWidth: 1,
+				borderRadius: 14,
+				overflow: "hidden",
 				backgroundColor: "#ffffff",
 				borderColor: hexToRgba(color, 0.18),
-				borderRadius: 14,
-				borderWidth: 1,
-				overflow: "hidden",
 			}}
 			onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
 		>
-			<Box style={{ height: posterHeight, backgroundColor: hexToRgba(color, 0.13) }}>
+			<Pressable
+				onPress={() => router.push(`/entity/${item.id}`)}
+				style={{ height: posterHeight, backgroundColor: hexToRgba(color, 0.13) }}
+			>
 				<ImageBackground
-					source={imageUrl ? { uri: imageUrl } : undefined}
 					resizeMode="cover"
 					style={{ flex: 1 }}
+					source={imageUrl ? { uri: imageUrl } : undefined}
 				>
 					<LinearGradient
-						colors={gradientColors}
 						locations={[0.5, 1]}
+						colors={gradientColors}
 						style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
 					/>
 					<Box style={{ bottom: 14, left: 14, position: "absolute", right: 14 }}>
@@ -403,22 +413,22 @@ function RateCard({
 							style={{ backgroundColor: hexToRgba(color, 0.38) }}
 						>
 							<Text
-								className="text-[11px] font-sans-medium uppercase tracking-[0.5px] web:text-[13px]"
 								style={{ color }}
+								className="text-[11px] font-sans-medium uppercase tracking-[0.5px] web:text-[13px]"
 							>
 								{item.entitySchemaSlug}
 							</Text>
 						</Box>
 						<Text
-							className="font-heading-semibold text-white"
-							style={{ fontSize: 18, lineHeight: 22 }}
 							numberOfLines={2}
+							style={{ fontSize: 18, lineHeight: 22 }}
+							className="font-heading-semibold text-white"
 						>
 							{item.title}
 						</Text>
 					</Box>
 				</ImageBackground>
-			</Box>
+			</Pressable>
 			<Box className="px-4 py-4">
 				<Text className="mb-3 text-[13px] font-sans text-muted-foreground web:text-[15px]">
 					How would you rate this?
@@ -427,11 +437,11 @@ function RateCard({
 					<StarRating rating={rating} onChange={setRating} />
 					<Pressable onPress={onNext} hitSlop={8}>
 						<Text
+							style={rating > 0 ? { color } : undefined}
 							className={clsx(
 								"text-sm font-sans-medium web:text-[16px]",
 								rating > 0 ? "font-sans-semibold" : "text-muted-foreground",
 							)}
-							style={rating > 0 ? { color } : undefined}
 						>
 							{rating > 0 ? "Save →" : "Skip →"}
 						</Text>
@@ -448,8 +458,8 @@ export function RateTheseSection({
 	schemaColorMap,
 }: {
 	items: RateItem[];
-	imageUrls: Map<string, string | undefined>;
 	schemaColorMap: Map<string, string>;
+	imageUrls: Map<string, string | undefined>;
 }) {
 	const [idx, setIdx] = useState(0);
 
@@ -472,13 +482,13 @@ export function RateTheseSection({
 					{idx + 1 < items.length ? (
 						<Box
 							style={{
-								borderRadius: 14,
-								borderWidth: 1,
-								bottom: 0,
-								left: 12,
-								position: "absolute",
-								right: 12,
 								top: 10,
+								left: 12,
+								right: 12,
+								bottom: 0,
+								borderWidth: 1,
+								borderRadius: 14,
+								position: "absolute",
 								backgroundColor: hexToRgba(
 									schemaColorMap.get(items[idx + 1].entitySchemaSlug) ?? FALLBACK_COLOR,
 									0.07,
@@ -491,11 +501,11 @@ export function RateTheseSection({
 						/>
 					) : null}
 					<RateCard
-						key={items[idx].id}
 						item={items[idx]}
+						key={items[idx].id}
+						onNext={() => setIdx((i) => i + 1)}
 						imageUrl={imageUrls.get(items[idx].id)}
 						color={schemaColorMap.get(items[idx].entitySchemaSlug) ?? FALLBACK_COLOR}
-						onNext={() => setIdx((i) => i + 1)}
 					/>
 				</Box>
 			)}
@@ -510,6 +520,7 @@ export function ActivitySection({
 	items: ActivityItem[];
 	schemaColorMap: Map<string, string>;
 }) {
+	const router = useRouter();
 	if (items.length === 0) {
 		return null;
 	}
@@ -520,32 +531,25 @@ export function ActivitySection({
 				const color = schemaColorMap.get(item.entity.entitySchemaSlug) ?? FALLBACK_COLOR;
 				const isLast = idx === items.length - 1;
 				return (
-					<Box key={item.id} className="flex-row">
+					<Pressable
+						key={item.id}
+						className="flex-row"
+						onPress={() => router.push(`/entity/${item.entityId}`)}
+					>
 						<Box className="items-center" style={{ paddingTop: 4, width: 20 }}>
-							<Box
-								style={{
-									backgroundColor: color,
-									borderRadius: 4,
-									height: 8,
-									width: 8,
-								}}
-							/>
+							<Box style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
 							{!isLast ? (
 								<Box
 									className="flex-1"
-									style={{
-										backgroundColor: hexToRgba(color, 0.2),
-										marginTop: 4,
-										width: 1,
-									}}
+									style={{ width: 1, marginTop: 4, backgroundColor: hexToRgba(color, 0.2) }}
 								/>
 							) : null}
 						</Box>
 						<Box className={clsx("flex-1 pl-3", isLast ? "pb-2" : "pb-4")}>
 							<Box className="flex-row items-baseline gap-2">
 								<Text
-									className="flex-1 text-[15px] font-sans-medium text-foreground web:text-[17px]"
 									numberOfLines={1}
+									className="flex-1 text-[15px] font-sans-medium text-foreground web:text-[17px]"
 								>
 									{item.entity.name}
 								</Text>
@@ -562,15 +566,15 @@ export function ActivitySection({
 									style={{ backgroundColor: hexToRgba(color, 0.12) }}
 								>
 									<Text
-										className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
 										style={{ color }}
+										className="text-[10px] font-sans-medium uppercase tracking-[0.5px] web:text-xs"
 									>
 										{item.entity.entitySchemaSlug}
 									</Text>
 								</Box>
 							</Box>
 						</Box>
-					</Box>
+					</Pressable>
 				);
 			})}
 		</Box>
