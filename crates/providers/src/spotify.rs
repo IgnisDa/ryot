@@ -63,10 +63,6 @@ struct SpotifyImage {
 struct SpotifyResponse<T> {
     total: i32,
     items: Vec<T>,
-    limit: Option<i32>,
-    offset: Option<i32>,
-    next: Option<String>,
-    previous: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -86,7 +82,6 @@ struct SpotifyTrackDetails {
     album: SpotifyAlbumDetails,
     artists: Vec<SpotifyArtist>,
     external_urls: SpotifyExternalUrls,
-    external_ids: Option<SpotifyExternalIds>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -94,7 +89,6 @@ struct SpotifyAlbumDetails {
     id: String,
     name: String,
     images: Vec<SpotifyImage>,
-    artists: Vec<SpotifyArtist>,
     release_date: Option<String>,
 }
 
@@ -110,11 +104,6 @@ struct SpotifyExternalUrls {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyExternalIds {
-    isrc: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyAlbumSearchResponse {
     albums: SpotifyResponse<SpotifyAlbumSearchItem>,
 }
@@ -123,22 +112,18 @@ struct SpotifyAlbumSearchResponse {
 struct SpotifyAlbumSearchItem {
     id: String,
     name: String,
-    album_type: String,
     total_tracks: usize,
     images: Vec<SpotifyImage>,
-    artists: Vec<SpotifyArtist>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyAlbumFullDetails {
     id: String,
     name: String,
-    album_type: String,
     total_tracks: usize,
     tracks: SpotifyTracksPage,
     images: Vec<SpotifyImage>,
     description: Option<String>,
-    artists: Vec<SpotifyArtist>,
     release_date: Option<String>,
     external_urls: SpotifyExternalUrls,
 }
@@ -149,13 +134,6 @@ type SpotifyTracksPage = SpotifyResponse<SpotifyAlbumTrack>;
 struct SpotifyAlbumTrack {
     id: String,
     name: String,
-    explicit: bool,
-    duration_ms: i32,
-    disc_number: i32,
-    track_number: i32,
-    artists: Vec<SpotifyArtist>,
-    preview_url: Option<String>,
-    external_urls: SpotifyExternalUrls,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -167,27 +145,16 @@ struct SpotifyArtistSearchResponse {
 struct SpotifyArtistSearchItem {
     id: String,
     name: String,
-    popularity: i32,
-    genres: Vec<String>,
     images: Vec<SpotifyImage>,
-    followers: SpotifyFollowers,
-    external_urls: SpotifyExternalUrls,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistDetails {
     id: String,
     name: String,
-    popularity: i32,
     genres: Vec<String>,
     images: Vec<SpotifyImage>,
-    followers: SpotifyFollowers,
     external_urls: SpotifyExternalUrls,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyFollowers {
-    total: i32,
 }
 
 type SpotifyArtistAlbumsResponse = SpotifyResponse<SpotifyAlbumSearchItem>;
@@ -600,12 +567,12 @@ impl MediaProvider for SpotifyService {
         Ok(PersonDetails {
             assets,
             description,
+            related_metadata,
             name: artist.name,
             identifier: artist.id,
+            related_metadata_groups,
             source: MediaSource::Spotify,
             source_url: Some(artist.external_urls.spotify),
-            related_metadata,
-            related_metadata_groups,
             ..Default::default()
         })
     }
