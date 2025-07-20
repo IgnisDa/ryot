@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, bail};
 use common_models::MetadataLookupCacheInput;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use enum_models::{MediaLot, MediaSource};
@@ -285,7 +285,7 @@ fn find_best_match<'a>(
     publish_year: Option<i32>,
 ) -> Result<&'a TmdbMetadataLookupResult> {
     if results.is_empty() {
-        return Err(anyhow!("No valid results found"));
+        bail!("No valid results found");
     }
 
     let cleaned_original = clean_title(original_title);
