@@ -24,12 +24,12 @@ pub struct ITunesService {
 }
 
 impl ITunesService {
-    pub async fn new(config: &config::ITunesConfig) -> Self {
+    pub async fn new(config: &config::ITunesConfig) -> Result<Self> {
         let client = get_base_http_client(None);
-        Self {
+        Ok(Self {
             client,
             language: config.locale.clone(),
-        }
+        })
     }
 }
 

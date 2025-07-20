@@ -28,18 +28,18 @@ pub struct TmdbService {
 }
 
 impl TmdbService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let access_token = &ss.config.movies_and_shows.tmdb.access_token;
         let client: Client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
+            HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
-        let settings = get_settings(&client, &ss).await.unwrap();
-        Self {
+        let settings = get_settings(&client, &ss).await?;
+        Ok(Self {
             client,
             settings,
             language: ss.config.movies_and_shows.tmdb.locale.clone(),
-        }
+        })
     }
 
     pub fn get_image_url(&self, c: String) -> String {

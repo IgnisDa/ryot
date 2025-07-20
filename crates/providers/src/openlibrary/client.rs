@@ -1,3 +1,4 @@
+use anyhow::Result;
 use application_utils::get_base_http_client;
 
 use crate::openlibrary::models::OpenlibraryService;
@@ -6,13 +7,13 @@ pub static URL: &str = "https://openlibrary.org";
 pub static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
 
 impl OpenlibraryService {
-    pub async fn new(config: &config::OpenlibraryConfig) -> Self {
+    pub async fn new(config: &config::OpenlibraryConfig) -> Result<Self> {
         let client = get_base_http_client(None);
-        Self {
+        Ok(Self {
             image_url: IMAGE_BASE_URL.to_owned(),
             image_size: config.cover_image_size.to_string(),
             client,
-        }
+        })
     }
 
     pub fn get_book_cover_image_url(&self, c: u64) -> String {

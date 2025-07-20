@@ -24,12 +24,12 @@ pub struct GoogleBooksService {
 }
 
 impl GoogleBooksService {
-    pub async fn new(config: &config::GoogleBooksConfig) -> Self {
+    pub async fn new(config: &config::GoogleBooksConfig) -> Result<Self> {
         let client = get_base_http_client(Some(vec![(
             HeaderName::from_static("x-goog-api-key"),
-            HeaderValue::from_str(&config.api_key).unwrap(),
+            HeaderValue::from_str(&config.api_key)?,
         )]));
-        Self { client }
+        Ok(Self { client })
     }
 }
 

@@ -197,14 +197,14 @@ async fn get_spotify_access_token(
 }
 
 impl SpotifyService {
-    pub async fn new(config: &SpotifyConfig, ss: Arc<SupportingService>) -> Self {
-        let access_token = get_spotify_access_token(config, &ss).await.unwrap();
+    pub async fn new(config: &SpotifyConfig, ss: Arc<SupportingService>) -> Result<Self> {
+        let access_token = get_spotify_access_token(config, &ss).await?;
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+            HeaderValue::from_str(&format!("Bearer {}", access_token))?,
         )]));
 
-        Self { client }
+        Ok(Self { client })
     }
 
     async fn search_spotify<T>(

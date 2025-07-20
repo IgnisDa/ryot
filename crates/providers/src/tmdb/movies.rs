@@ -29,10 +29,10 @@ pub struct TmdbMovieService {
 }
 
 impl TmdbMovieService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
-        Self {
-            base: TmdbService::new(ss).await,
-        }
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+        Ok(Self {
+            base: TmdbService::new(ss).await?,
+        })
     }
 }
 

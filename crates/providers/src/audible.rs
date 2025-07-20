@@ -153,14 +153,14 @@ impl AudibleService {
         format!("https://api.audible.{}/1.0/catalog/products", suffix)
     }
 
-    pub async fn new(config: &config::AudibleConfig) -> Self {
+    pub async fn new(config: &config::AudibleConfig) -> Result<Self> {
         let url = Self::url_from_locale(&config.locale);
         let client = get_base_http_client(None);
-        Self {
+        Ok(Self {
             url,
             client,
             locale: config.locale.clone(),
-        }
+        })
     }
 }
 

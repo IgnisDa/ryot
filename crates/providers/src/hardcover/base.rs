@@ -1,3 +1,4 @@
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use reqwest::{
     Client,
@@ -11,12 +12,12 @@ pub struct HardcoverService {
 }
 
 impl HardcoverService {
-    pub async fn new(config: &config::HardcoverConfig) -> Self {
+    pub async fn new(config: &config::HardcoverConfig) -> Result<Self> {
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
-            HeaderValue::from_str(&config.api_key).unwrap(),
+            HeaderValue::from_str(&config.api_key)?,
         )]));
-        Self { client }
+        Ok(Self { client })
     }
 
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {

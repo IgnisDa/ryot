@@ -26,14 +26,13 @@ pub struct YoutubeMusicService {
 }
 
 impl YoutubeMusicService {
-    pub async fn new() -> Self {
+    pub async fn new() -> Result<Self> {
         let client = RustyPipe::builder()
             .storage_dir(TEMPORARY_DIRECTORY)
-            .build()
-            .unwrap();
-        Self {
+            .build()?;
+        Ok(Self {
             client: client.query(),
-        }
+        })
     }
 }
 
