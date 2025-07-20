@@ -9,8 +9,10 @@ use common_models::{
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
-use futures::stream::{self, StreamExt};
-use futures::try_join;
+use futures::{
+    stream::{self, StreamExt},
+    try_join,
+};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
