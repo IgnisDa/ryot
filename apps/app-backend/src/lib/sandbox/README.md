@@ -158,3 +158,21 @@ driver("search", async function(context, meta) {
   return response;
 });
 ```
+
+## Error handling
+
+Errors are caught at several layers and surfaced in the job result:
+
+- **Host function errors**: The bridge RPC handler (`bridge.ts`) catches exceptions thrown by host functions and returns HTTP 500 with `{ error: "message" }`. The runner stub re-throws this so user code sees a normal JavaScript error.
+- **Script errors**: If user code throws (or a driver returns an error), the runner's try/catch in `runner-source.txt` wraps it into `{ success: false, error: "message" }` on stdout.
+- **Bridge validation failures**: Invalid tokens return 401, expired sessions return 410, unknown functions return 404, and malformed bodies return 400 — all as `{ error: "message" }`.
+- **Timeouts**: `service.ts` sends SIGTERM then SIGKILL after a short delay. The result is `{ success: false, error: "Sandbox timed out after ${timeoutMs}ms" }`.
+- **Memory limits**: V8's `--max-heap-size` flag causes the Deno process to exit. The result is a failed job with the exit signal.
+- **Invalid imports**: `--cached-only` and `--no-remote` flags reject non-vendored packages. Deno writes the error to stdout and the job result includes it.
+- **Invalid metadata**: If `allowedHostFunctions` references an unregistered function, execution fails before the sandbox process starts with `"Unknown sandbox host function: ..."`.
+
+## Debugging sandbox scripts
+
+- **Logs**: All `console.log`, `console.warn`, `console.error`, `console.info`, and `console.debug` output is redirected to stderr inside the Deno subprocess. The service captures stderr and stores it as the `logs` field in the job result.
+- **Checking job status**: Poll `GET /sandbox/result/:jobId`. Returns `{ status: "pending" }` while running, `{ status: "completed", logs, value, error, timing }` when done, or `{ status: "failed", error }` if the job itself crashed.
+- **Timing data**: Completed results include `timing.totalMs` (host + execution) and `timing.executionMs` (script only). These help distinguish slow host functions from slow user code.

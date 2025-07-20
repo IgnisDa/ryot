@@ -1,3 +1,7 @@
+# Episodic Media Progress Tracking
+
+> **Status: Complete** — All 4 tasks finished. This document is a historical reference.
+
 ## Problem Statement
 
 Ryot V2 currently treats all progress events as a single percentage number, losing the granular episode, season, chapter, and volume context that was present in V1. When a user logs progress on a show, anime, manga, or podcast, the event only records `progressPercent` — there is no record of which specific episode was watched or which chapter was read.
