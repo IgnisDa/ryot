@@ -285,7 +285,7 @@ fn find_best_match<'a>(
     publish_year: Option<i32>,
 ) -> Result<&'a TmdbMetadataLookupResult> {
     if results.is_empty() {
-        return Err(anyhow!("No valid results found").into());
+        return Err(anyhow!("No valid results found"));
     }
 
     let cleaned_original = clean_title(original_title);

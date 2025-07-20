@@ -25,29 +25,21 @@ use traits::MediaProvider;
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
 pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
-    OpenlibraryService::new(&config.books.openlibrary)
-        .await
-        .map_err(Into::into)
+    OpenlibraryService::new(&config.books.openlibrary).await
 }
 
 pub async fn get_google_books_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
-    GoogleBooksService::new(&config.books.google_books)
-        .await
-        .map_err(Into::into)
+    GoogleBooksService::new(&config.books.google_books).await
 }
 
 pub async fn get_hardcover_service(config: &config::AppConfig) -> Result<HardcoverService> {
-    HardcoverService::new(&config.books.hardcover)
-        .await
-        .map_err(Into::into)
+    HardcoverService::new(&config.books.hardcover).await
 }
 
 pub async fn get_tmdb_non_media_service(
     ss: &Arc<SupportingService>,
 ) -> Result<NonMediaTmdbService> {
-    NonMediaTmdbService::new(ss.clone())
-        .await
-        .map_err(Into::into)
+    NonMediaTmdbService::new(ss.clone()).await
 }
 
 pub async fn get_metadata_provider(
