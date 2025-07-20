@@ -182,10 +182,9 @@ async fn get_spotify_access_token(
                     .header("Authorization", format!("Basic {}", encoded_credentials))
                     .form(&[("grant_type", "client_credentials")])
                     .send()
-                    .await
-                    .unwrap();
+                    .await?;
 
-                let token_response: SpotifyTokenResponse = response.json().await.unwrap();
+                let token_response: SpotifyTokenResponse = response.json().await?;
 
                 Ok(token_response.access_token)
             },
