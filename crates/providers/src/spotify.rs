@@ -10,8 +10,12 @@ use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use config::SpotifyConfig;
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, PersonDetails, SearchResults};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, MetadataGroupPersonRelated, MetadataPersonRelated,
+    PersonDetails, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
+use futures::try_join;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
     MusicSpecifics, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
@@ -202,8 +206,53 @@ struct SpotifyFollowers {
     total: i32,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtistAlbumsResponse {
+    items: Vec<SpotifyAlbumSearchItem>,
+    total: i32,
+    limit: i32,
+    offset: i32,
+    next: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtistTopTracksResponse {
+    tracks: Vec<SpotifyTrackDetails>,
+}
+
 pub struct SpotifyService {
     client: Client,
+}
+
+async fn fetch_artist_albums(
+    client: &Client,
+    artist_id: &str,
+) -> Result<Vec<SpotifyAlbumSearchItem>> {
+    let response = client
+        .get(format!("{}/artists/{}/albums", SPOTIFY_API_URL, artist_id))
+        .query(&[("include_groups", "album,single"), ("limit", "50")])
+        .send()
+        .await?;
+
+    let albums_response: SpotifyArtistAlbumsResponse = response.json().await?;
+    Ok(albums_response.items)
+}
+
+async fn fetch_artist_top_tracks(
+    client: &Client,
+    artist_id: &str,
+) -> Result<Vec<SpotifyTrackDetails>> {
+    let response = client
+        .get(format!(
+            "{}/artists/{}/top-tracks",
+            SPOTIFY_API_URL, artist_id
+        ))
+        .query(&[("market", "US")])
+        .send()
+        .await?;
+
+    let top_tracks_response: SpotifyArtistTopTracksResponse = response.json().await?;
+    Ok(top_tracks_response.tracks)
 }
 
 async fn get_spotify_access_token(
@@ -496,13 +545,19 @@ impl MediaProvider for SpotifyService {
         identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        let response = self
-            .client
-            .get(format!("{}/artists/{}", SPOTIFY_API_URL, identifier))
-            .send()
-            .await?;
-
-        let artist: SpotifyArtistDetails = response.json().await?;
+        let (artist, albums, top_tracks) = try_join!(
+            async {
+                let response = self
+                    .client
+                    .get(format!("{}/artists/{}", SPOTIFY_API_URL, identifier))
+                    .send()
+                    .await?;
+                let artist: SpotifyArtistDetails = response.json().await?;
+                Ok(artist)
+            },
+            fetch_artist_albums(&self.client, identifier),
+            fetch_artist_top_tracks(&self.client, identifier)
+        )?;
 
         let description = if artist.genres.is_empty() {
             None
@@ -518,6 +573,53 @@ impl MediaProvider for SpotifyService {
             ..Default::default()
         };
 
+        let related_metadata_groups: Vec<MetadataGroupPersonRelated> = albums
+            .into_iter()
+            .map(|album| MetadataGroupPersonRelated {
+                role: "Artist".to_string(),
+                metadata_group: MetadataGroupWithoutId {
+                    title: album.name,
+                    identifier: album.id,
+                    lot: MediaLot::Music,
+                    source: MediaSource::Spotify,
+                    parts: album.total_tracks as i32,
+                    assets: EntityAssets {
+                        remote_images: self
+                            .get_largest_image(&album.images)
+                            .map(|url| vec![url])
+                            .unwrap_or_default(),
+                        ..Default::default()
+                    },
+                    source_url: None,
+                    description: None,
+                },
+            })
+            .collect();
+
+        let related_metadata: Vec<MetadataPersonRelated> = top_tracks
+            .into_iter()
+            .map(|track| {
+                let publish_year = track
+                    .album
+                    .release_date
+                    .as_ref()
+                    .and_then(|date| convert_date_to_year(date));
+
+                MetadataPersonRelated {
+                    role: "Artist".to_string(),
+                    character: None,
+                    metadata: PartialMetadataWithoutId {
+                        lot: MediaLot::Music,
+                        title: track.name,
+                        identifier: track.id,
+                        source: MediaSource::Spotify,
+                        image: self.get_largest_image(&track.album.images),
+                        publish_year,
+                    },
+                }
+            })
+            .collect();
+
         Ok(PersonDetails {
             assets,
             description,
@@ -525,8 +627,8 @@ impl MediaProvider for SpotifyService {
             identifier: artist.id,
             source: MediaSource::Spotify,
             source_url: Some(artist.external_urls.spotify),
-            related_metadata: vec![],
-            related_metadata_groups: vec![],
+            related_metadata,
+            related_metadata_groups,
             ..Default::default()
         })
     }
