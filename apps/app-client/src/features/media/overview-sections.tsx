@@ -186,7 +186,15 @@ function StarRating({ rating, onChange }: { rating: number; onChange: (r: number
 
 // ─── Story rings (Continue section) ──────────────────────────────────────────
 
-function StoryRing({ item, large, xlarge }: { item: ContinueItem; large?: boolean; xlarge?: boolean }) {
+function StoryRing({
+	item,
+	large,
+	xlarge,
+}: {
+	item: ContinueItem;
+	large?: boolean;
+	xlarge?: boolean;
+}) {
 	const { gap, size, stroke } = xlarge ? RING_XL : large ? RING_LG : RING_SM;
 	const thumbSize = size - stroke * 2 - gap * 2;
 	const r = (size - stroke) / 2;
@@ -273,7 +281,19 @@ function StoryRing({ item, large, xlarge }: { item: ContinueItem; large?: boolea
 	);
 }
 
-export function StoryRingRow({ items, large, wrap, wrapGap, xlarge }: { items: ContinueItem[]; large?: boolean; wrap?: boolean; wrapGap?: number; xlarge?: boolean }) {
+export function StoryRingRow({
+	items,
+	large,
+	wrap,
+	wrapGap,
+	xlarge,
+}: {
+	items: ContinueItem[];
+	large?: boolean;
+	wrap?: boolean;
+	wrapGap?: number;
+	xlarge?: boolean;
+}) {
 	if (items.length === 0) {
 		return null;
 	}
@@ -319,11 +339,7 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 								}}
 							>
 								{item.imageUri ? (
-									<Image
-										source={{ uri: item.imageUri }}
-										style={{ flex: 1 }}
-										resizeMode="cover"
-									/>
+									<Image source={{ uri: item.imageUri }} style={{ flex: 1 }} resizeMode="cover" />
 								) : (
 									<Box className="flex-1 items-center justify-center px-3">
 										<Text
