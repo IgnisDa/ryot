@@ -234,11 +234,18 @@ impl SpotifyService {
         Ok((search_response, page))
     }
 
-    fn get_largest_image(&self, images: &[SpotifyImage]) -> Option<String> {
-        images
-            .iter()
-            .max_by_key(|img| img.width.unwrap_or(0) * img.height.unwrap_or(0))
-            .map(|img| img.url.clone())
+    fn get_images_ordered_by_size(&self, images: &[SpotifyImage]) -> Vec<String> {
+        let mut sorted_images = images.to_vec();
+        sorted_images.sort_by(|a, b| {
+            let size_a = a.width.unwrap_or(0) * a.height.unwrap_or(0);
+            let size_b = b.width.unwrap_or(0) * b.height.unwrap_or(0);
+            size_b.cmp(&size_a)
+        });
+        sorted_images.iter().map(|img| img.url.clone()).collect()
+    }
+
+    fn get_first_image(&self, images: &[SpotifyImage]) -> Option<String> {
+        self.get_images_ordered_by_size(images).first().cloned()
     }
 }
 
@@ -259,21 +266,21 @@ impl MediaProvider for SpotifyService {
             .iter()
             .map(|artist| PartialMetadataPerson {
                 name: artist.name.clone(),
-                identifier: artist.id.clone(),
                 role: "Artist".to_string(),
                 source: MediaSource::Spotify,
+                identifier: artist.id.clone(),
                 ..Default::default()
             })
             .collect();
 
         let album = track.album.as_ref().unwrap();
         let groups = vec![CommitMetadataGroupInput {
+            image: self.get_first_image(&album.images),
             name: album.name.clone().unwrap_or_default(),
-            image: self.get_largest_image(&album.images),
             unique: UniqueMediaIdentifier {
                 lot: MediaLot::Music,
-                identifier: album.id.clone().unwrap_or_default(),
                 source: MediaSource::Spotify,
+                identifier: album.id.clone().unwrap_or_default(),
             },
             ..Default::default()
         }];
@@ -288,10 +295,7 @@ impl MediaProvider for SpotifyService {
             .and_then(|date| convert_date_to_year(date));
 
         let assets = EntityAssets {
-            remote_images: self
-                .get_largest_image(&album.images)
-                .map(|url| vec![url])
-                .unwrap_or_default(),
+            remote_images: self.get_images_ordered_by_size(&album.images),
             ..Default::default()
         };
 
@@ -350,7 +354,7 @@ impl MediaProvider for SpotifyService {
                     publish_year,
                     title: track.name,
                     identifier: track.id,
-                    image: album.map_or(None, |a| self.get_largest_image(&a.images)),
+                    image: album.and_then(|a| self.get_first_image(&a.images)),
                 }
             })
             .collect();
@@ -393,7 +397,7 @@ impl MediaProvider for SpotifyService {
                 identifier: track.id.clone(),
                 lot: MediaLot::Music,
                 source: MediaSource::Spotify,
-                image: self.get_largest_image(&album.images),
+                image: self.get_first_image(&album.images),
                 ..Default::default()
             })
             .collect();
@@ -410,10 +414,7 @@ impl MediaProvider for SpotifyService {
                 .as_ref()
                 .map(|urls| urls.spotify.clone()),
             assets: EntityAssets {
-                remote_images: self
-                    .get_largest_image(&album.images)
-                    .map(|url| vec![url])
-                    .unwrap_or_default(),
+                remote_images: self.get_images_ordered_by_size(&album.images),
                 ..Default::default()
             },
             ..Default::default()
@@ -441,7 +442,7 @@ impl MediaProvider for SpotifyService {
                 name: album.name.clone().unwrap_or_default(),
                 identifier: album.id.clone().unwrap_or_default(),
                 parts: album.total_tracks,
-                image: self.get_largest_image(&album.images),
+                image: self.get_first_image(&album.images),
             })
             .collect();
 
@@ -482,11 +483,10 @@ impl MediaProvider for SpotifyService {
         });
 
         let assets = EntityAssets {
-            remote_images: artist.images.as_ref().map_or(vec![], |images| {
-                self.get_largest_image(images)
-                    .map(|url| vec![url])
-                    .unwrap_or_default()
-            }),
+            remote_images: artist
+                .images
+                .as_ref()
+                .map_or(vec![], |images| self.get_images_ordered_by_size(images)),
             ..Default::default()
         };
 
@@ -501,10 +501,7 @@ impl MediaProvider for SpotifyService {
                     source: MediaSource::Spotify,
                     parts: album.total_tracks.unwrap_or(0) as i32,
                     assets: EntityAssets {
-                        remote_images: self
-                            .get_largest_image(&album.images)
-                            .map(|url| vec![url])
-                            .unwrap_or_default(),
+                        remote_images: self.get_images_ordered_by_size(&album.images),
                         ..Default::default()
                     },
                     source_url: None,
@@ -529,7 +526,7 @@ impl MediaProvider for SpotifyService {
                         title: track.name.clone(),
                         identifier: track.id.clone(),
                         source: MediaSource::Spotify,
-                        image: album.map_or(None, |a| self.get_largest_image(&a.images)),
+                        image: album.and_then(|a| self.get_first_image(&a.images)),
                         publish_year,
                     },
                 }
@@ -574,7 +571,7 @@ impl MediaProvider for SpotifyService {
                 image: artist
                     .images
                     .as_ref()
-                    .map_or(None, |images| self.get_largest_image(images)),
+                    .and_then(|images| self.get_first_image(images)),
                 ..Default::default()
             })
             .collect();
