@@ -152,10 +152,7 @@ describe("Saved views E2E", () => {
 		);
 
 		// all-shows is a built-in entities-mode view
-		const allShowsQD = allShowsView.queryDefinition as Extract<
-			typeof allShowsView.queryDefinition,
-			{ mode: "entities" }
-		>;
+		const allShowsQD = allShowsView.queryDefinition;
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
@@ -180,7 +177,7 @@ describe("Saved views E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			value: 3,
 			key: "callout",
 			kind: "number",
@@ -246,10 +243,7 @@ describe("Saved views E2E", () => {
 		await waitForEventCount(client, cookies, entity.id, 2);
 
 		const view = await getSavedView(client, cookies, "all-shows");
-		const queryDefinition = view.queryDefinition as Extract<
-			typeof view.queryDefinition,
-			{ mode: "entities" }
-		>;
+		const queryDefinition = view.queryDefinition;
 
 		const { data, response } = await executeQueryEngine(
 			client,
@@ -275,7 +269,7 @@ describe("Saved views E2E", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(getQueryEngineFieldOrThrow(data?.data.items[0], "callout")).toEqual({
+		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
 			value: 3,
 			key: "callout",
 			kind: "number",
@@ -288,14 +282,8 @@ describe("Saved views E2E", () => {
 		const userAView = await getSavedView(userA.client, userA.cookies, "all-shows");
 		const userBView = await getSavedView(userB.client, userB.cookies, "all-shows");
 
-		const userAQD = userAView.queryDefinition as Extract<
-			typeof userAView.queryDefinition,
-			{ mode: "entities" }
-		>;
-		const userBQD = userBView.queryDefinition as Extract<
-			typeof userBView.queryDefinition,
-			{ mode: "entities" }
-		>;
+		const userAQD = userAView.queryDefinition;
+		const userBQD = userBView.queryDefinition;
 		expect(userAQD.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
 		expect(userBQD.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
 	});
@@ -313,8 +301,8 @@ describe("Saved views E2E", () => {
 		expect(fetchedView.isDisabled).toBe(false);
 		expect(Array.isArray(fetchedView.queryDefinition.scope)).toBe(true);
 		expect(fetchedView.queryDefinition.filter).toBeNull();
-		expect(Number.isNaN(Date.parse(String(fetchedView.createdAt)))).toBe(false);
-		expect(Number.isNaN(Date.parse(String(fetchedView.updatedAt)))).toBe(false);
+		expect(Number.isNaN(Date.parse(fetchedView.createdAt))).toBe(false);
+		expect(Number.isNaN(Date.parse(fetchedView.updatedAt))).toBe(false);
 
 		const clonedView = await cloneSavedView(client, cookies, createdView.slug);
 		expect(clonedView.id).not.toBe(createdView.id);
@@ -426,7 +414,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(deleteResult.response.status).toBe(400);
-		expect(deleteResult.error?.error?.message).toBe(builtinViewError);
+		expect(deleteResult.error?.error.message).toBe(builtinViewError);
 	});
 
 	it("rejects built-in updates that attempt to change fields other than isDisabled", async () => {
@@ -443,7 +431,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(invalidUpdate.response.status).toBe(400);
-		expect(invalidUpdate.error?.error?.message).toBe(builtinViewError);
+		expect(invalidUpdate.error?.error.message).toBe(builtinViewError);
 
 		const disableResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
@@ -504,7 +492,7 @@ describe("Saved views E2E", () => {
 
 		for (const result of [readResult, updateResult, cloneResult, deleteResult]) {
 			expect(result.response.status).toBe(404);
-			expect(result.error?.error?.message).toBe("Saved view not found");
+			expect(result.error?.error.message).toBe("Saved view not found");
 		}
 	});
 
@@ -718,7 +706,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toBe("Saved view slugs contain unknown saved views");
+		expect(result.error?.error.message).toBe("Saved view slugs contain unknown saved views");
 	});
 
 	it("rejects empty sort fields when creating or updating saved views", async () => {
@@ -760,10 +748,10 @@ describe("Saved views E2E", () => {
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error?.message).toContain(
+		expect(createResult.error?.error.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
-		expect(updateResult.error?.error?.message).toContain(
+		expect(updateResult.error?.error.message).toContain(
 			"Sort expressions must resolve to a sortable scalar value",
 		);
 		expect(refreshedQD.sort.expression).toEqual(createEntityColumnExpression("book", "name"));
@@ -776,6 +764,7 @@ describe("Saved views E2E", () => {
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({
 				name: "Aggregate Stats View",
+				// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 				queryDefinition: {
 					filter: null,
 					eventJoins: [],
@@ -790,7 +779,7 @@ describe("Saved views E2E", () => {
 
 		expect(response.status).toBe(400);
 		expect(data).toBeUndefined();
-		expect(error?.error?.message).toContain("Invalid input");
+		expect(error?.error.message).toContain("Invalid input");
 	});
 
 	it("persists computed fields across saved view create and update flows", async () => {
@@ -971,10 +960,10 @@ describe("Saved views E2E", () => {
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error?.message).toBe(
+		expect(createResult.error?.error.message).toBe(
 			"Computed field dependency cycle detected: first -> second -> first",
 		);
-		expect(updateResult.error?.error?.message).toBe(
+		expect(updateResult.error?.error.message).toBe(
 			"Computed field dependency cycle detected: first -> second -> first",
 		);
 	});
@@ -1015,10 +1004,10 @@ describe("Saved views E2E", () => {
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error?.message).toBe(
+		expect(createResult.error?.error.message).toBe(
 			"Image expressions are display-only and cannot be used in sorting",
 		);
-		expect(updateResult.error?.error?.message).toBe(
+		expect(updateResult.error?.error.message).toBe(
 			"Image expressions are display-only and cannot be used in sorting",
 		);
 	});
@@ -1031,6 +1020,7 @@ describe("Saved views E2E", () => {
 
 		const createResult = await client.POST("/saved-views", {
 			headers: { Cookie: cookies },
+			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 			body: {
 				...buildSavedViewBody({ name: "Broken Qualification View" }),
 				queryDefinition: {
@@ -1049,6 +1039,7 @@ describe("Saved views E2E", () => {
 		const updateResult = await client.PUT("/saved-views/{viewSlug}", {
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
+			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 			body: {
 				...buildUpdatedSavedViewBody(),
 				queryDefinition: {
@@ -1067,8 +1058,8 @@ describe("Saved views E2E", () => {
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error?.message).toContain("Invalid input");
-		expect(updateResult.error?.error?.message).toContain("Invalid input");
+		expect(createResult.error?.error.message).toContain("Invalid input");
+		expect(updateResult.error?.error.message).toContain("Invalid input");
 	});
 
 	it("rejects a view referencing a property that does not exist in the schema", async () => {
@@ -1100,8 +1091,8 @@ describe("Saved views E2E", () => {
 
 		expect(createResult.response.status).toBe(400);
 		expect(updateResult.response.status).toBe(400);
-		expect(createResult.error?.error?.message).toContain("not found in schema");
-		expect(updateResult.error?.error?.message).toContain("not found in schema");
+		expect(createResult.error?.error.message).toContain("not found in schema");
+		expect(updateResult.error?.error.message).toContain("not found in schema");
 	});
 
 	it("rejects a view with an invalid built-in column in the display config", async () => {
@@ -1131,7 +1122,7 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain("Unsupported entity column 'entity.book.nam'");
+		expect(result.error?.error.message).toContain("Unsupported entity column 'entity.book.nam'");
 	});
 
 	it("rejects a view referencing a schema slug that does not exist", async () => {
@@ -1154,6 +1145,6 @@ describe("Saved views E2E", () => {
 		});
 
 		expect(result.response.status).toBe(400);
-		expect(result.error?.error?.message).toContain("not found");
+		expect(result.error?.error.message).toContain("not found");
 	});
 });

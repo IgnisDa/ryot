@@ -279,7 +279,8 @@ export async function executeQueryEngine(
 	return {
 		error: result.error,
 		response: result.response,
-		data: result.data?.data as ExecuteEntityQueryEngineResponse | undefined,
+		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
+		data: result.data?.data as ExecuteEntityQueryEngineResponse,
 	};
 }
 
@@ -300,7 +301,7 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 		},
 	});
 
-	if (response.status !== 200 || !data?.data?.id) {
+	if (response.status !== 200 || !data?.data.id) {
 		throw new Error(`Failed to create entity '${input.name}'`);
 	}
 
@@ -325,7 +326,7 @@ export async function createQueryEngineEvent(input: CreateQueryEngineEventInput)
 		],
 	});
 
-	if (response.status !== 200 || data?.data?.count !== 1) {
+	if (response.status !== 200 || data?.data.count !== 1) {
 		throw new Error(`Failed to create event for '${input.entityId}'`);
 	}
 

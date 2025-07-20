@@ -170,7 +170,7 @@ describe("GET /media/overview/continue", () => {
 		const continueItem = data?.data.items.find((item) => item.id === testBook.id);
 		expect(continueItem).toBeDefined();
 
-		const progressAt = (continueItem as { progressAt?: string })?.progressAt;
+		const progressAt = continueItem?.progressAt;
 		if (!progressAt) {
 			throw new Error("Expected progressAt");
 		}

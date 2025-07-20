@@ -127,8 +127,8 @@ describe("Workouts E2E", () => {
 		);
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.items.length).toBeGreaterThan(0);
-		expect(getQueryEngineFieldOrThrow(result.data?.data.items[0], "primarySubtitle").key).toBe(
+		expect(result.data.data.items.length).toBeGreaterThan(0);
+		expect(getQueryEngineFieldOrThrow(result.data.data.items[0], "primarySubtitle").key).toBe(
 			"primarySubtitle",
 		);
 	});
