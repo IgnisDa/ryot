@@ -195,6 +195,20 @@ async fn get_spotify_access_token(
     Ok(cached_response.response)
 }
 
+fn get_images_ordered_by_size(images: &[SpotifyImage]) -> Vec<String> {
+    let mut sorted_images = images.to_vec();
+    sorted_images.sort_by(|a, b| {
+        let size_a = a.width.unwrap_or(0) * a.height.unwrap_or(0);
+        let size_b = b.width.unwrap_or(0) * b.height.unwrap_or(0);
+        size_b.cmp(&size_a)
+    });
+    sorted_images.iter().map(|img| img.url.clone()).collect()
+}
+
+fn get_first_image(images: &[SpotifyImage]) -> Option<String> {
+    get_images_ordered_by_size(images).first().cloned()
+}
+
 impl SpotifyService {
     pub async fn new(config: &SpotifyConfig, ss: Arc<SupportingService>) -> Result<Self> {
         let access_token = get_spotify_access_token(config, &ss).await?;
@@ -233,20 +247,6 @@ impl SpotifyService {
         let search_response: T = response.json().await?;
         Ok((search_response, page))
     }
-
-    fn get_images_ordered_by_size(&self, images: &[SpotifyImage]) -> Vec<String> {
-        let mut sorted_images = images.to_vec();
-        sorted_images.sort_by(|a, b| {
-            let size_a = a.width.unwrap_or(0) * a.height.unwrap_or(0);
-            let size_b = b.width.unwrap_or(0) * b.height.unwrap_or(0);
-            size_b.cmp(&size_a)
-        });
-        sorted_images.iter().map(|img| img.url.clone()).collect()
-    }
-
-    fn get_first_image(&self, images: &[SpotifyImage]) -> Option<String> {
-        self.get_images_ordered_by_size(images).first().cloned()
-    }
 }
 
 #[async_trait]
@@ -275,7 +275,7 @@ impl MediaProvider for SpotifyService {
 
         let album = track.album.as_ref().unwrap();
         let groups = vec![CommitMetadataGroupInput {
-            image: self.get_first_image(&album.images),
+            image: get_first_image(&album.images),
             name: album.name.clone().unwrap_or_default(),
             unique: UniqueMediaIdentifier {
                 lot: MediaLot::Music,
@@ -295,7 +295,7 @@ impl MediaProvider for SpotifyService {
             .and_then(|date| convert_date_to_year(date));
 
         let assets = EntityAssets {
-            remote_images: self.get_images_ordered_by_size(&album.images),
+            remote_images: get_images_ordered_by_size(&album.images),
             ..Default::default()
         };
 
@@ -354,7 +354,7 @@ impl MediaProvider for SpotifyService {
                     publish_year,
                     title: track.name,
                     identifier: track.id,
-                    image: album.and_then(|a| self.get_first_image(&a.images)),
+                    image: album.and_then(|a| get_first_image(&a.images)),
                 }
             })
             .collect();
@@ -393,11 +393,11 @@ impl MediaProvider for SpotifyService {
             .iter()
             .map(|track| PartialMetadataWithoutId {
                 publish_year,
+                lot: MediaLot::Music,
                 title: track.name.clone(),
                 identifier: track.id.clone(),
-                lot: MediaLot::Music,
                 source: MediaSource::Spotify,
-                image: self.get_first_image(&album.images),
+                image: get_first_image(&album.images),
                 ..Default::default()
             })
             .collect();
@@ -414,7 +414,7 @@ impl MediaProvider for SpotifyService {
                 .as_ref()
                 .map(|urls| urls.spotify.clone()),
             assets: EntityAssets {
-                remote_images: self.get_images_ordered_by_size(&album.images),
+                remote_images: get_images_ordered_by_size(&album.images),
                 ..Default::default()
             },
             ..Default::default()
@@ -442,7 +442,7 @@ impl MediaProvider for SpotifyService {
                 name: album.name.clone().unwrap_or_default(),
                 identifier: album.id.clone().unwrap_or_default(),
                 parts: album.total_tracks,
-                image: self.get_first_image(&album.images),
+                image: get_first_image(&album.images),
             })
             .collect();
 
@@ -486,7 +486,7 @@ impl MediaProvider for SpotifyService {
             remote_images: artist
                 .images
                 .as_ref()
-                .map_or(vec![], |images| self.get_images_ordered_by_size(images)),
+                .map_or(vec![], |images| get_images_ordered_by_size(images)),
             ..Default::default()
         };
 
@@ -495,13 +495,13 @@ impl MediaProvider for SpotifyService {
             .map(|album| MetadataGroupPersonRelated {
                 role: "Artist".to_string(),
                 metadata_group: MetadataGroupWithoutId {
-                    title: album.name.clone().unwrap_or_default(),
-                    identifier: album.id.clone().unwrap_or_default(),
                     lot: MediaLot::Music,
                     source: MediaSource::Spotify,
+                    title: album.name.clone().unwrap_or_default(),
+                    identifier: album.id.clone().unwrap_or_default(),
                     parts: album.total_tracks.unwrap_or(0) as i32,
                     assets: EntityAssets {
-                        remote_images: self.get_images_ordered_by_size(&album.images),
+                        remote_images: get_images_ordered_by_size(&album.images),
                         ..Default::default()
                     },
                     source_url: None,
@@ -520,15 +520,15 @@ impl MediaProvider for SpotifyService {
 
                 MetadataPersonRelated {
                     role: "Artist".to_string(),
-                    character: None,
                     metadata: PartialMetadataWithoutId {
                         lot: MediaLot::Music,
+                        publish_year,
                         title: track.name.clone(),
                         identifier: track.id.clone(),
                         source: MediaSource::Spotify,
-                        image: album.and_then(|a| self.get_first_image(&a.images)),
-                        publish_year,
+                        image: album.and_then(|a| get_first_image(&a.images)),
                     },
+                    ..Default::default()
                 }
             })
             .collect();
@@ -571,7 +571,7 @@ impl MediaProvider for SpotifyService {
                 image: artist
                     .images
                     .as_ref()
-                    .and_then(|images| self.get_first_image(images)),
+                    .and_then(|images| get_first_image(images)),
                 ..Default::default()
             })
             .collect();
