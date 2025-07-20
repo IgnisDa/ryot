@@ -31,13 +31,9 @@ export const SECTION_ACCENTS = {
 	upNext: "#8E6A4D",
 };
 
-// Story ring geometry
-const RING_SIZE = 72;
-const RING_STROKE = 3.5;
-const RING_GAP = 2.5;
-const THUMB_SIZE = RING_SIZE - RING_STROKE * 2 - RING_GAP * 2;
-const RING_R = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRC = 2 * Math.PI * RING_R;
+// Story ring geometry configs
+const RING_SM = { gap: 2.5, size: 72, stroke: 3.5 };
+const RING_LG = { gap: 3, size: 96, stroke: 4 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -169,56 +165,60 @@ function StarRating({ rating, onChange }: { rating: number; onChange: (r: number
 
 // ─── Story rings (Continue section) ──────────────────────────────────────────
 
-function StoryRing({ item }: { item: ContinueItem }) {
+function StoryRing({ item, large }: { item: ContinueItem; large?: boolean }) {
+	const { gap, size, stroke } = large ? RING_LG : RING_SM;
+	const thumbSize = size - stroke * 2 - gap * 2;
+	const r = (size - stroke) / 2;
+	const circ = 2 * Math.PI * r;
 	const color = schemaColor(item.entitySchemaSlug);
-	const dashOffset = RING_CIRC * (1 - item.progress.progressPercent / 100);
-	const ringWidth = RING_SIZE + 8;
+	const dashOffset = circ * (1 - item.progress.progressPercent / 100);
+	const ringWidth = size + 8;
 
 	return (
 		<Pressable style={{ alignItems: "center", width: ringWidth }}>
-			<Box style={{ height: RING_SIZE, width: RING_SIZE }}>
+			<Box style={{ height: size, width: size }}>
 				{/* SVG progress ring */}
-				<Svg width={RING_SIZE} height={RING_SIZE} style={{ position: "absolute", left: 0, top: 0 }}>
+				<Svg width={size} height={size} style={{ position: "absolute", left: 0, top: 0 }}>
 					{/* Track */}
 					<Circle
-						cx={RING_SIZE / 2}
-						cy={RING_SIZE / 2}
-						r={RING_R}
+						cx={size / 2}
+						cy={size / 2}
+						r={r}
 						stroke={hexToRgba(color, 0.18)}
-						strokeWidth={RING_STROKE}
+						strokeWidth={stroke}
 						fill="none"
 					/>
 					{/* Progress arc */}
 					<Circle
-						cx={RING_SIZE / 2}
-						cy={RING_SIZE / 2}
-						r={RING_R}
+						cx={size / 2}
+						cy={size / 2}
+						r={r}
 						stroke={color}
-						strokeWidth={RING_STROKE}
+						strokeWidth={stroke}
 						fill="none"
-						strokeDasharray={`${RING_CIRC} ${RING_CIRC}`}
+						strokeDasharray={`${circ} ${circ}`}
 						strokeDashoffset={dashOffset}
 						strokeLinecap="round"
-						transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+						transform={`rotate(-90 ${size / 2} ${size / 2})`}
 					/>
 				</Svg>
 				{/* Circular thumbnail */}
 				<Box
 					style={{
-						borderRadius: THUMB_SIZE / 2,
-						height: THUMB_SIZE,
-						left: RING_STROKE + RING_GAP,
+						borderRadius: thumbSize / 2,
+						height: thumbSize,
+						left: stroke + gap,
 						overflow: "hidden",
 						position: "absolute",
-						top: RING_STROKE + RING_GAP,
-						width: THUMB_SIZE,
+						top: stroke + gap,
+						width: thumbSize,
 						backgroundColor: hexToRgba(color, 0.18),
 					}}
 				>
 					{item.imageUri ? (
 						<Image
 							source={{ uri: item.imageUri }}
-							style={{ height: THUMB_SIZE, width: THUMB_SIZE }}
+							style={{ height: thumbSize, width: thumbSize }}
 							resizeMode="cover"
 						/>
 					) : (
@@ -252,7 +252,7 @@ function StoryRing({ item }: { item: ContinueItem }) {
 	);
 }
 
-export function StoryRingRow({ items, wrap }: { items: ContinueItem[]; wrap?: boolean }) {
+export function StoryRingRow({ items, large, wrap }: { items: ContinueItem[]; large?: boolean; wrap?: boolean }) {
 	if (items.length === 0) {
 		return null;
 	}
@@ -260,7 +260,7 @@ export function StoryRingRow({ items, wrap }: { items: ContinueItem[]; wrap?: bo
 		return (
 			<Box className="flex-row flex-wrap" style={{ gap: 16 }}>
 				{items.map((item) => (
-					<StoryRing key={item.id} item={item} />
+					<StoryRing key={item.id} item={item} large={large} />
 				))}
 			</Box>
 		);
@@ -272,7 +272,7 @@ export function StoryRingRow({ items, wrap }: { items: ContinueItem[]; wrap?: bo
 			contentContainerStyle={{ gap: 16, paddingHorizontal: 28 }}
 		>
 			{items.map((item) => (
-				<StoryRing key={item.id} item={item} />
+				<StoryRing key={item.id} item={item} large={large} />
 			))}
 		</ScrollView>
 	);
@@ -282,15 +282,20 @@ export function StoryRingRow({ items, wrap }: { items: ContinueItem[]; wrap?: bo
 
 export function UpNextSection({ items }: { items: UpNextItem[] }) {
 	const { width } = useWindowDimensions();
-	const effectiveWidth = Math.min(width, 1200);
+	const [availableWidth, setAvailableWidth] = useState(0);
+	const effectiveWidth = Math.min(availableWidth > 0 ? availableWidth : width - 56, 1200);
 	const cols = effectiveWidth >= 900 ? 4 : effectiveWidth >= 640 ? 3 : 2;
-	const cardWidth = (effectiveWidth - 56 - 12 * (cols - 1)) / cols;
+	const cardWidth = (effectiveWidth - 12 * (cols - 1)) / cols;
 	const posterHeight = cardWidth * 1.5;
 
 	return (
 		<Box>
 			<SectionLabel color={SECTION_ACCENTS.upNext} label="Up Next" />
-			<Box className="flex-row flex-wrap" style={{ gap: 12 }}>
+			<Box
+				className="flex-row flex-wrap"
+				style={{ gap: 12 }}
+				onLayout={(e) => setAvailableWidth(e.nativeEvent.layout.width)}
+			>
 				{items.map((item) => {
 					const color = schemaColor(item.entitySchemaSlug);
 					return (
@@ -353,10 +358,10 @@ export function UpNextSection({ items }: { items: UpNextItem[] }) {
 
 // ─── Rate These (stacked deck, one card at a time) ────────────────────────────
 
-const DECK_POSTER_H = 210;
-
 function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
+	const [cardWidth, setCardWidth] = useState(0);
 	const [rating, setRating] = useState(0);
+	const posterHeight = cardWidth > 0 ? Math.min(Math.round(cardWidth * 0.65), 300) : 210;
 	const color = schemaColor(item.entitySchemaSlug);
 	const gradientColors: [string, string] = ["transparent", "rgba(0,0,0,0.55)"];
 
@@ -369,9 +374,10 @@ function RateCard({ item, onNext }: { item: RateItem; onNext: () => void }) {
 				borderWidth: 1,
 				overflow: "hidden",
 			}}
+			onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
 		>
 			{/* Poster */}
-			<Box style={{ height: DECK_POSTER_H, backgroundColor: hexToRgba(color, 0.13) }}>
+			<Box style={{ height: posterHeight, backgroundColor: hexToRgba(color, 0.13) }}>
 				<ImageBackground
 					source={item.imageUri ? { uri: item.imageUri } : undefined}
 					resizeMode="cover"
