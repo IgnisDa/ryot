@@ -601,7 +601,6 @@ describe("sandbox enqueue by script ID", () => {
 
 		expect(result.error).toContain("appApiCall cannot target /api/auth routes");
 	});
-
 });
 
 describe("sandbox result observability", () => {

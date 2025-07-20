@@ -787,6 +787,41 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 
 		const properties = result.data.properties as Record<string, unknown>;
 		expect(properties).not.toEqual({});
-		expect(properties.populatedAt).toBeDefined();
+		expect(properties.populatedAt).toBeUndefined();
+	}, 30_000);
+
+	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const detailsScriptId = schema.providers.find(
+			(p) => p.name === "OpenLibrary",
+		)?.scriptId;
+		if (!detailsScriptId) {
+			throw new Error("OpenLibrary provider script not found");
+		}
+
+		const { jobId } = await enqueueEntityImport(client, cookies, {
+			externalId: "OL267933W",
+			scriptId: detailsScriptId,
+			entitySchemaId: schema.id,
+		});
+
+		const result = await pollEntityImportResult(client, cookies, jobId, {
+			timeoutMs: 30_000,
+		});
+
+		if (result.status !== "completed") {
+			return;
+		}
+
+		const entity = result.data as { populatedAt?: string };
+
+		if (!entity.populatedAt) {
+			throw new Error(
+				"Expected populatedAt to be present on the imported entity",
+			);
+		}
+
+		expect(new Date(entity.populatedAt).toISOString()).toBe(entity.populatedAt);
 	}, 30_000);
 });
