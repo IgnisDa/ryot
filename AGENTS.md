@@ -7,8 +7,7 @@
 - **Documentation lookup**: Use the `find-docs` skill to verify against current docs before answering or coding.
 - **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
-- **Linting**: `oxlint` with `--fix` to auto-fix. Example: `bun turbo --filter=@ryot/app-backend lint`.
-- **Formatting**: `oxfmt` to format files. Example: `npx oxfmt .` (writes), `npx oxfmt --check .` (checks only).
+- **Linting and Formatting**: `bun turbo --filter=@ryot/app-backend lint`.
 
 ## YAGNI
 
