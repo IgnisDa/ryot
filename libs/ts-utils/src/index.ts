@@ -207,8 +207,8 @@ export {
 	resolveRequiredString,
 } from "./slug";
 export {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
+	createEntityColumnExpression as createEntityColumnExpression,
+	createEntityPropertyExpression as createEntityPropertyExpression,
 	entityBuiltinColumns,
 	eventJoinBuiltinColumns,
 	type RuntimeRef,
