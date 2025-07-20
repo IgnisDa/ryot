@@ -383,7 +383,6 @@ describe("sandbox cache functions", () => {
 		expect(value.data).toBeNull();
 	});
 
-
 	it("getCachedValue returns null for a key that was never set", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const missingKey = `cache-missing-${crypto.randomUUID()}`;
