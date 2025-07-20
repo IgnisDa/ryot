@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import type createClient from "openapi-fetch";
 import { getBackendClient, getBackendUrl } from "../setup";
 
@@ -7,7 +8,7 @@ export type Client = ReturnType<typeof createClient<paths>>;
 export async function createTestUser() {
 	const password = "password123";
 	const baseUrl = getBackendUrl();
-	const email = `test-${Date.now()}@example.com`;
+	const email = `test-${dayjs().valueOf()}@example.com`;
 
 	const signUpResponse = await fetch(`${baseUrl}/authentication/email`, {
 		method: "POST",
