@@ -207,9 +207,12 @@ export {
 	resolveRequiredString,
 } from "./slug";
 export {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
 	entityBuiltinColumns,
 	eventJoinBuiltinColumns,
 	type RuntimeRef,
+	type RuntimeReferenceExpression,
 } from "./view-language";
 export type { Dayjs };
 export {
