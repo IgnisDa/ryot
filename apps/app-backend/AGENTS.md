@@ -31,6 +31,10 @@ The backend powers a self-hosted personal tracking product. Favor explicit valid
 - Keep row-to-domain normalization in one helper per module.
 - Let services own business rules; let repositories own persistence.
 
+### Module Imports
+
+- Import from module barrels (`~/modules/X`) not sub-paths (`~/modules/X/service`). Each module's `index.ts` defines its public API.
+
 ### Schema And Database Modeling
 
 - Keep runtime schemas, persisted JSON structures, and TypeScript types aligned.
