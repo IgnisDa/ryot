@@ -90,19 +90,22 @@ export function SavedViewResults(props: {
 	const { isDark, textPrimary, textSecondary } = useThemeTokens();
 	if (props.layout === "grid") {
 		return (
-			<SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="md">
+			<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="sm">
 				{props.items.map((item) => {
 					const title = item.fields
 						? getRuntimeField(item, "title")
 						: undefined;
-					const badge = item.fields
-						? getRuntimeField(item, "badge")
-						: undefined;
 					const image = item.fields
 						? getRuntimeField(item, "image")
 						: undefined;
-					const subtitle = item.fields
-						? getRuntimeField(item, "subtitle")
+					const callout = item.fields
+						? getRuntimeField(item, "callout")
+						: undefined;
+					const primarySubtitle = item.fields
+						? getRuntimeField(item, "primarySubtitle")
+						: undefined;
+					const secondarySubtitle = item.fields
+						? getRuntimeField(item, "secondarySubtitle")
 						: undefined;
 
 					return (
@@ -112,9 +115,14 @@ export function SavedViewResults(props: {
 							params={{ entityId: item.id }}
 							style={{ color: "inherit", textDecoration: "none" }}
 						>
-							<Card p={0} radius="sm" style={{ overflow: "hidden" }}>
+							<Card
+								p={0}
+								radius="sm"
+								pos="relative"
+								style={{ overflow: "hidden" }}
+							>
 								<EntityThumbnail
-									height={220}
+									height={300}
 									width="100%"
 									iconSize={48}
 									imageUrl={props.imageUrlById.get(item.id)}
@@ -124,38 +132,64 @@ export function SavedViewResults(props: {
 											: undefined
 									}
 								/>
-								<Stack gap="xs" p="lg">
-									<Text
-										fw={600}
-										size="md"
-										lineClamp={2}
-										c={textPrimary}
-										ff="var(--mantine-headings-font-family)"
-									>
-										{isRuntimeField(title)
-											? formatRuntimeValue(title.value)
-											: item.name}
-									</Text>
-									{isRuntimeField(subtitle) && subtitle.kind !== "null" ? (
-										<Text size="sm" c={textSecondary} lineClamp={2}>
-											{formatRuntimeValue(subtitle.value)}
-										</Text>
-									) : null}
-									<Group justify="space-between" align="center">
-										<Badge
-											variant="light"
-											c={props.accentColor}
-											bg={props.accentMuted}
-										>
-											{item.entitySchemaSlug ?? "Entity"}
+								<Group
+									gap={4}
+									pos="absolute"
+									top={8}
+									left={8}
+									right={8}
+									wrap="nowrap"
+									align="flex-start"
+									justify="space-between"
+								>
+									<Badge size="xs" c="white" bg="rgba(0,0,0,0.55)">
+										{item.entitySchemaSlug ?? "entity"}
+									</Badge>
+									{isRuntimeField(callout) && callout.kind === "number" ? (
+										<Badge size="xs" c="white" bg={props.accentColor}>
+											★ {formatRuntimeValue(callout.value)}
 										</Badge>
-										{isRuntimeField(badge) && badge.kind !== "null" ? (
-											<Badge variant="filled" bg={props.accentColor} c="white">
-												{formatRuntimeValue(badge.value)}
-											</Badge>
+									) : null}
+								</Group>
+								<Box
+									pos="absolute"
+									bottom={0}
+									left={0}
+									right={0}
+									pt={64}
+									pb="md"
+									px="md"
+									style={{
+										background:
+											"linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)",
+									}}
+								>
+									<Stack gap={2}>
+										{isRuntimeField(primarySubtitle) &&
+										primarySubtitle.kind !== "null" ? (
+											<Text size="xs" c="gray.4">
+												{formatRuntimeValue(primarySubtitle.value)}
+											</Text>
 										) : null}
-									</Group>
-								</Stack>
+										{isRuntimeField(secondarySubtitle) &&
+										secondarySubtitle.kind !== "null" ? (
+											<Text size="xs" c="gray.5">
+												{formatRuntimeValue(secondarySubtitle.value)}
+											</Text>
+										) : null}
+										<Text
+											fw={700}
+											size="sm"
+											c="white"
+											lineClamp={2}
+											ff="var(--mantine-headings-font-family)"
+										>
+											{isRuntimeField(title)
+												? formatRuntimeValue(title.value)
+												: item.name}
+										</Text>
+									</Stack>
+								</Box>
 							</Card>
 						</Link>
 					);
@@ -171,14 +205,17 @@ export function SavedViewResults(props: {
 					const title = item.fields
 						? getRuntimeField(item, "title")
 						: undefined;
-					const badge = item.fields
-						? getRuntimeField(item, "badge")
-						: undefined;
 					const image = item.fields
 						? getRuntimeField(item, "image")
 						: undefined;
-					const subtitle = item.fields
-						? getRuntimeField(item, "subtitle")
+					const callout = item.fields
+						? getRuntimeField(item, "callout")
+						: undefined;
+					const primarySubtitle = item.fields
+						? getRuntimeField(item, "primarySubtitle")
+						: undefined;
+					const secondarySubtitle = item.fields
+						? getRuntimeField(item, "secondarySubtitle")
 						: undefined;
 
 					return (
@@ -217,9 +254,16 @@ export function SavedViewResults(props: {
 													? formatRuntimeValue(title.value)
 													: item.name}
 											</Text>
-											{isRuntimeField(subtitle) && subtitle.kind !== "null" ? (
+											{isRuntimeField(primarySubtitle) &&
+											primarySubtitle.kind !== "null" ? (
 												<Text size="sm" c={textSecondary}>
-													{formatRuntimeValue(subtitle.value)}
+													{formatRuntimeValue(primarySubtitle.value)}
+												</Text>
+											) : null}
+											{isRuntimeField(secondarySubtitle) &&
+											secondarySubtitle.kind !== "null" ? (
+												<Text size="xs" c="dimmed">
+													{formatRuntimeValue(secondarySubtitle.value)}
 												</Text>
 											) : null}
 											<Text size="xs" c="dimmed">
@@ -227,14 +271,14 @@ export function SavedViewResults(props: {
 											</Text>
 										</Stack>
 									</Group>
-									{isRuntimeField(badge) && badge.kind !== "null" ? (
+									{isRuntimeField(callout) && callout.kind !== "null" ? (
 										<Badge
 											c="white"
 											size="lg"
 											variant="filled"
 											bg={props.accentColor}
 										>
-											{formatRuntimeValue(badge.value)}
+											{formatRuntimeValue(callout.value)}
 										</Badge>
 									) : null}
 								</Group>

@@ -32,10 +32,11 @@ export type QueryEngineRequest = Omit<ExecuteQueryEngineBody, "fields"> & {
 };
 
 type GridDisplayConfiguration = {
-	badgeProperty: ExpressionInput | null;
+	calloutProperty: ExpressionInput | null;
 	titleProperty: ExpressionInput | null;
 	imageProperty: ExpressionInput | null;
-	subtitleProperty: ExpressionInput | null;
+	primarySubtitleProperty: ExpressionInput | null;
+	secondarySubtitleProperty?: ExpressionInput | null;
 };
 
 type ListDisplayConfiguration = GridDisplayConfiguration;
@@ -89,14 +90,17 @@ const buildCardDisplayConfiguration = (
 	const schemaSlug = schemaSlugs[0];
 
 	return {
-		subtitleProperty: schemaSlug ? [entityField(schemaSlug, "year")] : null,
+		calloutProperty: schemaSlug ? [entityField(schemaSlug, "category")] : null,
 		titleProperty: schemaSlugs.length
 			? qualifyBuiltinFields(schemaSlugs, "name")
 			: null,
 		imageProperty: schemaSlugs.length
 			? qualifyBuiltinFields(schemaSlugs, "image")
 			: null,
-		badgeProperty: schemaSlug ? [entityField(schemaSlug, "category")] : null,
+		primarySubtitleProperty: schemaSlug
+			? [entityField(schemaSlug, "year")]
+			: null,
+		secondarySubtitleProperty: null,
 		...overrides,
 	};
 };
@@ -154,12 +158,18 @@ function toQueryEngineFields(input: RuntimeFieldsInput): RuntimeField[] {
 			expression: toRequiredExpression(config.titleProperty),
 		},
 		{
-			key: "subtitle",
-			expression: toRequiredExpression(config.subtitleProperty),
+			key: "primarySubtitle",
+			expression: toRequiredExpression(config.primarySubtitleProperty),
 		},
 		{
-			key: "badge",
-			expression: toRequiredExpression(config.badgeProperty),
+			key: "secondarySubtitle",
+			expression: toRequiredExpression(
+				config.secondarySubtitleProperty ?? null,
+			),
+		},
+		{
+			key: "callout",
+			expression: toRequiredExpression(config.calloutProperty),
 		},
 	];
 }
