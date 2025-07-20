@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use database_models::{
     metadata,
     prelude::{CollectionToEntity, Metadata, Seen, UserToEntity},
@@ -21,7 +21,7 @@ impl IntegrationService {
         let cte = CollectionToEntity::find_by_id(collection_to_entity_id)
             .one(&self.0.db)
             .await?
-            .ok_or_else(|| Error::new("Collection to entity does not exist"))?;
+            .ok_or(anyhow!("Collection to entity does not exist"))?;
         if !matches!(cte.entity_lot, EntityLot::Metadata) {
             return Ok(());
         }
@@ -56,7 +56,7 @@ impl IntegrationService {
                 let metadata = Metadata::find_by_id(&cte.entity_id)
                     .one(&self.0.db)
                     .await?
-                    .ok_or_else(|| Error::new("Metadata does not exist"))?;
+                    .ok_or(anyhow!("Metadata does not exist"))?;
                 let maybe_entity_id = match metadata.lot {
                     MediaLot::Show => metadata
                         .external_identifiers
@@ -113,7 +113,7 @@ impl IntegrationService {
             .into_tuple::<(String, Option<SeenShowExtraInformation>, String, MediaLot)>()
             .one(&self.0.db)
             .await?
-            .ok_or_else(|| Error::new("Seen with the given ID could not be found"))?;
+            .ok_or(anyhow!("Seen with the given ID could not be found"))?;
         let integrations = select_integrations_to_process(
             &self.0,
             &seen,

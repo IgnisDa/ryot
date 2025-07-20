@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::Utc;
 use database_models::{integration, prelude::Integration};
 use dependent_utils::send_notification_for_user;

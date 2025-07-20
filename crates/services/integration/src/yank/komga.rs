@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use application_utils::get_base_http_client;
-use async_graphql::futures_util::{StreamExt, stream};
 use common_models::DefaultCollection;
 use common_utils::{ryot_log, sleep_for_n_seconds};
 use database_models::{metadata, prelude::Metadata};
@@ -14,6 +13,7 @@ use dependent_models::{
 };
 use enum_models::{MediaLot, MediaSource};
 use eventsource_stream::Eventsource;
+use futures::{StreamExt, stream};
 use itertools::Itertools;
 use media_models::{ImportOrExportMetadataItemSeen, UniqueMediaIdentifier};
 use reqwest::Url;
