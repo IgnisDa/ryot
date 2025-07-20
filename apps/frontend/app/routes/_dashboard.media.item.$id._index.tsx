@@ -343,6 +343,10 @@ export default function Page() {
 			),
 		loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
 			"Various Artists",
+		loaderData.metadataDetails.musicSpecifics?.trackNumber &&
+			`Track #${loaderData.metadataDetails.musicSpecifics.trackNumber}`,
+		loaderData.metadataDetails.musicSpecifics?.discNumber &&
+			`Disc #${loaderData.metadataDetails.musicSpecifics.discNumber}`,
 	].filter(Boolean);
 
 	const PutOnHoldMenuItem = () => {
