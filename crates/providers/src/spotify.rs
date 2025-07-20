@@ -117,14 +117,37 @@ pub struct SpotifyService {
 }
 
 async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<SpotifyAlbum>> {
-    let response = client
-        .get(format!("{}/artists/{}/albums", SPOTIFY_API_URL, artist_id))
-        .query(&[("include_groups", "album,single"), ("limit", "50")])
-        .send()
-        .await?;
+    let mut all_albums = Vec::new();
+    let mut offset = 0;
+    let limit = 50;
 
-    let albums_response: SpotifyResponse<SpotifyAlbum> = response.json().await?;
-    Ok(albums_response.items)
+    loop {
+        let response = client
+            .get(format!("{}/artists/{}/albums", SPOTIFY_API_URL, artist_id))
+            .query(&[
+                ("include_groups", "album,single"),
+                ("limit", &limit.to_string()),
+                ("offset", &offset.to_string()),
+            ])
+            .send()
+            .await?;
+
+        let albums_response: SpotifyResponse<SpotifyAlbum> = response.json().await?;
+
+        if albums_response.items.is_empty() {
+            break;
+        }
+
+        all_albums.extend(albums_response.items);
+
+        if all_albums.len() >= albums_response.total as usize {
+            break;
+        }
+
+        offset += limit;
+    }
+
+    Ok(all_albums)
 }
 
 async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec<SpotifyTrack>> {
