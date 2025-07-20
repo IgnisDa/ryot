@@ -43,13 +43,35 @@ struct SpotifyTokenResponse {
 struct SpotifyTrack {
     id: String,
     name: String,
-    album: SpotifyAlbum,
+    explicit: Option<bool>,
+    popularity: Option<i32>,
+    duration_ms: Option<i32>,
+    disc_number: Option<i32>,
+    track_number: Option<i32>,
+    album: Option<SpotifyAlbum>,
+    artists: Option<Vec<SpotifyArtist>>,
+    external_urls: Option<SpotifyExternalUrls>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyAlbum {
+    id: Option<String>,
+    name: Option<String>,
+    total_tracks: Option<usize>,
+    tracks: Option<SpotifyTracksPage>,
     images: Vec<SpotifyImage>,
+    description: Option<String>,
     release_date: Option<String>,
+    external_urls: Option<SpotifyExternalUrls>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtist {
+    id: String,
+    name: String,
+    genres: Option<Vec<String>>,
+    images: Option<Vec<SpotifyImage>>,
+    external_urls: Option<SpotifyExternalUrls>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -70,33 +92,7 @@ struct SpotifySearchResponse {
     tracks: SpotifyResponse<SpotifyTrack>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyTrackDetails {
-    id: String,
-    name: String,
-    explicit: bool,
-    popularity: i32,
-    duration_ms: i32,
-    disc_number: Option<i32>,
-    track_number: Option<i32>,
-    album: SpotifyAlbumDetails,
-    artists: Vec<SpotifyArtist>,
-    external_urls: SpotifyExternalUrls,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyAlbumDetails {
-    id: String,
-    name: String,
-    images: Vec<SpotifyImage>,
-    release_date: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyArtist {
-    id: String,
-    name: String,
-}
+type SpotifyTrackDetails = SpotifyTrack;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyExternalUrls {
@@ -108,54 +104,17 @@ struct SpotifyAlbumSearchResponse {
     albums: SpotifyResponse<SpotifyAlbumSearchItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyAlbumSearchItem {
-    id: String,
-    name: String,
-    total_tracks: usize,
-    images: Vec<SpotifyImage>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyAlbumFullDetails {
-    id: String,
-    name: String,
-    total_tracks: usize,
-    tracks: SpotifyTracksPage,
-    images: Vec<SpotifyImage>,
-    description: Option<String>,
-    release_date: Option<String>,
-    external_urls: SpotifyExternalUrls,
-}
-
-type SpotifyTracksPage = SpotifyResponse<SpotifyAlbumTrack>;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyAlbumTrack {
-    id: String,
-    name: String,
-}
+type SpotifyAlbumSearchItem = SpotifyAlbum;
+type SpotifyAlbumFullDetails = SpotifyAlbum;
+type SpotifyTracksPage = SpotifyResponse<SpotifyTrack>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistSearchResponse {
     artists: SpotifyResponse<SpotifyArtistSearchItem>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyArtistSearchItem {
-    id: String,
-    name: String,
-    images: Vec<SpotifyImage>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyArtistDetails {
-    id: String,
-    name: String,
-    genres: Vec<String>,
-    images: Vec<SpotifyImage>,
-    external_urls: SpotifyExternalUrls,
-}
+type SpotifyArtistSearchItem = SpotifyArtist;
+type SpotifyArtistDetails = SpotifyArtist;
 
 type SpotifyArtistAlbumsResponse = SpotifyResponse<SpotifyAlbumSearchItem>;
 
@@ -261,44 +220,43 @@ impl MediaProvider for SpotifyService {
 
         let track: SpotifyTrackDetails = track_response.json().await?;
 
-        let by_various_artists = track.artists.len() > 1;
-        let people: Vec<PartialMetadataPerson> = track
-            .artists
-            .into_iter()
+        let artists = track.artists.unwrap_or_default();
+        let by_various_artists = artists.len() > 1;
+        let people: Vec<PartialMetadataPerson> = artists
+            .iter()
             .map(|artist| PartialMetadataPerson {
-                name: artist.name,
-                identifier: artist.id,
+                name: artist.name.clone(),
+                identifier: artist.id.clone(),
                 role: "Artist".to_string(),
                 source: MediaSource::Spotify,
                 ..Default::default()
             })
             .collect();
 
+        let album = track.album.as_ref().unwrap();
         let groups = vec![CommitMetadataGroupInput {
-            name: track.album.name,
-            image: self.get_largest_image(&track.album.images),
+            name: album.name.clone().unwrap_or_default(),
+            image: self.get_largest_image(&album.images),
             unique: UniqueMediaIdentifier {
                 lot: MediaLot::Music,
-                identifier: track.album.id,
+                identifier: album.id.clone().unwrap_or_default(),
                 source: MediaSource::Spotify,
             },
             ..Default::default()
         }];
 
-        let publish_date = track
-            .album
+        let publish_date = album
             .release_date
             .as_ref()
             .and_then(|date_str| convert_string_to_date(date_str));
-        let publish_year = track
-            .album
+        let publish_year = album
             .release_date
             .as_ref()
             .and_then(|date| convert_date_to_year(date));
 
         let assets = EntityAssets {
             remote_images: self
-                .get_largest_image(&track.album.images)
+                .get_largest_image(&album.images)
                 .map(|url| vec![url])
                 .unwrap_or_default(),
             ..Default::default()
@@ -307,7 +265,7 @@ impl MediaProvider for SpotifyService {
         let music_specifics = MusicSpecifics {
             disc_number: track.disc_number,
             track_number: track.track_number,
-            duration: Some(track.duration_ms / 1000),
+            duration: track.duration_ms.map(|ms| ms / 1000),
             by_various_artists: Some(by_various_artists),
             ..Default::default()
         };
@@ -322,10 +280,13 @@ impl MediaProvider for SpotifyService {
             lot: MediaLot::Music,
             identifier: track.id,
             source: MediaSource::Spotify,
-            is_nsfw: Some(track.explicit),
+            is_nsfw: track.explicit,
             music_specifics: Some(music_specifics),
-            source_url: Some(track.external_urls.spotify),
-            provider_rating: Some(Decimal::from(track.popularity)),
+            source_url: track
+                .external_urls
+                .as_ref()
+                .map(|urls| urls.spotify.clone()),
+            provider_rating: track.popularity.map(Decimal::from),
             ..Default::default()
         })
     }
@@ -361,17 +322,16 @@ impl MediaProvider for SpotifyService {
             .items
             .into_iter()
             .map(|track| {
-                let publish_year = track
-                    .album
-                    .release_date
-                    .as_ref()
+                let album = track.album.as_ref();
+                let publish_year = album
+                    .and_then(|a| a.release_date.as_ref())
                     .and_then(|date| convert_date_to_year(date));
 
                 MetadataSearchItem {
                     publish_year,
                     title: track.name,
                     identifier: track.id,
-                    image: self.get_largest_image(&track.album.images),
+                    image: album.map_or(None, |a| self.get_largest_image(&a.images)),
                 }
             })
             .collect();
@@ -404,12 +364,14 @@ impl MediaProvider for SpotifyService {
 
         let items: Vec<PartialMetadataWithoutId> = album
             .tracks
-            .items
-            .into_iter()
+            .as_ref()
+            .map(|t| &t.items)
+            .unwrap_or(&vec![])
+            .iter()
             .map(|track| PartialMetadataWithoutId {
                 publish_year,
-                title: track.name,
-                identifier: track.id,
+                title: track.name.clone(),
+                identifier: track.id.clone(),
                 lot: MediaLot::Music,
                 source: MediaSource::Spotify,
                 image: self.get_largest_image(&album.images),
@@ -418,13 +380,16 @@ impl MediaProvider for SpotifyService {
             .collect();
 
         let group = MetadataGroupWithoutId {
-            title: album.name,
-            identifier: album.id,
+            title: album.name.clone().unwrap_or_default(),
+            identifier: album.id.clone().unwrap_or_default(),
             lot: MediaLot::Music,
             source: MediaSource::Spotify,
-            description: album.description,
-            parts: album.total_tracks as i32,
-            source_url: Some(album.external_urls.spotify),
+            description: album.description.clone(),
+            parts: album.total_tracks.unwrap_or(0) as i32,
+            source_url: album
+                .external_urls
+                .as_ref()
+                .map(|urls| urls.spotify.clone()),
             assets: EntityAssets {
                 remote_images: self
                     .get_largest_image(&album.images)
@@ -468,9 +433,9 @@ impl MediaProvider for SpotifyService {
             .items
             .into_iter()
             .map(|album| MetadataGroupSearchItem {
-                name: album.name,
-                identifier: album.id,
-                parts: Some(album.total_tracks),
+                name: album.name.clone().unwrap_or_default(),
+                identifier: album.id.clone().unwrap_or_default(),
+                parts: album.total_tracks,
                 image: self.get_largest_image(&album.images),
             })
             .collect();
@@ -503,17 +468,20 @@ impl MediaProvider for SpotifyService {
             fetch_artist_top_tracks(&self.client, identifier)
         )?;
 
-        let description = if artist.genres.is_empty() {
-            None
-        } else {
-            Some(format!("Genres: {}", artist.genres.join(", ")))
-        };
+        let description = artist.genres.as_ref().and_then(|genres| {
+            if genres.is_empty() {
+                None
+            } else {
+                Some(format!("Genres: {}", genres.join(", ")))
+            }
+        });
 
         let assets = EntityAssets {
-            remote_images: self
-                .get_largest_image(&artist.images)
-                .map(|url| vec![url])
-                .unwrap_or_default(),
+            remote_images: artist.images.as_ref().map_or(vec![], |images| {
+                self.get_largest_image(images)
+                    .map(|url| vec![url])
+                    .unwrap_or_default()
+            }),
             ..Default::default()
         };
 
@@ -522,11 +490,11 @@ impl MediaProvider for SpotifyService {
             .map(|album| MetadataGroupPersonRelated {
                 role: "Artist".to_string(),
                 metadata_group: MetadataGroupWithoutId {
-                    title: album.name,
-                    identifier: album.id,
+                    title: album.name.clone().unwrap_or_default(),
+                    identifier: album.id.clone().unwrap_or_default(),
                     lot: MediaLot::Music,
                     source: MediaSource::Spotify,
-                    parts: album.total_tracks as i32,
+                    parts: album.total_tracks.unwrap_or(0) as i32,
                     assets: EntityAssets {
                         remote_images: self
                             .get_largest_image(&album.images)
@@ -543,10 +511,9 @@ impl MediaProvider for SpotifyService {
         let related_metadata: Vec<MetadataPersonRelated> = top_tracks
             .into_iter()
             .map(|track| {
-                let publish_year = track
-                    .album
-                    .release_date
-                    .as_ref()
+                let album = track.album.as_ref();
+                let publish_year = album
+                    .and_then(|a| a.release_date.as_ref())
                     .and_then(|date| convert_date_to_year(date));
 
                 MetadataPersonRelated {
@@ -554,10 +521,10 @@ impl MediaProvider for SpotifyService {
                     character: None,
                     metadata: PartialMetadataWithoutId {
                         lot: MediaLot::Music,
-                        title: track.name,
-                        identifier: track.id,
+                        title: track.name.clone(),
+                        identifier: track.id.clone(),
                         source: MediaSource::Spotify,
-                        image: self.get_largest_image(&track.album.images),
+                        image: album.map_or(None, |a| self.get_largest_image(&a.images)),
                         publish_year,
                     },
                 }
@@ -572,7 +539,10 @@ impl MediaProvider for SpotifyService {
             identifier: artist.id,
             related_metadata_groups,
             source: MediaSource::Spotify,
-            source_url: Some(artist.external_urls.spotify),
+            source_url: artist
+                .external_urls
+                .as_ref()
+                .map(|urls| urls.spotify.clone()),
             ..Default::default()
         })
     }
@@ -608,9 +578,12 @@ impl MediaProvider for SpotifyService {
             .items
             .into_iter()
             .map(|artist| PeopleSearchItem {
-                name: artist.name,
-                identifier: artist.id,
-                image: self.get_largest_image(&artist.images),
+                name: artist.name.clone(),
+                identifier: artist.id.clone(),
+                image: artist
+                    .images
+                    .as_ref()
+                    .map_or(None, |images| self.get_largest_image(images)),
                 ..Default::default()
             })
             .collect();
