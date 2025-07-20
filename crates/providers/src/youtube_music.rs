@@ -85,6 +85,7 @@ impl MediaProvider for YoutubeMusicService {
                 by_various_artists: Some(details.track.by_va),
                 duration: details.track.duration.map(|d| d.try_into().unwrap()),
                 view_count: details.track.view_count.map(|v| v.try_into().unwrap()),
+                ..Default::default()
             }),
             groups: details
                 .track

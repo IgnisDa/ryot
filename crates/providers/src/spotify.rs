@@ -312,6 +312,8 @@ impl MediaProvider for SpotifyService {
         };
 
         let music_specifics = MusicSpecifics {
+            disc_number: track.disc_number,
+            track_number: track.track_number,
             duration: Some(track.duration_ms / 1000),
             by_various_artists: Some(by_various_artists),
             ..Default::default()
