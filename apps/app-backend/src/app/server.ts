@@ -1,6 +1,6 @@
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { metricsMiddleware } from "~/modules/system/middleware";
+import { metricsMiddleware } from "~/modules/system";
 import { apiApp } from "./api";
 
 export const getServer = () => {
