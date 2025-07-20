@@ -127,6 +127,43 @@ struct SpotifyAlbumSearchItem {
     artists: Vec<SpotifyArtist>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbumFullDetails {
+    id: String,
+    name: String,
+    description: Option<String>,
+    images: Vec<SpotifyImage>,
+    artists: Vec<SpotifyArtist>,
+    release_date: Option<String>,
+    total_tracks: usize,
+    tracks: SpotifyTracksPage,
+    external_urls: SpotifyExternalUrls,
+    album_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyTracksPage {
+    items: Vec<SpotifyAlbumTrack>,
+    total: i32,
+    limit: i32,
+    offset: i32,
+    next: Option<String>,
+    previous: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyAlbumTrack {
+    id: String,
+    name: String,
+    track_number: i32,
+    disc_number: i32,
+    duration_ms: i32,
+    explicit: bool,
+    artists: Vec<SpotifyArtist>,
+    preview_url: Option<String>,
+    external_urls: SpotifyExternalUrls,
+}
+
 pub struct SpotifyService {
     client: Client,
 }
@@ -317,9 +354,55 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_group_details(
         &self,
-        _identifier: &str,
+        identifier: &str,
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
-        todo!("Implement Spotify metadata_group_details")
+        let response = self
+            .client
+            .get(format!("{}/albums/{}", SPOTIFY_API_URL, identifier))
+            .send()
+            .await?;
+
+        let album: SpotifyAlbumFullDetails = response.json().await?;
+
+        let publish_year = album
+            .release_date
+            .as_ref()
+            .and_then(|date| convert_date_to_year(date));
+
+        let items: Vec<PartialMetadataWithoutId> = album
+            .tracks
+            .items
+            .into_iter()
+            .map(|track| PartialMetadataWithoutId {
+                publish_year,
+                title: track.name,
+                identifier: track.id,
+                lot: MediaLot::Music,
+                source: MediaSource::Spotify,
+                image: self.get_largest_image(&album.images),
+                ..Default::default()
+            })
+            .collect();
+
+        let group = MetadataGroupWithoutId {
+            title: album.name,
+            identifier: album.id,
+            lot: MediaLot::Music,
+            source: MediaSource::Spotify,
+            description: album.description,
+            parts: album.total_tracks as i32,
+            source_url: Some(album.external_urls.spotify),
+            assets: EntityAssets {
+                remote_images: self
+                    .get_largest_image(&album.images)
+                    .map(|url| vec![url])
+                    .unwrap_or_default(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        Ok((group, items))
     }
 
     async fn metadata_group_search(
