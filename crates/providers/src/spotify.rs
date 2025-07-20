@@ -60,14 +60,18 @@ struct SpotifyImage {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifySearchResponse {
-    tracks: SpotifyTracksResponse,
+struct SpotifyResponse<T> {
+    total: i32,
+    items: Vec<T>,
+    limit: Option<i32>,
+    offset: Option<i32>,
+    next: Option<String>,
+    previous: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyTracksResponse {
-    total: i32,
-    items: Vec<SpotifyTrack>,
+struct SpotifySearchResponse {
+    tracks: SpotifyResponse<SpotifyTrack>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -112,13 +116,7 @@ struct SpotifyExternalIds {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyAlbumSearchResponse {
-    albums: SpotifyAlbumsResponse,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyAlbumsResponse {
-    total: i32,
-    items: Vec<SpotifyAlbumSearchItem>,
+    albums: SpotifyResponse<SpotifyAlbumSearchItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -135,34 +133,26 @@ struct SpotifyAlbumSearchItem {
 struct SpotifyAlbumFullDetails {
     id: String,
     name: String,
-    description: Option<String>,
-    images: Vec<SpotifyImage>,
-    artists: Vec<SpotifyArtist>,
-    release_date: Option<String>,
+    album_type: String,
     total_tracks: usize,
     tracks: SpotifyTracksPage,
+    images: Vec<SpotifyImage>,
+    description: Option<String>,
+    artists: Vec<SpotifyArtist>,
+    release_date: Option<String>,
     external_urls: SpotifyExternalUrls,
-    album_type: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyTracksPage {
-    items: Vec<SpotifyAlbumTrack>,
-    total: i32,
-    limit: i32,
-    offset: i32,
-    next: Option<String>,
-    previous: Option<String>,
-}
+type SpotifyTracksPage = SpotifyResponse<SpotifyAlbumTrack>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyAlbumTrack {
     id: String,
     name: String,
-    track_number: i32,
-    disc_number: i32,
-    duration_ms: i32,
     explicit: bool,
+    duration_ms: i32,
+    disc_number: i32,
+    track_number: i32,
     artists: Vec<SpotifyArtist>,
     preview_url: Option<String>,
     external_urls: SpotifyExternalUrls,
@@ -170,22 +160,16 @@ struct SpotifyAlbumTrack {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistSearchResponse {
-    artists: SpotifyArtistsResponse,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyArtistsResponse {
-    total: i32,
-    items: Vec<SpotifyArtistSearchItem>,
+    artists: SpotifyResponse<SpotifyArtistSearchItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistSearchItem {
     id: String,
     name: String,
-    images: Vec<SpotifyImage>,
     popularity: i32,
     genres: Vec<String>,
+    images: Vec<SpotifyImage>,
     followers: SpotifyFollowers,
     external_urls: SpotifyExternalUrls,
 }
@@ -194,9 +178,9 @@ struct SpotifyArtistSearchItem {
 struct SpotifyArtistDetails {
     id: String,
     name: String,
-    images: Vec<SpotifyImage>,
     popularity: i32,
     genres: Vec<String>,
+    images: Vec<SpotifyImage>,
     followers: SpotifyFollowers,
     external_urls: SpotifyExternalUrls,
 }
@@ -206,14 +190,7 @@ struct SpotifyFollowers {
     total: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct SpotifyArtistAlbumsResponse {
-    items: Vec<SpotifyAlbumSearchItem>,
-    total: i32,
-    limit: i32,
-    offset: i32,
-    next: Option<String>,
-}
+type SpotifyArtistAlbumsResponse = SpotifyResponse<SpotifyAlbumSearchItem>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistTopTracksResponse {
