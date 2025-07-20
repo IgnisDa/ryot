@@ -184,6 +184,34 @@ impl SpotifyService {
         Self { client }
     }
 
+    async fn search_spotify<T>(
+        &self,
+        query: &str,
+        search_type: &str,
+        page: Option<i32>,
+    ) -> Result<(T, i32)>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let page = page.unwrap_or(1);
+        let offset = (page - 1) * PAGE_SIZE;
+
+        let response = self
+            .client
+            .get(format!("{}/search", SPOTIFY_API_URL))
+            .query(&json!({
+                "q": query,
+                "type": search_type,
+                "offset": offset,
+                "limit": PAGE_SIZE,
+            }))
+            .send()
+            .await?;
+
+        let search_response: T = response.json().await?;
+        Ok((search_response, page))
+    }
+
     fn get_largest_image(&self, images: &[SpotifyImage]) -> Option<String> {
         images
             .iter()
@@ -281,22 +309,8 @@ impl MediaProvider for SpotifyService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
-        let offset = (page - 1) * PAGE_SIZE;
-
-        let response = self
-            .client
-            .get(format!("{}/search", SPOTIFY_API_URL))
-            .query(&json!({
-                "q": query,
-                "type": "track",
-                "offset": offset,
-                "limit": PAGE_SIZE,
-            }))
-            .send()
-            .await?;
-
-        let search_response: SpotifySearchResponse = response.json().await?;
+        let (search_response, page): (SpotifySearchResponse, i32) =
+            self.search_spotify(query, "track", page).await?;
 
         let next_page = (search_response.tracks.total > (page * PAGE_SIZE)).then(|| page + 1);
 
@@ -392,22 +406,8 @@ impl MediaProvider for SpotifyService {
         page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let page = page.unwrap_or(1);
-        let offset = (page - 1) * PAGE_SIZE;
-
-        let response = self
-            .client
-            .get(format!("{}/search", SPOTIFY_API_URL))
-            .query(&json!({
-                "q": query,
-                "type": "album",
-                "offset": offset,
-                "limit": PAGE_SIZE,
-            }))
-            .send()
-            .await?;
-
-        let search_response: SpotifyAlbumSearchResponse = response.json().await?;
+        let (search_response, page): (SpotifyAlbumSearchResponse, i32) =
+            self.search_spotify(query, "album", page).await?;
 
         let next_page = (search_response.albums.total > (page * PAGE_SIZE)).then(|| page + 1);
 
@@ -537,22 +537,8 @@ impl MediaProvider for SpotifyService {
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
-        let offset = (page - 1) * PAGE_SIZE;
-
-        let response = self
-            .client
-            .get(format!("{}/search", SPOTIFY_API_URL))
-            .query(&json!({
-                "q": query,
-                "type": "artist",
-                "offset": offset,
-                "limit": PAGE_SIZE,
-            }))
-            .send()
-            .await?;
-
-        let search_response: SpotifyArtistSearchResponse = response.json().await?;
+        let (search_response, page): (SpotifyArtistSearchResponse, i32) =
+            self.search_spotify(query, "artist", page).await?;
 
         let next_page = (search_response.artists.total > (page * PAGE_SIZE)).then(|| page + 1);
 
