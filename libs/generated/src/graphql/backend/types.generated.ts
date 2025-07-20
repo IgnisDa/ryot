@@ -1209,6 +1209,7 @@ export enum MediaSource {
   MangaUpdates = 'MANGA_UPDATES',
   Myanimelist = 'MYANIMELIST',
   Openlibrary = 'OPENLIBRARY',
+  Spotify = 'SPOTIFY',
   Tmdb = 'TMDB',
   Vndb = 'VNDB',
   YoutubeMusic = 'YOUTUBE_MUSIC'
@@ -1370,13 +1371,17 @@ export type MovieSpecificsInput = {
 export type MusicSpecifics = {
   __typename?: 'MusicSpecifics';
   byVariousArtists?: Maybe<Scalars['Boolean']['output']>;
+  discNumber?: Maybe<Scalars['Int']['output']>;
   duration?: Maybe<Scalars['Int']['output']>;
+  trackNumber?: Maybe<Scalars['Int']['output']>;
   viewCount?: Maybe<Scalars['Int']['output']>;
 };
 
 export type MusicSpecificsInput = {
   byVariousArtists?: InputMaybe<Scalars['Boolean']['input']>;
+  discNumber?: InputMaybe<Scalars['Int']['input']>;
   duration?: InputMaybe<Scalars['Int']['input']>;
+  trackNumber?: InputMaybe<Scalars['Int']['input']>;
   viewCount?: InputMaybe<Scalars['Int']['input']>;
 };
 

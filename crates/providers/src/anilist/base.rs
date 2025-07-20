@@ -1,3 +1,4 @@
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use config::AnilistPreferredLanguage;
 use reqwest::Client;
@@ -9,11 +10,11 @@ pub struct AnilistService {
 }
 
 impl AnilistService {
-    pub async fn new(config: &config::AnilistConfig) -> Self {
+    pub async fn new(config: &config::AnilistConfig) -> Result<Self> {
         let client = get_base_http_client(None);
-        Self {
+        Ok(Self {
             client,
             preferred_language: config.preferred_language.clone(),
-        }
+        })
     }
 }

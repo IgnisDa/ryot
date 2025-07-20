@@ -164,13 +164,13 @@ pub struct IgdbService {
 }
 
 impl IgdbService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let config = ss.config.video_games.clone();
-        Self {
+        Ok(Self {
             ss,
             image_url: IMAGE_URL.to_owned(),
             image_size: config.igdb.image_size.to_string(),
-        }
+        })
     }
 }
 

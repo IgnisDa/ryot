@@ -16,10 +16,10 @@ pub struct AnilistMangaService {
 }
 
 impl AnilistMangaService {
-    pub async fn new(config: &config::AnilistConfig) -> Self {
-        Self {
-            base: AnilistService::new(config).await,
-        }
+    pub async fn new(config: &config::AnilistConfig) -> Result<Self> {
+        Ok(Self {
+            base: AnilistService::new(config).await?,
+        })
     }
 }
 

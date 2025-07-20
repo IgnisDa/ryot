@@ -69,8 +69,21 @@ pub struct AnimeAndMangaConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
+#[config(rename_all = "snake_case", env_prefix = "MUSIC_SPOTIFY_")]
+pub struct SpotifyConfig {
+    /// The client ID for the Spotify API.
+    pub client_id: String,
+    /// The client secret for the Spotify API.
+    pub client_secret: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case")]
-pub struct MusicConfig {}
+pub struct MusicConfig {
+    /// Settings related to Spotify.
+    #[setting(nested)]
+    pub spotify: SpotifyConfig,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "AUDIO_BOOKS_AUDIBLE_")]
@@ -505,6 +518,8 @@ impl AppConfig {
         cl.anime_and_manga.mal.client_id = gt();
         cl.books.hardcover.api_key = gt();
         cl.books.google_books.api_key = gt();
+        cl.music.spotify.client_id = gt();
+        cl.music.spotify.client_secret = gt();
         cl.database.url = gt();
         cl.file_storage.s3_region = gt();
         cl.file_storage.s3_bucket_name = gt();

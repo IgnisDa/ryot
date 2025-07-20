@@ -30,8 +30,8 @@ pub struct MalService {
 pub struct NonMediaMalService {}
 
 impl NonMediaMalService {
-    pub async fn new() -> Self {
-        Self {}
+    pub async fn new() -> Result<Self> {
+        Ok(Self {})
     }
 }
 
@@ -44,11 +44,11 @@ pub struct MalAnimeService {
 }
 
 impl MalAnimeService {
-    pub async fn new(config: &config::MalConfig) -> Self {
+    pub async fn new(config: &config::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
-        Self {
+        Ok(Self {
             base: MalService { client },
-        }
+        })
     }
 }
 
@@ -80,11 +80,11 @@ pub struct MalMangaService {
 }
 
 impl MalMangaService {
-    pub async fn new(config: &config::MalConfig) -> Self {
+    pub async fn new(config: &config::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
-        Self {
+        Ok(Self {
             base: MalService { client },
-        }
+        })
     }
 }
 

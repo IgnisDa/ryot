@@ -33,6 +33,7 @@ impl CacheService {
     fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> i64 {
         match key {
             ApplicationCacheKey::CoreDetails
+            | ApplicationCacheKey::SpotifyAccessToken
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::UserAnalytics { .. }
             | ApplicationCacheKey::UserPeopleList { .. }

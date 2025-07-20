@@ -9,7 +9,10 @@ use common_models::{
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
-use futures::stream::{self, StreamExt};
+use futures::{
+    stream::{self, StreamExt},
+    try_join,
+};
 use hashbag::HashBag;
 use itertools::Itertools;
 use media_models::{
@@ -19,7 +22,6 @@ use media_models::{
 use rust_decimal_macros::dec;
 use serde_json::json;
 use supporting_service::SupportingService;
-use tokio::try_join;
 use traits::MediaProvider;
 
 use crate::tmdb::base::TmdbService;
@@ -30,10 +32,10 @@ pub struct TmdbShowService {
 }
 
 impl TmdbShowService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
-        Self {
-            base: TmdbService::new(ss).await,
-        }
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
+        Ok(Self {
+            base: TmdbService::new(ss).await?,
+        })
     }
 }
 

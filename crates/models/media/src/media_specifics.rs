@@ -271,6 +271,8 @@ pub struct AnimeSpecifics {
 pub struct MusicSpecifics {
     pub duration: Option<i32>,
     pub view_count: Option<i32>,
+    pub disc_number: Option<i32>,
+    pub track_number: Option<i32>,
     pub by_various_artists: Option<bool>,
 }
 

@@ -343,6 +343,10 @@ export default function Page() {
 			),
 		loaderData.metadataDetails.musicSpecifics?.byVariousArtists &&
 			"Various Artists",
+		loaderData.metadataDetails.musicSpecifics?.trackNumber &&
+			`Track #${loaderData.metadataDetails.musicSpecifics.trackNumber}`,
+		loaderData.metadataDetails.musicSpecifics?.discNumber &&
+			`Disc #${loaderData.metadataDetails.musicSpecifics.discNumber}`,
 	].filter(Boolean);
 
 	const PutOnHoldMenuItem = () => {
@@ -449,6 +453,7 @@ export default function Page() {
 											.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
 											.with(MediaSource.Hardcover, () => "hardcover.png")
 											.with(MediaSource.GiantBomb, () => "giant-bomb.jpeg")
+											.with(MediaSource.Spotify, () => "spotify.svg")
 											.with(MediaSource.Custom, () => undefined)
 											.exhaustive()}`}
 									/>
@@ -463,6 +468,7 @@ export default function Page() {
 												MediaSource.Vndb,
 												MediaSource.Anilist,
 												MediaSource.Listennotes,
+												MediaSource.Spotify,
 												() => "%",
 											)
 											.with(

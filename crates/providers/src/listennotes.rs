@@ -34,16 +34,16 @@ pub struct ListennotesService {
 }
 
 impl ListennotesService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let url = env::var("LISTENNOTES_API_URL")
             .unwrap_or_else(|_| URL.to_owned())
             .as_str()
             .to_owned();
         let client = get_base_http_client(Some(vec![(
             HeaderName::from_static("x-listenapi-key"),
-            HeaderValue::from_str(&ss.config.podcasts.listennotes.api_token).unwrap(),
+            HeaderValue::from_str(&ss.config.podcasts.listennotes.api_token)?,
         )]));
-        Self { ss, url, client }
+        Ok(Self { ss, url, client })
     }
 }
 

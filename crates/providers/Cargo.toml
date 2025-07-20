@@ -14,6 +14,7 @@ common-utils = { path = "../utils/common" }
 config = { path = "../config" }
 const-str = { workspace = true }
 convert_case = { workspace = true }
+data-encoding = { workspace = true }
 database-models = { path = "../models/database" }
 dependent-models = { path = "../models/dependent" }
 educe = { workspace = true }

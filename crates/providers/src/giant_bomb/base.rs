@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use reqwest::Client;
 use supporting_service::SupportingService;
@@ -17,11 +18,11 @@ pub struct GiantBombService {
 }
 
 impl GiantBombService {
-    pub async fn new(ss: Arc<SupportingService>) -> Self {
+    pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
         let client = get_base_http_client(None);
-        Self {
+        Ok(Self {
             client,
             api_key: ss.config.video_games.giant_bomb.api_key.clone(),
-        }
+        })
     }
 }

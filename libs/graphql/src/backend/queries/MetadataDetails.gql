@@ -103,6 +103,8 @@ query MetadataDetails($metadataId: String!, $ensureUpdated: Boolean) {
 		musicSpecifics {
 			duration
 			viewCount
+			discNumber
+			trackNumber
 			byVariousArtists
 		}
 	}

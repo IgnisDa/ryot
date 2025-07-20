@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use apalis::prelude::*;
+use apalis::prelude::{Data, Error};
 use apalis_cron::CronContext;
 use background_models::{HpApplicationJob, LpApplicationJob, MpApplicationJob, ScheduledJob};
 use common_utils::ryot_log;
