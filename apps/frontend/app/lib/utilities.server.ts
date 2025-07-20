@@ -33,7 +33,9 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 		try {
 			return await this.request<T, V>(docs, ...vars);
 		} catch (e) {
-			if (!(e instanceof ClientError)) throw e;
+			if (!(e instanceof ClientError)) {
+				throw e;
+			}
 			const error = e.response.errors?.at(0)?.message || "";
 			throw await match(error)
 				.with(
@@ -92,8 +94,9 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 				await getResponseInit("You must be logged in to view this page"),
 			);
 		}
-		if (userDetails.isDisabled)
+		if (userDetails.isDisabled) {
 			throw redirect($path("/auth"), await getResponseInit("This account has been disabled"));
+		}
 
 		return userDetails;
 	} catch {
@@ -110,8 +113,12 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 export const combineHeaders = (...headers: Array<ResponseInit["headers"] | null | undefined>) => {
 	const combined = new Headers();
 	for (const header of headers) {
-		if (!header) continue;
-		for (const [key, value] of new Headers(header).entries()) combined.append(key, value);
+		if (!header) {
+			continue;
+		}
+		for (const [key, value] of new Headers(header).entries()) {
+			combined.append(key, value);
+		}
 	}
 	return combined;
 };
@@ -240,7 +247,9 @@ export const getLogoutCookies = () => {
 };
 
 export const extendResponseHeaders = (responseHeaders: Headers, headers: Headers) => {
-	for (const [key, value] of headers.entries()) responseHeaders.append(key, value);
+	for (const [key, value] of headers.entries()) {
+		responseHeaders.append(key, value);
+	}
 };
 
 export const parseFormDataWithTemporaryUpload = async (request: Request) => {

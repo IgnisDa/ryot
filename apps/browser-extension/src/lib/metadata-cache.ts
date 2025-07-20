@@ -25,7 +25,9 @@ export class MetadataCache {
 	async getMetadataForCurrentPage() {
 		const title = extractMetadataTitle();
 
-		if (!title) return null;
+		if (!title) {
+			return null;
+		}
 
 		await this.setCurrentPageTitle(title);
 
