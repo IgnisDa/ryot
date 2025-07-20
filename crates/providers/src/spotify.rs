@@ -57,12 +57,12 @@ struct SpotifyTrack {
 struct SpotifyAlbum {
     id: Option<String>,
     name: Option<String>,
-    total_tracks: Option<usize>,
-    tracks: Option<SpotifyTracksPage>,
     images: Vec<SpotifyImage>,
     description: Option<String>,
+    total_tracks: Option<usize>,
     release_date: Option<String>,
     external_urls: Option<SpotifyExternalUrls>,
+    tracks: Option<SpotifyResponse<SpotifyTrack>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -92,8 +92,6 @@ struct SpotifySearchResponse {
     tracks: SpotifyResponse<SpotifyTrack>,
 }
 
-type SpotifyTrackDetails = SpotifyTrack;
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyExternalUrls {
     spotify: String,
@@ -101,50 +99,35 @@ struct SpotifyExternalUrls {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyAlbumSearchResponse {
-    albums: SpotifyResponse<SpotifyAlbumSearchItem>,
+    albums: SpotifyResponse<SpotifyAlbum>,
 }
-
-type SpotifyAlbumSearchItem = SpotifyAlbum;
-type SpotifyAlbumFullDetails = SpotifyAlbum;
-type SpotifyTracksPage = SpotifyResponse<SpotifyTrack>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistSearchResponse {
-    artists: SpotifyResponse<SpotifyArtistSearchItem>,
+    artists: SpotifyResponse<SpotifyArtist>,
 }
-
-type SpotifyArtistSearchItem = SpotifyArtist;
-type SpotifyArtistDetails = SpotifyArtist;
-
-type SpotifyArtistAlbumsResponse = SpotifyResponse<SpotifyAlbumSearchItem>;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyArtistTopTracksResponse {
-    tracks: Vec<SpotifyTrackDetails>,
+    tracks: Vec<SpotifyTrack>,
 }
 
 pub struct SpotifyService {
     client: Client,
 }
 
-async fn fetch_artist_albums(
-    client: &Client,
-    artist_id: &str,
-) -> Result<Vec<SpotifyAlbumSearchItem>> {
+async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<SpotifyAlbum>> {
     let response = client
         .get(format!("{}/artists/{}/albums", SPOTIFY_API_URL, artist_id))
         .query(&[("include_groups", "album,single"), ("limit", "50")])
         .send()
         .await?;
 
-    let albums_response: SpotifyArtistAlbumsResponse = response.json().await?;
+    let albums_response: SpotifyResponse<SpotifyAlbum> = response.json().await?;
     Ok(albums_response.items)
 }
 
-async fn fetch_artist_top_tracks(
-    client: &Client,
-    artist_id: &str,
-) -> Result<Vec<SpotifyTrackDetails>> {
+async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec<SpotifyTrack>> {
     let response = client
         .get(format!(
             "{}/artists/{}/top-tracks",
@@ -218,7 +201,7 @@ impl MediaProvider for SpotifyService {
             .send()
             .await?;
 
-        let track: SpotifyTrackDetails = track_response.json().await?;
+        let track: SpotifyTrack = track_response.json().await?;
 
         let artists = track.artists.unwrap_or_default();
         let by_various_artists = artists.len() > 1;
@@ -355,7 +338,7 @@ impl MediaProvider for SpotifyService {
             .send()
             .await?;
 
-        let album: SpotifyAlbumFullDetails = response.json().await?;
+        let album: SpotifyAlbum = response.json().await?;
 
         let publish_year = album
             .release_date
@@ -461,7 +444,7 @@ impl MediaProvider for SpotifyService {
                     .get(format!("{}/artists/{}", SPOTIFY_API_URL, identifier))
                     .send()
                     .await?;
-                let artist: SpotifyArtistDetails = response.json().await?;
+                let artist: SpotifyArtist = response.json().await?;
                 Ok(artist)
             },
             fetch_artist_albums(&self.client, identifier),
