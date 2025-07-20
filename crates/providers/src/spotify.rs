@@ -164,6 +164,44 @@ struct SpotifyAlbumTrack {
     external_urls: SpotifyExternalUrls,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtistSearchResponse {
+    artists: SpotifyArtistsResponse,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtistsResponse {
+    total: i32,
+    items: Vec<SpotifyArtistSearchItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtistSearchItem {
+    id: String,
+    name: String,
+    images: Vec<SpotifyImage>,
+    popularity: i32,
+    genres: Vec<String>,
+    followers: SpotifyFollowers,
+    external_urls: SpotifyExternalUrls,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyArtistDetails {
+    id: String,
+    name: String,
+    images: Vec<SpotifyImage>,
+    popularity: i32,
+    genres: Vec<String>,
+    followers: SpotifyFollowers,
+    external_urls: SpotifyExternalUrls,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct SpotifyFollowers {
+    total: i32,
+}
+
 pub struct SpotifyService {
     client: Client,
 }
@@ -453,19 +491,88 @@ impl MediaProvider for SpotifyService {
 
     async fn person_details(
         &self,
-        _identifier: &str,
+        identifier: &str,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<PersonDetails> {
-        todo!("Implement Spotify person_details")
+        let response = self
+            .client
+            .get(format!("{}/artists/{}", SPOTIFY_API_URL, identifier))
+            .send()
+            .await?;
+
+        let artist: SpotifyArtistDetails = response.json().await?;
+
+        let description = if artist.genres.is_empty() {
+            None
+        } else {
+            Some(format!("Genres: {}", artist.genres.join(", ")))
+        };
+
+        let assets = EntityAssets {
+            remote_images: self
+                .get_largest_image(&artist.images)
+                .map(|url| vec![url])
+                .unwrap_or_default(),
+            ..Default::default()
+        };
+
+        Ok(PersonDetails {
+            name: artist.name,
+            identifier: artist.id,
+            source: MediaSource::Spotify,
+            assets,
+            description,
+            source_url: Some(artist.external_urls.spotify),
+            related_metadata: vec![],
+            related_metadata_groups: vec![],
+            ..Default::default()
+        })
     }
 
     async fn people_search(
         &self,
-        _query: &str,
-        _page: Option<i32>,
+        query: &str,
+        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        todo!("Implement Spotify people_search")
+        let page = page.unwrap_or(1);
+        let offset = (page - 1) * PAGE_SIZE;
+
+        let response = self
+            .client
+            .get(format!("{}/search", SPOTIFY_API_URL))
+            .query(&json!({
+                "q": query,
+                "type": "artist",
+                "offset": offset,
+                "limit": PAGE_SIZE,
+            }))
+            .send()
+            .await?;
+
+        let search_response: SpotifyArtistSearchResponse = response.json().await?;
+
+        let next_page = (search_response.artists.total > (page * PAGE_SIZE)).then(|| page + 1);
+
+        let items = search_response
+            .artists
+            .items
+            .into_iter()
+            .map(|artist| PeopleSearchItem {
+                name: artist.name,
+                identifier: artist.id,
+                image: self.get_largest_image(&artist.images),
+                ..Default::default()
+            })
+            .collect();
+
+        Ok(SearchResults {
+            items,
+            details: SearchDetails {
+                next_page,
+                total: search_response.artists.total,
+            },
+        })
     }
 }
