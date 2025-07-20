@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::{Result, anyhow, bail};
 use application_utils::create_oidc_client;
-use async_graphql::{Error, Result};
 use media_models::OidcTokenOutput;
 use openidconnect::{
     AuthorizationCode, CsrfToken, Nonce, Scope, TokenResponse, core::CoreAuthenticationFlow,
@@ -12,7 +12,7 @@ use crate::empty_nonce_verifier;
 
 pub async fn get_oidc_redirect_url(ss: &Arc<SupportingService>) -> Result<String> {
     let Some((_http, client)) = create_oidc_client(&ss.config).await else {
-        return Err(Error::new("OIDC client not configured"));
+        bail!("OIDC client not configured");
     };
     let (authorize_url, _, _) = client
         .authorize_url(
@@ -27,7 +27,7 @@ pub async fn get_oidc_redirect_url(ss: &Arc<SupportingService>) -> Result<String
 
 pub async fn get_oidc_token(ss: &Arc<SupportingService>, code: String) -> Result<OidcTokenOutput> {
     let Some((http, client)) = create_oidc_client(&ss.config).await else {
-        return Err(Error::new("OIDC client not configured"));
+        bail!("OIDC client not configured");
     };
     let token = client
         .exchange_code(AuthorizationCode::new(code))?
@@ -39,6 +39,6 @@ pub async fn get_oidc_token(ss: &Arc<SupportingService>, code: String) -> Result
     let email = claims
         .email()
         .map(|e| e.to_string())
-        .ok_or_else(|| Error::new("Email not found in OIDC token claims"))?;
+        .ok_or_else(|| anyhow!("Email not found in OIDC token claims"))?;
     Ok(OidcTokenOutput { subject, email })
 }

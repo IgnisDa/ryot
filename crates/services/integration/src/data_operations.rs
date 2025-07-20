@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::ryot_log;
 use database_models::{
     integration,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use database_models::{
     access_link, integration, notification_platform,
     prelude::{AccessLink, Integration, NotificationPlatform, User},

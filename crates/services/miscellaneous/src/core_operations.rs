@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, bail};
 use database_models::{
     metadata, metadata_group, person,
     prelude::{Metadata, MetadataGroup, Person},
@@ -44,7 +44,7 @@ pub async fn mark_entity_as_partial(
                 .exec(&ss.db)
                 .await?;
         }
-        _ => return Err(Error::new("Invalid entity lot".to_owned())),
+        _ => bail!("Invalid entity lot".to_owned()),
     }
     Ok(true)
 }

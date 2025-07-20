@@ -1,7 +1,7 @@
 use std::result::Result as StdResult;
 
+use anyhow::Result;
 use application_utils::get_base_http_client;
-use async_graphql::Result;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};

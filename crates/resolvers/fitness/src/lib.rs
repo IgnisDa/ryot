@@ -30,7 +30,8 @@ impl FitnessQuery {
     ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_workout_templates_list(user_id, input).await
+        let response = service.user_workout_templates_list(user_id, input).await?;
+        Ok(response)
     }
 
     /// Get information about a workout template.
@@ -41,9 +42,10 @@ impl FitnessQuery {
     ) -> Result<UserWorkoutTemplateDetails> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
+        let response = service
             .user_workout_template_details(user_id, workout_template_id)
-            .await
+            .await?;
+        Ok(response)
     }
 
     /// Get a paginated list of exercises in the database.
@@ -54,7 +56,8 @@ impl FitnessQuery {
     ) -> Result<CachedResponse<UserExercisesListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_exercises_list(user_id, input).await
+        let response = service.user_exercises_list(user_id, input).await?;
+        Ok(response)
     }
 
     /// Get a paginated list of workouts done by the user.
@@ -65,7 +68,8 @@ impl FitnessQuery {
     ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_workouts_list(user_id, input).await
+        let response = service.user_workouts_list(user_id, input).await?;
+        Ok(response)
     }
 
     /// Get details about an exercise.
@@ -75,7 +79,8 @@ impl FitnessQuery {
         exercise_id: String,
     ) -> Result<exercise::Model> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        service.exercise_details(exercise_id).await
+        let response = service.exercise_details(exercise_id).await?;
+        Ok(response)
     }
 
     /// Get details about a workout.
@@ -86,7 +91,8 @@ impl FitnessQuery {
     ) -> Result<UserWorkoutDetails> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_workout_details(&user_id, workout_id).await
+        let response = service.user_workout_details(&user_id, workout_id).await?;
+        Ok(response)
     }
 
     /// Get information about an exercise for a user.
@@ -97,7 +103,8 @@ impl FitnessQuery {
     ) -> Result<UserExerciseDetails> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_exercise_details(user_id, exercise_id).await
+        let response = service.user_exercise_details(user_id, exercise_id).await?;
+        Ok(response)
     }
 
     /// Get all the measurements for a user.
@@ -108,7 +115,8 @@ impl FitnessQuery {
     ) -> Result<CachedResponse<Vec<user_measurement::Model>>> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.user_measurements_list(&user_id, input).await
+        let response = service.user_measurements_list(&user_id, input).await?;
+        Ok(response)
     }
 }
 
@@ -131,9 +139,10 @@ impl FitnessMutation {
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
+        let response = service
             .create_or_update_user_workout_template(user_id, input)
-            .await
+            .await?;
+        Ok(response)
     }
 
     /// Delete a workout template.
@@ -144,9 +153,10 @@ impl FitnessMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
+        let response = service
             .delete_user_workout_template(user_id, workout_template_id)
-            .await
+            .await?;
+        Ok(response)
     }
 
     /// Create a user measurement.
@@ -157,7 +167,8 @@ impl FitnessMutation {
     ) -> Result<DateTimeUtc> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_user_measurement(&user_id, input).await
+        let response = service.create_user_measurement(&user_id, input).await?;
+        Ok(response)
     }
 
     /// Delete a user measurement.
@@ -168,7 +179,8 @@ impl FitnessMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.delete_user_measurement(user_id, timestamp).await
+        let response = service.delete_user_measurement(user_id, timestamp).await?;
+        Ok(response)
     }
 
     /// Take a user workout, process it and commit it to database.
@@ -179,7 +191,10 @@ impl FitnessMutation {
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_or_update_user_workout(&user_id, input).await
+        let response = service
+            .create_or_update_user_workout(&user_id, input)
+            .await?;
+        Ok(response)
     }
 
     /// Change the details about a user's workout.
@@ -190,14 +205,18 @@ impl FitnessMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_workout_attributes(user_id, input).await
+        let response = service
+            .update_user_workout_attributes(user_id, input)
+            .await?;
+        Ok(response)
     }
 
     /// Delete a workout and remove all exercise associations.
     async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.delete_user_workout(user_id, workout_id).await
+        let response = service.delete_user_workout(user_id, workout_id).await?;
+        Ok(response)
     }
 
     /// Create a custom exercise.
@@ -208,7 +227,8 @@ impl FitnessMutation {
     ) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.create_custom_exercise(&user_id, input).await
+        let response = service.create_custom_exercise(&user_id, input).await?;
+        Ok(response)
     }
 
     /// Update a custom exercise.
@@ -219,7 +239,8 @@ impl FitnessMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.update_custom_exercise(user_id, input).await
+        let response = service.update_custom_exercise(user_id, input).await?;
+        Ok(response)
     }
 
     /// Update a user's exercise settings.
@@ -230,7 +251,10 @@ impl FitnessMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service.update_user_exercise_settings(user_id, input).await
+        let response = service
+            .update_user_exercise_settings(user_id, input)
+            .await?;
+        Ok(response)
     }
 
     /// Merge an exercise into another.
@@ -242,8 +266,9 @@ impl FitnessMutation {
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        service
+        let response = service
             .merge_exercise(user_id, merge_from, merge_into)
-            .await
+            .await?;
+        Ok(response)
     }
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::Result;
 use apalis::prelude::{MemoryStorage, MessageQueue};
-use async_graphql::Result;
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::bon;
 use cache_service::CacheService;

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use database_models::{exercise, user_measurement};
 use dependent_models::{
     CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,

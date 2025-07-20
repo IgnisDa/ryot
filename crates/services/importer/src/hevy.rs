@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDateTime;
 use common_utils::ryot_log;
 use csv::Reader;

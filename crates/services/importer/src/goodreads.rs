@@ -1,6 +1,6 @@
 use std::result::Result as StdResult;
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDate;
 use common_utils::{convert_naive_to_utc, ryot_log};
 use convert_case::{Case, Casing};

@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{Duration, Utc};
 use common_models::{DefaultCollection, UserLevelCacheKey};

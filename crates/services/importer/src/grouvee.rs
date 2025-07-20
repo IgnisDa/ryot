@@ -1,6 +1,6 @@
 use std::{collections::HashMap, result::Result as StdResult};
 
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;

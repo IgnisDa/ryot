@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use enum_models::EntityLot;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 

@@ -1,6 +1,6 @@
 use std::result::Result as StdResult;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::IdObject;
 use common_utils::{USER_AGENT_STR, ryot_log};
 use dependent_models::{CollectionToEntityDetails, ImportCompletedItem, ImportResult};

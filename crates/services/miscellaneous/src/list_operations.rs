@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::{SearchDetails, SearchInput};
 use database_models::{genre, prelude::Genre};
 use database_utils::{ilike_sql, user_by_id};

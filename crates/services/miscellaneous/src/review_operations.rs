@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use common_models::IdAndNamedObject;
 use database_models::{prelude::Review, review};
@@ -27,7 +27,7 @@ pub async fn delete_review(
                 r.delete(&ss.db).await?;
                 Ok(true)
             } else {
-                Err(Error::new("This review does not belong to you".to_owned()))
+                Err(anyhow!("This review does not belong to you"))
             }
         }
         None => Ok(false),

@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use common_utils::ryot_log;
 use database_models::{prelude::Exercise, user};

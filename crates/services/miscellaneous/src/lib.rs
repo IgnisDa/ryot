@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::Result;
+use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
     BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
@@ -172,10 +172,10 @@ impl MiscellaneousService {
                 deploy_update_metadata_group_job(&entity_id, &self.0).await?;
             }
             _ => {
-                return Err(async_graphql::Error::new(format!(
+                bail!(format!(
                     "Entity type {:?} is not supported for update jobs",
                     entity_lot
-                )));
+                ));
             }
         }
         Ok(true)

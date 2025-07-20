@@ -1,4 +1,4 @@
-use async_graphql::Result;
+use anyhow::Result;
 use chrono::NaiveDate;
 use common_models::DefaultCollection;
 use common_utils::convert_naive_to_utc;

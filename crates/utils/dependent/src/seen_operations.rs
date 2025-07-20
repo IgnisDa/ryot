@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};

@@ -1,6 +1,6 @@
 use std::{fs::File as StdFile, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::ryot_log;
 use dependent_utils::user_collections_list;
 use struson::writer::{JsonStreamWriter, JsonWriter};

@@ -12,7 +12,8 @@ impl FileStorageQuery {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<FileStorageService>>();
-        service.get_presigned_url(key).await
+        let response = service.get_presigned_url(key).await?;
+        Ok(response)
     }
 }
 

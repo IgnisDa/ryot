@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_models::{exercise, prelude::*, user, user_measurement, user_to_entity, workout};
@@ -244,7 +244,7 @@ pub fn get_focused_workout_summary_with_exercises(
 
     for (idx, ex) in exercises.iter().enumerate() {
         let exercise = db_exercises.iter().find(|e| e.id == ex.id).ok_or_else(|| {
-            Error::new(format!(
+            anyhow!(format!(
                 "Exercise with ID {} not found in fetched data",
                 ex.id
             ))
@@ -410,7 +410,7 @@ pub async fn create_or_update_user_workout(
     let mut exercises = vec![];
     let mut workout_totals = vec![];
     if input.exercises.is_empty() {
-        return Err(Error::new("This workout has no associated exercises"));
+        bail!("This workout has no associated exercises");
     }
     let mut first_set_confirmed_at = input
         .exercises
@@ -422,7 +422,7 @@ pub async fn create_or_update_user_workout(
         .confirmed_at;
     for (exercise_idx, ex) in input.exercises.iter_mut().enumerate() {
         if ex.sets.is_empty() {
-            return Err(Error::new("This exercise has no associated sets"));
+            bail!("This exercise has no associated sets");
         }
         let Some(db_ex) = Exercise::find_by_id(ex.exercise_id.clone())
             .one(&ss.db)

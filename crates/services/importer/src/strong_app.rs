@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::{Result, bail};
 use chrono::{Duration, NaiveDateTime};
 use common_utils::ryot_log;
 use csv::ReaderBuilder;
@@ -75,7 +75,7 @@ async fn import_exercises(
     } else if first_line.contains(',') {
         b','
     } else {
-        return Err("Could not determine delimiter".into());
+        bail!("Could not determine delimiter");
     };
 
     let mut unique_exercises: HashMap<String, exercise::Model> = HashMap::new();

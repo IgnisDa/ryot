@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, bail};
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{prelude::User, user};
@@ -33,7 +33,7 @@ pub async fn update_user(
     if user_id.unwrap_or_default() != input.user_id
         && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
     {
-        return Err(Error::new("Admin access token mismatch".to_owned()));
+        bail!("Admin access token mismatch".to_owned());
     }
     let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
         .one(&ss.db)
@@ -86,7 +86,7 @@ pub async fn reset_user(
     admin_account_guard(&admin_user_id, ss).await?;
     let maybe_user = User::find_by_id(&to_reset_user_id).one(&ss.db).await?;
     let Some(user_to_reset) = maybe_user else {
-        return Err(Error::new("User not found"));
+        bail!("User not found");
     };
 
     let original_id = user_to_reset.id.clone();

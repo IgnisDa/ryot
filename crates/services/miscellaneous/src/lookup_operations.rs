@@ -3,8 +3,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use anyhow::anyhow;
-use async_graphql::Result;
+use anyhow::{Result, anyhow};
 use common_models::MetadataLookupCacheInput;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, CachedResponse};
 use enum_models::{MediaLot, MediaSource};

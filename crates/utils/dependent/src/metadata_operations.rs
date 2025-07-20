@@ -1,8 +1,6 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
-use common_models::EntityAssets;
-use common_models::PersonSourceSpecifics;
-use common_models::StringIdObject;
+use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject};
 use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
@@ -443,7 +441,7 @@ pub async fn update_metadata_group(
     let metadata_group = MetadataGroup::find_by_id(metadata_group_id)
         .one(&ss.db)
         .await?
-        .ok_or(Error::new("Group not found"))?;
+        .ok_or_else(|| anyhow!("Group not found"))?;
     if !metadata_group.is_partial.unwrap_or_default() {
         return Ok(UpdateMediaEntityResult::default());
     }
@@ -703,7 +701,7 @@ pub async fn generic_metadata(
 ) -> Result<MetadataBaseData> {
     ensure_metadata_updated(metadata_id, ss, ensure_updated).await?;
     let Some(mut meta) = Metadata::find_by_id(metadata_id).one(&ss.db).await.unwrap() else {
-        return Err(Error::new("The record does not exist".to_owned()));
+        bail!("The record does not exist");
     };
 
     #[derive(Debug, FromQueryResult)]
@@ -719,7 +717,7 @@ pub async fn generic_metadata(
             .order_by_asc(genre::Column::Name)
             .into_model::<GenreListItem>()
             .all(&ss.db)
-            .map_err(|_| Error::new("Failed to fetch genres".to_owned())),
+            .map_err(|_| anyhow!("Failed to fetch genres")),
         MetadataToPerson::find()
             .expr(Expr::col(Asterisk))
             .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
@@ -737,7 +735,7 @@ pub async fn generic_metadata(
             .order_by_asc(metadata_to_person::Column::Index)
             .into_model::<PartialCreator>()
             .all(&ss.db)
-            .map_err(|_| Error::new("Failed to fetch creators".to_owned())),
+            .map_err(|_| anyhow!("Failed to fetch creators")),
         MetadataToMetadata::find()
             .select_only()
             .column(metadata_to_metadata::Column::ToMetadataId)
@@ -747,7 +745,7 @@ pub async fn generic_metadata(
             )
             .into_tuple::<String>()
             .all(&ss.db)
-            .map_err(|_| Error::new("Failed to fetch suggestions".to_owned())),
+            .map_err(|_| anyhow!("Failed to fetch suggestions")),
         transform_entity_assets(&mut meta.assets, ss),
     )?;
 

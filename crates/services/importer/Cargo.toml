@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
-async-graphql = { workspace = true }
 background-models = { path = "../../models/background" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }

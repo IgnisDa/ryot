@@ -1,4 +1,6 @@
-use async_graphql::{Error, Result};
+use std::sync::Arc;
+
+use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::StringIdObject;
 use common_utils::ryot_log;
@@ -12,7 +14,6 @@ use media_models::{
 };
 use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue};
-use std::sync::Arc;
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -27,7 +28,7 @@ pub async fn post_review(
 ) -> Result<StringIdObject> {
     let preferences = user_by_id(user_id, ss).await?.preferences;
     if preferences.general.disable_reviews {
-        return Err(Error::new("Reviews are disabled"));
+        bail!("Reviews are disabled");
     }
     let show_ei = if input.show_season_number.is_some() || input.show_episode_number.is_some() {
         Some(SeenShowExtraOptionalInformation {
@@ -58,7 +59,7 @@ pub async fn post_review(
     };
 
     if input.rating.is_none() && input.text.is_none() {
-        return Err(Error::new("At-least one of rating or review is required."));
+        bail!("At-least one of rating or review is required.");
     }
     let mut review_obj =
         review::ActiveModel {

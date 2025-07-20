@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use database_models::{metadata, prelude::Metadata, user};
 use database_utils::get_enabled_users_query;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TrendingMetadataIdsResponse};

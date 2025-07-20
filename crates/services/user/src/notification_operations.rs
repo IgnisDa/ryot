@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use database_models::{notification_platform, prelude::NotificationPlatform};
 use enum_models::{NotificationPlatformLot, UserNotificationContent};
 use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPlatformInput};
@@ -19,11 +19,9 @@ pub async fn update_user_notification_platform(
     let db_notification = NotificationPlatform::find_by_id(input.notification_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if db_notification.user_id != user_id {
-        return Err(Error::new(
-            "Notification platform does not belong to the user",
-        ));
+        bail!("Notification platform does not belong to the user",);
     }
     let mut db_notification: notification_platform::ActiveModel = db_notification.into();
     if let Some(s) = input.is_disabled {
@@ -44,11 +42,9 @@ pub async fn delete_user_notification_platform(
     let notification = NotificationPlatform::find_by_id(notification_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Notification platform with the given id does not exist"))?;
+        .ok_or_else(|| anyhow!("Notification platform with the given id does not exist"))?;
     if notification.user_id != user_id {
-        return Err(Error::new(
-            "Notification platform does not belong to the user",
-        ));
+        bail!("Notification platform does not belong to the user",);
     }
     notification.delete(&ss.db).await?;
     Ok(true)

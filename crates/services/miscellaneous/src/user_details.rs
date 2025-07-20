@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use anyhow::{Result, anyhow};
 use application_utils::calculate_average_rating_for_user;
-use async_graphql::{Error, Result};
 use database_models::{
     functions::get_user_to_entity_association,
     prelude::{Metadata, Seen},
@@ -45,7 +45,7 @@ pub async fn user_metadata_details(
             .left_join(Seen)
             .into_tuple::<(i64,)>()
             .one(&ss.db)
-            .map_err(|_| Error::new("Metadata not found")),
+            .map_err(|_| anyhow!("Metadata not found")),
         get_user_to_entity_association(&ss.db, &user_id, &metadata_id, EntityLot::Metadata),
         get_entity_recently_consumed(&user_id, &metadata_id, EntityLot::Metadata, ss)
     )?;

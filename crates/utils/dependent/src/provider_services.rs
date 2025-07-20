@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use enum_models::{MediaLot, MediaSource};
 use media_models::MetadataDetails;
 use providers::{
@@ -55,7 +55,7 @@ pub async fn get_metadata_provider(
     source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
-    let err = || Err(Error::new("This source is not supported".to_owned()));
+    let err = || Err(anyhow!("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
@@ -107,7 +107,7 @@ pub async fn get_non_metadata_provider(
     source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
-    let err = || Err(Error::new("This source is not supported".to_owned()));
+    let err = || Err(anyhow!("This source is not supported".to_owned()));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow, bail};
 use database_models::{integration, prelude::Integration};
 use database_utils::server_key_validation_guard;
 use enum_models::{IntegrationLot, IntegrationProvider};
@@ -16,9 +16,9 @@ pub async fn delete_user_integration(
     let integration = Integration::find_by_id(integration_id)
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Integration with the given id does not exist"))?;
+        .ok_or_else(|| anyhow!("Integration with the given id does not exist"))?;
     if integration.user_id != user_id {
-        return Err(Error::new("Integration does not belong to the user"));
+        bail!("Integration does not belong to the user");
     }
     integration.delete(&ss.db).await?;
     Ok(true)
@@ -54,9 +54,7 @@ pub async fn create_or_update_user_integration(
         provider = ActiveValue::Set(p);
     };
     if input.minimum_progress > input.maximum_progress {
-        return Err(Error::new(
-            "Minimum progress cannot be greater than maximum progress",
-        ));
+        bail!("Minimum progress cannot be greater than maximum progress");
     }
     let id = match input.integration_id {
         None => ActiveValue::NotSet,

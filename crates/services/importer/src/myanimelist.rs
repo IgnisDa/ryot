@@ -3,7 +3,7 @@ use std::{
     io::{BufReader, Read},
 };
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_utils::{convert_naive_to_utc, convert_string_to_date};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{ImportSource, MediaLot, MediaSource};

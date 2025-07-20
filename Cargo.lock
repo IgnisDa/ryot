@@ -193,7 +193,7 @@ dependencies = [
 name = "application-utils"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
+ "anyhow",
  "axum",
  "chrono",
  "chrono-tz",
@@ -1117,6 +1117,7 @@ dependencies = [
 name = "cache-service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-graphql",
  "chrono",
  "common-utils",
@@ -1242,8 +1243,8 @@ dependencies = [
 name = "collection-service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "application-utils",
- "async-graphql",
  "background-models",
  "chrono",
  "common-models",
@@ -1658,6 +1659,7 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 name = "database-models"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "argon2",
  "async-graphql",
  "async-trait",
@@ -1684,7 +1686,7 @@ dependencies = [
 name = "database-utils"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
+ "anyhow",
  "background-models",
  "chrono",
  "common-models",
@@ -1733,8 +1735,8 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "application-utils",
- "async-graphql",
  "background-models",
  "chrono",
  "common-models",
@@ -2170,7 +2172,7 @@ dependencies = [
 name = "exporter-service"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
+ "anyhow",
  "background-models",
  "chrono",
  "common-models",
@@ -2284,7 +2286,7 @@ dependencies = [
 name = "file-storage-service"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
+ "anyhow",
  "aws-sdk-s3",
  "chrono",
  "nanoid",
@@ -2324,7 +2326,7 @@ dependencies = [
 name = "fitness-service"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
+ "anyhow",
  "background-models",
  "common-models",
  "common-utils",
@@ -3148,7 +3150,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
- "async-graphql",
  "background-models",
  "chrono",
  "chrono-tz",
@@ -3231,7 +3232,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
- "async-graphql",
  "chrono",
  "chrono-tz",
  "common-models",
@@ -3644,7 +3644,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
- "async-graphql",
  "background-models",
  "chrono",
  "common-models",
@@ -4400,7 +4399,6 @@ dependencies = [
  "serde_with",
  "strum",
  "supporting-service",
- "tokio",
  "tracing",
  "traits",
 ]
@@ -5961,7 +5959,7 @@ dependencies = [
 name = "statistics-service"
 version = "0.1.0"
 dependencies = [
- "async-graphql",
+ "anyhow",
  "common-models",
  "database-models",
  "dependent-models",
@@ -6036,8 +6034,8 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 name = "supporting-service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "apalis",
- "async-graphql",
  "background-models",
  "bon",
  "cache-service",
@@ -6737,9 +6735,9 @@ dependencies = [
 name = "user-service"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "application-utils",
  "argon2",
- "async-graphql",
  "chrono",
  "common-models",
  "common-utils",

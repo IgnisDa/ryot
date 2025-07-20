@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use async_graphql::Result;
+use anyhow::Result;
 use aws_sdk_s3::presigning::PresigningConfig;
 use chrono::Duration;
 use nanoid::nanoid;

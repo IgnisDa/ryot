@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{

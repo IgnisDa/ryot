@@ -1,4 +1,4 @@
-use async_graphql::{Error, Result};
+use anyhow::{Result, anyhow};
 use database_models::{prelude::UserMeasurement, user_measurement};
 use dependent_models::{CachedResponse, UserMeasurementsListResponse};
 use dependent_utils::{
@@ -34,7 +34,7 @@ pub async fn delete_user_measurement(
     let m = UserMeasurement::find_by_id((user_id.to_owned(), timestamp))
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Measurement does not exist"))?;
+        .ok_or(anyhow!("Measurement does not exist"))?;
     m.delete(&ss.db).await?;
     expire_user_measurements_list_cache(user_id, ss).await?;
     Ok(true)

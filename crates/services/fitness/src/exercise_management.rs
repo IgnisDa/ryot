@@ -1,4 +1,6 @@
-use async_graphql::{Error, Result};
+use std::sync::Arc;
+
+use anyhow::{Result, anyhow, bail};
 use common_models::EntityAssets;
 use common_utils::ryot_log;
 use database_models::{
@@ -24,7 +26,6 @@ use fitness_models::{
 };
 use futures::try_join;
 use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
-use std::sync::Arc;
 use supporting_service::SupportingService;
 
 use crate::{IMAGES_PREFIX_URL, JSON_URL};
@@ -35,7 +36,7 @@ pub async fn exercise_details(
 ) -> Result<exercise::Model> {
     let maybe_exercise = Exercise::find_by_id(exercise_id).one(&ss.db).await?;
     match maybe_exercise {
-        None => Err(Error::new("Exercise with the given ID could not be found.")),
+        None => bail!("Exercise with the given ID could not be found."),
         Some(mut e) => {
             transform_entity_assets(&mut e.attributes.assets, ss).await?;
             Ok(e)
@@ -106,12 +107,10 @@ pub async fn update_custom_exercise(
             .filter(user_to_entity::Column::ExerciseId.eq(&id))
             .one(&ss.db)
             .await?
-            .ok_or_else(|| Error::new("Exercise does not exist"))?;
+            .ok_or_else(|| anyhow!("Exercise does not exist"))?;
         if let Some(exercise_extra_information) = ute.exercise_extra_information {
             if !exercise_extra_information.history.is_empty() {
-                return Err(Error::new(
-                    "Exercise is associated with one or more workouts.",
-                ));
+                bail!("Exercise is associated with one or more workouts.",);
             }
         }
         old_exercise.delete(&ss.db).await?;
@@ -168,23 +167,23 @@ pub async fn merge_exercise(
         Exercise::find_by_id(merge_from.clone()).one(&ss.db),
         Exercise::find_by_id(merge_into.clone()).one(&ss.db)
     )?;
-    let old_exercise = old_exercise.ok_or_else(|| Error::new("Exercise does not exist"))?;
-    let new_exercise = new_exercise.ok_or_else(|| Error::new("Exercise does not exist"))?;
+    let old_exercise = old_exercise.ok_or_else(|| anyhow!("Exercise does not exist"))?;
+    let new_exercise = new_exercise.ok_or_else(|| anyhow!("Exercise does not exist"))?;
     if old_exercise.id == new_exercise.id {
-        return Err(Error::new("Cannot merge exercise with itself"));
+        bail!("Cannot merge exercise with itself");
     }
     if old_exercise.lot != new_exercise.lot {
-        return Err(Error::new(format!(
+        bail!(format!(
             "Exercises must be of the same lot, got from={:#?} and into={:#?}",
             old_exercise.lot, new_exercise.lot
-        )));
+        ));
     }
     let old_entity = UserToEntity::find()
         .filter(user_to_entity::Column::UserId.eq(&user_id))
         .filter(user_to_entity::Column::ExerciseId.eq(merge_from.clone()))
         .one(&ss.db)
         .await?
-        .ok_or_else(|| Error::new("Exercise does not exist"))?;
+        .ok_or_else(|| anyhow!("Exercise does not exist"))?;
     change_exercise_id_in_history(ss, merge_into, old_entity).await?;
     schedule_user_for_workout_revision(&user_id, ss).await?;
     Ok(true)

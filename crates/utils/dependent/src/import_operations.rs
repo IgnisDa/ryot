@@ -1,6 +1,6 @@
 use std::{collections::HashMap, future::Future, sync::Arc};
 
-use async_graphql::Result;
+use anyhow::Result;
 use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
@@ -45,7 +45,7 @@ async fn create_collection_and_add_entity_to_it(
     .await
     {
         import_failed_set.push(ImportFailedItem {
-            error: Some(e.message),
+            error: Some(e.to_string()),
             identifier: collection_name.clone(),
             step: ImportFailStep::DatabaseCommit,
             ..Default::default()
@@ -68,8 +68,8 @@ async fn create_collection_and_add_entity_to_it(
     .await
     {
         import_failed_set.push(ImportFailedItem {
-            error: Some(e.message),
             identifier: entity_id,
+            error: Some(e.to_string()),
             step: ImportFailStep::DatabaseCommit,
             ..Default::default()
         });
@@ -182,8 +182,8 @@ where
                     Ok((metadata, success)) => (metadata.id, success),
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
                             lot: Some(metadata.lot),
+                            error: Some(e.to_string()),
                             step: ImportFailStep::DatabaseCommit,
                             identifier: metadata.source_id.to_string(),
                         });
@@ -204,9 +204,9 @@ where
                     {
                         import.failed.push(ImportFailedItem {
                             lot: Some(metadata.lot),
+                            error: Some(e.to_string()),
                             step: ImportFailStep::DatabaseCommit,
                             identifier: metadata.source_id.to_owned(),
-                            error: Some(e.message),
                         });
                     };
                 }
@@ -220,9 +220,9 @@ where
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
                                 lot: Some(metadata.lot),
+                                error: Some(e.to_string()),
                                 step: ImportFailStep::DatabaseCommit,
                                 identifier: metadata.source_id.to_owned(),
-                                error: Some(e.message),
                             });
                         };
                     }
@@ -258,7 +258,7 @@ where
                     Ok(m) => m.id,
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
+                            error: Some(e.to_string()),
                             lot: Some(metadata_group.lot),
                             step: ImportFailStep::DatabaseCommit,
                             identifier: metadata_group.title.to_string(),
@@ -276,10 +276,10 @@ where
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
+                                error: Some(e.to_string()),
                                 lot: Some(metadata_group.lot),
                                 step: ImportFailStep::DatabaseCommit,
                                 identifier: metadata_group.title.to_owned(),
-                                error: Some(e.message),
                             });
                         };
                     }
@@ -313,7 +313,7 @@ where
                     Ok(p) => p.id,
                     Err(e) => {
                         import.failed.push(ImportFailedItem {
-                            error: Some(e.message),
+                            error: Some(e.to_string()),
                             identifier: person.name.to_string(),
                             step: ImportFailStep::DatabaseCommit,
                             ..Default::default()
@@ -331,7 +331,7 @@ where
                     ) {
                         if let Err(e) = post_review(user_id, input, ss).await {
                             import.failed.push(ImportFailedItem {
-                                error: Some(e.message),
+                                error: Some(e.to_string()),
                                 identifier: person.name.to_owned(),
                                 step: ImportFailStep::DatabaseCommit,
                                 ..Default::default()
@@ -361,7 +361,7 @@ where
                 .await
                 {
                     import.failed.push(ImportFailedItem {
-                        error: Some(e.message),
+                        error: Some(e.to_string()),
                         identifier: col_details.name.clone(),
                         step: ImportFailStep::DatabaseCommit,
                         ..Default::default()
@@ -371,7 +371,7 @@ where
             ImportCompletedItem::Exercise(exercise) => {
                 if let Err(e) = create_custom_exercise(user_id, exercise.clone(), ss).await {
                     import.failed.push(ImportFailedItem {
-                        error: Some(e.message),
+                        error: Some(e.to_string()),
                         identifier: exercise.name.clone(),
                         step: ImportFailStep::DatabaseCommit,
                         ..Default::default()
@@ -383,8 +383,8 @@ where
                 if let Err(err) = create_or_update_user_workout(user_id, workout.clone(), ss).await
                 {
                     import.failed.push(ImportFailedItem {
-                        error: Some(err.message),
                         identifier: workout.name,
+                        error: Some(err.to_string()),
                         step: ImportFailStep::DatabaseCommit,
                         ..Default::default()
                     });
@@ -396,7 +396,7 @@ where
                 match create_or_update_user_workout(user_id, workout_input.clone(), ss).await {
                     Err(err) => {
                         import.failed.push(ImportFailedItem {
-                            error: Some(err.message),
+                            error: Some(err.to_string()),
                             identifier: workout_input.name,
                             step: ImportFailStep::DatabaseCommit,
                             ..Default::default()
@@ -421,7 +421,7 @@ where
             ImportCompletedItem::Measurement(measurement) => {
                 if let Err(err) = create_user_measurement(user_id, measurement.clone(), ss).await {
                     import.failed.push(ImportFailedItem {
-                        error: Some(err.message),
+                        error: Some(err.to_string()),
                         step: ImportFailStep::DatabaseCommit,
                         identifier: measurement.timestamp.to_string(),
                         ..Default::default()
