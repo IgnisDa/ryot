@@ -92,7 +92,7 @@ import type { Route } from "./+types/_dashboard.fitness.$entity.$id._index";
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { id: entityId, entity } = parseParameters(
 		params,
-		z.object({ id: z.string(), entity: z.nativeEnum(FitnessEntity) }),
+		z.object({ id: z.string(), entity: z.enum(FitnessEntity) }),
 	);
 	const resp = await match(entity)
 		.with(FitnessEntity.Workouts, async () => {
@@ -219,7 +219,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const deleteSchema = z.object({
 	workoutId: z.string().optional(),
 	templateId: z.string().optional(),
-	entity: z.nativeEnum(FitnessEntity),
+	entity: z.enum(FitnessEntity),
 });
 
 const editWorkoutSchema = z.object({

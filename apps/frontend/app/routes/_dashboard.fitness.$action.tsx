@@ -49,7 +49,7 @@ import type { Route } from "./+types/_dashboard.fitness.$action";
 export const loader = async ({ params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.nativeEnum(FitnessAction) }),
+		z.object({ action: z.enum(FitnessAction) }),
 	);
 	return {
 		action,

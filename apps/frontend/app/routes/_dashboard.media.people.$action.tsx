@@ -91,13 +91,13 @@ const searchSchema = z.object({
 	isAnilistStudio: zodBoolAsString.optional(),
 	isHardcoverPublisher: zodBoolAsString.optional(),
 	isGiantBombCompany: zodBoolAsString.optional(),
-	source: z.nativeEnum(MediaSource).default(MediaSource.Tmdb),
+	source: z.enum(MediaSource).default(MediaSource.Tmdb),
 });
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	const { action } = parseParameters(
 		params,
-		z.object({ action: z.nativeEnum(Action) }),
+		z.object({ action: z.enum(Action) }),
 	);
 	const cookieName = await getSearchEnhancedCookieName(
 		`people.${action}`,
@@ -106,7 +106,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const schema = z.object({
 		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default("1"),
+		[pageQueryParam]: zodIntAsString.default(1),
 	});
 	const query = parseSearchQuery(request, schema);
 	const [totalResults, list, search, respectCoreDetailsPageSize, listInput] =
@@ -114,11 +114,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 			.with(Action.List, async () => {
 				const listSchema = z.object({
 					collections: zodCollectionFilter,
-					orderBy: z
-						.nativeEnum(GraphqlSortOrder)
-						.default(defaultFilters.orderBy),
+					orderBy: z.enum(GraphqlSortOrder).default(defaultFilters.orderBy),
 					sortBy: z
-						.nativeEnum(PersonAndMetadataGroupsSortBy)
+						.enum(PersonAndMetadataGroupsSortBy)
 						.default(defaultFilters.sortBy),
 				});
 				const urlParse = parseSearchQuery(request, listSchema);

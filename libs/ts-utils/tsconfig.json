@@ -7,11 +7,11 @@
 	],
 	"compilerOptions": {
 		"strict": true,
-		"module": "esnext",
+		"module": "nodenext",
 		"lib": ["ESNext", "DOM"],
-		"moduleResolution": "node",
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
+		"moduleResolution": "nodenext",
 		"allowSyntheticDefaultImports": true,
 		"outDir": "../../.moon/cache/types/libs/ts-utils",
 		"paths": {

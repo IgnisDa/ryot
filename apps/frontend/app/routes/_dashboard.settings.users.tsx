@@ -153,7 +153,7 @@ const updateUserSchema = z.object({
 	userId: z.string(),
 	adminAccessToken: z.string(),
 	password: z.string().optional(),
-	lot: z.nativeEnum(UserLot).optional(),
+	lot: z.enum(UserLot).optional(),
 	isDisabled: zodCheckboxAsString.optional(),
 });
 
