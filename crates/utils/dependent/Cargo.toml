@@ -27,9 +27,12 @@ igdb-provider = { path = "../../providers/igdb" }
 itunes-provider = { path = "../../providers/itunes" }
 listennotes-provider = { path = "../../providers/listennotes" }
 manga-updates-provider = { path = "../../providers/manga-updates" }
+myanimelist-provider = { path = "../../providers/myanimelist" }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 spotify-provider = { path = "../../providers/spotify" }
 tmdb-provider = { path = "../../providers/tmdb" }
+vndb-provider = { path = "../../providers/vndb" }
+youtube-music-provider = { path = "../../providers/youtube-music" }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 markdown = { workspace = true }
@@ -37,7 +40,6 @@ media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
 notification-service = { path = "../../services/notification" }
-providers = { path = "../../providers" }
 rand = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }

@@ -1,0 +1,20 @@
+[package]
+name = "youtube-music-provider"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+itertools = { workspace = true }
+media-models = { path = "../../models/media" }
+rustypipe = { workspace = true }
+traits = { path = "../../traits" }
+
+[package.metadata.cargo-machete]
+ignored = []

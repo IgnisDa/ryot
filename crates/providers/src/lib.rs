@@ -1,3 +1,1 @@
-pub mod myanimelist;
-pub mod vndb;
-pub mod youtube_music;
+// All providers have been extracted into separate crates

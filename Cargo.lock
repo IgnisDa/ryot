@@ -1816,10 +1816,10 @@ dependencies = [
  "markdown",
  "media-models",
  "migrations",
+ "myanimelist-provider",
  "nanoid",
  "notification-service",
  "openlibrary-provider",
- "providers",
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
@@ -1836,6 +1836,8 @@ dependencies = [
  "traits",
  "user-models",
  "uuid",
+ "vndb-provider",
+ "youtube-music-provider",
 ]
 
 [[package]]
@@ -3927,6 +3929,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "myanimelist-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "rand 0.9.1",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
+]
+
+[[package]]
 name = "nanoid"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4622,27 +4646,7 @@ dependencies = [
 name = "providers"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "application-utils",
- "async-trait",
- "common-models",
- "common-utils",
- "config",
- "const-str",
- "convert_case 0.8.0",
- "database-models",
- "dependent-models",
- "enum-models",
- "itertools 0.14.0",
- "media-models",
- "rand 0.9.1",
- "reqwest",
- "rust_decimal",
- "rustypipe",
- "serde",
- "serde_json",
  "tracing",
- "traits",
 ]
 
 [[package]]
@@ -7109,6 +7113,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vndb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "const-str",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
+]
+
+[[package]]
 name = "vsimd"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7578,6 +7604,23 @@ dependencies = [
  "quote",
  "syn 2.0.104",
  "synstructure",
+]
+
+[[package]]
+name = "youtube-music-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "rustypipe",
+ "traits",
 ]
 
 [[package]]

@@ -12,16 +12,14 @@ use itunes_provider::ITunesService;
 use listennotes_provider::ListennotesService;
 use manga_updates_provider::MangaUpdatesService;
 use media_models::MetadataDetails;
+use myanimelist_provider::{MalAnimeService, MalMangaService, NonMediaMalService};
 use openlibrary_provider::OpenlibraryService;
-use providers::{
-    myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
-    vndb::VndbService,
-    youtube_music::YoutubeMusicService,
-};
 use spotify_provider::SpotifyService;
 use supporting_service::SupportingService;
 use tmdb_provider::{NonMediaTmdbService, TmdbMovieService, TmdbShowService};
 use traits::MediaProvider;
+use vndb_provider::VndbService;
+use youtube_music_provider::YoutubeMusicService;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
