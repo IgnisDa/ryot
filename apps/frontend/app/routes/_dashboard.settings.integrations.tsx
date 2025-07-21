@@ -700,10 +700,12 @@ const CreateOrUpdateModal = (props: {
 							<ArrInputs
 								name="radarr"
 								defaults={{
-									baseUrl:
-										props.integrationData?.providerSpecifics?.radarrBaseUrl,
 									apiKey:
 										props.integrationData?.providerSpecifics?.radarrApiKey,
+									tagIds:
+										props.integrationData?.providerSpecifics?.radarrTagIds,
+									baseUrl:
+										props.integrationData?.providerSpecifics?.radarrBaseUrl,
 									profileId:
 										props.integrationData?.providerSpecifics?.radarrProfileId,
 									rootFolderPath:
@@ -712,8 +714,6 @@ const CreateOrUpdateModal = (props: {
 									syncCollectionIds:
 										props.integrationData?.providerSpecifics
 											?.radarrSyncCollectionIds,
-									tagIds:
-										props.integrationData?.providerSpecifics?.radarrTagIds,
 								}}
 							/>
 						))
@@ -721,10 +721,12 @@ const CreateOrUpdateModal = (props: {
 							<ArrInputs
 								name="sonarr"
 								defaults={{
-									baseUrl:
-										props.integrationData?.providerSpecifics?.sonarrBaseUrl,
+									tagIds:
+										props.integrationData?.providerSpecifics?.sonarrTagIds,
 									apiKey:
 										props.integrationData?.providerSpecifics?.sonarrApiKey,
+									baseUrl:
+										props.integrationData?.providerSpecifics?.sonarrBaseUrl,
 									profileId:
 										props.integrationData?.providerSpecifics?.sonarrProfileId,
 									rootFolderPath:
@@ -733,8 +735,6 @@ const CreateOrUpdateModal = (props: {
 									syncCollectionIds:
 										props.integrationData?.providerSpecifics
 											?.sonarrSyncCollectionIds,
-									tagIds:
-										props.integrationData?.providerSpecifics?.sonarrTagIds,
 								}}
 							/>
 						))
