@@ -5,16 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-application-utils = { path = "../../utils/application" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 itertools = { workspace = true }
-media-models = { path = "../../models/media" }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_iso3166 = { workspace = true }
@@ -22,9 +15,17 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
+tracing = { workspace = true }
+
+application-utils = { path = "../../utils/application" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+media-models = { path = "../../models/media" }
 supporting-service = { path = "../../services/supporting" }
 traits = { path = "../../traits" }
-tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

@@ -5,8 +5,18 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-background-models = { path = "../../models/background" }
 chrono = { workspace = true }
+itertools = { workspace = true }
+mime_guess = { workspace = true }
+nanoid = { workspace = true }
+reqwest = { workspace = true }
+sea-orm = { workspace = true }
+struson = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+background-models = { path = "../../models/background" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
@@ -14,18 +24,9 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
-itertools = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 media-models = { path = "../../models/media" }
-mime_guess = { workspace = true }
-nanoid = { workspace = true }
-reqwest = { workspace = true }
-sea-orm = { workspace = true }
-struson = { workspace = true }
 supporting-service = { path = "../supporting" }
-tokio = { workspace = true }
-tokio-util = { workspace = true }
-tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

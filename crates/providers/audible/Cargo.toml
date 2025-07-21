@@ -5,26 +5,27 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-application-utils = { path = "../../utils/application" }
 async-trait = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 convert_case = { workspace = true }
-database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
 educe = { workspace = true }
-enum-models = { path = "../../models/enum" }
 itertools = { workspace = true }
-media-models = { path = "../../models/media" }
 paginate = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }
-traits = { path = "../../traits" }
 tracing = { workspace = true }
+
+application-utils = { path = "../../utils/application" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+media-models = { path = "../../models/media" }
+traits = { path = "../../traits" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

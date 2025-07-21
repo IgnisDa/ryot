@@ -4,42 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anilist-provider = { path = "../../providers/anilist" }
-application-utils = { path = "../application" }
-audible-provider = { path = "../../providers/audible" }
 anyhow = { workspace = true }
-background-models = { path = "../../models/background" }
 chrono = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../common" }
-config = { path = "../../config" }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../database" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
-fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
-giant-bomb-provider = { path = "../../providers/giant-bomb" }
-google-books-provider = { path = "../../providers/google-books" }
-hardcover-provider = { path = "../../providers/hardcover" }
-igdb-provider = { path = "../../providers/igdb" }
-itunes-provider = { path = "../../providers/itunes" }
-listennotes-provider = { path = "../../providers/listennotes" }
-manga-updates-provider = { path = "../../providers/manga-updates" }
-myanimelist-provider = { path = "../../providers/myanimelist" }
-openlibrary-provider = { path = "../../providers/openlibrary" }
-spotify-provider = { path = "../../providers/spotify" }
-tmdb-provider = { path = "../../providers/tmdb" }
-vndb-provider = { path = "../../providers/vndb" }
-youtube-music-provider = { path = "../../providers/youtube-music" }
-importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }
 markdown = { workspace = true }
-media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
 nanoid = { workspace = true }
-notification-service = { path = "../../services/notification" }
 rand = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
@@ -49,11 +20,41 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 slug = { workspace = true }
 sqlx = { workspace = true }
-supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }
+uuid = { workspace = true }
+
+anilist-provider = { path = "../../providers/anilist" }
+application-utils = { path = "../application" }
+audible-provider = { path = "../../providers/audible" }
+background-models = { path = "../../models/background" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../common" }
+config = { path = "../../config" }
+database-models = { path = "../../models/database" }
+database-utils = { path = "../database" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+fitness-models = { path = "../../models/fitness" }
+giant-bomb-provider = { path = "../../providers/giant-bomb" }
+google-books-provider = { path = "../../providers/google-books" }
+hardcover-provider = { path = "../../providers/hardcover" }
+igdb-provider = { path = "../../providers/igdb" }
+importer-models = { path = "../../models/importer" }
+itunes-provider = { path = "../../providers/itunes" }
+listennotes-provider = { path = "../../providers/listennotes" }
+manga-updates-provider = { path = "../../providers/manga-updates" }
+media-models = { path = "../../models/media" }
+migrations = { path = "../../migrations" }
+myanimelist-provider = { path = "../../providers/myanimelist" }
+notification-service = { path = "../../services/notification" }
+openlibrary-provider = { path = "../../providers/openlibrary" }
+spotify-provider = { path = "../../providers/spotify" }
+supporting-service = { path = "../../services/supporting" }
+tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }
-uuid = { workspace = true }
+vndb-provider = { path = "../../providers/vndb" }
+youtube-music-provider = { path = "../../providers/youtube-music" }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json", "sqlx", "tracing"]

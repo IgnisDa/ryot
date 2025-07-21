@@ -5,17 +5,10 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-application-utils = { path = "../../utils/application" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 convert_case = { workspace = true }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 itertools = { workspace = true }
-media-models = { path = "../../models/media" }
 nest_struct = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
@@ -23,6 +16,14 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+
+application-utils = { path = "../../utils/application" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+media-models = { path = "../../models/media" }
 traits = { path = "../../traits" }
 
 [package.metadata.cargo-machete]

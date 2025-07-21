@@ -4,19 +4,20 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-async-graphql = { workspace = true }
 anyhow = { workspace = true }
+async-graphql = { workspace = true }
 chrono = { workspace = true }
-common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
-database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]
