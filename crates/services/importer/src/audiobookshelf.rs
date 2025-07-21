@@ -14,7 +14,8 @@ use hardcover_provider::HardcoverService;
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use openlibrary_provider::OpenlibraryService;
+use providers::google_books::GoogleBooksService;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},

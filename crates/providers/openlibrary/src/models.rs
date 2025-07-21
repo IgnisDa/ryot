@@ -2,7 +2,6 @@ use chrono::NaiveDate;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-// Response models for OpenLibrary API
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EditionsResponse {
     pub entries: Option<Vec<Edition>>,

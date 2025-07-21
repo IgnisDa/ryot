@@ -15,7 +15,7 @@ use media_models::{
 use serde_json::json;
 use traits::MediaProvider;
 
-use crate::openlibrary::{
+use crate::{
     client::URL,
     models::{
         AuthorLibrarySearchResponse, BookSearchItem, BookSearchResults, Description,

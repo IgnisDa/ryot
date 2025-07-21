@@ -6,6 +6,7 @@ use enum_models::{MediaLot, MediaSource};
 use giant_bomb_provider::GiantBombService;
 use hardcover_provider::HardcoverService;
 use media_models::MetadataDetails;
+use openlibrary_provider::OpenlibraryService;
 use providers::{
     audible::AudibleService,
     google_books::GoogleBooksService,
@@ -14,7 +15,6 @@ use providers::{
     listennotes::ListennotesService,
     manga_updates::MangaUpdatesService,
     myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
-    openlibrary::OpenlibraryService,
     spotify::SpotifyService,
     vndb::VndbService,
     youtube_music::YoutubeMusicService,

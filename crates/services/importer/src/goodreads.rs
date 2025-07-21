@@ -16,7 +16,8 @@ use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
     ImportOrExportMetadataItemSeen,
 };
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use openlibrary_provider::OpenlibraryService;
+use providers::google_books::GoogleBooksService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;

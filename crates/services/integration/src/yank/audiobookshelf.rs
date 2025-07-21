@@ -11,7 +11,8 @@ use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 use hardcover_provider::HardcoverService;
 use media_models::{ImportOrExportMetadataItemSeen, PartialMetadataWithoutId};
-use providers::{google_books::GoogleBooksService, openlibrary::OpenlibraryService};
+use openlibrary_provider::OpenlibraryService;
+use providers::google_books::GoogleBooksService;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},

@@ -21,6 +21,7 @@ external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
 futures = { workspace = true }
 hardcover-provider = { path = "../../providers/hardcover" }
+openlibrary-provider = { path = "../../providers/openlibrary" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 providers = { path = "../../providers" }

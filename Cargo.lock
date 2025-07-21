@@ -1785,6 +1785,7 @@ dependencies = [
  "migrations",
  "nanoid",
  "notification-service",
+ "openlibrary-provider",
  "providers",
  "rand 0.9.1",
  "rust_decimal",
@@ -3249,6 +3250,7 @@ dependencies = [
  "itertools 0.14.0",
  "media-models",
  "nest_struct",
+ "openlibrary-provider",
  "providers",
  "reqwest",
  "rust_decimal",
@@ -3327,6 +3329,7 @@ dependencies = [
  "hardcover-provider",
  "itertools 0.14.0",
  "media-models",
+ "openlibrary-provider",
  "providers",
  "regex",
  "reqwest",
@@ -3980,6 +3983,29 @@ dependencies = [
  "subtle",
  "thiserror 1.0.69",
  "url",
+]
+
+[[package]]
+name = "openlibrary-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tracing",
+ "traits",
 ]
 
 [[package]]
