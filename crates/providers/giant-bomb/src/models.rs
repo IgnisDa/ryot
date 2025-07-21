@@ -6,7 +6,7 @@ use common_utils::PAGE_SIZE;
 use dependent_models::SearchResults;
 use serde::{Deserialize, Serialize};
 
-use super::base::GiantBombService;
+use crate::base::GiantBombService;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GiantBombImage {
