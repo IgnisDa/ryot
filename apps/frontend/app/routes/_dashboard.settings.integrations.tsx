@@ -198,11 +198,21 @@ const createOrUpdateSchema = z.object({
 			radarrProfileId: z.number().optional(),
 			radarrRootFolderPath: z.string().optional(),
 			radarrSyncCollectionIds: zodCommaDelimitedString,
+			radarrTagIds: zodCommaDelimitedString.transform((val) =>
+				val
+					? val.map((id) => Number.parseInt(id)).filter((id) => !isNaN(id))
+					: undefined,
+			),
 			sonarrBaseUrl: z.string().optional(),
 			sonarrApiKey: z.string().optional(),
 			sonarrProfileId: z.number().optional(),
 			sonarrRootFolderPath: z.string().optional(),
 			sonarrSyncCollectionIds: zodCommaDelimitedString,
+			sonarrTagIds: zodCommaDelimitedString.transform((val) =>
+				val
+					? val.map((id) => Number.parseInt(id)).filter((id) => !isNaN(id))
+					: undefined,
+			),
 			jellyfinPushBaseUrl: z.string().optional(),
 			jellyfinPushUsername: z.string().optional(),
 			jellyfinPushPassword: z.string().optional(),
@@ -698,6 +708,8 @@ const CreateOrUpdateModal = (props: {
 									syncCollectionIds:
 										props.integrationData?.providerSpecifics
 											?.radarrSyncCollectionIds,
+									tagIds:
+										props.integrationData?.providerSpecifics?.radarrTagIds,
 								}}
 							/>
 						))
@@ -717,6 +729,8 @@ const CreateOrUpdateModal = (props: {
 									syncCollectionIds:
 										props.integrationData?.providerSpecifics
 											?.sonarrSyncCollectionIds,
+									tagIds:
+										props.integrationData?.providerSpecifics?.sonarrTagIds,
 								}}
 							/>
 						))
@@ -842,6 +856,7 @@ const ArrInputs = (props: {
 		profileId: number | null | undefined;
 		rootFolderPath: string | null | undefined;
 		syncCollectionIds: string[] | null | undefined;
+		tagIds: number[] | null | undefined;
 	};
 }) => {
 	const collections = useNonHiddenUserCollections();
@@ -883,6 +898,13 @@ const ArrInputs = (props: {
 					label: c.name,
 					value: c.id,
 				}))}
+			/>
+			<TextInput
+				label="Tag IDs"
+				name={`providerSpecifics.${props.name}TagIds`}
+				defaultValue={props.defaults?.tagIds?.join(", ") || undefined}
+				description="Comma-separated list of tag IDs to apply to new items"
+				placeholder="1, 2, 3"
 			/>
 		</>
 	);
