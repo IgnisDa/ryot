@@ -95,11 +95,13 @@ query UserIntegrations {
 			radarrProfileId
 			radarrRootFolderPath
 			radarrSyncCollectionIds
+			radarrTagIds
 			sonarrProfileId
 			sonarrApiKey
 			sonarrBaseUrl
 			sonarrRootFolderPath
 			sonarrSyncCollectionIds
+			sonarrTagIds
 			jellyfinPushBaseUrl
 			jellyfinPushUsername
 			jellyfinPushPassword
