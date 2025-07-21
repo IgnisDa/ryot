@@ -3,8 +3,11 @@ use std::collections::HashMap;
 use chrono::NaiveDate;
 use common_models::{IdObject, NamedObject};
 use dependent_models::MetadataPersonRelated;
+use enum_models::{MediaLot, MediaSource};
+use media_models::PartialMetadataWithoutId;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::base::TmdbService;
 
@@ -190,11 +193,6 @@ pub async fn fetch_company_media_by_type(
     identifier: &str,
     base: &TmdbService,
 ) -> anyhow::Result<Vec<MetadataPersonRelated>> {
-    use enum_models::MediaLot;
-    use enum_models::MediaSource;
-    use media_models::PartialMetadataWithoutId;
-    use serde_json::json;
-
     let lot = match media_type.as_str() {
         "movie" => MediaLot::Movie,
         "tv" => MediaLot::Show,
