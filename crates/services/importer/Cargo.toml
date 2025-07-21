@@ -28,9 +28,9 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 nest_struct = { workspace = true }
+google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
 openlibrary-provider = { path = "../../providers/openlibrary" }
-providers = { path = "../../providers" }
 tmdb-provider = { path = "../../providers/tmdb" }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }

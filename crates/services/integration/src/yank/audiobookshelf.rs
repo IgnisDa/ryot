@@ -9,10 +9,10 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
+use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
 use media_models::{ImportOrExportMetadataItemSeen, PartialMetadataWithoutId};
 use openlibrary_provider::OpenlibraryService;
-use providers::google_books::GoogleBooksService;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},

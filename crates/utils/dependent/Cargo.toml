@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anilist-provider = { path = "../../providers/anilist" }
 application-utils = { path = "../application" }
+audible-provider = { path = "../../providers/audible" }
 anyhow = { workspace = true }
 background-models = { path = "../../models/background" }
 chrono = { workspace = true }
@@ -20,7 +21,9 @@ enum_meta = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 futures = { workspace = true }
 giant-bomb-provider = { path = "../../providers/giant-bomb" }
+google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
+igdb-provider = { path = "../../providers/igdb" }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 tmdb-provider = { path = "../../providers/tmdb" }
 importer-models = { path = "../../models/importer" }

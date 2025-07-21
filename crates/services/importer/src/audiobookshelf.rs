@@ -10,12 +10,12 @@ use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
 use enum_models::{ImportSource, MediaLot, MediaSource};
 use external_models::audiobookshelf as audiobookshelf_models;
 use futures::stream::{self, StreamExt};
+use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
 use media_models::{
     DeployUrlAndKeyImportInput, ImportOrExportMetadataItemSeen, PartialMetadataWithoutId,
 };
 use openlibrary_provider::OpenlibraryService;
-use providers::google_books::GoogleBooksService;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},

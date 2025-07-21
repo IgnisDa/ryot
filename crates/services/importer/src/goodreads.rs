@@ -10,6 +10,7 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use dependent_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
 use futures::stream::{self, StreamExt};
+use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
 use itertools::Itertools;
 use media_models::{
@@ -17,7 +18,6 @@ use media_models::{
     ImportOrExportMetadataItemSeen,
 };
 use openlibrary_provider::OpenlibraryService;
-use providers::google_books::GoogleBooksService;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::Deserialize;

@@ -20,11 +20,11 @@ eventsource-stream = { workspace = true }
 external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
 futures = { workspace = true }
+google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
-providers = { path = "../../providers" }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }

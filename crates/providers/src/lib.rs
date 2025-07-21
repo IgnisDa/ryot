@@ -1,6 +1,3 @@
-pub mod audible;
-pub mod google_books;
-pub mod igdb;
 pub mod itunes;
 pub mod listennotes;
 pub mod manga_updates;

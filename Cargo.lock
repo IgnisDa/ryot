@@ -418,6 +418,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "audible-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "database-models",
+ "dependent-models",
+ "educe",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "paginate",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "strum",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1764,6 +1791,7 @@ dependencies = [
  "anilist-provider",
  "anyhow",
  "application-utils",
+ "audible-provider",
  "background-models",
  "chrono",
  "common-models",
@@ -1777,7 +1805,9 @@ dependencies = [
  "fitness-models",
  "futures",
  "giant-bomb-provider",
+ "google-books-provider",
  "hardcover-provider",
+ "igdb-provider",
  "importer-models",
  "itertools 0.14.0",
  "markdown",
@@ -2640,6 +2670,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
+name = "google-books-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
+]
+
+[[package]]
 name = "governor"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3200,6 +3252,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "igdb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "rust_iso3166",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "importer-models"
 version = "0.1.0"
 dependencies = [
@@ -3244,6 +3323,7 @@ dependencies = [
  "fitness-models",
  "flate2",
  "futures",
+ "google-books-provider",
  "hardcover-provider",
  "importer-models",
  "indexmap 2.10.0",
@@ -3251,7 +3331,6 @@ dependencies = [
  "media-models",
  "nest_struct",
  "openlibrary-provider",
- "providers",
  "reqwest",
  "rust_decimal",
  "rust_decimal_macros",
@@ -3326,11 +3405,11 @@ dependencies = [
  "external-models",
  "external-utils",
  "futures",
+ "google-books-provider",
  "hardcover-provider",
  "itertools 0.14.0",
  "media-models",
  "openlibrary-provider",
- "providers",
  "regex",
  "reqwest",
  "rust_decimal",
@@ -4483,22 +4562,18 @@ dependencies = [
  "data-encoding",
  "database-models",
  "dependent-models",
- "educe",
  "enum-models",
  "futures",
  "itertools 0.14.0",
  "media-models",
- "paginate",
  "rand 0.9.1",
  "reqwest",
  "rust_decimal",
- "rust_iso3166",
  "rustypipe",
  "sea-orm",
  "serde",
  "serde_json",
  "serde_with",
- "strum",
  "supporting-service",
  "tracing",
  "traits",

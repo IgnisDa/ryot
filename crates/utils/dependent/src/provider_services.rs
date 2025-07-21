@@ -2,15 +2,15 @@ use std::sync::Arc;
 
 use anilist_provider::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService};
 use anyhow::{Result, anyhow};
+use audible_provider::AudibleService;
 use enum_models::{MediaLot, MediaSource};
 use giant_bomb_provider::GiantBombService;
+use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
+use igdb_provider::IgdbService;
 use media_models::MetadataDetails;
 use openlibrary_provider::OpenlibraryService;
 use providers::{
-    audible::AudibleService,
-    google_books::GoogleBooksService,
-    igdb::IgdbService,
     itunes::ITunesService,
     listennotes::ListennotesService,
     manga_updates::MangaUpdatesService,
