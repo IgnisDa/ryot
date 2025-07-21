@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anilist-provider = { path = "../../providers/anilist" }
+giant-bomb-provider = { path = "../../providers/giant-bomb" }
 application-utils = { path = "../application" }
 anyhow = { workspace = true }
 background-models = { path = "../../models/background" }

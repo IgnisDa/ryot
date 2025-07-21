@@ -1,5 +1,4 @@
 pub mod audible;
-pub mod giant_bomb;
 pub mod google_books;
 pub mod hardcover;
 pub mod igdb;

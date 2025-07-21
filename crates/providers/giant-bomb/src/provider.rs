@@ -15,10 +15,12 @@ use media_models::{
 };
 use traits::MediaProvider;
 
-use super::base::{BASE_URL, GiantBombService, ROLE_DEVELOPER, ROLE_PERSON, ROLE_PUBLISHER};
-use super::models::{
-    GiantBombDetailsResponse, GiantBombResource, GiantBombSearchResponse, combine_description,
-    extract_giant_bomb_guid, extract_year_from_date, get_prioritized_images, parse_date,
+use crate::{
+    base::{BASE_URL, GiantBombService, ROLE_DEVELOPER, ROLE_PERSON, ROLE_PUBLISHER},
+    models::{
+        GiantBombDetailsResponse, GiantBombResource, GiantBombSearchResponse, combine_description,
+        extract_giant_bomb_guid, extract_year_from_date, get_prioritized_images, parse_date,
+    },
 };
 
 #[async_trait]

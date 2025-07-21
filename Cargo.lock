@@ -1776,6 +1776,7 @@ dependencies = [
  "enum_meta",
  "fitness-models",
  "futures",
+ "giant-bomb-provider",
  "importer-models",
  "itertools 0.14.0",
  "markdown",
@@ -2599,6 +2600,28 @@ dependencies = [
  "r-efi",
  "wasi 0.14.2+wasi-0.2.4",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "giant-bomb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-graphql",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "reqwest",
+ "serde",
+ "supporting-service",
+ "tracing",
+ "traits",
 ]
 
 [[package]]
@@ -4395,7 +4418,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
- "async-graphql",
  "async-trait",
  "chrono",
  "common-models",
