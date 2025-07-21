@@ -200,7 +200,9 @@ const createOrUpdateSchema = z.object({
 			radarrSyncCollectionIds: zodCommaDelimitedString,
 			radarrTagIds: zodCommaDelimitedString.transform((val) =>
 				val
-					? val.map((id) => Number.parseInt(id)).filter((id) => !isNaN(id))
+					? val
+							.map((id) => Number.parseInt(id))
+							.filter((id) => !Number.isNaN(id))
 					: undefined,
 			),
 			sonarrBaseUrl: z.string().optional(),
@@ -210,7 +212,9 @@ const createOrUpdateSchema = z.object({
 			sonarrSyncCollectionIds: zodCommaDelimitedString,
 			sonarrTagIds: zodCommaDelimitedString.transform((val) =>
 				val
-					? val.map((id) => Number.parseInt(id)).filter((id) => !isNaN(id))
+					? val
+							.map((id) => Number.parseInt(id))
+							.filter((id) => !Number.isNaN(id))
 					: undefined,
 			),
 			jellyfinPushBaseUrl: z.string().optional(),
