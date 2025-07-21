@@ -20,6 +20,7 @@ members = [
     "crates/providers/google-books",
     "crates/providers/hardcover",
     "crates/providers/igdb",
+    "crates/providers/itunes",
     "crates/providers/openlibrary",
     "crates/providers/tmdb",
     "crates/resolvers/collection",

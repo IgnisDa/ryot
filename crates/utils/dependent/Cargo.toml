@@ -24,6 +24,7 @@ giant-bomb-provider = { path = "../../providers/giant-bomb" }
 google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
 igdb-provider = { path = "../../providers/igdb" }
+itunes-provider = { path = "../../providers/itunes" }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 tmdb-provider = { path = "../../providers/tmdb" }
 importer-models = { path = "../../models/importer" }

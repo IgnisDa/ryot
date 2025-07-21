@@ -1,4 +1,3 @@
-pub mod itunes;
 pub mod listennotes;
 pub mod manga_updates;
 pub mod myanimelist;

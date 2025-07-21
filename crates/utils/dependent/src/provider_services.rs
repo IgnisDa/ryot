@@ -8,10 +8,10 @@ use giant_bomb_provider::GiantBombService;
 use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
 use igdb_provider::IgdbService;
+use itunes_provider::ITunesService;
 use media_models::MetadataDetails;
 use openlibrary_provider::OpenlibraryService;
 use providers::{
-    itunes::ITunesService,
     listennotes::ListennotesService,
     manga_updates::MangaUpdatesService,
     myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
