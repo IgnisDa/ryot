@@ -13,7 +13,6 @@ members = [
     "crates/models/importer",
     "crates/models/media",
     "crates/models/user",
-    "crates/providers",
     "crates/providers/anilist",
     "crates/providers/audible",
     "crates/providers/giant-bomb",
