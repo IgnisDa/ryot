@@ -857,10 +857,10 @@ const ArrInputs = (props: {
 	defaults?: {
 		apiKey: string | null | undefined;
 		baseUrl: string | null | undefined;
+		tagIds: number[] | null | undefined;
 		profileId: number | null | undefined;
 		rootFolderPath: string | null | undefined;
 		syncCollectionIds: string[] | null | undefined;
-		tagIds: number[] | null | undefined;
 	};
 }) => {
 	const collections = useNonHiddenUserCollections();
