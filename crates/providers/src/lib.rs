@@ -1,4 +1,3 @@
-pub mod anilist;
 pub mod audible;
 pub mod giant_bomb;
 pub mod google_books;

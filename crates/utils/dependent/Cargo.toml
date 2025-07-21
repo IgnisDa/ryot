@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anilist-provider = { path = "../../providers/anilist" }
 application-utils = { path = "../application" }
 anyhow = { workspace = true }
 background-models = { path = "../../models/background" }

@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
+use anilist_provider::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService};
 use anyhow::{Result, anyhow};
 use enum_models::{MediaLot, MediaSource};
 use media_models::MetadataDetails;
 use providers::{
-    anilist::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService},
     audible::AudibleService,
     giant_bomb::GiantBombService,
     google_books::GoogleBooksService,
@@ -18,7 +20,6 @@ use providers::{
     vndb::VndbService,
     youtube_music::YoutubeMusicService,
 };
-use std::sync::Arc;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 

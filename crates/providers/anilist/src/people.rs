@@ -8,11 +8,13 @@ use enum_models::{MediaLot, MediaSource};
 use media_models::{PartialMetadataWithoutId, PeopleSearchItem};
 use traits::MediaProvider;
 
-use crate::anilist::base::AnilistService;
-use crate::anilist::models::{
-    GraphQLResponse, MediaSearchResponse, STUDIO_ROLE, StaffDetailsResponse, StudioDetailsResponse,
-    URL, build_staff_details_query, build_staff_search_query, build_studio_details_query,
-    build_studio_search_query, get_in_preferred_language,
+use crate::{
+    base::AnilistService,
+    models::{
+        GraphQLResponse, MediaSearchResponse, STUDIO_ROLE, StaffDetailsResponse,
+        StudioDetailsResponse, URL, build_staff_details_query, build_staff_search_query,
+        build_studio_details_query, build_studio_search_query, get_in_preferred_language,
+    },
 };
 
 #[derive(Debug, Clone)]

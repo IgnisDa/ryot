@@ -90,6 +90,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "anilist-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "nest_struct",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1735,6 +1761,7 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
+ "anilist-provider",
  "anyhow",
  "application-utils",
  "background-models",

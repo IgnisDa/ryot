@@ -7,15 +7,17 @@ use media_models::MetadataDetails;
 use media_models::MetadataSearchItem;
 use traits::MediaProvider;
 
-use crate::anilist::base::AnilistService;
-use crate::anilist::models::{MediaType, media_details, search};
+use crate::{
+    base::AnilistService,
+    models::{MediaType, media_details, search},
+};
 
 #[derive(Debug, Clone)]
-pub struct AnilistAnimeService {
+pub struct AnilistMangaService {
     base: AnilistService,
 }
 
-impl AnilistAnimeService {
+impl AnilistMangaService {
     pub async fn new(config: &config::AnilistConfig) -> Result<Self> {
         Ok(Self {
             base: AnilistService::new(config).await?,
@@ -24,7 +26,7 @@ impl AnilistAnimeService {
 }
 
 #[async_trait]
-impl MediaProvider for AnilistAnimeService {
+impl MediaProvider for AnilistMangaService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let details =
             media_details(&self.base.client, identifier, &self.base.preferred_language).await?;
@@ -40,7 +42,7 @@ impl MediaProvider for AnilistAnimeService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(
             &self.base.client,
-            MediaType::Anime,
+            MediaType::Manga,
             query,
             page,
             PAGE_SIZE,
