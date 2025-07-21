@@ -7,6 +7,5 @@ pub mod manga_updates;
 pub mod myanimelist;
 pub mod openlibrary;
 pub mod spotify;
-pub mod tmdb;
 pub mod vndb;
 pub mod youtube_music;

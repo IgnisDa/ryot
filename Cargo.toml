@@ -17,6 +17,7 @@ members = [
     "crates/providers/anilist",
     "crates/providers/giant-bomb",
     "crates/providers/hardcover",
+    "crates/providers/tmdb",
     "crates/resolvers/collection",
     "crates/resolvers/exporter",
     "crates/resolvers/file-storage",

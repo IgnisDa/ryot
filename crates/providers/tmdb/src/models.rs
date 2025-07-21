@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use chrono::NaiveDate;
 use common_models::{IdObject, NamedObject};
 use dependent_models::MetadataPersonRelated;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+use crate::base::TmdbService;
 
 pub static URL: &str = "https://api.themoviedb.org/3";
 
@@ -185,7 +188,7 @@ pub struct TmdbConfiguration {
 pub async fn fetch_company_media_by_type(
     media_type: String,
     identifier: &str,
-    base: &crate::tmdb::base::TmdbService,
+    base: &TmdbService,
 ) -> anyhow::Result<Vec<MetadataPersonRelated>> {
     use enum_models::MediaLot;
     use enum_models::MediaSource;

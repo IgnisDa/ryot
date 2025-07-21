@@ -24,8 +24,7 @@ use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::tmdb::base::TmdbService;
-use crate::tmdb::models::*;
+use crate::{base::TmdbService, models::*};
 
 pub struct TmdbShowService {
     pub base: TmdbService,

@@ -1,43 +1,30 @@
 [package]
-name = "miscellaneous-service"
+name = "tmdb-provider"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
 application-utils = { path = "../../utils/application" }
-background-models = { path = "../../models/background" }
+async-trait = { workspace = true }
 chrono = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
-convert_case = { workspace = true }
 database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
-enum_meta = { workspace = true }
 futures = { workspace = true }
+hashbag = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
-nanoid = { workspace = true }
-tmdb-provider = { path = "../../providers/tmdb" }
-regex = { workspace = true }
+reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
-sea-orm = { workspace = true }
-sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-supporting-service = { path = "../supporting" }
+supporting-service = { path = "../../services/supporting" }
 tracing = { workspace = true }
 traits = { path = "../../traits" }
-user-models = { path = "../../models/user" }
-uuid = { workspace = true }
-
-[dev-dependencies]
-rstest = { workspace = true }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["tracing"]

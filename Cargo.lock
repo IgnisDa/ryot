@@ -1796,6 +1796,7 @@ dependencies = [
  "slug",
  "sqlx",
  "supporting-service",
+ "tmdb-provider",
  "tracing",
  "traits",
  "user-models",
@@ -3258,6 +3259,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "supporting-service",
+ "tmdb-provider",
  "tokio",
  "tracing",
  "traits",
@@ -3737,7 +3739,6 @@ dependencies = [
  "media-models",
  "migrations",
  "nanoid",
- "providers",
  "regex",
  "rstest",
  "rust_decimal",
@@ -3747,6 +3748,7 @@ dependencies = [
  "serde",
  "serde_json",
  "supporting-service",
+ "tmdb-provider",
  "tracing",
  "traits",
  "user-models",
@@ -4458,14 +4460,12 @@ dependencies = [
  "educe",
  "enum-models",
  "futures",
- "hashbag",
  "itertools 0.14.0",
  "media-models",
  "paginate",
  "rand 0.9.1",
  "reqwest",
  "rust_decimal",
- "rust_decimal_macros",
  "rust_iso3166",
  "rustypipe",
  "sea-orm",
@@ -6322,6 +6322,33 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "tmdb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "hashbag",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
 
 [[package]]
 name = "tokio"

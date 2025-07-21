@@ -1,15 +1,14 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::bail;
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use application_utils::get_base_http_client;
-use common_utils::convert_date_to_year;
-use common_utils::ryot_log;
+use common_utils::{convert_date_to_year, ryot_log};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
-use enum_models::MediaLot;
-use enum_models::MediaSource;
-use futures::stream::{self, StreamExt};
-use futures::try_join;
+use enum_models::{MediaLot, MediaSource};
+use futures::{
+    stream::{self, StreamExt},
+    try_join,
+};
 use media_models::{
     MetadataExternalIdentifiers, PartialMetadataWithoutId, TmdbMetadataLookupResult, WatchProvider,
 };
@@ -20,7 +19,7 @@ use reqwest::{
 use serde_json::json;
 use supporting_service::SupportingService;
 
-use crate::tmdb::models::*;
+use crate::models::*;
 
 pub struct TmdbService {
     pub client: Client,

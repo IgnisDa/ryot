@@ -30,6 +30,7 @@ media-models = { path = "../../models/media" }
 nest_struct = { workspace = true }
 hardcover-provider = { path = "../../providers/hardcover" }
 providers = { path = "../../providers" }
+tmdb-provider = { path = "../../providers/tmdb" }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }

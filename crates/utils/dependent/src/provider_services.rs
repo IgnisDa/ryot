@@ -16,11 +16,11 @@ use providers::{
     myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
     openlibrary::OpenlibraryService,
     spotify::SpotifyService,
-    tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
     vndb::VndbService,
     youtube_music::YoutubeMusicService,
 };
 use supporting_service::SupportingService;
+use tmdb_provider::{NonMediaTmdbService, TmdbMovieService, TmdbShowService};
 use traits::MediaProvider;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
