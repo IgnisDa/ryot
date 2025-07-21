@@ -25,7 +25,10 @@ google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
 igdb-provider = { path = "../../providers/igdb" }
 itunes-provider = { path = "../../providers/itunes" }
+listennotes-provider = { path = "../../providers/listennotes" }
+manga-updates-provider = { path = "../../providers/manga-updates" }
 openlibrary-provider = { path = "../../providers/openlibrary" }
+spotify-provider = { path = "../../providers/spotify" }
 tmdb-provider = { path = "../../providers/tmdb" }
 importer-models = { path = "../../models/importer" }
 itertools = { workspace = true }

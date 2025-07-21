@@ -1811,6 +1811,8 @@ dependencies = [
  "importer-models",
  "itertools 0.14.0",
  "itunes-provider",
+ "listennotes-provider",
+ "manga-updates-provider",
  "markdown",
  "media-models",
  "migrations",
@@ -1826,6 +1828,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slug",
+ "spotify-provider",
  "sqlx",
  "supporting-service",
  "tmdb-provider",
@@ -3625,6 +3628,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
+name = "listennotes-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "traits",
+]
+
+[[package]]
 name = "litemap"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3673,6 +3700,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
 dependencies = [
  "hashbrown 0.15.2",
+]
+
+[[package]]
+name = "manga-updates-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
 ]
 
 [[package]]
@@ -4576,28 +4625,22 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-trait",
- "chrono",
  "common-models",
  "common-utils",
  "config",
  "const-str",
  "convert_case 0.8.0",
- "data-encoding",
  "database-models",
  "dependent-models",
  "enum-models",
- "futures",
  "itertools 0.14.0",
  "media-models",
  "rand 0.9.1",
  "reqwest",
  "rust_decimal",
  "rustypipe",
- "sea-orm",
  "serde",
  "serde_json",
- "serde_with",
- "supporting-service",
  "tracing",
  "traits",
 ]
@@ -5911,6 +5954,30 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der 0.7.9",
+]
+
+[[package]]
+name = "spotify-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "data-encoding",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "traits",
 ]
 
 [[package]]

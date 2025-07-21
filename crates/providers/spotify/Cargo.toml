@@ -1,0 +1,27 @@
+[package]
+name = "spotify-provider"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+application-utils = { path = "../../utils/application" }
+async-trait = { workspace = true }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+data-encoding = { workspace = true }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+futures = { workspace = true }
+media-models = { path = "../../models/media" }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+supporting-service = { path = "../../services/supporting" }
+traits = { path = "../../traits" }
+
+[package.metadata.cargo-machete]
+ignored = []

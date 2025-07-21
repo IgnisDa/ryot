@@ -9,16 +9,16 @@ use google_books_provider::GoogleBooksService;
 use hardcover_provider::HardcoverService;
 use igdb_provider::IgdbService;
 use itunes_provider::ITunesService;
+use listennotes_provider::ListennotesService;
+use manga_updates_provider::MangaUpdatesService;
 use media_models::MetadataDetails;
 use openlibrary_provider::OpenlibraryService;
 use providers::{
-    listennotes::ListennotesService,
-    manga_updates::MangaUpdatesService,
     myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
-    spotify::SpotifyService,
     vndb::VndbService,
     youtube_music::YoutubeMusicService,
 };
+use spotify_provider::SpotifyService;
 use supporting_service::SupportingService;
 use tmdb_provider::{NonMediaTmdbService, TmdbMovieService, TmdbShowService};
 use traits::MediaProvider;
