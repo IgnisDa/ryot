@@ -76,6 +76,7 @@ impl IntegrationService {
                             metadata.lot,
                             metadata.title,
                             specifics.radarr_root_folder_path.unwrap(),
+                            specifics.radarr_tag_ids.clone(),
                         )
                         .await
                     }
@@ -88,6 +89,7 @@ impl IntegrationService {
                             metadata.lot,
                             metadata.title,
                             specifics.sonarr_root_folder_path.unwrap(),
+                            specifics.sonarr_tag_ids.clone(),
                         )
                         .await
                     }
