@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-enum-models = { path = "../models/enum" }
 indoc = { workspace = true }
 sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 tracing = { workspace = true }
+
+enum-models = { path = "../models/enum" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

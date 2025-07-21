@@ -5,9 +5,10 @@ edition = "2024"
 
 [dependencies]
 async-graphql = { workspace = true }
+sea-orm = { workspace = true }
+
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
-fitness-service = { path = "../../services/fitness" }
 fitness-models = { path = "../../models/fitness" }
-sea-orm = { workspace = true }
+fitness-service = { path = "../../services/fitness" }
 traits = { path = "../../traits" }

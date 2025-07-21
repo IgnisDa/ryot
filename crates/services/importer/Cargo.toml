@@ -5,13 +5,29 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-application-utils = { path = "../../utils/application" }
-background-models = { path = "../../models/background" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 convert_case = { workspace = true }
 csv = { workspace = true }
 data-encoding = { workspace = true }
+flate2 = { workspace = true }
+futures = { workspace = true }
+indexmap = { workspace = true }
+itertools = { workspace = true }
+nest_struct = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
+serde-xml-rs = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+application-utils = { path = "../../utils/application" }
+background-models = { path = "../../models/background" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
@@ -21,25 +37,13 @@ enum-models = { path = "../../models/enum" }
 external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
 fitness-models = { path = "../../models/fitness" }
-flate2 = { workspace = true }
-futures = { workspace = true }
+google-books-provider = { path = "../../providers/google-books" }
+hardcover-provider = { path = "../../providers/hardcover" }
 importer-models = { path = "../../models/importer" }
-indexmap = { workspace = true }
-itertools = { workspace = true }
 media-models = { path = "../../models/media" }
-nest_struct = { workspace = true }
-providers = { path = "../../providers" }
-reqwest = { workspace = true }
-rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
-sea-orm = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-serde_with = { workspace = true }
-serde-xml-rs = { workspace = true }
+openlibrary-provider = { path = "../../providers/openlibrary" }
 supporting-service = { path = "../supporting" }
-tokio = { workspace = true }
-tracing = { workspace = true }
+tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }
 
 [package.metadata.cargo-machete]

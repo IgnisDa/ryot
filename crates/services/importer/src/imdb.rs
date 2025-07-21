@@ -7,8 +7,8 @@ use dependent_models::{ImportCompletedItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::DeployGenericCsvImportInput;
-pub use providers::tmdb::NonMediaTmdbService;
 use serde::Deserialize;
+pub use tmdb_provider::NonMediaTmdbService;
 
 use super::{ImportFailStep, ImportFailedItem};
 

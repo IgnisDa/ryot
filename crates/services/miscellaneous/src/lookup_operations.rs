@@ -11,9 +11,9 @@ use media_models::{
     MetadataLookupFoundResult, MetadataLookupNotFound, MetadataLookupResponse,
     SeenShowExtraInformation, TmdbMetadataLookupResult, UniqueMediaIdentifier,
 };
-use providers::tmdb::TmdbService;
 use regex::Regex;
 use supporting_service::SupportingService;
+use tmdb_provider::TmdbService;
 
 static CLEANING_PATTERNS: &[&str] = &[
     r"\([12]\d{3}\)",
