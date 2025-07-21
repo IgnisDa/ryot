@@ -84,15 +84,17 @@ pub struct IntegrationProviderSpecifics {
     pub komga_password: Option<String>,
     pub komga_provider: Option<MediaSource>,
 
-    pub radarr_base_url: Option<String>,
     pub radarr_api_key: Option<String>,
     pub radarr_profile_id: Option<i32>,
+    pub radarr_base_url: Option<String>,
+    pub radarr_tag_ids: Option<Vec<i32>>,
     pub radarr_root_folder_path: Option<String>,
     pub radarr_sync_collection_ids: Option<Vec<String>>,
 
     pub sonarr_profile_id: Option<i32>,
     pub sonarr_api_key: Option<String>,
     pub sonarr_base_url: Option<String>,
+    pub sonarr_tag_ids: Option<Vec<i32>>,
     pub sonarr_root_folder_path: Option<String>,
     pub sonarr_sync_collection_ids: Option<Vec<String>>,
 

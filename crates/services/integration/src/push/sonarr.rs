@@ -13,12 +13,13 @@ pub async fn push_progress(
     metadata_lot: MediaLot,
     metadata_title: String,
     root_folder_path: String,
+    tag_ids: Option<Vec<i32>>,
 ) -> Result<()> {
     if metadata_lot != MediaLot::Show {
         ryot_log!(debug, "Not a show, skipping {:#?}", metadata_title);
         return Ok(());
     }
-    let resource = json!({
+    let mut resource = json!({
         "monitored": true,
         "seasonFolder": true,
         "title": metadata_title,
@@ -29,6 +30,10 @@ pub async fn push_progress(
             "searchForMissingEpisodes": true
         }
     });
+
+    if let Some(tags) = tag_ids {
+        resource["tags"] = json!(tags);
+    }
     ryot_log!(debug, "Pushing series to Sonarr {:?}", resource);
     let client = Client::new();
     let mut headers = HeaderMap::new();
