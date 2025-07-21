@@ -28,6 +28,7 @@ indexmap = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../../models/media" }
 nest_struct = { workspace = true }
+hardcover-provider = { path = "../../providers/hardcover" }
 providers = { path = "../../providers" }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }

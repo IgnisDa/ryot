@@ -5,7 +5,7 @@ use reqwest::{
     header::{AUTHORIZATION, HeaderValue},
 };
 
-use crate::hardcover::models::{Editions, Response, URL, get_isbn_body};
+use crate::models::{Editions, Response, URL, get_isbn_body};
 
 pub struct HardcoverService {
     pub client: Client,

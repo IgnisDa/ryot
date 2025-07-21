@@ -22,7 +22,6 @@ futures = { workspace = true }
 hashbag = { workspace = true }
 itertools = { workspace = true }
 media-models = { path = "../models/media" }
-nest_struct = { workspace = true }
 paginate = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }

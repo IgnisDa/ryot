@@ -4,11 +4,11 @@ use anilist_provider::{AnilistAnimeService, AnilistMangaService, NonMediaAnilist
 use anyhow::{Result, anyhow};
 use enum_models::{MediaLot, MediaSource};
 use giant_bomb_provider::GiantBombService;
+use hardcover_provider::HardcoverService;
 use media_models::MetadataDetails;
 use providers::{
     audible::AudibleService,
     google_books::GoogleBooksService,
-    hardcover::HardcoverService,
     igdb::IgdbService,
     itunes::ITunesService,
     listennotes::ListennotesService,

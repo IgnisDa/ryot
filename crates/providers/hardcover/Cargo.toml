@@ -1,0 +1,27 @@
+[package]
+name = "hardcover-provider"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+application-utils = { path = "../../utils/application" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+database-models = { path = "../../models/database" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+media-models = { path = "../../models/media" }
+nest_struct = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+traits = { path = "../../traits" }
+
+[package.metadata.cargo-machete]
+ignored = ["tracing"]

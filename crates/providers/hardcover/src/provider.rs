@@ -13,10 +13,12 @@ use media_models::{
 };
 use traits::MediaProvider;
 
-use crate::hardcover::base::HardcoverService;
-use crate::hardcover::models::{
-    AuthorsByPk, BooksByPk, PublishersByPk, Response, SeriesByPk, URL, get_search_response,
-    query_type_from_specifics,
+use crate::{
+    base::HardcoverService,
+    models::{
+        AuthorsByPk, BooksByPk, PublishersByPk, Response, SeriesByPk, URL, get_search_response,
+        query_type_from_specifics,
+    },
 };
 
 #[async_trait]

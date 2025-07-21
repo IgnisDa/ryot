@@ -1777,6 +1777,7 @@ dependencies = [
  "fitness-models",
  "futures",
  "giant-bomb-provider",
+ "hardcover-provider",
  "importer-models",
  "itertools 0.14.0",
  "markdown",
@@ -2734,6 +2735,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hardcover-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "nest_struct",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "hashbag"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3217,6 +3242,7 @@ dependencies = [
  "fitness-models",
  "flate2",
  "futures",
+ "hardcover-provider",
  "importer-models",
  "indexmap 2.10.0",
  "itertools 0.14.0",
@@ -3296,6 +3322,7 @@ dependencies = [
  "external-models",
  "external-utils",
  "futures",
+ "hardcover-provider",
  "itertools 0.14.0",
  "media-models",
  "providers",
@@ -4434,7 +4461,6 @@ dependencies = [
  "hashbag",
  "itertools 0.14.0",
  "media-models",
- "nest_struct",
  "paginate",
  "rand 0.9.1",
  "reqwest",
