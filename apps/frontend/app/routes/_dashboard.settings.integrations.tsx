@@ -905,10 +905,10 @@ const ArrInputs = (props: {
 			/>
 			<TextInput
 				label="Tag IDs"
+				placeholder="1,2,3"
 				name={`providerSpecifics.${props.name}TagIds`}
-				defaultValue={props.defaults?.tagIds?.join(", ") || undefined}
-				description="Comma-separated list of tag IDs to apply to new items"
-				placeholder="1, 2, 3"
+				description="Comma separated list of tag IDs to apply to new items"
+				defaultValue={props.defaults?.tagIds?.join(",") || undefined}
 			/>
 		</>
 	);
