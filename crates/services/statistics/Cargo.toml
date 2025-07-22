@@ -5,17 +5,19 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+futures = { workspace = true }
+hashbag = { workspace = true }
+itertools = { workspace = true }
+sea-orm = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
-hashbag = { workspace = true }
-itertools = { workspace = true }
-sea-orm = { workspace = true }
 supporting-service = { path = "../supporting" }
-tokio = { workspace = true }
-tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tokio", "tracing"]

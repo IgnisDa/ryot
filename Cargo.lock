@@ -5965,6 +5965,7 @@ dependencies = [
  "dependent-models",
  "dependent-utils",
  "enum-models",
+ "futures",
  "hashbag",
  "itertools 0.14.0",
  "sea-orm",
