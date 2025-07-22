@@ -5,7 +5,11 @@ use common_models::{
     ApplicationDateRange, DailyUserActivitiesResponseGroupedBy, DailyUserActivityHourRecord,
     UserAnalyticsInput, UserLevelCacheKey,
 };
-use database_models::{daily_user_activity, prelude::DailyUserActivity};
+use database_models::{
+    daily_user_activity,
+    prelude::{DailyUserActivity, Review, Seen, UserMeasurement, Workout},
+    review, seen, user_measurement, workout,
+};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, DailyUserActivitiesResponse,
     DailyUserActivityItem, FitnessAnalyticsEquipment, FitnessAnalyticsExercise,
@@ -13,13 +17,14 @@ use dependent_models::{
 };
 use dependent_utils::calculate_user_activities_and_summary;
 use enum_models::{ExerciseEquipment, ExerciseMuscle};
+use futures::try_join;
 use hashbag::HashBag;
 use itertools::Itertools;
 use sea_orm::{
-    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, Order, QueryFilter, QueryOrder,
+    ColumnTrait, DerivePartialModel, EntityTrait, FromQueryResult, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait,
-    prelude::{Date, Expr},
-    sea_query::{Alias, Func, NullOrdering, PgFunc},
+    prelude::{DateTimeUtc, Expr},
+    sea_query::{Alias, Func, PgFunc},
 };
 use supporting_service::SupportingService;
 
@@ -47,26 +52,52 @@ impl StatisticsService {
                 }),
                 ApplicationCacheValue::UserAnalyticsParameters,
                 || async {
-                    let get_date = |ordering: Order| {
-                        DailyUserActivity::find()
-                            .filter(daily_user_activity::Column::UserId.eq(user_id))
+                    let date_ranges = try_join!(
+                        Seen::find()
+                            .filter(seen::Column::UserId.eq(user_id))
                             .select_only()
-                            .column(daily_user_activity::Column::Date)
-                            .order_by_with_nulls(
-                                daily_user_activity::Column::Date,
-                                ordering,
-                                NullOrdering::Last,
-                            )
-                            .into_tuple::<Date>()
+                            .column_as(seen::Column::FinishedOn.min(), "min_date")
+                            .column_as(seen::Column::FinishedOn.max(), "max_date")
+                            .into_tuple::<(Option<DateTimeUtc>, Option<DateTimeUtc>)>()
+                            .one(&self.0.db),
+                        Workout::find()
+                            .filter(workout::Column::UserId.eq(user_id))
+                            .select_only()
+                            .column_as(workout::Column::EndTime.min(), "min_date")
+                            .column_as(workout::Column::EndTime.max(), "max_date")
+                            .into_tuple::<(Option<DateTimeUtc>, Option<DateTimeUtc>)>()
+                            .one(&self.0.db),
+                        Review::find()
+                            .filter(review::Column::UserId.eq(user_id))
+                            .select_only()
+                            .column_as(review::Column::PostedOn.min(), "min_date")
+                            .column_as(review::Column::PostedOn.max(), "max_date")
+                            .into_tuple::<(Option<DateTimeUtc>, Option<DateTimeUtc>)>()
+                            .one(&self.0.db),
+                        UserMeasurement::find()
+                            .filter(user_measurement::Column::UserId.eq(user_id))
+                            .select_only()
+                            .column_as(user_measurement::Column::Timestamp.min(), "min_date")
+                            .column_as(user_measurement::Column::Timestamp.max(), "max_date")
+                            .into_tuple::<(Option<DateTimeUtc>, Option<DateTimeUtc>)>()
                             .one(&self.0.db)
-                    };
-                    let start_date = get_date(Order::Asc).await?;
-                    let end_date = get_date(Order::Desc).await?;
-                    let response = ApplicationDateRange {
-                        end_date,
+                    )?;
+
+                    let all_dates: Vec<_> =
+                        [date_ranges.0, date_ranges.1, date_ranges.2, date_ranges.3]
+                            .into_iter()
+                            .flatten()
+                            .flat_map(|(min, max)| [min, max])
+                            .filter_map(|date| date.map(|d| d.date_naive()))
+                            .collect();
+
+                    let start_date = all_dates.iter().min().copied();
+                    let end_date = all_dates.iter().max().copied();
+
+                    Ok(ApplicationDateRange {
                         start_date,
-                    };
-                    Ok(response)
+                        end_date,
+                    })
                 },
             )
             .await
