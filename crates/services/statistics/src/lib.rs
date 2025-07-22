@@ -8,7 +8,7 @@ use common_models::{
     DailyUserActivityHourRecordEntity, UserAnalyticsInput, UserLevelCacheKey,
 };
 use database_models::{
-    daily_user_activity, metadata,
+    metadata,
     prelude::{Exercise, Metadata, Review, Seen, UserMeasurement, UserToEntity, Workout},
     review, seen, user_measurement, user_to_entity, workout,
 };
@@ -38,6 +38,59 @@ use supporting_service::SupportingService;
 
 pub struct StatisticsService(pub Arc<SupportingService>);
 
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct DailyUserActivityModel {
+    pub user_id: String,
+    pub date: Option<NaiveDate>,
+    pub entity_ids: Vec<String>,
+    pub collection_review_count: i32,
+    pub total_metadata_count: i32,
+    pub metadata_review_count: i32,
+    pub metadata_collection_count: i32,
+    pub total_metadata_group_count: i32,
+    pub metadata_group_review_count: i32,
+    pub metadata_group_collection_count: i32,
+    pub total_person_count: i32,
+    pub person_review_count: i32,
+    pub person_collection_count: i32,
+    pub exercise_review_count: i32,
+    pub measurement_count: i32,
+    pub workout_count: i32,
+    pub workout_duration: i32,
+    pub audio_book_count: i32,
+    pub audio_book_duration: i32,
+    pub anime_count: i32,
+    pub book_count: i32,
+    pub book_pages: i32,
+    pub podcast_count: i32,
+    pub podcast_duration: i32,
+    pub manga_count: i32,
+    pub movie_count: i32,
+    pub movie_duration: i32,
+    pub music_count: i32,
+    pub music_duration: i32,
+    pub show_count: i32,
+    pub show_duration: i32,
+    pub video_game_count: i32,
+    pub video_game_duration: i32,
+    pub visual_novel_count: i32,
+    pub visual_novel_duration: i32,
+    pub workout_personal_bests: i32,
+    pub workout_weight: i32,
+    pub workout_reps: i32,
+    pub workout_distance: i32,
+    pub workout_rest_time: i32,
+    pub total_collection_count: i32,
+    pub total_review_count: i32,
+    pub total_count: i32,
+    pub total_duration: i32,
+    pub workout_calories_burnt: i32,
+    pub hour_records: Vec<DailyUserActivityHourRecord>,
+    pub workout_exercises: Vec<String>,
+    pub workout_muscles: Vec<ExerciseMuscle>,
+    pub workout_equipments: Vec<ExerciseEquipment>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromQueryResult)]
 struct SeenItem {
     seen_id: String,
@@ -63,18 +116,18 @@ struct SeenItem {
 }
 
 fn get_activity_count<'a>(
-    activities: &'a mut HashMap<Option<NaiveDate>, daily_user_activity::Model>,
+    activities: &'a mut HashMap<Option<NaiveDate>, DailyUserActivityModel>,
     user_id: &'a String,
     dt: Option<DateTimeUtc>,
     entity_id: String,
     entity_lot: EntityLot,
     metadata_lot: Option<MediaLot>,
     timestamp: DateTimeUtc,
-) -> &'a mut daily_user_activity::Model {
+) -> &'a mut DailyUserActivityModel {
     let date = dt.map(|d| d.date_naive());
     let existing = activities
         .entry(date)
-        .or_insert(daily_user_activity::Model {
+        .or_insert(DailyUserActivityModel {
             date,
             user_id: user_id.to_owned(),
             ..Default::default()
@@ -131,7 +184,7 @@ impl StatisticsService {
         query
     }
 
-    fn calculate_media_duration(&self, seen: &SeenItem, activity: &mut daily_user_activity::Model) {
+    fn calculate_media_duration(&self, seen: &SeenItem, activity: &mut DailyUserActivityModel) {
         match seen.metadata_lot {
             MediaLot::Show => {
                 if let (Some(show_seen), Some(show_extra)) =
@@ -205,7 +258,7 @@ impl StatisticsService {
         }
     }
 
-    fn convert_activity_to_item(mut activity: daily_user_activity::Model) -> DailyUserActivityItem {
+    fn convert_activity_to_item(mut activity: DailyUserActivityModel) -> DailyUserActivityItem {
         activity.hour_records.sort_by_key(|hr| hr.hour);
 
         let total_person_count = activity.person_review_count + activity.person_collection_count;
@@ -563,7 +616,7 @@ impl StatisticsService {
                         if activities.is_empty() {
                             vec![]
                         } else {
-                            let mut aggregated_activity = daily_user_activity::Model {
+                            let mut aggregated_activity = DailyUserActivityModel {
                                 date: None,
                                 user_id: user_id.to_owned(),
                                 ..Default::default()
