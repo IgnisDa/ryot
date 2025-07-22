@@ -6223,6 +6223,8 @@ name = "statistics-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "application-utils",
+ "chrono",
  "common-models",
  "database-models",
  "dependent-models",
@@ -6231,7 +6233,11 @@ dependencies = [
  "futures",
  "hashbag",
  "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
  "sea-orm",
+ "serde",
  "supporting-service",
  "tokio",
  "tracing",
