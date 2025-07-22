@@ -549,18 +549,6 @@ impl StatisticsService {
                             _ => {}
                         }
                     }
-                    let mut items: Vec<DailyUserActivityItem> = activities
-                        .clone()
-                        .into_values()
-                        .map(Self::convert_activity_to_item)
-                        .collect();
-
-                    items.sort_by_key(|item| item.day);
-
-                    let total_count = items.iter().map(|i| i.total_count).sum();
-                    let total_duration = items.iter().map(|i| i.total_duration).sum();
-                    let item_count = items.len();
-
                     let grouped_by = if let Some(group_by) = input.group_by {
                         group_by
                     } else if let (Some(start), Some(end)) =
@@ -577,6 +565,78 @@ impl StatisticsService {
                     } else {
                         DailyUserActivitiesResponseGroupedBy::Day
                     };
+
+                    let mut items: Vec<DailyUserActivityItem> = if grouped_by == DailyUserActivitiesResponseGroupedBy::AllTime {
+                        if activities.is_empty() {
+                            vec![]
+                        } else {
+                            let mut aggregated_activity = daily_user_activity::Model {
+                                date: None,
+                                user_id: user_id.to_owned(),
+                                ..Default::default()
+                            };
+
+                            for activity in activities.values() {
+                                aggregated_activity.audio_book_count += activity.audio_book_count;
+                                aggregated_activity.audio_book_duration += activity.audio_book_duration;
+                                aggregated_activity.anime_count += activity.anime_count;
+                                aggregated_activity.book_count += activity.book_count;
+                                aggregated_activity.book_pages += activity.book_pages;
+                                aggregated_activity.podcast_count += activity.podcast_count;
+                                aggregated_activity.podcast_duration += activity.podcast_duration;
+                                aggregated_activity.manga_count += activity.manga_count;
+                                aggregated_activity.movie_count += activity.movie_count;
+                                aggregated_activity.movie_duration += activity.movie_duration;
+                                aggregated_activity.music_count += activity.music_count;
+                                aggregated_activity.music_duration += activity.music_duration;
+                                aggregated_activity.show_count += activity.show_count;
+                                aggregated_activity.show_duration += activity.show_duration;
+                                aggregated_activity.video_game_count += activity.video_game_count;
+                                aggregated_activity.video_game_duration += activity.video_game_duration;
+                                aggregated_activity.visual_novel_count += activity.visual_novel_count;
+                                aggregated_activity.visual_novel_duration += activity.visual_novel_duration;
+                                aggregated_activity.workout_count += activity.workout_count;
+                                aggregated_activity.workout_duration += activity.workout_duration;
+                                aggregated_activity.workout_personal_bests += activity.workout_personal_bests;
+                                aggregated_activity.workout_weight += activity.workout_weight;
+                                aggregated_activity.workout_reps += activity.workout_reps;
+                                aggregated_activity.workout_distance += activity.workout_distance;
+                                aggregated_activity.workout_rest_time += activity.workout_rest_time;
+                                aggregated_activity.workout_calories_burnt += activity.workout_calories_burnt;
+                                aggregated_activity.measurement_count += activity.measurement_count;
+                                aggregated_activity.metadata_review_count += activity.metadata_review_count;
+                                aggregated_activity.collection_review_count += activity.collection_review_count;
+                                aggregated_activity.metadata_group_review_count += activity.metadata_group_review_count;
+                                aggregated_activity.person_review_count += activity.person_review_count;
+                                aggregated_activity.exercise_review_count += activity.exercise_review_count;
+                                aggregated_activity.person_collection_count += activity.person_collection_count;
+                                aggregated_activity.metadata_collection_count += activity.metadata_collection_count;
+                                aggregated_activity.metadata_group_collection_count += activity.metadata_group_collection_count;
+                                
+                                aggregated_activity.workout_exercises.extend(activity.workout_exercises.clone());
+                                aggregated_activity.workout_equipments.extend(activity.workout_equipments.clone());
+                                aggregated_activity.workout_muscles.extend(activity.workout_muscles.clone());
+                                aggregated_activity.hour_records.extend(activity.hour_records.clone());
+                                aggregated_activity.entity_ids.extend(activity.entity_ids.clone());
+                            }
+
+                            vec![Self::convert_activity_to_item(aggregated_activity)]
+                        }
+                    } else {
+                        activities
+                            .clone()
+                            .into_values()
+                            .map(Self::convert_activity_to_item)
+                            .collect()
+                    };
+
+                    if grouped_by != DailyUserActivitiesResponseGroupedBy::AllTime {
+                        items.sort_by_key(|item| item.day);
+                    }
+
+                    let total_count = items.iter().map(|i| i.total_count).sum();
+                    let total_duration = items.iter().map(|i| i.total_duration).sum();
+                    let item_count = items.len();
 
                     let activities_response = DailyUserActivitiesResponse {
                         items,
