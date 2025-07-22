@@ -48,6 +48,15 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(Alias::new("daily_user_activity"))
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 
