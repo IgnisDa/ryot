@@ -125,13 +125,11 @@ fn get_activity_count<'a>(
     timestamp: DateTimeUtc,
 ) -> &'a mut DailyUserActivityModel {
     let date = dt.map(|d| d.date_naive());
-    let existing = activities
-        .entry(date)
-        .or_insert(DailyUserActivityModel {
-            date,
-            user_id: user_id.to_owned(),
-            ..Default::default()
-        });
+    let existing = activities.entry(date).or_insert(DailyUserActivityModel {
+        date,
+        user_id: user_id.to_owned(),
+        ..Default::default()
+    });
     existing.entity_ids.push(entity_id.clone());
     let hour = if timestamp.minute() < 30 {
         timestamp.hour()
