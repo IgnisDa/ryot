@@ -87,12 +87,6 @@ pub async fn deploy_background_job(
             ))
             .await?;
         }
-        BackgroundJob::CalculateUserActivitiesAndSummary => {
-            ss.perform_application_job(ApplicationJob::Hp(
-                HpApplicationJob::RecalculateUserActivitiesAndSummary(user_id.to_owned(), true),
-            ))
-            .await?;
-        }
         BackgroundJob::ReviseUserWorkouts => {
             ss.perform_application_job(ApplicationJob::Mp(MpApplicationJob::ReviseUserWorkouts(
                 user_id.to_owned(),

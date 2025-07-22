@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{prelude::User, user};
-use database_utils::{admin_account_guard, deploy_job_to_calculate_user_activities_and_summary};
+use database_utils::admin_account_guard;
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::UserLot;
@@ -208,6 +208,5 @@ pub async fn register_user(
         .await
         .ok();
     }
-    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, ss).await?;
     Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
 }

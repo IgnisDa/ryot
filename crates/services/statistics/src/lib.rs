@@ -17,7 +17,6 @@ use dependent_models::{
     DailyUserActivityItem, FitnessAnalyticsEquipment, FitnessAnalyticsExercise,
     FitnessAnalyticsMuscle, UserAnalytics, UserFitnessAnalytics,
 };
-use dependent_utils::calculate_user_activities_and_summary;
 use enum_models::{EntityLot, ExerciseEquipment, ExerciseMuscle, MediaLot, SeenState};
 use futures::{TryStreamExt, try_join};
 use hashbag::HashBag;
@@ -280,14 +279,6 @@ impl StatisticsService {
             total_count: total_count as i64,
             total_duration: total_duration as i64,
         }
-    }
-
-    pub async fn calculate_user_activities_and_summary(
-        &self,
-        user_id: &String,
-        calculate_from_beginning: bool,
-    ) -> Result<()> {
-        calculate_user_activities_and_summary(user_id, &self.0, calculate_from_beginning).await
     }
 
     pub async fn user_analytics_parameters(

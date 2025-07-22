@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
-use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
+use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::{BackendError, EntityAssets, IdAndNamedObject};
 use common_utils::ryot_log;
@@ -398,21 +398,6 @@ pub async fn item_reviews(
         })
         .collect();
     Ok(all_reviews)
-}
-
-pub async fn deploy_job_to_calculate_user_activities_and_summary(
-    user_id: &String,
-    calculate_from_beginning: bool,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    ss.perform_application_job(ApplicationJob::Hp(
-        HpApplicationJob::RecalculateUserActivitiesAndSummary(
-            user_id.to_owned(),
-            calculate_from_beginning,
-        ),
-    ))
-    .await?;
-    Ok(())
 }
 
 pub async fn schedule_user_for_workout_revision(

@@ -198,7 +198,6 @@ pub enum BackgroundJob {
     UpdateAllExercises,
     SyncIntegrationsData,
     PerformBackgroundTasks,
-    CalculateUserActivitiesAndSummary,
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, Display)]
