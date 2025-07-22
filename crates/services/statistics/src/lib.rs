@@ -9,9 +9,7 @@ use common_models::{
 };
 use database_models::{
     daily_user_activity, metadata,
-    prelude::{
-        Exercise, Metadata, Review, Seen, UserMeasurement, UserToEntity, Workout,
-    },
+    prelude::{Exercise, Metadata, Review, Seen, UserMeasurement, UserToEntity, Workout},
     review, seen, user_measurement, user_to_entity, workout,
 };
 use dependent_models::{
@@ -356,231 +354,6 @@ impl StatisticsService {
             .await
     }
 
-    async fn daily_user_activities(
-        &self,
-        user_id: &String,
-        input: UserAnalyticsInput,
-    ) -> Result<DailyUserActivitiesResponse> {
-        let mut activities = HashMap::new();
-
-        let seen_query = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::State.eq(SeenState::Completed));
-        let mut seen_stream = Self::apply_date_filters(
-            seen_query,
-            &input.date_range,
-            seen::Column::LastUpdatedOn,
-            None::<seen::Column>,
-        )
-        .left_join(Metadata)
-        .select_only()
-        .column_as(seen::Column::Id, "seen_id")
-        .columns([
-            seen::Column::ShowExtraInformation,
-            seen::Column::PodcastExtraInformation,
-            seen::Column::AnimeExtraInformation,
-            seen::Column::MangaExtraInformation,
-            seen::Column::MetadataId,
-            seen::Column::FinishedOn,
-            seen::Column::LastUpdatedOn,
-            seen::Column::ManualTimeSpent,
-        ])
-        .column_as(metadata::Column::Lot, "metadata_lot")
-        .columns([
-            metadata::Column::AudioBookSpecifics,
-            metadata::Column::BookSpecifics,
-            metadata::Column::MovieSpecifics,
-            metadata::Column::MusicSpecifics,
-            metadata::Column::PodcastSpecifics,
-            metadata::Column::ShowSpecifics,
-            metadata::Column::VideoGameSpecifics,
-            metadata::Column::VisualNovelSpecifics,
-            metadata::Column::AnimeSpecifics,
-            metadata::Column::MangaSpecifics,
-        ])
-        .into_model::<SeenItem>()
-        .stream(&self.0.db)
-        .await?;
-
-        while let Some(seen) = seen_stream.try_next().await? {
-            let activity = get_activity_count(
-                &mut activities,
-                user_id,
-                seen.finished_on,
-                seen.seen_id.clone(),
-                EntityLot::Metadata,
-                Some(seen.metadata_lot),
-                seen.last_updated_on,
-            );
-
-            self.calculate_media_duration(&seen, activity);
-
-            match seen.metadata_lot {
-                MediaLot::Book => activity.book_count += 1,
-                MediaLot::Show => activity.show_count += 1,
-                MediaLot::Music => activity.music_count += 1,
-                MediaLot::Anime => activity.anime_count += 1,
-                MediaLot::Movie => activity.movie_count += 1,
-                MediaLot::Manga => activity.manga_count += 1,
-                MediaLot::Podcast => activity.podcast_count += 1,
-                MediaLot::VideoGame => activity.video_game_count += 1,
-                MediaLot::AudioBook => activity.audio_book_count += 1,
-                MediaLot::VisualNovel => activity.visual_novel_count += 1,
-            }
-        }
-
-        let (exercises, user_exercises) = try_join!(
-            Exercise::find().all(&self.0.db),
-            UserToEntity::find()
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(user_to_entity::Column::ExerciseId.is_not_null())
-                .all(&self.0.db)
-        )?;
-
-        let workout_query = Workout::find().filter(workout::Column::UserId.eq(user_id));
-        let mut workout_stream = Self::apply_date_filters(
-            workout_query,
-            &input.date_range,
-            workout::Column::EndTime,
-            None::<workout::Column>,
-        )
-        .stream(&self.0.db)
-        .await?;
-
-        while let Some(workout) = workout_stream.try_next().await? {
-            let activity = get_activity_count(
-                &mut activities,
-                user_id,
-                Some(workout.end_time),
-                workout.id,
-                EntityLot::Workout,
-                None,
-                workout.start_time,
-            );
-            activity.workout_count += 1;
-            activity.workout_calories_burnt += workout
-                .calories_burnt
-                .unwrap_or_default()
-                .to_i32()
-                .unwrap_or_default();
-            activity.workout_duration += workout.duration / 60;
-            let workout_total = workout.summary.total.unwrap();
-            activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
-            activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
-            activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
-            activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
-            activity.workout_rest_time += (workout_total.rest_time as i32) / 60;
-
-            for exercise in workout.information.exercises {
-                let db_ex = exercises.iter().find(|e| e.id == exercise.id).unwrap();
-                if user_exercises
-                    .iter()
-                    .find(|e| e.exercise_id == Some(db_ex.id.clone()))
-                    .unwrap()
-                    .exercise_extra_information
-                    .as_ref()
-                    .map(|d| d.settings.exclude_from_analytics)
-                    .unwrap_or_default()
-                {
-                    continue;
-                }
-                activity.workout_exercises.push(db_ex.name.clone());
-                activity.workout_equipments.extend(db_ex.equipment);
-                activity.workout_muscles.extend(db_ex.muscles.clone());
-            }
-        }
-
-        let measurement_query =
-            UserMeasurement::find().filter(user_measurement::Column::UserId.eq(user_id));
-        let mut measurement_stream = Self::apply_date_filters(
-            measurement_query,
-            &input.date_range,
-            user_measurement::Column::Timestamp,
-            None::<user_measurement::Column>,
-        )
-        .stream(&self.0.db)
-        .await?;
-
-        while let Some(measurement) = measurement_stream.try_next().await? {
-            let activity = get_activity_count(
-                &mut activities,
-                user_id,
-                Some(measurement.timestamp),
-                measurement.timestamp.to_string(),
-                EntityLot::UserMeasurement,
-                None,
-                measurement.timestamp,
-            );
-            activity.measurement_count += 1;
-        }
-
-        let review_query = Review::find().filter(review::Column::UserId.eq(user_id));
-        let mut review_stream = Self::apply_date_filters(
-            review_query,
-            &input.date_range,
-            review::Column::PostedOn,
-            None::<review::Column>,
-        )
-        .stream(&self.0.db)
-        .await?;
-
-        while let Some(review) = review_stream.try_next().await? {
-            let activity = get_activity_count(
-                &mut activities,
-                user_id,
-                Some(review.posted_on),
-                review.id,
-                EntityLot::Review,
-                None,
-                review.posted_on,
-            );
-            match review.entity_lot {
-                EntityLot::Person => activity.person_review_count += 1,
-                EntityLot::Exercise => activity.exercise_review_count += 1,
-                EntityLot::Metadata => activity.metadata_review_count += 1,
-                EntityLot::Collection => activity.collection_review_count += 1,
-                EntityLot::MetadataGroup => activity.metadata_group_review_count += 1,
-                _ => {}
-            }
-        }
-
-        let mut items: Vec<DailyUserActivityItem> = activities
-            .into_values()
-            .map(Self::convert_activity_to_item)
-            .collect();
-
-        items.sort_by_key(|item| item.day);
-
-        let total_count = items.iter().map(|i| i.total_count).sum();
-        let total_duration = items.iter().map(|i| i.total_duration).sum();
-        let item_count = items.len();
-
-        let grouped_by = if let Some(group_by) = input.group_by {
-            group_by
-        } else if let (Some(start), Some(end)) =
-            (input.date_range.start_date, input.date_range.end_date)
-        {
-            let num_days = (end - start).num_days() + 1;
-            if num_days >= 500 {
-                DailyUserActivitiesResponseGroupedBy::Year
-            } else if num_days >= 200 {
-                DailyUserActivitiesResponseGroupedBy::Month
-            } else {
-                DailyUserActivitiesResponseGroupedBy::Day
-            }
-        } else {
-            DailyUserActivitiesResponseGroupedBy::Day
-        };
-
-        Ok(DailyUserActivitiesResponse {
-            items,
-            grouped_by,
-            item_count,
-            total_count,
-            total_duration,
-        })
-    }
-
     pub async fn user_analytics(
         &self,
         user_id: &String,
@@ -697,10 +470,13 @@ impl StatisticsService {
                             .unwrap_or_default();
                         activity.workout_duration += workout.duration / 60;
                         let workout_total = workout.summary.total.unwrap();
-                        activity.workout_personal_bests += workout_total.personal_bests_achieved as i32;
-                        activity.workout_weight += workout_total.weight.to_i32().unwrap_or_default();
+                        activity.workout_personal_bests +=
+                            workout_total.personal_bests_achieved as i32;
+                        activity.workout_weight +=
+                            workout_total.weight.to_i32().unwrap_or_default();
                         activity.workout_reps += workout_total.reps.to_i32().unwrap_or_default();
-                        activity.workout_distance += workout_total.distance.to_i32().unwrap_or_default();
+                        activity.workout_distance +=
+                            workout_total.distance.to_i32().unwrap_or_default();
                         activity.workout_rest_time += (workout_total.rest_time as i32) / 60;
 
                         for exercise in workout.information.exercises {
@@ -721,7 +497,8 @@ impl StatisticsService {
                             activity.workout_muscles.extend(db_ex.muscles.clone());
                         }
                     }
-                    let measurement_query = UserMeasurement::find().filter(user_measurement::Column::UserId.eq(user_id));
+                    let measurement_query = UserMeasurement::find()
+                        .filter(user_measurement::Column::UserId.eq(user_id));
                     let mut measurement_stream = Self::apply_date_filters(
                         measurement_query,
                         &input.date_range,
@@ -813,7 +590,11 @@ impl StatisticsService {
                         for hour in &activity.hour_records {
                             let index = hours.iter().position(|h| h.hour == hour.hour);
                             if let Some(index) = index {
-                                hours.get_mut(index).unwrap().entities.extend(hour.entities.clone());
+                                hours
+                                    .get_mut(index)
+                                    .unwrap()
+                                    .entities
+                                    .extend(hour.entities.clone());
                             } else {
                                 hours.push(hour.clone());
                             }
@@ -826,8 +607,10 @@ impl StatisticsService {
                     let workout_duration = activities.values().map(|a| a.workout_duration).sum();
                     let workout_rest_time = activities.values().map(|a| a.workout_rest_time).sum();
                     let measurement_count = activities.values().map(|a| a.measurement_count).sum();
-                    let workout_calories_burnt = activities.values().map(|a| a.workout_calories_burnt).sum();
-                    let workout_personal_bests = activities.values().map(|a| a.workout_personal_bests).sum();
+                    let workout_calories_burnt =
+                        activities.values().map(|a| a.workout_calories_burnt).sum();
+                    let workout_personal_bests =
+                        activities.values().map(|a| a.workout_personal_bests).sum();
 
                     let workout_muscles = activities
                         .values()
