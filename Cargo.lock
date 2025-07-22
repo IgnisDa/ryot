@@ -90,6 +90,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "anilist-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "nest_struct",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "anstream"
 version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -390,6 +416,33 @@ name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+
+[[package]]
+name = "audible-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "database-models",
+ "dependent-models",
+ "educe",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "paginate",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "strum",
+ "tracing",
+ "traits",
+]
 
 [[package]]
 name = "autocfg"
@@ -1735,8 +1788,10 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
+ "anilist-provider",
  "anyhow",
  "application-utils",
+ "audible-provider",
  "background-models",
  "chrono",
  "common-models",
@@ -1749,14 +1804,22 @@ dependencies = [
  "enum_meta",
  "fitness-models",
  "futures",
+ "giant-bomb-provider",
+ "google-books-provider",
+ "hardcover-provider",
+ "igdb-provider",
  "importer-models",
  "itertools 0.14.0",
+ "itunes-provider",
+ "listennotes-provider",
+ "manga-updates-provider",
  "markdown",
  "media-models",
  "migrations",
+ "myanimelist-provider",
  "nanoid",
  "notification-service",
- "providers",
+ "openlibrary-provider",
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
@@ -1765,12 +1828,16 @@ dependencies = [
  "serde",
  "serde_json",
  "slug",
+ "spotify-provider",
  "sqlx",
  "supporting-service",
+ "tmdb-provider",
  "tracing",
  "traits",
  "user-models",
  "uuid",
+ "vndb-provider",
+ "youtube-music-provider",
 ]
 
 [[package]]
@@ -2575,6 +2642,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "giant-bomb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-graphql",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "reqwest",
+ "serde",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2585,6 +2674,28 @@ name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
+
+[[package]]
+name = "google-books-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
+]
 
 [[package]]
 name = "governor"
@@ -2681,6 +2792,30 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "hardcover-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "nest_struct",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "tracing",
+ "traits",
 ]
 
 [[package]]
@@ -3123,6 +3258,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "igdb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "rust_iso3166",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "importer-models"
 version = "0.1.0"
 dependencies = [
@@ -3167,12 +3329,14 @@ dependencies = [
  "fitness-models",
  "flate2",
  "futures",
+ "google-books-provider",
+ "hardcover-provider",
  "importer-models",
  "indexmap 2.10.0",
  "itertools 0.14.0",
  "media-models",
  "nest_struct",
- "providers",
+ "openlibrary-provider",
  "reqwest",
  "rust_decimal",
  "rust_decimal_macros",
@@ -3182,6 +3346,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "supporting-service",
+ "tmdb-provider",
  "tokio",
  "tracing",
  "traits",
@@ -3246,9 +3411,11 @@ dependencies = [
  "external-models",
  "external-utils",
  "futures",
+ "google-books-provider",
+ "hardcover-provider",
  "itertools 0.14.0",
  "media-models",
- "providers",
+ "openlibrary-provider",
  "regex",
  "reqwest",
  "rust_decimal",
@@ -3359,6 +3526,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d75a2a4b1b190afb6f5425f10f6a8f959d2ea0b9c2b1d79553551850539e4674"
 
 [[package]]
+name = "itunes-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "traits",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3441,6 +3630,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
+name = "listennotes-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "supporting-service",
+ "traits",
+]
+
+[[package]]
 name = "litemap"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3489,6 +3702,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
 dependencies = [
  "hashbrown 0.15.2",
+]
+
+[[package]]
+name = "manga-updates-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
 ]
 
 [[package]]
@@ -3660,7 +3895,6 @@ dependencies = [
  "media-models",
  "migrations",
  "nanoid",
- "providers",
  "regex",
  "rstest",
  "rust_decimal",
@@ -3670,6 +3904,7 @@ dependencies = [
  "serde",
  "serde_json",
  "supporting-service",
+ "tmdb-provider",
  "tracing",
  "traits",
  "user-models",
@@ -3691,6 +3926,28 @@ dependencies = [
  "mime",
  "spin",
  "version_check",
+]
+
+[[package]]
+name = "myanimelist-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "rand 0.9.1",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
 ]
 
 [[package]]
@@ -3901,6 +4158,29 @@ dependencies = [
  "subtle",
  "thiserror 1.0.69",
  "url",
+]
+
+[[package]]
+name = "openlibrary-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "config",
+ "convert_case 0.8.0",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tracing",
+ "traits",
 ]
 
 [[package]]
@@ -4360,47 +4640,6 @@ dependencies = [
  "syn 2.0.104",
  "version_check",
  "yansi",
-]
-
-[[package]]
-name = "providers"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "application-utils",
- "async-graphql",
- "async-trait",
- "chrono",
- "common-models",
- "common-utils",
- "config",
- "const-str",
- "convert_case 0.8.0",
- "data-encoding",
- "database-models",
- "dependent-models",
- "educe",
- "enum-models",
- "futures",
- "hashbag",
- "itertools 0.14.0",
- "media-models",
- "nest_struct",
- "paginate",
- "rand 0.9.1",
- "reqwest",
- "rust_decimal",
- "rust_decimal_macros",
- "rust_iso3166",
- "rustypipe",
- "sea-orm",
- "serde",
- "serde_json",
- "serde_with",
- "strum",
- "supporting-service",
- "tracing",
- "traits",
 ]
 
 [[package]]
@@ -5715,6 +5954,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "spotify-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "data-encoding",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "traits",
+]
+
+[[package]]
 name = "sqlx"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6248,6 +6511,33 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "tmdb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "hashbag",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
 
 [[package]]
 name = "tokio"
@@ -6817,6 +7107,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
+name = "vndb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "config",
+ "const-str",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "traits",
+]
+
+[[package]]
 name = "vsimd"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7286,6 +7598,23 @@ dependencies = [
  "quote",
  "syn 2.0.104",
  "synstructure",
+]
+
+[[package]]
+name = "youtube-music-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "rustypipe",
+ "traits",
 ]
 
 [[package]]

@@ -1,26 +1,25 @@
-use anyhow::{Result, anyhow};
-use enum_models::{MediaLot, MediaSource};
-use media_models::MetadataDetails;
-use providers::{
-    anilist::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService},
-    audible::AudibleService,
-    giant_bomb::GiantBombService,
-    google_books::GoogleBooksService,
-    hardcover::HardcoverService,
-    igdb::IgdbService,
-    itunes::ITunesService,
-    listennotes::ListennotesService,
-    manga_updates::MangaUpdatesService,
-    myanimelist::{MalAnimeService, MalMangaService, NonMediaMalService},
-    openlibrary::OpenlibraryService,
-    spotify::SpotifyService,
-    tmdb::{NonMediaTmdbService, TmdbMovieService, TmdbShowService},
-    vndb::VndbService,
-    youtube_music::YoutubeMusicService,
-};
 use std::sync::Arc;
+
+use anilist_provider::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService};
+use anyhow::{Result, anyhow};
+use audible_provider::AudibleService;
+use enum_models::{MediaLot, MediaSource};
+use giant_bomb_provider::GiantBombService;
+use google_books_provider::GoogleBooksService;
+use hardcover_provider::HardcoverService;
+use igdb_provider::IgdbService;
+use itunes_provider::ITunesService;
+use listennotes_provider::ListennotesService;
+use manga_updates_provider::MangaUpdatesService;
+use media_models::MetadataDetails;
+use myanimelist_provider::{MalAnimeService, MalMangaService, NonMediaMalService};
+use openlibrary_provider::OpenlibraryService;
+use spotify_provider::SpotifyService;
 use supporting_service::SupportingService;
+use tmdb_provider::{NonMediaTmdbService, TmdbMovieService, TmdbShowService};
 use traits::MediaProvider;
+use vndb_provider::VndbService;
+use youtube_music_provider::YoutubeMusicService;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 

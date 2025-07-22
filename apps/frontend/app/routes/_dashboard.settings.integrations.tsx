@@ -76,30 +76,6 @@ import { zodCommaDelimitedString } from "~/lib/shared/validation";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.integrations";
 
-const PRO_INTEGRATIONS = [
-	IntegrationProvider.JellyfinPush,
-	IntegrationProvider.YoutubeMusic,
-	IntegrationProvider.RyotBrowserExtension,
-];
-const YANK_INTEGRATIONS = [
-	IntegrationProvider.Komga,
-	IntegrationProvider.PlexYank,
-	IntegrationProvider.YoutubeMusic,
-	IntegrationProvider.Audiobookshelf,
-];
-const PUSH_INTEGRATIONS = [
-	IntegrationProvider.Radarr,
-	IntegrationProvider.Sonarr,
-	IntegrationProvider.JellyfinPush,
-];
-const SYNC_TO_OWNED_COLLECTION_INTEGRATIONS = [
-	IntegrationProvider.Komga,
-	IntegrationProvider.PlexYank,
-	IntegrationProvider.Audiobookshelf,
-];
-const NO_SHOW_URL = [...YANK_INTEGRATIONS, ...PUSH_INTEGRATIONS];
-const NO_PROGRESS_ADJUSTMENT = [...PUSH_INTEGRATIONS];
-
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userIntegrations }] = await Promise.all([
 		serverGqlService.authenticatedRequest(
@@ -167,62 +143,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.run();
 };
-
-const MINIMUM_PROGRESS = "2";
-const MAXIMUM_PROGRESS = "95";
-
-const createOrUpdateSchema = z.object({
-	name: z.string().optional(),
-	integrationId: z.string().optional(),
-	minimumProgress: z.string().optional(),
-	maximumProgress: z.string().optional(),
-	isDisabled: zodCheckboxAsString.optional(),
-	syncToOwnedCollection: zodCheckboxAsString.optional(),
-	provider: z.enum(IntegrationProvider).optional(),
-	extraSettings: z.object({
-		disableOnContinuousErrors: zodCheckboxAsString,
-	}),
-	providerSpecifics: z
-		.object({
-			plexYankBaseUrl: z.string().optional(),
-			plexYankToken: z.string().optional(),
-			plexSinkUsername: z.string().optional(),
-			audiobookshelfBaseUrl: z.string().optional(),
-			audiobookshelfToken: z.string().optional(),
-			komgaBaseUrl: z.string().optional(),
-			komgaUsername: z.string().optional(),
-			komgaPassword: z.string().optional(),
-			komgaProvider: z.enum(MediaSource).optional(),
-			radarrBaseUrl: z.string().optional(),
-			radarrApiKey: z.string().optional(),
-			radarrProfileId: z.number().optional(),
-			radarrRootFolderPath: z.string().optional(),
-			radarrSyncCollectionIds: zodCommaDelimitedString,
-			sonarrBaseUrl: z.string().optional(),
-			sonarrApiKey: z.string().optional(),
-			sonarrProfileId: z.number().optional(),
-			sonarrRootFolderPath: z.string().optional(),
-			sonarrSyncCollectionIds: zodCommaDelimitedString,
-			jellyfinPushBaseUrl: z.string().optional(),
-			jellyfinPushUsername: z.string().optional(),
-			jellyfinPushPassword: z.string().optional(),
-			youtubeMusicTimezone: z.string().optional(),
-			youtubeMusicAuthCookie: z.string().optional(),
-			ryotBrowserExtensionDisabledSites: z
-				.string()
-				.optional()
-				.transform((val) =>
-					val
-						? val.split("\n").filter((line) => line.trim() !== "")
-						: undefined,
-				),
-		})
-		.optional(),
-});
-
-const deleteSchema = z.object({
-	integrationId: z.string(),
-});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
@@ -399,7 +319,7 @@ const DisplayIntegration = (props: {
 							) : null}
 						</Box>
 						<Group>
-							{!NO_SHOW_URL.includes(props.integration.provider) ? (
+							{shouldShowUrl(props.integration.provider) ? (
 								<ActionIcon color="blue" onClick={integrationUrlToggle}>
 									{integrationUrlOpened ? <IconEyeClosed /> : <IconEye />}
 								</ActionIcon>
@@ -467,6 +387,459 @@ const DisplayIntegration = (props: {
 	);
 };
 
+type FieldType =
+	| "text"
+	| "number"
+	| "select"
+	| "password"
+	| "textarea"
+	| "multiselect";
+
+interface FieldConfig {
+	name: string;
+	label: string;
+	rows?: number;
+	type: FieldType;
+	notRequired?: true;
+	description?: string;
+	placeholder?: string;
+	options?: { value: string; label: string }[];
+	transform?: (value: string | undefined) => unknown;
+}
+
+interface ProviderConfig {
+	fields?: FieldConfig[];
+	capabilities: {
+		isPro?: true;
+		isYank?: true;
+		isPush?: true;
+		showUrl?: true;
+		progressAdjustment?: true;
+		syncToOwnedCollection?: true;
+	};
+}
+
+const tagIdsTransform = (val: string | undefined) =>
+	val
+		? val
+				.split(",")
+				.map((id) => Number.parseInt(id.trim()))
+				.filter((id) => !Number.isNaN(id))
+		: undefined;
+
+const disabledSitesTransform = (val: string | undefined) =>
+	val ? val.split("\n").filter((line) => line.trim() !== "") : undefined;
+
+const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
+	[IntegrationProvider.Audiobookshelf]: {
+		capabilities: {
+			isYank: true,
+			progressAdjustment: true,
+			syncToOwnedCollection: true,
+		},
+		fields: [
+			{
+				type: "text",
+				label: "Base Url",
+				name: "audiobookshelfBaseUrl",
+			},
+			{
+				type: "text",
+				label: "Token",
+				name: "audiobookshelfToken",
+			},
+		],
+	},
+	[IntegrationProvider.Komga]: {
+		capabilities: {
+			isYank: true,
+			progressAdjustment: true,
+			syncToOwnedCollection: true,
+		},
+		fields: [
+			{ name: "komgaBaseUrl", label: "Base Url", type: "text" },
+			{
+				type: "text",
+				label: "Username",
+				name: "komgaUsername",
+			},
+			{
+				type: "password",
+				label: "Password",
+				name: "komgaPassword",
+			},
+			{
+				type: "select",
+				label: "Provider",
+				name: "komgaProvider",
+				options: [MediaSource.Anilist, MediaSource.Myanimelist].map(
+					(source) => ({
+						value: source,
+						label: changeCase(source),
+					}),
+				),
+			},
+		],
+	},
+	[IntegrationProvider.PlexYank]: {
+		capabilities: {
+			isYank: true,
+			progressAdjustment: true,
+			syncToOwnedCollection: true,
+		},
+		fields: [
+			{
+				type: "text",
+				label: "Base URL",
+				name: "plexYankBaseUrl",
+			},
+			{
+				type: "text",
+				label: "Plex token",
+				name: "plexYankToken",
+			},
+		],
+	},
+	[IntegrationProvider.YoutubeMusic]: {
+		capabilities: {
+			isPro: true,
+			isYank: true,
+			progressAdjustment: true,
+		},
+		fields: [
+			{
+				type: "select",
+				label: "Timezone",
+				name: "youtubeMusicTimezone",
+				options: Intl.supportedValuesOf("timeZone").map((tz) => ({
+					value: tz,
+					label: tz,
+				})),
+			},
+			{
+				type: "text",
+				label: "Auth Cookie",
+				name: "youtubeMusicAuthCookie",
+				description: "Follow the link above to obtain the correct cookie",
+			},
+		],
+	},
+	[IntegrationProvider.PlexSink]: {
+		capabilities: { showUrl: true, progressAdjustment: true },
+		fields: [
+			{
+				type: "text",
+				notRequired: true,
+				label: "Username",
+				name: "plexSinkUsername",
+			},
+		],
+	},
+	[IntegrationProvider.JellyfinPush]: {
+		capabilities: { isPro: true, isPush: true },
+		fields: [
+			{
+				type: "text",
+				label: "Base URL",
+				name: "jellyfinPushBaseUrl",
+			},
+			{
+				type: "text",
+				label: "Username",
+				name: "jellyfinPushUsername",
+			},
+			{
+				type: "password",
+				label: "Password",
+				notRequired: true,
+				name: "jellyfinPushPassword",
+			},
+		],
+	},
+	[IntegrationProvider.Radarr]: {
+		capabilities: { isPush: true },
+		fields: [
+			{
+				type: "text",
+				label: "Base Url",
+				name: "radarrBaseUrl",
+			},
+			{ name: "radarrApiKey", label: "Token", type: "text" },
+			{
+				type: "number",
+				label: "Profile ID",
+				name: "radarrProfileId",
+			},
+			{
+				type: "text",
+				label: "Root Folder",
+				name: "radarrRootFolderPath",
+			},
+			{
+				type: "multiselect",
+				label: "Collections",
+				name: "radarrSyncCollectionIds",
+			},
+			{
+				type: "text",
+				label: "Tag IDs",
+				notRequired: true,
+				placeholder: "1,2,3",
+				name: "radarrTagIds",
+				transform: tagIdsTransform,
+				description: "Comma separated list of tag IDs to apply to new items",
+			},
+		],
+	},
+	[IntegrationProvider.Sonarr]: {
+		capabilities: { isPush: true },
+		fields: [
+			{
+				type: "text",
+				label: "Base Url",
+				name: "sonarrBaseUrl",
+			},
+			{ name: "sonarrApiKey", label: "Token", type: "text" },
+			{
+				type: "number",
+				label: "Profile ID",
+				name: "sonarrProfileId",
+			},
+			{
+				type: "text",
+				label: "Root Folder",
+				name: "sonarrRootFolderPath",
+			},
+			{
+				type: "multiselect",
+				label: "Collections",
+				name: "sonarrSyncCollectionIds",
+			},
+			{
+				type: "text",
+				label: "Tag IDs",
+				notRequired: true,
+				placeholder: "1,2,3",
+				name: "sonarrTagIds",
+				transform: tagIdsTransform,
+				description: "Comma separated list of tag IDs to apply to new items",
+			},
+		],
+	},
+	[IntegrationProvider.RyotBrowserExtension]: {
+		capabilities: { isPro: true, showUrl: true, progressAdjustment: true },
+		fields: [
+			{
+				rows: 4,
+				type: "textarea",
+				notRequired: true,
+				label: "Disabled Sites",
+				transform: disabledSitesTransform,
+				placeholder: "netflix.com\nhbo.com",
+				name: "ryotBrowserExtensionDisabledSites",
+				description:
+					"Extension is enabled on all sites by default. Enter one domain per line where extension should be disabled",
+			},
+		],
+	},
+	[IntegrationProvider.Emby]: {
+		capabilities: { showUrl: true, progressAdjustment: true },
+	},
+	[IntegrationProvider.GenericJson]: {
+		capabilities: { showUrl: true, progressAdjustment: true },
+	},
+	[IntegrationProvider.JellyfinSink]: {
+		capabilities: { showUrl: true, progressAdjustment: true },
+	},
+	[IntegrationProvider.Kodi]: {
+		capabilities: { showUrl: true, progressAdjustment: true },
+	},
+};
+
+const MINIMUM_PROGRESS = "2";
+const MAXIMUM_PROGRESS = "95";
+
+const createProviderSpecificsSchema = () => {
+	const schemas: Record<string, z.ZodTypeAny> = {};
+
+	for (const config of Object.values(PROVIDER_CONFIGS)) {
+		if (!config.fields) continue;
+		for (const field of config.fields) {
+			let fieldSchema: z.ZodTypeAny;
+
+			switch (field.type) {
+				case "text":
+				case "password":
+				case "textarea":
+				case "select":
+					fieldSchema = field.transform
+						? field.notRequired
+							? z.string().optional().transform(field.transform)
+							: z.string().transform(field.transform)
+						: field.notRequired
+							? z.string().optional()
+							: z.string();
+					break;
+				case "number":
+					fieldSchema = field.notRequired ? z.number().optional() : z.number();
+					break;
+				case "multiselect":
+					fieldSchema = field.notRequired
+						? zodCommaDelimitedString.optional()
+						: zodCommaDelimitedString;
+					break;
+				default:
+					fieldSchema = field.notRequired
+						? z.unknown().optional()
+						: z.unknown();
+			}
+
+			schemas[field.name] = fieldSchema;
+		}
+	}
+
+	return z.object(schemas).optional();
+};
+
+const createOrUpdateSchema = z.object({
+	name: z.string().optional(),
+	integrationId: z.string().optional(),
+	minimumProgress: z.string().optional(),
+	maximumProgress: z.string().optional(),
+	isDisabled: zodCheckboxAsString.optional(),
+	providerSpecifics: createProviderSpecificsSchema(),
+	syncToOwnedCollection: zodCheckboxAsString.optional(),
+	provider: z.enum(IntegrationProvider).optional(),
+	extraSettings: z.object({
+		disableOnContinuousErrors: zodCheckboxAsString,
+	}),
+});
+
+const deleteSchema = z.object({
+	integrationId: z.string(),
+});
+
+const getProviderCapabilities = (provider: IntegrationProvider) =>
+	PROVIDER_CONFIGS[provider]?.capabilities || {};
+
+const isProProvider = (provider: IntegrationProvider) =>
+	!!getProviderCapabilities(provider).isPro;
+
+const supportsSyncToOwnedCollection = (provider: IntegrationProvider) =>
+	!!getProviderCapabilities(provider).syncToOwnedCollection;
+
+const shouldShowUrl = (provider: IntegrationProvider) =>
+	!!getProviderCapabilities(provider).showUrl;
+
+const supportsProgressAdjustment = (provider: IntegrationProvider) =>
+	!!getProviderCapabilities(provider).progressAdjustment;
+
+const ProviderField = (props: {
+	field: FieldConfig;
+	defaultValue?: unknown;
+}) => {
+	const collections = useNonHiddenUserCollections();
+
+	const fieldName = `providerSpecifics.${props.field.name}`;
+	const value = props.defaultValue;
+
+	switch (props.field.type) {
+		case "text":
+		case "password":
+			return (
+				<TextInput
+					name={fieldName}
+					type={props.field.type}
+					label={props.field.label}
+					required={!props.field.notRequired}
+					description={props.field.description}
+					placeholder={props.field.placeholder}
+					defaultValue={(value as string) || undefined}
+				/>
+			);
+		case "number":
+			return (
+				<NumberInput
+					name={fieldName}
+					label={props.field.label}
+					required={!props.field.notRequired}
+					description={props.field.description}
+					defaultValue={(value as number) || undefined}
+					hideControls={props.field.name.includes("ProfileId")}
+				/>
+			);
+		case "select":
+			return (
+				<Select
+					name={fieldName}
+					label={props.field.label}
+					data={props.field.options}
+					required={!props.field.notRequired}
+					description={props.field.description}
+					searchable={props.field.name === "youtubeMusicTimezone"}
+					defaultValue={
+						props.field.name === "youtubeMusicTimezone" && !value
+							? Intl.DateTimeFormat().resolvedOptions().timeZone
+							: (value as string) || undefined
+					}
+				/>
+			);
+		case "multiselect":
+			return (
+				<MultiSelect
+					searchable
+					name={fieldName}
+					label={props.field.label}
+					required={!props.field.notRequired}
+					description={props.field.description}
+					defaultValue={(value as string[]) || undefined}
+					data={collections.map((c) => ({
+						label: c.name,
+						value: c.id,
+					}))}
+				/>
+			);
+		case "textarea":
+			return (
+				<Textarea
+					name={fieldName}
+					label={props.field.label}
+					rows={props.field.rows || 4}
+					required={!props.field.notRequired}
+					description={props.field.description}
+					placeholder={props.field.placeholder}
+					defaultValue={
+						Array.isArray(value)
+							? (value as string[]).join("\n")
+							: (value as string) || undefined
+					}
+				/>
+			);
+		default:
+			return null;
+	}
+};
+
+const ProviderFields = (props: {
+	provider: IntegrationProvider;
+	integrationData?: Integration | null;
+}) => {
+	const config = PROVIDER_CONFIGS[props.provider];
+	if (!config) return null;
+
+	return config.fields?.map((field) => (
+		<ProviderField
+			key={field.name}
+			field={field}
+			defaultValue={
+				props.integrationData?.providerSpecifics?.[
+					field.name as keyof typeof props.integrationData.providerSpecifics
+				]
+			}
+		/>
+	));
+};
+
 const CreateOrUpdateModal = (props: {
 	close: () => void;
 	integrationData: Integration | null | undefined;
@@ -480,9 +853,7 @@ const CreateOrUpdateModal = (props: {
 
 	const isUpdating = Boolean(props.integrationData?.id);
 	const disableCreationButtonBecauseProRequired =
-		!coreDetails.isServerKeyValidated &&
-		provider &&
-		PRO_INTEGRATIONS.includes(provider);
+		!coreDetails.isServerKeyValidated && provider && isProProvider(provider);
 
 	return (
 		<Modal
@@ -528,215 +899,12 @@ const CreateOrUpdateModal = (props: {
 							Click here to see the documentation for this source
 						</Anchor>
 					) : null}
-					{match(provider)
-						.with(IntegrationProvider.Audiobookshelf, () => (
-							<>
-								<TextInput
-									required
-									label="Base Url"
-									name="providerSpecifics.audiobookshelfBaseUrl"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.audiobookshelfBaseUrl || undefined
-									}
-								/>
-								<TextInput
-									label="Token"
-									required
-									name="providerSpecifics.audiobookshelfToken"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.audiobookshelfToken || undefined
-									}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.Komga, () => (
-							<>
-								<TextInput
-									label="Base Url"
-									required
-									name="providerSpecifics.komgaBaseUrl"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.komgaBaseUrl ||
-										undefined
-									}
-								/>
-								<TextInput
-									label="Username"
-									required
-									name="providerSpecifics.komgaUsername"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.komgaUsername ||
-										undefined
-									}
-								/>
-								<TextInput
-									label="Password"
-									required
-									name="providerSpecifics.komgaPassword"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.komgaPassword ||
-										undefined
-									}
-								/>
-								<Select
-									required
-									label="Provider"
-									name="providerSpecifics.komgaProvider"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.komgaProvider ||
-										undefined
-									}
-									data={[MediaSource.Anilist, MediaSource.Myanimelist].map(
-										(is) => ({ value: is, label: changeCase(is) }),
-									)}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.PlexYank, () => (
-							<>
-								<TextInput
-									required
-									label="Base URL"
-									name="providerSpecifics.plexYankBaseUrl"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.plexYankBaseUrl ||
-										undefined
-									}
-								/>
-								<TextInput
-									required
-									label="Plex token"
-									name="providerSpecifics.plexYankToken"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.plexYankToken ||
-										undefined
-									}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.YoutubeMusic, () => (
-							<>
-								<Select
-									required
-									searchable
-									label="Timezone"
-									name="providerSpecifics.youtubeMusicTimezone"
-									data={Intl.supportedValuesOf("timeZone")}
-									defaultValue={
-										Intl.DateTimeFormat().resolvedOptions().timeZone
-									}
-								/>
-								<TextInput
-									required
-									label="Auth Cookie"
-									name="providerSpecifics.youtubeMusicAuthCookie"
-									description="Follow the link above to obtain the correct cookie"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.youtubeMusicAuthCookie || undefined
-									}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.PlexSink, () => (
-							<>
-								<TextInput
-									label="Username"
-									name="providerSpecifics.plexSinkUsername"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.plexSinkUsername || undefined
-									}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.JellyfinPush, () => (
-							<>
-								<TextInput
-									required
-									label="Base URL"
-									name="providerSpecifics.jellyfinPushBaseUrl"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.jellyfinPushBaseUrl || undefined
-									}
-								/>
-								<TextInput
-									required
-									label="Username"
-									name="providerSpecifics.jellyfinPushUsername"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.jellyfinPushUsername || undefined
-									}
-								/>
-								<TextInput
-									label="Password"
-									name="providerSpecifics.jellyfinPushPassword"
-									defaultValue={
-										props.integrationData?.providerSpecifics
-											?.jellyfinPushPassword || undefined
-									}
-								/>
-							</>
-						))
-						.with(IntegrationProvider.Radarr, () => (
-							<ArrInputs
-								name="radarr"
-								defaults={{
-									baseUrl:
-										props.integrationData?.providerSpecifics?.radarrBaseUrl,
-									apiKey:
-										props.integrationData?.providerSpecifics?.radarrApiKey,
-									profileId:
-										props.integrationData?.providerSpecifics?.radarrProfileId,
-									rootFolderPath:
-										props.integrationData?.providerSpecifics
-											?.radarrRootFolderPath,
-									syncCollectionIds:
-										props.integrationData?.providerSpecifics
-											?.radarrSyncCollectionIds,
-								}}
-							/>
-						))
-						.with(IntegrationProvider.Sonarr, () => (
-							<ArrInputs
-								name="sonarr"
-								defaults={{
-									baseUrl:
-										props.integrationData?.providerSpecifics?.sonarrBaseUrl,
-									apiKey:
-										props.integrationData?.providerSpecifics?.sonarrApiKey,
-									profileId:
-										props.integrationData?.providerSpecifics?.sonarrProfileId,
-									rootFolderPath:
-										props.integrationData?.providerSpecifics
-											?.sonarrRootFolderPath,
-									syncCollectionIds:
-										props.integrationData?.providerSpecifics
-											?.sonarrSyncCollectionIds,
-								}}
-							/>
-						))
-						.with(IntegrationProvider.RyotBrowserExtension, () => (
-							<>
-								<Textarea
-									rows={4}
-									label="Disabled Sites"
-									placeholder="netflix.com&#10;hbo.com"
-									name="providerSpecifics.ryotBrowserExtensionDisabledSites"
-									description="Extension is enabled on all sites by default. Enter one domain per line where extension should be disabled"
-									defaultValue={
-										props.integrationData?.providerSpecifics?.ryotBrowserExtensionDisabledSites?.join(
-											"\n",
-										) || undefined
-									}
-								/>
-							</>
-						))
-						.otherwise(() => undefined)}
+					{provider && (
+						<ProviderFields
+							provider={provider}
+							integrationData={props.integrationData}
+						/>
+					)}
 					{provider && (
 						<Group justify="end">
 							<Button
@@ -755,7 +923,7 @@ const CreateOrUpdateModal = (props: {
 								label="Name"
 								defaultValue={props.integrationData?.name || undefined}
 							/>
-							{provider && !NO_PROGRESS_ADJUSTMENT.includes(provider) ? (
+							{provider && supportsProgressAdjustment(provider) ? (
 								<Group wrap="nowrap">
 									<NumberInput
 										min={0}
@@ -783,8 +951,7 @@ const CreateOrUpdateModal = (props: {
 									/>
 								</Group>
 							) : null}
-							{provider &&
-							SYNC_TO_OWNED_COLLECTION_INTEGRATIONS.includes(provider) ? (
+							{provider && supportsSyncToOwnedCollection(provider) ? (
 								<Tooltip
 									label="Only available for Pro users"
 									disabled={coreDetails.isServerKeyValidated}
@@ -831,59 +998,5 @@ const CreateOrUpdateModal = (props: {
 				</Stack>
 			</Form>
 		</Modal>
-	);
-};
-
-const ArrInputs = (props: {
-	name: string;
-	defaults?: {
-		apiKey: string | null | undefined;
-		baseUrl: string | null | undefined;
-		profileId: number | null | undefined;
-		rootFolderPath: string | null | undefined;
-		syncCollectionIds: string[] | null | undefined;
-	};
-}) => {
-	const collections = useNonHiddenUserCollections();
-
-	return (
-		<>
-			<TextInput
-				required
-				label="Base Url"
-				name={`providerSpecifics.${props.name}BaseUrl`}
-				defaultValue={props.defaults?.baseUrl || undefined}
-			/>
-			<TextInput
-				required
-				label="Token"
-				name={`providerSpecifics.${props.name}ApiKey`}
-				defaultValue={props.defaults?.apiKey || undefined}
-			/>
-			<NumberInput
-				required
-				hideControls
-				label="Profile ID"
-				name={`providerSpecifics.${props.name}ProfileId`}
-				defaultValue={props.defaults?.profileId || undefined}
-			/>
-			<TextInput
-				required
-				label="Root Folder"
-				name={`providerSpecifics.${props.name}RootFolderPath`}
-				defaultValue={props.defaults?.rootFolderPath || undefined}
-			/>
-			<MultiSelect
-				required
-				searchable
-				label="Collections"
-				name={`providerSpecifics.${props.name}SyncCollectionIds`}
-				defaultValue={props.defaults?.syncCollectionIds || undefined}
-				data={collections.map((c) => ({
-					label: c.name,
-					value: c.id,
-				}))}
-			/>
-		</>
 	);
 };

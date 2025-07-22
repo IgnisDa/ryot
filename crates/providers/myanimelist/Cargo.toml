@@ -1,0 +1,23 @@
+[package]
+name = "myanimelist-provider"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+convert_case = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+application-utils = { path = "../../utils/application" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+media-models = { path = "../../models/media" }
+traits = { path = "../../traits" }

@@ -13,12 +13,13 @@ pub async fn push_progress(
     metadata_lot: MediaLot,
     metadata_title: String,
     root_folder_path: String,
+    tag_ids: Option<Vec<i32>>,
 ) -> Result<()> {
     if metadata_lot != MediaLot::Movie {
         ryot_log!(debug, "Not a movie, skipping {:#?}", metadata_title);
         return Ok(());
     }
-    let resource = json!({
+    let mut resource = json!({
         "title": metadata_title,
         "tmdbId": tmdb_id.parse::<i32>().unwrap(),
         "qualityProfileId": profile_id,
@@ -28,6 +29,10 @@ pub async fn push_progress(
             "searchForMovie": true
         }
     });
+
+    if let Some(tags) = tag_ids {
+        resource["tags"] = json!(tags);
+    }
     ryot_log!(debug, "Pushing movie to Radarr {:?}", resource);
     let client = Client::new();
     let mut headers = HeaderMap::new();

@@ -10,7 +10,7 @@ use media_models::{
     CreateOrUpdateCollectionInput, DeployUrlAndKeyImportInput, ImportOrExportItemRating,
     ImportOrExportItemReview, ImportOrExportMetadataItemSeen,
 };
-use providers::openlibrary::get_key;
+use openlibrary_provider::get_key;
 use reqwest::{
     ClientBuilder,
     header::{HeaderMap, HeaderValue, USER_AGENT},

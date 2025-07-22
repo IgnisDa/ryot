@@ -89,6 +89,7 @@ export const ProviderSelect = ({
 			data={watchProviders}
 			name="providerWatchedOn"
 			label={`Where did you ${getVerb(Verb.Read, metadataLot)} it?`}
+			nothingFoundMessage="Please add your provider from the general preference settings"
 		/>
 	);
 };

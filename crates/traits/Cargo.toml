@@ -5,17 +5,18 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-application-utils = { path = "../utils/application" }
-dependent-models = { path = "../models/dependent" }
 async-graphql = { workspace = true }
 async-trait = { workspace = true }
+tracing = { workspace = true }
+
+application-utils = { path = "../utils/application" }
 common-models = { path = "../models/common" }
 common-utils = { path = "../utils/common" }
 database-models = { path = "../models/database" }
 database-utils = { path = "../utils/database" }
+dependent-models = { path = "../models/dependent" }
 media-models = { path = "../models/media" }
 supporting-service = { path = "../services/supporting" }
-tracing = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

@@ -6,19 +6,10 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 apalis = { workspace = true }
-background-models = { path = "../../models/background" }
 bon = { workspace = true }
-cache-service = { path = "../../services/cache" }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 enum_meta = { workspace = true }
-env-utils = { path = "../../utils/env" }
-file-storage-service = { path = "../../services/file-storage" }
 isolang = { workspace = true }
 itertools = { workspace = true }
 rustypipe = { workspace = true }
@@ -27,6 +18,16 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 unkey = { workspace = true }
+
+background-models = { path = "../../models/background" }
+cache-service = { path = "../../services/cache" }
+common-models = { path = "../../models/common" }
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+dependent-models = { path = "../../models/dependent" }
+enum-models = { path = "../../models/enum" }
+env-utils = { path = "../../utils/env" }
+file-storage-service = { path = "../../services/file-storage" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

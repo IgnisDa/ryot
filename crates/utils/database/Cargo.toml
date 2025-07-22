@@ -5,25 +5,26 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-background-models = { path = "../../models/background" }
 chrono = { workspace = true }
+itertools = { workspace = true }
+markdown = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+background-models = { path = "../../models/background" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
-itertools = { workspace = true }
 jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
-markdown = { workspace = true }
-rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
-sea-orm = { workspace = true }
 supporting-service = { path = "../../services/supporting" }
-tracing = { workspace = true }
 user-models = { path = "../../models/user" }
-uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
