@@ -4,6 +4,8 @@ use enum_models::SeenState;
 
 use super::{m20230404_create_user::User, m20230410_create_metadata::Metadata};
 
+pub static SEEN_USER_DATE_INDEX: &str = "idx_seen_user_date";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -94,6 +96,16 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(SEEN_USER_DATE_INDEX)
+                    .table(Seen::Table)
+                    .col(Seen::UserId)
+                    .col(Seen::FinishedOn)
                     .to_owned(),
             )
             .await?;
