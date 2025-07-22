@@ -7,6 +7,24 @@ use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilt
 use sea_query::{Alias, Expr, Func, extension::postgres::PgExpr};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone)]
+pub enum ArrPushConfigExternalId {
+    Tmdb(String),
+    Tvdb(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct ArrPushConfig {
+    pub api_key: String,
+    pub profile_id: i32,
+    pub base_url: String,
+    pub metadata_lot: MediaLot,
+    pub metadata_title: String,
+    pub root_folder_path: String,
+    pub tag_ids: Option<Vec<i32>>,
+    pub external_id: ArrPushConfigExternalId,
+}
+
 pub async fn get_show_by_episode_identifier(
     db: &DatabaseConnection,
     series: &str,

@@ -11,6 +11,7 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use uuid::Uuid;
 
 use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
+use crate::utils::{ArrPushConfig, ArrPushConfigExternalId};
 use crate::{IntegrationService, push};
 
 impl IntegrationService {
@@ -68,29 +69,29 @@ impl IntegrationService {
                 };
                 let push_result = match integration.provider {
                     IntegrationProvider::Radarr => {
-                        push::radarr::push_progress(
-                            specifics.radarr_api_key.unwrap(),
-                            specifics.radarr_profile_id.unwrap(),
-                            entity_id,
-                            specifics.radarr_base_url.unwrap(),
-                            metadata.lot,
-                            metadata.title,
-                            specifics.radarr_root_folder_path.unwrap(),
-                            specifics.radarr_tag_ids.clone(),
-                        )
+                        push::radarr::push_progress(ArrPushConfig {
+                            api_key: specifics.radarr_api_key.unwrap(),
+                            profile_id: specifics.radarr_profile_id.unwrap(),
+                            external_id: ArrPushConfigExternalId::Tmdb(entity_id),
+                            base_url: specifics.radarr_base_url.unwrap(),
+                            metadata_lot: metadata.lot,
+                            metadata_title: metadata.title,
+                            root_folder_path: specifics.radarr_root_folder_path.unwrap(),
+                            tag_ids: specifics.radarr_tag_ids.clone(),
+                        })
                         .await
                     }
                     IntegrationProvider::Sonarr => {
-                        push::sonarr::push_progress(
-                            specifics.sonarr_api_key.unwrap(),
-                            specifics.sonarr_profile_id.unwrap(),
-                            entity_id,
-                            specifics.sonarr_base_url.unwrap(),
-                            metadata.lot,
-                            metadata.title,
-                            specifics.sonarr_root_folder_path.unwrap(),
-                            specifics.sonarr_tag_ids.clone(),
-                        )
+                        push::sonarr::push_progress(ArrPushConfig {
+                            api_key: specifics.sonarr_api_key.unwrap(),
+                            profile_id: specifics.sonarr_profile_id.unwrap(),
+                            external_id: ArrPushConfigExternalId::Tvdb(entity_id),
+                            base_url: specifics.sonarr_base_url.unwrap(),
+                            metadata_lot: metadata.lot,
+                            metadata_title: metadata.title,
+                            root_folder_path: specifics.sonarr_root_folder_path.unwrap(),
+                            tag_ids: specifics.sonarr_tag_ids.clone(),
+                        })
                         .await
                     }
                     _ => unreachable!(),
