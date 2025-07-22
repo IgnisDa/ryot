@@ -566,7 +566,9 @@ impl StatisticsService {
                         DailyUserActivitiesResponseGroupedBy::Day
                     };
 
-                    let mut items: Vec<DailyUserActivityItem> = if grouped_by == DailyUserActivitiesResponseGroupedBy::AllTime {
+                    let mut items: Vec<DailyUserActivityItem> = if grouped_by
+                        == DailyUserActivitiesResponseGroupedBy::AllTime
+                    {
                         if activities.is_empty() {
                             vec![]
                         } else {
@@ -578,7 +580,8 @@ impl StatisticsService {
 
                             for activity in activities.values() {
                                 aggregated_activity.audio_book_count += activity.audio_book_count;
-                                aggregated_activity.audio_book_duration += activity.audio_book_duration;
+                                aggregated_activity.audio_book_duration +=
+                                    activity.audio_book_duration;
                                 aggregated_activity.anime_count += activity.anime_count;
                                 aggregated_activity.book_count += activity.book_count;
                                 aggregated_activity.book_pages += activity.book_pages;
@@ -592,32 +595,55 @@ impl StatisticsService {
                                 aggregated_activity.show_count += activity.show_count;
                                 aggregated_activity.show_duration += activity.show_duration;
                                 aggregated_activity.video_game_count += activity.video_game_count;
-                                aggregated_activity.video_game_duration += activity.video_game_duration;
-                                aggregated_activity.visual_novel_count += activity.visual_novel_count;
-                                aggregated_activity.visual_novel_duration += activity.visual_novel_duration;
+                                aggregated_activity.video_game_duration +=
+                                    activity.video_game_duration;
+                                aggregated_activity.visual_novel_count +=
+                                    activity.visual_novel_count;
+                                aggregated_activity.visual_novel_duration +=
+                                    activity.visual_novel_duration;
                                 aggregated_activity.workout_count += activity.workout_count;
                                 aggregated_activity.workout_duration += activity.workout_duration;
-                                aggregated_activity.workout_personal_bests += activity.workout_personal_bests;
+                                aggregated_activity.workout_personal_bests +=
+                                    activity.workout_personal_bests;
                                 aggregated_activity.workout_weight += activity.workout_weight;
                                 aggregated_activity.workout_reps += activity.workout_reps;
                                 aggregated_activity.workout_distance += activity.workout_distance;
                                 aggregated_activity.workout_rest_time += activity.workout_rest_time;
-                                aggregated_activity.workout_calories_burnt += activity.workout_calories_burnt;
+                                aggregated_activity.workout_calories_burnt +=
+                                    activity.workout_calories_burnt;
                                 aggregated_activity.measurement_count += activity.measurement_count;
-                                aggregated_activity.metadata_review_count += activity.metadata_review_count;
-                                aggregated_activity.collection_review_count += activity.collection_review_count;
-                                aggregated_activity.metadata_group_review_count += activity.metadata_group_review_count;
-                                aggregated_activity.person_review_count += activity.person_review_count;
-                                aggregated_activity.exercise_review_count += activity.exercise_review_count;
-                                aggregated_activity.person_collection_count += activity.person_collection_count;
-                                aggregated_activity.metadata_collection_count += activity.metadata_collection_count;
-                                aggregated_activity.metadata_group_collection_count += activity.metadata_group_collection_count;
-                                
-                                aggregated_activity.workout_exercises.extend(activity.workout_exercises.clone());
-                                aggregated_activity.workout_equipments.extend(activity.workout_equipments.clone());
-                                aggregated_activity.workout_muscles.extend(activity.workout_muscles.clone());
-                                aggregated_activity.hour_records.extend(activity.hour_records.clone());
-                                aggregated_activity.entity_ids.extend(activity.entity_ids.clone());
+                                aggregated_activity.metadata_review_count +=
+                                    activity.metadata_review_count;
+                                aggregated_activity.collection_review_count +=
+                                    activity.collection_review_count;
+                                aggregated_activity.metadata_group_review_count +=
+                                    activity.metadata_group_review_count;
+                                aggregated_activity.person_review_count +=
+                                    activity.person_review_count;
+                                aggregated_activity.exercise_review_count +=
+                                    activity.exercise_review_count;
+                                aggregated_activity.person_collection_count +=
+                                    activity.person_collection_count;
+                                aggregated_activity.metadata_collection_count +=
+                                    activity.metadata_collection_count;
+                                aggregated_activity.metadata_group_collection_count +=
+                                    activity.metadata_group_collection_count;
+
+                                aggregated_activity
+                                    .workout_exercises
+                                    .extend(activity.workout_exercises.clone());
+                                aggregated_activity
+                                    .workout_equipments
+                                    .extend(activity.workout_equipments.clone());
+                                aggregated_activity
+                                    .workout_muscles
+                                    .extend(activity.workout_muscles.clone());
+                                aggregated_activity
+                                    .hour_records
+                                    .extend(activity.hour_records.clone());
+                                aggregated_activity
+                                    .entity_ids
+                                    .extend(activity.entity_ids.clone());
                             }
 
                             vec![Self::convert_activity_to_item(aggregated_activity)]
