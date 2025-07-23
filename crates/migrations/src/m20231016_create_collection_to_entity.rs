@@ -17,6 +17,7 @@ pub static UNIQUE_INDEX_3: &str = "collection_to_entity_uqi3";
 pub static UNIQUE_INDEX_4: &str = "collection_to_entity_uqi4";
 pub static UNIQUE_INDEX_5: &str = "collection_to_entity_uqi5";
 pub static UNIQUE_INDEX_6: &str = "collection_to_entity_uqi6";
+pub static RANK_INDEX: &str = "collection_to_entity_rank_idx";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "collection_to_entity" DROP CONSTRAINT IF EXISTS "collection_to_entity__ensure_one_entity";
     ALTER TABLE "collection_to_entity"
@@ -217,6 +218,15 @@ impl MigrationTrait for Migration {
                 )
                 .await?;
         }
+        manager
+            .create_index(
+                Index::create()
+                    .name(RANK_INDEX)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::Rank)
+                    .to_owned(),
+            )
+            .await?;
         db.execute_unprepared(CONSTRAINT_SQL).await?;
         Ok(())
     }

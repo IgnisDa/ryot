@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::m20231016_create_collection_to_entity::CollectionToEntity;
+use super::m20231016_create_collection_to_entity::{CollectionToEntity, RANK_INDEX};
 use super::m20240904_create_monitored_entity::MONITORED_ENTITY_VIEW_CREATION_SQL;
 
 #[derive(DeriveMigrationName)]
@@ -10,6 +10,11 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
+
+        db.execute_unprepared("DROP VIEW IF EXISTS monitored_entity")
+            .await?;
+        db.execute_unprepared(MONITORED_ENTITY_VIEW_CREATION_SQL)
+            .await?;
 
         if manager.has_column("collection_to_entity", "rank").await? {
             return Ok(());
@@ -46,9 +51,14 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        db.execute_unprepared("DROP VIEW IF EXISTS monitored_entity")
-            .await?;
-        db.execute_unprepared(MONITORED_ENTITY_VIEW_CREATION_SQL)
+        manager
+            .create_index(
+                Index::create()
+                    .name(RANK_INDEX)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::Rank)
+                    .to_owned(),
+            )
             .await?;
 
         Ok(())
