@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, hash::Hash, ops::AddAssign, sync::Arc};
 
 use anyhow::Result;
 use application_utils::{get_podcast_episode_by_number, get_show_episode_by_numbers};
@@ -242,6 +242,70 @@ fn calculate_media_duration(seen: &SeenItem, activity: &mut DailyUserActivityMod
         }
         _ => {}
     }
+}
+
+fn sum_field<T, F>(
+    activities: &HashMap<Option<NaiveDate>, DailyUserActivityModel>,
+    field_accessor: F,
+) -> T
+where
+    T: Default + AddAssign + Copy,
+    F: Fn(&DailyUserActivityModel) -> T,
+{
+    activities
+        .values()
+        .map(field_accessor)
+        .fold(T::default(), |mut acc, val| {
+            acc += val;
+            acc
+        })
+}
+
+fn collect_field<T, F>(
+    activities: &HashMap<Option<NaiveDate>, DailyUserActivityModel>,
+    field_accessor: F,
+) -> Vec<T>
+where
+    T: Clone,
+    F: Fn(&DailyUserActivityModel) -> &Vec<T>,
+{
+    activities
+        .values()
+        .flat_map(|a| field_accessor(a).iter().cloned())
+        .collect()
+}
+
+fn collect_hashbag_field<T, F>(
+    activities: &HashMap<Option<NaiveDate>, DailyUserActivityModel>,
+    field_accessor: F,
+) -> HashBag<T>
+where
+    T: Clone + Hash + Eq,
+    F: Fn(&DailyUserActivityModel) -> &Vec<T>,
+{
+    activities
+        .values()
+        .flat_map(|a| field_accessor(a).iter().cloned())
+        .collect()
+}
+
+fn create_fitness_analytics<T, U, F, G, K>(
+    activities: &HashMap<Option<NaiveDate>, DailyUserActivityModel>,
+    field_accessor: F,
+    item_constructor: G,
+    key_extractor: K,
+) -> Vec<U>
+where
+    T: Clone + Hash + Eq,
+    F: Fn(&DailyUserActivityModel) -> &Vec<T>,
+    G: Fn(T, u32) -> U,
+    K: Fn(&U) -> u32,
+{
+    collect_hashbag_field(activities, field_accessor)
+        .into_iter()
+        .map(|(item, count)| item_constructor(item, count.try_into().unwrap()))
+        .sorted_by_key(|item| Reverse(key_extractor(item)))
+        .collect_vec()
 }
 
 fn convert_activity_to_item(mut activity: DailyUserActivityModel) -> DailyUserActivityItem {
@@ -602,78 +666,82 @@ impl StatisticsService {
                         if activities.is_empty() {
                             vec![]
                         } else {
-                            let mut aggregated_activity = DailyUserActivityModel {
+                            let aggregated_activity = DailyUserActivityModel {
                                 user_id: user_id.to_owned(),
+                                audio_book_count: sum_field(&activities, |a| a.audio_book_count),
+                                audio_book_duration: sum_field(&activities, |a| {
+                                    a.audio_book_duration
+                                }),
+                                anime_count: sum_field(&activities, |a| a.anime_count),
+                                book_count: sum_field(&activities, |a| a.book_count),
+                                book_pages: sum_field(&activities, |a| a.book_pages),
+                                podcast_count: sum_field(&activities, |a| a.podcast_count),
+                                podcast_duration: sum_field(&activities, |a| a.podcast_duration),
+                                manga_count: sum_field(&activities, |a| a.manga_count),
+                                movie_count: sum_field(&activities, |a| a.movie_count),
+                                movie_duration: sum_field(&activities, |a| a.movie_duration),
+                                music_count: sum_field(&activities, |a| a.music_count),
+                                music_duration: sum_field(&activities, |a| a.music_duration),
+                                show_count: sum_field(&activities, |a| a.show_count),
+                                show_duration: sum_field(&activities, |a| a.show_duration),
+                                video_game_count: sum_field(&activities, |a| a.video_game_count),
+                                video_game_duration: sum_field(&activities, |a| {
+                                    a.video_game_duration
+                                }),
+                                visual_novel_count: sum_field(&activities, |a| {
+                                    a.visual_novel_count
+                                }),
+                                visual_novel_duration: sum_field(&activities, |a| {
+                                    a.visual_novel_duration
+                                }),
+                                workout_count: sum_field(&activities, |a| a.workout_count),
+                                workout_duration: sum_field(&activities, |a| a.workout_duration),
+                                workout_personal_bests: sum_field(&activities, |a| {
+                                    a.workout_personal_bests
+                                }),
+                                workout_weight: sum_field(&activities, |a| a.workout_weight),
+                                workout_reps: sum_field(&activities, |a| a.workout_reps),
+                                workout_distance: sum_field(&activities, |a| a.workout_distance),
+                                workout_rest_time: sum_field(&activities, |a| a.workout_rest_time),
+                                workout_calories_burnt: sum_field(&activities, |a| {
+                                    a.workout_calories_burnt
+                                }),
+                                measurement_count: sum_field(&activities, |a| a.measurement_count),
+                                metadata_review_count: sum_field(&activities, |a| {
+                                    a.metadata_review_count
+                                }),
+                                collection_review_count: sum_field(&activities, |a| {
+                                    a.collection_review_count
+                                }),
+                                metadata_group_review_count: sum_field(&activities, |a| {
+                                    a.metadata_group_review_count
+                                }),
+                                person_review_count: sum_field(&activities, |a| {
+                                    a.person_review_count
+                                }),
+                                exercise_review_count: sum_field(&activities, |a| {
+                                    a.exercise_review_count
+                                }),
+                                person_collection_count: sum_field(&activities, |a| {
+                                    a.person_collection_count
+                                }),
+                                metadata_collection_count: sum_field(&activities, |a| {
+                                    a.metadata_collection_count
+                                }),
+                                metadata_group_collection_count: sum_field(&activities, |a| {
+                                    a.metadata_group_collection_count
+                                }),
+                                workout_exercises: collect_field(&activities, |a| {
+                                    &a.workout_exercises
+                                }),
+                                workout_equipments: collect_field(&activities, |a| {
+                                    &a.workout_equipments
+                                }),
+                                workout_muscles: collect_field(&activities, |a| &a.workout_muscles),
+                                hour_records: collect_field(&activities, |a| &a.hour_records),
+                                entity_ids: collect_field(&activities, |a| &a.entity_ids),
                                 ..Default::default()
                             };
-
-                            for activity in activities.values() {
-                                aggregated_activity.audio_book_count += activity.audio_book_count;
-                                aggregated_activity.audio_book_duration +=
-                                    activity.audio_book_duration;
-                                aggregated_activity.anime_count += activity.anime_count;
-                                aggregated_activity.book_count += activity.book_count;
-                                aggregated_activity.book_pages += activity.book_pages;
-                                aggregated_activity.podcast_count += activity.podcast_count;
-                                aggregated_activity.podcast_duration += activity.podcast_duration;
-                                aggregated_activity.manga_count += activity.manga_count;
-                                aggregated_activity.movie_count += activity.movie_count;
-                                aggregated_activity.movie_duration += activity.movie_duration;
-                                aggregated_activity.music_count += activity.music_count;
-                                aggregated_activity.music_duration += activity.music_duration;
-                                aggregated_activity.show_count += activity.show_count;
-                                aggregated_activity.show_duration += activity.show_duration;
-                                aggregated_activity.video_game_count += activity.video_game_count;
-                                aggregated_activity.video_game_duration +=
-                                    activity.video_game_duration;
-                                aggregated_activity.visual_novel_count +=
-                                    activity.visual_novel_count;
-                                aggregated_activity.visual_novel_duration +=
-                                    activity.visual_novel_duration;
-                                aggregated_activity.workout_count += activity.workout_count;
-                                aggregated_activity.workout_duration += activity.workout_duration;
-                                aggregated_activity.workout_personal_bests +=
-                                    activity.workout_personal_bests;
-                                aggregated_activity.workout_weight += activity.workout_weight;
-                                aggregated_activity.workout_reps += activity.workout_reps;
-                                aggregated_activity.workout_distance += activity.workout_distance;
-                                aggregated_activity.workout_rest_time += activity.workout_rest_time;
-                                aggregated_activity.workout_calories_burnt +=
-                                    activity.workout_calories_burnt;
-                                aggregated_activity.measurement_count += activity.measurement_count;
-                                aggregated_activity.metadata_review_count +=
-                                    activity.metadata_review_count;
-                                aggregated_activity.collection_review_count +=
-                                    activity.collection_review_count;
-                                aggregated_activity.metadata_group_review_count +=
-                                    activity.metadata_group_review_count;
-                                aggregated_activity.person_review_count +=
-                                    activity.person_review_count;
-                                aggregated_activity.exercise_review_count +=
-                                    activity.exercise_review_count;
-                                aggregated_activity.person_collection_count +=
-                                    activity.person_collection_count;
-                                aggregated_activity.metadata_collection_count +=
-                                    activity.metadata_collection_count;
-                                aggregated_activity.metadata_group_collection_count +=
-                                    activity.metadata_group_collection_count;
-
-                                aggregated_activity
-                                    .workout_exercises
-                                    .extend(activity.workout_exercises.clone());
-                                aggregated_activity
-                                    .workout_equipments
-                                    .extend(activity.workout_equipments.clone());
-                                aggregated_activity
-                                    .workout_muscles
-                                    .extend(activity.workout_muscles.clone());
-                                aggregated_activity
-                                    .hour_records
-                                    .extend(activity.hour_records.clone());
-                                aggregated_activity
-                                    .entity_ids
-                                    .extend(activity.entity_ids.clone());
-                            }
 
                             vec![convert_activity_to_item(aggregated_activity)]
                         }
@@ -715,53 +783,38 @@ impl StatisticsService {
                             }
                         }
                     }
-                    let workout_reps = activities.values().map(|a| a.workout_reps).sum();
-                    let workout_count = activities.values().map(|a| a.workout_count).sum();
-                    let workout_weight = activities.values().map(|a| a.workout_weight).sum();
-                    let workout_distance = activities.values().map(|a| a.workout_distance).sum();
-                    let workout_duration = activities.values().map(|a| a.workout_duration).sum();
-                    let workout_rest_time = activities.values().map(|a| a.workout_rest_time).sum();
-                    let measurement_count = activities.values().map(|a| a.measurement_count).sum();
+                    let workout_reps = sum_field(&activities, |a| a.workout_reps);
+                    let workout_count = sum_field(&activities, |a| a.workout_count);
+                    let workout_weight = sum_field(&activities, |a| a.workout_weight);
+                    let workout_distance = sum_field(&activities, |a| a.workout_distance);
+                    let workout_duration = sum_field(&activities, |a| a.workout_duration);
+                    let workout_rest_time = sum_field(&activities, |a| a.workout_rest_time);
+                    let measurement_count = sum_field(&activities, |a| a.measurement_count);
                     let workout_calories_burnt =
-                        activities.values().map(|a| a.workout_calories_burnt).sum();
+                        sum_field(&activities, |a| a.workout_calories_burnt);
                     let workout_personal_bests =
-                        activities.values().map(|a| a.workout_personal_bests).sum();
+                        sum_field(&activities, |a| a.workout_personal_bests);
 
-                    let workout_muscles = activities
-                        .values()
-                        .flat_map(|a| a.workout_muscles.clone())
-                        .collect::<HashBag<ExerciseMuscle>>()
-                        .into_iter()
-                        .map(|(muscle, count)| FitnessAnalyticsMuscle {
-                            muscle,
-                            count: count.try_into().unwrap(),
-                        })
-                        .sorted_by_key(|f| Reverse(f.count))
-                        .collect_vec();
+                    let workout_muscles = create_fitness_analytics(
+                        &activities,
+                        |a| &a.workout_muscles,
+                        |muscle, count| FitnessAnalyticsMuscle { muscle, count },
+                        |f| f.count,
+                    );
 
-                    let workout_exercises = activities
-                        .values()
-                        .flat_map(|a| a.workout_exercises.clone())
-                        .collect::<HashBag<String>>()
-                        .into_iter()
-                        .map(|(exercise, count)| FitnessAnalyticsExercise {
-                            exercise,
-                            count: count.try_into().unwrap(),
-                        })
-                        .sorted_by_key(|f| Reverse(f.count))
-                        .collect_vec();
+                    let workout_exercises = create_fitness_analytics(
+                        &activities,
+                        |a| &a.workout_exercises,
+                        |exercise, count| FitnessAnalyticsExercise { exercise, count },
+                        |f| f.count,
+                    );
 
-                    let workout_equipments = activities
-                        .values()
-                        .flat_map(|a| a.workout_equipments.clone())
-                        .collect::<HashBag<ExerciseEquipment>>()
-                        .into_iter()
-                        .map(|(equipment, count)| FitnessAnalyticsEquipment {
-                            equipment,
-                            count: count.try_into().unwrap(),
-                        })
-                        .sorted_by_key(|f| Reverse(f.count))
-                        .collect_vec();
+                    let workout_equipments = create_fitness_analytics(
+                        &activities,
+                        |a| &a.workout_equipments,
+                        |equipment, count| FitnessAnalyticsEquipment { equipment, count },
+                        |f| f.count,
+                    );
 
                     let response = UserAnalytics {
                         hours,
