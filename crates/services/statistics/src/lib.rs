@@ -150,30 +150,30 @@ fn get_activity_count<'a>(
     existing
 }
 
-impl StatisticsService {
-    fn apply_date_filters<E>(
-        query: Select<E>,
-        date_range: &ApplicationDateRange,
-        start_column: impl ColumnTrait,
-        end_column: Option<impl ColumnTrait>,
-    ) -> Select<E>
-    where
-        E: EntityTrait,
-    {
-        let mut query = query;
-        if let Some(start_date) = date_range.start_date {
-            query = query.filter(start_column.gte(start_date));
-        }
-        if let Some(end_date) = date_range.end_date {
-            if let Some(end_col) = end_column {
-                query = query.filter(end_col.lte(end_date));
-            } else {
-                query = query.filter(start_column.lte(end_date));
-            }
-        }
-        query
+fn apply_date_filters<E>(
+    query: Select<E>,
+    date_range: &ApplicationDateRange,
+    start_column: impl ColumnTrait,
+    end_column: Option<impl ColumnTrait>,
+) -> Select<E>
+where
+    E: EntityTrait,
+{
+    let mut query = query;
+    if let Some(start_date) = date_range.start_date {
+        query = query.filter(start_column.gte(start_date));
     }
+    if let Some(end_date) = date_range.end_date {
+        if let Some(end_col) = end_column {
+            query = query.filter(end_col.lte(end_date));
+        } else {
+            query = query.filter(start_column.lte(end_date));
+        }
+    }
+    query
+}
 
+impl StatisticsService {
     fn calculate_media_duration(&self, seen: &SeenItem, activity: &mut DailyUserActivityModel) {
         match seen.metadata_lot {
             MediaLot::Show => {
@@ -406,7 +406,7 @@ impl StatisticsService {
                     let seen_query = Seen::find()
                         .filter(seen::Column::UserId.eq(user_id))
                         .filter(seen::Column::State.eq(SeenState::Completed));
-                    let mut seen_stream = Self::apply_date_filters(
+                    let mut seen_stream = apply_date_filters(
                         seen_query,
                         &input.date_range,
                         seen::Column::LastUpdatedOn,
@@ -476,7 +476,7 @@ impl StatisticsService {
                     )?;
 
                     let workout_query = Workout::find().filter(workout::Column::UserId.eq(user_id));
-                    let mut workout_stream = Self::apply_date_filters(
+                    let mut workout_stream = apply_date_filters(
                         workout_query,
                         &input.date_range,
                         workout::Column::EndTime,
@@ -532,7 +532,7 @@ impl StatisticsService {
                     }
                     let measurement_query = UserMeasurement::find()
                         .filter(user_measurement::Column::UserId.eq(user_id));
-                    let mut measurement_stream = Self::apply_date_filters(
+                    let mut measurement_stream = apply_date_filters(
                         measurement_query,
                         &input.date_range,
                         user_measurement::Column::Timestamp,
@@ -554,7 +554,7 @@ impl StatisticsService {
                         activity.measurement_count += 1;
                     }
                     let review_query = Review::find().filter(review::Column::UserId.eq(user_id));
-                    let mut review_stream = Self::apply_date_filters(
+                    let mut review_stream = apply_date_filters(
                         review_query,
                         &input.date_range,
                         review::Column::PostedOn,
