@@ -16,6 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionContentsDocument,
 	type CollectionContentsInput,
@@ -26,10 +27,13 @@ import {
 	type EntityWithLot,
 	GraphqlSortOrder,
 	MediaLot,
+	ReorderCollectionEntityDocument,
+	type ReorderCollectionEntityInput,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	cloneDeep,
+	isNumber,
 	parseParameters,
 	parseSearchQuery,
 	zodIntAsString,
@@ -45,9 +49,9 @@ import {
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -299,6 +303,7 @@ export default function Page() {
 												key={lm.entityId}
 												rankNumber={index + 1}
 												isReorderMode={isReorderMode}
+												collectionId={loaderData.collectionId}
 											/>
 										))}
 									</ApplicationGrid>
@@ -524,29 +529,50 @@ const RecommendationsSection = () => {
 };
 
 type CollectionItemProps = {
-	item: EntityWithLot;
 	rankNumber: number;
+	item: EntityWithLot;
+	collectionId: string;
 	isReorderMode: boolean;
 };
 
 const CollectionItem = ({
 	item,
 	rankNumber,
+	collectionId,
 	isReorderMode,
 }: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
 	const isAdded = bulkEditingCollection.isAdded(item);
+	const revalidator = useRevalidator();
+
+	const reorderMutation = useMutation({
+		mutationFn: (input: ReorderCollectionEntityInput) =>
+			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
+		onSuccess: () => {
+			revalidator.revalidate();
+		},
+		onError: (_error) => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to reorder item. Please try again.",
+			});
+		},
+	});
 
 	const handleRankClick = () => {
 		if (!isReorderMode) return;
 
 		const newRank = prompt(`Enter new rank for this item (1-${rankNumber}):`);
-		if (newRank && !isNaN(Number(newRank))) {
-			const rank = Number(newRank);
+		const rank = Number(newRank);
+		if (newRank && isNumber(rank)) {
 			if (rank >= 1) {
-				// TODO: Call reorder mutation
-				console.log(`Reorder ${item.entityId} to position ${rank}`);
+				reorderMutation.mutate({
+					newPosition: rank,
+					entityId: item.entityId,
+					collectionId: collectionId,
+				});
 			}
 		}
 	};
