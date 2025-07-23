@@ -603,7 +603,6 @@ impl StatisticsService {
                             vec![]
                         } else {
                             let mut aggregated_activity = DailyUserActivityModel {
-                                date: None,
                                 user_id: user_id.to_owned(),
                                 ..Default::default()
                             };
