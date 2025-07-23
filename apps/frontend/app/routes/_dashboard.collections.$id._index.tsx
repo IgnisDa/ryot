@@ -507,8 +507,8 @@ const CollectionItem = ({ item }: { item: EntityWithLot }) => {
 			topRight={
 				state && state.data.action === "remove" ? (
 					<ActionIcon
-						variant={isAdded ? "filled" : "transparent"}
 						color="red"
+						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
 							if (isAdded) state.remove(item);
 							else state.add(item);
