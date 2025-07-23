@@ -303,7 +303,6 @@ export default function Page() {
 												key={lm.entityId}
 												rankNumber={index + 1}
 												isReorderMode={isReorderMode}
-												collectionId={loaderData.collectionId}
 												collectionName={details.details.name}
 											/>
 										))}
@@ -532,7 +531,6 @@ const RecommendationsSection = () => {
 type CollectionItemProps = {
 	rankNumber: number;
 	item: EntityWithLot;
-	collectionId: string;
 	collectionName: string;
 	isReorderMode: boolean;
 };
@@ -540,9 +538,8 @@ type CollectionItemProps = {
 const CollectionItem = ({
 	item,
 	rankNumber,
-	collectionId,
-	collectionName,
 	isReorderMode,
+	collectionName,
 }: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
