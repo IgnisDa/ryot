@@ -537,16 +537,10 @@ type CollectionItemProps = {
 	isReorderMode: boolean;
 };
 
-const CollectionItem = ({
-	item,
-	totalItems,
-	rankNumber,
-	isReorderMode,
-	collectionName,
-}: CollectionItemProps) => {
+const CollectionItem = (props: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
-	const isAdded = bulkEditingCollection.isAdded(item);
+	const isAdded = bulkEditingCollection.isAdded(props.item);
 	const revalidator = useRevalidator();
 
 	const reorderMutation = useMutation({
@@ -565,16 +559,18 @@ const CollectionItem = ({
 	});
 
 	const handleRankClick = () => {
-		if (!isReorderMode) return;
+		if (!props.isReorderMode) return;
 
-		const newRank = prompt(`Enter new rank for this item (1-${totalItems}):`);
+		const newRank = prompt(
+			`Enter new rank for this item (1-${props.totalItems}):`,
+		);
 		const rank = Number(newRank);
 		if (newRank && isNumber(rank)) {
-			if (rank >= 1 && rank <= totalItems) {
+			if (rank >= 1 && rank <= props.totalItems) {
 				reorderMutation.mutate({
 					newPosition: rank,
-					entityId: item.entityId,
-					collectionName: collectionName,
+					entityId: props.item.entityId,
+					collectionName: props.collectionName,
 				});
 			}
 		}
@@ -582,10 +578,10 @@ const CollectionItem = ({
 
 	return (
 		<DisplayCollectionEntity
-			entityId={item.entityId}
-			entityLot={item.entityLot}
+			entityId={props.item.entityId}
+			entityLot={props.item.entityLot}
 			topLeft={
-				isReorderMode ? (
+				props.isReorderMode ? (
 					<ActionIcon
 						color="blue"
 						variant="filled"
@@ -593,7 +589,7 @@ const CollectionItem = ({
 						style={{ cursor: "pointer" }}
 					>
 						<Text size="xs" fw={700} c="white">
-							{rankNumber}
+							{props.rankNumber}
 						</Text>
 					</ActionIcon>
 				) : null
@@ -604,8 +600,8 @@ const CollectionItem = ({
 						color="red"
 						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
-							if (isAdded) state.remove(item);
-							else state.add(item);
+							if (isAdded) state.remove(props.item);
+							else state.add(props.item);
 						}}
 					>
 						<IconTrashFilled size={18} />
