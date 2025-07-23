@@ -304,6 +304,7 @@ export default function Page() {
 												rankNumber={index + 1}
 												isReorderMode={isReorderMode}
 												collectionId={loaderData.collectionId}
+												collectionName={details.details.name}
 											/>
 										))}
 									</ApplicationGrid>
@@ -532,6 +533,7 @@ type CollectionItemProps = {
 	rankNumber: number;
 	item: EntityWithLot;
 	collectionId: string;
+	collectionName: string;
 	isReorderMode: boolean;
 };
 
@@ -539,6 +541,7 @@ const CollectionItem = ({
 	item,
 	rankNumber,
 	collectionId,
+	collectionName,
 	isReorderMode,
 }: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
@@ -571,7 +574,7 @@ const CollectionItem = ({
 				reorderMutation.mutate({
 					newPosition: rank,
 					entityId: item.entityId,
-					collectionId: collectionId,
+					collectionName: collectionName,
 				});
 			}
 		}
