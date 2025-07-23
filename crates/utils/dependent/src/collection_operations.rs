@@ -16,11 +16,12 @@ use media_models::CreateOrUpdateCollectionInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, Iterable,
     QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
 };
 use sea_query::OnConflict;
 use supporting_service::SupportingService;
+use uuid::Uuid;
 
 use crate::{
     expire_user_collection_contents_cache,
@@ -29,6 +30,13 @@ use crate::{
         mark_entity_as_recently_consumed,
     },
 };
+
+#[derive(FromQueryResult)]
+struct CollectionEntityRank {
+    id: Uuid,
+    rank: Decimal,
+    entity_id: String,
+}
 
 async fn add_single_entity_to_collection(
     user_id: &String,
@@ -296,7 +304,12 @@ pub async fn reorder_collection_entity(
 
     let all_entities = CollectionToEntity::find()
         .filter(collection_to_entity::Column::CollectionId.eq(&collection.id))
+        .select_only()
+        .column(collection_to_entity::Column::Id)
+        .column(collection_to_entity::Column::EntityId)
+        .column(collection_to_entity::Column::Rank)
         .order_by_asc(collection_to_entity::Column::Rank)
+        .into_model::<CollectionEntityRank>()
         .all(&ss.db)
         .await?;
 
@@ -330,9 +343,11 @@ pub async fn reorder_collection_entity(
         (prev_rank + next_rank) / dec!(2)
     };
 
-    let mut entity_update = entity_to_reorder.clone().into_active_model();
-    entity_update.rank = ActiveValue::Set(new_rank);
-    entity_update.update(&ss.db).await?;
+    CollectionToEntity::update_many()
+        .filter(collection_to_entity::Column::Id.eq(entity_to_reorder.id))
+        .col_expr(collection_to_entity::Column::Rank, Expr::value(new_rank))
+        .exec(&ss.db)
+        .await?;
 
     expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
 
