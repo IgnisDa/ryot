@@ -263,40 +263,55 @@ export default function Page() {
 						</Tabs.List>
 						<Tabs.Panel value={TabNames.Contents}>
 							<Stack gap="xs">
-								<Group wrap="nowrap">
-									<DebouncedSearchInput
-										initialValue={loaderData.query.query}
-										placeholder="Search in the collection"
-										enhancedQueryParams={loaderData.cookieName}
-									/>
-									<ActionIcon
-										onClick={() => openFiltersModal()}
-										color={
-											loaderData.query.entityLot !== undefined ||
-											loaderData.query.metadataLot !== undefined ||
-											loaderData.query.sortBy !== defaultFiltersValue.sort ||
-											loaderData.query.orderBy !== defaultFiltersValue.order
-												? "blue"
-												: "gray"
-										}
-									>
-										<IconFilter size={24} />
-									</ActionIcon>
-									<FiltersModal
-										opened={filtersModalOpened}
-										cookieName={loaderData.cookieName}
-										closeFiltersModal={closeFiltersModal}
-									>
-										<FiltersModalForm />
-									</FiltersModal>
-								</Group>
-								<DisplayListDetailsAndRefresh
-									total={details.totalItems}
-									cacheId={loaderData.collectionContents.cacheId}
-									isRandomSortOrderSelected={
-										loaderData.query.sortBy === CollectionContentsSortBy.Random
-									}
-								/>
+								{!isReorderMode ? (
+									<>
+										<Group wrap="nowrap">
+											<DebouncedSearchInput
+												initialValue={loaderData.query.query}
+												placeholder="Search in the collection"
+												enhancedQueryParams={loaderData.cookieName}
+											/>
+											<ActionIcon
+												onClick={() => openFiltersModal()}
+												color={
+													loaderData.query.entityLot !== undefined ||
+													loaderData.query.metadataLot !== undefined ||
+													loaderData.query.sortBy !==
+														defaultFiltersValue.sort ||
+													loaderData.query.orderBy !== defaultFiltersValue.order
+														? "blue"
+														: "gray"
+												}
+											>
+												<IconFilter size={24} />
+											</ActionIcon>
+											<FiltersModal
+												opened={filtersModalOpened}
+												cookieName={loaderData.cookieName}
+												closeFiltersModal={closeFiltersModal}
+											>
+												<FiltersModalForm />
+											</FiltersModal>
+										</Group>
+										<DisplayListDetailsAndRefresh
+											total={details.totalItems}
+											cacheId={loaderData.collectionContents.cacheId}
+											isRandomSortOrderSelected={
+												loaderData.query.sortBy ===
+												CollectionContentsSortBy.Random
+											}
+										/>
+									</>
+								) : (
+									<Group justify="end">
+										<Button
+											variant="outline"
+											onClick={() => setIsReorderMode(false)}
+										>
+											Done Reordering
+										</Button>
+									</Group>
+								)}
 								{details.results.items.length > 0 ? (
 									<ApplicationGrid>
 										{details.results.items.map((lm, index) => (
@@ -374,6 +389,10 @@ export default function Page() {
 									variant="outline"
 									disabled={details.results.details.total === 0}
 									onClick={() => {
+										if (isReorderMode) {
+											setIsReorderMode(false);
+											return;
+										}
 										if (!coreDetails.isServerKeyValidated) {
 											notifications.show({
 												color: "red",
@@ -388,7 +407,7 @@ export default function Page() {
 										setIsReorderMode(true);
 									}}
 								>
-									Reorder items
+									{isReorderMode ? "Exit Reorder Mode" : "Reorder items"}
 								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
