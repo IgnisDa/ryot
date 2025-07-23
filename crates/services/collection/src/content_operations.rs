@@ -110,6 +110,9 @@ pub async fn collection_contents(
                     })
                     .order_by(
                         match sort.by {
+                            CollectionContentsSortBy::Rank => {
+                                Expr::col(collection_to_entity::Column::Rank)
+                            }
                             CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                             CollectionContentsSortBy::LastUpdatedOn => {
                                 Expr::col(collection_to_entity::Column::LastUpdatedOn)
