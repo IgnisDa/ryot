@@ -1,10 +1,11 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput, StringIdObject,
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput,
+    ReorderCollectionEntityInput, StringIdObject,
 };
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
@@ -14,8 +15,8 @@ use media_models::CreateOrUpdateCollectionInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, QueryFilter, QuerySelect,
-    TransactionTrait, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable,
+    QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
 };
 use sea_query::OnConflict;
 use supporting_service::SupportingService;
@@ -271,5 +272,66 @@ pub async fn remove_entities_from_collection(
         )
         .await?;
     }
+    Ok(true)
+}
+
+pub async fn reorder_collection_entity(
+    user_id: &String,
+    input: ReorderCollectionEntityInput,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let collection = Collection::find()
+        .filter(collection::Column::Name.eq(&input.collection_id))
+        .filter(collection::Column::UserId.eq(user_id))
+        .one(&ss.db)
+        .await?;
+
+    let collection = match collection {
+        Some(c) => c,
+        None => bail!("Collection not found"),
+    };
+
+    let all_entities = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(&collection.id))
+        .order_by_asc(collection_to_entity::Column::Rank)
+        .all(&ss.db)
+        .await?;
+
+    if all_entities.is_empty() {
+        bail!("Collection is empty");
+    }
+
+    if input.new_position < 1 || input.new_position > all_entities.len() {
+        bail!(
+            "Invalid position: must be between 1 and {}",
+            all_entities.len()
+        );
+    }
+
+    let entity_to_reorder = all_entities.iter().find(|e| e.entity_id == input.entity_id);
+
+    let entity_to_reorder = match entity_to_reorder {
+        Some(e) => e,
+        None => bail!("Entity not found in collection"),
+    };
+
+    let new_rank = if input.new_position == 1 {
+        let min_rank = all_entities.first().unwrap().rank;
+        min_rank - dec!(1)
+    } else if input.new_position == all_entities.len() {
+        let max_rank = all_entities.last().unwrap().rank;
+        max_rank + dec!(1)
+    } else {
+        let prev_rank = all_entities[input.new_position - 2].rank;
+        let next_rank = all_entities[input.new_position - 1].rank;
+        (prev_rank + next_rank) / dec!(2)
+    };
+
+    let mut entity_update = entity_to_reorder.clone().into_active_model();
+    entity_update.rank = ActiveValue::Set(new_rank);
+    entity_update.update(&ss.db).await?;
+
+    expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
+
     Ok(true)
 }
