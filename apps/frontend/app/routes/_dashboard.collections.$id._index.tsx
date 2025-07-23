@@ -266,9 +266,9 @@ export default function Page() {
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										closeFiltersModal={closeFiltersModal}
-										cookieName={loaderData.cookieName}
 										opened={filtersModalOpened}
+										cookieName={loaderData.cookieName}
+										closeFiltersModal={closeFiltersModal}
 									>
 										<FiltersModalForm />
 									</FiltersModal>
