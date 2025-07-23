@@ -23,6 +23,7 @@ import {
 	CollectionRecommendationsDocument,
 	type CollectionRecommendationsInput,
 	EntityLot,
+	type EntityWithLot,
 	GraphqlSortOrder,
 	MediaLot,
 	UsersListDocument,
@@ -173,7 +174,6 @@ export default function Page() {
 		id: loaderData.collectionId,
 		creatorUserId: details.user.id,
 	};
-	const state = bulkEditingCollection.state;
 	const thisCollection = userCollections.find(
 		(c) => c.id === loaderData.collectionId,
 	);
@@ -282,30 +282,9 @@ export default function Page() {
 								/>
 								{details.results.items.length > 0 ? (
 									<ApplicationGrid>
-										{details.results.items.map((lm) => {
-											const isAdded = bulkEditingCollection.isAdded(lm);
-											return (
-												<DisplayCollectionEntity
-													key={lm.entityId}
-													entityId={lm.entityId}
-													entityLot={lm.entityLot}
-													topRight={
-														state && state.data.action === "remove" ? (
-															<ActionIcon
-																variant={isAdded ? "filled" : "transparent"}
-																color="red"
-																onClick={() => {
-																	if (isAdded) state.remove(lm);
-																	else state.add(lm);
-																}}
-															>
-																<IconTrashFilled size={18} />
-															</ActionIcon>
-														) : null
-													}
-												/>
-											);
-										})}
+										{details.results.items.map((lm) => (
+											<CollectionItem key={lm.entityId} item={lm} />
+										))}
 									</ApplicationGrid>
 								) : (
 									<Text>You have not added anything this collection</Text>
@@ -513,5 +492,32 @@ const RecommendationsSection = () => {
 				<Skeleton height={100} />
 			)}
 		</Stack>
+	);
+};
+
+const CollectionItem = ({ item }: { item: EntityWithLot }) => {
+	const bulkEditingCollection = useBulkEditCollection();
+	const state = bulkEditingCollection.state;
+	const isAdded = bulkEditingCollection.isAdded(item);
+
+	return (
+		<DisplayCollectionEntity
+			entityId={item.entityId}
+			entityLot={item.entityLot}
+			topRight={
+				state && state.data.action === "remove" ? (
+					<ActionIcon
+						variant={isAdded ? "filled" : "transparent"}
+						color="red"
+						onClick={() => {
+							if (isAdded) state.remove(item);
+							else state.add(item);
+						}}
+					>
+						<IconTrashFilled size={18} />
+					</ActionIcon>
+				) : null
+			}
+		/>
 	);
 };
