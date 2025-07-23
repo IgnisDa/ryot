@@ -88,8 +88,8 @@ import type { Route } from "./+types/_dashboard.collections.$id._index";
 const DEFAULT_TAB = "contents";
 
 const defaultFiltersValue = {
-	sort: CollectionContentsSortBy.LastUpdatedOn,
 	order: GraphqlSortOrder.Desc,
+	sort: CollectionContentsSortBy.Rank,
 };
 
 const searchParamsSchema = z.object({
