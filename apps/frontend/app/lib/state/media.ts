@@ -71,6 +71,8 @@ export const useMetadataProgressUpdate = () => {
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
+			draft.providerWatchedOn =
+				userMetadataDetails.history.at(0)?.providerWatchedOn;
 			if (determineNext) {
 				const nextEntry = userMetadataDetails?.nextEntry;
 				if (nextEntry) {

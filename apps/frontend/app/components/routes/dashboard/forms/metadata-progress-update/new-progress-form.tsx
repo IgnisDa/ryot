@@ -154,6 +154,7 @@ export const MetadataNewProgressUpdateForm = ({
 				<ProviderSelect
 					onChange={handleProviderChange}
 					metadataLot={metadataDetails.lot}
+					value={metadataToUpdate.providerWatchedOn}
 				/>
 			) : null}
 			<Button

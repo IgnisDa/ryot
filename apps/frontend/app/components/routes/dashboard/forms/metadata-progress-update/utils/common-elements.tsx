@@ -72,19 +72,22 @@ export const CustomDatePicker = ({
 };
 
 interface ProviderSelectProps {
+	value?: string | null;
 	metadataLot: MediaLot;
 	onChange: (provider: string | null) => void;
 }
 
 export const ProviderSelect = ({
-	metadataLot,
+	value,
 	onChange,
+	metadataLot,
 }: ProviderSelectProps) => {
 	const watchProviders = useGetWatchProviders(metadataLot);
 
 	return (
 		<Select
 			size="xs"
+			value={value}
 			onChange={onChange}
 			data={watchProviders}
 			name="providerWatchedOn"
