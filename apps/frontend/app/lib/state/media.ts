@@ -59,6 +59,8 @@ export const useMetadataProgressUpdate = () => {
 
 	const setMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
+		// DEV: This is not true by default because this function is mostly being called by the
+		// seasons and episodes tab in media details page.
 		determineNext?: boolean,
 	) => {
 		setIsLoading(true);
