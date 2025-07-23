@@ -88,12 +88,14 @@ export const ProRequiredAlert = (props: {
 export const DisplayCollectionEntity = (props: {
 	entityId: string;
 	entityLot: EntityLot;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 }) =>
 	match(props.entityLot)
 		.with(EntityLot.Metadata, () => (
 			<MetadataDisplayItem
 				rightLabelLot
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				metadataId={props.entityId}
 			/>
@@ -101,6 +103,7 @@ export const DisplayCollectionEntity = (props: {
 		.with(EntityLot.MetadataGroup, () => (
 			<MetadataGroupDisplayItem
 				noLeftLabel
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				metadataGroupId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -108,6 +111,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Person, () => (
 			<PersonDisplayItem
+				topLeft={props.topLeft}
 				personId={props.entityId}
 				topRight={props.topRight}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -115,6 +119,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Exercise, () => (
 			<ExerciseDisplayItem
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				exerciseId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -122,6 +127,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.Workout, () => (
 			<WorkoutDisplayItem
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutId={props.entityId}
 				rightLabel={changeCase(snakeCase(props.entityLot))}
@@ -129,6 +135,7 @@ export const DisplayCollectionEntity = (props: {
 		))
 		.with(EntityLot.WorkoutTemplate, () => (
 			<WorkoutTemplateDisplayItem
+				topLeft={props.topLeft}
 				topRight={props.topRight}
 				workoutTemplateId={props.entityId}
 			/>

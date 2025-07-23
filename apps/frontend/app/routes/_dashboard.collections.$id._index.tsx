@@ -578,43 +578,37 @@ const CollectionItem = ({
 	};
 
 	return (
-		<Box style={{ position: "relative" }}>
-			{isReorderMode && (
-				<ActionIcon
-					color="blue"
-					variant="filled"
-					onClick={handleRankClick}
-					style={{
-						position: "absolute",
-						top: 4,
-						left: 4,
-						zIndex: 10,
-						cursor: "pointer",
-					}}
-				>
-					<Text size="xs" fw={700} c="white">
-						{rankNumber}
-					</Text>
-				</ActionIcon>
-			)}
-			<DisplayCollectionEntity
-				entityId={item.entityId}
-				entityLot={item.entityLot}
-				topRight={
-					state && state.data.action === "remove" ? (
-						<ActionIcon
-							color="red"
-							variant={isAdded ? "filled" : "transparent"}
-							onClick={() => {
-								if (isAdded) state.remove(item);
-								else state.add(item);
-							}}
-						>
-							<IconTrashFilled size={18} />
-						</ActionIcon>
-					) : null
-				}
-			/>
-		</Box>
+		<DisplayCollectionEntity
+			entityId={item.entityId}
+			entityLot={item.entityLot}
+			topLeft={
+				isReorderMode ? (
+					<ActionIcon
+						color="blue"
+						variant="filled"
+						onClick={handleRankClick}
+						style={{ cursor: "pointer" }}
+					>
+						<Text size="xs" fw={700} c="white">
+							{rankNumber}
+						</Text>
+					</ActionIcon>
+				) : null
+			}
+			topRight={
+				state && state.data.action === "remove" ? (
+					<ActionIcon
+						color="red"
+						variant={isAdded ? "filled" : "transparent"}
+						onClick={() => {
+							if (isAdded) state.remove(item);
+							else state.add(item);
+						}}
+					>
+						<IconTrashFilled size={18} />
+					</ActionIcon>
+				) : null
+			}
+		/>
 	);
 };

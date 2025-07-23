@@ -21,6 +21,7 @@ import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const ExerciseDisplayItem = (props: {
 	exerciseId: string;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 }) => {
@@ -50,13 +51,14 @@ export const ExerciseDisplayItem = (props: {
 					: undefined,
 				right: props.rightLabel,
 			}}
-			imageOverlay={{ topRight: props.topRight }}
+			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 		/>
 	);
 };
 
 export const WorkoutDisplayItem = (props: {
 	workoutId: string;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 }) => {
@@ -70,7 +72,7 @@ export const WorkoutDisplayItem = (props: {
 			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
+			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					entity: "workouts",
@@ -86,6 +88,7 @@ export const WorkoutDisplayItem = (props: {
 };
 
 export const WorkoutTemplateDisplayItem = (props: {
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	workoutTemplateId: string;
 }) => {
@@ -103,7 +106,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 			innerRef={ref}
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
+			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					id: props.workoutTemplateId,
