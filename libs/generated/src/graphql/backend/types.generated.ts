@@ -2210,7 +2210,7 @@ export type RegisterUserInput = {
 };
 
 export type ReorderCollectionEntityInput = {
-  collectionId: Scalars['String']['input'];
+  collectionName: Scalars['String']['input'];
   entityId: Scalars['String']['input'];
   newPosition: Scalars['Int']['input'];
 };
