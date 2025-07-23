@@ -255,6 +255,13 @@ pub struct ChangeCollectionToEntitiesInput {
     pub entities: Vec<EntityToCollectionInput>,
 }
 
+#[derive(Debug, InputObject, Clone, Serialize, Deserialize)]
+pub struct ReorderCollectionEntityInput {
+    pub entity_id: String,
+    pub new_position: usize,
+    pub collection_id: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct ExportJob {
     pub size: i64,
