@@ -1484,6 +1484,8 @@ export type MutationRoot = {
    * they are the first user.
    */
   registerUser: RegisterResult;
+  /** Reorder an entity within a collection. */
+  reorderCollectionEntity: Scalars['Boolean']['output'];
   /**
    * Reset a user by deleting and recreating them with the same ID. The account
    * resetting the user must be an `Admin`.
@@ -1692,6 +1694,11 @@ export type MutationRootProcessAccessLinkArgs = {
 
 export type MutationRootRegisterUserArgs = {
   input: RegisterUserInput;
+};
+
+
+export type MutationRootReorderCollectionEntityArgs = {
+  input: ReorderCollectionEntityInput;
 };
 
 
@@ -2199,6 +2206,12 @@ export type RegisterUserInput = {
   /** If registration is disabled, this can be used to override it. */
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   data: AuthUserInput;
+};
+
+export type ReorderCollectionEntityInput = {
+  collectionId: Scalars['String']['input'];
+  entityId: Scalars['String']['input'];
+  newPosition: Scalars['Int']['input'];
 };
 
 export type ReviewItem = {
