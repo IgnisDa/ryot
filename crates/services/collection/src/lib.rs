@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob};
-use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
+use common_models::{
+    ChangeCollectionToEntitiesInput, ReorderCollectionEntityInput, StringIdObject,
+};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
@@ -72,6 +74,14 @@ impl CollectionService {
         input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
         remove_entities_from_collection(user_id, input, &self.0).await
+    }
+
+    pub async fn reorder_collection_entity(
+        &self,
+        user_id: &String,
+        input: ReorderCollectionEntityInput,
+    ) -> Result<bool> {
+        dependent_utils::reorder_collection_entity(user_id, input, &self.0).await
     }
 
     pub async fn deploy_add_entities_to_collection_job(
