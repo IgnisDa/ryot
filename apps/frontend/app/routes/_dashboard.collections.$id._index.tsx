@@ -100,7 +100,7 @@ enum TabNames {
 const DEFAULT_TAB = TabNames.Contents;
 
 const defaultFiltersValue = {
-	order: GraphqlSortOrder.Desc,
+	order: GraphqlSortOrder.Asc,
 	sort: CollectionContentsSortBy.Rank,
 };
 
