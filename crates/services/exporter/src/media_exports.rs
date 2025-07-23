@@ -19,7 +19,7 @@ use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 
-use crate::export_utilities::ExportUtilities;
+use crate::export_utilities::get_review_export_item;
 
 pub async fn export_media(
     service: &Arc<SupportingService>,
@@ -81,7 +81,7 @@ pub async fn export_media(
             let reviews = item_reviews(user_id, &m.id, EntityLot::Metadata, false, service)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect();
             let collections = entity_in_collections_with_details(
                 &service.db,
@@ -142,7 +142,7 @@ pub async fn export_media_group(
             let reviews = item_reviews(user_id, &m.id, EntityLot::MetadataGroup, false, service)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect();
             let collections = entity_in_collections_with_details(
                 &service.db,
@@ -202,7 +202,7 @@ pub async fn export_people(
             let reviews = item_reviews(user_id, &p.id, EntityLot::Person, false, service)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect();
             let collections =
                 entity_in_collections_with_details(&service.db, user_id, &p.id, EntityLot::Person)

@@ -20,7 +20,7 @@ use sea_orm::EntityTrait;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 
-use crate::export_utilities::ExportUtilities;
+use crate::export_utilities::get_review_export_item;
 
 pub async fn export_workouts(
     service: &Arc<SupportingService>,
@@ -97,7 +97,7 @@ pub async fn export_exercises(
             let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, service)
                 .await?
                 .into_iter()
-                .map(ExportUtilities::get_review_export_item)
+                .map(get_review_export_item)
                 .collect_vec();
             let collections = entity_in_collections_with_details(
                 &service.db,
