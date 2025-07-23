@@ -14,8 +14,11 @@ use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use traits::TraceOk;
 
-use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
-use crate::{IntegrationService, yank};
+use crate::{
+    IntegrationService,
+    integration_operations::{select_integrations_to_process, set_trigger_result},
+    yank,
+};
 
 impl IntegrationService {
     async fn yank_integrations_data_for_user(&self, user_id: &String) -> Result<()> {

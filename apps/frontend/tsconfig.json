@@ -30,11 +30,6 @@
 		"rootDirs": [".", "./.react-router/types"],
 		"types": ["@react-router/node", "vite/client"],
 		"outDir": "../../.moon/cache/types/apps/frontend",
-		"plugins": [
-			{
-				"name": "typescript-plugin-css-modules"
-			}
-		],
 		"paths": {
 			"~/*": ["./app/*"],
 			"@ryot/graphql/*": ["../../libs/graphql/src/*"],

@@ -1,12 +1,9 @@
 import { Box, Button, Group, Loader, Stack, Text } from "@mantine/core";
 import {
-	BackgroundJob,
-	DeployBackgroundJobDocument,
 	MediaLot,
 	UpdateUserPreferenceDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { cloneDeep, isNumber } from "@ryot/ts-utils";
-import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
@@ -109,13 +106,6 @@ export const useOnboardingTour = () => {
 
 	const isOnboardingTourLoading = tourState?.isLoading;
 
-	const deployBackgroundJobMutation = useMutation({
-		mutationFn: async () => {
-			await clientGqlService.request(DeployBackgroundJobDocument, {
-				jobName: BackgroundJob.CalculateUserActivitiesAndSummary,
-			});
-		},
-	});
 
 	const startOnboardingTour = async () => {
 		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
@@ -281,8 +271,7 @@ export const useOnboardingTour = () => {
 							<Button
 								size="xs"
 								fullWidth
-								onClick={async () => {
-									await deployBackgroundJobMutation.mutateAsync();
+								onClick={() => {
 									advanceOnboardingTourStep({ collapseSidebar: true });
 								}}
 							>
@@ -292,8 +281,7 @@ export const useOnboardingTour = () => {
 								fullWidth
 								size="xs"
 								variant="outline"
-								onClick={async () => {
-									await deployBackgroundJobMutation.mutateAsync();
+								onClick={() => {
 									advanceOnboardingTourStep({ skipSecondarySteps: true });
 								}}
 							>

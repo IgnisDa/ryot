@@ -5,16 +5,24 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
 hashbag = { workspace = true }
 itertools = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
+serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+application-utils = { path = "../../utils/application" }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
+media-models = { path = "../../models/media" }
 supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]
