@@ -322,8 +322,8 @@ pub async fn reorder_collection_entity(
         let max_rank = all_entities.last().unwrap().rank;
         max_rank + dec!(1)
     } else {
-        let prev_rank = all_entities[input.new_position - 2].rank;
-        let next_rank = all_entities[input.new_position - 1].rank;
+        let prev_rank = all_entities[input.new_position - 1].rank;
+        let next_rank = all_entities[input.new_position].rank;
         (prev_rank + next_rank) / dec!(2)
     };
 
