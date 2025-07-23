@@ -173,157 +173,154 @@ where
     query
 }
 
+fn calculate_media_duration(seen: &SeenItem, activity: &mut DailyUserActivityModel) {
+    match seen.metadata_lot {
+        MediaLot::Show => {
+            if let (Some(show_seen), Some(show_extra)) =
+                (&seen.show_specifics, &seen.show_extra_information)
+            {
+                if let Some(runtime) =
+                    get_show_episode_by_numbers(show_seen, show_extra.season, show_extra.episode)
+                        .and_then(|(_, e)| e.runtime)
+                {
+                    activity.show_duration += runtime;
+                }
+            }
+        }
+        MediaLot::Podcast => {
+            if let (Some(podcast_seen), Some(podcast_extra)) =
+                (&seen.podcast_specifics, &seen.podcast_extra_information)
+            {
+                if let Some(runtime) =
+                    get_podcast_episode_by_number(podcast_seen, podcast_extra.episode)
+                        .and_then(|e| e.runtime)
+                {
+                    activity.podcast_duration += runtime;
+                }
+            }
+        }
+        MediaLot::AudioBook => {
+            if let Some(audio_book_extra) = &seen.audio_book_specifics {
+                if let Some(runtime) = audio_book_extra.runtime {
+                    activity.audio_book_duration += runtime;
+                }
+            }
+        }
+        MediaLot::Movie => {
+            if let Some(movie_extra) = &seen.movie_specifics {
+                if let Some(runtime) = movie_extra.runtime {
+                    activity.movie_duration += runtime;
+                }
+            }
+        }
+        MediaLot::Music => {
+            if let Some(music_extra) = &seen.music_specifics {
+                if let Some(runtime) = music_extra.duration {
+                    activity.music_duration += runtime / 60;
+                }
+            }
+        }
+        MediaLot::Book => {
+            if let Some(book_extra) = &seen.book_specifics {
+                if let Some(pages) = book_extra.pages {
+                    activity.book_pages += pages;
+                }
+            }
+        }
+        MediaLot::VisualNovel => {
+            if let Some(visual_novel_extra) = &seen.visual_novel_specifics {
+                if let Some(runtime) = visual_novel_extra.length {
+                    activity.visual_novel_duration += runtime;
+                }
+            }
+        }
+        MediaLot::VideoGame => {
+            if let Some(manual_time_spent) = seen.manual_time_spent {
+                activity.video_game_duration +=
+                    (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn convert_activity_to_item(mut activity: DailyUserActivityModel) -> DailyUserActivityItem {
+    activity.hour_records.sort_by_key(|hr| hr.hour);
+
+    let total_person_count = activity.person_review_count + activity.person_collection_count;
+    let total_metadata_group_count =
+        activity.metadata_group_review_count + activity.metadata_group_collection_count;
+    let total_review_count = activity.metadata_review_count
+        + activity.collection_review_count
+        + activity.metadata_group_review_count
+        + activity.person_review_count
+        + activity.exercise_review_count;
+    let total_metadata_count = activity.movie_count
+        + activity.show_count
+        + activity.podcast_count
+        + activity.anime_count
+        + activity.manga_count
+        + activity.music_count
+        + activity.audio_book_count
+        + activity.book_count
+        + activity.video_game_count
+        + activity.visual_novel_count
+        + activity.metadata_collection_count;
+    let total_count = total_metadata_count
+        + activity.measurement_count
+        + activity.workout_count
+        + total_review_count
+        + total_person_count
+        + total_metadata_group_count;
+    let total_duration = activity.workout_duration
+        + activity.audio_book_duration
+        + activity.podcast_duration
+        + activity.movie_duration
+        + activity.show_duration
+        + activity.music_duration
+        + activity.visual_novel_duration
+        + activity.video_game_duration;
+
+    DailyUserActivityItem {
+        day: activity.date.unwrap_or_default(),
+        audio_book_count: activity.audio_book_count as i64,
+        total_audio_book_duration: activity.audio_book_duration as i64,
+        anime_count: activity.anime_count as i64,
+        book_count: activity.book_count as i64,
+        total_book_pages: activity.book_pages as i64,
+        podcast_count: activity.podcast_count as i64,
+        total_podcast_duration: activity.podcast_duration as i64,
+        manga_count: activity.manga_count as i64,
+        movie_count: activity.movie_count as i64,
+        total_movie_duration: activity.movie_duration as i64,
+        music_count: activity.music_count as i64,
+        total_music_duration: activity.music_duration as i64,
+        show_count: activity.show_count as i64,
+        total_show_duration: activity.show_duration as i64,
+        total_video_game_duration: activity.video_game_duration as i64,
+        video_game_count: activity.video_game_count as i64,
+        visual_novel_count: activity.visual_novel_count as i64,
+        total_visual_novel_duration: activity.visual_novel_duration as i64,
+        total_workout_personal_bests: activity.workout_personal_bests as i64,
+        total_workout_weight: activity.workout_weight as i64,
+        total_workout_reps: activity.workout_reps as i64,
+        total_workout_distance: activity.workout_distance as i64,
+        total_workout_rest_time: activity.workout_rest_time as i64,
+        workout_count: activity.workout_count as i64,
+        total_workout_duration: activity.workout_duration as i64,
+        total_metadata_review_count: activity.metadata_review_count as i64,
+        total_collection_review_count: activity.collection_review_count as i64,
+        total_metadata_group_review_count: activity.metadata_group_review_count as i64,
+        total_person_review_count: activity.person_review_count as i64,
+        user_measurement_count: activity.measurement_count as i64,
+        total_metadata_count: total_metadata_count as i64,
+        total_review_count: total_review_count as i64,
+        total_count: total_count as i64,
+        total_duration: total_duration as i64,
+    }
+}
+
 impl StatisticsService {
-    fn calculate_media_duration(&self, seen: &SeenItem, activity: &mut DailyUserActivityModel) {
-        match seen.metadata_lot {
-            MediaLot::Show => {
-                if let (Some(show_seen), Some(show_extra)) =
-                    (&seen.show_specifics, &seen.show_extra_information)
-                {
-                    if let Some(runtime) = get_show_episode_by_numbers(
-                        show_seen,
-                        show_extra.season,
-                        show_extra.episode,
-                    )
-                    .and_then(|(_, e)| e.runtime)
-                    {
-                        activity.show_duration += runtime;
-                    }
-                }
-            }
-            MediaLot::Podcast => {
-                if let (Some(podcast_seen), Some(podcast_extra)) =
-                    (&seen.podcast_specifics, &seen.podcast_extra_information)
-                {
-                    if let Some(runtime) =
-                        get_podcast_episode_by_number(podcast_seen, podcast_extra.episode)
-                            .and_then(|e| e.runtime)
-                    {
-                        activity.podcast_duration += runtime;
-                    }
-                }
-            }
-            MediaLot::AudioBook => {
-                if let Some(audio_book_extra) = &seen.audio_book_specifics {
-                    if let Some(runtime) = audio_book_extra.runtime {
-                        activity.audio_book_duration += runtime;
-                    }
-                }
-            }
-            MediaLot::Movie => {
-                if let Some(movie_extra) = &seen.movie_specifics {
-                    if let Some(runtime) = movie_extra.runtime {
-                        activity.movie_duration += runtime;
-                    }
-                }
-            }
-            MediaLot::Music => {
-                if let Some(music_extra) = &seen.music_specifics {
-                    if let Some(runtime) = music_extra.duration {
-                        activity.music_duration += runtime / 60;
-                    }
-                }
-            }
-            MediaLot::Book => {
-                if let Some(book_extra) = &seen.book_specifics {
-                    if let Some(pages) = book_extra.pages {
-                        activity.book_pages += pages;
-                    }
-                }
-            }
-            MediaLot::VisualNovel => {
-                if let Some(visual_novel_extra) = &seen.visual_novel_specifics {
-                    if let Some(runtime) = visual_novel_extra.length {
-                        activity.visual_novel_duration += runtime;
-                    }
-                }
-            }
-            MediaLot::VideoGame => {
-                if let Some(manual_time_spent) = seen.manual_time_spent {
-                    activity.video_game_duration +=
-                        (manual_time_spent / dec!(60)).to_i32().unwrap_or_default();
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn convert_activity_to_item(mut activity: DailyUserActivityModel) -> DailyUserActivityItem {
-        activity.hour_records.sort_by_key(|hr| hr.hour);
-
-        let total_person_count = activity.person_review_count + activity.person_collection_count;
-        let total_metadata_group_count =
-            activity.metadata_group_review_count + activity.metadata_group_collection_count;
-        let total_review_count = activity.metadata_review_count
-            + activity.collection_review_count
-            + activity.metadata_group_review_count
-            + activity.person_review_count
-            + activity.exercise_review_count;
-        let total_metadata_count = activity.movie_count
-            + activity.show_count
-            + activity.podcast_count
-            + activity.anime_count
-            + activity.manga_count
-            + activity.music_count
-            + activity.audio_book_count
-            + activity.book_count
-            + activity.video_game_count
-            + activity.visual_novel_count
-            + activity.metadata_collection_count;
-        let total_count = total_metadata_count
-            + activity.measurement_count
-            + activity.workout_count
-            + total_review_count
-            + total_person_count
-            + total_metadata_group_count;
-        let total_duration = activity.workout_duration
-            + activity.audio_book_duration
-            + activity.podcast_duration
-            + activity.movie_duration
-            + activity.show_duration
-            + activity.music_duration
-            + activity.visual_novel_duration
-            + activity.video_game_duration;
-
-        DailyUserActivityItem {
-            day: activity.date.unwrap_or_default(),
-            audio_book_count: activity.audio_book_count as i64,
-            total_audio_book_duration: activity.audio_book_duration as i64,
-            anime_count: activity.anime_count as i64,
-            book_count: activity.book_count as i64,
-            total_book_pages: activity.book_pages as i64,
-            podcast_count: activity.podcast_count as i64,
-            total_podcast_duration: activity.podcast_duration as i64,
-            manga_count: activity.manga_count as i64,
-            movie_count: activity.movie_count as i64,
-            total_movie_duration: activity.movie_duration as i64,
-            music_count: activity.music_count as i64,
-            total_music_duration: activity.music_duration as i64,
-            show_count: activity.show_count as i64,
-            total_show_duration: activity.show_duration as i64,
-            total_video_game_duration: activity.video_game_duration as i64,
-            video_game_count: activity.video_game_count as i64,
-            visual_novel_count: activity.visual_novel_count as i64,
-            total_visual_novel_duration: activity.visual_novel_duration as i64,
-            total_workout_personal_bests: activity.workout_personal_bests as i64,
-            total_workout_weight: activity.workout_weight as i64,
-            total_workout_reps: activity.workout_reps as i64,
-            total_workout_distance: activity.workout_distance as i64,
-            total_workout_rest_time: activity.workout_rest_time as i64,
-            workout_count: activity.workout_count as i64,
-            total_workout_duration: activity.workout_duration as i64,
-            total_metadata_review_count: activity.metadata_review_count as i64,
-            total_collection_review_count: activity.collection_review_count as i64,
-            total_metadata_group_review_count: activity.metadata_group_review_count as i64,
-            total_person_review_count: activity.person_review_count as i64,
-            user_measurement_count: activity.measurement_count as i64,
-            total_metadata_count: total_metadata_count as i64,
-            total_review_count: total_review_count as i64,
-            total_count: total_count as i64,
-            total_duration: total_duration as i64,
-        }
-    }
-
     pub async fn user_analytics_parameters(
         &self,
         user_id: &String,
@@ -452,7 +449,7 @@ impl StatisticsService {
                             seen.last_updated_on,
                         );
 
-                        self.calculate_media_duration(&seen, activity);
+                        calculate_media_duration(&seen, activity);
 
                         match seen.metadata_lot {
                             MediaLot::Book => activity.book_count += 1,
@@ -679,13 +676,13 @@ impl StatisticsService {
                                     .extend(activity.entity_ids.clone());
                             }
 
-                            vec![Self::convert_activity_to_item(aggregated_activity)]
+                            vec![convert_activity_to_item(aggregated_activity)]
                         }
                     } else {
                         activities
                             .clone()
                             .into_values()
-                            .map(Self::convert_activity_to_item)
+                            .map(convert_activity_to_item)
                             .collect()
                     };
 
