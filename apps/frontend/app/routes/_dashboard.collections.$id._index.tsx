@@ -304,6 +304,7 @@ export default function Page() {
 												rankNumber={index + 1}
 												isReorderMode={isReorderMode}
 												collectionName={details.details.name}
+												totalItems={details.results.items.length}
 											/>
 										))}
 									</ApplicationGrid>
@@ -530,6 +531,7 @@ const RecommendationsSection = () => {
 
 type CollectionItemProps = {
 	rankNumber: number;
+	totalItems: number;
 	item: EntityWithLot;
 	collectionName: string;
 	isReorderMode: boolean;
@@ -537,6 +539,7 @@ type CollectionItemProps = {
 
 const CollectionItem = ({
 	item,
+	totalItems,
 	rankNumber,
 	isReorderMode,
 	collectionName,
@@ -564,10 +567,10 @@ const CollectionItem = ({
 	const handleRankClick = () => {
 		if (!isReorderMode) return;
 
-		const newRank = prompt(`Enter new rank for this item (1-${rankNumber}):`);
+		const newRank = prompt(`Enter new rank for this item (1-${totalItems}):`);
 		const rank = Number(newRank);
 		if (newRank && isNumber(rank)) {
-			if (rank >= 1) {
+			if (rank >= 1 && rank <= totalItems) {
 				reorderMutation.mutate({
 					newPosition: rank,
 					entityId: item.entityId,
