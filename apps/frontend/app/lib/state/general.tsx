@@ -106,7 +106,6 @@ export const useOnboardingTour = () => {
 
 	const isOnboardingTourLoading = tourState?.isLoading;
 
-
 	const startOnboardingTour = async () => {
 		const newPreferences = produce(cloneDeep(userPreferences), (draft) => {
 			draft.featuresEnabled.media.enabled = true;
