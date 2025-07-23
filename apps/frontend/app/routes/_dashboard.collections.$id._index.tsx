@@ -168,6 +168,7 @@ export default function Page() {
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
+	const [isReorderMode, setIsReorderMode] = useState(false);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const bulkEditingCollection = useBulkEditCollection();
@@ -292,8 +293,13 @@ export default function Page() {
 								/>
 								{details.results.items.length > 0 ? (
 									<ApplicationGrid>
-										{details.results.items.map((lm) => (
-											<CollectionItem key={lm.entityId} item={lm} />
+										{details.results.items.map((lm, index) => (
+											<CollectionItem
+												item={lm}
+												key={lm.entityId}
+												rankNumber={index + 1}
+												isReorderMode={isReorderMode}
+											/>
 										))}
 									</ApplicationGrid>
 								) : (
@@ -362,6 +368,7 @@ export default function Page() {
 									onClick={() => {
 										navigate(".");
 										setTab(TabNames.Contents);
+										setIsReorderMode(true);
 									}}
 								>
 									Reorder items
@@ -516,29 +523,72 @@ const RecommendationsSection = () => {
 	);
 };
 
-const CollectionItem = ({ item }: { item: EntityWithLot }) => {
+type CollectionItemProps = {
+	item: EntityWithLot;
+	rankNumber: number;
+	isReorderMode: boolean;
+};
+
+const CollectionItem = ({
+	item,
+	rankNumber,
+	isReorderMode,
+}: CollectionItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();
 	const state = bulkEditingCollection.state;
 	const isAdded = bulkEditingCollection.isAdded(item);
 
-	return (
-		<DisplayCollectionEntity
-			entityId={item.entityId}
-			entityLot={item.entityLot}
-			topRight={
-				state && state.data.action === "remove" ? (
-					<ActionIcon
-						color="red"
-						variant={isAdded ? "filled" : "transparent"}
-						onClick={() => {
-							if (isAdded) state.remove(item);
-							else state.add(item);
-						}}
-					>
-						<IconTrashFilled size={18} />
-					</ActionIcon>
-				) : null
+	const handleRankClick = () => {
+		if (!isReorderMode) return;
+
+		const newRank = prompt(`Enter new rank for this item (1-${rankNumber}):`);
+		if (newRank && !isNaN(Number(newRank))) {
+			const rank = Number(newRank);
+			if (rank >= 1) {
+				// TODO: Call reorder mutation
+				console.log(`Reorder ${item.entityId} to position ${rank}`);
 			}
-		/>
+		}
+	};
+
+	return (
+		<Box style={{ position: "relative" }}>
+			{isReorderMode && (
+				<ActionIcon
+					color="blue"
+					variant="filled"
+					onClick={handleRankClick}
+					style={{
+						position: "absolute",
+						top: 4,
+						left: 4,
+						zIndex: 10,
+						cursor: "pointer",
+					}}
+				>
+					<Text size="xs" fw={700} c="white">
+						{rankNumber}
+					</Text>
+				</ActionIcon>
+			)}
+			<DisplayCollectionEntity
+				entityId={item.entityId}
+				entityLot={item.entityLot}
+				topRight={
+					state && state.data.action === "remove" ? (
+						<ActionIcon
+							color="red"
+							variant={isAdded ? "filled" : "transparent"}
+							onClick={() => {
+								if (isAdded) state.remove(item);
+								else state.add(item);
+							}}
+						>
+							<IconTrashFilled size={18} />
+						</ActionIcon>
+					) : null
+				}
+			/>
+		</Box>
 	);
 };
