@@ -86,7 +86,14 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
 
-const DEFAULT_TAB = "contents";
+enum TabNames {
+	Contents = "contents",
+	Recommendations = "recommendations",
+	Actions = "actions",
+	Reviews = "reviews",
+}
+
+const DEFAULT_TAB = TabNames.Contents;
 
 const defaultFiltersValue = {
 	order: GraphqlSortOrder.Desc,
@@ -221,30 +228,33 @@ export default function Page() {
 					<Tabs value={tab} onChange={setTab} keepMounted={false}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab
-								value="contents"
+								value={TabNames.Contents}
 								leftSection={<IconBucketDroplet size={16} />}
 							>
 								Contents
 							</Tabs.Tab>
 							<Tabs.Tab
-								value="recommendations"
+								value={TabNames.Recommendations}
 								leftSection={<IconStar size={16} />}
 							>
 								Recommendations
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							<Tabs.Tab
+								value={TabNames.Actions}
+								leftSection={<IconUser size={16} />}
+							>
 								Actions
 							</Tabs.Tab>
 							{!userPreferences.general.disableReviews ? (
 								<Tabs.Tab
-									value="reviews"
+									value={TabNames.Reviews}
 									leftSection={<IconMessageCircle2 size={16} />}
 								>
 									Reviews
 								</Tabs.Tab>
 							) : null}
 						</Tabs.List>
-						<Tabs.Panel value="contents">
+						<Tabs.Panel value={TabNames.Contents}>
 							<Stack gap="xs">
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
@@ -301,10 +311,10 @@ export default function Page() {
 								) : null}
 							</Stack>
 						</Tabs.Panel>
-						<Tabs.Panel value="recommendations">
+						<Tabs.Panel value={TabNames.Recommendations}>
 							<RecommendationsSection />
 						</Tabs.Panel>
-						<Tabs.Panel value="actions">
+						<Tabs.Panel value={TabNames.Actions}>
 							<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
 								<Button
 									variant="outline"
@@ -340,15 +350,26 @@ export default function Page() {
 									disabled={details.results.details.total === 0}
 									onClick={() => {
 										bulkEditingCollection.start(colDetails, "remove");
-										setTab("contents");
+										setTab(TabNames.Contents);
 									}}
 								>
 									Bulk remove
 								</Button>
+								<Button
+									w="100%"
+									variant="outline"
+									disabled={details.results.details.total === 0}
+									onClick={() => {
+										navigate(".");
+										setTab(TabNames.Contents);
+									}}
+								>
+									Reorder items
+								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
 						{!userPreferences.general.disableReviews ? (
-							<Tabs.Panel value="reviews">
+							<Tabs.Panel value={TabNames.Reviews}>
 								{details.reviews.length > 0 ? (
 									<Stack>
 										{details.reviews.map((r) => (
