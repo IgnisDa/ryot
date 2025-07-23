@@ -18,8 +18,11 @@ pub static MONITORED_ENTITY_VIEW_CREATION_SQL: &str = indoc! { r#"
         "collection" c ON cte."collection_id" = c."id"
     JOIN
         "user_to_entity" ute ON cte."collection_id" = ute."collection_id"
+    JOIN
+        "user" u ON ute."user_id" = u."id"
     WHERE
         c."name" = 'Monitoring'
+        AND (u."is_disabled" IS NULL OR u."is_disabled" = false)
 "# };
 
 #[async_trait::async_trait]

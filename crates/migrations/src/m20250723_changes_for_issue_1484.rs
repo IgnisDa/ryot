@@ -1,6 +1,7 @@
 use sea_orm_migration::prelude::*;
 
 use super::m20231016_create_collection_to_entity::CollectionToEntity;
+use super::m20240904_create_monitored_entity::MONITORED_ENTITY_VIEW_CREATION_SQL;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -43,6 +44,11 @@ impl MigrationTrait for Migration {
                     .modify_column(ColumnDef::new(CollectionToEntity::Rank).not_null())
                     .to_owned(),
             )
+            .await?;
+
+        db.execute_unprepared("DROP VIEW IF EXISTS monitored_entity")
+            .await?;
+        db.execute_unprepared(MONITORED_ENTITY_VIEW_CREATION_SQL)
             .await?;
 
         Ok(())
