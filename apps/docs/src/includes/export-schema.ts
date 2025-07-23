@@ -49,6 +49,7 @@ export interface CollectionToEntityDetails {
 	creatorUserId: string;
 	information: unknown | null;
 	lastUpdatedOn: string;
+	rank: string;
 }
 
 /** Comments left in replies to posted reviews. */

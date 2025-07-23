@@ -123,6 +123,7 @@ pub async fn entity_in_collections_with_details(
             GraphqlCollectionToEntityDetails {
                 id: cte.id,
                 details: CollectionToEntityDetails {
+                    rank: cte.rank,
                     created_on: cte.created_on,
                     information: cte.information,
                     collection_id: model.id.clone(),

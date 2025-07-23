@@ -19,6 +19,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
+    pub rank: Decimal,
     pub collection_id: String,
     pub collection_name: String,
     pub created_on: DateTimeUtc,
