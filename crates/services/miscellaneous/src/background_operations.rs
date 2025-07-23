@@ -25,8 +25,8 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput,
 };
 use dependent_utils::{
-    get_entity_title_from_id_and_lot, send_notification_for_user, update_metadata_and_notify_users,
-    update_person_and_notify_users,
+    calculate_user_activities_and_summary, get_entity_title_from_id_and_lot,
+    send_notification_for_user, update_metadata_and_notify_users, update_person_and_notify_users,
 };
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use futures::future::join_all;
@@ -136,6 +136,8 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     ryot_log!(trace, "Cleaning up user and metadata association");
     cleanup_user_and_metadata_association(ss).await.trace_ok();
     ryot_log!(trace, "Removing old user summaries and regenerating them");
+    regenerate_user_summaries(ss).await.trace_ok();
+    ryot_log!(trace, "Syncing integrations data to owned collection");
     sync_integrations_data_to_owned_collection(ss)
         .await
         .trace_ok();
@@ -438,6 +440,19 @@ async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
 
     for key in all_keys {
         ss.cache_service.expire_key(key).await?;
+    }
+    Ok(())
+}
+
+async fn regenerate_user_summaries(ss: &Arc<SupportingService>) -> Result<()> {
+    let all_users = get_enabled_users_query()
+        .select_only()
+        .column(user::Column::Id)
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
+    for user_id in all_users {
+        calculate_user_activities_and_summary(&user_id, ss, false).await?;
     }
     Ok(())
 }

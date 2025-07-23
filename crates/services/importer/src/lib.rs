@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{Duration, NaiveDateTime, Offset, TimeZone, Utc};
+use common_models::BackgroundJob;
 use common_utils::{MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, ryot_log};
 use database_models::{
     exercise, import_report,
@@ -10,8 +11,8 @@ use database_models::{
 };
 use dependent_models::ImportOrExportMetadataItem;
 use dependent_utils::{
-    generate_exercise_id, get_google_books_service, get_hardcover_service, get_openlibrary_service,
-    get_tmdb_non_media_service, process_import,
+    deploy_background_job, generate_exercise_id, get_google_books_service, get_hardcover_service,
+    get_openlibrary_service, get_tmdb_non_media_service, process_import,
 };
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
@@ -176,6 +177,13 @@ impl ImporterService {
                             ActiveValue::Set(Some(serde_json::to_value(&source_result)?));
                         model.details = ActiveValue::Set(Some(details));
                         model.was_success = ActiveValue::Set(Some(true));
+                        deploy_background_job(
+                            &user_id,
+                            BackgroundJob::CalculateUserActivitiesAndSummary,
+                            &self.0,
+                        )
+                        .await
+                        .trace_ok();
                     }
                     Err(e) => {
                         ryot_log!(debug, "Error while importing: {:?}", e);

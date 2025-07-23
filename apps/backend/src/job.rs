@@ -58,6 +58,15 @@ pub async fn perform_hp_application_job(
                 .sync_integrations_data_for_user(&user_id)
                 .await
         }
+        HpApplicationJob::RecalculateUserActivitiesAndSummary(
+            user_id,
+            calculate_from_beginning,
+        ) => {
+            app_services
+                .statistics_service
+                .calculate_user_activities_and_summary(&user_id, calculate_from_beginning)
+                .await
+        }
         HpApplicationJob::ReviewPosted(event) => {
             app_services
                 .miscellaneous_service

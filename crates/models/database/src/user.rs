@@ -38,6 +38,8 @@ pub enum Relation {
     AccessLink,
     #[sea_orm(has_many = "super::collection::Entity")]
     Collection,
+    #[sea_orm(has_many = "super::daily_user_activity::Entity")]
+    DailyUserActivity,
     #[sea_orm(has_many = "super::exercise::Entity")]
     Exercise,
     #[sea_orm(has_many = "super::import_report::Entity")]
@@ -74,6 +76,11 @@ impl Related<super::collection::Entity> for Entity {
     }
 }
 
+impl Related<super::daily_user_activity::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::DailyUserActivity.def()
+    }
+}
 
 impl Related<super::exercise::Entity> for Entity {
     fn to() -> RelationDef {

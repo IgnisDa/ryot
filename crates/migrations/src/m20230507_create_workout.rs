@@ -2,8 +2,6 @@ use sea_orm_migration::prelude::*;
 
 use super::{m20230404_create_user::User, m20230506_create_workout_template::WorkoutTemplate};
 
-pub static WORKOUT_USER_DATE_INDEX: &str = "idx_workout_user_date";
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -86,16 +84,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(WORKOUT_USER_DATE_INDEX)
-                    .table(Workout::Table)
-                    .col(Workout::UserId)
-                    .col(Workout::EndTime)
                     .to_owned(),
             )
             .await?;

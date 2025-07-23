@@ -97,6 +97,14 @@ const getJobDetails = (job: BackgroundJob) =>
 				] as const,
 		)
 		.with(
+			BackgroundJob.CalculateUserActivitiesAndSummary,
+			() =>
+				[
+					"Regenerate Summaries",
+					"Regenerate all pre-computed summaries from the beginning. This may be useful if, for some reason, summaries are faulty or preconditions have changed. This may take some time.",
+				] as const,
+		)
+		.with(
 			BackgroundJob.ReviseUserWorkouts,
 			() =>
 				[

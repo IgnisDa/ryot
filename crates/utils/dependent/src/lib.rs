@@ -1,3 +1,6 @@
+mod analytics_operations;
+pub use analytics_operations::*;
+
 mod provider_services;
 pub use provider_services::*;
 
