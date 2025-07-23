@@ -57,8 +57,8 @@ export const ExerciseDisplayItem = (props: {
 
 export const WorkoutDisplayItem = (props: {
 	workoutId: string;
-	rightLabel?: ReactNode;
 	topRight?: ReactNode;
+	rightLabel?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
@@ -86,8 +86,8 @@ export const WorkoutDisplayItem = (props: {
 };
 
 export const WorkoutTemplateDisplayItem = (props: {
-	workoutTemplateId: string;
 	topRight?: ReactNode;
+	workoutTemplateId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const {
