@@ -66,6 +66,7 @@ pub enum CollectionToEntity {
     Information,
     EntityId,
     EntityLot,
+    Rank,
     // the entities that can be added to a collection
     MetadataId,
     MetadataGroupId,
@@ -125,6 +126,11 @@ impl MigrationTrait for Migration {
                             .text()
                             .not_null()
                             .extra(ENTITY_LOT_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionToEntity::Rank)
+                            .integer()
+                            .not_null(),
                     )
                     .foreign_key(
                         ForeignKey::create()
