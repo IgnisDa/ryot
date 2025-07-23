@@ -62,30 +62,32 @@ export const useMetadataProgressUpdate = () => {
 		determineNext?: boolean,
 	) => {
 		setIsLoading(true);
-		if (draft && determineNext) {
+		if (draft) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				getUpdateMetadata(draft.metadataId),
 				queryClient.ensureQueryData(
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
-			const nextEntry = userMetadataDetails?.nextEntry;
-			if (nextEntry) {
-				match(metadataDetails.lot)
-					.with(MediaLot.Manga, () => {
-						draft.mangaChapterNumber = nextEntry.chapter;
-					})
-					.with(MediaLot.Anime, () => {
-						draft.animeEpisodeNumber = nextEntry.episode;
-					})
-					.with(MediaLot.Podcast, () => {
-						draft.podcastEpisodeNumber = nextEntry.episode;
-					})
-					.with(MediaLot.Show, () => {
-						draft.showSeasonNumber = nextEntry.season;
-						draft.showEpisodeNumber = nextEntry.episode;
-					})
-					.otherwise(() => undefined);
+			if (determineNext) {
+				const nextEntry = userMetadataDetails?.nextEntry;
+				if (nextEntry) {
+					match(metadataDetails.lot)
+						.with(MediaLot.Manga, () => {
+							draft.mangaChapterNumber = nextEntry.chapter;
+						})
+						.with(MediaLot.Anime, () => {
+							draft.animeEpisodeNumber = nextEntry.episode;
+						})
+						.with(MediaLot.Podcast, () => {
+							draft.podcastEpisodeNumber = nextEntry.episode;
+						})
+						.with(MediaLot.Show, () => {
+							draft.showSeasonNumber = nextEntry.season;
+							draft.showEpisodeNumber = nextEntry.episode;
+						})
+						.otherwise(() => undefined);
+				}
 			}
 		}
 		setIsLoading(false);
