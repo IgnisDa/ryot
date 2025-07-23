@@ -202,9 +202,7 @@ export default function Page() {
 										onClick={() => {
 											if (!thisCollection) return;
 											openCollectionModal(
-												{
-													collectionId: thisCollection.id,
-												},
+												{ collectionId: thisCollection.id },
 												loaderData.usersList,
 											);
 										}}
