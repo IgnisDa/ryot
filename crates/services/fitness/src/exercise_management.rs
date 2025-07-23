@@ -5,8 +5,8 @@ use common_models::EntityAssets;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
-    prelude::{Exercise, UserToEntity},
-    user_to_entity, workout,
+    prelude::{Exercise, UserToEntity, Workout},
+    user_to_entity,
 };
 use database_utils::{
     entity_in_collections_with_details, item_reviews, schedule_user_for_workout_revision,
@@ -197,8 +197,6 @@ async fn change_exercise_id_in_history(
     new_name: String,
     old_entity: user_to_entity::Model,
 ) -> Result<()> {
-    use database_models::{prelude::Workout, workout};
-
     let Some(exercise_extra_information) = old_entity.exercise_extra_information else {
         return Ok(());
     };

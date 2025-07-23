@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
-use database_models::{exercise, prelude::*, user, user_measurement, user_to_entity, workout};
+use database_models::{exercise, prelude::*, user_measurement, user_to_entity, workout};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use enum_meta::Meta;
 use enum_models::{

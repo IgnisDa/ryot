@@ -4,7 +4,6 @@ use anyhow::{Result, anyhow};
 use chrono::Utc;
 use common_models::CollectionExtraInformationLot;
 use database_models::{
-    collection,
     prelude::{Collection, CollectionToEntity, UserToEntity},
     user_to_entity,
 };

@@ -10,7 +10,10 @@ use media_models::{
     CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
     ProcessAccessLinkInput, ProcessAccessLinkResponse, ProcessAccessLinkResult,
 };
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter,
+};
 use supporting_service::SupportingService;
 
 pub async fn create_access_link(

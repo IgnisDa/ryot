@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use common_models::StringIdObject;
-use database_models::{
-    prelude::{Review, Seen},
-    seen,
-};
+use database_models::prelude::{Review, Seen};
 use dependent_utils::{
     associate_user_with_entity, handle_after_metadata_seen_tasks, metadata_progress_update,
 };

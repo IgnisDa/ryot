@@ -6,7 +6,8 @@ use enum_models::{NotificationPlatformLot, UserNotificationContent};
 use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPlatformInput};
 use notification_service::send_notification;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, ModelTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, ModelTrait,
+    QueryFilter,
 };
 use supporting_service::SupportingService;
 use user_models::NotificationPlatformSpecifics;

@@ -12,7 +12,9 @@ use media_models::{
     AuthUserInput, LoginError, LoginErrorVariant, LoginResponse, LoginResult, PasswordUserInput,
 };
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+};
 use supporting_service::SupportingService;
 
 pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
