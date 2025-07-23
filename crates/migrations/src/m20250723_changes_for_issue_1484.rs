@@ -8,6 +8,10 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
+        if manager.has_column("collection_to_entity", "rank").await? {
+            return Ok(());
+        }
+
         db.execute_unprepared("ALTER TABLE collection_to_entity ADD COLUMN rank INTEGER")
             .await?;
 
