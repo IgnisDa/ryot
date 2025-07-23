@@ -281,7 +281,7 @@ pub async fn reorder_collection_entity(
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
     let collection = Collection::find()
-        .filter(collection::Column::Name.eq(&input.collection_id))
+        .filter(collection::Column::Name.eq(&input.collection_name))
         .filter(collection::Column::UserId.eq(user_id))
         .one(&ss.db)
         .await?;

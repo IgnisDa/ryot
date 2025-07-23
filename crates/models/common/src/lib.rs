@@ -259,7 +259,7 @@ pub struct ChangeCollectionToEntitiesInput {
 pub struct ReorderCollectionEntityInput {
     pub entity_id: String,
     pub new_position: usize,
-    pub collection_id: String,
+    pub collection_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
