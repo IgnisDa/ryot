@@ -10,7 +10,7 @@ use media_models::{
     CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
     ProcessAccessLinkInput, ProcessAccessLinkResponse, ProcessAccessLinkResult,
 };
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter};
 use supporting_service::SupportingService;
 
 pub async fn create_access_link(
@@ -96,7 +96,7 @@ pub async fn process_access_link(
     )?;
     let mut issued_tokens = link.issued_tokens.clone();
     issued_tokens.push(api_key.clone());
-    let mut link: access_link::ActiveModel = link.into();
+    let mut link = link.into_active_model();
     link.issued_tokens = ActiveValue::Set(issued_tokens);
     let link = link.update(&ss.db).await?;
     Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {

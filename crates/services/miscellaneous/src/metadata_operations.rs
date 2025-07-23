@@ -12,8 +12,8 @@ use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_utils::expire_user_metadata_list_cache;
 use enum_models::EntityLot;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,
 };
 use supporting_service::SupportingService;
 
@@ -30,7 +30,7 @@ pub async fn merge_metadata(
         .all(&txn)
         .await?
     {
-        let old_seen_active: seen::ActiveModel = old_seen.clone().into();
+        let old_seen_active = old_seen.clone().into_active_model();
         let new_seen = seen::ActiveModel {
             id: ActiveValue::NotSet,
             last_updated_on: ActiveValue::NotSet,
@@ -47,7 +47,7 @@ pub async fn merge_metadata(
         .all(&txn)
         .await?
     {
-        let old_review_active: review::ActiveModel = old_review.clone().into();
+        let old_review_active = old_review.clone().into_active_model();
         let new_review = review::ActiveModel {
             id: ActiveValue::NotSet,
             metadata_id: ActiveValue::Set(Some(merge_into.clone())),
@@ -80,7 +80,7 @@ pub async fn merge_metadata(
             .await?
             == 0
         {
-            let mut item_active: collection_to_entity::ActiveModel = item.into();
+            let mut item_active = item.into_active_model();
             item_active.metadata_id = ActiveValue::Set(Some(merge_into.clone()));
             item_active.update(&txn).await?;
         }
@@ -92,7 +92,7 @@ pub async fn merge_metadata(
             get_user_to_entity_association(&txn, &user_id, &merge_from, EntityLot::Metadata)
                 .await?
                 .unwrap();
-        let mut cloned: user_to_entity::ActiveModel = old_association.clone().into();
+        let mut cloned = old_association.clone().into_active_model();
         cloned.needs_to_be_updated = ActiveValue::Set(Some(true));
         cloned.update(&txn).await?;
     } else {

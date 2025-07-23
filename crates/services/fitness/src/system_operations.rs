@@ -3,7 +3,9 @@ use background_models::{ApplicationJob, MpApplicationJob};
 use common_utils::ryot_log;
 use database_models::{prelude::Exercise, user};
 use database_utils::get_enabled_users_query;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+};
 use sea_query::Expr;
 use std::sync::Arc;
 use supporting_service::SupportingService;
@@ -47,7 +49,7 @@ pub async fn process_users_scheduled_for_workout_revision(
         crate::workout_operations::revise_user_workouts(ss, user.id.clone()).await?;
         let mut extra_information = user.extra_information.clone().unwrap_or_default();
         extra_information.scheduled_for_workout_revision = false;
-        let mut user: user::ActiveModel = user.into();
+        let mut user = user.into_active_model();
         user.extra_information = ActiveValue::Set(Some(extra_information));
         user.update(&ss.db).await?;
     }

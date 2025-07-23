@@ -7,7 +7,8 @@ use dependent_utils::send_notification_for_user;
 use enum_models::{IntegrationLot, IntegrationProvider, UserNotificationContent};
 use media_models::IntegrationTriggerResult;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder, QueryTrait,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -37,7 +38,7 @@ pub async fn set_trigger_result(
 
     let should_disable = integration.extra_settings.disable_on_continuous_errors && are_all_errors;
 
-    let mut integration: integration::ActiveModel = integration.clone().into();
+    let mut integration = integration.clone().into_active_model();
     integration.last_finished_at = last_finished_at;
     integration.trigger_result = ActiveValue::Set(new_trigger_result.into());
 

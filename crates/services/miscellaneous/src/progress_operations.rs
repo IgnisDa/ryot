@@ -12,7 +12,7 @@ use dependent_utils::{
 use enum_models::EntityLot;
 use futures::try_join;
 use media_models::{MetadataProgressUpdateInput, UpdateSeenItemInput};
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, ModelTrait};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -27,7 +27,7 @@ pub async fn update_seen_item(
     if &seen.user_id != user_id {
         bail!("No seen found for this user and metadata");
     }
-    let mut seen: seen::ActiveModel = seen.into();
+    let mut seen = seen.into_active_model();
     if let Some(started_on) = input.started_on {
         seen.started_on = ActiveValue::Set(Some(started_on));
     }

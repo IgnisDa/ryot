@@ -16,8 +16,8 @@ use media_models::CreateOrUpdateCollectionInput;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, Iterable,
-    QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
+    Iterable, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
 };
 use sea_query::OnConflict;
 use supporting_service::SupportingService;
@@ -51,7 +51,7 @@ async fn add_single_entity_to_collection(
         .one(&ss.db)
         .await?
         .unwrap();
-    let mut updated: collection::ActiveModel = collection.into();
+    let mut updated = collection.into_active_model();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(&ss.db).await?;
     let resp = match CollectionToEntity::find()
@@ -62,7 +62,7 @@ async fn add_single_entity_to_collection(
         .await?
     {
         Some(etc) => {
-            let mut to_update: collection_to_entity::ActiveModel = etc.into();
+            let mut to_update = etc.into_active_model();
             to_update.last_updated_on = ActiveValue::Set(Utc::now());
             to_update.information = ActiveValue::Set(entity.information.clone());
             to_update.update(&ss.db).await?

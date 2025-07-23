@@ -25,8 +25,8 @@ use media_models::{
 use rust_decimal::{Decimal, prelude::ToPrimitive};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, Order, QueryFilter,
-    QueryOrder, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
+    Order, QueryFilter, QueryOrder, QuerySelect,
     prelude::{Date, DateTimeUtc},
 };
 use sea_query::NullOrdering;
@@ -415,7 +415,7 @@ pub async fn calculate_user_activities_and_summary(
             + activity.visual_novel_duration
             + activity.video_game_duration;
         activity.hour_records.sort_by_key(|hr| hr.hour);
-        let mut model: daily_user_activity::ActiveModel = activity.clone().into();
+        let mut model = activity.clone().into_active_model();
         model.id = ActiveValue::NotSet;
         model.total_count = ActiveValue::Set(total_count);
         model.total_duration = ActiveValue::Set(total_duration);

@@ -8,7 +8,10 @@ use database_utils::user_by_id;
 use dependent_utils::associate_user_with_entity;
 use media_models::{CreateReviewCommentInput, ImportOrExportItemReviewComment};
 use nanoid::nanoid;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter,
+};
 use supporting_service::SupportingService;
 
 pub async fn delete_review(
@@ -75,7 +78,7 @@ pub async fn create_review_comment(
             created_on: Utc::now(),
         });
     }
-    let mut review: review::ActiveModel = review.into();
+    let mut review = review.into_active_model();
     review.comments = ActiveValue::Set(comments);
     review.update(&ss.db).await?;
     Ok(true)

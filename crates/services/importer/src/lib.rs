@@ -20,8 +20,8 @@ use importer_models::{ImportFailStep, ImportFailedItem};
 use media_models::DeployImportJobInput;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
-    prelude::DateTimeUtc, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder, prelude::DateTimeUtc, prelude::Expr,
 };
 use supporting_service::SupportingService;
 use traits::TraceOk;
@@ -147,7 +147,7 @@ impl ImporterService {
             ImportSource::Jellyfin => jellyfin::import(input.jellyfin.unwrap()).await,
             ImportSource::Plex => plex::import(input.url_and_key.unwrap()).await,
         };
-        let mut model: import_report::ActiveModel = db_import_job.into();
+        let mut model = db_import_job.into_active_model();
         match maybe_import {
             Ok(import) => {
                 let mut quick_update_model = model.clone();

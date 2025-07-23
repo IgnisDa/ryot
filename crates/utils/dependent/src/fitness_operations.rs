@@ -23,8 +23,8 @@ use nanoid::nanoid;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter,
-    prelude::DateTimeUtc,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter, prelude::DateTimeUtc,
 };
 use std::cmp::Reverse;
 use supporting_service::SupportingService;
@@ -68,12 +68,12 @@ pub async fn create_user_measurement(
     }
 
     if needs_to_update_preferences {
-        let mut user_model: user::ActiveModel = user.clone().into();
+        let mut user_model = user.clone().into_active_model();
         user_model.preferences = ActiveValue::Set(user.preferences);
         user_model.update(&ss.db).await?;
     }
 
-    let um: user_measurement::ActiveModel = input.into();
+    let um = input.into_active_model();
     let um = um.insert(&ss.db).await?;
     expire_user_measurements_list_cache(user_id, ss).await?;
     Ok(um.timestamp)
@@ -313,7 +313,7 @@ pub async fn create_custom_exercise(
     input.source = ExerciseSource::Custom;
     input.created_by_user_id = Some(user_id.clone());
     input.id = generate_exercise_id(&input.name, input.lot, user_id);
-    let input: exercise::ActiveModel = input.into();
+    let input = input.into_active_model();
 
     let exercise = input.insert(&ss.db).await?;
     ryot_log!(debug, "Created custom exercise with id = {}", exercise.id);
@@ -466,7 +466,7 @@ pub async fn create_or_update_user_workout(
         let last_updated_on = asc.last_updated_on;
         let mut extra_info = asc.exercise_extra_information.clone().unwrap_or_default();
         extra_info.history.insert(0, history_item);
-        let mut to_update: user_to_entity::ActiveModel = asc.into();
+        let mut to_update = asc.into_active_model();
         to_update.exercise_num_times_interacted =
             ActiveValue::Set(Some(extra_info.history.len().try_into().unwrap()));
         to_update.exercise_extra_information = ActiveValue::Set(Some(extra_info));
@@ -588,7 +588,7 @@ pub async fn create_or_update_user_workout(
             .clone()
             .unwrap_or_default();
         association_extra_information.history[0].best_set = best_set.clone();
-        let mut association: user_to_entity::ActiveModel = association.into();
+        let mut association = association.into_active_model();
         association_extra_information.lifetime_stats += totals.clone();
         association_extra_information.personal_bests = personal_bests;
         association.exercise_extra_information =
@@ -653,7 +653,7 @@ pub async fn create_or_update_user_workout(
                 .collect(),
         },
     };
-    let mut insert: workout::ActiveModel = model.into();
+    let mut insert = model.into_active_model();
     if let Some(old_workout) = to_update_workout.clone() {
         insert.end_time = ActiveValue::Set(old_workout.end_time);
         insert.start_time = ActiveValue::Set(old_workout.start_time);

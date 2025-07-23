@@ -12,7 +12,7 @@ use media_models::{
     AuthUserInput, LoginError, LoginErrorVariant, LoginResponse, LoginResult, PasswordUserInput,
 };
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter};
 use supporting_service::SupportingService;
 
 pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
@@ -78,7 +78,7 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
         }
     }
     let jwt_key = generate_auth_token(ss, user.id.clone()).await?;
-    let mut user: user::ActiveModel = user.into();
+    let mut user = user.into_active_model();
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
     user.update(&ss.db).await?;
     Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))

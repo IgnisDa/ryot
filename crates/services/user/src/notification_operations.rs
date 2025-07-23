@@ -6,7 +6,7 @@ use enum_models::{NotificationPlatformLot, UserNotificationContent};
 use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPlatformInput};
 use notification_service::send_notification;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, ModelTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, ModelTrait, QueryFilter,
 };
 use supporting_service::SupportingService;
 use user_models::NotificationPlatformSpecifics;
@@ -23,7 +23,7 @@ pub async fn update_user_notification_platform(
     if db_notification.user_id != user_id {
         bail!("Notification platform does not belong to the user",);
     }
-    let mut db_notification: notification_platform::ActiveModel = db_notification.into();
+    let mut db_notification = db_notification.into_active_model();
     if let Some(s) = input.is_disabled {
         db_notification.is_disabled = ActiveValue::Set(Some(s));
     }

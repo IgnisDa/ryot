@@ -26,8 +26,8 @@ use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewI
 use migrations::AliasedCollectionToEntity;
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr, sea_query::PgFunc,
+    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr, sea_query::PgFunc,
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -425,7 +425,7 @@ pub async fn schedule_user_for_workout_revision(
         .ok_or_else(|| anyhow!("User with the given ID does not exist"))?;
     let mut extra_information = user.extra_information.clone().unwrap_or_default();
     extra_information.scheduled_for_workout_revision = true;
-    let mut user: user::ActiveModel = user.into();
+    let mut user = user.into_active_model();
     user.extra_information = ActiveValue::Set(Some(extra_information));
     user.update(&ss.db).await?;
     ryot_log!(debug, "Scheduled user for workout revision: {:?}", user_id);
