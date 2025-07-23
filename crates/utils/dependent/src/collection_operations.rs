@@ -11,8 +11,10 @@ use database_models::{collection, collection_to_entity, prelude::*, user_to_enti
 use enum_models::EntityLot;
 use futures::try_join;
 use media_models::CreateOrUpdateCollectionInput;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, QueryFilter, QuerySelect,
     TransactionTrait, prelude::Expr,
 };
 use sea_query::OnConflict;
@@ -56,7 +58,20 @@ async fn add_single_entity_to_collection(
             to_update.update(&ss.db).await?
         }
         None => {
+            let min_rank = CollectionToEntity::find()
+                .filter(collection_to_entity::Column::CollectionId.eq(&collection.id))
+                .select_only()
+                .column_as(collection_to_entity::Column::Rank.min(), "min_rank")
+                .into_tuple::<Option<Decimal>>()
+                .one(&ss.db)
+                .await?
+                .flatten()
+                .unwrap_or_else(|| dec!(1));
+
+            let new_rank = min_rank - dec!(1);
+
             let mut created_collection = collection_to_entity::ActiveModel {
+                rank: ActiveValue::Set(new_rank),
                 collection_id: ActiveValue::Set(collection.id.clone()),
                 information: ActiveValue::Set(entity.information.clone()),
                 ..Default::default()
