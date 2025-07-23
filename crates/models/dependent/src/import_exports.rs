@@ -45,10 +45,10 @@ pub struct ImportOrExportMetadataItem {
     pub identifier: String,
     /// The source of media.
     pub source: MediaSource,
-    /// The collections this entity was added to.
-    pub collections: Vec<CollectionToEntityDetails>,
     /// The review history for the user.
     pub reviews: Vec<ImportOrExportItemRating>,
+    /// The collections this entity was added to.
+    pub collections: Vec<CollectionToEntityDetails>,
     /// The seen history for the user.
     pub seen_history: Vec<ImportOrExportMetadataItemSeen>,
 }
