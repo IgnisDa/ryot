@@ -19,6 +19,8 @@ use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
+    /// The rank of this entity in the collection. This is ignored during importing.
+    #[serde(default)]
     pub rank: Decimal,
     pub collection_id: String,
     pub collection_name: String,
