@@ -33,6 +33,7 @@ export const MetadataDisplayItem = (props: {
 	name?: string;
 	altName?: string;
 	metadataId: string;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	noLeftLabel?: boolean;
 	rightLabel?: ReactNode;
@@ -43,7 +44,7 @@ export const MetadataDisplayItem = (props: {
 	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
-	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
+	const { setMetadataToUpdate, isMetadataToUpdateLoading } =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
@@ -146,6 +147,7 @@ export const MetadataDisplayItem = (props: {
 					: undefined
 			}
 			imageOverlay={{
+				topLeft: props.topLeft,
 				topRight: props.topRight || (
 					<DisplayAverageRatingOverlay
 						entityId={props.metadataId}
@@ -207,6 +209,7 @@ export const MetadataDisplayItem = (props: {
 };
 
 export const MetadataGroupDisplayItem = (props: {
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	noLeftLabel?: boolean;
 	rightLabel?: ReactNode;
@@ -238,6 +241,7 @@ export const MetadataGroupDisplayItem = (props: {
 				userMetadataGroupDetails?.hasInteracted
 			}
 			imageOverlay={{
+				topLeft: props.topLeft,
 				topRight: props.topRight || (
 					<DisplayAverageRatingOverlay
 						averageRating={averageRating}
@@ -266,6 +270,7 @@ export const MetadataGroupDisplayItem = (props: {
 
 export const PersonDisplayItem = (props: {
 	personId: string;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 	shouldHighlightNameIfInteracted?: boolean;
@@ -295,6 +300,7 @@ export const PersonDisplayItem = (props: {
 				userPersonDetails?.hasInteracted
 			}
 			imageOverlay={{
+				topLeft: props.topLeft,
 				topRight: props.topRight || (
 					<DisplayAverageRatingOverlay
 						entityId={props.personId}

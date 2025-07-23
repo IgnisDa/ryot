@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use collection_service::CollectionService;
-use common_models::{ChangeCollectionToEntitiesInput, StringIdObject};
+use common_models::{
+    ChangeCollectionToEntitiesInput, ReorderCollectionEntityInput, StringIdObject,
+};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
@@ -113,6 +115,18 @@ impl CollectionMutation {
         let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         let response = service.delete_collection(user_id, &collection_name).await?;
+        Ok(response)
+    }
+
+    /// Reorder an entity within a collection.
+    async fn reorder_collection_entity(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: ReorderCollectionEntityInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<CollectionService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.reorder_collection_entity(&user_id, input).await?;
         Ok(response)
     }
 }

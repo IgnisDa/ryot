@@ -12,7 +12,7 @@ export const DisplayShowEpisode = (props: {
 	episode: Season["episodes"][number];
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const { setMetadataToUpdate } = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 
 	return (

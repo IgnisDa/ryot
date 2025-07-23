@@ -19,6 +19,9 @@ use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
 pub struct CollectionToEntityDetails {
+    /// The rank of this entity in the collection. This is ignored during importing.
+    #[serde(default)]
+    pub rank: Decimal,
     pub collection_id: String,
     pub collection_name: String,
     pub created_on: DateTimeUtc,
@@ -100,10 +103,10 @@ pub struct UserMetadataGroupDetails {
 pub struct UserMetadataDetails {
     /// Whether this media has been interacted with
     pub has_interacted: bool,
-    /// The public reviews of this media.
-    pub reviews: Vec<ReviewItem>,
     /// The number of users who have seen this media.
     pub seen_by_all_count: i64,
+    /// The public reviews of this media.
+    pub reviews: Vec<ReviewItem>,
     /// The seen history of this media.
     pub history: Vec<seen::Model>,
     /// The number of times this user has seen this media.
@@ -114,12 +117,12 @@ pub struct UserMetadataDetails {
     pub average_rating: Option<Decimal>,
     /// The seen item if it is in progress.
     pub in_progress: Option<seen::Model>,
-    /// The collections in which this media is present.
-    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     /// The next episode/chapter of this media.
     pub next_entry: Option<UserMediaNextEntry>,
     /// The reasons why this metadata is related to this user
     pub media_reason: Option<Vec<UserToMediaReason>>,
+    /// The collections in which this media is present.
+    pub collections: Vec<GraphqlCollectionToEntityDetails>,
     /// The seen progress of this media if it is a show.
     pub show_progress: Option<Vec<UserMetadataDetailsShowSeasonProgress>>,
     /// The seen progress of this media if it is a podcast.

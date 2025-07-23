@@ -2,17 +2,14 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use common_models::StringIdObject;
-use database_models::{
-    prelude::{Review, Seen},
-    seen,
-};
+use database_models::prelude::{Review, Seen};
 use dependent_utils::{
     associate_user_with_entity, handle_after_metadata_seen_tasks, metadata_progress_update,
 };
 use enum_models::EntityLot;
 use futures::try_join;
 use media_models::{MetadataProgressUpdateInput, UpdateSeenItemInput};
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, ModelTrait};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -27,7 +24,7 @@ pub async fn update_seen_item(
     if &seen.user_id != user_id {
         bail!("No seen found for this user and metadata");
     }
-    let mut seen: seen::ActiveModel = seen.into();
+    let mut seen = seen.into_active_model();
     if let Some(started_on) = input.started_on {
         seen.started_on = ActiveValue::Set(Some(started_on));
     }

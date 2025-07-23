@@ -12,7 +12,7 @@ use database_models::{
 use database_utils::{ilike_sql, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
-    CollectionContentsInput, CollectionContentsResponse,
+    CollectionContentsInput, CollectionContentsResponse, SearchResults,
 };
 use enum_models::EntityLot;
 use media_models::{CollectionContentsSortBy, EntityWithLot};
@@ -110,6 +110,9 @@ pub async fn collection_contents(
                     })
                     .order_by(
                         match sort.by {
+                            CollectionContentsSortBy::Rank => {
+                                Expr::col(collection_to_entity::Column::Rank)
+                            }
                             CollectionContentsSortBy::Random => Expr::expr(Func::random()),
                             CollectionContentsSortBy::LastUpdatedOn => {
                                 Expr::col(collection_to_entity::Column::LastUpdatedOn)
@@ -144,7 +147,7 @@ pub async fn collection_contents(
                         entity_lot: cte.entity_lot,
                     });
                 }
-                let results = dependent_models::SearchResults {
+                let results = SearchResults {
                     items,
                     details: SearchDetails {
                         total: number_of_items.try_into().unwrap(),

@@ -5,7 +5,7 @@ use common_models::EntityAssets;
 use common_utils::ryot_log;
 use database_models::{
     exercise,
-    prelude::{Exercise, UserToEntity},
+    prelude::{Exercise, UserToEntity, Workout},
     user_to_entity,
 };
 use database_utils::{
@@ -25,7 +25,10 @@ use fitness_models::{
     UpdateUserExerciseSettings, UserExercisesListInput, UserToExerciseExtraInformation,
 };
 use futures::try_join;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter,
+};
 use supporting_service::SupportingService;
 
 use crate::{IMAGES_PREFIX_URL, JSON_URL};
@@ -118,7 +121,7 @@ pub async fn update_custom_exercise(
     }
     update.source = ExerciseSource::Custom;
     update.created_by_user_id = Some(user_id.clone());
-    let input: exercise::ActiveModel = update.into();
+    let input = update.into_active_model();
     let mut input = input.reset_all();
     input.id = ActiveValue::Unchanged(id);
     input.update(&ss.db).await?;
@@ -151,7 +154,7 @@ pub async fn update_user_exercise_settings(
     };
     let mut exercise_extra_information = ute.clone().exercise_extra_information.unwrap();
     exercise_extra_information.settings = input.change;
-    let mut ute: user_to_entity::ActiveModel = ute.into();
+    let mut ute = ute.into_active_model();
     ute.exercise_extra_information = ActiveValue::Set(Some(exercise_extra_information));
     ute.update(&ss.db).await?;
     Ok(true)
@@ -194,8 +197,6 @@ async fn change_exercise_id_in_history(
     new_name: String,
     old_entity: user_to_entity::Model,
 ) -> Result<()> {
-    use database_models::{prelude::Workout, workout};
-
     let Some(exercise_extra_information) = old_entity.exercise_extra_information else {
         return Ok(());
     };
@@ -208,7 +209,7 @@ async fn change_exercise_id_in_history(
         let mut information = db_workout.information.clone();
         summary.exercises[workout.idx].id = new_name.clone();
         information.exercises[workout.idx].id = new_name.clone();
-        let mut db_workout: workout::ActiveModel = db_workout.into();
+        let mut db_workout = db_workout.into_active_model();
         db_workout.summary = ActiveValue::Set(summary);
         db_workout.information = ActiveValue::Set(information);
         db_workout.update(&ss.db).await?;
@@ -259,7 +260,7 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
         .await?
     {
         ryot_log!(debug, "Updating existing exercise with id: {}", ex.name);
-        let mut db_ex: exercise::ActiveModel = e.into();
+        let mut db_ex = e.into_active_model();
         db_ex.attributes = ActiveValue::Set(attributes);
         db_ex.muscles = ActiveValue::Set(muscles);
         db_ex.update(&ss.db).await?;

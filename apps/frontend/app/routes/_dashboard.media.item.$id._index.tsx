@@ -246,7 +246,7 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const [_m, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const { setMetadataToUpdate } = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();

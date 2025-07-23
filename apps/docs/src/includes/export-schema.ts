@@ -49,6 +49,8 @@ export interface CollectionToEntityDetails {
 	creatorUserId: string;
 	information: unknown | null;
 	lastUpdatedOn: string;
+	/** The rank of this entity in the collection. This is ignored during importing. */
+	rank?: string;
 }
 
 /** Comments left in replies to posted reviews. */

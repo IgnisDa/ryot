@@ -197,6 +197,10 @@ mutation DeployRemoveEntitiesFromCollectionJob(
 	deployRemoveEntitiesFromCollectionJob(input: $input)
 }
 
+mutation ReorderCollectionEntity($input: ReorderCollectionEntityInput!) {
+	reorderCollectionEntity(input: $input)
+}
+
 mutation TestUserNotificationPlatforms {
 	testUserNotificationPlatforms
 }

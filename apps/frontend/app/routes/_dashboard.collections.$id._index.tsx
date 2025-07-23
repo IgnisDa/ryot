@@ -16,6 +16,7 @@ import {
 	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CollectionContentsDocument,
 	type CollectionContentsInput,
@@ -23,12 +24,16 @@ import {
 	CollectionRecommendationsDocument,
 	type CollectionRecommendationsInput,
 	EntityLot,
+	type EntityWithLot,
 	GraphqlSortOrder,
 	MediaLot,
+	ReorderCollectionEntityDocument,
+	type ReorderCollectionEntityInput,
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	cloneDeep,
+	isNumber,
 	parseParameters,
 	parseSearchQuery,
 	zodIntAsString,
@@ -44,9 +49,9 @@ import {
 	IconTrashFilled,
 	IconUser,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -66,6 +71,7 @@ import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
@@ -85,11 +91,18 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.$id._index";
 
-const DEFAULT_TAB = "contents";
+enum TabNames {
+	Contents = "contents",
+	Recommendations = "recommendations",
+	Actions = "actions",
+	Reviews = "reviews",
+}
+
+const DEFAULT_TAB = TabNames.Contents;
 
 const defaultFiltersValue = {
-	sort: CollectionContentsSortBy.LastUpdatedOn,
-	order: GraphqlSortOrder.Desc,
+	order: GraphqlSortOrder.Asc,
+	sort: CollectionContentsSortBy.Rank,
 };
 
 const searchParamsSchema = z.object({
@@ -155,11 +168,13 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 	const userCollections = useUserCollections();
+	const coreDetails = useCoreDetails();
 
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || DEFAULT_TAB,
 	);
+	const [isReorderMode, setIsReorderMode] = useState(false);
 	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const [_r, setEntityToReview] = useReviewEntity();
 	const bulkEditingCollection = useBulkEditCollection();
@@ -173,7 +188,6 @@ export default function Page() {
 		id: loaderData.collectionId,
 		creatorUserId: details.user.id,
 	};
-	const state = bulkEditingCollection.state;
 	const thisCollection = userCollections.find(
 		(c) => c.id === loaderData.collectionId,
 	);
@@ -202,9 +216,7 @@ export default function Page() {
 										onClick={() => {
 											if (!thisCollection) return;
 											openCollectionModal(
-												{
-													collectionId: thisCollection.id,
-												},
+												{ collectionId: thisCollection.id },
 												loaderData.usersList,
 											);
 										}}
@@ -223,30 +235,33 @@ export default function Page() {
 					<Tabs value={tab} onChange={setTab} keepMounted={false}>
 						<Tabs.List mb="xs">
 							<Tabs.Tab
-								value="contents"
+								value={TabNames.Contents}
 								leftSection={<IconBucketDroplet size={16} />}
 							>
 								Contents
 							</Tabs.Tab>
 							<Tabs.Tab
-								value="recommendations"
+								value={TabNames.Recommendations}
 								leftSection={<IconStar size={16} />}
 							>
 								Recommendations
 							</Tabs.Tab>
-							<Tabs.Tab value="actions" leftSection={<IconUser size={16} />}>
+							<Tabs.Tab
+								value={TabNames.Actions}
+								leftSection={<IconUser size={16} />}
+							>
 								Actions
 							</Tabs.Tab>
 							{!userPreferences.general.disableReviews ? (
 								<Tabs.Tab
-									value="reviews"
+									value={TabNames.Reviews}
 									leftSection={<IconMessageCircle2 size={16} />}
 								>
 									Reviews
 								</Tabs.Tab>
 							) : null}
 						</Tabs.List>
-						<Tabs.Panel value="contents">
+						<Tabs.Panel value={TabNames.Contents}>
 							<Stack gap="xs">
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
@@ -268,9 +283,9 @@ export default function Page() {
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										closeFiltersModal={closeFiltersModal}
-										cookieName={loaderData.cookieName}
 										opened={filtersModalOpened}
+										cookieName={loaderData.cookieName}
+										closeFiltersModal={closeFiltersModal}
 									>
 										<FiltersModalForm />
 									</FiltersModal>
@@ -284,30 +299,16 @@ export default function Page() {
 								/>
 								{details.results.items.length > 0 ? (
 									<ApplicationGrid>
-										{details.results.items.map((lm) => {
-											const isAdded = bulkEditingCollection.isAdded(lm);
-											return (
-												<DisplayCollectionEntity
-													key={lm.entityId}
-													entityId={lm.entityId}
-													entityLot={lm.entityLot}
-													topRight={
-														state && state.data.action === "remove" ? (
-															<ActionIcon
-																variant={isAdded ? "filled" : "transparent"}
-																color="red"
-																onClick={() => {
-																	if (isAdded) state.remove(lm);
-																	else state.add(lm);
-																}}
-															>
-																<IconTrashFilled size={18} />
-															</ActionIcon>
-														) : null
-													}
-												/>
-											);
-										})}
+										{details.results.items.map((lm, index) => (
+											<CollectionItem
+												item={lm}
+												key={lm.entityId}
+												rankNumber={index + 1}
+												isReorderMode={isReorderMode}
+												collectionName={details.details.name}
+												totalItems={details.results.items.length}
+											/>
+										))}
 									</ApplicationGrid>
 								) : (
 									<Text>You have not added anything this collection</Text>
@@ -324,10 +325,10 @@ export default function Page() {
 								) : null}
 							</Stack>
 						</Tabs.Panel>
-						<Tabs.Panel value="recommendations">
+						<Tabs.Panel value={TabNames.Recommendations}>
 							<RecommendationsSection />
 						</Tabs.Panel>
-						<Tabs.Panel value="actions">
+						<Tabs.Panel value={TabNames.Actions}>
 							<SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing="lg">
 								<Button
 									variant="outline"
@@ -363,15 +364,36 @@ export default function Page() {
 									disabled={details.results.details.total === 0}
 									onClick={() => {
 										bulkEditingCollection.start(colDetails, "remove");
-										setTab("contents");
+										setTab(TabNames.Contents);
 									}}
 								>
 									Bulk remove
 								</Button>
+								<Button
+									w="100%"
+									variant="outline"
+									disabled={details.results.details.total === 0}
+									onClick={() => {
+										if (!coreDetails.isServerKeyValidated) {
+											notifications.show({
+												color: "red",
+												title: "Pro Required",
+												message:
+													"Collection reordering requires a validated server key.",
+											});
+											return;
+										}
+										navigate(".");
+										setTab(TabNames.Contents);
+										setIsReorderMode(true);
+									}}
+								>
+									Reorder items
+								</Button>
 							</SimpleGrid>
 						</Tabs.Panel>
 						{!userPreferences.general.disableReviews ? (
-							<Tabs.Panel value="reviews">
+							<Tabs.Panel value={TabNames.Reviews}>
 								{details.reviews.length > 0 ? (
 									<Stack>
 										{details.reviews.map((r) => (
@@ -515,5 +537,88 @@ const RecommendationsSection = () => {
 				<Skeleton height={100} />
 			)}
 		</Stack>
+	);
+};
+
+type CollectionItemProps = {
+	rankNumber: number;
+	totalItems: number;
+	item: EntityWithLot;
+	collectionName: string;
+	isReorderMode: boolean;
+};
+
+const CollectionItem = (props: CollectionItemProps) => {
+	const bulkEditingCollection = useBulkEditCollection();
+	const state = bulkEditingCollection.state;
+	const isAdded = bulkEditingCollection.isAdded(props.item);
+	const revalidator = useRevalidator();
+
+	const reorderMutation = useMutation({
+		mutationFn: (input: ReorderCollectionEntityInput) =>
+			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
+		onSuccess: () => {
+			revalidator.revalidate();
+		},
+		onError: (_error) => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to reorder item. Please try again.",
+			});
+		},
+	});
+
+	const handleRankClick = () => {
+		if (!props.isReorderMode) return;
+
+		const newRank = prompt(
+			`Enter new rank for this item (1-${props.totalItems}):`,
+		);
+		const rank = Number(newRank);
+		if (newRank && isNumber(rank)) {
+			if (rank >= 1 && rank <= props.totalItems) {
+				reorderMutation.mutate({
+					newPosition: rank,
+					entityId: props.item.entityId,
+					collectionName: props.collectionName,
+				});
+			}
+		}
+	};
+
+	return (
+		<DisplayCollectionEntity
+			entityId={props.item.entityId}
+			entityLot={props.item.entityLot}
+			topLeft={
+				props.isReorderMode ? (
+					<ActionIcon
+						color="blue"
+						variant="filled"
+						onClick={handleRankClick}
+						style={{ cursor: "pointer" }}
+					>
+						<Text size="xs" fw={700} c="white">
+							{props.rankNumber}
+						</Text>
+					</ActionIcon>
+				) : null
+			}
+			topRight={
+				state && state.data.action === "remove" ? (
+					<ActionIcon
+						color="red"
+						variant={isAdded ? "filled" : "transparent"}
+						onClick={() => {
+							if (isAdded) state.remove(props.item);
+							else state.add(props.item);
+						}}
+					>
+						<IconTrashFilled size={18} />
+					</ActionIcon>
+				) : null
+			}
+		/>
 	);
 };

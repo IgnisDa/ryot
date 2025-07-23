@@ -16,12 +16,14 @@ use supporting_service::SupportingService;
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use crate::collection_exports::export_collections;
-use crate::export_utilities::ExportItem;
-use crate::fitness_exports::{
-    export_exercises, export_measurements, export_workout_templates, export_workouts,
+use crate::{
+    collection_exports::export_collections,
+    export_utilities::ExportItem,
+    fitness_exports::{
+        export_exercises, export_measurements, export_workout_templates, export_workouts,
+    },
+    media_exports::{export_media, export_media_group, export_people},
 };
-use crate::media_exports::{export_media, export_media_group, export_people};
 
 pub async fn deploy_export_job(service: &Arc<SupportingService>, user_id: String) -> Result<bool> {
     service

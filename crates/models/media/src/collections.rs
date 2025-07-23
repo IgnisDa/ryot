@@ -19,10 +19,11 @@ pub struct CreateOrUpdateCollectionInput {
 
 #[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
 pub enum CollectionContentsSortBy {
+    #[default]
+    Rank,
     Date,
     Title,
     Random,
-    #[default]
     LastUpdatedOn,
 }
 

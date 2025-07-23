@@ -54,43 +54,51 @@ const getUpdateMetadata = async (metadataId: string) => {
 };
 
 export const useMetadataProgressUpdate = () => {
-	const [isLoading, setIsLoading] = useState(false);
-	const [progress, setProgress] = useAtom(metadataProgressUpdateAtom);
-	const setMetadataProgress = async (
+	const [isMetadataToUpdateLoading, setIsLoading] = useState(false);
+	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
+
+	const setMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
+		// DEV: This is not true by default because this function is mostly being called by the
+		// seasons and episodes tab in media details page.
 		determineNext?: boolean,
 	) => {
 		setIsLoading(true);
-		if (draft && determineNext) {
+		if (draft) {
 			const [metadataDetails, userMetadataDetails] = await Promise.all([
 				getUpdateMetadata(draft.metadataId),
 				queryClient.ensureQueryData(
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
-			const nextEntry = userMetadataDetails?.nextEntry;
-			if (nextEntry) {
-				match(metadataDetails.lot)
-					.with(MediaLot.Manga, () => {
-						draft.mangaChapterNumber = nextEntry.chapter;
-					})
-					.with(MediaLot.Anime, () => {
-						draft.animeEpisodeNumber = nextEntry.episode;
-					})
-					.with(MediaLot.Podcast, () => {
-						draft.podcastEpisodeNumber = nextEntry.episode;
-					})
-					.with(MediaLot.Show, () => {
-						draft.showSeasonNumber = nextEntry.season;
-						draft.showEpisodeNumber = nextEntry.episode;
-					})
-					.otherwise(() => undefined);
+			draft.providerWatchedOn =
+				userMetadataDetails.history.at(0)?.providerWatchedOn;
+			if (determineNext) {
+				const nextEntry = userMetadataDetails?.nextEntry;
+				if (nextEntry) {
+					match(metadataDetails.lot)
+						.with(MediaLot.Manga, () => {
+							draft.mangaChapterNumber = nextEntry.chapter;
+						})
+						.with(MediaLot.Anime, () => {
+							draft.animeEpisodeNumber = nextEntry.episode;
+						})
+						.with(MediaLot.Podcast, () => {
+							draft.podcastEpisodeNumber = nextEntry.episode;
+						})
+						.with(MediaLot.Show, () => {
+							draft.showSeasonNumber = nextEntry.season;
+							draft.showEpisodeNumber = nextEntry.episode;
+						})
+						.otherwise(() => undefined);
+				}
 			}
 		}
 		setIsLoading(false);
 		setProgress(draft);
 	};
-	return [progress, setMetadataProgress, isLoading] as const;
+
+	return { metadataToUpdate, setMetadataToUpdate, isMetadataToUpdateLoading };
 };
 
 export type ReviewEntityData = {

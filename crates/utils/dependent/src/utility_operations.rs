@@ -11,7 +11,7 @@ use dependent_models::{
     ExpireCacheKeyInput,
 };
 use enum_models::EntityLot;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel};
 use std::sync::Arc;
 use supporting_service::SupportingService;
 
@@ -81,7 +81,7 @@ pub async fn associate_user_with_entity(
 
     match user_to_entity_model {
         Some(u) => {
-            let mut to_update: user_to_entity::ActiveModel = u.into();
+            let mut to_update = u.into_active_model();
             to_update.last_updated_on = ActiveValue::Set(Utc::now());
             to_update.needs_to_be_updated = ActiveValue::Set(Some(true));
             to_update.update(&ss.db).await.unwrap();

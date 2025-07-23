@@ -4,14 +4,16 @@ use anyhow::{Result, anyhow};
 use chrono::Utc;
 use common_models::CollectionExtraInformationLot;
 use database_models::{
-    collection,
     prelude::{Collection, CollectionToEntity, UserToEntity},
     user_to_entity,
 };
 use dependent_utils::expire_user_collections_list_cache;
 use futures::future::try_join_all;
 use itertools::Itertools;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QuerySelect,
+};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
@@ -61,7 +63,7 @@ pub async fn handle_entity_added_to_collection_event(
     if !updated_needed {
         return Ok(());
     }
-    let mut col: collection::ActiveModel = collection.into();
+    let mut col = collection.into_active_model();
     col.information_template = ActiveValue::Set(Some(fields));
     col.last_updated_on = ActiveValue::Set(Utc::now());
     col.update(&ss.db).await?;

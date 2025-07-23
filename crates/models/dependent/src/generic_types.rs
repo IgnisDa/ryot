@@ -14,13 +14,13 @@ use crate::UserAnalytics;
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
-    name = "MediaCollectionContentsResults",
-    params(media_models::EntityWithLot)
+    params(media_models::EntityWithLot),
+    name = "MediaCollectionContentsResults"
 ))]
 #[graphql(concrete(name = "IdResults", params(String)))]
 pub struct SearchResults<T: OutputType> {
-    pub details: SearchDetails,
     pub items: Vec<T>,
+    pub details: SearchDetails,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
@@ -51,16 +51,16 @@ pub struct SortInput<T: InputType + Default> {
     name = "CachedCollectionContentsResponse",
 ))]
 #[graphql(concrete(
-    params(UserMetadataRecommendationsResponse),
-    name = "CachedUserMetadataRecommendationsResponse",
-))]
-#[graphql(concrete(
     params(UserMeasurementsListResponse),
     name = "CachedUserMeasurementsListResponse",
 ))]
 #[graphql(concrete(
     params(ApplicationDateRange),
     name = "CachedUserAnalyticsParametersResponse",
+))]
+#[graphql(concrete(
+    params(UserMetadataRecommendationsResponse),
+    name = "CachedUserMetadataRecommendationsResponse",
 ))]
 pub struct CachedResponse<T: OutputType> {
     pub response: T,
@@ -78,8 +78,8 @@ pub struct CollectionContents {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct MetadataGroupDetails {
-    pub details: metadata_group::Model,
     pub contents: Vec<String>,
+    pub details: metadata_group::Model,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]

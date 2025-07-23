@@ -22,7 +22,8 @@ use fitness_models::{
 };
 use futures::{TryStreamExt, try_join};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter, QueryOrder,
 };
 use supporting_service::SupportingService;
 
@@ -63,7 +64,7 @@ pub async fn update_user_workout_attributes(
     else {
         bail!("Workout does not exist for user");
     };
-    let mut new_wkt: workout::ActiveModel = wkt.into();
+    let mut new_wkt = wkt.into_active_model();
     if let Some(d) = input.start_time {
         new_wkt.start_time = ActiveValue::Set(d);
     }
@@ -76,7 +77,7 @@ pub async fn update_user_workout_attributes(
             .end_time
             .signed_duration_since(new_workout.start_time)
             .num_seconds();
-        let mut new_workout: workout::ActiveModel = new_workout.into();
+        let mut new_workout = new_workout.into_active_model();
         new_workout.duration = ActiveValue::Set(new_duration.try_into().unwrap());
         new_workout.update(&ss.db).await?;
         schedule_user_for_workout_revision(&user_id, ss).await?;
@@ -118,7 +119,7 @@ pub async fn delete_user_workout(
         {
             ei.history.remove(ex_idx);
         }
-        let mut association: user_to_entity::ActiveModel = association.into();
+        let mut association = association.into_active_model();
         association.exercise_extra_information = ActiveValue::Set(Some(ei));
         association.update(&ss.db).await?;
     }
@@ -140,7 +141,7 @@ pub async fn revise_user_workouts(ss: &Arc<SupportingService>, user_id: String) 
         let mut new = UserToExerciseExtraInformation::default();
         let eei = ute.exercise_extra_information.clone().unwrap_or_default();
         new.settings = eei.settings;
-        let mut ute: user_to_entity::ActiveModel = ute.into();
+        let mut ute = ute.into_active_model();
         ute.exercise_num_times_interacted = ActiveValue::Set(None);
         ute.exercise_extra_information = ActiveValue::Set(Some(new));
         ute.update(&ss.db).await?;

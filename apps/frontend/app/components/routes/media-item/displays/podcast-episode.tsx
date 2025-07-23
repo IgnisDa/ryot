@@ -10,7 +10,7 @@ export const DisplayPodcastEpisode = (props: {
 	metadataDetails: MetadataDetails;
 	podcastProgress: UserMetadataDetails["podcastProgress"];
 }) => {
-	const [_, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const { setMetadataToUpdate } = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen =
 		props.podcastProgress?.[props.index]?.timesSeen || 0;
 

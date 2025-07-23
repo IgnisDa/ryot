@@ -23,7 +23,10 @@ use media_models::{
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    QueryOrder,
+};
 use supporting_service::SupportingService;
 
 use crate::{
@@ -305,7 +308,7 @@ pub async fn metadata_progress_update(
                 }
             }
             updated_at.push(Utc::now());
-            let mut last_seen: seen::ActiveModel = previous_seen.into();
+            let mut last_seen = previous_seen.into_active_model();
             last_seen.state = ActiveValue::Set(state);
             last_seen.progress = ActiveValue::Set(progress);
             last_seen.updated_at = ActiveValue::Set(updated_at);

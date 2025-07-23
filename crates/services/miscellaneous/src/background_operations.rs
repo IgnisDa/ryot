@@ -32,8 +32,8 @@ use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use futures::future::join_all;
 use itertools::Itertools;
 use sea_orm::{
-    ColumnTrait, Condition, DatabaseConnection, EntityTrait, FromQueryResult, ModelTrait,
-    QueryFilter, QuerySelect, prelude::DateTimeUtc, query::UpdateMany,
+    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult,
+    ModelTrait, QueryFilter, QuerySelect, Statement, prelude::DateTimeUtc, query::UpdateMany,
 };
 use sea_query::Expr;
 use supporting_service::SupportingService;
@@ -109,54 +109,6 @@ async fn update_monitored_people_and_queue_notifications(
             .map(|p| update_person_and_notify_users(p, ss));
         join_all(promises).await;
     }
-    Ok(())
-}
-
-pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> {
-    ryot_log!(debug, "Starting background jobs...");
-
-    ryot_log!(trace, "Checking for updates for monitored media");
-    update_monitored_metadata_and_queue_notifications(ss)
-        .await
-        .trace_ok();
-    ryot_log!(trace, "Checking for updates for monitored people");
-    update_monitored_people_and_queue_notifications(ss)
-        .await
-        .trace_ok();
-    ryot_log!(trace, "Removing stale entities from Monitoring collection");
-    remove_old_entities_from_monitoring_collection(ss)
-        .await
-        .trace_ok();
-    ryot_log!(trace, "Checking and queuing any pending reminders");
-    queue_pending_reminders(ss).await.trace_ok();
-    ryot_log!(trace, "Recalculating calendar events");
-    recalculate_calendar_events(ss).await.trace_ok();
-    ryot_log!(trace, "Queuing notifications for released media");
-    queue_notifications_for_released_media(ss).await.trace_ok();
-    ryot_log!(trace, "Cleaning up user and metadata association");
-    cleanup_user_and_metadata_association(ss).await.trace_ok();
-    ryot_log!(trace, "Removing old user summaries and regenerating them");
-    regenerate_user_summaries(ss).await.trace_ok();
-    ryot_log!(trace, "Syncing integrations data to owned collection");
-    sync_integrations_data_to_owned_collection(ss)
-        .await
-        .trace_ok();
-    ryot_log!(trace, "Queueing notifications for outdated seen entries");
-    queue_notifications_for_outdated_seen_entries(ss)
-        .await
-        .trace_ok();
-    ryot_log!(trace, "Removing useless data");
-    remove_useless_data(ss).await.trace_ok();
-    ryot_log!(trace, "Putting entities in partial state");
-    put_entities_in_partial_state(ss).await.trace_ok();
-    // DEV: Invalid access tokens are revoked before being deleted, so we call this
-    // function after removing useless data.
-    ryot_log!(trace, "Revoking invalid access tokens");
-    revoke_invalid_access_tokens(ss).await.trace_ok();
-    ryot_log!(trace, "Expiring cache keys");
-    expire_cache_keys(ss).await.trace_ok();
-
-    ryot_log!(debug, "Completed background jobs...");
     Ok(())
 }
 
@@ -481,5 +433,152 @@ async fn revoke_invalid_access_tokens(ss: &Arc<SupportingService>) -> Result<()>
     for access_link in access_links {
         revoke_access_link(&ss.db, access_link).await?;
     }
+    Ok(())
+}
+
+async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<()> {
+    let detect_fragmented_collections_query = r#"
+        SELECT DISTINCT collection_id, COUNT(*) as item_count
+        FROM collection_to_entity
+        WHERE collection_id IN (
+            SELECT collection_id
+            FROM collection_to_entity
+            WHERE (
+                -- Ranks with more than 3 decimal places (fragmented)
+                SCALE(rank) > 3
+                OR
+                -- Collections with many fractional ranks (> 10% of items)
+                collection_id IN (
+                    SELECT collection_id
+                    FROM collection_to_entity
+                    WHERE rank != TRUNC(rank)
+                    GROUP BY collection_id
+                    HAVING COUNT(*) * 10 > (
+                        SELECT COUNT(*)
+                        FROM collection_to_entity cte2
+                        WHERE cte2.collection_id = collection_to_entity.collection_id
+                    )
+                )
+            )
+        )
+        GROUP BY collection_id
+        HAVING COUNT(*) > 1
+    "#;
+
+    let fragmented_collections: Vec<(String, i64)> = ss
+        .db
+        .query_all(Statement::from_string(
+            ss.db.get_database_backend(),
+            detect_fragmented_collections_query,
+        ))
+        .await?
+        .into_iter()
+        .map(|row| {
+            let collection_id: String = row.try_get("", "collection_id").unwrap_or_default();
+            let item_count: i64 = row.try_get("", "item_count").unwrap_or_default();
+            (collection_id, item_count)
+        })
+        .collect();
+
+    if fragmented_collections.is_empty() {
+        ryot_log!(debug, "No fragmented collection ranks found to rebalance");
+        return Ok(());
+    }
+
+    let collections_count = fragmented_collections.len();
+    ryot_log!(
+        debug,
+        "Found {} collections with fragmented ranks to rebalance",
+        collections_count
+    );
+
+    for (collection_id, item_count) in fragmented_collections {
+        let rebalance_query = format!(
+            r#"
+            UPDATE collection_to_entity
+            SET rank = ranked_data.new_rank
+            FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (ORDER BY rank ASC) as new_rank
+                FROM collection_to_entity
+                WHERE collection_id = '{}'
+            ) ranked_data
+            WHERE collection_to_entity.id = ranked_data.id
+        "#,
+            collection_id
+        );
+
+        let result = ss
+            .db
+            .execute(Statement::from_string(
+                ss.db.get_database_backend(),
+                rebalance_query,
+            ))
+            .await?;
+
+        ryot_log!(
+            debug,
+            "Rebalanced {} items in collection {} (affected: {})",
+            item_count,
+            collection_id,
+            result.rows_affected()
+        );
+    }
+
+    ryot_log!(
+        debug,
+        "Completed rebalancing ranks for {} collections",
+        collections_count
+    );
+    Ok(())
+}
+
+pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> {
+    ryot_log!(debug, "Starting background jobs...");
+
+    ryot_log!(trace, "Checking for updates for monitored media");
+    update_monitored_metadata_and_queue_notifications(ss)
+        .await
+        .trace_ok();
+    ryot_log!(trace, "Checking for updates for monitored people");
+    update_monitored_people_and_queue_notifications(ss)
+        .await
+        .trace_ok();
+    ryot_log!(trace, "Removing stale entities from Monitoring collection");
+    remove_old_entities_from_monitoring_collection(ss)
+        .await
+        .trace_ok();
+    ryot_log!(trace, "Checking and queuing any pending reminders");
+    queue_pending_reminders(ss).await.trace_ok();
+    ryot_log!(trace, "Recalculating calendar events");
+    recalculate_calendar_events(ss).await.trace_ok();
+    ryot_log!(trace, "Queuing notifications for released media");
+    queue_notifications_for_released_media(ss).await.trace_ok();
+    ryot_log!(trace, "Cleaning up user and metadata association");
+    cleanup_user_and_metadata_association(ss).await.trace_ok();
+    ryot_log!(trace, "Removing old user summaries and regenerating them");
+    regenerate_user_summaries(ss).await.trace_ok();
+    ryot_log!(trace, "Syncing integrations data to owned collection");
+    sync_integrations_data_to_owned_collection(ss)
+        .await
+        .trace_ok();
+    ryot_log!(trace, "Queueing notifications for outdated seen entries");
+    queue_notifications_for_outdated_seen_entries(ss)
+        .await
+        .trace_ok();
+    ryot_log!(trace, "Removing useless data");
+    remove_useless_data(ss).await.trace_ok();
+    ryot_log!(trace, "Putting entities in partial state");
+    put_entities_in_partial_state(ss).await.trace_ok();
+    // DEV: Invalid access tokens are revoked before being deleted, so we call this
+    // function after removing useless data.
+    ryot_log!(trace, "Revoking invalid access tokens");
+    revoke_invalid_access_tokens(ss).await.trace_ok();
+    ryot_log!(trace, "Rebalancing fragmented collection ranks");
+    rebalance_collection_ranks(ss).await.trace_ok();
+    ryot_log!(trace, "Expiring cache keys");
+    expire_cache_keys(ss).await.trace_ok();
+
+    ryot_log!(debug, "Completed background jobs...");
     Ok(())
 }

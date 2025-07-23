@@ -21,6 +21,7 @@ import { BaseEntityDisplayItem } from "../common/entity-display";
 
 export const ExerciseDisplayItem = (props: {
 	exerciseId: string;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
 	rightLabel?: ReactNode;
 }) => {
@@ -50,15 +51,16 @@ export const ExerciseDisplayItem = (props: {
 					: undefined,
 				right: props.rightLabel,
 			}}
-			imageOverlay={{ topRight: props.topRight }}
+			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 		/>
 	);
 };
 
 export const WorkoutDisplayItem = (props: {
 	workoutId: string;
-	rightLabel?: ReactNode;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
+	rightLabel?: ReactNode;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: workoutDetails, isLoading: isWorkoutDetailsLoading } = useQuery(
@@ -70,7 +72,7 @@ export const WorkoutDisplayItem = (props: {
 			innerRef={ref}
 			name={workoutDetails?.details.name}
 			isLoading={isWorkoutDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
+			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					entity: "workouts",
@@ -86,8 +88,9 @@ export const WorkoutDisplayItem = (props: {
 };
 
 export const WorkoutTemplateDisplayItem = (props: {
-	workoutTemplateId: string;
+	topLeft?: ReactNode;
 	topRight?: ReactNode;
+	workoutTemplateId: string;
 }) => {
 	const { ref, inViewport } = useInViewport();
 	const {
@@ -103,7 +106,7 @@ export const WorkoutTemplateDisplayItem = (props: {
 			innerRef={ref}
 			name={workoutTemplateDetails?.details.name}
 			isLoading={isWorkoutTemplateDetailsLoading}
-			imageOverlay={{ topRight: props.topRight }}
+			imageOverlay={{ topLeft: props.topLeft, topRight: props.topRight }}
 			onImageClickBehavior={[
 				$path("/fitness/:entity/:id", {
 					id: props.workoutTemplateId,

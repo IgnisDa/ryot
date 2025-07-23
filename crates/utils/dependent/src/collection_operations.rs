@@ -1,22 +1,27 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, LpApplicationJob};
 use chrono::Utc;
 use common_models::{
-    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput, StringIdObject,
+    ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput,
+    ReorderCollectionEntityInput, StringIdObject,
 };
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
+use database_utils::server_key_validation_guard;
 use enum_models::EntityLot;
 use futures::try_join;
 use media_models::CreateOrUpdateCollectionInput;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, Iterable, QueryFilter,
-    TransactionTrait, prelude::Expr,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
+    Iterable, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
 };
 use sea_query::OnConflict;
 use supporting_service::SupportingService;
+use uuid::Uuid;
 
 use crate::{
     expire_user_collection_contents_cache,
@@ -25,6 +30,13 @@ use crate::{
         mark_entity_as_recently_consumed,
     },
 };
+
+#[derive(FromQueryResult)]
+struct CollectionEntityRank {
+    id: Uuid,
+    rank: Decimal,
+    entity_id: String,
+}
 
 async fn add_single_entity_to_collection(
     user_id: &String,
@@ -39,7 +51,7 @@ async fn add_single_entity_to_collection(
         .one(&ss.db)
         .await?
         .unwrap();
-    let mut updated: collection::ActiveModel = collection.into();
+    let mut updated = collection.into_active_model();
     updated.last_updated_on = ActiveValue::Set(Utc::now());
     let collection = updated.update(&ss.db).await?;
     let resp = match CollectionToEntity::find()
@@ -50,13 +62,26 @@ async fn add_single_entity_to_collection(
         .await?
     {
         Some(etc) => {
-            let mut to_update: collection_to_entity::ActiveModel = etc.into();
+            let mut to_update = etc.into_active_model();
             to_update.last_updated_on = ActiveValue::Set(Utc::now());
             to_update.information = ActiveValue::Set(entity.information.clone());
             to_update.update(&ss.db).await?
         }
         None => {
+            let min_rank = CollectionToEntity::find()
+                .filter(collection_to_entity::Column::CollectionId.eq(&collection.id))
+                .select_only()
+                .column_as(collection_to_entity::Column::Rank.min(), "min_rank")
+                .into_tuple::<Option<Decimal>>()
+                .one(&ss.db)
+                .await?
+                .flatten()
+                .unwrap_or_else(|| dec!(1));
+
+            let new_rank = min_rank - dec!(1);
+
             let mut created_collection = collection_to_entity::ActiveModel {
+                rank: ActiveValue::Set(new_rank),
                 collection_id: ActiveValue::Set(collection.id.clone()),
                 information: ActiveValue::Set(entity.information.clone()),
                 ..Default::default()
@@ -256,5 +281,75 @@ pub async fn remove_entities_from_collection(
         )
         .await?;
     }
+    Ok(true)
+}
+
+pub async fn reorder_collection_entity(
+    user_id: &String,
+    input: ReorderCollectionEntityInput,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+
+    let collection = Collection::find()
+        .filter(collection::Column::Name.eq(&input.collection_name))
+        .filter(collection::Column::UserId.eq(user_id))
+        .one(&ss.db)
+        .await?;
+
+    let collection = match collection {
+        Some(c) => c,
+        None => bail!("Collection not found"),
+    };
+
+    let all_entities = CollectionToEntity::find()
+        .filter(collection_to_entity::Column::CollectionId.eq(&collection.id))
+        .select_only()
+        .column(collection_to_entity::Column::Id)
+        .column(collection_to_entity::Column::EntityId)
+        .column(collection_to_entity::Column::Rank)
+        .order_by_asc(collection_to_entity::Column::Rank)
+        .into_model::<CollectionEntityRank>()
+        .all(&ss.db)
+        .await?;
+
+    if all_entities.is_empty() {
+        bail!("Collection is empty");
+    }
+
+    if input.new_position < 1 || input.new_position > all_entities.len() {
+        bail!(
+            "Invalid position: must be between 1 and {}",
+            all_entities.len()
+        );
+    }
+
+    let entity_to_reorder = all_entities.iter().find(|e| e.entity_id == input.entity_id);
+
+    let entity_to_reorder = match entity_to_reorder {
+        Some(e) => e,
+        None => bail!("Entity not found in collection"),
+    };
+
+    let new_rank = if input.new_position == 1 {
+        let min_rank = all_entities.first().unwrap().rank;
+        min_rank - dec!(1)
+    } else if input.new_position == all_entities.len() {
+        let max_rank = all_entities.last().unwrap().rank;
+        max_rank + dec!(1)
+    } else {
+        let prev_rank = all_entities[input.new_position - 1].rank;
+        let next_rank = all_entities[input.new_position].rank;
+        (prev_rank + next_rank) / dec!(2)
+    };
+
+    CollectionToEntity::update_many()
+        .filter(collection_to_entity::Column::Id.eq(entity_to_reorder.id))
+        .col_expr(collection_to_entity::Column::Rank, Expr::value(new_rank))
+        .exec(&ss.db)
+        .await?;
+
+    expire_user_collection_contents_cache(user_id, &collection.id, ss).await?;
+
     Ok(true)
 }

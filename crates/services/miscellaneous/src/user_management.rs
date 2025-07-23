@@ -15,8 +15,8 @@ use database_utils::{entity_in_collections_with_details, get_enabled_users_query
 use dependent_utils::{expire_user_metadata_list_cache, is_metadata_finished_by_user};
 use enum_models::{EntityLot, UserToMediaReason};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QuerySelect,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
+    PaginatorTrait, QueryFilter, QuerySelect,
 };
 use supporting_service::SupportingService;
 
@@ -139,7 +139,7 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
                 ryot_log!(debug, "Deleting user_to_entity = {id:?}", id = (&ute.id));
                 ute.delete(&ss.db).await?;
             } else {
-                let mut ute: user_to_entity::ActiveModel = ute.into();
+                let mut ute = ute.into_active_model();
                 if new_reasons != previous_reasons {
                     ryot_log!(debug, "Updating user_to_entity = {id:?}", id = (&ute.id));
                     ute.media_reason = ActiveValue::Set(Some(new_reasons.into_iter().collect()));

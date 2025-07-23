@@ -25,8 +25,8 @@ use media_models::{
 };
 use nanoid::nanoid;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
+    ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
 };
 use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
 use std::{collections::HashMap, iter::zip, sync::Arc};
@@ -382,7 +382,7 @@ pub async fn update_metadata(
                 .then_some(())
                 .map(|_| details.watch_providers);
 
-            let mut meta: metadata::ActiveModel = meta.into();
+            let mut meta = meta.into_active_model();
             meta.title = ActiveValue::Set(details.title);
             meta.assets = ActiveValue::Set(details.assets);
             meta.is_partial = ActiveValue::Set(Some(false));
@@ -449,7 +449,7 @@ pub async fn update_metadata_group(
     let (group_details, associated_items) = provider
         .metadata_group_details(&metadata_group.identifier)
         .await?;
-    let mut eg: metadata_group::ActiveModel = metadata_group.into();
+    let mut eg = metadata_group.into_active_model();
     eg.is_partial = ActiveValue::Set(None);
     eg.title = ActiveValue::Set(group_details.title);
     eg.parts = ActiveValue::Set(group_details.parts);
@@ -494,7 +494,7 @@ pub async fn update_person(
     ryot_log!(debug, "Updating person for {:?}", person_id);
 
     let mut current_state_changes = person.clone().state_changes.unwrap_or_default();
-    let mut to_update_person: person::ActiveModel = person.clone().into();
+    let mut to_update_person = person.clone().into_active_model();
     to_update_person.is_partial = ActiveValue::Set(Some(false));
     to_update_person.name = ActiveValue::Set(provider_person.name);
     to_update_person.last_updated_on = ActiveValue::Set(Utc::now());
