@@ -44,7 +44,7 @@ export const MetadataDisplayItem = (props: {
 	bottomRightImageOverlayClassName?: string;
 	onImageClickBehavior?: () => Promise<void>;
 }) => {
-	const [_m, setMetadataToUpdate, isMetadataToUpdateLoading] =
+	const { setMetadataToUpdate, isMetadataToUpdateLoading } =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =

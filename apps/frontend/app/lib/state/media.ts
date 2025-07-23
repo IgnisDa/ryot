@@ -54,10 +54,10 @@ const getUpdateMetadata = async (metadataId: string) => {
 };
 
 export const useMetadataProgressUpdate = () => {
-	const [isLoading, setIsLoading] = useState(false);
-	const [progress, setProgress] = useAtom(metadataProgressUpdateAtom);
+	const [isMetadataToUpdateLoading, setIsLoading] = useState(false);
+	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
 
-	const setMetadataProgress = async (
+	const setMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
 		determineNext?: boolean,
 	) => {
@@ -92,7 +92,7 @@ export const useMetadataProgressUpdate = () => {
 		setProgress(draft);
 	};
 
-	return [progress, setMetadataProgress, isLoading] as const;
+	return { metadataToUpdate, setMetadataToUpdate, isMetadataToUpdateLoading };
 };
 
 export type ReviewEntityData = {

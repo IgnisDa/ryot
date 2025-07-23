@@ -5,7 +5,7 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const MangaForm = ({ metadataDetails }: MediaFormProps) => {
-	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
 	if (metadataDetails.lot !== MediaLot.Manga || !metadataToUpdate) return null;
 
 	return (

@@ -37,7 +37,7 @@ export const MetadataNewProgressUpdateForm = ({
 	metadataDetails,
 }: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
-	const [metadataToUpdate, setMetadataToUpdate] = useMetadataProgressUpdate();
+	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
 	const [startDate, setStartDate] = useState<Date | null>(null);
 	const [finishDate, setFinishDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(

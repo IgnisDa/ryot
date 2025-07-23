@@ -27,7 +27,7 @@ export const MetadataInProgressUpdateForm = ({
 	inProgress,
 	metadataDetails,
 }: MetadataInProgressFormProps) => {
-	const [metadataToUpdate] = useMetadataProgressUpdate();
+	const { metadataToUpdate } = useMetadataProgressUpdate();
 	const deployBulkMetadataProgressUpdate =
 		useDeployBulkMetadataProgressUpdateMutation(metadataDetails.title);
 
