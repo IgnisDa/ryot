@@ -9,6 +9,7 @@ use common_models::{
 };
 use common_utils::ryot_log;
 use database_models::{collection, collection_to_entity, prelude::*, user_to_entity};
+use database_utils::server_key_validation_guard;
 use enum_models::EntityLot;
 use futures::try_join;
 use media_models::CreateOrUpdateCollectionInput;
@@ -280,6 +281,8 @@ pub async fn reorder_collection_entity(
     input: ReorderCollectionEntityInput,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
+    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+
     let collection = Collection::find()
         .filter(collection::Column::Name.eq(&input.collection_name))
         .filter(collection::Column::UserId.eq(user_id))

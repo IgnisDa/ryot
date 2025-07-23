@@ -71,6 +71,7 @@ import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAppSearchParam,
+	useCoreDetails,
 	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
@@ -167,6 +168,7 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 	const userCollections = useUserCollections();
+	const coreDetails = useCoreDetails();
 
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [tab, setTab] = useState<string | null>(
@@ -372,6 +374,15 @@ export default function Page() {
 									variant="outline"
 									disabled={details.results.details.total === 0}
 									onClick={() => {
+										if (!coreDetails.isServerKeyValidated) {
+											notifications.show({
+												color: "red",
+												title: "Pro Required",
+												message:
+													"Collection reordering requires a validated server key.",
+											});
+											return;
+										}
 										navigate(".");
 										setTab(TabNames.Contents);
 										setIsReorderMode(true);
