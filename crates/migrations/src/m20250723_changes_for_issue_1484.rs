@@ -1,5 +1,7 @@
 use sea_orm_migration::prelude::*;
 
+use super::m20231016_create_collection_to_entity::CollectionToEntity;
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -12,7 +14,13 @@ impl MigrationTrait for Migration {
             return Ok(());
         }
 
-        db.execute_unprepared("ALTER TABLE collection_to_entity ADD COLUMN rank INTEGER")
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(CollectionToEntity::Table)
+                    .add_column(ColumnDef::new(CollectionToEntity::Rank).decimal())
+                    .to_owned(),
+            )
             .await?;
 
         let update_ranks_query = r#"
@@ -28,7 +36,13 @@ impl MigrationTrait for Migration {
 
         db.execute_unprepared(update_ranks_query).await?;
 
-        db.execute_unprepared("ALTER TABLE collection_to_entity ALTER COLUMN rank SET NOT NULL")
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(CollectionToEntity::Table)
+                    .modify_column(ColumnDef::new(CollectionToEntity::Rank).not_null())
+                    .to_owned(),
+            )
             .await?;
 
         Ok(())

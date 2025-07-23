@@ -129,7 +129,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(CollectionToEntity::Rank)
-                            .integer()
+                            .decimal()
                             .not_null(),
                     )
                     .foreign_key(
