@@ -29,6 +29,13 @@ import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
 
+enum TwoFactorSetupStep {
+	Auth = "auth",
+	QRCode = "qr_code",
+	Verify = "verify",
+	BackupCodes = "backup_codes",
+}
+
 export const meta = () => {
 	return [{ title: "Security | Ryot" }];
 };
@@ -238,7 +245,7 @@ interface TwoFactorSetupModalProps {
 }
 
 const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
-	const [step, setStep] = useState(1); // 1: Auth, 2: QR Code, 3: Verify, 4: Backup Codes
+	const [step, setStep] = useState(TwoFactorSetupStep.Auth);
 
 	return (
 		<Modal
@@ -247,16 +254,27 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 			title="Enable Two-Factor Authentication"
 			size="md"
 		>
-			{step === 1 && (
-				<TwoFactorAuthStep onNext={() => setStep(2)} onClose={onClose} />
+			{step === TwoFactorSetupStep.Auth && (
+				<TwoFactorAuthStep
+					onClose={onClose}
+					onNext={() => setStep(TwoFactorSetupStep.QRCode)}
+				/>
 			)}
-			{step === 2 && (
-				<QRCodeStep onNext={() => setStep(3)} onBack={() => setStep(1)} />
+			{step === TwoFactorSetupStep.QRCode && (
+				<QRCodeStep
+					onNext={() => setStep(TwoFactorSetupStep.Verify)}
+					onBack={() => setStep(TwoFactorSetupStep.Auth)}
+				/>
 			)}
-			{step === 3 && (
-				<VerifyCodeStep onNext={() => setStep(4)} onBack={() => setStep(2)} />
+			{step === TwoFactorSetupStep.Verify && (
+				<VerifyCodeStep
+					onNext={() => setStep(TwoFactorSetupStep.BackupCodes)}
+					onBack={() => setStep(TwoFactorSetupStep.QRCode)}
+				/>
 			)}
-			{step === 4 && <BackupCodesStep onComplete={onClose} />}
+			{step === TwoFactorSetupStep.BackupCodes && (
+				<BackupCodesStep onComplete={onClose} />
+			)}
 		</Modal>
 	);
 };
