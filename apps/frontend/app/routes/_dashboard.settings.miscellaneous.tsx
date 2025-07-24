@@ -87,7 +87,9 @@ export default function Page() {
 										variant="light"
 										onClick={async () => {
 											await startOnboardingTour();
-											Cookies.remove(dashboardData.onboardingTourCompletedCookie);
+											Cookies.remove(
+												dashboardData.onboardingTourCompletedCookie,
+											);
 											navigate("/");
 										}}
 									>
