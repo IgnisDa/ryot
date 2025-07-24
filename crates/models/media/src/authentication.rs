@@ -146,7 +146,6 @@ pub enum ProcessAccessLinkResult {
     Error(ProcessAccessLinkError),
 }
 
-
 #[derive(Debug, SimpleObject)]
 pub struct UserTwoFactorInitiateResponse {
     pub secret: String,
@@ -166,8 +165,8 @@ pub struct UserTwoFactorTotpInput {
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
 pub struct UserTwoFactorBackupCodeInput {
-    pub user_id: String,
     pub code: String,
+    pub user_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
