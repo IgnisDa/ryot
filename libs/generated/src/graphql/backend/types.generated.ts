@@ -269,6 +269,8 @@ export type CollectionToEntityDetails = {
   creatorUserId: Scalars['String']['output'];
   information?: Maybe<Scalars['JSON']['output']>;
   lastUpdatedOn: Scalars['DateTime']['output'];
+  /** The rank of this entity in the collection. This is ignored during importing. */
+  rank: Scalars['Decimal']['output'];
 };
 
 export type CoreDetails = {
@@ -1111,6 +1113,7 @@ export enum LoginErrorVariant {
   AccountDisabled = 'ACCOUNT_DISABLED',
   CredentialsMismatch = 'CREDENTIALS_MISMATCH',
   IncorrectProviderChosen = 'INCORRECT_PROVIDER_CHOSEN',
+  TwoFactorInvalid = 'TWO_FACTOR_INVALID',
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 
@@ -1119,7 +1122,7 @@ export type LoginResponse = {
   apiKey: Scalars['String']['output'];
 };
 
-export type LoginResult = LoginError | LoginResponse;
+export type LoginResult = LoginError | LoginResponse | StringIdObject;
 
 export type MangaSpecifics = {
   __typename?: 'MangaSpecifics';
@@ -1392,6 +1395,8 @@ export type MusicSpecificsInput = {
 
 export type MutationRoot = {
   __typename?: 'MutationRoot';
+  /** Complete two-factor authentication setup by verifying the TOTP code. */
+  completeTwoFactorSetup: UserTwoFactorBackupCodesResponse;
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1456,6 +1461,8 @@ export type MutationRoot = {
    * It is only available in development mode.
    */
   developmentMutation: Scalars['Boolean']['output'];
+  /** Disable two-factor authentication for the currently logged in user. */
+  disableTwoFactor: Scalars['Boolean']['output'];
   /**
    * Delete all history and reviews for a given media item and remove it from all
    * collections for the user.
@@ -1465,6 +1472,10 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
+  /** Generate new backup codes for the currently logged in user. */
+  generateBackupCodes: UserTwoFactorBackupCodesResponse;
+  /** Initiate two-factor authentication setup by generating a TOTP secret. */
+  initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
   /** Mark an entity as partial. */
@@ -1512,6 +1523,13 @@ export type MutationRoot = {
   updateUserPreference: Scalars['Boolean']['output'];
   /** Change the details about a user's workout. */
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
+  /** Verify a two-factor authentication code (TOTP or backup code). */
+  verifyTwoFactor: LoginResult;
+};
+
+
+export type MutationRootCompleteTwoFactorSetupArgs = {
+  input: UserTwoFactorSetupInput;
 };
 
 
@@ -1750,6 +1768,11 @@ export type MutationRootUpdateUserPreferenceArgs = {
 
 export type MutationRootUpdateUserWorkoutAttributesArgs = {
   input: UpdateUserWorkoutAttributesInput;
+};
+
+
+export type MutationRootVerifyTwoFactorArgs = {
+  input: UserTwoFactorVerifyInput;
 };
 
 export type NotificationPlatform = {
@@ -3003,6 +3026,32 @@ export enum UserToMediaReason {
   Reviewed = 'REVIEWED',
   Seen = 'SEEN',
   Watchlist = 'WATCHLIST'
+}
+
+export type UserTwoFactorBackupCodesResponse = {
+  __typename?: 'UserTwoFactorBackupCodesResponse';
+  backupCodes: Array<Scalars['String']['output']>;
+};
+
+export type UserTwoFactorInitiateResponse = {
+  __typename?: 'UserTwoFactorInitiateResponse';
+  qrCodeUrl: Scalars['String']['output'];
+  secret: Scalars['String']['output'];
+};
+
+export type UserTwoFactorSetupInput = {
+  totpCode: Scalars['String']['input'];
+};
+
+export type UserTwoFactorVerifyInput = {
+  code: Scalars['String']['input'];
+  method: UserTwoFactorVerifyMethod;
+  userId: Scalars['String']['input'];
+};
+
+export enum UserTwoFactorVerifyMethod {
+  BackupCode = 'BACKUP_CODE',
+  Totp = 'TOTP'
 }
 
 export enum UserUnitSystem {
