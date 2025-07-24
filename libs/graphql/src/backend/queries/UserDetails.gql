@@ -1,12 +1,13 @@
 query UserDetails {
 	userDetails {
 		__typename
-		... on User {
+		... on UserDetails {
 			id
 			lot
 			name
 			isDisabled
 			oidcIssuerId
+			isTwoFactorEnabled
 			extraInformation {
 				scheduledForWorkoutRevision
 			}

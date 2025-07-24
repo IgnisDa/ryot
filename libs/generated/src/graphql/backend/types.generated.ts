@@ -182,7 +182,7 @@ export type CollectionContents = {
   results: MediaCollectionContentsResults;
   reviews: Array<ReviewItem>;
   totalItems: Scalars['Int']['output'];
-  user: User;
+  user: UserDetails;
 };
 
 export type CollectionContentsFilter = {
@@ -2050,7 +2050,7 @@ export type QueryRoot = {
   /** Get a paginated list of workouts done by the user. */
   userWorkoutsList: CachedSearchIdResponse;
   /** Get details about all the users in the service. */
-  usersList: Array<User>;
+  usersList: Array<UserDetails>;
 };
 
 
@@ -2486,18 +2486,6 @@ export type UpdateUserWorkoutAttributesInput = {
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
-export type User = {
-  __typename?: 'User';
-  createdOn: Scalars['DateTime']['output'];
-  extraInformation?: Maybe<UserExtraInformation>;
-  id: Scalars['String']['output'];
-  isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lot: UserLot;
-  name: Scalars['String']['output'];
-  oidcIssuerId?: Maybe<Scalars['String']['output']>;
-  preferences: UserPreferences;
-};
-
 export type UserAnalytics = {
   __typename?: 'UserAnalytics';
   activities: DailyUserActivitiesResponse;
@@ -2529,6 +2517,18 @@ export type UserCustomMeasurementInput = {
   unit?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UserDetails = {
+  __typename?: 'UserDetails';
+  extraInformation?: Maybe<UserExtraInformation>;
+  id: Scalars['String']['output'];
+  isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  isTwoFactorEnabled: Scalars['Boolean']['output'];
+  lot: UserLot;
+  name: Scalars['String']['output'];
+  oidcIssuerId?: Maybe<Scalars['String']['output']>;
+  preferences: UserPreferences;
+};
+
 export type UserDetailsError = {
   __typename?: 'UserDetailsError';
   error: UserDetailsErrorVariant;
@@ -2538,7 +2538,7 @@ export enum UserDetailsErrorVariant {
   AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
 }
 
-export type UserDetailsResult = User | UserDetailsError;
+export type UserDetailsResult = UserDetails | UserDetailsError;
 
 export type UserExerciseDetails = {
   __typename?: 'UserExerciseDetails';
