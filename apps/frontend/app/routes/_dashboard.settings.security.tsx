@@ -54,8 +54,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 const updateProfileFormSchema = z.object({
 	userId: z.string(),
+	email: z.email().optional(),
 	username: z.string().optional(),
-	email: z.string().email().optional(),
 	password: z.string().optional(),
 });
 
