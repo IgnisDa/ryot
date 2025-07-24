@@ -485,6 +485,18 @@ pub struct UserExtraInformation {
     pub scheduled_for_workout_revision: bool,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UserTwoFactorInformationBackupCode {
+    pub code: String,
+    pub used: bool,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, FromJsonQueryResult)]
+pub struct UserTwoFactorInformation {
+    pub secret: String,
+    pub backup_codes: Vec<UserTwoFactorInformationBackupCode>,
+}
+
 #[derive(Debug, InputObject)]
 pub struct UpdateUserInput {
     pub user_id: String,
