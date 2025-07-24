@@ -17,6 +17,7 @@ pub enum User {
     OidcIssuerId,
     LastActivityOn,
     ExtraInformation,
+    TwoFactorInformation,
 }
 
 #[async_trait::async_trait]
@@ -42,6 +43,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(User::IsDisabled).boolean())
                     .col(ColumnDef::new(User::LastLoginOn).timestamp_with_time_zone())
                     .col(ColumnDef::new(User::LastActivityOn).timestamp_with_time_zone())
+                    .col(ColumnDef::new(User::TwoFactorInformation).json_binary())
                     .to_owned(),
             )
             .await?;
