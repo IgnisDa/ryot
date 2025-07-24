@@ -75,8 +75,9 @@ pub enum UserResetResult {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum LoginErrorVariant {
     AccountDisabled,
-    UsernameDoesNotExist,
+    TwoFactorInvalid,
     CredentialsMismatch,
+    UsernameDoesNotExist,
     IncorrectProviderChosen,
 }
 
@@ -94,6 +95,7 @@ pub struct LoginResponse {
 pub enum LoginResult {
     Ok(LoginResponse),
     Error(LoginError),
+    TwoFactorRequired(StringIdObject),
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -142,4 +144,44 @@ pub struct ProcessAccessLinkResponse {
 pub enum ProcessAccessLinkResult {
     Ok(ProcessAccessLinkResponse),
     Error(ProcessAccessLinkError),
+}
+
+
+#[derive(Debug, SimpleObject)]
+pub struct UserTwoFactorInitiateResponse {
+    pub secret: String,
+    pub qr_code_url: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct UserTwoFactorSetupInput {
+    pub totp_code: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct UserTwoFactorTotpInput {
+    pub user_id: String,
+    pub code: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct UserTwoFactorBackupCodeInput {
+    pub user_id: String,
+    pub code: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
+pub enum UserTwoFactorVerifyInput {
+    Totp(UserTwoFactorTotpInput),
+    BackupCode(UserTwoFactorBackupCodeInput),
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserTwoFactorSetupResponse {
+    pub backup_codes: Vec<String>,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserTwoFactorBackupCodesResponse {
+    pub backup_codes: Vec<String>,
 }
