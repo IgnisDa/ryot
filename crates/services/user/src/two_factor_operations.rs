@@ -17,8 +17,8 @@ use dependent_models::{
 };
 use media_models::{
     LoginError, LoginErrorVariant, LoginResponse, LoginResult, UserTwoFactorBackupCodesResponse,
-    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorSetupResponse,
-    UserTwoFactorVerifyInput,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    UserTwoFactorVerifyMethod,
 };
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
@@ -32,14 +32,9 @@ pub async fn verify_two_factor(
     ss: &Arc<SupportingService>,
     input: UserTwoFactorVerifyInput,
 ) -> Result<LoginResult> {
-    let (user_id, code, is_backup_code) = match input {
-        UserTwoFactorVerifyInput::Totp(totp_input) => (totp_input.user_id, totp_input.code, false),
-        UserTwoFactorVerifyInput::BackupCode(backup_input) => {
-            (backup_input.user_id, backup_input.code, true)
-        }
-    };
+    let is_backup_code = matches!(input.method, UserTwoFactorVerifyMethod::BackupCode);
 
-    let user = user_by_id(&user_id, ss).await?;
+    let user = user_by_id(&input.user_id, ss).await?;
     let Some(two_factor_info) = &user.two_factor_information else {
         return Ok(LoginResult::Error(LoginError {
             error: LoginErrorVariant::TwoFactorInvalid,
@@ -47,11 +42,11 @@ pub async fn verify_two_factor(
     };
 
     let verification_result = if is_backup_code {
-        verify_backup_code_against_user(two_factor_info, &code)
+        verify_backup_code_against_user(two_factor_info, &input.code)
     } else {
         let decrypted_secret =
             decrypt_totp_secret(&two_factor_info.secret, &ss.config.users.jwt_secret)?;
-        verify_totp_code(&code, &decrypted_secret)
+        verify_totp_code(&input.code, &decrypted_secret)
     };
 
     if !verification_result {
@@ -61,10 +56,10 @@ pub async fn verify_two_factor(
     }
 
     if is_backup_code {
-        mark_backup_code_as_used(&user_id, &code, ss).await?;
+        mark_backup_code_as_used(&input.user_id, &input.code, ss).await?;
     }
 
-    let jwt_key = generate_auth_token(ss, user_id.clone()).await?;
+    let jwt_key = generate_auth_token(ss, input.user_id.clone()).await?;
     let mut user = user.into_active_model();
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
     user.update(&ss.db).await?;
@@ -107,7 +102,7 @@ pub async fn complete_two_factor_setup(
     ss: &Arc<SupportingService>,
     user_id: String,
     input: UserTwoFactorSetupInput,
-) -> Result<UserTwoFactorSetupResponse> {
+) -> Result<UserTwoFactorBackupCodesResponse> {
     let cache_key = ApplicationCacheKey::UserTwoFactorSetup(UserLevelCacheKey {
         input: (),
         user_id: user_id.clone(),
@@ -142,7 +137,7 @@ pub async fn complete_two_factor_setup(
         .expire_key(ExpireCacheKeyInput::ById(cache_id))
         .await?;
 
-    Ok(UserTwoFactorSetupResponse { backup_codes })
+    Ok(UserTwoFactorBackupCodesResponse { backup_codes })
 }
 
 pub async fn disable_two_factor(ss: &Arc<SupportingService>, user_id: String) -> Result<bool> {

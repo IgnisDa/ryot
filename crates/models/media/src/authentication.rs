@@ -157,27 +157,17 @@ pub struct UserTwoFactorSetupInput {
     pub totp_code: String,
 }
 
-#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct UserTwoFactorTotpInput {
-    pub user_id: String,
-    pub code: String,
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UserTwoFactorVerifyMethod {
+    Totp,
+    BackupCode,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
-pub struct UserTwoFactorBackupCodeInput {
+pub struct UserTwoFactorVerifyInput {
     pub code: String,
     pub user_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
-pub enum UserTwoFactorVerifyInput {
-    Totp(UserTwoFactorTotpInput),
-    BackupCode(UserTwoFactorBackupCodeInput),
-}
-
-#[derive(Debug, SimpleObject)]
-pub struct UserTwoFactorSetupResponse {
-    pub backup_codes: Vec<String>,
+    pub method: UserTwoFactorVerifyMethod,
 }
 
 #[derive(Debug, SimpleObject)]

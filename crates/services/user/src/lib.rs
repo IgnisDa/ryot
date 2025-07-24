@@ -10,8 +10,7 @@ use media_models::{
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
-    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorSetupResponse,
-    UserTwoFactorVerifyInput,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
 };
 use openidconnect::Nonce;
 use supporting_service::SupportingService;
@@ -205,7 +204,7 @@ impl UserService {
         &self,
         user_id: String,
         input: UserTwoFactorSetupInput,
-    ) -> Result<UserTwoFactorSetupResponse> {
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
         two_factor_operations::complete_two_factor_setup(&self.0, user_id, input).await
     }
 
