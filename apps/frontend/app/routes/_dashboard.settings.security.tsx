@@ -7,6 +7,7 @@ import {
 	Modal,
 	Paper,
 	PasswordInput,
+	PinInput,
 	Stack,
 	Tabs,
 	Text,
@@ -67,10 +68,6 @@ const updateProfileFormSchema = z.object({
 });
 
 export default function Page() {
-	const dashboardData = useDashboardLayoutData();
-
-	const isEditDisabled = dashboardData.isDemoInstance;
-
 	return (
 		<Container size="xs">
 			<Tabs defaultValue="password">
@@ -80,10 +77,10 @@ export default function Page() {
 				</Tabs.List>
 				<Box mt="md">
 					<Tabs.Panel value="password">
-						<PasswordSection isEditDisabled={isEditDisabled} />
+						<PasswordSection />
 					</Tabs.Panel>
 					<Tabs.Panel value="2fa">
-						<TwoFactorAuthSection isEditDisabled={isEditDisabled} />
+						<TwoFactorAuthSection />
 					</Tabs.Panel>
 				</Box>
 			</Tabs>
@@ -91,13 +88,11 @@ export default function Page() {
 	);
 }
 
-interface PasswordSectionProps {
-	isEditDisabled: boolean;
-}
-
-const PasswordSection = ({ isEditDisabled }: PasswordSectionProps) => {
-	const userDetails = useUserDetails();
+const PasswordSection = () => {
 	const submit = useConfirmSubmit();
+	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemoInstance;
 
 	return (
 		<Stack>
@@ -106,24 +101,22 @@ const PasswordSection = ({ isEditDisabled }: PasswordSectionProps) => {
 				<Stack>
 					<TextInput
 						readOnly
-						description="Database generated user ID"
 						defaultValue={userDetails.id}
+						description="Database generated user ID"
 					/>
 					<TextInput
-						label="Username"
 						name="username"
-						disabled={Boolean(isEditDisabled)}
+						label="Username"
+						disabled={isEditDisabled}
+						defaultValue={userDetails.name}
 						description={
 							isEditDisabled && "Username can not be changed for the demo user"
 						}
-						defaultValue={userDetails.name}
 					/>
 					<PasswordInput
-						label="Password"
 						name="password"
-						disabled={
-							Boolean(isEditDisabled) || Boolean(userDetails.oidcIssuerId)
-						}
+						label="Password"
+						disabled={isEditDisabled || Boolean(userDetails.oidcIssuerId)}
 						description={
 							userDetails.oidcIssuerId
 								? "Not applicable since this user was created via OIDC"
@@ -133,6 +126,7 @@ const PasswordSection = ({ isEditDisabled }: PasswordSectionProps) => {
 						}
 					/>
 					<Button
+						fullWidth
 						type="submit"
 						onClick={(e) => {
 							const form = e.currentTarget.form;
@@ -142,7 +136,6 @@ const PasswordSection = ({ isEditDisabled }: PasswordSectionProps) => {
 								() => submit(form),
 							);
 						}}
-						fullWidth
 					>
 						Update
 					</Button>
@@ -152,14 +145,10 @@ const PasswordSection = ({ isEditDisabled }: PasswordSectionProps) => {
 	);
 };
 
-interface TwoFactorAuthSectionProps {
-	isEditDisabled: boolean;
-}
-
-const TwoFactorAuthSection = ({
-	isEditDisabled,
-}: TwoFactorAuthSectionProps) => {
+const TwoFactorAuthSection = () => {
 	const userDetails = useUserDetails();
+	const dashboardData = useDashboardLayoutData();
+	const isEditDisabled = dashboardData.isDemoInstance;
 	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
 		useDisclosure(false);
 
@@ -249,10 +238,10 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 
 	return (
 		<Modal
+			size="md"
 			opened={opened}
 			onClose={onClose}
 			title="Enable Two-Factor Authentication"
-			size="md"
 		>
 			{step === TwoFactorSetupStep.Auth && (
 				<TwoFactorAuthStep
@@ -262,14 +251,14 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 			)}
 			{step === TwoFactorSetupStep.QRCode && (
 				<QRCodeStep
-					onNext={() => setStep(TwoFactorSetupStep.Verify)}
 					onBack={() => setStep(TwoFactorSetupStep.Auth)}
+					onNext={() => setStep(TwoFactorSetupStep.Verify)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.Verify && (
 				<VerifyCodeStep
-					onNext={() => setStep(TwoFactorSetupStep.BackupCodes)}
 					onBack={() => setStep(TwoFactorSetupStep.QRCode)}
+					onNext={() => setStep(TwoFactorSetupStep.BackupCodes)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.BackupCodes && (
@@ -312,9 +301,9 @@ const QRCodeStep = ({ onNext, onBack }: QRCodeStepProps) => {
 		<Stack>
 			<Text>
 				Scan the QR code below with your authenticator app (such as Google
-				Authenticator, Authy, or 1Password).
+				Authenticator or 1Password).
 			</Text>
-			<Paper withBorder p="md" style={{ textAlign: "center" }}>
+			<Paper withBorder p="md" ta="center">
 				<Text size="sm" c="dimmed" mb="md">
 					QR Code will be displayed here
 				</Text>
@@ -349,13 +338,7 @@ const VerifyCodeStep = ({ onNext, onBack }: VerifyCodeStepProps) => {
 			<Text>
 				Enter the 6-digit code from your authenticator app to verify the setup.
 			</Text>
-			<TextInput
-				label="Authentication Code"
-				placeholder="Enter 6-digit code"
-				value={code}
-				onChange={(e) => setCode(e.target.value)}
-				maxLength={6}
-			/>
+			<PinInput value={code} length={6} onChange={setCode} />
 			<Group justify="space-between">
 				<Button variant="subtle" onClick={onBack}>
 					Back
