@@ -10,7 +10,7 @@ query UserDetails {
 			extraInformation {
 				scheduledForWorkoutRevision
 			}
-			backupCodes {
+			twoFactorBackupCodes {
 				used
 				code
 			}

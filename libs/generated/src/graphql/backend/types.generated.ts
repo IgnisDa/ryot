@@ -2527,7 +2527,6 @@ export type UserCustomMeasurementInput = {
 
 export type UserDetails = {
   __typename?: 'UserDetails';
-  backupCodes?: Maybe<Array<UserTwoFactorInformationBackupCode>>;
   extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
@@ -2535,6 +2534,7 @@ export type UserDetails = {
   name: Scalars['String']['output'];
   oidcIssuerId?: Maybe<Scalars['String']['output']>;
   preferences: UserPreferences;
+  twoFactorBackupCodes?: Maybe<Array<UserTwoFactorInformationBackupCode>>;
 };
 
 export type UserDetailsError = {

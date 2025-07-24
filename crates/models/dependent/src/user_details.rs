@@ -86,7 +86,7 @@ pub struct UserDetails {
     pub preferences: UserPreferences,
     pub oidc_issuer_id: Option<String>,
     pub extra_information: Option<UserExtraInformation>,
-    pub backup_codes: Option<Vec<UserTwoFactorInformationBackupCode>>,
+    pub two_factor_backup_codes: Option<Vec<UserTwoFactorInformationBackupCode>>,
 }
 
 #[derive(Union)]

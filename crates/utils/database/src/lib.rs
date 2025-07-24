@@ -69,7 +69,7 @@ pub async fn user_details_by_id(
         is_disabled: user.is_disabled,
         oidc_issuer_id: user.oidc_issuer_id,
         extra_information: user.extra_information,
-        backup_codes: user.two_factor_information.map(|t| t.backup_codes.clone()),
+        two_factor_backup_codes: user.two_factor_information.map(|t| t.backup_codes.clone()),
     };
     Ok(details)
 }
