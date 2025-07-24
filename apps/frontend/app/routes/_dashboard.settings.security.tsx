@@ -29,10 +29,6 @@ import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
 
-export const loader = async (_args: Route.LoaderArgs) => {
-	return {};
-};
-
 export const meta = () => {
 	return [{ title: "Security | Ryot" }];
 };
