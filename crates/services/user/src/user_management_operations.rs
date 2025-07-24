@@ -53,6 +53,7 @@ pub async fn update_user(
         user_obj.is_disabled = ActiveValue::Set(Some(d));
     }
     let user_obj = user_obj.update(&ss.db).await?;
+    ryot_log!(debug, "Updated user with id {:?}", user_obj.id);
     Ok(StringIdObject { id: user_obj.id })
 }
 
