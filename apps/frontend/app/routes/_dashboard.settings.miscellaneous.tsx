@@ -2,6 +2,7 @@ import {
 	Box,
 	Button,
 	Container,
+	Divider,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -13,15 +14,20 @@ import {
 	UserLot,
 } from "@ryot/generated/graphql/backend/graphql";
 import { processSubmission } from "@ryot/ts-utils";
-import { Form, data } from "react-router";
+import Cookies from "js-cookie";
+import { Form, data, useNavigate } from "react-router";
+import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
+	useIsMobile,
+	useIsOnboardingTourCompleted,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
+import { useOnboardingTour } from "~/lib/state/general";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.miscellaneous";
 
@@ -50,6 +56,12 @@ const jobSchema = z.object({
 });
 
 export default function Page() {
+	const navigate = useNavigate();
+	const dashboardData = useDashboardLayoutData();
+	const isMobile = useIsMobile();
+	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
+	const { startOnboardingTour } = useOnboardingTour();
+
 	return (
 		<Container size="lg">
 			<Stack>
@@ -62,6 +74,30 @@ export default function Page() {
 						<DisplayJobBtn key={job} job={job} />
 					))}
 				</SimpleGrid>
+				<ClientOnly>
+					{() =>
+						isOnboardingTourCompleted && !isMobile ? (
+							<>
+								<Divider />
+								<Box>
+									<Title order={4}>Onboarding</Title>
+									<Text>Restart the application onboarding tour</Text>
+									<Button
+										mt="sm"
+										variant="light"
+										onClick={async () => {
+											await startOnboardingTour();
+											Cookies.remove(dashboardData.onboardingTourCompletedCookie);
+											navigate("/");
+										}}
+									>
+										Restart onboarding
+									</Button>
+								</Box>
+							</>
+						) : null
+					}
+				</ClientOnly>
 			</Stack>
 		</Container>
 	);

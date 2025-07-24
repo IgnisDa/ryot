@@ -1,28 +1,22 @@
 import {
 	Button,
 	Container,
-	Divider,
 	PasswordInput,
 	Stack,
 	TextInput,
 } from "@mantine/core";
 import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
 import { getActionIntent, processSubmission } from "@ryot/ts-utils";
-import Cookies from "js-cookie";
-import { Form, useNavigate } from "react-router";
-import { ClientOnly } from "remix-utils/client-only";
+import { Form } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
-	useIsMobile,
-	useIsOnboardingTourCompleted,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import { useOnboardingTour } from "~/lib/state/general";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
 
@@ -63,11 +57,7 @@ const updateProfileFormSchema = z.object({
 export default function Page() {
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
-	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
-	const isMobile = useIsMobile();
-	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
-	const { startOnboardingTour } = useOnboardingTour();
 
 	const isEditDisabled = dashboardData.isDemoInstance;
 
@@ -125,25 +115,6 @@ export default function Page() {
 						</Button>
 					</Stack>
 				</Form>
-				<ClientOnly>
-					{() =>
-						isOnboardingTourCompleted && !isMobile ? (
-							<>
-								<Divider />
-								<Button
-									variant="default"
-									onClick={async () => {
-										await startOnboardingTour();
-										Cookies.remove(dashboardData.onboardingTourCompletedCookie);
-										navigate("/");
-									}}
-								>
-									Restart onboarding
-								</Button>
-							</>
-						) : null
-					}
-				</ClientOnly>
 			</Stack>
 		</Container>
 	);
