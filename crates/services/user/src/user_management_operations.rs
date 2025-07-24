@@ -14,11 +14,11 @@ use media_models::{
     RegisterErrorVariant, RegisterResult, RegisterUserInput, UserResetResponse, UserResetResult,
 };
 use nanoid::nanoid;
-use sea_orm::Iterable;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
     QueryFilter,
 };
+use sea_orm::{IntoActiveModel, Iterable};
 use supporting_service::SupportingService;
 use user_models::UpdateUserInput;
 use user_models::UserPreferences;
@@ -35,11 +35,11 @@ pub async fn update_user(
     {
         bail!("Admin access token mismatch".to_owned());
     }
-    let mut user_obj: user::ActiveModel = User::find_by_id(input.user_id)
+    let mut user_obj = User::find_by_id(input.user_id)
         .one(&ss.db)
         .await?
         .unwrap()
-        .into();
+        .into_active_model();
     if let Some(n) = input.username {
         user_obj.name = ActiveValue::Set(n);
     }
