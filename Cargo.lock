@@ -7043,6 +7043,7 @@ dependencies = [
  "chrono",
  "common-models",
  "common-utils",
+ "data-encoding",
  "database-models",
  "database-utils",
  "dependent-models",

@@ -4,6 +4,7 @@ use anyhow::Result;
 use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
+use common_models::StringIdObject;
 use database_models::{prelude::User, user};
 use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
 use dependent_models::UserDetailsResult;
@@ -78,6 +79,11 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
                 }));
             }
         }
+    }
+    if user.two_factor_information.is_some() {
+        return Ok(LoginResult::TwoFactorRequired(StringIdObject {
+            id: user.id.clone(),
+        }));
     }
     let jwt_key = generate_auth_token(ss, user.id.clone()).await?;
     let mut user = user.into_active_model();

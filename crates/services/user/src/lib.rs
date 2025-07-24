@@ -9,7 +9,9 @@ use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput, UserResetResult,
+    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorSetupResponse,
+    UserTwoFactorVerifyInput,
 };
 use openidconnect::Nonce;
 use supporting_service::SupportingService;
@@ -21,6 +23,7 @@ mod integration_operations;
 mod notification_operations;
 mod oidc_operations;
 mod recommendation_operations;
+mod two_factor_operations;
 mod user_data_operations;
 mod user_management_operations;
 mod user_preferences_operations;
@@ -185,5 +188,35 @@ impl UserService {
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
         user_data_operations::user_by_oidc_issuer_id(&self.0, oidc_issuer_id).await
+    }
+
+    pub async fn verify_two_factor(&self, input: UserTwoFactorVerifyInput) -> Result<LoginResult> {
+        two_factor_operations::verify_two_factor(&self.0, input).await
+    }
+
+    pub async fn initiate_two_factor_setup(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorInitiateResponse> {
+        two_factor_operations::initiate_two_factor_setup(&self.0, user_id).await
+    }
+
+    pub async fn complete_two_factor_setup(
+        &self,
+        user_id: String,
+        input: UserTwoFactorSetupInput,
+    ) -> Result<UserTwoFactorSetupResponse> {
+        two_factor_operations::complete_two_factor_setup(&self.0, user_id, input).await
+    }
+
+    pub async fn disable_two_factor(&self, user_id: String) -> Result<bool> {
+        two_factor_operations::disable_two_factor(&self.0, user_id).await
+    }
+
+    pub async fn generate_backup_codes(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        two_factor_operations::generate_new_backup_codes(&self.0, user_id).await
     }
 }
