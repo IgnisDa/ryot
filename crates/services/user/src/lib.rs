@@ -2,9 +2,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common_models::StringIdObject;
-use database_models::{access_link, integration, notification_platform, user};
+use database_models::{access_link, integration, notification_platform};
 use database_utils::server_key_validation_guard;
-use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
+use dependent_models::{
+    CachedResponse, UserDetails, UserDetailsResult, UserMetadataRecommendationsResponse,
+};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
@@ -65,7 +67,7 @@ impl UserService {
         authentication_operations::revoke_access_link(&self.0, access_link_id).await
     }
 
-    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
+    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<UserDetails>> {
         user_data_operations::users_list(&self.0, query).await
     }
 

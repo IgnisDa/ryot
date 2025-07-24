@@ -22,6 +22,7 @@ enum-models = { path = "../enum" }
 fitness-models = { path = "../fitness" }
 importer-models = { path = "../importer" }
 media-models = { path = "../media" }
+user-models = { path = "../user" }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json"]

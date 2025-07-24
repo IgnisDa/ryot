@@ -1,6 +1,6 @@
 use async_graphql::{InputObject, InputType, OutputType, SimpleObject};
 use common_models::{ApplicationDateRange, SearchDetails, SearchInput};
-use database_models::{collection, metadata_group, user};
+use database_models::{collection, metadata_group};
 use enum_models::MediaLot;
 use media_models::{
     CollectionContentsFilter, CollectionContentsSortBy, EntityWithLot, GenreListItem,
@@ -10,7 +10,7 @@ use media_models::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::UserAnalytics;
+use crate::{UserAnalytics, UserDetails};
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -70,7 +70,7 @@ pub struct CachedResponse<T: OutputType> {
 #[derive(Debug, PartialEq, Eq, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
     pub total_items: u64,
-    pub user: user::Model,
+    pub user: UserDetails,
     pub reviews: Vec<ReviewItem>,
     pub details: collection::Model,
     pub results: SearchResults<EntityWithLot>,

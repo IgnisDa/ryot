@@ -2,8 +2,10 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
-use database_models::{access_link, integration, notification_platform, user};
-use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
+use database_models::{access_link, integration, notification_platform};
+use dependent_models::{
+    CachedResponse, UserDetails, UserDetailsResult, UserMetadataRecommendationsResponse,
+};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
@@ -46,7 +48,7 @@ impl UserQuery {
         &self,
         gql_ctx: &Context<'_>,
         query: Option<String>,
-    ) -> Result<Vec<user::Model>> {
+    ) -> Result<Vec<UserDetails>> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let response = service.users_list(query).await?;
         Ok(response)

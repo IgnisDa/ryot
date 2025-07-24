@@ -6,9 +6,11 @@ use database_models::{
     prelude::{AccessLink, Integration, NotificationPlatform, User},
     user,
 };
-use database_utils::{get_enabled_users_query, ilike_sql};
+use database_utils::{get_enabled_users_query, ilike_sql, user_details_by_id};
+use dependent_models::UserDetails;
+use futures::future::try_join_all;
 use sea_orm::{
-    ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr,
+    ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, prelude::Expr,
     sea_query::extension::postgres::PgExpr,
 };
 use supporting_service::SupportingService;
@@ -28,8 +30,10 @@ pub async fn user_access_links(
 pub async fn users_list(
     ss: &Arc<SupportingService>,
     query: Option<String>,
-) -> Result<Vec<user::Model>> {
-    let users = User::find()
+) -> Result<Vec<UserDetails>> {
+    let users_ids = User::find()
+        .select_only()
+        .column(user::Column::Id)
         .apply_if(query, |query, value| {
             query.filter(
                 Expr::col(user::Column::Name)
@@ -38,8 +42,14 @@ pub async fn users_list(
             )
         })
         .order_by_asc(user::Column::Name)
+        .into_tuple::<String>()
         .all(&ss.db)
         .await?;
+    let users = try_join_all(users_ids.into_iter().map(|id| {
+        let ss = ss.clone();
+        async move { user_details_by_id(&id, &ss).await }
+    }))
+    .await?;
     Ok(users)
 }
 

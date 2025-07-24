@@ -1781,6 +1781,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "strum",
+ "user-models",
  "uuid",
 ]
 

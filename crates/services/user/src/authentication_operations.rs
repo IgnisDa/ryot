@@ -6,7 +6,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{prelude::User, user};
-use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
+use database_utils::{revoke_access_link as db_revoke_access_link, user_details_by_id};
 use dependent_models::UserDetailsResult;
 use jwt_service::sign;
 use media_models::{
@@ -42,7 +42,7 @@ pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<Us
             error: UserDetailsErrorVariant::AuthTokenInvalid,
         }));
     };
-    let user = user_by_id(&user_id, ss).await?;
+    let user = user_details_by_id(&user_id, ss).await?;
     Ok(UserDetailsResult::Ok(Box::new(user)))
 }
 
