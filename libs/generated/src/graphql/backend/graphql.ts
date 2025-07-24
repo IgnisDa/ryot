@@ -129,6 +129,13 @@ export enum BackgroundJob {
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
 }
 
+export type BasicUserDetails = {
+  id: Scalars['String']['output'];
+  isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  lot: UserLot;
+  name: Scalars['String']['output'];
+};
+
 export type BookSpecifics = {
   isCompilation?: Maybe<Scalars['Boolean']['output']>;
   pages?: Maybe<Scalars['Int']['output']>;
@@ -200,7 +207,7 @@ export type CollectionContents = {
   results: MediaCollectionContentsResults;
   reviews: Array<ReviewItem>;
   totalItems: Scalars['Int']['output'];
-  user: UserDetails;
+  user: BasicUserDetails;
 };
 
 export type CollectionContentsFilter = {
@@ -1997,7 +2004,7 @@ export type QueryRoot = {
   /** Get a paginated list of workouts done by the user. */
   userWorkoutsList: CachedSearchIdResponse;
   /** Get details about all the users in the service. */
-  usersList: Array<UserDetails>;
+  usersList: Array<BasicUserDetails>;
 };
 
 

@@ -9,8 +9,8 @@ use database_models::{
 };
 use database_utils::{ilike_sql, item_reviews, user_by_id, user_details_by_id};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
-    CollectionContentsInput, CollectionContentsResponse, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
+    CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
 };
 use enum_models::EntityLot;
 use media_models::{CollectionContentsSortBy, EntityWithLot};
@@ -162,11 +162,16 @@ pub async fn collection_contents(
                 )
                 .await?;
                 let response = CollectionContents {
-                    user,
                     reviews,
                     results,
                     details,
                     total_items: number_of_items,
+                    user: BasicUserDetails {
+                        id: user.id,
+                        lot: user.lot,
+                        name: user.name,
+                        is_disabled: user.is_disabled,
+                    },
                 };
                 Ok(response)
             },

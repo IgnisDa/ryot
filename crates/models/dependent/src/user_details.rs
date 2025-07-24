@@ -70,6 +70,14 @@ pub struct PersonDetails {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct BasicUserDetails {
+    pub id: String,
+    pub name: String,
+    pub lot: UserLot,
+    pub is_disabled: Option<bool>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
 pub struct UserDetails {
     pub id: String,
     pub name: String,

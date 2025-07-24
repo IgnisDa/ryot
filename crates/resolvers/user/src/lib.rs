@@ -4,7 +4,7 @@ use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
 use database_models::{access_link, integration, notification_platform};
 use dependent_models::{
-    CachedResponse, UserDetails, UserDetailsResult, UserMetadataRecommendationsResponse,
+    BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
@@ -48,7 +48,7 @@ impl UserQuery {
         &self,
         gql_ctx: &Context<'_>,
         query: Option<String>,
-    ) -> Result<Vec<UserDetails>> {
+    ) -> Result<Vec<BasicUserDetails>> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let response = service.users_list(query).await?;
         Ok(response)

@@ -10,7 +10,7 @@ use media_models::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{UserAnalytics, UserDetails};
+use crate::{BasicUserDetails, UserAnalytics};
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -70,7 +70,7 @@ pub struct CachedResponse<T: OutputType> {
 #[derive(Debug, PartialEq, Eq, SimpleObject, Serialize, Deserialize, Clone)]
 pub struct CollectionContents {
     pub total_items: u64,
-    pub user: UserDetails,
+    pub user: BasicUserDetails,
     pub reviews: Vec<ReviewItem>,
     pub details: collection::Model,
     pub results: SearchResults<EntityWithLot>,
