@@ -2,7 +2,6 @@ import {
 	Box,
 	Button,
 	Container,
-	Divider,
 	SimpleGrid,
 	Stack,
 	Text,
@@ -73,17 +72,16 @@ export default function Page() {
 					{Object.values(BackgroundJob).map((job) => (
 						<DisplayJobBtn key={job} job={job} />
 					))}
-				</SimpleGrid>
-				<ClientOnly>
-					{() =>
-						isOnboardingTourCompleted && !isMobile ? (
-							<>
-								<Divider />
-								<Box>
-									<Title order={4}>Onboarding</Title>
-									<Text>Restart the application onboarding tour</Text>
+					<ClientOnly>
+						{() =>
+							isOnboardingTourCompleted && !isMobile ? (
+								<Stack>
+									<Box>
+										<Title order={4}>Onboarding</Title>
+										<Text>Restart the application onboarding tour.</Text>
+									</Box>
 									<Button
-										mt="sm"
+										mt="auto"
 										variant="light"
 										onClick={async () => {
 											await startOnboardingTour();
@@ -95,11 +93,11 @@ export default function Page() {
 									>
 										Restart onboarding
 									</Button>
-								</Box>
-							</>
-						) : null
-					}
-				</ClientOnly>
+								</Stack>
+							) : null
+						}
+					</ClientOnly>
+				</SimpleGrid>
 			</Stack>
 		</Container>
 	);
