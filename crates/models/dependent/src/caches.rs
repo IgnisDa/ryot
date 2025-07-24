@@ -30,6 +30,11 @@ pub struct EmptyCacheValue {
     pub _empty: (),
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
+pub struct UserTwoFactorSetupCacheValue {
+    pub secret: String,
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionRecommendationsCachedInput {
@@ -58,6 +63,7 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     TrendingMetadataIds,
     MetadataLookup(MetadataLookupCacheInput),
+    UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
@@ -105,6 +111,7 @@ pub enum ApplicationCacheValue {
     UserMetadataList(UserMetadataListResponse),
     UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
+    UserTwoFactorSetup(UserTwoFactorSetupCacheValue),
     TrendingMetadataIds(TrendingMetadataIdsResponse),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),

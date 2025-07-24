@@ -42,6 +42,7 @@ impl CacheService {
             | ApplicationCacheKey::UserMetadataList { .. }
             | ApplicationCacheKey::UserWorkoutsList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }
+            | ApplicationCacheKey::UserTwoFactorSetup { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
             | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::UserMetadataGroupsList { .. }
