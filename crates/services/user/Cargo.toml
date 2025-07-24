@@ -14,6 +14,7 @@ nanoid = { workspace = true }
 openidconnect = { workspace = true }
 rand = { workspace = true }
 sea-orm = { workspace = true }
+totp-lite = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { path = "../../utils/application" }
