@@ -485,10 +485,10 @@ pub struct UserExtraInformation {
     pub scheduled_for_workout_revision: bool,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, SimpleObject)]
 pub struct UserTwoFactorInformationBackupCode {
-    pub code: String,
     pub used: bool,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, FromJsonQueryResult)]

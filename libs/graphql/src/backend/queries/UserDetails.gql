@@ -7,9 +7,12 @@ query UserDetails {
 			name
 			isDisabled
 			oidcIssuerId
-			isTwoFactorEnabled
 			extraInformation {
 				scheduledForWorkoutRevision
+			}
+			backupCodes {
+				used
+				code
 			}
 			preferences {
 				general {

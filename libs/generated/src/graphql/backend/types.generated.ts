@@ -2527,10 +2527,10 @@ export type UserCustomMeasurementInput = {
 
 export type UserDetails = {
   __typename?: 'UserDetails';
+  backupCodes?: Maybe<Array<UserTwoFactorInformationBackupCode>>;
   extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  isTwoFactorEnabled: Scalars['Boolean']['output'];
   lot: UserLot;
   name: Scalars['String']['output'];
   oidcIssuerId?: Maybe<Scalars['String']['output']>;
@@ -3039,6 +3039,12 @@ export enum UserToMediaReason {
 export type UserTwoFactorBackupCodesResponse = {
   __typename?: 'UserTwoFactorBackupCodesResponse';
   backupCodes: Array<Scalars['String']['output']>;
+};
+
+export type UserTwoFactorInformationBackupCode = {
+  __typename?: 'UserTwoFactorInformationBackupCode';
+  code: Scalars['String']['output'];
+  used: Scalars['Boolean']['output'];
 };
 
 export type UserTwoFactorInitiateResponse = {
