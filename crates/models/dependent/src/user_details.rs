@@ -15,7 +15,7 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
-use user_models::{UserExtraInformation, UserPreferences, UserTwoFactorInformationBackupCode};
+use user_models::{UserExtraInformation, UserPreferences};
 use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
@@ -83,10 +83,10 @@ pub struct UserDetails {
     pub name: String,
     pub lot: UserLot,
     pub is_disabled: Option<bool>,
+    pub is_two_factor_enabled: bool,
     pub preferences: UserPreferences,
     pub oidc_issuer_id: Option<String>,
     pub extra_information: Option<UserExtraInformation>,
-    pub two_factor_backup_codes: Option<Vec<UserTwoFactorInformationBackupCode>>,
 }
 
 #[derive(Union)]
