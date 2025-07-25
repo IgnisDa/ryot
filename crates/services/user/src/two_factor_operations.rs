@@ -161,30 +161,6 @@ pub async fn disable_two_factor(ss: &Arc<SupportingService>, user_id: String) ->
     Ok(true)
 }
 
-pub async fn generate_new_backup_codes(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-) -> Result<UserTwoFactorBackupCodesResponse> {
-    let user = user_by_id(&user_id, ss).await?;
-
-    let Some(ref two_factor_info) = user.two_factor_information else {
-        bail!("Two-factor authentication is not enabled");
-    };
-
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(BACKUP_CODES_COUNT);
-
-    let updated_information = UserTwoFactorInformation {
-        secret: two_factor_info.secret.clone(),
-        backup_codes: hashed_backup_codes,
-    };
-
-    let mut user_active = user.into_active_model();
-    user_active.two_factor_information = ActiveValue::Set(Some(updated_information));
-    user_active.update(&ss.db).await?;
-
-    Ok(UserTwoFactorBackupCodesResponse { backup_codes })
-}
-
 fn generate_totp_secret() -> String {
     let charset = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     let mut rng = rand::rng();
