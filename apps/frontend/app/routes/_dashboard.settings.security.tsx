@@ -189,7 +189,7 @@ const TwoFactorAuthSection = () => {
 
 	return (
 		<Stack>
-			{!userDetails.twoFactorBackupCodes ? (
+			{!userDetails.isTwoFactorEnabled ? (
 				<Paper withBorder p="md">
 					<Stack>
 						<Text size="lg" fw="bold">
