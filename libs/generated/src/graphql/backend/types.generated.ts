@@ -308,6 +308,7 @@ export type CoreDetails = {
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
   tokenValidForDays: Scalars['Int']['output'];
+  twoFactorBackupCodesCount: Scalars['Int']['output'];
   version: Scalars['String']['output'];
   websiteUrl: Scalars['String']['output'];
 };

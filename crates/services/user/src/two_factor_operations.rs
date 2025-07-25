@@ -10,6 +10,7 @@ use argon2::{
 };
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
+use common_utils::TWO_FACTOR_BACKUP_CODES_COUNT;
 use data_encoding::{BASE32, BASE64};
 use database_utils::user_by_id;
 use dependent_models::{
@@ -29,7 +30,6 @@ use user_models::{UserTwoFactorInformation, UserTwoFactorInformationBackupCode};
 use crate::authentication_operations::generate_auth_token;
 
 static TOTP_CODE_DIGITS: u32 = 6;
-static BACKUP_CODES_COUNT: u8 = 12;
 static BACKUP_CODE_LENGTH: usize = 8;
 static TOTP_SECRET_LENGTH: usize = 32;
 static TOTP_TIME_STEP_SECONDS: i64 = 30;
@@ -130,7 +130,8 @@ pub async fn complete_two_factor_setup(
         bail!("Invalid TOTP code");
     }
 
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(BACKUP_CODES_COUNT);
+    let (backup_codes, hashed_backup_codes) =
+        generate_hashed_backup_codes(TWO_FACTOR_BACKUP_CODES_COUNT);
 
     let user = user_by_id(&user_id, ss).await?;
     let completed_information = UserTwoFactorInformation {
@@ -173,7 +174,8 @@ pub async fn regenerate_two_factor_backup_codes(
         bail!("Two-factor authentication is not enabled");
     };
 
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(BACKUP_CODES_COUNT);
+    let (backup_codes, hashed_backup_codes) =
+        generate_hashed_backup_codes(TWO_FACTOR_BACKUP_CODES_COUNT);
     two_factor_info.backup_codes = hashed_backup_codes;
 
     let mut user_active = user.into_active_model();

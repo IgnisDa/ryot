@@ -74,6 +74,7 @@ pub struct CoreDetails {
     pub file_storage_enabled: bool,
     pub is_server_key_validated: bool,
     pub backend_errors: Vec<BackendError>,
+    pub two_factor_backup_codes_count: u8,
     pub people_search_sources: Vec<MediaSource>,
     pub exercise_parameters: ExerciseParameters,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,

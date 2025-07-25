@@ -8,7 +8,8 @@ use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_models::BackendError;
 use common_utils::{
-    COMPILATION_TIMESTAMP, PAGE_SIZE, PEOPLE_SEARCH_SOURCES, convert_naive_to_utc, ryot_log,
+    COMPILATION_TIMESTAMP, PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT,
+    convert_naive_to_utc, ryot_log,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
@@ -153,6 +154,7 @@ impl SupportingService {
                         is_demo_instance: self.config.server.is_demo_instance,
                         local_auth_disabled: self.config.users.disable_local_auth,
                         token_valid_for_days: self.config.users.token_valid_for_days,
+                        two_factor_backup_codes_count: TWO_FACTOR_BACKUP_CODES_COUNT,
                         repository_link: "https://github.com/ignisda/ryot".to_owned(),
                         is_server_key_validated: self.get_is_server_key_validated().await,
                         metadata_lot_source_mappings: MediaLot::iter()
