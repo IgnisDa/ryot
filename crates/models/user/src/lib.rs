@@ -2,7 +2,7 @@ use async_graphql::{Enum, InputObject, SimpleObject};
 use educe::Educe;
 use enum_models::{MediaLot, UserLot};
 use fitness_models::{SetRestTimersSettings, UserUnitSystem};
-use sea_orm::{FromJsonQueryResult, Iterable};
+use sea_orm::{FromJsonQueryResult, Iterable, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use strum::EnumString;
@@ -487,8 +487,8 @@ pub struct UserExtraInformation {
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct UserTwoFactorInformationBackupCode {
-    pub used: bool,
     pub code: String,
+    pub used_at: Option<DateTimeUtc>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, FromJsonQueryResult)]

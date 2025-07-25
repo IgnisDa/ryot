@@ -242,7 +242,7 @@ fn generate_hashed_backup_codes(
         .iter()
         .map(|code| UserTwoFactorInformationBackupCode {
             code: hash_backup_code(code),
-            used: false,
+            used_at: None,
         })
         .collect();
     (backup_codes, hashed_backup_codes)
@@ -279,10 +279,9 @@ fn hash_backup_code(code: &str) -> String {
 }
 
 fn verify_backup_code_against_user(two_factor_info: &UserTwoFactorInformation, code: &str) -> bool {
-    two_factor_info
-        .backup_codes
-        .iter()
-        .any(|backup_code| !backup_code.used && verify_backup_code(code, &backup_code.code))
+    two_factor_info.backup_codes.iter().any(|backup_code| {
+        backup_code.used_at.is_none() && verify_backup_code(code, &backup_code.code)
+    })
 }
 
 fn verify_backup_code(code: &str, hash: &str) -> bool {
@@ -307,8 +306,8 @@ async fn mark_backup_code_as_used(
     };
 
     for backup_code in &mut two_factor_info.backup_codes {
-        if !backup_code.used && verify_backup_code(code, &backup_code.code) {
-            backup_code.used = true;
+        if backup_code.used_at.is_none() && verify_backup_code(code, &backup_code.code) {
+            backup_code.used_at = Some(Utc::now());
             break;
         }
     }
