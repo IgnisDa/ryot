@@ -18,6 +18,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import {
 	CompleteTwoFactorSetupDocument,
+	DisableTwoFactorDocument,
 	InitiateTwoFactorSetupDocument,
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -25,7 +26,7 @@ import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { Form } from "react-router";
+import { Form, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -38,6 +39,7 @@ import { clientGqlService } from "~/lib/shared/query-factory";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
+import { notifications } from "@mantine/notifications";
 
 enum TwoFactorSetupStep {
 	Auth = "auth",
@@ -156,10 +158,33 @@ const PasswordSection = () => {
 
 const TwoFactorAuthSection = () => {
 	const userDetails = useUserDetails();
+	const revalidator = useRevalidator();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
 		useDisclosure(false);
+
+	const disableMutation = useMutation({
+		mutationFn: async () => {
+			const { disableTwoFactor } = await clientGqlService.request(
+				DisableTwoFactorDocument,
+				{},
+			);
+			return disableTwoFactor;
+		},
+		onSuccess: () => {
+			notifications.show({
+				color: "yellow",
+				message: "Two-Factor Authentication Disabled",
+			});
+			revalidator.revalidate();
+		},
+	});
+
+	const onCloseSetupModal = () => {
+		closeSetupModal();
+		revalidator.revalidate();
+	};
 
 	return (
 		<Stack>
@@ -183,7 +208,7 @@ const TwoFactorAuthSection = () => {
 						)}
 						<TwoFactorSetupModal
 							opened={setupModalOpened}
-							onClose={closeSetupModal}
+							onClose={onCloseSetupModal}
 						/>
 					</Stack>
 				</Paper>
@@ -204,8 +229,10 @@ const TwoFactorAuthSection = () => {
 								variant="light"
 								disabled={isEditDisabled}
 								onClick={() => {
-									// TODO: Implement disable 2FA modal
-									console.log("Disable 2FA clicked");
+									openConfirmationModal(
+										"Are you sure you want to disable two-factor authentication? This will make your account less secure.",
+										() => disableMutation.mutate(),
+									);
 								}}
 							>
 								Disable
