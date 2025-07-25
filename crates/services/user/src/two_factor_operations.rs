@@ -54,8 +54,10 @@ pub async fn verify_two_factor(
     let verification_result = if is_backup_code {
         verify_backup_code_against_user(two_factor_info, &input.code)
     } else {
-        let decrypted_secret =
-            decrypt_totp_secret(&two_factor_info.secret, &ss.config.users.jwt_secret)?;
+        let decrypted_secret = decrypt_totp_secret(
+            &two_factor_info.secret,
+            &ss.config.server.admin_access_token,
+        )?;
         verify_totp_code(&input.code, &decrypted_secret)
     };
 
