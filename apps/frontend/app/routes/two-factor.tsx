@@ -11,9 +11,9 @@ import {
 	TextInput,
 } from "@mantine/core";
 import {
-	LoginErrorVariant,
 	UserTwoFactorVerifyMethod,
 	VerifyTwoFactorDocument,
+	VerifyTwoFactorErrorVariant,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
 import { useState } from "react";
@@ -32,6 +32,7 @@ import type { Route } from "./+types/two-factor";
 
 const searchParamsSchema = z.object({
 	userId: z.string(),
+	[redirectToQueryParam]: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -54,35 +55,36 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		});
 	}
 
-	const input = {
-		userId: query.userId,
-		code: submission.value.code,
-		method: submission.value.method,
-	};
-
 	const { verifyTwoFactor } = await serverGqlService.request(
 		VerifyTwoFactorDocument,
-		{ input },
+		{
+			input: {
+				userId: query.userId,
+				code: submission.value.code,
+				method: submission.value.method,
+			},
+		},
 	);
 
-	if (verifyTwoFactor.__typename === "LoginResponse") {
+	if (verifyTwoFactor.__typename === "ApiKeyResponse") {
 		const headers = await getCookiesForApplication(verifyTwoFactor.apiKey);
-		const redirectTo = submission.value[redirectToQueryParam];
+		const redirectTo = query[redirectToQueryParam];
 		return redirect(redirectTo ? safeRedirect(redirectTo) : $path("/"), {
 			headers,
 		});
 	}
 
 	const message = match(verifyTwoFactor)
-		.with({ __typename: "LoginError" }, (error) =>
+		.with({ __typename: "VerifyTwoFactorError" }, (error) =>
 			match(error.error)
 				.with(
-					LoginErrorVariant.TwoFactorInvalid,
+					VerifyTwoFactorErrorVariant.Invalid,
 					() => "Invalid verification code. Please try again.",
 				)
 				.with(
-					LoginErrorVariant.AccountDisabled,
-					() => "This account has been disabled. Please contact support.",
+					VerifyTwoFactorErrorVariant.Disabled,
+					() =>
+						"Two-factor authentication is disabled. Please contact support.",
 				)
 				.otherwise(() => "Verification failed. Please try again."),
 		)
@@ -96,7 +98,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const verifyTwoFactorSchema = z.object({
 	code: z.string(),
 	method: z.enum(UserTwoFactorVerifyMethod),
-	[redirectToQueryParam]: z.string().optional(),
 });
 
 export default function Page() {
@@ -105,8 +106,8 @@ export default function Page() {
 	const [code, setCode] = useState("");
 
 	return (
-		<Container size="xs" style={{ display: "flex", alignItems: "center" }}>
-			<Stack m="auto">
+		<Container size="xs">
+			<Stack>
 				<Text size="xl" fw="bold" ta="center" mb="md">
 					Two-Factor Authentication
 				</Text>
