@@ -111,13 +111,11 @@ export default function Page() {
 				<Text size="xl" fw="bold" ta="center" mb="md">
 					Two-Factor Authentication
 				</Text>
-
 				<Text size="sm" c="dimmed" ta="center" mb="lg">
 					{useBackupCode
 						? "Enter one of your backup codes to continue"
 						: "Enter the 6-digit code from your authenticator app"}
 				</Text>
-
 				<Form method="POST" {...getFormProps(form)}>
 					<input
 						type="hidden"
@@ -128,7 +126,6 @@ export default function Page() {
 								: UserTwoFactorVerifyMethod.Totp
 						}
 					/>
-
 					{!useBackupCode ? (
 						<Center>
 							<PinInput
@@ -151,7 +148,6 @@ export default function Page() {
 							onChange={(e) => setCode(e.target.value)}
 						/>
 					)}
-
 					<Button
 						mt="lg"
 						w="100%"
@@ -164,9 +160,9 @@ export default function Page() {
 						Verify & Continue
 					</Button>
 				</Form>
-
-				<Anchor
-					ta="center"
+				<Button
+					size="compact-xs"
+					variant="transparent"
 					onClick={() => {
 						setUseBackupCode(!useBackupCode);
 						setCode("");
@@ -175,8 +171,7 @@ export default function Page() {
 					{useBackupCode
 						? "Use authenticator app instead"
 						: "Use backup code instead"}
-				</Anchor>
-
+				</Button>
 				<Anchor component={Link} to="/auth" ta="center">
 					Back to login
 				</Anchor>
