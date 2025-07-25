@@ -158,9 +158,9 @@ export default function Page() {
 					)}
 
 					<Button
-						type="submit"
-						w="100%"
 						mt="lg"
+						w="100%"
+						type="submit"
 						disabled={
 							(!useBackupCode && code.length !== 6) ||
 							(useBackupCode && !code.trim())
