@@ -22,6 +22,7 @@ import {
 	DisableTwoFactorDocument,
 	InitiateTwoFactorSetupDocument,
 	type InitiateTwoFactorSetupMutation,
+	RegenerateTwoFactorBackupCodesDocument,
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getActionIntent, processSubmission } from "@ryot/ts-utils";
@@ -157,6 +158,9 @@ const TwoFactorAuthSection = () => {
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
 		useDisclosure(false);
+	const [regeneratedBackupCodes, setRegeneratedBackupCodes] = useState<
+		string[]
+	>([]);
 
 	const disableMutation = useMutation({
 		mutationFn: async () => {
@@ -171,6 +175,24 @@ const TwoFactorAuthSection = () => {
 				color: "yellow",
 				message: "Two-Factor Authentication Disabled",
 			});
+			revalidator.revalidate();
+		},
+	});
+
+	const regenerateBackupCodesMutation = useMutation({
+		mutationFn: async () => {
+			const { regenerateTwoFactorBackupCodes } = await clientGqlService.request(
+				RegenerateTwoFactorBackupCodesDocument,
+				{},
+			);
+			return regenerateTwoFactorBackupCodes;
+		},
+		onSuccess: (data) => {
+			notifications.show({
+				color: "green",
+				message: "Backup codes regenerated successfully",
+			});
+			setRegeneratedBackupCodes(data.backupCodes);
 			revalidator.revalidate();
 		},
 	});
@@ -244,8 +266,12 @@ const TwoFactorAuthSection = () => {
 									fullWidth
 									variant="outline"
 									disabled={isEditDisabled}
+									loading={regenerateBackupCodesMutation.isPending}
 									onClick={() => {
-										// TODO: Implement regenerate backup codes
+										openConfirmationModal(
+											"Are you sure you want to regenerate your backup codes? Your current backup codes will become invalid.",
+											() => regenerateBackupCodesMutation.mutate(),
+										);
 									}}
 								>
 									Regenerate Backup Codes
@@ -255,6 +281,20 @@ const TwoFactorAuthSection = () => {
 					</Paper>
 				</Stack>
 			)}
+			<Modal
+				size="md"
+				opened={regeneratedBackupCodes.length > 0}
+				onClose={() => setRegeneratedBackupCodes([])}
+				title="New Backup Codes Generated"
+			>
+				<BackupCodesDisplay
+					backupCodes={regeneratedBackupCodes}
+					title="Save your new backup codes!"
+					description="Your previous backup codes are no longer valid. Save these new codes in a safe place - you won't be able to see them again."
+					onComplete={() => setRegeneratedBackupCodes([])}
+					completeButtonText="I've Saved My New Backup Codes"
+				/>
+			</Modal>
 		</Stack>
 	);
 };
@@ -484,22 +524,28 @@ const VerifyCodeStep = ({
 	);
 };
 
-interface BackupCodesStepProps {
+interface BackupCodesDisplayProps {
 	backupCodes: string[];
-	onComplete: () => void;
+	title?: string;
+	description?: string;
+	onComplete?: () => void;
+	completeButtonText?: string;
 }
 
-const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
+const BackupCodesDisplay = ({
+	backupCodes,
+	title = "Save these backup codes!",
+	description = "These codes can be used to access your account if you lose your phone. Store them in a safe place - you won't be able to see them again.",
+	onComplete,
+	completeButtonText = "I've Saved My Backup Codes",
+}: BackupCodesDisplayProps) => {
 	return (
 		<Stack>
 			<Alert color="yellow">
 				<Text fw="bold" mb="xs">
-					Save these backup codes!
+					{title}
 				</Text>
-				<Text size="sm">
-					These codes can be used to access your account if you lose your phone.
-					Store them in a safe place - you won't be able to see them again.
-				</Text>
+				<Text size="sm">{description}</Text>
 			</Alert>
 			<Paper withBorder p="md">
 				<SimpleGrid cols={3}>
@@ -510,9 +556,22 @@ const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
 					))}
 				</SimpleGrid>
 			</Paper>
-			<Group justify="flex-end">
-				<Button onClick={onComplete}>I've Saved My Backup Codes</Button>
-			</Group>
+			{onComplete && (
+				<Group justify="flex-end">
+					<Button onClick={onComplete}>{completeButtonText}</Button>
+				</Group>
+			)}
 		</Stack>
+	);
+};
+
+interface BackupCodesStepProps {
+	backupCodes: string[];
+	onComplete: () => void;
+}
+
+const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
+	return (
+		<BackupCodesDisplay backupCodes={backupCodes} onComplete={onComplete} />
 	);
 };
