@@ -16,10 +16,12 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
 import {
 	CompleteTwoFactorSetupDocument,
 	DisableTwoFactorDocument,
 	InitiateTwoFactorSetupDocument,
+	type InitiateTwoFactorSetupMutation,
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getActionIntent, processSubmission } from "@ryot/ts-utils";
@@ -39,7 +41,6 @@ import { clientGqlService } from "~/lib/shared/query-factory";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
-import { notifications } from "@mantine/notifications";
 
 enum TwoFactorSetupStep {
 	Auth = "auth",
@@ -312,15 +313,15 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 			)}
 			{step === TwoFactorSetupStep.QRCode && (
 				<QRCodeStep
+					onCancel={onClose}
 					setupData={setupData}
-					onBack={() => setStep(TwoFactorSetupStep.Auth)}
 					onNext={() => setStep(TwoFactorSetupStep.Verify)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.Verify && (
 				<VerifyCodeStep
+					onCancel={onClose}
 					setBackupCodes={setBackupCodes}
-					onBack={() => setStep(TwoFactorSetupStep.QRCode)}
 					onNext={() => setStep(TwoFactorSetupStep.BackupCodes)}
 				/>
 			)}
@@ -370,11 +371,11 @@ const TwoFactorAuthStep = ({
 
 interface QRCodeStepProps {
 	onNext: () => void;
-	onBack: () => void;
-	setupData: { secret: string; qrCodeUrl: string } | null;
+	onCancel: () => void;
+	setupData: InitiateTwoFactorSetupMutation["initiateTwoFactorSetup"] | null;
 }
 
-const QRCodeStep = ({ onNext, onBack, setupData }: QRCodeStepProps) => {
+const QRCodeStep = ({ onNext, onCancel, setupData }: QRCodeStepProps) => {
 	if (!setupData) {
 		return (
 			<Stack>
@@ -407,8 +408,8 @@ const QRCodeStep = ({ onNext, onBack, setupData }: QRCodeStepProps) => {
 				shown above.
 			</Text>
 			<Group justify="space-between">
-				<Button variant="subtle" onClick={onBack}>
-					Back
+				<Button variant="subtle" color="red" onClick={onCancel}>
+					Cancel
 				</Button>
 				<Button onClick={onNext}>I've Added the Account</Button>
 			</Group>
@@ -418,13 +419,13 @@ const QRCodeStep = ({ onNext, onBack, setupData }: QRCodeStepProps) => {
 
 interface VerifyCodeStepProps {
 	onNext: () => void;
-	onBack: () => void;
+	onCancel: () => void;
 	setBackupCodes: (codes: string[]) => void;
 }
 
 const VerifyCodeStep = ({
 	onNext,
-	onBack,
+	onCancel,
 	setBackupCodes,
 }: VerifyCodeStepProps) => {
 	const [code, setCode] = useState("");
@@ -464,11 +465,12 @@ const VerifyCodeStep = ({
 			)}
 			<Group justify="space-between">
 				<Button
+					color="red"
 					variant="subtle"
-					onClick={onBack}
+					onClick={onCancel}
 					disabled={completeMutation.isPending}
 				>
-					Back
+					Cancel
 				</Button>
 				<Button
 					onClick={handleVerify}
