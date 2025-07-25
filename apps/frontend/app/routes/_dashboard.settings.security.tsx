@@ -398,7 +398,7 @@ const QRCodeStep = ({ onNext, onCancel, setupData }: QRCodeStepProps) => {
 				<Button variant="subtle" color="red" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button onClick={onNext}>I've Added the Account</Button>
+				<Button onClick={onNext}>Continue</Button>
 			</Group>
 		</Stack>
 	);
