@@ -2,6 +2,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Center,
 	Container,
 	Group,
 	Modal,
@@ -14,8 +15,14 @@ import {
 	TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { UpdateUserDocument } from "@ryot/generated/graphql/backend/graphql";
+import {
+	CompleteTwoFactorSetupDocument,
+	InitiateTwoFactorSetupDocument,
+	UpdateUserDocument,
+} from "@ryot/generated/graphql/backend/graphql";
 import { getActionIntent, processSubmission } from "@ryot/ts-utils";
+import { useMutation } from "@tanstack/react-query";
+import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { Form } from "react-router";
 import { match } from "ts-pattern";
@@ -26,6 +33,7 @@ import {
 	useDashboardLayoutData,
 	useUserDetails,
 } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/query-factory";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
@@ -235,6 +243,29 @@ interface TwoFactorSetupModalProps {
 
 const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 	const [step, setStep] = useState(TwoFactorSetupStep.Auth);
+	const [setupData, setSetupData] = useState<{
+		secret: string;
+		qrCodeUrl: string;
+	} | null>(null);
+	const [backupCodes, setBackupCodes] = useState<string[]>([]);
+
+	const initiateMutation = useMutation({
+		mutationFn: async () => {
+			const { initiateTwoFactorSetup } = await clientGqlService.request(
+				InitiateTwoFactorSetupDocument,
+				{},
+			);
+			return initiateTwoFactorSetup;
+		},
+		onSuccess: (data) => {
+			setSetupData(data);
+			setStep(TwoFactorSetupStep.QRCode);
+		},
+	});
+
+	const handleInitiate = () => {
+		initiateMutation.mutate();
+	};
 
 	return (
 		<Modal
@@ -246,23 +277,27 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 			{step === TwoFactorSetupStep.Auth && (
 				<TwoFactorAuthStep
 					onClose={onClose}
-					onNext={() => setStep(TwoFactorSetupStep.QRCode)}
+					onNext={handleInitiate}
+					error={initiateMutation.isError}
+					isLoading={initiateMutation.isPending}
 				/>
 			)}
 			{step === TwoFactorSetupStep.QRCode && (
 				<QRCodeStep
+					setupData={setupData}
 					onBack={() => setStep(TwoFactorSetupStep.Auth)}
 					onNext={() => setStep(TwoFactorSetupStep.Verify)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.Verify && (
 				<VerifyCodeStep
+					setBackupCodes={setBackupCodes}
 					onBack={() => setStep(TwoFactorSetupStep.QRCode)}
 					onNext={() => setStep(TwoFactorSetupStep.BackupCodes)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.BackupCodes && (
-				<BackupCodesStep onComplete={onClose} />
+				<BackupCodesStep onComplete={onClose} backupCodes={backupCodes} />
 			)}
 		</Modal>
 	);
@@ -271,9 +306,16 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 interface TwoFactorAuthStepProps {
 	onNext: () => void;
 	onClose: () => void;
+	isLoading: boolean;
+	error: boolean;
 }
 
-const TwoFactorAuthStep = ({ onNext, onClose }: TwoFactorAuthStepProps) => {
+const TwoFactorAuthStep = ({
+	onNext,
+	onClose,
+	isLoading,
+	error,
+}: TwoFactorAuthStepProps) => {
 	return (
 		<Stack>
 			<Alert>
@@ -281,11 +323,18 @@ const TwoFactorAuthStep = ({ onNext, onClose }: TwoFactorAuthStepProps) => {
 				will require you to enter a code from your authenticator app each time
 				you log in.
 			</Alert>
+			{error && (
+				<Text c="red" size="sm">
+					Failed to initiate two-factor setup. Please try again.
+				</Text>
+			)}
 			<Group justify="flex-end">
-				<Button variant="subtle" onClick={onClose}>
+				<Button variant="subtle" onClick={onClose} disabled={isLoading}>
 					Cancel
 				</Button>
-				<Button onClick={onNext}>Continue</Button>
+				<Button onClick={onNext} loading={isLoading}>
+					Continue
+				</Button>
 			</Group>
 		</Stack>
 	);
@@ -294,9 +343,18 @@ const TwoFactorAuthStep = ({ onNext, onClose }: TwoFactorAuthStepProps) => {
 interface QRCodeStepProps {
 	onNext: () => void;
 	onBack: () => void;
+	setupData: { secret: string; qrCodeUrl: string } | null;
 }
 
-const QRCodeStep = ({ onNext, onBack }: QRCodeStepProps) => {
+const QRCodeStep = ({ onNext, onBack, setupData }: QRCodeStepProps) => {
+	if (!setupData) {
+		return (
+			<Stack>
+				<Text>Loading setup data...</Text>
+			</Stack>
+		);
+	}
+
 	return (
 		<Stack>
 			<Text>
@@ -304,11 +362,16 @@ const QRCodeStep = ({ onNext, onBack }: QRCodeStepProps) => {
 				Authenticator or 1Password).
 			</Text>
 			<Paper withBorder p="md" ta="center">
-				<Text size="sm" c="dimmed" mb="md">
-					QR Code will be displayed here
-				</Text>
-				<Text size="xs" c="dimmed">
-					Secret: PLACEHOLDER_SECRET_KEY
+				<Box mb="md">
+					<QRCodeSVG
+						level="M"
+						size={200}
+						marginSize={1}
+						value={setupData.qrCodeUrl}
+					/>
+				</Box>
+				<Text size="xs" c="dimmed" ff="monospace">
+					Secret: {setupData.secret}
 				</Text>
 			</Paper>
 			<Text size="sm" c="dimmed">
@@ -328,22 +391,62 @@ const QRCodeStep = ({ onNext, onBack }: QRCodeStepProps) => {
 interface VerifyCodeStepProps {
 	onNext: () => void;
 	onBack: () => void;
+	setBackupCodes: (codes: string[]) => void;
 }
 
-const VerifyCodeStep = ({ onNext, onBack }: VerifyCodeStepProps) => {
+const VerifyCodeStep = ({
+	onNext,
+	onBack,
+	setBackupCodes,
+}: VerifyCodeStepProps) => {
 	const [code, setCode] = useState("");
+
+	const completeMutation = useMutation({
+		mutationFn: async () => {
+			const { completeTwoFactorSetup } = await clientGqlService.request(
+				CompleteTwoFactorSetupDocument,
+				{ input: { totpCode: code } },
+			);
+			return completeTwoFactorSetup;
+		},
+		onSuccess: (data) => {
+			setBackupCodes(data.backupCodes);
+			onNext();
+		},
+	});
+
+	const handleVerify = () => {
+		if (code.length === 6) {
+			completeMutation.mutate();
+		}
+	};
 
 	return (
 		<Stack>
 			<Text>
 				Enter the 6-digit code from your authenticator app to verify the setup.
 			</Text>
-			<PinInput value={code} length={6} onChange={setCode} />
+			<Center>
+				<PinInput value={code} length={6} onChange={setCode} />
+			</Center>
+			{completeMutation.isError && (
+				<Text c="red" size="sm">
+					Invalid code. Please try again.
+				</Text>
+			)}
 			<Group justify="space-between">
-				<Button variant="subtle" onClick={onBack}>
+				<Button
+					variant="subtle"
+					onClick={onBack}
+					disabled={completeMutation.isPending}
+				>
 					Back
 				</Button>
-				<Button onClick={onNext} disabled={code.length !== 6}>
+				<Button
+					onClick={handleVerify}
+					disabled={code.length !== 6}
+					loading={completeMutation.isPending}
+				>
 					Verify & Enable
 				</Button>
 			</Group>
@@ -352,13 +455,11 @@ const VerifyCodeStep = ({ onNext, onBack }: VerifyCodeStepProps) => {
 };
 
 interface BackupCodesStepProps {
+	backupCodes: string[];
 	onComplete: () => void;
 }
 
-const BackupCodesStep = ({ onComplete }: BackupCodesStepProps) => {
-	const userDetails = useUserDetails();
-	const backupCodes = userDetails.twoFactorBackupCodes || [];
-
+const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
 	return (
 		<Stack>
 			<Alert color="yellow">
@@ -372,9 +473,9 @@ const BackupCodesStep = ({ onComplete }: BackupCodesStepProps) => {
 			</Alert>
 			<Paper withBorder p="md">
 				<Stack gap="xs">
-					{backupCodes.map((backupCode) => (
-						<Text key={backupCode.code} ff="monospace" size="sm">
-							{backupCode.code}
+					{backupCodes.map((code) => (
+						<Text key={code} ff="monospace" size="sm">
+							{code}
 						</Text>
 					))}
 				</Stack>
