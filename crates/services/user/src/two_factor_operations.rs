@@ -300,8 +300,7 @@ async fn mark_backup_code_as_used(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let user = user_by_id(&user_id.to_string(), ss).await?;
-    let user_clone = user.clone();
-    let Some(mut two_factor_info) = user_clone.two_factor_information else {
+    let Some(mut two_factor_info) = user.two_factor_information.clone() else {
         bail!("Two-factor authentication is not enabled");
     };
 
