@@ -143,7 +143,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					},
 				},
 			});
-			if (loginUser.__typename === "LoginResponse") {
+			if (loginUser.__typename === "ApiKeyResponse") {
 				const headers = await getCookiesForApplication(loginUser.apiKey);
 				const redirectTo = submission[redirectToQueryParam];
 				return redirect(
@@ -151,6 +151,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 						? safeRedirect(submission[redirectToQueryParam])
 						: $path("/"),
 					{ headers },
+				);
+			}
+			if (loginUser.__typename === "StringIdObject") {
+				const redirectTo = submission[redirectToQueryParam];
+				return redirect(
+					withQuery($path("/two-factor"), {
+						userId: loginUser.id,
+						...(redirectTo ? { [redirectToQueryParam]: redirectTo } : {}),
+					}),
 				);
 			}
 			const message = match(loginUser.error)
