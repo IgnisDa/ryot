@@ -106,7 +106,7 @@ export default function Page() {
 	const [code, setCode] = useState("");
 
 	return (
-		<Container size="xs">
+		<Container size="xs" style={{ display: "flex", alignItems: "center" }}>
 			<Stack>
 				<Text size="xl" fw="bold" ta="center" mb="md">
 					Two-Factor Authentication
