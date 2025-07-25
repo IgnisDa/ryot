@@ -51,7 +51,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { data, Form, Link, useLoaderData } from "react-router";
+import { Form, Link, data, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";

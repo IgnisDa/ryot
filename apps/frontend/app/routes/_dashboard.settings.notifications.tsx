@@ -37,7 +37,7 @@ import {
 } from "@ryot/ts-utils";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
-import { data, Form, useLoaderData } from "react-router";
+import { Form, data, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";

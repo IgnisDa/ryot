@@ -28,12 +28,13 @@ import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { data, Form, useRevalidator } from "react-router";
+import { Form, data, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	useConfirmSubmit,
+	useCoreDetails,
 	useDashboardLayoutData,
 	useUserDetails,
 } from "~/lib/shared/hooks";
@@ -150,6 +151,7 @@ const PasswordSection = () => {
 
 const TwoFactorAuthSection = () => {
 	const userDetails = useUserDetails();
+	const coreDetails = useCoreDetails();
 	const revalidator = useRevalidator();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
@@ -180,7 +182,7 @@ const TwoFactorAuthSection = () => {
 
 	return (
 		<Stack>
-			{!userDetails.isTwoFactorEnabled ? (
+			{userDetails.timesTwoFactorBackupCodesUsed === null ? (
 				<Paper withBorder p="md">
 					<Stack>
 						<Text size="lg" fw="bold">
@@ -215,6 +217,13 @@ const TwoFactorAuthSection = () => {
 								<Text size="sm" c="dimmed">
 									Two-factor authentication is active on your account
 								</Text>
+								{userDetails.timesTwoFactorBackupCodesUsed !== null && (
+									<Text size="xs" c="dimmed" mt="xs">
+										Backup codes used:{" "}
+										{userDetails.timesTwoFactorBackupCodesUsed} /{" "}
+										{coreDetails.twoFactorBackupCodesCount}
+									</Text>
+								)}
 							</Box>
 							<Button
 								color="red"

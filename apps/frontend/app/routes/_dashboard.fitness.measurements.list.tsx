@@ -30,7 +30,7 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
-import { data, Form, useLoaderData } from "react-router";
+import { Form, data, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
