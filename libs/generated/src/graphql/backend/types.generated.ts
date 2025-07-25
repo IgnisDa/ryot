@@ -2529,11 +2529,11 @@ export type UserDetails = {
   extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  isTwoFactorEnabled: Scalars['Boolean']['output'];
   lot: UserLot;
   name: Scalars['String']['output'];
   oidcIssuerId?: Maybe<Scalars['String']['output']>;
   preferences: UserPreferences;
+  timesTwoFactorBackupCodesUsed?: Maybe<Scalars['Int']['output']>;
 };
 
 export type UserDetailsError = {
