@@ -13,7 +13,7 @@ import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
-import { Form, redirect, useLoaderData } from "react-router";
+import { data, Form, redirect, useLoaderData } from "react-router";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -75,13 +75,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					details: { __typename: "self_hosted", key: created.key },
 				}),
 			});
-			return Response.json({});
+			return data({});
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
 				expires: new Date(0),
 			});
-			return Response.json({}, { headers: { "set-cookie": cookies } });
+			return data({}, { headers: { "set-cookie": cookies } });
 		})
 		.run();
 };

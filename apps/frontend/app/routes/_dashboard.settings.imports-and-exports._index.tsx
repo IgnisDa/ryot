@@ -41,7 +41,7 @@ import { IconDownload, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { filesize } from "filesize";
 import { useMemo, useState } from "react";
-import { Form, useLoaderData } from "react-router";
+import { data, Form, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -131,7 +131,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeployImportJobDocument,
 				{ input: { source, ...values } },
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Import job started in the background",
@@ -144,7 +144,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeployExportJobDocument,
 				{},
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Export job started in the background",

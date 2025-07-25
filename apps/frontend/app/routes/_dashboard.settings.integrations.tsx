@@ -106,15 +106,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			);
 
 			const isUpdate = Boolean(submission.integrationId);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: `Integration ${isUpdate ? "updated" : "created"} successfully`,
-					}),
-				},
-			);
+			return data({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: `Integration ${isUpdate ? "updated" : "created"} successfully`,
+				}),
+			});
 		})
 		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
@@ -123,15 +120,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeleteUserIntegrationDocument,
 				submission,
 			);
-			return Response.json(
-				{ status: "success", generateAuthToken: false } as const,
-				{
-					headers: await createToastHeaders({
-						type: "success",
-						message: "Integration deleted successfully",
-					}),
-				},
-			);
+			return data({ status: "success", generateAuthToken: false } as const, {
+				headers: await createToastHeaders({
+					type: "success",
+					message: "Integration deleted successfully",
+				}),
+			});
 		})
 		.with("generateAuthToken", async () => {
 			const { generateAuthToken } = await serverGqlService.authenticatedRequest(

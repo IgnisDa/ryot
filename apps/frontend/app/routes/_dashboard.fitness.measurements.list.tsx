@@ -30,7 +30,7 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { DataTable } from "mantine-datatable";
-import { Form, useLoaderData } from "react-router";
+import { data, Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
@@ -104,7 +104,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeleteUserMeasurementDocument,
 				submission,
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Measurement deleted successfully",

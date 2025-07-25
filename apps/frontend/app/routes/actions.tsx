@@ -14,7 +14,7 @@ import {
 	zodBoolAsString,
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
-import { redirect } from "react-router";
+import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -145,7 +145,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		headers.append("Location", redirectTo.toString());
 		status = 302;
 	}
-	return Response.json(returnData, { headers, status });
+	return data(returnData, { headers, status });
 };
 
 const reviewCommentSchema = z.object({

@@ -6,7 +6,7 @@ import {
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
-import { redirect } from "react-router";
+import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -63,5 +63,5 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		return redirect(withQuery("/two-factor", { userId: loginUser.id }));
 	}
 	console.error("Login failed:", loginUser);
-	return Response.json({ input });
+	return data({ input });
 };

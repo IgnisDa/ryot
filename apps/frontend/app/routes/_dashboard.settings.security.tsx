@@ -28,7 +28,7 @@ import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { Form, useRevalidator } from "react-router";
+import { data, Form, useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -62,7 +62,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
 				input: submission,
 			});
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Profile updated successfully",

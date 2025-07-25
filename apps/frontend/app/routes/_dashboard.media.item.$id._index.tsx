@@ -58,7 +58,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Form, Link, useLoaderData } from "react-router";
+import { data, Form, Link, useLoaderData } from "react-router";
 import { Virtuoso, VirtuosoGrid, type VirtuosoHandle } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -164,7 +164,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeleteSeenItemDocument,
 				submission,
 			);
-			return Response.json({ status: "success", tt: new Date() } as const, {
+			return data({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Record deleted successfully",
@@ -191,7 +191,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				UpdateSeenItemDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success", tt: new Date() } as const, {
+			return data({ status: "success", tt: new Date() } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Edited history item successfully",

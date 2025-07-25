@@ -37,7 +37,7 @@ import {
 } from "@ryot/ts-utils";
 import { IconPencil, IconTrash } from "@tabler/icons-react";
 import { useState } from "react";
-import { Form, useLoaderData } from "react-router";
+import { data, Form, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -77,7 +77,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				CreateUserNotificationPlatformDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success", submission } as const);
+			return data({ status: "success", submission } as const);
 		})
 		.with("delete", async () => {
 			const submission = processSubmission(formData, deleteSchema);
@@ -86,7 +86,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				DeleteUserNotificationPlatformDocument,
 				submission,
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Notification platform deleted successfully",
@@ -100,7 +100,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					TestUserNotificationPlatformsDocument,
 					{},
 				);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: testUserNotificationPlatforms ? "success" : "error",
 					message: testUserNotificationPlatforms
@@ -117,7 +117,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				UpdateUserNotificationPlatformDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Notification updated successfully",

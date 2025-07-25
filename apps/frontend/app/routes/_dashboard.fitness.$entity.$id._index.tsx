@@ -51,7 +51,7 @@ import {
 	IconZzz,
 } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
-import { Form, Link, useLoaderData } from "react-router";
+import { data, Form, Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -186,7 +186,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				UpdateUserWorkoutAttributesDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success", submission } as const, {
+			return data({ status: "success", submission } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Workout edited successfully",

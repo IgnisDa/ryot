@@ -42,7 +42,7 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
-import { Form, useLoaderData } from "react-router";
+import { data, Form, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -89,7 +89,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				RevokeAccessLinkDocument,
 				submission,
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Access link revoked successfully",
@@ -110,7 +110,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				CreateAccessLinkDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Access link created successfully",
@@ -123,7 +123,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				CreateAccessLinkDocument,
 				{ input: { name: "Account default", isAccountDefault: true } },
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Account default access link created successfully",

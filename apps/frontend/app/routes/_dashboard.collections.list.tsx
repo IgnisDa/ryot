@@ -26,7 +26,7 @@ import {
 import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Form, Link, useLoaderData } from "react-router";
+import { data, Form, Link, useLoaderData } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -95,7 +95,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			} catch {
 				wasSuccessful = false;
 			}
-			return Response.json(
+			return data(
 				{},
 				{
 					headers: await createToastHeaders({
