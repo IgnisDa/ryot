@@ -21,7 +21,6 @@ use media_models::{
     UserTwoFactorSetupInput, UserTwoFactorVerifyInput, UserTwoFactorVerifyMethod,
     VerifyTwoFactorError, VerifyTwoFactorErrorVariant, VerifyTwoFactorResult,
 };
-use rand::Rng;
 use rand::TryRngCore;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
@@ -218,13 +217,16 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
 }
 
 fn generate_backup_codes(count: u8) -> Vec<String> {
-    let mut rng = rand::rng();
+    let mut rng = OsRng;
     (0..count)
         .map(|_| {
             (0..BACKUP_CODE_LENGTH)
                 .map(|_| {
                     let chars = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                    let idx = rng.random_range(0..chars.len());
+                    let mut random_byte = [0u8; 1];
+                    rng.try_fill_bytes(&mut random_byte)
+                        .expect("Failed to generate random byte");
+                    let idx = (random_byte[0] as usize) % chars.len();
                     chars[idx] as char
                 })
                 .collect()
