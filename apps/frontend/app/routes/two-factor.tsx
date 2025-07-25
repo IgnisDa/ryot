@@ -130,31 +130,26 @@ export default function Page() {
 					/>
 
 					{!useBackupCode ? (
-						<Stack>
-							<Center>
-								<PinInput
-									autoFocus
-									length={6}
-									value={code}
-									onChange={setCode}
-								/>
-							</Center>
-							<input type="hidden" name="code" value={code} />
-						</Stack>
-					) : (
-						<>
-							<TextInput
-								{...getInputProps(fields.code, { type: "text" })}
-								required
+						<Center>
+							<PinInput
+								{...getInputProps(fields.code, { type: "number" })}
 								autoFocus
+								length={6}
 								value={code}
-								label="Backup Code"
-								placeholder="Enter backup code"
-								error={fields.code.errors?.[0]}
-								onChange={(e) => setCode(e.target.value)}
+								onChange={setCode}
 							/>
-							<input type="hidden" name="code" value={code} />
-						</>
+						</Center>
+					) : (
+						<TextInput
+							{...getInputProps(fields.code, { type: "text" })}
+							required
+							autoFocus
+							value={code}
+							label="Backup Code"
+							placeholder="Enter backup code"
+							error={fields.code.errors?.[0]}
+							onChange={(e) => setCode(e.target.value)}
+						/>
 					)}
 
 					<Button
