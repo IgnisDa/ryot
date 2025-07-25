@@ -645,33 +645,33 @@ type ExportItemProps = {
 	item: UserExportsQuery["userExports"][number];
 };
 
-const ExportItem = ({ item }: ExportItemProps) => {
+const ExportItem = (props: ExportItemProps) => {
 	const submit = useConfirmSubmit();
 
 	const duration = useMemo(() => {
-		const seconds = dayjsLib(item.endedAt).diff(
-			dayjsLib(item.startedAt),
+		const seconds = dayjsLib(props.item.endedAt).diff(
+			dayjsLib(props.item.startedAt),
 			"second",
 		);
 		if (seconds < 60) return `${seconds}s`;
 		const minutes = Math.floor(seconds / 60);
 		const remainingSeconds = seconds % 60;
 		return `${minutes}m ${remainingSeconds}s`;
-	}, [item.startedAt, item.endedAt]);
+	}, [props.item.startedAt, props.item.endedAt]);
 
 	return (
 		<Paper withBorder p={{ base: "sm", md: "md" }}>
 			<Group justify="space-between" wrap="wrap">
 				<Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
 					<Text span>
-						{dayjsLib(item.startedAt).format("MMM DD, YYYY [at] h:mm A")}
+						{dayjsLib(props.item.startedAt).format("MMM DD, YYYY [at] h:mm A")}
 					</Text>
 					<Text span size="xs" c="dimmed">
-						(Took {duration}, {filesize(item.size)})
+						(Took {duration}, {filesize(props.item.size)})
 					</Text>
 				</Stack>
 				<Group>
-					<Anchor href={item.url} target="_blank" rel="noreferrer">
+					<Anchor href={props.item.url} target="_blank" rel="noreferrer">
 						<ThemeIcon color="blue" variant="transparent">
 							<IconDownload />
 						</ThemeIcon>
@@ -682,7 +682,7 @@ const ExportItem = ({ item }: ExportItemProps) => {
 							intent: "deleteS3Asset",
 						})}
 					>
-						<input hidden name="key" defaultValue={item.key} />
+						<input hidden name="key" defaultValue={props.item.key} />
 						<ActionIcon
 							color="red"
 							type="submit"

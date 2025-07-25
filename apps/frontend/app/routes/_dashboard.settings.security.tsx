@@ -304,7 +304,7 @@ interface TwoFactorSetupModalProps {
 	onClose: () => void;
 }
 
-const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
+const TwoFactorSetupModal = (props: TwoFactorSetupModalProps) => {
 	const [step, setStep] = useState(TwoFactorSetupStep.Auth);
 	const [setupData, setSetupData] = useState<{
 		secret: string;
@@ -327,7 +327,7 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 	});
 
 	const onCloseSetupModal = () => {
-		onClose();
+		props.onClose();
 		setStep(TwoFactorSetupStep.Auth);
 		setSetupData(null);
 		setBackupCodes([]);
@@ -336,7 +336,7 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 	return (
 		<Modal
 			size="md"
-			opened={opened}
+			opened={props.opened}
 			onClose={onCloseSetupModal}
 			title="Enable Two-Factor Authentication"
 		>
@@ -415,8 +415,8 @@ interface QRCodeStepProps {
 	setupData: InitiateTwoFactorSetupMutation["initiateTwoFactorSetup"] | null;
 }
 
-const QRCodeStep = ({ onNext, onCancel, setupData }: QRCodeStepProps) => {
-	if (!setupData) {
+const QRCodeStep = (props: QRCodeStepProps) => {
+	if (!props.setupData) {
 		return (
 			<Stack>
 				<Text>Loading setup data...</Text>
@@ -436,11 +436,11 @@ const QRCodeStep = ({ onNext, onCancel, setupData }: QRCodeStepProps) => {
 						level="M"
 						size={200}
 						marginSize={1}
-						value={setupData.qrCodeUrl}
+						value={props.setupData.qrCodeUrl}
 					/>
 				</Box>
 				<Text size="xs" c="dimmed" ff="monospace">
-					Secret: {setupData.secret}
+					Secret: {props.setupData.secret}
 				</Text>
 			</Paper>
 			<Text size="sm" c="dimmed">
@@ -448,10 +448,10 @@ const QRCodeStep = ({ onNext, onCancel, setupData }: QRCodeStepProps) => {
 				shown above.
 			</Text>
 			<Group justify="space-between">
-				<Button variant="subtle" color="red" onClick={onCancel}>
+				<Button variant="subtle" color="red" onClick={props.onCancel}>
 					Cancel
 				</Button>
-				<Button onClick={onNext}>Continue</Button>
+				<Button onClick={props.onNext}>Continue</Button>
 			</Group>
 		</Stack>
 	);
@@ -570,8 +570,11 @@ interface BackupCodesStepProps {
 	onComplete: () => void;
 }
 
-const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
+const BackupCodesStep = (props: BackupCodesStepProps) => {
 	return (
-		<BackupCodesDisplay backupCodes={backupCodes} onComplete={onComplete} />
+		<BackupCodesDisplay
+			backupCodes={props.backupCodes}
+			onComplete={props.onComplete}
+		/>
 	);
 };

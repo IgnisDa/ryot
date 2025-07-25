@@ -394,24 +394,24 @@ const SectionTitle = (props: { text: string }) => (
 	</Text>
 );
 
-const UpComingMedia = ({ um }: { um: CalendarEventPartFragment }) => {
+const UpComingMedia = (props: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
-	const numDaysLeft = dayjsLib(um.date).diff(today, "day");
+	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 
 	return (
 		<MetadataDisplayItem
 			noLeftLabel
-			altName={um.metadataText}
-			metadataId={um.metadataId}
-			rightLabel={`${match(um.metadataLot)
+			altName={props.um.metadataText}
+			metadataId={props.um.metadataId}
+			rightLabel={`${match(props.um.metadataLot)
 				.with(
 					MediaLot.Show,
 					() =>
-						`S${um.showExtraInformation?.season}-E${um.showExtraInformation?.episode}`,
+						`S${props.um.showExtraInformation?.season}-E${props.um.showExtraInformation?.episode}`,
 				)
 				.with(
 					MediaLot.Podcast,
-					() => `EP-${um.podcastExtraInformation?.episode}`,
+					() => `EP-${props.um.podcastExtraInformation?.episode}`,
 				)
 				.otherwise(() => "")} ${
 				numDaysLeft === 0

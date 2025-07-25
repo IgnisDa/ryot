@@ -4,9 +4,10 @@ import { produce } from "immer";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const ShowForm = ({ metadataDetails }: MediaFormProps) => {
+export const ShowForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
-	if (metadataDetails.lot !== MediaLot.Show || !metadataToUpdate) return null;
+	if (props.metadataDetails.lot !== MediaLot.Show || !metadataToUpdate)
+		return null;
 
 	return (
 		<>
@@ -17,7 +18,7 @@ export const ShowForm = ({ metadataDetails }: MediaFormProps) => {
 				limit={50}
 				label="Season"
 				value={metadataToUpdate.showSeasonNumber?.toString()}
-				data={metadataDetails.showSpecifics?.seasons.map((s) => ({
+				data={props.metadataDetails.showSpecifics?.seasons.map((s) => ({
 					label: `${s.seasonNumber}. ${s.name.toString()}`,
 					value: s.seasonNumber.toString(),
 				}))}
@@ -44,7 +45,7 @@ export const ShowForm = ({ metadataDetails }: MediaFormProps) => {
 					);
 				}}
 				data={
-					metadataDetails.showSpecifics?.seasons
+					props.metadataDetails.showSpecifics?.seasons
 						.find((s) => s.seasonNumber === metadataToUpdate.showSeasonNumber)
 						?.episodes.map((e) => ({
 							label: `${e.episodeNumber}. ${e.name.toString()}`,

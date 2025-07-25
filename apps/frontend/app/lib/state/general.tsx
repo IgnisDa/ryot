@@ -189,9 +189,9 @@ export const useOnboardingTour = () => {
 		});
 	};
 
-	const StepWrapper = ({ children }: { children: ReactNode }) => (
+	const StepWrapper = (props: { children: ReactNode }) => (
 		<Stack>
-			<Box>{children}</Box>
+			<Box>{props.children}</Box>
 			<Group justify="space-between">
 				<Group>
 					{isOnboardingTourLoading ? <Loader size="xs" /> : null}

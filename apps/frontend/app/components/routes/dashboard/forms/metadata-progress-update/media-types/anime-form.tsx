@@ -4,9 +4,10 @@ import { produce } from "immer";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const AnimeForm = ({ metadataDetails }: MediaFormProps) => {
+export const AnimeForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
-	if (metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate) return null;
+	if (props.metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate)
+		return null;
 
 	return (
 		<>
