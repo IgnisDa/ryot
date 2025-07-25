@@ -345,4 +345,15 @@ impl UserMutation {
         let response = service.disable_two_factor(user_id).await?;
         Ok(response)
     }
+
+    /// Regenerate backup codes for the currently logged in user.
+    async fn regenerate_two_factor_backup_codes(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.regenerate_two_factor_backup_codes(user_id).await?;
+        Ok(response)
+    }
 }

@@ -217,4 +217,11 @@ impl UserService {
     pub async fn disable_two_factor(&self, user_id: String) -> Result<bool> {
         two_factor_operations::disable_two_factor(&self.0, user_id).await
     }
+
+    pub async fn regenerate_two_factor_backup_codes(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        two_factor_operations::regenerate_two_factor_backup_codes(&self.0, user_id).await
+    }
 }
