@@ -96,7 +96,7 @@ pub async fn initiate_two_factor_setup(
         user_id: user_id.clone(),
     });
     let cache_value = ApplicationCacheValue::UserTwoFactorSetup(UserTwoFactorSetupCacheValue {
-        secret: encrypt_totp_secret(&secret, &ss.config.users.jwt_secret)?,
+        secret: encrypt_totp_secret(&secret, &ss.config.server.admin_access_token)?,
     });
     ss.cache_service.set_key(cache_key, cache_value).await?;
 
