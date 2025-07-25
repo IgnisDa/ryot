@@ -75,7 +75,6 @@ pub enum UserResetResult {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum LoginErrorVariant {
     AccountDisabled,
-    TwoFactorInvalid,
     CredentialsMismatch,
     UsernameDoesNotExist,
     IncorrectProviderChosen,

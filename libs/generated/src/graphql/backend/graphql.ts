@@ -1098,7 +1098,6 @@ export enum LoginErrorVariant {
   AccountDisabled = 'ACCOUNT_DISABLED',
   CredentialsMismatch = 'CREDENTIALS_MISMATCH',
   IncorrectProviderChosen = 'INCORRECT_PROVIDER_CHOSEN',
-  TwoFactorInvalid = 'TWO_FACTOR_INVALID',
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 
