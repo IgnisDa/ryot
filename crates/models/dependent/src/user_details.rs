@@ -83,10 +83,10 @@ pub struct UserDetails {
     pub name: String,
     pub lot: UserLot,
     pub is_disabled: Option<bool>,
-    pub is_two_factor_enabled: bool,
     pub preferences: UserPreferences,
     pub oidc_issuer_id: Option<String>,
     pub extra_information: Option<UserExtraInformation>,
+    pub times_two_factor_backup_codes_used: Option<usize>,
 }
 
 #[derive(Union)]
