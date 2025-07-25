@@ -292,51 +292,57 @@ const TwoFactorSetupModal = ({ opened, onClose }: TwoFactorSetupModalProps) => {
 		},
 	});
 
-	const handleInitiate = () => {
-		initiateMutation.mutate();
+	const onCloseSetupModal = () => {
+		onClose();
+		setStep(TwoFactorSetupStep.Auth);
+		setSetupData(null);
+		setBackupCodes([]);
 	};
 
 	return (
 		<Modal
 			size="md"
 			opened={opened}
-			onClose={onClose}
+			onClose={onCloseSetupModal}
 			title="Enable Two-Factor Authentication"
 		>
 			{step === TwoFactorSetupStep.Auth && (
 				<TwoFactorAuthStep
-					onClose={onClose}
-					onNext={handleInitiate}
+					onClose={onCloseSetupModal}
 					error={initiateMutation.isError}
+					onNext={initiateMutation.mutate}
 					isLoading={initiateMutation.isPending}
 				/>
 			)}
 			{step === TwoFactorSetupStep.QRCode && (
 				<QRCodeStep
-					onCancel={onClose}
+					onCancel={onCloseSetupModal}
 					setupData={setupData}
 					onNext={() => setStep(TwoFactorSetupStep.Verify)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.Verify && (
 				<VerifyCodeStep
-					onCancel={onClose}
+					onCancel={onCloseSetupModal}
 					setBackupCodes={setBackupCodes}
 					onNext={() => setStep(TwoFactorSetupStep.BackupCodes)}
 				/>
 			)}
 			{step === TwoFactorSetupStep.BackupCodes && (
-				<BackupCodesStep onComplete={onClose} backupCodes={backupCodes} />
+				<BackupCodesStep
+					onComplete={onCloseSetupModal}
+					backupCodes={backupCodes}
+				/>
 			)}
 		</Modal>
 	);
 };
 
 interface TwoFactorAuthStepProps {
-	onNext: () => void;
-	onClose: () => void;
-	isLoading: boolean;
 	error: boolean;
+	onNext: () => void;
+	isLoading: boolean;
+	onClose: () => void;
 }
 
 const TwoFactorAuthStep = ({

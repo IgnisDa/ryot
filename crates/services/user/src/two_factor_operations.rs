@@ -28,6 +28,12 @@ use user_models::{UserTwoFactorInformation, UserTwoFactorInformationBackupCode};
 
 use crate::authentication_operations::generate_auth_token;
 
+static TOTP_CODE_DIGITS: u32 = 6;
+static BACKUP_CODES_COUNT: u8 = 12;
+static BACKUP_CODE_LENGTH: usize = 8;
+static TOTP_SECRET_LENGTH: usize = 32;
+static TOTP_TIME_STEP_SECONDS: i64 = 30;
+
 pub async fn verify_two_factor(
     ss: &Arc<SupportingService>,
     input: UserTwoFactorVerifyInput,
@@ -122,7 +128,7 @@ pub async fn complete_two_factor_setup(
         bail!("Invalid TOTP code");
     }
 
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(9);
+    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(BACKUP_CODES_COUNT);
 
     let user = user_by_id(&user_id, ss).await?;
     let completed_information = UserTwoFactorInformation {
@@ -165,7 +171,7 @@ pub async fn generate_new_backup_codes(
         bail!("Two-factor authentication is not enabled");
     };
 
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(9);
+    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(BACKUP_CODES_COUNT);
 
     let updated_information = UserTwoFactorInformation {
         secret: two_factor_info.secret.clone(),
@@ -182,7 +188,7 @@ pub async fn generate_new_backup_codes(
 fn generate_totp_secret() -> String {
     let charset = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     let mut rng = rand::rng();
-    (0..32)
+    (0..TOTP_SECRET_LENGTH)
         .map(|_| {
             let idx = rng.random_range(0..charset.len());
             charset[idx] as char
@@ -202,8 +208,9 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
         .as_secs();
 
     for time_step in [-1, 0, 1] {
-        let adjusted_time = (current_time as i64 + (time_step * 30)) as u64;
-        let expected_code = totp_custom::<Sha1>(DEFAULT_STEP, 6, &secret_bytes, adjusted_time);
+        let adjusted_time = (current_time as i64 + (time_step * TOTP_TIME_STEP_SECONDS)) as u64;
+        let expected_code =
+            totp_custom::<Sha1>(DEFAULT_STEP, TOTP_CODE_DIGITS, &secret_bytes, adjusted_time);
         if expected_code == code {
             return true;
         }
@@ -216,7 +223,7 @@ fn generate_backup_codes(count: u8) -> Vec<String> {
     let mut rng = rand::rng();
     (0..count)
         .map(|_| {
-            (0..8)
+            (0..BACKUP_CODE_LENGTH)
                 .map(|_| {
                     let chars = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
                     let idx = rng.random_range(0..chars.len());
