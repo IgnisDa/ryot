@@ -147,6 +147,7 @@ pub enum ProcessAccessLinkResult {
 
 #[derive(Debug, SimpleObject)]
 pub struct UserTwoFactorInitiateResponse {
+    #[graphql(secret)]
     pub secret: String,
     pub qr_code_url: String,
 }
