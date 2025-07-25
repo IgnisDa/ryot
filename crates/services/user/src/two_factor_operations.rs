@@ -3,6 +3,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use aes_gcm::{
+    Aes256Gcm, Key, Nonce,
+    aead::{Aead, AeadCore, KeyInit, OsRng as AeadOsRng},
+};
 use anyhow::{Result, bail};
 use argon2::{
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
@@ -31,7 +35,7 @@ use crate::authentication_operations::generate_auth_token;
 
 static TOTP_CODE_DIGITS: u32 = 6;
 static BACKUP_CODE_LENGTH: usize = 8;
-static TOTP_SECRET_LENGTH: usize = 32;
+static TOTP_SECRET_LENGTH: usize = 20;
 static TOTP_TIME_STEP_SECONDS: i64 = 30;
 
 pub async fn verify_two_factor(
@@ -249,25 +253,40 @@ fn generate_hashed_backup_codes(
 }
 
 fn encrypt_totp_secret(secret: &str, key: &str) -> Result<String> {
-    let key_bytes = key.as_bytes();
-    let encrypted: Vec<u8> = secret
-        .as_bytes()
-        .iter()
-        .enumerate()
-        .map(|(i, &b)| b ^ key_bytes[i % key_bytes.len()])
-        .collect();
-    Ok(BASE64.encode(&encrypted))
+    let key_hash = ring::digest::digest(&ring::digest::SHA256, key.as_bytes());
+    let cipher_key = Key::<Aes256Gcm>::from_slice(key_hash.as_ref());
+    let cipher = Aes256Gcm::new(cipher_key);
+
+    let nonce = Aes256Gcm::generate_nonce(&mut AeadOsRng);
+
+    let ciphertext = cipher
+        .encrypt(&nonce, secret.as_bytes())
+        .map_err(|e| anyhow::anyhow!("Encryption failed: {}", e))?;
+
+    let mut result = nonce.to_vec();
+    result.extend_from_slice(&ciphertext);
+    Ok(BASE64.encode(&result))
 }
 
 fn decrypt_totp_secret(encrypted_secret: &str, key: &str) -> Result<String> {
     let encrypted_bytes = BASE64.decode(encrypted_secret.as_bytes())?;
-    let key_bytes = key.as_bytes();
-    let decrypted: Vec<u8> = encrypted_bytes
-        .iter()
-        .enumerate()
-        .map(|(i, &b)| b ^ key_bytes[i % key_bytes.len()])
-        .collect();
-    Ok(String::from_utf8(decrypted)?)
+
+    if encrypted_bytes.len() < 12 {
+        bail!("Invalid encrypted data: too short");
+    }
+
+    let key_hash = ring::digest::digest(&ring::digest::SHA256, key.as_bytes());
+    let cipher_key = Key::<Aes256Gcm>::from_slice(key_hash.as_ref());
+    let cipher = Aes256Gcm::new(cipher_key);
+
+    let (nonce_bytes, ciphertext) = encrypted_bytes.split_at(12);
+    let nonce = Nonce::from_slice(nonce_bytes);
+
+    let plaintext = cipher
+        .decrypt(nonce, ciphertext)
+        .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
+
+    String::from_utf8(plaintext).map_err(|e| anyhow::anyhow!("Invalid UTF-8: {}", e))
 }
 
 fn hash_backup_code(code: &str) -> String {

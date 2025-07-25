@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes-gcm = { workspace = true }
 anyhow = { workspace = true }
 argon2 = { workspace = true }
 chrono = { workspace = true }
@@ -14,6 +15,7 @@ itertools = { workspace = true }
 nanoid = { workspace = true }
 openidconnect = { workspace = true }
 rand = { workspace = true }
+ring = { workspace = true }
 sea-orm = { workspace = true }
 totp-lite = { workspace = true }
 tracing = { workspace = true }
