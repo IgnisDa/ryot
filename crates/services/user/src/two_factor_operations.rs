@@ -10,7 +10,7 @@ use argon2::{
 };
 use chrono::Utc;
 use common_models::UserLevelCacheKey;
-use data_encoding::BASE64;
+use data_encoding::{BASE32, BASE64};
 use database_utils::user_by_id;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserTwoFactorSetupCacheValue,
@@ -190,6 +190,11 @@ fn generate_totp_secret() -> String {
 }
 
 fn verify_totp_code(code: &str, secret: &str) -> bool {
+    let secret_bytes = match BASE32.decode(secret.as_bytes()) {
+        Ok(bytes) => bytes,
+        Err(_) => return false,
+    };
+
     let current_time = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -197,7 +202,7 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
 
     for time_step in [-1, 0, 1] {
         let adjusted_time = (current_time as i64 + (time_step * 30)) as u64;
-        let expected_code = totp::<Sha1>(secret.as_bytes(), adjusted_time);
+        let expected_code = totp::<Sha1>(&secret_bytes, adjusted_time);
         if expected_code == code {
             return true;
         }
