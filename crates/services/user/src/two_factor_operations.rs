@@ -117,16 +117,12 @@ pub async fn complete_two_factor_setup(
     };
 
     let decrypted_secret = decrypt_totp_secret(&setup_data.secret, &ss.config.users.jwt_secret)?;
-    println!("=== Complete 2FA Setup Debug ===");
-    println!("Encrypted secret from cache: {}", setup_data.secret);
-    println!("Decrypted secret: {}", decrypted_secret);
-    println!("User input TOTP code: {}", input.totp_code);
 
     if !verify_totp_code(&input.totp_code, &decrypted_secret) {
         bail!("Invalid TOTP code");
     }
 
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(10);
+    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(9);
 
     let user = user_by_id(&user_id, ss).await?;
     let completed_information = UserTwoFactorInformation {
@@ -169,7 +165,7 @@ pub async fn generate_new_backup_codes(
         bail!("Two-factor authentication is not enabled");
     };
 
-    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(10);
+    let (backup_codes, hashed_backup_codes) = generate_hashed_backup_codes(9);
 
     let updated_information = UserTwoFactorInformation {
         secret: two_factor_info.secret.clone(),

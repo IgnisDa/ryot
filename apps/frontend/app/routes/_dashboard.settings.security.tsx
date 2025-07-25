@@ -9,6 +9,7 @@ import {
 	Paper,
 	PasswordInput,
 	PinInput,
+	SimpleGrid,
 	Stack,
 	Tabs,
 	Text,
@@ -472,13 +473,13 @@ const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
 				</Text>
 			</Alert>
 			<Paper withBorder p="md">
-				<Stack gap="xs">
+				<SimpleGrid cols={3}>
 					{backupCodes.map((code) => (
-						<Text key={code} ff="monospace" size="sm">
+						<Text key={code} ff="monospace" size="sm" ta="center">
 							{code}
 						</Text>
 					))}
-				</Stack>
+				</SimpleGrid>
 			</Paper>
 			<Group justify="flex-end">
 				<Button onClick={onComplete}>I've Saved My Backup Codes</Button>
