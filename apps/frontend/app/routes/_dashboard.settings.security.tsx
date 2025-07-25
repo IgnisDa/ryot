@@ -240,25 +240,6 @@ const TwoFactorAuthSection = () => {
 							</Button>
 						</Group>
 					</Paper>
-					<Paper withBorder p="md">
-						<Stack>
-							<Text fw="bold">Backup Codes</Text>
-							<Text size="sm" c="dimmed">
-								Generate new backup codes to use when you don't have access to
-								your authenticator app.
-							</Text>
-							<Button
-								variant="light"
-								disabled={isEditDisabled}
-								onClick={() => {
-									// TODO: Implement generate backup codes modal
-									console.log("Generate backup codes clicked");
-								}}
-							>
-								Generate New Backup Codes
-							</Button>
-						</Stack>
-					</Paper>
 				</Stack>
 			)}
 		</Stack>
@@ -522,4 +503,3 @@ const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
 		</Stack>
 	);
 };
-
