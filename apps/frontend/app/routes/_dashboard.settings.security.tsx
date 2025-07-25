@@ -209,7 +209,7 @@ const TwoFactorAuthSection = () => {
 			) : (
 				<Stack>
 					<Paper withBorder p="md">
-						<Group justify="space-between">
+						<Stack>
 							<Box>
 								<Text size="lg" fw="bold">
 									Two-Factor Authentication
@@ -225,20 +225,33 @@ const TwoFactorAuthSection = () => {
 									</Text>
 								)}
 							</Box>
-							<Button
-								color="red"
-								variant="light"
-								disabled={isEditDisabled}
-								onClick={() => {
-									openConfirmationModal(
-										"Are you sure you want to disable two-factor authentication? This will make your account less secure.",
-										() => disableMutation.mutate(),
-									);
-								}}
-							>
-								Disable
-							</Button>
-						</Group>
+							<Group wrap="nowrap">
+								<Button
+									fullWidth
+									color="red"
+									variant="light"
+									disabled={isEditDisabled}
+									onClick={() => {
+										openConfirmationModal(
+											"Are you sure you want to disable two-factor authentication? This will make your account less secure.",
+											() => disableMutation.mutate(),
+										);
+									}}
+								>
+									Disable
+								</Button>
+								<Button
+									fullWidth
+									variant="outline"
+									disabled={isEditDisabled}
+									onClick={() => {
+										// TODO: Implement regenerate backup codes
+									}}
+								>
+									Regenerate Backup Codes
+								</Button>
+							</Group>
+						</Stack>
 					</Paper>
 				</Stack>
 			)}
