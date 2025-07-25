@@ -195,20 +195,9 @@ fn generate_totp_secret() -> String {
 }
 
 fn verify_totp_code(code: &str, secret: &str) -> bool {
-    println!("=== TOTP Verification Debug ===");
-    println!("Input code: {}", code);
-    println!("Secret: {}", secret);
-
     let secret_bytes = match BASE32.decode(secret.as_bytes()) {
-        Ok(bytes) => {
-            println!("Base32 decode successful");
-            println!("Decoded bytes: {:?}", bytes);
-            bytes
-        }
-        Err(e) => {
-            println!("Base32 decode failed: {:?}", e);
-            return false;
-        }
+        Ok(bytes) => bytes,
+        Err(_) => return false,
     };
 
     let current_time = SystemTime::now()
@@ -216,22 +205,14 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
         .unwrap()
         .as_secs();
 
-    println!("Current time: {}", current_time);
-
     for time_step in [-1, 0, 1] {
         let adjusted_time = (current_time as i64 + (time_step * 30)) as u64;
         let expected_code = totp_custom::<Sha1>(DEFAULT_STEP, 6, &secret_bytes, adjusted_time);
-        println!(
-            "Time step: {}, Adjusted time: {}, Expected code: {}",
-            time_step, adjusted_time, expected_code
-        );
         if expected_code == code {
-            println!("TOTP verification SUCCESS!");
             return true;
         }
     }
 
-    println!("TOTP verification FAILED - no time window matched");
     false
 }
 
@@ -265,8 +246,6 @@ fn generate_hashed_backup_codes(
 }
 
 fn encrypt_totp_secret(secret: &str, key: &str) -> Result<String> {
-    println!("=== Encrypt TOTP Secret ===");
-    println!("Original secret: {}", secret);
     let key_bytes = key.as_bytes();
     let encrypted: Vec<u8> = secret
         .as_bytes()
@@ -274,14 +253,10 @@ fn encrypt_totp_secret(secret: &str, key: &str) -> Result<String> {
         .enumerate()
         .map(|(i, &b)| b ^ key_bytes[i % key_bytes.len()])
         .collect();
-    let result = BASE64.encode(&encrypted);
-    println!("Encrypted result: {}", result);
-    Ok(result)
+    Ok(BASE64.encode(&encrypted))
 }
 
 fn decrypt_totp_secret(encrypted_secret: &str, key: &str) -> Result<String> {
-    println!("=== Decrypt TOTP Secret ===");
-    println!("Encrypted secret: {}", encrypted_secret);
     let encrypted_bytes = BASE64.decode(encrypted_secret.as_bytes())?;
     let key_bytes = key.as_bytes();
     let decrypted: Vec<u8> = encrypted_bytes
@@ -289,9 +264,7 @@ fn decrypt_totp_secret(encrypted_secret: &str, key: &str) -> Result<String> {
         .enumerate()
         .map(|(i, &b)| b ^ key_bytes[i % key_bytes.len()])
         .collect();
-    let result = String::from_utf8(decrypted)?;
-    println!("Decrypted secret: {}", result);
-    Ok(result)
+    Ok(String::from_utf8(decrypted)?)
 }
 
 fn hash_backup_code(code: &str) -> String {
