@@ -10,7 +10,7 @@ use database_utils::{revoke_access_link as db_revoke_access_link, user_details_b
 use dependent_models::UserDetailsResult;
 use jwt_service::sign;
 use media_models::{
-    AuthUserInput, LoginError, LoginErrorVariant, ApiKeyResponse, LoginResult, PasswordUserInput,
+    ApiKeyResponse, AuthUserInput, LoginError, LoginErrorVariant, LoginResult, PasswordUserInput,
 };
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
 use sea_orm::{

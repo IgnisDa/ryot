@@ -1496,6 +1496,8 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
+  /** Regenerate backup codes for the currently logged in user. */
+  regenerateTwoFactorBackupCodes: UserTwoFactorBackupCodesResponse;
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
