@@ -1,0 +1,190 @@
+import { getFormProps, getInputProps, useForm } from "@conform-to/react";
+import { parseWithZod } from "@conform-to/zod/v4";
+import {
+	Anchor,
+	Button,
+	Center,
+	Container,
+	PinInput,
+	Stack,
+	Text,
+	TextInput,
+} from "@mantine/core";
+import {
+	LoginErrorVariant,
+	UserTwoFactorVerifyMethod,
+	VerifyTwoFactorDocument,
+} from "@ryot/generated/graphql/backend/graphql";
+import { parseSearchQuery } from "@ryot/ts-utils";
+import { useState } from "react";
+import { Form, Link, data, redirect } from "react-router";
+import { safeRedirect } from "remix-utils/safe-redirect";
+import { $path } from "safe-routes";
+import { match } from "ts-pattern";
+import { z } from "zod";
+import { redirectToQueryParam } from "~/lib/shared/constants";
+import {
+	createToastHeaders,
+	getCookiesForApplication,
+	serverGqlService,
+} from "~/lib/utilities.server";
+import type { Route } from "./+types/two-factor";
+
+const searchParamsSchema = z.object({
+	userId: z.string(),
+});
+
+export type SearchParams = z.infer<typeof searchParamsSchema>;
+
+export const meta = () => [{ title: "Two-Factor Authentication | Ryot" }];
+
+export const action = async ({ request }: Route.ActionArgs) => {
+	const formData = await request.formData();
+	const query = parseSearchQuery(request, searchParamsSchema);
+	const submission = parseWithZod(formData, {
+		schema: verifyTwoFactorSchema,
+	});
+
+	if (submission.status !== "success") {
+		return data({} as const, {
+			headers: await createToastHeaders({
+				type: "error",
+				message: "Invalid form data",
+			}),
+		});
+	}
+
+	const input = {
+		userId: query.userId,
+		code: submission.value.code,
+		method: submission.value.method,
+	};
+
+	const { verifyTwoFactor } = await serverGqlService.request(
+		VerifyTwoFactorDocument,
+		{ input },
+	);
+
+	if (verifyTwoFactor.__typename === "LoginResponse") {
+		const headers = await getCookiesForApplication(verifyTwoFactor.apiKey);
+		const redirectTo = submission.value[redirectToQueryParam];
+		return redirect(redirectTo ? safeRedirect(redirectTo) : $path("/"), {
+			headers,
+		});
+	}
+
+	const message = match(verifyTwoFactor)
+		.with({ __typename: "LoginError" }, (error) =>
+			match(error.error)
+				.with(
+					LoginErrorVariant.TwoFactorInvalid,
+					() => "Invalid verification code. Please try again.",
+				)
+				.with(
+					LoginErrorVariant.AccountDisabled,
+					() => "This account has been disabled. Please contact support.",
+				)
+				.otherwise(() => "Verification failed. Please try again."),
+		)
+		.otherwise(() => "Verification failed. Please try again.");
+
+	return data({} as const, {
+		headers: await createToastHeaders({ message, type: "error" }),
+	});
+};
+
+const verifyTwoFactorSchema = z.object({
+	code: z.string(),
+	method: z.enum(UserTwoFactorVerifyMethod),
+	[redirectToQueryParam]: z.string().optional(),
+});
+
+export default function Page() {
+	const [form, fields] = useForm({});
+	const [useBackupCode, setUseBackupCode] = useState(false);
+	const [code, setCode] = useState("");
+
+	return (
+		<Container size="xs" style={{ display: "flex", alignItems: "center" }}>
+			<Stack m="auto">
+				<Text size="xl" fw="bold" ta="center" mb="md">
+					Two-Factor Authentication
+				</Text>
+
+				<Text size="sm" c="dimmed" ta="center" mb="lg">
+					{useBackupCode
+						? "Enter one of your backup codes to continue"
+						: "Enter the 6-digit code from your authenticator app"}
+				</Text>
+
+				<Form method="POST" {...getFormProps(form)}>
+					<input
+						type="hidden"
+						name="method"
+						value={
+							useBackupCode
+								? UserTwoFactorVerifyMethod.BackupCode
+								: UserTwoFactorVerifyMethod.Totp
+						}
+					/>
+
+					{!useBackupCode ? (
+						<Stack>
+							<Center>
+								<PinInput
+									autoFocus
+									length={6}
+									value={code}
+									onChange={setCode}
+								/>
+							</Center>
+							<input type="hidden" name="code" value={code} />
+						</Stack>
+					) : (
+						<>
+							<TextInput
+								{...getInputProps(fields.code, { type: "text" })}
+								required
+								autoFocus
+								value={code}
+								label="Backup Code"
+								placeholder="Enter backup code"
+								error={fields.code.errors?.[0]}
+								onChange={(e) => setCode(e.target.value)}
+							/>
+							<input type="hidden" name="code" value={code} />
+						</>
+					)}
+
+					<Button
+						type="submit"
+						w="100%"
+						mt="lg"
+						disabled={
+							(!useBackupCode && code.length !== 6) ||
+							(useBackupCode && !code.trim())
+						}
+					>
+						Verify & Continue
+					</Button>
+				</Form>
+
+				<Anchor
+					ta="center"
+					onClick={() => {
+						setUseBackupCode(!useBackupCode);
+						setCode("");
+					}}
+				>
+					{useBackupCode
+						? "Use authenticator app instead"
+						: "Use backup code instead"}
+				</Anchor>
+
+				<Anchor component={Link} to="/auth" ta="center">
+					Back to login
+				</Anchor>
+			</Stack>
+		</Container>
+	);
+}
