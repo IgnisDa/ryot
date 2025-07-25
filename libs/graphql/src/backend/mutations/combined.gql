@@ -292,9 +292,3 @@ mutation VerifyTwoFactor($input: UserTwoFactorVerifyInput!) {
 mutation DisableTwoFactor {
 	disableTwoFactor
 }
-
-mutation GenerateBackupCodes {
-	generateBackupCodes {
-		backupCodes
-	}
-}
