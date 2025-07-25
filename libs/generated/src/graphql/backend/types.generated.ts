@@ -1480,8 +1480,6 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
-  /** Generate new backup codes for the currently logged in user. */
-  generateBackupCodes: UserTwoFactorBackupCodesResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
