@@ -4,6 +4,7 @@ import {
 	Button,
 	Center,
 	Container,
+	Divider,
 	Group,
 	Modal,
 	Paper,
@@ -11,7 +12,6 @@ import {
 	PinInput,
 	SimpleGrid,
 	Stack,
-	Tabs,
 	Text,
 	TextInput,
 } from "@mantine/core";
@@ -82,20 +82,11 @@ const updateProfileFormSchema = z.object({
 export default function Page() {
 	return (
 		<Container size="xs">
-			<Tabs defaultValue="password">
-				<Tabs.List>
-					<Tabs.Tab value="password">Password</Tabs.Tab>
-					<Tabs.Tab value="2fa">Two-Factor Authentication</Tabs.Tab>
-				</Tabs.List>
-				<Box mt="md">
-					<Tabs.Panel value="password">
-						<PasswordSection />
-					</Tabs.Panel>
-					<Tabs.Panel value="2fa">
-						<TwoFactorAuthSection />
-					</Tabs.Panel>
-				</Box>
-			</Tabs>
+			<Stack gap="xl">
+				<PasswordSection />
+				<Divider />
+				<TwoFactorAuthSection />
+			</Stack>
 		</Container>
 	);
 }
