@@ -22,6 +22,7 @@ use media_models::{
     VerifyTwoFactorError, VerifyTwoFactorErrorVariant, VerifyTwoFactorResult,
 };
 use rand::Rng;
+use rand::TryRngCore;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
 use totp_lite::{DEFAULT_STEP, Sha1, totp_custom};
@@ -186,14 +187,11 @@ pub async fn regenerate_two_factor_backup_codes(
 }
 
 fn generate_totp_secret() -> String {
-    let charset = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    let mut rng = rand::rng();
-    (0..TOTP_SECRET_LENGTH)
-        .map(|_| {
-            let idx = rng.random_range(0..charset.len());
-            charset[idx] as char
-        })
-        .collect()
+    let mut secret_bytes = vec![0u8; TOTP_SECRET_LENGTH];
+    let mut rng = OsRng;
+    rng.try_fill_bytes(&mut secret_bytes)
+        .expect("Failed to generate random bytes");
+    BASE32.encode(&secret_bytes)
 }
 
 fn verify_totp_code(code: &str, secret: &str) -> bool {
