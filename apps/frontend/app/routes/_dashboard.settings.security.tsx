@@ -164,6 +164,10 @@ const TwoFactorAuthSection = () => {
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const [setupModalOpened, { open: openSetupModal, close: closeSetupModal }] =
 		useDisclosure(false);
+	const [
+		viewCodesModalOpened,
+		{ open: openViewCodesModal, close: closeViewCodesModal },
+	] = useDisclosure(false);
 
 	const disableMutation = useMutation({
 		mutationFn: async () => {
@@ -216,6 +220,10 @@ const TwoFactorAuthSection = () => {
 			) : (
 				<Stack>
 					<Paper withBorder p="md">
+						<ViewBackupCodesModal
+							opened={viewCodesModalOpened}
+							onClose={closeViewCodesModal}
+						/>
 						<Group justify="space-between">
 							<Box>
 								<Text size="lg" fw="bold">
@@ -244,19 +252,29 @@ const TwoFactorAuthSection = () => {
 						<Stack>
 							<Text fw="bold">Backup Codes</Text>
 							<Text size="sm" c="dimmed">
-								Generate new backup codes to use when you don't have access to
-								your authenticator app.
+								View your current backup codes or generate new ones to use when
+								you don't have access to your authenticator app.
 							</Text>
-							<Button
-								variant="light"
-								disabled={isEditDisabled}
-								onClick={() => {
-									// TODO: Implement generate backup codes modal
-									console.log("Generate backup codes clicked");
-								}}
-							>
-								Generate New Backup Codes
-							</Button>
+							<Group wrap="nowrap">
+								<Button
+									fullWidth
+									disabled={isEditDisabled}
+									onClick={openViewCodesModal}
+								>
+									View Current
+								</Button>
+								<Button
+									fullWidth
+									variant="outline"
+									disabled={isEditDisabled}
+									onClick={() => {
+										// TODO: Implement generate backup codes modal
+										console.log("Generate backup codes clicked");
+									}}
+								>
+									Generate New
+								</Button>
+							</Group>
 						</Stack>
 					</Paper>
 				</Stack>
@@ -520,5 +538,64 @@ const BackupCodesStep = ({ onComplete, backupCodes }: BackupCodesStepProps) => {
 				<Button onClick={onComplete}>I've Saved My Backup Codes</Button>
 			</Group>
 		</Stack>
+	);
+};
+
+interface ViewBackupCodesModalProps {
+	opened: boolean;
+	onClose: () => void;
+}
+
+const ViewBackupCodesModal = ({
+	opened,
+	onClose,
+}: ViewBackupCodesModalProps) => {
+	const userDetails = useUserDetails();
+	const codes = userDetails.twoFactorBackupCodes || [];
+
+	return (
+		<Modal
+			size="md"
+			opened={opened}
+			onClose={onClose}
+			title="Your Current Backup Codes"
+		>
+			<Stack>
+				<Alert color="yellow">
+					<Text fw="bold" mb="xs">
+						Keep these codes secure!
+					</Text>
+					<Text size="sm">
+						These are your current backup codes. Store them in a safe place.
+						Used codes are marked and cannot be used again.
+					</Text>
+				</Alert>
+				<Paper withBorder p="md">
+					<SimpleGrid cols={3}>
+						{codes.map((backupCode) => (
+							<Box key={backupCode.code} ta="center">
+								<Text
+									ff="monospace"
+									size="sm"
+									c={backupCode.used ? "dimmed" : undefined}
+									style={{ opacity: backupCode.used ? 0.5 : 1 }}
+									td={backupCode.used ? "line-through" : undefined}
+								>
+									{backupCode.code}
+								</Text>
+								{backupCode.used && (
+									<Text size="xs" c="dimmed" fw="bold">
+										USED
+									</Text>
+								)}
+							</Box>
+						))}
+					</SimpleGrid>
+				</Paper>
+				<Group justify="flex-end">
+					<Button onClick={onClose}>Close</Button>
+				</Group>
+			</Stack>
+		</Modal>
 	);
 };
