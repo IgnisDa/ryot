@@ -23,7 +23,7 @@ use media_models::{
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
-use totp_lite::{Sha1, totp};
+use totp_lite::{DEFAULT_STEP, Sha1, totp_custom};
 use user_models::{UserTwoFactorInformation, UserTwoFactorInformationBackupCode};
 
 use crate::authentication_operations::generate_auth_token;
@@ -121,7 +121,7 @@ pub async fn complete_two_factor_setup(
     println!("Encrypted secret from cache: {}", setup_data.secret);
     println!("Decrypted secret: {}", decrypted_secret);
     println!("User input TOTP code: {}", input.totp_code);
-    
+
     if !verify_totp_code(&input.totp_code, &decrypted_secret) {
         bail!("Invalid TOTP code");
     }
@@ -198,13 +198,13 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
     println!("=== TOTP Verification Debug ===");
     println!("Input code: {}", code);
     println!("Secret: {}", secret);
-    
+
     let secret_bytes = match BASE32.decode(secret.as_bytes()) {
         Ok(bytes) => {
             println!("Base32 decode successful");
             println!("Decoded bytes: {:?}", bytes);
             bytes
-        },
+        }
         Err(e) => {
             println!("Base32 decode failed: {:?}", e);
             return false;
@@ -215,19 +215,22 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     println!("Current time: {}", current_time);
 
     for time_step in [-1, 0, 1] {
         let adjusted_time = (current_time as i64 + (time_step * 30)) as u64;
-        let expected_code = totp::<Sha1>(&secret_bytes, adjusted_time);
-        println!("Time step: {}, Adjusted time: {}, Expected code: {}", time_step, adjusted_time, expected_code);
+        let expected_code = totp_custom::<Sha1>(DEFAULT_STEP, 6, &secret_bytes, adjusted_time);
+        println!(
+            "Time step: {}, Adjusted time: {}, Expected code: {}",
+            time_step, adjusted_time, expected_code
+        );
         if expected_code == code {
             println!("TOTP verification SUCCESS!");
             return true;
         }
     }
-    
+
     println!("TOTP verification FAILED - no time window matched");
     false
 }
