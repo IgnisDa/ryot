@@ -16,7 +16,7 @@ mutation LoginUser($input: AuthUserInput!) {
 		... on LoginError {
 			error
 		}
-		... on LoginResponse {
+		... on ApiKeyResponse {
 			apiKey
 		}
 		... on StringIdObject {
@@ -280,10 +280,10 @@ mutation CompleteTwoFactorSetup($input: UserTwoFactorSetupInput!) {
 mutation VerifyTwoFactor($input: UserTwoFactorVerifyInput!) {
 	verifyTwoFactor(input: $input) {
 		__typename
-		... on LoginError {
+		... on VerifyTwoFactorError {
 			error
 		}
-		... on LoginResponse {
+		... on ApiKeyResponse {
 			apiKey
 		}
 	}

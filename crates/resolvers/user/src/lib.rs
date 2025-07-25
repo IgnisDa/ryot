@@ -12,6 +12,7 @@ use media_models::{
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
     UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
 use traits::AuthProvider;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -308,7 +309,7 @@ impl UserMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: UserTwoFactorVerifyInput,
-    ) -> Result<LoginResult> {
+    ) -> Result<VerifyTwoFactorResult> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let response = service.verify_two_factor(input).await?;
         Ok(response)

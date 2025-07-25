@@ -16,9 +16,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserTwoFactorSetupCacheValue,
 };
 use media_models::{
-    LoginError, LoginErrorVariant, LoginResponse, LoginResult, UserTwoFactorBackupCodesResponse,
-    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
-    UserTwoFactorVerifyMethod,
+    ApiKeyResponse, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
+    UserTwoFactorSetupInput, UserTwoFactorVerifyInput, UserTwoFactorVerifyMethod,
+    VerifyTwoFactorError, VerifyTwoFactorErrorVariant, VerifyTwoFactorResult,
 };
 use rand::Rng;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
@@ -37,13 +37,13 @@ static TOTP_TIME_STEP_SECONDS: i64 = 30;
 pub async fn verify_two_factor(
     ss: &Arc<SupportingService>,
     input: UserTwoFactorVerifyInput,
-) -> Result<LoginResult> {
+) -> Result<VerifyTwoFactorResult> {
     let is_backup_code = matches!(input.method, UserTwoFactorVerifyMethod::BackupCode);
 
     let user = user_by_id(&input.user_id, ss).await?;
     let Some(two_factor_info) = &user.two_factor_information else {
-        return Ok(LoginResult::Error(LoginError {
-            error: LoginErrorVariant::TwoFactorInvalid,
+        return Ok(VerifyTwoFactorResult::Error(VerifyTwoFactorError {
+            error: VerifyTwoFactorErrorVariant::Disabled,
         }));
     };
 
@@ -56,8 +56,8 @@ pub async fn verify_two_factor(
     };
 
     if !verification_result {
-        return Ok(LoginResult::Error(LoginError {
-            error: LoginErrorVariant::TwoFactorInvalid,
+        return Ok(VerifyTwoFactorResult::Error(VerifyTwoFactorError {
+            error: VerifyTwoFactorErrorVariant::Invalid,
         }));
     }
 
@@ -70,7 +70,9 @@ pub async fn verify_two_factor(
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
     user.update(&ss.db).await?;
 
-    Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
+    Ok(VerifyTwoFactorResult::Ok(ApiKeyResponse {
+        api_key: jwt_key,
+    }))
 }
 
 pub async fn initiate_two_factor_setup(

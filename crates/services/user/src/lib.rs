@@ -13,6 +13,7 @@ use media_models::{
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
     UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
 use openidconnect::Nonce;
 use supporting_service::SupportingService;
@@ -191,7 +192,10 @@ impl UserService {
         user_data_operations::user_by_oidc_issuer_id(&self.0, oidc_issuer_id).await
     }
 
-    pub async fn verify_two_factor(&self, input: UserTwoFactorVerifyInput) -> Result<LoginResult> {
+    pub async fn verify_two_factor(
+        &self,
+        input: UserTwoFactorVerifyInput,
+    ) -> Result<VerifyTwoFactorResult> {
         two_factor_operations::verify_two_factor(&self.0, input).await
     }
 

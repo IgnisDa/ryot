@@ -56,6 +56,11 @@ export type AnimeSpecificsInput = {
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type ApiKeyResponse = {
+  __typename?: 'ApiKeyResponse';
+  apiKey: Scalars['String']['output'];
+};
+
 /** The start date must be before the end date. */
 export type ApplicationDateRange = {
   __typename?: 'ApplicationDateRange';
@@ -1125,12 +1130,7 @@ export enum LoginErrorVariant {
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 
-export type LoginResponse = {
-  __typename?: 'LoginResponse';
-  apiKey: Scalars['String']['output'];
-};
-
-export type LoginResult = LoginError | LoginResponse | StringIdObject;
+export type LoginResult = ApiKeyResponse | LoginError | StringIdObject;
 
 export type MangaSpecifics = {
   __typename?: 'MangaSpecifics';
@@ -1530,7 +1530,7 @@ export type MutationRoot = {
   /** Change the details about a user's workout. */
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
   /** Verify a two-factor authentication code (TOTP or backup code). */
-  verifyTwoFactor: LoginResult;
+  verifyTwoFactor: VerifyTwoFactorResult;
 };
 
 
@@ -3115,6 +3115,18 @@ export type UserWorkoutsListSortInput = {
   by?: UserTemplatesOrWorkoutsListSortBy;
   order?: GraphqlSortOrder;
 };
+
+export type VerifyTwoFactorError = {
+  __typename?: 'VerifyTwoFactorError';
+  error: VerifyTwoFactorErrorVariant;
+};
+
+export enum VerifyTwoFactorErrorVariant {
+  Disabled = 'DISABLED',
+  Invalid = 'INVALID'
+}
+
+export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
 
 export type VideoGameSpecifics = {
   __typename?: 'VideoGameSpecifics';

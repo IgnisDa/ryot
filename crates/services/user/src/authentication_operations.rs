@@ -10,7 +10,7 @@ use database_utils::{revoke_access_link as db_revoke_access_link, user_details_b
 use dependent_models::UserDetailsResult;
 use jwt_service::sign;
 use media_models::{
-    AuthUserInput, LoginError, LoginErrorVariant, LoginResponse, LoginResult, PasswordUserInput,
+    AuthUserInput, LoginError, LoginErrorVariant, ApiKeyResponse, LoginResult, PasswordUserInput,
 };
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
 use sea_orm::{
@@ -89,5 +89,5 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
     let mut user = user.into_active_model();
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
     user.update(&ss.db).await?;
-    Ok(LoginResult::Ok(LoginResponse { api_key: jwt_key }))
+    Ok(LoginResult::Ok(ApiKeyResponse { api_key: jwt_key }))
 }

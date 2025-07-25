@@ -68,8 +68,8 @@ pub struct UserResetResponse {
 
 #[derive(Union)]
 pub enum UserResetResult {
-    Ok(UserResetResponse),
     Error(RegisterError),
+    Ok(UserResetResponse),
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
@@ -87,21 +87,21 @@ pub struct LoginError {
 }
 
 #[derive(Debug, SimpleObject)]
-pub struct LoginResponse {
+pub struct ApiKeyResponse {
     pub api_key: String,
 }
 
 #[derive(Union)]
 pub enum LoginResult {
-    Ok(LoginResponse),
     Error(LoginError),
+    Ok(ApiKeyResponse),
     TwoFactorRequired(StringIdObject),
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 pub struct OidcTokenOutput {
-    pub subject: String,
     pub email: String,
+    pub subject: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -173,4 +173,21 @@ pub struct UserTwoFactorVerifyInput {
 #[derive(Debug, SimpleObject)]
 pub struct UserTwoFactorBackupCodesResponse {
     pub backup_codes: Vec<String>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum VerifyTwoFactorErrorVariant {
+    Invalid,
+    Disabled,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct VerifyTwoFactorError {
+    pub error: VerifyTwoFactorErrorVariant,
+}
+
+#[derive(Union)]
+pub enum VerifyTwoFactorResult {
+    Ok(ApiKeyResponse),
+    Error(VerifyTwoFactorError),
 }
