@@ -100,6 +100,10 @@ impl UserService {
         authentication_operations::login_user(&self.0, input).await
     }
 
+    pub async fn logout_user(&self, session_id: String) -> Result<bool> {
+        authentication_operations::logout_user(&self.0, session_id).await
+    }
+
     pub async fn update_user(
         &self,
         user_id: Option<String>,

@@ -91,3 +91,9 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
         api_key: session_id,
     }))
 }
+
+pub async fn logout_user(ss: &Arc<SupportingService>, session_id: String) -> Result<bool> {
+    let session_service = SessionService(ss.clone());
+    session_service.invalidate_session(&session_id).await?;
+    Ok(true)
+}

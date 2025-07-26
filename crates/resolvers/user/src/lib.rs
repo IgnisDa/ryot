@@ -356,4 +356,12 @@ impl UserMutation {
         let response = service.regenerate_two_factor_backup_codes(user_id).await?;
         Ok(response)
     }
+
+    /// Logout the current user by invalidating their session.
+    async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let session_id = self.user_auth_token_from_ctx(gql_ctx)?;
+        let response = service.logout_user(session_id).await?;
+        Ok(response)
+    }
 }
