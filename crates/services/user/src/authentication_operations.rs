@@ -17,7 +17,7 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
-    let session_id = session_service::create_session(ss, user_id).await?;
+    let session_id = session_service::create_session(ss, user_id, None, None).await?;
     Ok(session_id)
 }
 

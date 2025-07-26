@@ -44,7 +44,6 @@ members = [
     "crates/services/fitness",
     "crates/services/importer",
     "crates/services/integration",
-    "crates/services/jwt",
     "crates/services/miscellaneous",
     "crates/services/notification",
     "crates/services/session",
@@ -109,7 +108,6 @@ indexmap = "=2.10.0"
 indoc = "=2.0.6"
 isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.14.0"
-jsonwebtoken = { version = "=9.3.1", default-features = false }
 logs-wheel = "=0.3.1"
 markdown = "=1.0.0"
 mime_guess = "=2.0.5"

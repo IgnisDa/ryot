@@ -882,7 +882,6 @@ dependencies = [
  "axum",
  "background-models",
  "bon",
- "cache-service",
  "chrono-tz",
  "collection-resolver",
  "collection-service",
@@ -1798,6 +1797,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "background-models",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -1805,7 +1805,6 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "itertools 0.14.0",
- "jwt-service",
  "markdown",
  "media-models",
  "migrations",
@@ -3638,31 +3637,6 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "jsonwebtoken"
-version = "9.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
-dependencies = [
- "base64 0.22.1",
- "js-sys",
- "ring",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "jwt-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "jsonwebtoken",
- "serde",
- "serde_with",
- "uuid",
 ]
 
 [[package]]
@@ -5902,6 +5876,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cache-service",
+ "chrono",
  "dependent-models",
  "supporting-service",
  "uuid",
@@ -7173,7 +7148,6 @@ dependencies = [
  "enum_meta",
  "futures",
  "itertools 0.14.0",
- "jwt-service",
  "media-models",
  "nanoid",
  "notification-service",

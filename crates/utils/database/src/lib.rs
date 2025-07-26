@@ -14,13 +14,12 @@ use database_models::{
     review, seen, user, user_to_entity, workout,
 };
 use dependent_models::{
-    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserDetails, UserWorkoutDetails,
-    UserWorkoutTemplateDetails,
+    ApplicationCacheKey, CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserDetails,
+    UserSessionCachedValue, UserWorkoutDetails, UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
-use jwt_service::verify;
 use markdown::to_html as markdown_to_html;
 use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewItem};
 use migrations::AliasedCollectionToEntity;
@@ -298,11 +297,20 @@ where
 /// If any of the above conditions are not met, then an error is returned.
 #[inline]
 pub async fn check_token(
-    token: &str,
+    session_id: &str,
     is_mutation: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let claims = verify(token, &ss.config.users.jwt_secret)?;
+    let Some((_, claims)) = cache_service::get_value::<UserSessionCachedValue>(
+        ss,
+        ApplicationCacheKey::UserSession {
+            session_id: session_id.to_owned(),
+        },
+    )
+    .await
+    else {
+        bail!(BackendError::SessionExpired.to_string());
+    };
     let Some(access_link_id) = claims.access_link_id else {
         return Ok(true);
     };

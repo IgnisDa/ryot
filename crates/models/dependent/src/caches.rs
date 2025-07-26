@@ -44,6 +44,13 @@ pub struct CollectionRecommendationsCachedInput {
 }
 
 #[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserSessionCachedValue {
+    pub user_id: String,
+    pub access_link_id: Option<String>,
+}
+
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -100,12 +107,12 @@ pub type SpotifyAccessToken = String;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
-    UserSession(String),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
     PeopleSearch(PeopleSearchResponse),
+    UserSession(UserSessionCachedValue),
     SpotifyAccessToken(SpotifyAccessToken),
     MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),

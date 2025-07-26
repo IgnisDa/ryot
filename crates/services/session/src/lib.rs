@@ -1,17 +1,35 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput};
+use chrono::Duration;
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserSessionCachedValue,
+};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub async fn create_session(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
+pub async fn create_session(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    access_link_id: Option<String>,
+    expiry_duration: Option<Duration>,
+) -> Result<String> {
     let session_id = Uuid::new_v4().to_string();
     let cache_key = ApplicationCacheKey::UserSession {
         session_id: session_id.clone(),
     };
-    let cache_value = ApplicationCacheValue::UserSession(user_id);
-    cache_service::set_key(ss, cache_key, cache_value).await?;
+    let cache_value = ApplicationCacheValue::UserSession(UserSessionCachedValue {
+        user_id,
+        access_link_id,
+    });
+    match expiry_duration {
+        Some(duration) => {
+            cache_service::set_key_with_expiry(ss, cache_key, cache_value, duration).await?;
+        }
+        None => {
+            cache_service::set_key(ss, cache_key, cache_value).await?;
+        }
+    }
     Ok(session_id)
 }
 
