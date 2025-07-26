@@ -16,7 +16,6 @@ tracing = { workspace = true }
 
 common-utils = { path = "../common" }
 config = { path = "../../config" }
-jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 session-service = { path = "../../services/session" }
 

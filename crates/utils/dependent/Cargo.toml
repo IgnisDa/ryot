@@ -8,12 +8,14 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 enum_meta = { workspace = true }
 futures = { workspace = true }
+isolang = { workspace = true }
 itertools = { workspace = true }
 markdown = { workspace = true }
 nanoid = { workspace = true }
 rand = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
+rustypipe = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }
@@ -34,6 +36,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
+env-utils = { path = "../env" }
 fitness-models = { path = "../../models/fitness" }
 giant-bomb-provider = { path = "../../providers/giant-bomb" }
 google-books-provider = { path = "../../providers/google-books" }

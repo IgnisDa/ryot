@@ -26,7 +26,8 @@ use dependent_models::{
 };
 use dependent_utils::{
     calculate_user_activities_and_summary, get_entity_title_from_id_and_lot,
-    send_notification_for_user, update_metadata_and_notify_users, update_person_and_notify_users,
+    is_server_key_validated, send_notification_for_user, update_metadata_and_notify_users,
+    update_person_and_notify_users,
 };
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use futures::future::join_all;
@@ -321,7 +322,7 @@ async fn put_entities_in_partial_state(ss: &Arc<SupportingService>) -> Result<()
 }
 
 async fn queue_notifications_for_outdated_seen_entries(ss: &Arc<SupportingService>) -> Result<()> {
-    if !ss.is_server_key_validated().await? {
+    if !is_server_key_validated(ss).await? {
         return Ok(());
     }
     for state in [SeenState::InProgress, SeenState::OnAHold] {

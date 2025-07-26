@@ -7,6 +7,7 @@ use database_utils::server_key_validation_guard;
 use dependent_models::{
     BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
+use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
@@ -64,7 +65,7 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+        server_key_validation_guard(is_server_key_validated(&self.0).await?).await?;
         authentication_operations::revoke_access_link(&self.0, access_link_id).await
     }
 

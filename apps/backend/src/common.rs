@@ -163,7 +163,7 @@ pub async fn create_app_services(
         .layer(cors);
 
     let _ = try_join!(
-        supporting_service.core_details(),
+        miscellaneous_service.core_details(),
         supporting_service
             .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData)),
         supporting_service

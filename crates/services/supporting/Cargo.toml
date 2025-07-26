@@ -9,10 +9,6 @@ apalis = { workspace = true }
 bon = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-enum_meta = { workspace = true }
-isolang = { workspace = true }
-itertools = { workspace = true }
-rustypipe = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -21,11 +17,8 @@ unkey = { workspace = true }
 
 background-models = { path = "../../models/background" }
 cache-service = { path = "../../services/cache" }
-common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
 env-utils = { path = "../../utils/env" }
 file-storage-service = { path = "../../services/file-storage" }
 

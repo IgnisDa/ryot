@@ -5,6 +5,7 @@ use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{access_link, prelude::AccessLink, user};
 use database_utils::{get_enabled_users_query, server_key_validation_guard};
+use dependent_utils::is_server_key_validated;
 use jwt_service::sign;
 use media_models::{
     CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
@@ -21,7 +22,7 @@ pub async fn create_access_link(
     input: CreateAccessLinkInput,
     user_id: String,
 ) -> Result<StringIdObject> {
-    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let new_link = access_link::ActiveModel {
         user_id: ActiveValue::Set(user_id),
         name: ActiveValue::Set(input.name),
