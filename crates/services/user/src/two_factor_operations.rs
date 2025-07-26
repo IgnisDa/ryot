@@ -1,6 +1,6 @@
 use std::{
     sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use aes_gcm::{
@@ -28,15 +28,34 @@ use media_models::{
 use rand::TryRngCore;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
+use tokio::time::sleep;
 use totp_lite::{DEFAULT_STEP, Sha1, totp_custom};
 use user_models::{UserTwoFactorInformation, UserTwoFactorInformationBackupCode};
 
 use crate::authentication_operations::generate_auth_token;
 
-static TOTP_CODE_DIGITS: u32 = 6;
-static BACKUP_CODE_LENGTH: usize = 8;
-static TOTP_SECRET_LENGTH: usize = 20;
-static TOTP_TIME_STEP_SECONDS: i64 = 30;
+const TOTP_CODE_DIGITS: u32 = 6;
+const BACKUP_CODE_LENGTH: usize = 8;
+const TOTP_SECRET_LENGTH: usize = 20;
+const TOTP_TIME_STEP_SECONDS: i64 = 30;
+const TOTP_VERIFICATION_MIN_MS: u64 = 500;
+const SETUP_VERIFICATION_MIN_MS: u64 = 300;
+
+async fn verify_with_minimum_time<F, T>(min_duration: Duration, operation: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    let start = Instant::now();
+    let result = operation();
+    let elapsed = start.elapsed();
+
+    if elapsed < min_duration {
+        let sleep_time = min_duration - elapsed;
+        sleep(sleep_time).await;
+    }
+
+    result
+}
 
 pub async fn verify_two_factor(
     ss: &Arc<SupportingService>,
@@ -51,15 +70,23 @@ pub async fn verify_two_factor(
         }));
     };
 
-    let verification_result = if is_backup_code {
-        verify_backup_code_against_user(two_factor_info, &input.code)
-    } else {
-        let decrypted_secret = decrypt_totp_secret(
-            &two_factor_info.secret,
-            &ss.config.server.admin_access_token,
-        )?;
-        verify_totp_code(&input.code, &decrypted_secret)
-    };
+    let verification_result = verify_with_minimum_time(
+        Duration::from_millis(TOTP_VERIFICATION_MIN_MS),
+        || -> Result<bool> {
+            if is_backup_code {
+                return Ok(verify_backup_code_against_user(
+                    two_factor_info,
+                    &input.code,
+                ));
+            }
+            let decrypted_secret = decrypt_totp_secret(
+                &two_factor_info.secret,
+                &ss.config.server.admin_access_token,
+            )?;
+            Ok(verify_totp_code(&input.code, &decrypted_secret))
+        },
+    )
+    .await?;
 
     if !verification_result {
         return Ok(VerifyTwoFactorResult::Error(VerifyTwoFactorError {
@@ -133,7 +160,13 @@ pub async fn complete_two_factor_setup(
     let decrypted_secret =
         decrypt_totp_secret(&setup_data.secret, &ss.config.server.admin_access_token)?;
 
-    if !verify_totp_code(&input.totp_code, &decrypted_secret) {
+    let is_valid =
+        verify_with_minimum_time(Duration::from_millis(SETUP_VERIFICATION_MIN_MS), || {
+            verify_totp_code(&input.totp_code, &decrypted_secret)
+        })
+        .await;
+
+    if !is_valid {
         bail!("Invalid TOTP code");
     }
 
