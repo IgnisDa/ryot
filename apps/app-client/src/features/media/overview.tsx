@@ -233,7 +233,7 @@ export function MediaTrackerOverview() {
 						<Text className="mt-2 text-xs font-sans uppercase tracking-[2px] text-muted-foreground web:text-[14px]">
 							Media
 						</Text>
-						<Text className="mt-0.5 text-[44px] font-heading-semibold leading-[48px] tracking-[-0.5px] text-foreground web:text-[58px] web:leading-[62px]">
+						<Text className="mt-1 text-[38px] font-heading-semibold leading-[42px] tracking-[-0.5px] text-foreground web:text-[58px] web:leading-[62px]">
 							Overview
 						</Text>
 						{isDesktop ? (
