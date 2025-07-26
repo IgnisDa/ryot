@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -12,23 +12,23 @@ Add the `relationship-join` runtime reference for relationship row built-ins and
 
 ## Acceptance criteria
 
-- [ ] The runtime reference discriminator `relationship-join` is accepted in the expression schema.
-- [ ] `relationship-join` references require `joinKey` and `path`.
-- [ ] Relationship references validate that `joinKey` points to a declared relationship join in the current request context.
-- [ ] Relationship row built-in paths support `id`, `createdAt`, `sourceEntityId`, and `targetEntityId`.
-- [ ] Relationship property paths use a leading `properties` segment.
-- [ ] Relationship property paths are validated against the resolved relationship schema properties schema.
-- [ ] Unknown relationship property paths are rejected with a validation error.
-- [ ] Relationship property type inference comes from the relationship schema properties schema.
-- [ ] Relationship row and property references compile to SQL against the joined relationship payload.
-- [ ] Optional joins with no matching row return null display values for relationship references.
-- [ ] Relationship scalar values can be used in sorting when their inferred type is sortable.
-- [ ] Relationship scalar values can be used in filtering when their inferred type supports the selected predicate operator.
-- [ ] Relationship values can be referenced from top-level computed fields in entity and aggregate modes.
-- [ ] Relationship join references are rejected in event and time-series modes.
-- [ ] `tests/src/tests/query-engine.test.ts` contains new end-to-end tests covering: returning a relationship property as a field, sorting by a relationship scalar, filtering by a relationship scalar, filtering by an array-compatible relationship property using `contains`, and referencing a relationship value through a computed field.
-- [ ] `tests/src/fixtures/view-language.ts` — `parseFieldPath` is extended with a `relationship-join` namespace case so string shorthand like `relationship-join.myKey.properties.rating` can be used in tests.
-- [ ] `tests/src/fixtures/query-engine.ts` has any new builder helpers needed for relationship join requests so tests do not duplicate boilerplate.
+- [x] The runtime reference discriminator `relationship-join` is accepted in the expression schema.
+- [x] `relationship-join` references require `joinKey` and `path`.
+- [x] Relationship references validate that `joinKey` points to a declared relationship join in the current request context.
+- [x] Relationship row built-in paths support `id`, `createdAt`, `sourceEntityId`, and `targetEntityId`.
+- [x] Relationship property paths use a leading `properties` segment.
+- [x] Relationship property paths are validated against the resolved relationship schema properties schema.
+- [x] Unknown relationship property paths are rejected with a validation error.
+- [x] Relationship property type inference comes from the relationship schema properties schema.
+- [x] Relationship row and property references compile to SQL against the joined relationship payload.
+- [x] Optional joins with no matching row return null display values for relationship references.
+- [x] Relationship scalar values can be used in sorting when their inferred type is sortable.
+- [x] Relationship scalar values can be used in filtering when their inferred type supports the selected predicate operator.
+- [x] Relationship values can be referenced from top-level computed fields in entity and aggregate modes.
+- [x] Relationship join references are rejected in event and time-series modes.
+- [x] `tests/src/tests/query-engine.test.ts` contains new end-to-end tests covering: returning a relationship property as a field, sorting by a relationship scalar, filtering by a relationship scalar, filtering by an array-compatible relationship property using `contains`, and referencing a relationship value through a computed field.
+- [x] `tests/src/fixtures/view-language.ts` — `parseFieldPath` is extended with a `relationship-join` namespace case so string shorthand like `relationship.link.properties.rating` can be used in tests.
+- [x] `tests/src/fixtures/relationships.ts` provides test helpers for creating relationship schemas and rows so tests do not duplicate boilerplate.
 
 ## User stories addressed
 

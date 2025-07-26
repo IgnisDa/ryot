@@ -23,7 +23,7 @@ export function useEntitiesQuery(entitySchemaSlug: string, enabled = true) {
 	return {
 		...query,
 		entities: sortEntities(
-			query.data?.data.mode === "entities" ? query.data.data.data.items.map(toAppEntity) : [],
+			query.data?.mode === "entities" ? query.data.data.items.map(toAppEntity) : [],
 		),
 	};
 }

@@ -6,7 +6,9 @@ import {
 	type QueryEngineEventJoinLike,
 	type QueryEngineEventSchemaLike,
 	buildEventJoinMap,
+	buildRelationshipJoinMap,
 	buildSchemaMap,
+	type QueryEngineRelationshipJoinLike,
 	type QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import {
@@ -18,7 +20,7 @@ import { getSavedViewBySlugForUser } from "../saved-views/repository";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
-	RelationshipFilter,
+	LatestRelationshipJoinDefinition,
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 import { executeAggregateQuery } from "./aggregate-query-builder";
@@ -28,7 +30,7 @@ import { executeEventQuery } from "./event-query-builder";
 import {
 	loadEventSchemaSlugs,
 	loadEventSchemasBySlug,
-	loadRelationshipSchemaIds,
+	loadVisibleRelationshipJoins,
 	loadVisibleEventJoins,
 	loadVisibleSchemas,
 } from "./loaders";
@@ -54,7 +56,7 @@ type PrepareContextInput = {
 	eventSchemas: string[];
 	mode: QueryEngineRequest["mode"];
 	eventJoins: EventJoinDefinition[];
-	relationships: RelationshipFilter[];
+	relationshipJoins: LatestRelationshipJoinDefinition[];
 };
 
 export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareContextInput => {
@@ -64,21 +66,21 @@ export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareCon
 			scope: r.scope,
 			eventJoins: r.eventJoins,
 			eventSchemas: [] as string[],
-			relationships: r.relationships,
+			relationshipJoins: r.relationshipJoins,
 		}))
 		.with({ mode: "events" }, (r) => ({
 			mode: r.mode,
 			scope: r.scope,
 			eventJoins: r.eventJoins,
-			eventSchemas: r.eventSchemas,
-			relationships: [] as RelationshipFilter[],
+			eventSchemas: r.eventSchemas ?? [],
+			relationshipJoins: [] as LatestRelationshipJoinDefinition[],
 		}))
 		.with({ mode: "timeSeries" }, (r) => ({
 			mode: r.mode,
 			scope: r.scope,
-			eventSchemas: r.eventSchemas,
+			eventSchemas: r.eventSchemas ?? [],
 			eventJoins: [] as EventJoinDefinition[],
-			relationships: [] as RelationshipFilter[],
+			relationshipJoins: [] as LatestRelationshipJoinDefinition[],
 		}))
 		.exhaustive();
 };
@@ -137,8 +139,8 @@ const buildPreparedEntityRequest = (input: {
 		scope: input.queryDefinition.scope,
 		filter: input.queryDefinition.filter,
 		eventJoins: input.queryDefinition.eventJoins,
-		relationships: input.queryDefinition.relationships,
 		computedFields: input.queryDefinition.computedFields,
+		relationshipJoins: input.queryDefinition.relationshipJoins,
 	};
 };
 
@@ -149,12 +151,14 @@ const validateSavedViewDefinition = (input: {
 	schemaMap: Map<string, QueryEngineSchemaLike>;
 	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
+	relationshipJoinMap: Map<string, QueryEngineRelationshipJoinLike>;
 }) => {
 	const context = {
 		schemaMap: input.schemaMap,
 		eventJoinMap: input.eventJoinMap,
 		eventSchemaMap: input.eventSchemaMap,
 		eventSchemaSlugs: input.eventSchemaSlugs,
+		relationshipJoinMap: input.relationshipJoinMap,
 	};
 	validateQueryEngineReferences(
 		buildPreparedEntityRequest({
@@ -184,25 +188,34 @@ const prepareContext = async (input: {
 	const isEventMode = query.mode === "events" || query.mode === "timeSeries";
 	const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
 
-	const [eventJoins, relationshipSchemaIds, eventSchemaSlugs] = await Promise.all([
+	const [eventJoins, relationshipJoins, eventSchemaSlugs] = await Promise.all([
 		loadVisibleEventJoins({
 			runtimeSchemas,
 			userId: input.userId,
 			eventJoins: eventJoinsForMode,
 		}),
 		isEventMode
-			? (Promise.resolve([]) as Promise<string[]>)
-			: loadRelationshipSchemaIds(query.relationships),
+			? (Promise.resolve([]) as Promise<PreparedQueryContext["relationshipJoins"]>)
+			: loadVisibleRelationshipJoins({
+					runtimeSchemas,
+					userId: input.userId,
+					relationshipJoins: query.relationshipJoins,
+				}),
 		loadEventSchemaSlugs({ runtimeSchemas, userId: input.userId }),
 	]);
 
-	const eventSchemaMap = await loadEventSchemasBySlug({
-		runtimeSchemas,
-		userId: input.userId,
-		eventSchemaSlugs: isEventMode ? query.eventSchemas : [...eventSchemaSlugs],
-	});
+	const eventSchemaMap = isEventMode
+		? await loadEventSchemasBySlug({
+				runtimeSchemas,
+				userId: input.userId,
+				eventSchemaSlugs:
+					query.eventSchemas.length > 0 ? query.eventSchemas : [...eventSchemaSlugs],
+			})
+		: undefined;
+
 	const schemaMap = buildSchemaMap(runtimeSchemas);
 	const eventJoinMap = buildEventJoinMap(eventJoins);
+	const relationshipJoinMap = buildRelationshipJoinMap(relationshipJoins);
 
 	return {
 		schemaMap,
@@ -211,7 +224,8 @@ const prepareContext = async (input: {
 		runtimeSchemas,
 		eventSchemaMap,
 		eventSchemaSlugs,
-		relationshipSchemaIds,
+		relationshipJoins,
+		relationshipJoinMap,
 	};
 };
 
@@ -222,32 +236,69 @@ export const prepareAndExecute = async (input: {
 	const query = normalizeRequestPerMode(input.request);
 
 	const context = await prepareContext({ userId: input.userId, query });
+
+	const eventSchemaMap =
+		context.eventSchemaMap ??
+		(hasEventAggregateRef(input.request)
+			? await loadEventSchemasBySlug({
+					runtimeSchemas: context.runtimeSchemas,
+					userId: input.userId,
+					eventSchemaSlugs: [...context.eventSchemaSlugs],
+				})
+			: new Map());
+
 	validateQueryEngineReferences(input.request, {
+		eventSchemaMap,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
-		eventSchemaMap: context.eventSchemaMap,
 		eventSchemaSlugs: context.eventSchemaSlugs,
+		relationshipJoinMap: context.relationshipJoinMap,
 		supportsPrimaryEventRefs:
 			input.request.mode === "events" || input.request.mode === "timeSeries",
 	});
 
 	return match(input.request)
 		.with({ mode: "entities" }, (request) =>
-			executePreparedQuery({ request, userId: input.userId, context }),
+			executePreparedQuery({
+				request,
+				userId: input.userId,
+				context: { ...context, eventSchemaMap },
+			}),
 		)
 		.with({ mode: "aggregate" }, (request) =>
-			executeAggregateQuery({ request, userId: input.userId, context }),
+			executeAggregateQuery({
+				request,
+				userId: input.userId,
+				context: { ...context, eventSchemaMap },
+			}),
 		)
 		.with({ mode: "events" }, (request) =>
-			executeEventQuery({ request, userId: input.userId, context }),
+			executeEventQuery({ request, userId: input.userId, context: { ...context, eventSchemaMap } }),
 		)
 		.with({ mode: "timeSeries" }, (request) =>
-			executeTimeSeriesQuery({ request, userId: input.userId, context }),
+			executeTimeSeriesQuery({
+				request,
+				userId: input.userId,
+				context: { ...context, eventSchemaMap },
+			}),
 		)
 		.exhaustive();
 };
 
-export const prepareForValidation = async (input: {
+const hasEventAggregateRef = (obj: unknown): boolean => {
+	if (obj === null || typeof obj !== "object") {
+		return false;
+	}
+	if (Array.isArray(obj)) {
+		return obj.some(hasEventAggregateRef);
+	}
+	if ("type" in obj && obj.type === "event-aggregate") {
+		return true;
+	}
+	return Object.values(obj).some(hasEventAggregateRef);
+};
+
+export const loadAndValidateQueryContext = async (input: {
 	userId: string;
 	queryDefinition: SavedViewQueryDefinition;
 	displayConfiguration: DisplayConfiguration;
@@ -259,15 +310,26 @@ export const prepareForValidation = async (input: {
 			eventSchemas: [],
 			scope: input.queryDefinition.scope,
 			eventJoins: input.queryDefinition.eventJoins,
-			relationships: input.queryDefinition.relationships,
+			relationshipJoins: input.queryDefinition.relationshipJoins,
 		},
 	});
+
+	const eventSchemaMap =
+		hasEventAggregateRef(input.queryDefinition) || hasEventAggregateRef(input.displayConfiguration)
+			? await loadEventSchemasBySlug({
+					userId: input.userId,
+					runtimeSchemas: context.runtimeSchemas,
+					eventSchemaSlugs: [...context.eventSchemaSlugs],
+				})
+			: new Map();
+
 	validateSavedViewDefinition({
+		eventSchemaMap,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
-		eventSchemaMap: context.eventSchemaMap,
 		queryDefinition: input.queryDefinition,
 		eventSchemaSlugs: context.eventSchemaSlugs,
+		relationshipJoinMap: context.relationshipJoinMap,
 		displayConfiguration: input.displayConfiguration,
 	});
 };
@@ -294,16 +356,26 @@ export const prepareSavedView = async (input: {
 			eventSchemas: [],
 			scope: queryDefinition.scope,
 			eventJoins: queryDefinition.eventJoins,
-			relationships: queryDefinition.relationships,
+			relationshipJoins: queryDefinition.relationshipJoins,
 		},
 	});
 
+	const eventSchemaMap =
+		hasEventAggregateRef(queryDefinition) || hasEventAggregateRef(savedView.displayConfiguration)
+			? await loadEventSchemasBySlug({
+					userId: input.userId,
+					runtimeSchemas: context.runtimeSchemas,
+					eventSchemaSlugs: [...context.eventSchemaSlugs],
+				})
+			: new Map();
+
 	validateSavedViewDefinition({
+		eventSchemaMap,
 		queryDefinition,
 		schemaMap: context.schemaMap,
 		eventJoinMap: context.eventJoinMap,
-		eventSchemaMap: context.eventSchemaMap,
 		eventSchemaSlugs: context.eventSchemaSlugs,
+		relationshipJoinMap: context.relationshipJoinMap,
 		displayConfiguration: savedView.displayConfiguration,
 	});
 
@@ -321,7 +393,7 @@ export const prepareSavedView = async (input: {
 			return executePreparedQuery({
 				request,
 				userId: input.userId,
-				context,
+				context: { ...context, eventSchemaMap },
 			});
 		},
 	};

@@ -2,6 +2,7 @@ import type { RuntimeRef } from "@ryot/ts-utils";
 
 import type { QueryEngineRequest } from "~/modules/query-engine";
 import type { DisplayConfiguration } from "~/modules/saved-views";
+import type { LatestRelationshipJoinDefinition } from "~/modules/saved-views/schemas";
 
 import {
 	buildComputedFieldMap,
@@ -33,9 +34,14 @@ import {
 	getEventSchemaColumnPropertyDefinition,
 	getPropertyDefinition,
 	getPropertyType,
+	getRelationshipJoinColumnPropertyDefinition,
+	getRelationshipJoinEntitySchema,
+	getRelationshipJoinForReference,
+	getRelationshipJoinPropertyType,
 	getSchemaForReference,
 	type QueryEngineEventJoinLike,
 	type QueryEngineEventSchemaLike,
+	type QueryEngineRelationshipJoinLike,
 	type QueryEngineReferenceContext,
 	type QueryEngineSchemaLike,
 	serializeComparablePropertyDefinition,
@@ -44,6 +50,16 @@ import {
 
 type ValidationSchemaRow = QueryEngineSchemaLike;
 type ValidationEventJoinRow = QueryEngineEventJoinLike;
+
+const validateBuiltinPathHasSingleSegment = (input: { path: string[]; label: string }): void => {
+	if (input.path.length <= 1) {
+		return;
+	}
+
+	throw new QueryEngineValidationError(
+		`${input.label} '${input.path.join(".")}' does not support nested paths`,
+	);
+};
 
 const getEventPropertyDefinition = (
 	eventSchemas: QueryEngineEventSchemaLike[],
@@ -113,6 +129,7 @@ const validateEventReference = (
 	if (!column) {
 		throw new QueryEngineValidationError("Event reference path must not be empty");
 	}
+	validateBuiltinPathHasSingleSegment({ path: reference.path, label: "Event column" });
 
 	if (!validBuiltins.has(column)) {
 		throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
@@ -185,6 +202,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		if (!column) {
 			throw new QueryEngineValidationError("Entity reference path must not be empty");
 		}
+		validateBuiltinPathHasSingleSegment({ path: reference.path, label: "Entity column" });
 		if (column === "image") {
 			return;
 		}
@@ -213,9 +231,13 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				`Event schema '${reference.eventSchemaSlug}' is not available for the requested entity schemas`,
 			);
 		}
-		if (reference.path[0] !== "properties") {
+		if (reference.aggregation === "count") {
+			return;
+		}
+
+		if (reference.path?.[0] !== "properties") {
 			throw new QueryEngineValidationError(
-				`Event aggregate path must start with 'properties' (received '${reference.path[0]}')`,
+				`Event aggregate path must start with 'properties' (received '${reference.path?.[0]}')`,
 			);
 		}
 
@@ -232,10 +254,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			reference.eventSchemaSlug,
 			propertyPath,
 		);
-		if (
-			reference.aggregation !== "count" &&
-			!["integer", "number"].includes(propertyDefinition.type)
-		) {
+		if (!["integer", "number"].includes(propertyDefinition.type)) {
 			throw new QueryEngineValidationError(
 				`${reference.aggregation} event aggregate requires a numeric property, received '${propertyDefinition.type}'`,
 			);
@@ -293,6 +312,90 @@ export const validateRuntimeReferenceAgainstSchemas = (
 		return;
 	}
 
+	if (reference.type === "relationship-join") {
+		if (primaryEventMode) {
+			throw new QueryEngineValidationError(
+				"Relationship join references are not supported in this query mode",
+			);
+		}
+
+		const join = getRelationshipJoinForReference(
+			context.relationshipJoinMap ?? new Map(),
+			reference,
+		);
+
+		const [pathRoot] = reference.path;
+
+		if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
+			const [, column, ...rest] = reference.path;
+			const sideName = pathRoot === "sourceEntity" ? "source" : "target";
+			if (!column) {
+				throw new QueryEngineValidationError(
+					`Related entity reference path must not be empty after '${pathRoot}'`,
+				);
+			}
+			if (column === "image") {
+				validateBuiltinPathHasSingleSegment({
+					label: "Related entity column",
+					path: reference.path.slice(1),
+				});
+				return;
+			}
+			if (column === "properties") {
+				const propertyPath = rest;
+				if (!propertyPath.length) {
+					throw new QueryEngineValidationError(
+						`Related entity 'properties' reference requires at least one property segment`,
+					);
+				}
+				const entitySchema = getRelationshipJoinEntitySchema(join, pathRoot);
+				if (!entitySchema) {
+					throw new QueryEngineValidationError(
+						`Related entity properties under '${pathRoot}.properties' require the ${sideName} entity schema to be defined on the relationship schema '${join.relationshipSchemaSlug}'`,
+					);
+				}
+				const propertyType = getPropertyType(entitySchema, propertyPath);
+				if (!propertyType) {
+					throw new QueryEngineValidationError(
+						`Property '${propertyPath.join(".")}' not found in ${sideName} entity schema '${entitySchema.slug}'`,
+					);
+				}
+				return;
+			}
+			if (!getEntityColumnPropertyDefinition(column)) {
+				throw new QueryEngineValidationError(
+					`Unsupported related entity column '${pathRoot}.${column}'`,
+				);
+			}
+			validateBuiltinPathHasSingleSegment({
+				label: "Related entity column",
+				path: reference.path.slice(1),
+			});
+			return;
+		}
+
+		if (pathRoot === "properties") {
+			const propertyPath = reference.path.slice(1);
+			getRelationshipJoinPropertyType(join, propertyPath);
+			return;
+		}
+
+		const [column] = reference.path;
+		if (!column) {
+			throw new QueryEngineValidationError("Relationship join reference path must not be empty");
+		}
+		if (!getRelationshipJoinColumnPropertyDefinition(column)) {
+			throw new QueryEngineValidationError(
+				`Unsupported relationship join column 'relationship.${reference.joinKey}.${column}'`,
+			);
+		}
+		validateBuiltinPathHasSingleSegment({
+			path: reference.path,
+			label: "Relationship join column",
+		});
+		return;
+	}
+
 	const join = getEventJoinForReference(context.eventJoinMap, reference);
 
 	if (reference.path[0] === "properties") {
@@ -310,6 +413,7 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			`Unsupported event join column 'event.${reference.joinKey}.${column}'`,
 		);
 	}
+	validateBuiltinPathHasSingleSegment({ path: reference.path, label: "Event join column" });
 };
 
 const collectComputedFieldChain = (
@@ -529,10 +633,107 @@ const validateComputedFields = (input: {
 	return computedFieldMap;
 };
 
+const validateJoinLocalFilterExpression = (
+	expression: ViewExpression,
+	joinKey: string,
+	join: QueryEngineRelationshipJoinLike,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
+): void => {
+	switch (expression.type) {
+		case "literal":
+			return;
+		case "reference": {
+			if (expression.reference.type !== "relationship-join") {
+				throw new QueryEngineValidationError(
+					`Join-local filter may only reference the current relationship join, received '${expression.reference.type}'`,
+				);
+			}
+			if (expression.reference.joinKey !== joinKey) {
+				throw new QueryEngineValidationError(
+					`Join-local filter cannot reference relationship join '${expression.reference.joinKey}'`,
+				);
+			}
+			const [pathRoot] = expression.reference.path;
+			if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
+				throw new QueryEngineValidationError(
+					`Join-local filter cannot reference related entity data '${pathRoot}' on join '${expression.reference.joinKey}'`,
+				);
+			}
+			if (pathRoot === "properties") {
+				const propertyPath = expression.reference.path.slice(1);
+				getRelationshipJoinPropertyType(join, propertyPath);
+				return;
+			}
+			validateBuiltinPathHasSingleSegment({
+				path: expression.reference.path,
+				label: "Relationship join column",
+			});
+			return;
+		}
+		case "coalesce":
+			for (const value of expression.values) {
+				validateJoinLocalFilterExpression(value, joinKey, join, context);
+			}
+			return;
+		case "arithmetic":
+			validateJoinLocalFilterExpression(expression.left, joinKey, join, context);
+			validateJoinLocalFilterExpression(expression.right, joinKey, join, context);
+			return;
+		case "round":
+		case "floor":
+		case "integer":
+		case "transform":
+			validateJoinLocalFilterExpression(expression.expression, joinKey, join, context);
+			return;
+		case "concat":
+			for (const value of expression.values) {
+				validateJoinLocalFilterExpression(value, joinKey, join, context);
+			}
+			return;
+		case "conditional":
+			validateJoinLocalFilterExpression(expression.whenTrue, joinKey, join, context);
+			validateJoinLocalFilterExpression(expression.whenFalse, joinKey, join, context);
+			validateJoinLocalFilterPredicate(expression.condition, joinKey, join, context);
+			return;
+	}
+};
+
+const validateJoinLocalFilterPredicate = (
+	predicate: ViewPredicate,
+	joinKey: string,
+	join: QueryEngineRelationshipJoinLike,
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
+): void => {
+	validateViewPredicateAgainstSchemas({
+		context,
+		predicate,
+		validBuiltins: sortFilterBuiltins,
+		validateExpression: (expression) =>
+			validateJoinLocalFilterExpression(expression, joinKey, join, context),
+	});
+};
+
+const validateRelationshipJoinLocalFilters = (
+	relationshipJoins: LatestRelationshipJoinDefinition[],
+	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
+) => {
+	for (const join of relationshipJoins) {
+		if (join.filter) {
+			const loadedJoin = context.relationshipJoinMap?.get(join.key);
+			if (!loadedJoin) {
+				throw new QueryEngineValidationError(`Relationship join '${join.key}' not found`);
+			}
+			validateJoinLocalFilterPredicate(join.filter, join.key, loadedJoin, context);
+		}
+	}
+};
+
 const validateEntityQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "entities" }>,
 	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
+	validateRelationshipJoinLocalFilters(request.relationshipJoins, context);
+
 	const computedFieldMap = validateComputedFields({
 		context,
 		validBuiltins: displayBuiltins,
@@ -577,6 +778,8 @@ const validateAggregateQueryEngineReferences = (
 	request: Extract<QueryEngineRequest, { mode: "aggregate" }>,
 	context: QueryEngineReferenceContext<ValidationSchemaRow, ValidationEventJoinRow>,
 ): void => {
+	validateRelationshipJoinLocalFilters(request.relationshipJoins, context);
+
 	const computedFieldMap = validateComputedFields({
 		context,
 		validBuiltins: displayBuiltins,

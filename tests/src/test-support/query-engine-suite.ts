@@ -185,7 +185,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
-			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
+			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "callout")).toEqual({
 			key: "callout",
@@ -210,10 +210,10 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		expect(getQueryEngineFieldOrThrow(listResult.data.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
-			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
+			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "image").value).toEqual({
-			kind: "remote",
+			type: "remote",
 			url: "https://example.com/alpha-phone.png",
 		});
 	});
@@ -257,7 +257,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		expect(getQueryEngineFieldOrThrow(data.data.items[0], "image")).toEqual({
 			key: "image",
 			kind: "image",
-			value: { kind: "remote", url: "https://example.com/alpha-phone.png" },
+			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
 		});
 	});
 

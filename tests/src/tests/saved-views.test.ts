@@ -62,11 +62,7 @@ describe("Saved views E2E", () => {
 			isBuiltin: true,
 			name: "Collections",
 			accentColor: "#F59E0B",
-			queryDefinition: {
-				filter: null,
-				eventJoins: [],
-				scope: ["collection"],
-			},
+			queryDefinition: { filter: null, eventJoins: [], scope: ["collection"] },
 			displayConfiguration: {
 				table: {
 					columns: [
@@ -160,8 +156,8 @@ describe("Saved views E2E", () => {
 				sort: allShowsQD.sort,
 				scope: allShowsQD.scope,
 				eventJoins: allShowsQD.eventJoins,
-				relationships: allShowsQD.relationships,
 				computedFields: allShowsQD.computedFields,
+				relationshipJoins: allShowsQD.relationshipJoins,
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -252,8 +248,8 @@ describe("Saved views E2E", () => {
 				sort: queryDefinition.sort,
 				scope: queryDefinition.scope,
 				eventJoins: queryDefinition.eventJoins,
-				relationships: queryDefinition.relationships,
 				computedFields: queryDefinition.computedFields,
+				relationshipJoins: queryDefinition.relationshipJoins,
 				filter: {
 					operator: "eq",
 					type: "comparison",
@@ -284,8 +280,24 @@ describe("Saved views E2E", () => {
 
 		const userAQD = userAView.queryDefinition;
 		const userBQD = userBView.queryDefinition;
-		expect(userAQD.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
-		expect(userBQD.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
+		expect(userAQD.relationshipJoins).toEqual([
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing",
+				kind: "latestRelationship",
+				relationshipSchemaSlug: "in-library",
+			},
+		]);
+		expect(userBQD.relationshipJoins).toEqual([
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing",
+				kind: "latestRelationship",
+				relationshipSchemaSlug: "in-library",
+			},
+		]);
 	});
 
 	it("supports the full create-get-update-clone-delete lifecycle", async () => {
@@ -365,12 +377,12 @@ describe("Saved views E2E", () => {
 		expect(queryMode).toBe("entities");
 		const updatedCloneQD = updatedCloneInput.queryDefinition as {
 			eventJoins?: unknown[];
-			relationships?: unknown[];
+			relationshipJoins?: unknown[];
 		};
 		expect(queryDefinitionWithoutMode).toEqual({
 			...updatedCloneInput.queryDefinition,
 			eventJoins: updatedCloneQD.eventJoins ?? [],
-			relationships: updatedCloneQD.relationships ?? [],
+			relationshipJoins: updatedCloneQD.relationshipJoins ?? [],
 		});
 		expect(fetchedUpdatedClone.displayConfiguration).toEqual(
 			updatedCloneInput.displayConfiguration,
@@ -770,8 +782,8 @@ describe("Saved views E2E", () => {
 					eventJoins: [],
 					scope: ["book"],
 					mode: "aggregate",
-					relationships: [],
 					computedFields: [],
+					relationshipJoins: [],
 					aggregations: [{ key: "total", aggregation: { type: "count" } }],
 				} as unknown as NonNullable<SavedViewBodyOverrides["queryDefinition"]>,
 			}),
