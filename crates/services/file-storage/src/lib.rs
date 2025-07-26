@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::{Client, presigning::PresigningConfig};
 use chrono::Duration;
 use nanoid::nanoid;
 
 #[derive(Debug)]
 pub struct FileStorageService {
-    s3_client: aws_sdk_s3::Client,
+    s3_client: Client,
     bucket_name: String,
 }
 
 impl FileStorageService {
-    pub fn new(s3_client: aws_sdk_s3::Client, bucket_name: String) -> Self {
+    pub fn new(s3_client: Client, bucket_name: String) -> Self {
         Self {
             s3_client,
             bucket_name,
