@@ -81,7 +81,9 @@ describe("hostFunctionRegistry", () => {
 		const result = await fn("GET", "/system/health");
 
 		expect(
-			(result as { success: boolean }).success === false &&
+			// oxlint-disable-next-line no-unsafe-type-assertion
+			!(result as { success: boolean }).success &&
+				// oxlint-disable-next-line no-unsafe-type-assertion
 				(result as { error: string }).error.includes(
 					"Internal app request handler is not registered",
 				),

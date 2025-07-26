@@ -25,6 +25,7 @@ const parseAppApiCallOptions = (options: unknown) => {
 	}
 
 	const parsed: AppApiCallOptions = {};
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const optionRecord = options as Record<string, unknown>;
 
 	if ("body" in optionRecord) {
@@ -39,6 +40,7 @@ const parseAppApiCallOptions = (options: unknown) => {
 			!Array.isArray(optionRecord.headers) &&
 			optionRecord.headers !== null
 		) {
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			const headerRecord = optionRecord.headers as Record<string, unknown>;
 			const headers: Record<string, string> = {};
 

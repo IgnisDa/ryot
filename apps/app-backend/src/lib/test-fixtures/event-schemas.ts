@@ -31,20 +31,23 @@ export const createListedEventSchema = (
 export const createEventSchemaDeps = (
 	overrides: Partial<EventSchemaServiceDeps> = {},
 ): EventSchemaServiceDeps => ({
-	getEventSchemaBySlugForUser: async () => undefined,
-	listEventSchemasByEntitySchemaForUser: async () => [createListedEventSchema()],
-	getEntitySchemaScopeForUser: async (input) => ({
-		slug: "custom",
-		isBuiltin: false,
-		userId: input.userId,
-		id: input.entitySchemaId,
-	}),
-	createEventSchemaForUser: async (input) =>
-		createListedEventSchema({
-			name: input.name,
-			slug: input.slug,
-			entitySchemaId: input.entitySchemaId,
-			propertiesSchema: input.propertiesSchema,
+	getEventSchemaBySlugForUser: () => Promise.resolve(undefined),
+	listEventSchemasByEntitySchemaForUser: () => Promise.resolve([createListedEventSchema()]),
+	getEntitySchemaScopeForUser: (input) =>
+		Promise.resolve({
+			slug: "custom",
+			isBuiltin: false,
+			userId: input.userId,
+			id: input.entitySchemaId,
 		}),
+	createEventSchemaForUser: (input) =>
+		Promise.resolve(
+			createListedEventSchema({
+				name: input.name,
+				slug: input.slug,
+				entitySchemaId: input.entitySchemaId,
+				propertiesSchema: input.propertiesSchema,
+			}),
+		),
 	...overrides,
 });

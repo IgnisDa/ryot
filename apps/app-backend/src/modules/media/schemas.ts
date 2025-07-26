@@ -91,7 +91,7 @@ const builtInMediaOverviewLibraryItemSchema = z
 	})
 	.strict();
 
-const createOverviewSectionSchema = <TItem extends z.ZodTypeAny>(item: TItem) =>
+const createOverviewSectionSchema = <TItem extends z.ZodType>(item: TItem) =>
 	z.object({ items: z.array(item), count: z.number().int().nonnegative() }).strict();
 
 const builtInMediaOverviewUpNextSectionSchema = createOverviewSectionSchema(

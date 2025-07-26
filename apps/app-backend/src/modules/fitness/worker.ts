@@ -52,12 +52,13 @@ const normalizeEquipmentValue = (value: string | null | undefined) => {
 	}
 
 	const lower = value.toLowerCase();
-	return equipmentMap[lower as keyof typeof equipmentMap] ?? normalizeSlugValue(value);
+	return (equipmentMap as Record<string, string | undefined>)[lower] ?? normalizeSlugValue(value);
 };
 
 const normalizeMuscleArray = (arr: unknown): string[] =>
 	Array.isArray(arr)
-		? (arr as string[]).flatMap((m) => {
+		? // oxlint-disable-next-line no-unsafe-type-assertion
+			(arr as string[]).flatMap((m) => {
 				const n = normalizeSlugValue(m);
 				return n ? [n] : [];
 			})
@@ -80,6 +81,7 @@ export const buildExerciseSeedEntityValues = (
 	ex: Record<string, unknown>,
 	now: Date,
 ) => {
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const category = ex.category as string | undefined;
 	const kind = category ? categoryToKind(category) : null;
 	if (!kind) {
@@ -97,7 +99,10 @@ export const buildExerciseSeedEntityValues = (
 		};
 	}
 
-	const rawImages = Array.isArray(ex.images) ? (ex.images as string[]) : [];
+	const rawImages = Array.isArray(ex.images)
+		? // oxlint-disable-next-line no-unsafe-type-assertion
+			(ex.images as string[])
+		: [];
 	const images = rawImages.map((path) => ({
 		kind: "remote" as const,
 		url: `${IMAGES_PREFIX_URL}/${path}`,
@@ -112,10 +117,14 @@ export const buildExerciseSeedEntityValues = (
 		images,
 		muscles,
 		source: "github",
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		force: normalizeSlugValue(ex.force as string | null | undefined),
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		level: normalizeSlugValue(ex.level as string | null | undefined),
 		instructions: Array.isArray(ex.instructions) ? ex.instructions : [],
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		mechanic: normalizeSlugValue(ex.mechanic as string | null | undefined),
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		equipment: normalizeEquipmentValue(ex.equipment as string | null | undefined),
 	});
 	if (!properties) {
@@ -151,6 +160,7 @@ export const processExerciseSeedJob = async () => {
 		throw new Error(`Failed to fetch exercises: ${response.statusText}`);
 	}
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const exercises = (await response.json()) as Array<Record<string, unknown>>;
 	const now = dayjs().toDate();
 	let seeded = 0;

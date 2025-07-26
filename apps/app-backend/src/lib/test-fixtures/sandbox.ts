@@ -11,16 +11,16 @@ const sandboxScriptDefault = {
 export const createSandboxDeps = (
 	overrides: Partial<SandboxServiceDeps> = {},
 ): SandboxServiceDeps => ({
-	getSandboxJobByIdForUser: async () => null,
-	getSandboxScriptForUser: async () => undefined,
-	enqueueSandboxJob: async () => ({ jobId: "job_1" }),
+	getSandboxJobByIdForUser: () => Promise.resolve(null),
+	getSandboxScriptForUser: () => Promise.resolve(undefined),
+	enqueueSandboxJob: () => Promise.resolve({ jobId: "job_1" }),
 	...overrides,
 });
 
 export const createSandboxScriptDeps = (
 	overrides: Partial<SandboxScriptServiceDeps> = {},
 ): SandboxScriptServiceDeps => ({
-	getSandboxScriptBySlugForUser: async () => undefined,
-	createSandboxScriptForUser: async () => sandboxScriptDefault,
+	getSandboxScriptBySlugForUser: () => Promise.resolve(undefined),
+	createSandboxScriptForUser: () => Promise.resolve(sandboxScriptDefault),
 	...overrides,
 });

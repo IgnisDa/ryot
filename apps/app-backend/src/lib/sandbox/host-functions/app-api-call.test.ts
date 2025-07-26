@@ -6,7 +6,7 @@ import { createAppApiCallHostFunction } from "./app-api-call";
 
 describe("appApiCall", () => {
 	it("returns validation failure for a blank userId", async () => {
-		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
+		const fn = createAppApiCallHostFunction(() => Promise.resolve(Response.json({ ok: true })));
 
 		expect(await fn({ userId: "   " }, "GET", "/system/health")).toEqual(
 			apiFailure("appApiCall requires a non-empty userId in context"),
@@ -14,7 +14,7 @@ describe("appApiCall", () => {
 	});
 
 	it("returns validation failure for a blank method", async () => {
-		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
+		const fn = createAppApiCallHostFunction(() => Promise.resolve(Response.json({ ok: true })));
 
 		expect(await fn({ userId: "user_1" }, "   ", "/system/health")).toEqual(
 			apiFailure("appApiCall expects a non-empty method string"),
@@ -22,7 +22,7 @@ describe("appApiCall", () => {
 	});
 
 	it("returns validation failure for a blank path", async () => {
-		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
+		const fn = createAppApiCallHostFunction(() => Promise.resolve(Response.json({ ok: true })));
 
 		expect(await fn({ userId: "user_1" }, "GET", "   ")).toEqual(
 			apiFailure("appApiCall expects a non-empty path string"),
@@ -30,7 +30,7 @@ describe("appApiCall", () => {
 	});
 
 	it("rejects forbidden auth headers", async () => {
-		const fn = createAppApiCallHostFunction(async () => Response.json({ ok: true }));
+		const fn = createAppApiCallHostFunction(() => Promise.resolve(Response.json({ ok: true })));
 
 		expect(
 			await fn({ userId: "user_1" }, "GET", "/system/health", {
@@ -40,7 +40,7 @@ describe("appApiCall", () => {
 	});
 
 	it("maps successful JSON responses", async () => {
-		const fn = createAppApiCallHostFunction(async (input) => {
+		const fn = createAppApiCallHostFunction((input) => {
 			expect(input).toEqual({
 				method: "POST",
 				userId: "user_1",
@@ -49,9 +49,8 @@ describe("appApiCall", () => {
 				path: "/api/query-engine/execute",
 			});
 
-			return Response.json(
-				{ data: { items: [] } },
-				{ status: 200, headers: { "x-source": "test" } },
+			return Promise.resolve(
+				Response.json({ data: { items: [] } }, { status: 200, headers: { "x-source": "test" } }),
 			);
 		});
 
@@ -74,13 +73,14 @@ describe("appApiCall", () => {
 	});
 
 	it("maps non-json responses as text", async () => {
-		const fn = createAppApiCallHostFunction(
-			async () =>
+		const fn = createAppApiCallHostFunction(() =>
+			Promise.resolve(
 				new Response("ok", {
 					status: 200,
 					statusText: "OK",
 					headers: { "content-type": "text/plain" },
 				}),
+			),
 		);
 
 		expect(await fn({ userId: "user_1" }, "GET", "/system/metrics")).toEqual(
@@ -94,10 +94,12 @@ describe("appApiCall", () => {
 	});
 
 	it("maps non-2xx responses into failures with response data", async () => {
-		const fn = createAppApiCallHostFunction(async () =>
-			Response.json(
-				{ error: { message: "Bad input" } },
-				{ status: 400, statusText: "Bad Request" },
+		const fn = createAppApiCallHostFunction(() =>
+			Promise.resolve(
+				Response.json(
+					{ error: { message: "Bad input" } },
+					{ status: 400, statusText: "Bad Request" },
+				),
 			),
 		);
 
@@ -112,7 +114,7 @@ describe("appApiCall", () => {
 	});
 
 	it("returns failures from internal request validation", async () => {
-		const fn = createAppApiCallHostFunction(async () => {
+		const fn = createAppApiCallHostFunction(() => {
 			throw new Error("appApiCall cannot target /api/auth routes");
 		});
 

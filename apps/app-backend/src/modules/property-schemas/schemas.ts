@@ -29,14 +29,16 @@ const validRegexSchema = z.string().refine(
 	{ message: "Pattern must be a valid regular expression" },
 );
 
-const withValidationRange = <TSchema extends z.ZodTypeAny>(
+const withValidationRange = <TSchema extends z.ZodType>(
 	schema: TSchema,
 	minKey: string,
 	maxKey: string,
 ) =>
 	schema.refine(
 		(value) => {
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			const min = value[minKey as keyof typeof value];
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			const max = value[maxKey as keyof typeof value];
 			if (typeof min !== "number" || typeof max !== "number") {
 				return true;
@@ -87,12 +89,12 @@ const hasValidNumericBounds = (value: {
 const numberValidationSchema = withValidationRange(
 	z
 		.strictObject({
-			maximum: z.number().finite().optional(),
-			minimum: z.number().finite().optional(),
+			maximum: z.number().optional(),
+			minimum: z.number().optional(),
 			required: z.literal(true).optional(),
 			multipleOf: z.number().positive().optional(),
-			exclusiveMaximum: z.number().finite().optional(),
-			exclusiveMinimum: z.number().finite().optional(),
+			exclusiveMaximum: z.number().optional(),
+			exclusiveMinimum: z.number().optional(),
 		})
 		.refine(
 			(value) => {
@@ -155,8 +157,8 @@ const numberTransformSchema = z
 
 const rulePathSchema = z.array(z.string().trim().min(1)).min(1).openapi("AppSchemaRulePath");
 
-const ruleValueSchema: z.ZodType<AppSchemaRuleValue> = z
-	.union([z.boolean(), z.null(), z.number().finite(), z.string()])
+const ruleValueSchema = z
+	.union([z.boolean(), z.null(), z.number(), z.string()])
 	.openapi("AppSchemaRuleValue");
 
 export let propertyDefinitionSchema: z.ZodType<AppPropertyDefinition>;
@@ -264,6 +266,7 @@ const enumArrayPropertySchema = z
 	})
 	.openapi("AppEnumArrayProperty");
 
+// oxlint-disable-next-line no-unsafe-type-assertion
 propertyDefinitionSchema = z
 	.lazy(() =>
 		z.discriminatedUnion("type", [
@@ -279,6 +282,7 @@ propertyDefinitionSchema = z
 			enumArrayPropertySchema,
 		]),
 	)
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	.openapi("AppPropertyDefinition") as unknown as z.ZodType<AppPropertyDefinition>;
 
 const ruleConditionPropertySchema = z
@@ -327,6 +331,7 @@ const ruleConditionNotInSchema = z
 	})
 	.openapi("AppSchemaNotInRuleCondition");
 
+// oxlint-disable-next-line no-unsafe-type-assertion
 appSchemaRuleConditionSchema = z
 	.lazy(() =>
 		z.discriminatedUnion("operator", [
@@ -346,6 +351,7 @@ appSchemaRuleConditionSchema = z
 			}),
 		]),
 	)
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	.openapi("AppSchemaRuleCondition") as unknown as z.ZodType<AppSchemaRuleCondition>;
 
 const appSchemaRuleSchema = z

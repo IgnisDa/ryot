@@ -17,7 +17,7 @@ type TestSandboxExecutor = {
 	) => Promise<unknown>;
 };
 
-const createScriptFetcher = async () => ({
+const createScriptFetcher = () => ({
 	code: autoCompleteOnFullProgressScriptCode,
 	metadata: { allowedHostFunctions: ["appApiCall"] },
 });
@@ -38,10 +38,12 @@ const createTriggerContext = (overrides: Record<string, unknown> = {}) => ({
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("creates a completion event after anime coverage is complete", async () => {
 		const service = new SandboxService();
+		// oxlint-disable-next-line no-unsafe-type-assertion
 		const testService = service as unknown as TestSandboxExecutor;
 		const calls: Array<{ method: unknown; path: unknown; options: unknown }> = [];
 
 		testService.execute = async (options: unknown) => {
+			// oxlint-disable-next-line no-unsafe-type-assertion
 			const executeOptions = options as {
 				code: string;
 				driverName: string;
@@ -52,24 +54,24 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			};
 
 			const driverRegistry: Record<string, (context: unknown) => Promise<unknown>> = {};
-			const respond = async (method: unknown, path: unknown, apiOptions?: unknown) => {
+			const respond = (method: unknown, path: unknown, apiOptions?: unknown) => {
 				calls.push({ method, path, options: apiOptions });
 				if (path === "/event-schemas?entitySchemaId=entity_schema_1") {
-					return {
+					return Promise.resolve({
 						success: true,
 						data: {
 							body: { data: [{ id: "complete_schema", slug: "complete" }] },
 						},
-					};
+					});
 				}
 				if (path === "/entities/entity_1") {
-					return {
+					return Promise.resolve({
 						success: true,
 						data: { body: { data: { properties: { episodes: 2 } } } },
-					};
+					});
 				}
 				if (path === "/events?entityId=entity_1&eventSchemaSlug=progress") {
-					return {
+					return Promise.resolve({
 						success: true,
 						data: {
 							body: {
@@ -87,15 +89,16 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 								],
 							},
 						},
-					};
+					});
 				}
 				if (method === "POST" && path === "/events") {
-					return { success: true, data: { body: { data: { count: 1 } } } };
+					return Promise.resolve({ success: true, data: { body: { data: { count: 1 } } } });
 				}
 
 				throw new Error(`Unexpected appApiCall: ${String(method)} ${String(path)}`);
 			};
 
+			// oxlint-disable-next-line no-implied-eval
 			new Function("driver", "appApiCall", executeOptions.code)(function driver(
 				name: string,
 				fn: (context: unknown) => Promise<unknown>,
@@ -118,7 +121,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 					properties: { progressPercent: 100, animeEpisode: 2 },
 				}),
 			},
-			async () => createScriptFetcher(),
+			() => Promise.resolve(createScriptFetcher()),
 		);
 
 		expect(calls.map((call) => call.path)).toEqual([
