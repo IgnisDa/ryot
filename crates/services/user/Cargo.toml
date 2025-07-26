@@ -17,6 +17,7 @@ openidconnect = { workspace = true }
 rand = { workspace = true }
 ring = { workspace = true }
 sea-orm = { workspace = true }
+subtle = { workspace = true }
 tokio = { workspace = true }
 totp-lite = { workspace = true }
 tracing = { workspace = true }

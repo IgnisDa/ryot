@@ -170,6 +170,7 @@ slug = "=0.1.6"
 sqlx = { version = "=0.8.6", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
+subtle = "=2.6.1"
 tokio = { version = "=1.46.1", features = ["full"] }
 tokio-util = { version = "=0.7.15", features = ["codec"] }
 tower = "=0.5.2"

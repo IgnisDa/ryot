@@ -27,6 +27,7 @@ use media_models::{
 };
 use rand::TryRngCore;
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
+use subtle::ConstantTimeEq;
 use supporting_service::SupportingService;
 use tokio::time::sleep;
 use totp_lite::{DEFAULT_STEP, Sha1, totp_custom};
@@ -236,7 +237,7 @@ fn generate_totp_secret() -> String {
 fn verify_totp_code(code: &str, secret: &str) -> bool {
     let secret_bytes = match BASE32.decode(secret.as_bytes()) {
         Ok(bytes) => bytes,
-        Err(_) => return false,
+        Err(_) => vec![0; TOTP_SECRET_LENGTH],
     };
 
     let current_time = SystemTime::now()
@@ -244,16 +245,18 @@ fn verify_totp_code(code: &str, secret: &str) -> bool {
         .unwrap()
         .as_secs();
 
+    let mut verification_result = false;
+
     for time_step in [-1, 0, 1] {
         let adjusted_time = (current_time as i64 + (time_step * TOTP_TIME_STEP_SECONDS)) as u64;
         let expected_code =
             totp_custom::<Sha1>(DEFAULT_STEP, TOTP_CODE_DIGITS, &secret_bytes, adjusted_time);
-        if expected_code == code {
-            return true;
-        }
+
+        let is_equal: bool = expected_code.as_bytes().ct_eq(code.as_bytes()).into();
+        verification_result |= is_equal;
     }
 
-    false
+    verification_result
 }
 
 fn generate_backup_codes(count: u8) -> Vec<String> {
@@ -334,9 +337,16 @@ fn hash_backup_code(code: &str) -> String {
 }
 
 fn verify_backup_code_against_user(two_factor_info: &UserTwoFactorInformation, code: &str) -> bool {
-    two_factor_info.backup_codes.iter().any(|backup_code| {
-        backup_code.used_at.is_none() && verify_backup_code(code, &backup_code.code)
-    })
+    let mut verification_result = false;
+
+    for backup_code in &two_factor_info.backup_codes {
+        let is_unused = backup_code.used_at.is_none();
+        let code_matches = verify_backup_code(code, &backup_code.code);
+
+        verification_result |= is_unused && code_matches;
+    }
+
+    verification_result
 }
 
 fn verify_backup_code(code: &str, hash: &str) -> bool {
