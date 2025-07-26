@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "~/lib/db";
 import { entity, entitySchema, relationship } from "~/lib/db/schema";
-import type { AddToCollectionResponse, CollectionResponse } from "./schemas";
+import type { AddToCollectionData, CollectionResponse } from "./schemas";
 
 const collectionSelection = {
 	id: entity.id,
@@ -70,7 +70,7 @@ export const createCollectionForUser = async (input: {
 	return toCollectionResponse(createdEntity as CollectionRow);
 };
 
-const collectionMembershipSelection = {
+const membershipSelection = {
 	id: relationship.id,
 	relType: relationship.relType,
 	createdAt: relationship.createdAt,
@@ -79,17 +79,18 @@ const collectionMembershipSelection = {
 	properties: relationship.properties,
 };
 
-type CollectionMembershipRow = Omit<
-	AddToCollectionResponse["data"],
-	"createdAt" | "properties"
-> & {
+type MembershipRow = {
+	id: string;
+	relType: string;
+	sourceEntityId: string;
+	targetEntityId: string;
 	createdAt: Date;
 	properties: unknown;
 };
 
-const toAddToCollectionResponse = (
-	row: CollectionMembershipRow,
-): AddToCollectionResponse["data"] => ({
+const toMembershipResponse = (
+	row: MembershipRow,
+): AddToCollectionData["collection"] => ({
 	...row,
 	createdAt: row.createdAt.toISOString(),
 	properties: row.properties as Record<string, unknown>,
@@ -100,25 +101,35 @@ export const addEntityToCollection = async (input: {
 	entityId: string;
 	userId: string;
 	properties: Record<string, unknown>;
-}): Promise<AddToCollectionResponse["data"]> => {
-	const [createdRelationship] = await db
+}): Promise<AddToCollectionData> => {
+	const [collectionRel, memberOfRel] = await db
 		.insert(relationship)
-		.values({
-			relType: "collection",
-			sourceEntityId: input.collectionId,
-			targetEntityId: input.entityId,
-			userId: input.userId,
-			properties: input.properties,
-		})
-		.returning(collectionMembershipSelection);
+		.values([
+			{
+				relType: "collection",
+				sourceEntityId: input.collectionId,
+				targetEntityId: input.entityId,
+				userId: input.userId,
+				properties: input.properties,
+			},
+			{
+				relType: "member_of",
+				sourceEntityId: input.entityId,
+				targetEntityId: input.collectionId,
+				userId: input.userId,
+				properties: input.properties,
+			},
+		])
+		.returning(membershipSelection);
 
-	if (!createdRelationship) {
+	if (!collectionRel || !memberOfRel) {
 		throw new Error("Could not add entity to collection");
 	}
 
-	return toAddToCollectionResponse(
-		createdRelationship as CollectionMembershipRow,
-	);
+	return {
+		collection: toMembershipResponse(collectionRel as MembershipRow),
+		memberOf: toMembershipResponse(memberOfRel as MembershipRow),
+	};
 };
 
 export const getCollectionById = async (

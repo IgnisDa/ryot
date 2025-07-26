@@ -8,6 +8,7 @@ export {
 export { collectionsApi } from "./routes";
 export type {
 	AddToCollectionBody,
+	AddToCollectionData,
 	AddToCollectionResponse,
 	CollectionResponse,
 	CreateCollectionBody,
