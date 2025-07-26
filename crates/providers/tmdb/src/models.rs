@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Result;
 use chrono::NaiveDate;
 use common_models::{IdObject, NamedObject};
 use dependent_models::MetadataPersonRelated;
@@ -192,7 +193,7 @@ pub async fn fetch_company_media_by_type(
     media_type: String,
     identifier: &str,
     base: &TmdbService,
-) -> anyhow::Result<Vec<MetadataPersonRelated>> {
+) -> Result<Vec<MetadataPersonRelated>> {
     let lot = match media_type.as_str() {
         "movie" => MediaLot::Movie,
         "tv" => MediaLot::Show,
