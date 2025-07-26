@@ -7,7 +7,7 @@ use database_models::{
     collection_to_entity,
     prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
 };
-use database_utils::{ilike_sql, item_reviews, user_by_id, user_details_by_id};
+use database_utils::{ilike_sql, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
@@ -146,7 +146,7 @@ pub async fn collection_contents(
                     next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
                 },
             };
-            let user = user_details_by_id(&details.user_id, ss).await?;
+            let user = user_by_id(&details.user_id, ss).await?;
             let reviews = item_reviews(
                 &details.user_id,
                 &input.collection_id,
