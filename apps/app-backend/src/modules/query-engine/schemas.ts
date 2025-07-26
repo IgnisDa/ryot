@@ -32,6 +32,15 @@ const paginationSchema = z
 	})
 	.strict();
 
+const queryEnginePaginationSchema = z.object({
+	page: z.number().int(),
+	total: z.number().int(),
+	limit: z.number().int(),
+	hasNextPage: z.boolean(),
+	totalPages: z.number().int(),
+	hasPreviousPage: z.boolean(),
+});
+
 export const queryEngineFieldSchema = z
 	.object({
 		expression: viewExpressionSchema,
@@ -163,26 +172,17 @@ export const resolvedDisplayValueSchema = z
 	})
 	.strict();
 
-const resolvedQueryEngineFieldSchema = resolvedDisplayValueSchema
-	.extend({ key: z.string() })
+const queryEngineItemSchema = z.record(z.string(), resolvedDisplayValueSchema);
+
+const queryEngineMetaSchema = z
+	.object({
+		pagination: queryEnginePaginationSchema,
+		fieldOrder: z.array(z.string()),
+	})
 	.strict();
 
-const queryEngineItemSchema = z.array(resolvedQueryEngineFieldSchema);
-
-const queryEnginePaginationSchema = z.object({
-	page: z.number().int(),
-	total: z.number().int(),
-	limit: z.number().int(),
-	hasNextPage: z.boolean(),
-	totalPages: z.number().int(),
-	hasPreviousPage: z.boolean(),
-});
-
 const executeEntityQueryEngineResponseDataSchema = z
-	.object({
-		items: z.array(queryEngineItemSchema),
-		meta: z.object({ pagination: queryEnginePaginationSchema }).strict(),
-	})
+	.object({ meta: queryEngineMetaSchema, items: z.array(queryEngineItemSchema) })
 	.strict();
 
 const aggregateValueSchema = z.discriminatedUnion("kind", [
