@@ -1,5 +1,5 @@
-import { and, eq, isNull, or } from "drizzle-orm";
-import { db } from "~/lib/db";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { type DbClient, db } from "~/lib/db";
 import { entity, entitySchema, relationship } from "~/lib/db/schema";
 import type { AddToCollectionData, CollectionResponse } from "./schemas";
 
@@ -96,12 +96,33 @@ const toMembershipResponse = (
 	properties: row.properties as Record<string, unknown>,
 });
 
-export const getExistingMembership = async (input: {
-	collectionId: string;
-	entityId: string;
-	userId: string;
-}): Promise<AddToCollectionData | undefined> => {
-	const [collectionRel, memberOfRel] = await db
+const toMembershipData = (
+	relationships: MembershipRow[],
+): AddToCollectionData | undefined => {
+	const collectionRel = relationships.find(
+		(row) => row.relType === "collection",
+	);
+	const memberOfRel = relationships.find((row) => row.relType === "member_of");
+
+	if (!collectionRel || !memberOfRel) {
+		return undefined;
+	}
+
+	return {
+		memberOf: toMembershipResponse(memberOfRel),
+		collection: toMembershipResponse(collectionRel),
+	};
+};
+
+export const getExistingMembership = async (
+	input: {
+		userId: string;
+		entityId: string;
+		collectionId: string;
+	},
+	database: DbClient = db,
+): Promise<AddToCollectionData | undefined> => {
+	const relationships = (await database
 		.select(membershipSelection)
 		.from(relationship)
 		.where(
@@ -121,93 +142,66 @@ export const getExistingMembership = async (input: {
 				),
 			),
 		)
-		.orderBy(relationship.relType);
+		.orderBy(
+			relationship.relType,
+			desc(relationship.createdAt),
+		)) as MembershipRow[];
 
-	if (!collectionRel || !memberOfRel) {
-		return undefined;
-	}
-
-	return {
-		collection: toMembershipResponse(collectionRel as MembershipRow),
-		memberOf: toMembershipResponse(memberOfRel as MembershipRow),
-	};
+	return toMembershipData(relationships);
 };
 
 export const addEntityToCollection = async (input: {
-	collectionId: string;
-	entityId: string;
 	userId: string;
+	entityId: string;
+	collectionId: string;
 	properties: Record<string, unknown>;
 }): Promise<AddToCollectionData> => {
-	// Check if relationship already exists
-	const existing = await getExistingMembership(input);
-	if (existing) {
-		// Update existing relationships with new properties
-		const [updatedCollectionRel] = await db
-			.update(relationship)
-			.set({ properties: input.properties })
-			.where(
-				and(
-					eq(relationship.userId, input.userId),
-					eq(relationship.relType, "collection"),
-					eq(relationship.sourceEntityId, input.collectionId),
-					eq(relationship.targetEntityId, input.entityId),
-				),
-			)
-			.returning(membershipSelection);
-
-		const [updatedMemberOfRel] = await db
-			.update(relationship)
-			.set({ properties: input.properties })
-			.where(
-				and(
-					eq(relationship.userId, input.userId),
-					eq(relationship.relType, "member_of"),
-					eq(relationship.sourceEntityId, input.entityId),
-					eq(relationship.targetEntityId, input.collectionId),
-				),
-			)
-			.returning(membershipSelection);
-
-		if (!updatedCollectionRel || !updatedMemberOfRel) {
-			throw new Error("Could not update collection membership");
-		}
-
-		return {
-			collection: toMembershipResponse(updatedCollectionRel as MembershipRow),
-			memberOf: toMembershipResponse(updatedMemberOfRel as MembershipRow),
-		};
-	}
-
-	// Create new relationships
-	const [collectionRel, memberOfRel] = await db
-		.insert(relationship)
-		.values([
-			{
+	return db.transaction(async (tx) => {
+		await tx
+			.insert(relationship)
+			.values({
+				userId: input.userId,
 				relType: "collection",
-				sourceEntityId: input.collectionId,
+				properties: input.properties,
 				targetEntityId: input.entityId,
+				sourceEntityId: input.collectionId,
+			})
+			.onConflictDoUpdate({
+				set: { properties: input.properties },
+				target: [
+					relationship.userId,
+					relationship.sourceEntityId,
+					relationship.targetEntityId,
+					relationship.relType,
+				],
+			});
+
+		await tx
+			.insert(relationship)
+			.values({
+				relType: "member_of",
 				userId: input.userId,
 				properties: input.properties,
-			},
-			{
-				relType: "member_of",
 				sourceEntityId: input.entityId,
 				targetEntityId: input.collectionId,
-				userId: input.userId,
-				properties: input.properties,
-			},
-		])
-		.returning(membershipSelection);
+			})
+			.onConflictDoUpdate({
+				set: { properties: input.properties },
+				target: [
+					relationship.userId,
+					relationship.sourceEntityId,
+					relationship.targetEntityId,
+					relationship.relType,
+				],
+			});
 
-	if (!collectionRel || !memberOfRel) {
-		throw new Error("Could not add entity to collection");
-	}
+		const relationships = await getExistingMembership(input, tx);
+		if (!relationships) {
+			throw new Error("Could not add entity to collection");
+		}
 
-	return {
-		collection: toMembershipResponse(collectionRel as MembershipRow),
-		memberOf: toMembershipResponse(memberOfRel as MembershipRow),
-	};
+		return relationships;
+	});
 };
 
 export const getCollectionById = async (
@@ -256,18 +250,11 @@ export const getEntityById = async (
 };
 
 export const removeEntityFromCollection = async (input: {
-	collectionId: string;
-	entityId: string;
 	userId: string;
+	entityId: string;
+	collectionId: string;
 }): Promise<AddToCollectionData | undefined> => {
-	// First, get the existing relationships to return them after deletion
-	const existing = await getExistingMembership(input);
-	if (!existing) {
-		return undefined;
-	}
-
-	// Delete both relationships
-	await db
+	const deletedRelationships = (await db
 		.delete(relationship)
 		.where(
 			and(
@@ -285,7 +272,8 @@ export const removeEntityFromCollection = async (input: {
 					),
 				),
 			),
-		);
+		)
+		.returning(membershipSelection)) as MembershipRow[];
 
-	return existing;
+	return toMembershipData(deletedRelationships);
 };

@@ -2995,12 +2995,7 @@ export interface paths {
                     "application/json": {
                         name: string;
                         description?: string;
-                        membershipPropertiesSchema?: {
-                            rules?: components["schemas"]["AppSchemaRule"][];
-                            fields: {
-                                [key: string]: components["schemas"]["AppPropertyDefinition"];
-                            };
-                        };
+                        membershipPropertiesSchema?: unknown;
                     };
                 };
             };
@@ -3518,7 +3513,7 @@ export interface components {
              */
             type: "object";
             /** @enum {string} */
-            unknownKeys?: "strip" | "strict";
+            unknownKeys?: "strip" | "strict" | "passthrough";
             validation?: components["schemas"]["AppRequiredPropertyValidation"];
             properties: {
                 [key: string]: components["schemas"]["AppPropertyDefinition"];

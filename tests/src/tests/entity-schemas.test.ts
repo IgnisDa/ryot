@@ -53,10 +53,11 @@ describe("GET /entity-schemas", () => {
 			accentColor: "#F59E0B",
 			propertiesSchema: {
 				fields: {
+					description: { type: "string" },
 					membershipPropertiesSchema: {
 						type: "object",
 						properties: {},
-						unknownKeys: "strip",
+						unknownKeys: "passthrough",
 					},
 				},
 			},
