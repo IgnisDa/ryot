@@ -126,7 +126,7 @@ Events mode returns all matching events. The same entity can appear multiple tim
 - [ ] Property validation works for event references with eventSchemaSlug
 - [ ] Unit tests cover the event query builder, expression compiler handlers, and validator
 - [ ] E2E tests exercise events mode through the HTTP endpoint
-- [ ] `bun run typecheck`, `bun run test`, and `bun run lint` pass
+- [ ] `bun run check`, `bun run test`, and `bun run format` pass
 
 ## User stories addressed
 

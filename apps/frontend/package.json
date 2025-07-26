@@ -4,9 +4,9 @@
 	"type": "module",
 	"sideEffects": false,
 	"scripts": {
+		"format": "oxfmt . --write",
 		"build": "bun --bun react-router build",
-		"lint": "oxlint . --fix && oxfmt . --write",
-		"typecheck": "tsc && oxlint . --type-aware",
+		"check": "tsc && oxlint . --type-aware --fix",
 		"dev": "bun --bun react-router dev --port 3000 --host"
 	},
 	"dependencies": {

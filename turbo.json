@@ -13,14 +13,14 @@
 			"dependsOn": ["^build"],
 			"outputs": ["dist/firefox-mv2/**", "dist/*-sources.zip", "dist/*-firefox.zip"]
 		},
-		"typecheck": {
-			"dependsOn": ["^typecheck"]
+		"check": {
+			"dependsOn": ["^check"]
 		},
-		"lint": {
-			"dependsOn": ["^lint"]
+		"format": {
+			"dependsOn": ["^format"]
 		},
 		"test": {
-			"dependsOn": ["^build", "^typecheck"]
+			"dependsOn": ["^build", "^check"]
 		},
 		"dev": {
 			"cache": false,
