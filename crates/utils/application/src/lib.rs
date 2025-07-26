@@ -31,10 +31,6 @@ use rust_decimal::Decimal;
 use sea_orm::Order;
 use session_service::SessionService;
 
-pub fn user_id_from_token(token: &str, jwt_secret: &str) -> Result<String> {
-    jwt_service::verify(token, jwt_secret).map(|c| c.sub)
-}
-
 #[derive(Debug, Default)]
 pub struct AuthContext {
     pub user_id: Option<String>,

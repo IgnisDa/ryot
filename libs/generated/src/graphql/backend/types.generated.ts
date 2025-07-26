@@ -1484,6 +1484,8 @@ export type MutationRoot = {
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
+  /** Logout the current user by invalidating their session. */
+  logoutUser: Scalars['Boolean']['output'];
   /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
