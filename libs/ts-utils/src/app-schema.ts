@@ -30,6 +30,8 @@ export type AppPropertyTransform = {
 	round?: AppPropertyRoundTransform;
 };
 
+export type AppSchemaUnknownKeysPolicy = "strip" | "strict";
+
 export type AppArrayPropertyValidation = AppPropertyValidationBase & {
 	maxItems?: number;
 	minItems?: number;
@@ -96,6 +98,7 @@ export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 
 export type AppObjectProperty = AppPropertyBase<AppObjectPropertyValidation> & {
 	type: "object";
+	unknownKeys?: AppSchemaUnknownKeysPolicy;
 	properties: Record<string, AppPropertyDefinition>;
 };
 
@@ -143,7 +146,19 @@ export type AppSchema = {
 };
 
 type AppSchemaObjectOptions = {
-	unknownKeys?: "strip" | "strict";
+	unknownKeys?: AppSchemaUnknownKeysPolicy;
+};
+
+const withUnknownKeysPolicy = (
+	shape: Record<string, z.ZodType>,
+	unknownKeys?: AppSchemaUnknownKeysPolicy,
+) => (unknownKeys === "strip" ? z.object(shape) : z.object(shape).strict());
+
+const getUnknownKeysPolicy = (
+	schema: z.ZodObject<z.ZodRawShape>,
+): AppSchemaUnknownKeysPolicy => {
+	const definition = schema._def as { catchall?: z.ZodType };
+	return definition.catchall ? "strict" : "strip";
 };
 
 const roundHalfUp = (value: number, scale: number) => {
@@ -447,7 +462,12 @@ const toAppSchemaInternal = (
 			properties[key] = toAppSchemaInternal(child as z.ZodType, true);
 		}
 
-		return applyRequiredValidation({ properties, type: "object" });
+		const unknownKeys = getUnknownKeysPolicy(value);
+		return applyRequiredValidation({
+			properties,
+			type: "object",
+			...(unknownKeys === "strip" ? { unknownKeys } : {}),
+		});
 	}
 
 	throw new Error(`Unsupported Zod type: ${value.constructor.name}`);
@@ -507,7 +527,7 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 				const schema = fromAppSchema(value);
 				shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
 			}
-			return z.object(shape).strict();
+			return withUnknownKeysPolicy(shape, p.unknownKeys);
 		})
 		.exhaustive();
 };
@@ -523,10 +543,7 @@ export const fromAppSchemaObject = (
 		shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
 	}
 
-	const schema =
-		options?.unknownKeys === "strip"
-			? z.object(shape)
-			: z.object(shape).strict();
+	const schema = withUnknownKeysPolicy(shape, options?.unknownKeys);
 
 	return withAppSchemaRules(schema, appSchema);
 };
