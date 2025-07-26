@@ -10,8 +10,7 @@ use rust_decimal_macros::dec;
 use sea_orm::EntityTrait;
 use traits::TraceOk;
 
-use crate::integration_operations::set_trigger_result;
-use crate::{IntegrationService, sink};
+use crate::{IntegrationService, integration_operations::set_trigger_result, sink};
 
 impl IntegrationService {
     pub async fn integration_progress_update(

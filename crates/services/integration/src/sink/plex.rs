@@ -1,7 +1,6 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use common_models::StringIdObject;
-use dependent_models::ImportOrExportMetadataItem;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use regex::Regex;
@@ -63,7 +62,7 @@ fn get_tmdb_identifier(guids: &[StringIdObject]) -> Result<&str> {
         .iter()
         .find(|g| g.id.starts_with("tmdb://"))
         .map(|g| &g.id[7..])
-        .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))
+        .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))
 }
 
 async fn get_media_info<'a>(

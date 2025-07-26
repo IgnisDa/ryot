@@ -1,6 +1,5 @@
-use anyhow::{Result, bail};
-use dependent_models::ImportOrExportMetadataItem;
-use dependent_models::{ImportCompletedItem, ImportResult};
+use anyhow::{Result, anyhow, bail};
+use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::Decimal;
@@ -56,36 +55,37 @@ pub async fn sink_progress(
     let runtime = payload
         .item
         .run_time_ticks
-        .ok_or_else(|| anyhow::anyhow!("No run time associated with this media"))?;
+        .ok_or_else(|| anyhow!("No run time associated with this media"))?;
     let position = payload
         .playback_info
         .position_ticks
-        .ok_or_else(|| anyhow::anyhow!("No position associated with this media"))?;
-    let (identifier, lot) =
-        match payload.item.item_type.as_str() {
-            "Movie" => {
-                let id = payload
-                    .item
-                    .provider_ids
-                    .tmdb
-                    .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("No TMDb ID associated with this media"))?;
-                (id.clone(), MediaLot::Movie)
-            }
-            "Episode" => {
-                let series_name =
-                    payload.item.series_name.as_ref().ok_or_else(|| {
-                        anyhow::anyhow!("No series name associated with this media")
-                    })?;
-                let episode_name =
-                    payload.item.episode_name.as_ref().ok_or_else(|| {
-                        anyhow::anyhow!("No episode name associated with this media")
-                    })?;
-                let db_show = get_show_by_episode_identifier(db, series_name, episode_name).await?;
-                (db_show.identifier, MediaLot::Show)
-            }
-            _ => bail!("Only movies and shows supported"),
-        };
+        .ok_or_else(|| anyhow!("No position associated with this media"))?;
+    let (identifier, lot) = match payload.item.item_type.as_str() {
+        "Movie" => {
+            let id = payload
+                .item
+                .provider_ids
+                .tmdb
+                .as_ref()
+                .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))?;
+            (id.clone(), MediaLot::Movie)
+        }
+        "Episode" => {
+            let series_name = payload
+                .item
+                .series_name
+                .as_ref()
+                .ok_or_else(|| anyhow!("No series name associated with this media"))?;
+            let episode_name = payload
+                .item
+                .episode_name
+                .as_ref()
+                .ok_or_else(|| anyhow!("No episode name associated with this media"))?;
+            let db_show = get_show_by_episode_identifier(db, series_name, episode_name).await?;
+            (db_show.identifier, MediaLot::Show)
+        }
+        _ => bail!("Only movies and shows supported"),
+    };
     Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
             lot,
