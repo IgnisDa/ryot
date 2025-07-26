@@ -3740,7 +3740,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Execute a compiled query-engine request */
+        /** Execute a declarative query-engine request */
         post: {
             parameters: {
                 query?: never;

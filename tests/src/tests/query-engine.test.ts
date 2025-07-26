@@ -173,7 +173,7 @@ describe("Query engine E2E", () => {
 					secondarySubtitleProperty: null,
 					calloutProperty: createEventAggregateExpression(
 						"review",
-						["rating"],
+						["properties", "rating"],
 						"avg",
 					),
 				},
