@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { db } from "~/lib/db";
-import { entitySchema, eventSchema } from "~/lib/db/schema";
+import { entitySchema, eventSchema, relationshipSchema } from "~/lib/db/schema";
 import {
 	QueryEngineNotFoundError,
 	QueryEngineValidationError,
@@ -23,6 +23,7 @@ import { getSavedViewBySlugForUser } from "../saved-views/repository";
 import type {
 	DisplayConfiguration,
 	EventJoinDefinition,
+	RelationshipFilter,
 	SavedViewQueryDefinition,
 } from "../saved-views/schemas";
 import {
@@ -48,6 +49,7 @@ export type SavedViewExecutionInput = {
 
 type PreparedQueryContext = {
 	eventJoins: PreparedEventJoin[];
+	relationshipSchemaIds: string[];
 	runtimeSchemas: QueryEngineSchemaRow[];
 	schemaMap: Map<string, QueryEngineSchemaRow>;
 	eventJoinMap: Map<string, PreparedEventJoin>;
@@ -63,6 +65,7 @@ const normalizeQueryDefinition = (
 	...queryDefinition,
 	filter: queryDefinition.filter ?? null,
 	eventJoins: queryDefinition.eventJoins ?? [],
+	relationships: queryDefinition.relationships ?? [],
 	computedFields: queryDefinition.computedFields ?? [],
 });
 
@@ -121,6 +124,7 @@ const buildRuntimeRequest = (input: {
 		sort: input.queryDefinition.sort,
 		filter: input.queryDefinition.filter,
 		eventJoins: input.queryDefinition.eventJoins,
+		relationships: input.queryDefinition.relationships,
 		computedFields: input.queryDefinition.computedFields,
 		entitySchemaSlugs: input.queryDefinition.entitySchemaSlugs,
 	};
@@ -268,6 +272,38 @@ const loadVisibleEventJoins = async (input: {
 	});
 };
 
+const loadRelationshipSchemaIds = async (
+	relationships: RelationshipFilter[],
+): Promise<string[]> => {
+	if (!relationships.length) {
+		return [];
+	}
+
+	const uniqueSlugs = [
+		...new Set(relationships.map((r) => r.relationshipSchemaSlug)),
+	];
+	const rows = await db
+		.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
+		.from(relationshipSchema)
+		.where(
+			and(
+				inArray(relationshipSchema.slug, uniqueSlugs),
+				isNull(relationshipSchema.userId),
+			),
+		);
+
+	const foundSlugs = new Set(rows.map((r) => r.slug));
+	for (const slug of uniqueSlugs) {
+		if (!foundSlugs.has(slug)) {
+			throw new QueryEngineNotFoundError(
+				`Relationship schema '${slug}' not found`,
+			);
+		}
+	}
+
+	return rows.map((r) => r.id);
+};
+
 const prepareContext = async (input: {
 	userId: string;
 	queryDefinition: SavedViewQueryDefinition;
@@ -281,14 +317,18 @@ const prepareContext = async (input: {
 		userId: input.userId,
 		eventJoins: input.queryDefinition.eventJoins,
 	});
+	const relationshipSchemaIds = await loadRelationshipSchemaIds(
+		input.queryDefinition.relationships,
+	);
 	const schemaMap = buildSchemaMap(runtimeSchemas);
 	const eventJoinMap = buildEventJoinMap(eventJoins);
 
 	return {
-		eventJoins,
-		runtimeSchemas,
 		schemaMap,
+		eventJoins,
 		eventJoinMap,
+		runtimeSchemas,
+		relationshipSchemaIds,
 	};
 };
 
@@ -300,6 +340,7 @@ export const prepareAndExecute = async (input: {
 		sort: input.request.sort,
 		filter: input.request.filter,
 		eventJoins: input.request.eventJoins,
+		relationships: input.request.relationships,
 		computedFields: input.request.computedFields,
 		entitySchemaSlugs: input.request.entitySchemaSlugs,
 	});
@@ -326,6 +367,7 @@ export const prepareAndExecute = async (input: {
 		eventJoins: context.eventJoins,
 		eventJoinMap: context.eventJoinMap,
 		runtimeSchemas: context.runtimeSchemas,
+		relationshipSchemaIds: context.relationshipSchemaIds,
 	});
 };
 
@@ -392,12 +434,13 @@ export const prepareSavedView = async (input: {
 			});
 
 			return executePreparedQuery({
-				userId: input.userId,
 				request,
+				userId: input.userId,
 				schemaMap: context.schemaMap,
 				eventJoins: context.eventJoins,
 				eventJoinMap: context.eventJoinMap,
 				runtimeSchemas: context.runtimeSchemas,
+				relationshipSchemaIds: context.relationshipSchemaIds,
 			});
 		},
 	};

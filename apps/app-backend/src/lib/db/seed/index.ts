@@ -17,7 +17,6 @@ import {
 	builtinEventSchemaTriggerLinks,
 	builtinSandboxScripts,
 	entitySchemaScriptLinks,
-	exerciseSchemaScriptLinks,
 	personSchemaScriptLinks,
 } from "./manifests";
 
@@ -58,7 +57,6 @@ export const seedInitialDatabase = async (database: DbClient) => {
 		for (const link of [
 			...entitySchemaScriptLinks(),
 			...personSchemaScriptLinks(),
-			...exerciseSchemaScriptLinks(),
 		]) {
 			const entitySchemaId = schemaIds.get(link.schemaSlug);
 			const scriptId = scriptIds.get(link.scriptSlug);
