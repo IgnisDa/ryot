@@ -101,9 +101,9 @@ pub async fn set_keys_with_custom_expiry(
             key: ActiveValue::Set(key_value),
             created_at: ActiveValue::Set(now),
             version: ActiveValue::Set(version),
+            expires_at: ActiveValue::Set(expires_at),
             sanitized_key: ActiveValue::Set(sanitized_key),
             value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
-            expires_at: ActiveValue::Set(expires_at),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
