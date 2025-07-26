@@ -2,22 +2,7 @@ import { sql } from "drizzle-orm";
 
 import { entity, entitySchema } from "~/lib/db/schema";
 
-import { buildEntitySchemaDataExpression } from "./query-cte-shared";
-
-const buildEntitySelectColumns = () => {
-	const entitySchemaData = buildEntitySchemaDataExpression();
-	return sql`
-		${entity.id} as id,
-		${entity.name} as name,
-		${entity.image} as image,
-		${entity.createdAt} as created_at,
-		${entity.updatedAt} as updated_at,
-		${entity.properties} as properties,
-		${entity.externalId} as external_id,
-		${entitySchemaData} as entity_schema_data,
-		${entity.sandboxScriptId} as sandbox_script_id
-	`;
-};
+import { buildEntitySelectColumns } from "./query-cte-shared";
 
 export const buildBaseEntitiesCte = (input: { userId: string; entitySchemaIds: string[] }) => {
 	const entitySchemaIdList = sql.join(

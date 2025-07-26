@@ -1,3 +1,5 @@
+import { extractErrorMessage } from "@ryot/ts-utils";
+
 import { executeInternalAppRequest } from "~/app/internal-request";
 import {
 	type AppApiCallOptions,
@@ -123,7 +125,7 @@ export const createAppApiCallHostFunction = (
 		try {
 			parsedOptions = parseAppApiCallOptions(options);
 		} catch (error) {
-			return apiFailure(error instanceof Error ? error.message : "appApiCall options are invalid");
+			return apiFailure(extractErrorMessage(error, "appApiCall options are invalid"));
 		}
 
 		try {
@@ -151,7 +153,7 @@ export const createAppApiCallHostFunction = (
 				statusText: response.statusText,
 			});
 		} catch (error) {
-			return apiFailure(error instanceof Error ? error.message : "appApiCall failed");
+			return apiFailure(extractErrorMessage(error, "appApiCall failed"));
 		}
 	};
 };
