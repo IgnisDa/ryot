@@ -2529,6 +2529,7 @@ export type UserCustomMeasurementInput = {
 
 export type UserDetails = {
   __typename?: 'UserDetails';
+  accessLinkId?: Maybe<Scalars['String']['output']>;
   extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;

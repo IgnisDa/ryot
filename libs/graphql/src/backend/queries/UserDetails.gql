@@ -7,6 +7,7 @@ query UserDetails {
 			name
 			isDisabled
 			oidcIssuerId
+			accessLinkId
 			timesTwoFactorBackupCodesUsed
 			extraInformation {
 				scheduledForWorkoutRevision
