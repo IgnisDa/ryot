@@ -42,6 +42,7 @@ const TOTP_SECRET_LENGTH: usize = 20;
 const TOTP_TIME_STEP_SECONDS: i64 = 30;
 const TOTP_VERIFICATION_MIN_MS: u64 = 500;
 const SETUP_VERIFICATION_MIN_MS: u64 = 300;
+const BACKUP_CODE_VERIFICATION_MIN_MS: u64 = 1200;
 
 async fn verify_with_minimum_time<F, T>(min_duration: Duration, operation: F) -> T
 where
@@ -95,22 +96,25 @@ pub async fn verify_two_factor(
         }));
     };
 
-    let verification_result = verify_with_minimum_time(
-        Duration::from_millis(TOTP_VERIFICATION_MIN_MS),
-        || -> Result<bool> {
-            if is_backup_code {
-                return Ok(verify_backup_code_against_user(
-                    two_factor_info,
-                    &input.code,
-                ));
-            }
-            let decrypted_secret = decrypt_totp_secret(
-                &two_factor_info.secret,
-                &ss.config.server.admin_access_token,
-            )?;
-            Ok(verify_totp_code(&input.code, &decrypted_secret))
-        },
-    )
+    let min_duration = if is_backup_code {
+        Duration::from_millis(BACKUP_CODE_VERIFICATION_MIN_MS)
+    } else {
+        Duration::from_millis(TOTP_VERIFICATION_MIN_MS)
+    };
+
+    let verification_result = verify_with_minimum_time(min_duration, || -> Result<bool> {
+        if is_backup_code {
+            return Ok(verify_backup_code_against_user(
+                two_factor_info,
+                &input.code,
+            ));
+        }
+        let decrypted_secret = decrypt_totp_secret(
+            &two_factor_info.secret,
+            &ss.config.server.admin_access_token,
+        )?;
+        Ok(verify_totp_code(&input.code, &decrypted_secret))
+    })
     .await?;
 
     if !verification_result {
