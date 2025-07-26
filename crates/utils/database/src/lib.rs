@@ -14,8 +14,8 @@ use database_models::{
     review, seen, user, user_to_entity, workout,
 };
 use dependent_models::{
-    ApplicationCacheKey, CollectionToEntityDetails, GraphqlCollectionToEntityDetails,
-    UserSessionCachedValue, UserWorkoutDetails, UserWorkoutTemplateDetails,
+    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
+    UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
 
@@ -278,17 +278,10 @@ pub async fn check_token(
     is_mutation: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let Some((_, claims)) = cache_service::get_value::<UserSessionCachedValue>(
-        ss,
-        ApplicationCacheKey::UserSession {
-            session_id: session_id.to_owned(),
-        },
-    )
-    .await
-    else {
+    let Some(session) = session_service::validate_session(ss, session_id).await? else {
         bail!(BackendError::SessionExpired.to_string());
     };
-    let Some(access_link_id) = claims.access_link_id else {
+    let Some(access_link_id) = session.access_link_id else {
         return Ok(true);
     };
     let access_link = AccessLink::find_by_id(access_link_id)

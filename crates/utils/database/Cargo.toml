@@ -15,7 +15,6 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 background-models = { path = "../../models/background" }
-cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
@@ -23,6 +22,7 @@ dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
+session-service = { path = "../../services/session" }
 supporting-service = { path = "../../services/supporting" }
 user-models = { path = "../../models/user" }
 
