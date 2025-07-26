@@ -8,6 +8,7 @@ import {
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
 
+import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import {
 	createEventSchema,
 	listEventSchemas,
@@ -16,6 +17,7 @@ import {
 	resolveEventSchemaEntitySchemaId,
 	resolveEventSchemaName,
 	resolveEventSchemaSlug,
+	validateEventSchemaSlugNotReserved,
 } from "./service";
 
 describe("resolveEventSchemaName", () => {
@@ -125,6 +127,28 @@ describe("resolveEventSchemaCreateInput", () => {
 	});
 });
 
+describe("validateEventSchemaSlugNotReserved", () => {
+	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
+
+	it("throws for each built-in event schema slug", () => {
+		for (const entitySchema of builtinEntitySchemas) {
+			for (const eventSchema of entitySchema.eventSchemas) {
+				expect(() =>
+					validateEventSchemaSlugNotReserved(eventSchema.slug, entitySchema.slug),
+				).toThrow(`Event schema slug "${eventSchema.slug}" is reserved for built-in schemas`);
+			}
+		}
+	});
+
+	it("does not throw for slugs not in the entity schema's built-in event schemas", () => {
+		expect(() => validateEventSchemaSlugNotReserved("custom-event", "book")).not.toThrow();
+	});
+
+	it("does not throw for non-built-in entity schemas", () => {
+		expect(() => validateEventSchemaSlugNotReserved("progress", "custom-schema")).not.toThrow();
+	});
+});
+
 describe("listEventSchemas", () => {
 	it("returns not found when the entity schema does not exist", async () => {
 		const result = await listEventSchemas(
@@ -222,6 +246,29 @@ describe("createEventSchema", () => {
 		expect(result).toEqual({
 			error: "validation",
 			message: "Built-in entity schemas do not support event schema creation",
+		});
+	});
+
+	it("returns validation when the slug is reserved for a built-in entity schema", async () => {
+		const result = await createEventSchema(
+			{
+				userId: "user_1",
+				body: { ...createEventSchemaBody(), slug: "progress" },
+			},
+			createEventSchemaDeps({
+				getEntitySchemaScopeForUser: (input) =>
+					Promise.resolve({
+						slug: "book",
+						isBuiltin: false,
+						userId: input.userId,
+						id: input.entitySchemaId,
+					}),
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: 'Event schema slug "progress" is reserved for built-in schemas',
 		});
 	});
 });
