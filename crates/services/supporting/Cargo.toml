@@ -16,7 +16,6 @@ tracing = { workspace = true }
 unkey = { workspace = true }
 
 background-models = { path = "../../models/background" }
-cache-service = { path = "../../services/cache" }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 env-utils = { path = "../../utils/env" }

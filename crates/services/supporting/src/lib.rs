@@ -4,7 +4,6 @@ use anyhow::Result;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::bon;
-use cache_service::CacheService;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_utils::{COMPILATION_TIMESTAMP, convert_naive_to_utc, ryot_log};
 use env_utils::UNKEY_API_ID;
@@ -17,7 +16,6 @@ pub struct SupportingService {
     pub is_oidc_enabled: bool,
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
-    pub cache_service: CacheService,
     pub config: Arc<config::AppConfig>,
     pub file_storage_service: Arc<FileStorageService>,
 
@@ -33,7 +31,6 @@ impl SupportingService {
         is_oidc_enabled: bool,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        cache_service: CacheService,
         config: Arc<config::AppConfig>,
         file_storage_service: Arc<FileStorageService>,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
@@ -43,7 +40,6 @@ impl SupportingService {
         Self {
             config,
             timezone,
-            cache_service,
             db: db.clone(),
             is_oidc_enabled,
             file_storage_service,

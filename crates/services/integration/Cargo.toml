@@ -26,6 +26,7 @@ url = { workspace = true }
 uuid = { workspace = true }
 
 application-utils = { path = "../../utils/application" }
+cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }

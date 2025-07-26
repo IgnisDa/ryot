@@ -147,45 +147,45 @@ pub async fn metadata_lookup(
     ss: &Arc<SupportingService>,
     title: String,
 ) -> Result<CachedResponse<MetadataLookupResponse>> {
-    ss.cache_service
-        .get_or_set_with_callback(
-            ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
-                title: title.clone(),
-            }),
-            ApplicationCacheValue::MetadataLookup,
-            || async {
-                let tmdb_service = TmdbService::new(ss.clone()).await?;
-                let search_results = smart_search(&tmdb_service, &title).await?;
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::MetadataLookup(MetadataLookupCacheInput {
+            title: title.clone(),
+        }),
+        ApplicationCacheValue::MetadataLookup,
+        || async {
+            let tmdb_service = TmdbService::new(ss.clone()).await?;
+            let search_results = smart_search(&tmdb_service, &title).await?;
 
-                let response = match search_results.is_empty() {
-                    true => {
-                        MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true })
-                    }
-                    false => {
-                        let publish_year = extract_year_from_title(&title);
-                        let best_match = find_best_match(&search_results, &title, publish_year)?;
+            let response = match search_results.is_empty() {
+                true => {
+                    MetadataLookupResponse::NotFound(MetadataLookupNotFound { not_found: true })
+                }
+                false => {
+                    let publish_year = extract_year_from_title(&title);
+                    let best_match = find_best_match(&search_results, &title, publish_year)?;
 
-                        let data = UniqueMediaIdentifier {
-                            lot: best_match.lot,
-                            source: MediaSource::Tmdb,
-                            identifier: best_match.identifier.clone(),
-                        };
+                    let data = UniqueMediaIdentifier {
+                        lot: best_match.lot,
+                        source: MediaSource::Tmdb,
+                        identifier: best_match.identifier.clone(),
+                    };
 
-                        let show_information = extract_show_information(&title, &best_match.lot);
+                    let show_information = extract_show_information(&title, &best_match.lot);
 
-                        let found_result = MetadataLookupFoundResult {
-                            data,
-                            show_information,
-                        };
+                    let found_result = MetadataLookupFoundResult {
+                        data,
+                        show_information,
+                    };
 
-                        MetadataLookupResponse::Found(found_result)
-                    }
-                };
+                    MetadataLookupResponse::Found(found_result)
+                }
+            };
 
-                Ok(response)
-            },
-        )
-        .await
+            Ok(response)
+        },
+    )
+    .await
 }
 
 async fn smart_search(

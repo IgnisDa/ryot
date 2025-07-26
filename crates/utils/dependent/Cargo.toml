@@ -29,6 +29,7 @@ anilist-provider = { path = "../../providers/anilist" }
 application-utils = { path = "../application" }
 audible-provider = { path = "../../providers/audible" }
 background-models = { path = "../../models/background" }
+cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../common" }
 config = { path = "../../config" }

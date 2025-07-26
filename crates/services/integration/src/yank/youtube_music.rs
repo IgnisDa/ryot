@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use application_utils::{get_current_date, get_current_time};
+use cache_service;
 use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
 use chrono_tz::Tz;
 use common_models::{UserLevelCacheKey, YoutubeMusicSongListened};
@@ -88,9 +89,7 @@ pub async fn yank_progress(
             )
         })
         .collect::<HashMap<_, _>>();
-    let items_in_cache = ss
-        .cache_service
-        .get_values(cache_keys.values().cloned().collect())
+    let items_in_cache = cache_service::get_values(ss, cache_keys.values().cloned().collect())
         .await
         .unwrap_or_default()
         .into_iter()
@@ -129,6 +128,6 @@ pub async fn yank_progress(
             }));
         items_to_cache.push((cache_key.to_owned(), cache_value));
     }
-    ss.cache_service.set_keys(items_to_cache).await.ok();
+    cache_service::set_keys(ss, items_to_cache).await.ok();
     Ok(result)
 }

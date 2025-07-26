@@ -53,18 +53,18 @@ pub async fn mark_entity_as_recently_consumed(
     entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .set_key(
-            ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
-                user_id: user_id.to_owned(),
-                input: MetadataRecentlyConsumedCacheInput {
-                    entity_lot,
-                    entity_id: entity_id.to_owned(),
-                },
-            }),
-            ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
-        )
-        .await?;
+    cache_service::set_key(
+        ss,
+        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+            user_id: user_id.to_owned(),
+            input: MetadataRecentlyConsumedCacheInput {
+                entity_lot,
+                entity_id: entity_id.to_owned(),
+            },
+        }),
+        ApplicationCacheValue::MetadataRecentlyConsumed(EmptyCacheValue::default()),
+    )
+    .await?;
     Ok(())
 }
 
@@ -128,19 +128,19 @@ pub async fn get_entity_recently_consumed(
     entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    Ok(ss
-        .cache_service
-        .get_value::<EmptyCacheValue>(ApplicationCacheKey::MetadataRecentlyConsumed(
-            UserLevelCacheKey {
-                user_id: user_id.to_owned(),
-                input: MetadataRecentlyConsumedCacheInput {
-                    entity_lot,
-                    entity_id: entity_id.to_owned(),
-                },
+    let entity_value = cache_service::get_value::<EmptyCacheValue>(
+        ss,
+        ApplicationCacheKey::MetadataRecentlyConsumed(UserLevelCacheKey {
+            user_id: user_id.to_owned(),
+            input: MetadataRecentlyConsumedCacheInput {
+                entity_lot,
+                entity_id: entity_id.to_owned(),
             },
-        ))
-        .await
-        .is_some())
+        }),
+    )
+    .await
+    .is_some();
+    Ok(entity_value)
 }
 
 pub async fn expire_user_collections_list_cache(
@@ -151,9 +151,7 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
-        .await?;
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(cache_key)).await?;
     Ok(())
 }
 
@@ -162,12 +160,14 @@ pub async fn expire_user_collection_contents_cache(
     _collection_id: &str,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserCollectionContents,
-        })
-        .await?;
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -175,12 +175,14 @@ pub async fn expire_user_workouts_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserWorkoutsList,
-        })
-        .await?;
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -188,12 +190,14 @@ pub async fn expire_user_measurements_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserMeasurementsList,
-        })
-        .await?;
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -201,12 +205,14 @@ pub async fn expire_user_workout_templates_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserWorkoutTemplatesList,
-        })
-        .await?;
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -214,11 +220,13 @@ pub async fn expire_user_metadata_list_cache(
     user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserMetadataList,
-        })
-        .await?;
+        },
+    )
+    .await?;
     Ok(())
 }

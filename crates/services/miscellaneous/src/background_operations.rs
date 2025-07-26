@@ -392,7 +392,7 @@ async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
     ));
 
     for key in all_keys {
-        ss.cache_service.expire_key(key).await?;
+        cache_service::expire_key(ss, key).await?;
     }
     Ok(())
 }

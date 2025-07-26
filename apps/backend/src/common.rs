@@ -12,7 +12,6 @@ use axum::{
 };
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::builder;
-use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
 use exporter_resolver::{ExporterMutation, ExporterQuery};
@@ -81,13 +80,11 @@ pub async fn create_app_services(
             .finish()
             .unwrap(),
     );
-    let cache_service = CacheService::new(&db, config.clone());
     let supporting_service = Arc::new(
         SupportingService::builder()
             .db(&db)
             .timezone(timezone)
             .config(config.clone())
-            .cache_service(cache_service)
             .is_oidc_enabled(is_oidc_enabled)
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)

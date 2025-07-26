@@ -7,5 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 uuid = { workspace = true }
 
+cache-service = { path = "../cache" }
 dependent-models = { path = "../../models/dependent" }
 supporting-service = { path = "../supporting" }

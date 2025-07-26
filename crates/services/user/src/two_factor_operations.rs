@@ -69,9 +69,7 @@ pub async fn verify_two_factor(
         user_id: input.user_id.clone(),
     });
 
-    if ss
-        .cache_service
-        .get_value::<EmptyCacheValue>(rate_limit_key.clone())
+    if cache_service::get_value::<EmptyCacheValue>(ss, rate_limit_key.clone())
         .await
         .is_some()
     {
@@ -80,12 +78,12 @@ pub async fn verify_two_factor(
         }));
     }
 
-    ss.cache_service
-        .set_key(
-            rate_limit_key,
-            ApplicationCacheValue::UserTwoFactorRateLimit(EmptyCacheValue { _empty: () }),
-        )
-        .await?;
+    cache_service::set_key(
+        ss,
+        rate_limit_key,
+        ApplicationCacheValue::UserTwoFactorRateLimit(EmptyCacheValue { _empty: () }),
+    )
+    .await?;
 
     let is_backup_code = matches!(input.method, UserTwoFactorVerifyMethod::BackupCode);
 
@@ -160,7 +158,7 @@ pub async fn initiate_two_factor_setup(
     let cache_value = ApplicationCacheValue::UserTwoFactorSetup(UserTwoFactorSetupCacheValue {
         secret: encrypt_totp_secret(&secret, &ss.config.server.admin_access_token)?,
     });
-    ss.cache_service.set_key(cache_key, cache_value).await?;
+    cache_service::set_key(ss, cache_key, cache_value).await?;
 
     Ok(UserTwoFactorInitiateResponse {
         secret,
@@ -178,10 +176,8 @@ pub async fn complete_two_factor_setup(
         user_id: user_id.clone(),
     });
 
-    let Some((cache_id, setup_data)) = ss
-        .cache_service
-        .get_value::<UserTwoFactorSetupCacheValue>(cache_key.clone())
-        .await
+    let Some((cache_id, setup_data)) =
+        cache_service::get_value::<UserTwoFactorSetupCacheValue>(ss, cache_key.clone()).await
     else {
         bail!("Two-factor setup not initiated or expired");
     };
@@ -212,9 +208,7 @@ pub async fn complete_two_factor_setup(
     user_active.two_factor_information = ActiveValue::Set(Some(completed_information));
     user_active.update(&ss.db).await?;
 
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ById(cache_id))
-        .await?;
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ById(cache_id)).await?;
 
     Ok(UserTwoFactorBackupCodesResponse { backup_codes })
 }

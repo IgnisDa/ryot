@@ -10,6 +10,7 @@ itertools = { workspace = true }
 sea-orm = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
