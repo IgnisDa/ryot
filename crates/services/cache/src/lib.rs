@@ -67,9 +67,10 @@ fn should_respect_version(key: &ApplicationCacheKey) -> bool {
     matches!(key, ApplicationCacheKey::CoreDetails)
 }
 
-pub async fn set_keys(
+pub async fn set_keys_with_custom_expiry(
     ss: &Arc<SupportingService>,
     items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
+    custom_expiry: Option<Duration>,
 ) -> Result<HashMap<ApplicationCacheKey, Uuid>> {
     if items.is_empty() {
         return Ok(HashMap::new());
@@ -91,13 +92,18 @@ pub async fn set_keys(
 
         let sanitized_key = format!("{}{}", key, user_id);
 
+        let expires_at = match custom_expiry {
+            Some(duration) => now + duration,
+            None => now + get_expiry_for_key(ss, &key),
+        };
+
         let to_insert = application_cache::ActiveModel {
             key: ActiveValue::Set(key_value),
             created_at: ActiveValue::Set(now),
             version: ActiveValue::Set(version),
             sanitized_key: ActiveValue::Set(sanitized_key),
             value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
-            expires_at: ActiveValue::Set(now + get_expiry_for_key(ss, &key)),
+            expires_at: ActiveValue::Set(expires_at),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
@@ -121,12 +127,31 @@ pub async fn set_keys(
     Ok(response)
 }
 
+pub async fn set_keys(
+    ss: &Arc<SupportingService>,
+    items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
+) -> Result<HashMap<ApplicationCacheKey, Uuid>> {
+    set_keys_with_custom_expiry(ss, items, None).await
+}
+
 pub async fn set_key(
     ss: &Arc<SupportingService>,
     key: ApplicationCacheKey,
     value: ApplicationCacheValue,
 ) -> Result<Uuid> {
     let response = set_keys(ss, vec![(key.clone(), value)]).await?;
+    let uuid = response.get(&key).unwrap().to_owned();
+    Ok(uuid)
+}
+
+pub async fn set_key_with_expiry(
+    ss: &Arc<SupportingService>,
+    key: ApplicationCacheKey,
+    value: ApplicationCacheValue,
+    duration: Duration,
+) -> Result<Uuid> {
+    let response =
+        set_keys_with_custom_expiry(ss, vec![(key.clone(), value)], Some(duration)).await?;
     let uuid = response.get(&key).unwrap().to_owned();
     Ok(uuid)
 }
