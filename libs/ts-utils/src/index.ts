@@ -36,7 +36,7 @@ import union from "lodash/union";
 import type { Params } from "react-router";
 import { twMerge } from "tailwind-merge";
 import invariant from "tiny-invariant";
-import { type output, type ZodTypeAny, z } from "zod";
+import { type output, z } from "zod";
 
 import { type Dayjs, dayjs } from "./dayjs";
 
@@ -108,7 +108,7 @@ export const formatDateToNaiveDate = (t: Date | Dayjs) => dayjs(t).format("YYYY-
 export const getInitials = (name: string) => {
 	const rgx = new RegExp(/(\p{L}{1})\p{L}+/gu);
 	const initials = [...name.matchAll(rgx)];
-	const actualValues = ((initials.shift()?.[1] || "") + (initials.pop()?.[1] || "")).toUpperCase();
+	const actualValues = ((initials.shift()?.[1] ?? "") + (initials.pop()?.[1] ?? "")).toUpperCase();
 	return actualValues;
 };
 
@@ -117,12 +117,10 @@ export const getInitials = (name: string) => {
  */
 export const changeCase = (name: string) => startCase(camelCase(name.toLowerCase()));
 
-export const processSubmission = <Schema extends ZodTypeAny>(
-	formData: FormData,
-	schema: Schema,
-) => {
+export const processSubmission = <Schema extends z.ZodType>(formData: FormData, schema: Schema) => {
 	const submission = parseWithZod(formData, { schema });
 	if (submission.status !== "success") {
+		// oxlint-disable-next-line only-throw-error
 		throw Response.json({ status: "idle", submission } as const, {
 			status: 422,
 		});
@@ -137,7 +135,7 @@ export const getActionIntent = (request: Request) => {
 	return intent;
 };
 
-export const parseSearchQuery = <Schema extends ZodTypeAny>(
+export const parseSearchQuery = <Schema extends z.ZodType>(
 	request: Request,
 	schema: Schema,
 ): output<Schema> => {
@@ -149,7 +147,7 @@ export const parseSearchQuery = <Schema extends ZodTypeAny>(
 	return schema.parse(entries);
 };
 
-export const parseParameters = <Schema extends ZodTypeAny>(
+export const parseParameters = <Schema extends z.ZodType>(
 	params: Params,
 	schema: Schema,
 ): output<Schema> => {
