@@ -4149,6 +4149,13 @@ export interface components {
             key: string;
             /** @enum {string} */
             type: "computed-field";
+        } | {
+            /** @enum {string} */
+            type: "event-aggregate";
+            eventSchemaSlug: string;
+            /** @enum {string} */
+            aggregation: "avg" | "count" | "max" | "min" | "sum";
+            path: string[];
         };
         ViewPredicate: {
             /** @enum {string} */

@@ -1,6 +1,7 @@
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createEventAggregateExpression,
 } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import type { ViewExpression } from "~/lib/views/expression";
@@ -208,7 +209,11 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 	}
 	return {
 		secondarySubtitleProperty: buildSecondarySubtitleForSlug(slug),
-		calloutProperty: createEntityPropertyExpression(slug, "providerRating"),
+		calloutProperty: createEventAggregateExpression(
+			"review",
+			["rating"],
+			"avg",
+		),
 		primarySubtitleProperty: createEntityPropertyExpression(
 			slug,
 			"publishYear",

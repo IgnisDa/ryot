@@ -1,6 +1,7 @@
 import type { RuntimeRef } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
+import { event, eventSchema } from "~/lib/db/schema";
 import {
 	buildComputedFieldMap,
 	getComputedFieldOrThrow,
@@ -309,6 +310,72 @@ const buildEventExpression = <
 	);
 };
 
+const buildEventAggregateExpression = <
+	TSchema extends QueryEngineSchemaLike,
+	TJoin extends QueryEngineEventJoinLike,
+>(input: {
+	alias: string;
+	targetType?: PropertyType;
+	context: QueryEngineReferenceContext<TSchema, TJoin>;
+	reference: Extract<RuntimeRef, { type: "event-aggregate" }>;
+}) => {
+	const { userId } = input.context;
+	if (!userId) {
+		throw new QueryEngineValidationError(
+			"Event aggregate expressions require a user context",
+		);
+	}
+
+	const { aggregation, eventSchemaSlug, path } = input.reference;
+	const entityIdExpr = sql`${sql.raw(input.alias)}.id`;
+	const actualType: PropertyType =
+		aggregation === "count" ? "integer" : "number";
+
+	let subquery: SqlExpression;
+	if (aggregation === "count") {
+		// `count` counts all matching events regardless of the property path.
+		// The Zod schema requires a non-empty path for all aggregation types, but
+		// for `count` the path is not used in the SQL.
+		subquery = sql`(
+			select count(*)
+			from ${event} as e_agg
+			inner join ${eventSchema} as es_agg on e_agg.event_schema_id = es_agg.id
+			where e_agg.user_id = ${userId}
+				and e_agg.entity_id = ${entityIdExpr}
+				and es_agg.slug = ${eventSchemaSlug}
+		)`;
+	} else {
+		const propertiesBase = sql.raw("e_agg.properties");
+		const propertyJsonExpr = buildPropertyPathExpression(
+			propertiesBase,
+			path,
+			"json",
+		);
+		const propertyTextExpr = buildPropertyPathExpression(
+			propertiesBase,
+			path,
+			"text",
+		);
+		const numericValue = sql`case when jsonb_typeof(${propertyJsonExpr}) = 'number' then (${propertyTextExpr})::numeric else null end`;
+		// Safe to use sql.raw: `aggregation` is constrained to the Zod enum
+		// ("avg" | "count" | "max" | "min" | "sum") validated at the API boundary,
+		// with a compile-time alignment assertion in expression.ts.
+		const aggFn = sql.raw(aggregation);
+		subquery = sql`(
+			select ${aggFn}(${numericValue})
+			from ${event} as e_agg
+			inner join ${eventSchema} as es_agg on e_agg.event_schema_id = es_agg.id
+			where e_agg.user_id = ${userId}
+				and e_agg.entity_id = ${entityIdExpr}
+				and es_agg.slug = ${eventSchemaSlug}
+		)`;
+	}
+
+	return input.targetType
+		? castExpressionToType(subquery, input.targetType)
+		: castExpressionToType(subquery, actualType);
+};
+
 export const createScalarExpressionCompiler = <
 	TSchema extends QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike,
@@ -447,6 +514,15 @@ export const createScalarExpressionCompiler = <
 
 		if (reference.type === "entity") {
 			return buildEntityExpression({
+				reference,
+				targetType,
+				alias: input.alias,
+				context: input.context,
+			});
+		}
+
+		if (reference.type === "event-aggregate") {
+			return buildEventAggregateExpression({
 				reference,
 				targetType,
 				alias: input.alias,
