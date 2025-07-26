@@ -19,13 +19,11 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
 	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
 	extendResponseHeaders,
-	getLogoutCookies,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/actions";
@@ -35,12 +33,8 @@ export const loader = async () => redirect($path("/"));
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const intent = getActionIntent(request);
-	const { searchParams } = new URL(request.url);
-	const redirectToSearchParams = searchParams.get(redirectToQueryParam);
-	let redirectTo = redirectToSearchParams || undefined;
 	let returnData = {};
 	const headers = new Headers();
-	let status = undefined;
 	await match(intent)
 		.with("deleteS3Asset", async () => {
 			const key = formData.get("key") as string;
@@ -60,10 +54,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				"set-cookie",
 				await colorSchemeCookie.serialize(newColorScheme),
 			);
-		})
-		.with("logout", async () => {
-			redirectTo = $path("/auth");
-			extendResponseHeaders(headers, getLogoutCookies());
 		})
 		.with("createReviewComment", async () => {
 			const submission = processSubmission(formData, reviewCommentSchema);
@@ -141,11 +131,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.run();
-	if (redirectTo) {
-		headers.append("Location", redirectTo.toString());
-		status = 302;
-	}
-	return data(returnData, { headers, status });
+	return data(returnData, { headers });
 };
 
 const reviewCommentSchema = z.object({
