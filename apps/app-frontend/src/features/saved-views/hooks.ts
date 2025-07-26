@@ -14,13 +14,13 @@ function isQueryDataWithSavedViews(
 
 function extractSavedViewReorderInput(
 	input: unknown,
-): { viewIds: string[]; trackerId?: string } | undefined {
+): { viewSlugs: string[]; trackerId?: string } | undefined {
 	if (!input || typeof input !== "object" || !("body" in input)) {
 		return undefined;
 	}
 
 	const body = input.body;
-	if (!body || typeof body !== "object" || !("viewIds" in body)) {
+	if (!body || typeof body !== "object" || !("viewSlugs" in body)) {
 		return undefined;
 	}
 	const trackerId =
@@ -28,10 +28,10 @@ function extractSavedViewReorderInput(
 			? body.trackerId
 			: undefined;
 
-	return Array.isArray(body.viewIds)
+	return Array.isArray(body.viewSlugs)
 		? {
-				viewIds: body.viewIds.filter(
-					(id): id is string => typeof id === "string",
+				viewSlugs: body.viewSlugs.filter(
+					(slug): slug is string => typeof slug === "string",
 				),
 				...(trackerId ? { trackerId } : {}),
 			}
@@ -66,7 +66,7 @@ export function useSavedViewMutations() {
 
 	const update = apiClient.useMutation(
 		"put",
-		"/saved-views/{viewId}",
+		"/saved-views/{viewSlug}",
 		{
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: listQueryKey });
@@ -77,7 +77,7 @@ export function useSavedViewMutations() {
 
 	const remove = apiClient.useMutation(
 		"delete",
-		"/saved-views/{viewId}",
+		"/saved-views/{viewSlug}",
 		{
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: listQueryKey });
@@ -88,7 +88,7 @@ export function useSavedViewMutations() {
 
 	const clone = apiClient.useMutation(
 		"post",
-		"/saved-views/{viewId}/clone",
+		"/saved-views/{viewSlug}/clone",
 		{
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: listQueryKey });
@@ -128,13 +128,16 @@ export function useSavedViewMutations() {
 		queryClient,
 	);
 
-	const toggleViewById = async (viewId: string, savedViews: AppSavedView[]) => {
-		const view = savedViews.find((v) => v.id === viewId);
+	const toggleViewBySlug = async (
+		viewSlug: string,
+		savedViews: AppSavedView[],
+	) => {
+		const view = savedViews.find((v) => v.slug === viewSlug);
 		if (!view) {
 			return;
 		}
 		await update.mutateAsync({
-			params: { path: { viewId } },
+			params: { path: { viewSlug } },
 			body: {
 				icon: view.icon,
 				name: view.name,
@@ -147,24 +150,24 @@ export function useSavedViewMutations() {
 		});
 	};
 
-	const reorderViewIds = async (input: {
-		viewIds: string[];
+	const reorderViewSlugs = async (input: {
 		trackerId?: string;
+		viewSlugs: string[];
 	}) => {
 		await reorder.mutateAsync({
 			body: {
-				viewIds: input.viewIds,
+				viewSlugs: input.viewSlugs,
 				...(input.trackerId ? { trackerId: input.trackerId } : {}),
 			},
 		});
 	};
 
-	const deleteViewById = async (viewId: string) => {
-		return await remove.mutateAsync({ params: { path: { viewId } } });
+	const deleteViewBySlug = async (viewSlug: string) => {
+		return await remove.mutateAsync({ params: { path: { viewSlug } } });
 	};
 
-	const cloneViewById = async (viewId: string) => {
-		return await clone.mutateAsync({ params: { path: { viewId } } });
+	const cloneViewBySlug = async (viewSlug: string) => {
+		return await clone.mutateAsync({ params: { path: { viewSlug } } });
 	};
 
 	return {
@@ -172,10 +175,10 @@ export function useSavedViewMutations() {
 		remove,
 		update,
 		reorder,
-		cloneViewById,
-		deleteViewById,
-		toggleViewById,
-		reorderViewIds,
+		cloneViewBySlug,
+		deleteViewBySlug,
+		toggleViewBySlug,
+		reorderViewSlugs,
 		isPending:
 			update.isPending ||
 			reorder.isPending ||
