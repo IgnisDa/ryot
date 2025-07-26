@@ -18,7 +18,8 @@ use common_utils::TWO_FACTOR_BACKUP_CODES_COUNT;
 use data_encoding::{BASE32, BASE64};
 use database_utils::user_by_id;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserTwoFactorSetupCacheValue,
+    ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
+    UserTwoFactorSetupCacheValue,
 };
 use media_models::{
     ApiKeyResponse, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
@@ -62,6 +63,29 @@ pub async fn verify_two_factor(
     ss: &Arc<SupportingService>,
     input: UserTwoFactorVerifyInput,
 ) -> Result<VerifyTwoFactorResult> {
+    let rate_limit_key = ApplicationCacheKey::UserTwoFactorRateLimit(UserLevelCacheKey {
+        input: (),
+        user_id: input.user_id.clone(),
+    });
+
+    if ss
+        .cache_service
+        .get_value::<EmptyCacheValue>(rate_limit_key.clone())
+        .await
+        .is_some()
+    {
+        return Ok(VerifyTwoFactorResult::Error(VerifyTwoFactorError {
+            error: VerifyTwoFactorErrorVariant::RateLimited,
+        }));
+    }
+
+    ss.cache_service
+        .set_key(
+            rate_limit_key,
+            ApplicationCacheValue::UserTwoFactorRateLimit(EmptyCacheValue { _empty: () }),
+        )
+        .await?;
+
     let is_backup_code = matches!(input.method, UserTwoFactorVerifyMethod::BackupCode);
 
     let user = user_by_id(&input.user_id, ss).await?;
