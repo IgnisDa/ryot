@@ -149,9 +149,10 @@ pub async fn create_app_services(
         .route("/config", get(config_handler))
         .route("/graphql", gql)
         .route("/upload", post(upload_file_handler))
-        .layer(Extension(config.clone()))
-        .layer(Extension(integration_service.clone()))
         .layer(Extension(schema))
+        .layer(Extension(config.clone()))
+        .layer(Extension(supporting_service.clone()))
+        .layer(Extension(integration_service.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(
