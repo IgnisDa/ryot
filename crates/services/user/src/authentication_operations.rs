@@ -28,16 +28,19 @@ pub async fn revoke_access_link(
     db_revoke_access_link(&ss.db, access_link_id).await
 }
 
-pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<UserDetailsResult> {
-    let user_id = match session_service::validate_session(ss, token).await? {
-        Some(user_id) => user_id,
+pub async fn user_details(
+    ss: &Arc<SupportingService>,
+    session_id: &str,
+) -> Result<UserDetailsResult> {
+    let session = match session_service::validate_session(ss, session_id).await? {
+        Some(session) => session,
         None => {
             return Ok(UserDetailsResult::Error(UserDetailsError {
                 error: UserDetailsErrorVariant::AuthTokenInvalid,
             }));
         }
     };
-    let user = user_by_id(&user_id, ss).await?;
+    let user = user_by_id(&session.user_id, ss).await?;
     let details = UserDetails {
         id: user.id,
         lot: user.lot,
@@ -45,6 +48,7 @@ pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<Us
         preferences: user.preferences,
         is_disabled: user.is_disabled,
         oidc_issuer_id: user.oidc_issuer_id,
+        access_link_id: session.access_link_id,
         extra_information: user.extra_information,
         times_two_factor_backup_codes_used: user.two_factor_information.as_ref().map(|info| {
             info.backup_codes

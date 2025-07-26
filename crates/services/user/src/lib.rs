@@ -170,8 +170,8 @@ impl UserService {
         notification_operations::test_user_notification_platforms(&self.0, user_id).await
     }
 
-    pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        authentication_operations::user_details(&self.0, token).await
+    pub async fn user_details(&self, session_id: &str) -> Result<UserDetailsResult> {
+        authentication_operations::user_details(&self.0, session_id).await
     }
 
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {
