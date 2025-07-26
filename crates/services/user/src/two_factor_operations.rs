@@ -130,7 +130,8 @@ pub async fn complete_two_factor_setup(
         bail!("Two-factor setup not initiated or expired");
     };
 
-    let decrypted_secret = decrypt_totp_secret(&setup_data.secret, &ss.config.users.jwt_secret)?;
+    let decrypted_secret =
+        decrypt_totp_secret(&setup_data.secret, &ss.config.server.admin_access_token)?;
 
     if !verify_totp_code(&input.totp_code, &decrypted_secret) {
         bail!("Invalid TOTP code");
