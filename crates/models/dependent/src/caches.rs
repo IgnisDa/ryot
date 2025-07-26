@@ -64,6 +64,7 @@ pub enum ApplicationCacheKey {
     SpotifyAccessToken,
     ListennotesSettings,
     TrendingMetadataIds,
+    UserSession { session_id: String },
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
@@ -99,6 +100,7 @@ pub type SpotifyAccessToken = String;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
+    UserSession(String),
     TmdbSettings(TmdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),

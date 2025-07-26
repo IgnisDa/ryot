@@ -72,6 +72,10 @@ impl CacheService {
             | ApplicationCacheKey::ListennotesSettings => Duration::days(5),
 
             ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
+
+            ApplicationCacheKey::UserSession { .. } => {
+                Duration::days(self.config.users.token_valid_for_days.into())
+            }
         }
     }
 
