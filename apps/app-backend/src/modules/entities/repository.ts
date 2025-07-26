@@ -11,7 +11,6 @@ import {
 import type { ImageSchemaType } from "~/lib/zod";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 
-import type { ListedEntity } from "./schemas";
 import type { EntityPropertiesShape } from "./service";
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
@@ -36,17 +35,7 @@ const entitySchemaScopeSelection = {
 	propertiesSchema: entitySchema.propertiesSchema,
 };
 
-type EntityRow = Omit<ListedEntity, "properties"> & {
-	properties: unknown;
-};
-
 const unpopulatedGlobalEntityDate = new Date(0);
-
-const toListedEntity = (row: EntityRow): ListedEntity => ({
-	...row,
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	properties: row.properties as EntityPropertiesShape,
-});
 
 export const getEntitySchemaScopeForUser = async (input: {
 	userId: string;
@@ -91,7 +80,7 @@ export const getEntityByIdForUser = async (input: { userId: string; entityId: st
 		)
 		.limit(1);
 
-	return foundEntity ? toListedEntity(foundEntity) : foundEntity;
+	return foundEntity;
 };
 
 export const listEntitiesByEntitySchemaForUser = async (input: {
@@ -109,7 +98,7 @@ export const listEntitiesByEntitySchemaForUser = async (input: {
 		)
 		.orderBy(asc(entity.name), asc(entity.createdAt));
 
-	return rows.map(toListedEntity);
+	return rows;
 };
 
 export const findEntityByExternalIdForUser = async (input: {
@@ -131,7 +120,7 @@ export const findEntityByExternalIdForUser = async (input: {
 		)
 		.limit(1);
 
-	return foundEntity ? toListedEntity(foundEntity) : undefined;
+	return foundEntity;
 };
 
 export const createEntityForUser = async (input: {
@@ -156,7 +145,7 @@ export const createEntityForUser = async (input: {
 		})
 		.returning(entitySelection);
 
-	return toListedEntity(assertPersisted(createdEntity, "entity"));
+	return assertPersisted(createdEntity, "entity");
 };
 
 export const findGlobalEntityByExternalId = async (input: {
@@ -177,7 +166,7 @@ export const findGlobalEntityByExternalId = async (input: {
 		)
 		.limit(1);
 
-	return foundEntity ? toListedEntity(foundEntity) : undefined;
+	return foundEntity;
 };
 
 export const createGlobalEntity = async (input: {
@@ -202,7 +191,7 @@ export const createGlobalEntity = async (input: {
 		.returning(entitySelection);
 
 	if (createdEntity) {
-		return { entity: toListedEntity(createdEntity), isNew: true };
+		return { entity: createdEntity, isNew: true };
 	}
 
 	const existing = await findGlobalEntityByExternalId(input);
@@ -248,7 +237,7 @@ export const updateGlobalEntityById = async (input: {
 		throw new Error(`Failed to update global entity '${input.entityId}'`);
 	}
 
-	return toListedEntity(updated);
+	return updated;
 };
 
 export const buildPersonRelationshipProperties = (
@@ -284,9 +273,7 @@ export const upsertPersonRelationship = async (input: {
 			.for("update")
 			.limit(1);
 
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		const existingProperties =
-			(existing?.properties as Record<string, unknown> | undefined) ?? undefined;
+		const existingProperties = existing?.properties;
 		const mergedProperties = buildPersonRelationshipProperties(
 			existingProperties,
 			input.role,

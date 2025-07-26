@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { type AppSchema, dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { isNull, sql } from "drizzle-orm";
 import {
@@ -54,8 +54,8 @@ export const entitySchema = pgTable(
 		name: text().notNull(),
 		icon: text().notNull(),
 		accentColor: text().notNull(),
-		propertiesSchema: jsonb().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
@@ -104,8 +104,8 @@ export const eventSchema = pgTable(
 	{
 		slug: text().notNull(),
 		name: text().notNull(),
-		propertiesSchema: jsonb().notNull(),
 		isBuiltin: boolean().notNull().default(false),
+		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		entitySchemaId: text()
@@ -190,10 +190,10 @@ export const entity = pgTable(
 		externalId: text(),
 		name: text().notNull(),
 		image: jsonb().$type<ImageSchemaType>(),
-		properties: jsonb().notNull().default({}),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		populatedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		entitySchemaId: text()
 			.notNull()
 			.references(() => entitySchema.id, { onDelete: "cascade" }),
@@ -241,7 +241,7 @@ export const entity = pgTable(
 export const event = pgTable(
 	"event",
 	{
-		properties: jsonb().notNull().default({}),
+		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
@@ -312,9 +312,9 @@ export const relationshipSchema = pgTable(
 export const relationship = pgTable(
 	"relationship",
 	{
-		properties: jsonb().notNull().default({}),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		sourceEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),

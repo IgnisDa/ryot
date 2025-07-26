@@ -3,12 +3,7 @@ import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { assertPersisted, db } from "~/lib/db";
 import { entitySchema, entitySchemaAccessScopeSelection, eventSchema } from "~/lib/db/schema";
 
-import type { ListedEventSchema } from "./schemas";
 import type { EventSchemaPropertiesShape } from "./service";
-
-type EventSchemaRow = Omit<ListedEventSchema, "propertiesSchema"> & {
-	propertiesSchema: unknown;
-};
 
 const listedEventSchemaSelection = {
 	id: eventSchema.id,
@@ -17,12 +12,6 @@ const listedEventSchemaSelection = {
 	entitySchemaId: eventSchema.entitySchemaId,
 	propertiesSchema: eventSchema.propertiesSchema,
 };
-
-const toListedEventSchema = (row: EventSchemaRow): ListedEventSchema => ({
-	...row,
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	propertiesSchema: row.propertiesSchema as EventSchemaPropertiesShape,
-});
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
@@ -58,7 +47,7 @@ export const listEventSchemasByEntitySchemaForUser = async (input: {
 		)
 		.orderBy(asc(eventSchema.name), asc(eventSchema.createdAt));
 
-	return rows.map(toListedEventSchema);
+	return rows;
 };
 
 export const getEventSchemaBySlugForUser = async (input: {
@@ -99,5 +88,5 @@ export const createEventSchemaForUser = async (input: {
 		})
 		.returning(listedEventSchemaSelection);
 
-	return toListedEventSchema(assertPersisted(createdEventSchema, "event schema"));
+	return assertPersisted(createdEventSchema, "event schema");
 };
