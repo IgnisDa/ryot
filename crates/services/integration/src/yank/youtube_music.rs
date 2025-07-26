@@ -5,7 +5,7 @@ use application_utils::{get_current_date, get_current_time};
 use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
 use chrono_tz::Tz;
 use common_models::{UserLevelCacheKey, YoutubeMusicSongListened};
-use common_utils::{TEMPORARY_DIRECTORY, ryot_log};
+use common_utils::{get_temporary_directory, ryot_log};
 use dependent_models::ImportOrExportMetadataItem;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportResult,
@@ -55,7 +55,7 @@ pub async fn yank_progress(
         end_of_day.signed_duration_since(current_time) <= Duration::minutes(THRESHOLD_MINUTES);
 
     let client = RustyPipe::builder()
-        .storage_dir(TEMPORARY_DIRECTORY)
+        .storage_dir(get_temporary_directory())
         .timezone(&timezone, get_offset(&timezone))
         .build()?;
     client.user_auth_set_cookie(auth_cookie).await?;

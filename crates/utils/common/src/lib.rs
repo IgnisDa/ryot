@@ -11,10 +11,6 @@ use tokio::time::{Duration, sleep};
 pub const PAGE_SIZE: i32 = 20;
 pub const AUTHOR: &str = "ignisda";
 pub const PROJECT_NAME: &str = "ryot";
-#[cfg(not(debug_assertions))]
-pub const TEMPORARY_DIRECTORY: &str = "tmp";
-#[cfg(debug_assertions)]
-pub const TEMPORARY_DIRECTORY: &str = "/tmp";
 pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
@@ -58,6 +54,13 @@ pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 5] = [
     MediaSource::Spotify,
     MediaSource::GoogleBooks,
 ];
+
+pub fn get_temporary_directory() -> &'static str {
+    if cfg!(debug_assertions) {
+        return "/tmp";
+    }
+    "tmp"
+}
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use common_models::{
     EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::TEMPORARY_DIRECTORY;
+use common_utils::get_temporary_directory;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     MetadataGroupPersonRelated, MetadataPersonRelated, PersonDetails, SearchResults,
@@ -28,7 +28,7 @@ pub struct YoutubeMusicService {
 impl YoutubeMusicService {
     pub async fn new() -> Result<Self> {
         let client = RustyPipe::builder()
-            .storage_dir(TEMPORARY_DIRECTORY)
+            .storage_dir(get_temporary_directory())
             .build()?;
         Ok(Self {
             client: client.query(),
