@@ -107,10 +107,9 @@ pub async fn commit_import_seen_item(
         ApplicationCacheKey::MetadataProgressUpdateCompletedCache(common_input.clone());
     let in_progress_cache_key =
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache(common_input);
-    let cc = &ss.cache_service;
     let (in_progress_cache, completed_cache) = join!(
-        cc.get_value::<EmptyCacheValue>(in_progress_cache_key.clone()),
-        cc.get_value::<EmptyCacheValue>(completed_cache_key.clone()),
+        cache_service::get_value::<EmptyCacheValue>(ss, in_progress_cache_key.clone()),
+        cache_service::get_value::<EmptyCacheValue>(ss, completed_cache_key.clone()),
     );
 
     if completed_cache.is_some() {
@@ -136,7 +135,7 @@ pub async fn commit_import_seen_item(
         )
         .await?;
 
-        cc.set_key(in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
+        cache_service::set_key(ss, in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
         return Ok(());
     }
 
@@ -158,8 +157,9 @@ pub async fn commit_import_seen_item(
 
         if progress >= dec!(100) {
             let _ = try_join!(
-                cc.expire_key(ExpireCacheKeyInput::ByKey(in_progress_cache_key)),
-                cc.set_key(
+                cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(in_progress_cache_key)),
+                cache_service::set_key(
+                    ss,
                     completed_cache_key,
                     ApplicationCacheValue::MetadataProgressUpdateCompletedCache(
                         EmptyCacheValue::default(),

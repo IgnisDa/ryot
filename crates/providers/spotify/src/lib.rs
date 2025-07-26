@@ -168,31 +168,30 @@ async fn get_spotify_access_token(
     config: &SpotifyConfig,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
-    let cc = &ss.cache_service;
-    let cached_response = cc
-        .get_or_set_with_callback(
-            ApplicationCacheKey::SpotifyAccessToken,
-            ApplicationCacheValue::SpotifyAccessToken,
-            || async {
-                if config.client_id.is_empty() || config.client_secret.is_empty() {
-                    bail!("Spotify client ID or secret is not configured");
-                }
-                let credentials = format!("{}:{}", config.client_id, config.client_secret);
-                let encoded_credentials = BASE64.encode(credentials.as_bytes());
+    let cached_response = cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::SpotifyAccessToken,
+        ApplicationCacheValue::SpotifyAccessToken,
+        || async {
+            if config.client_id.is_empty() || config.client_secret.is_empty() {
+                bail!("Spotify client ID or secret is not configured");
+            }
+            let credentials = format!("{}:{}", config.client_id, config.client_secret);
+            let encoded_credentials = BASE64.encode(credentials.as_bytes());
 
-                let response = Client::new()
-                    .post(SPOTIFY_TOKEN_URL)
-                    .header("Authorization", format!("Basic {}", encoded_credentials))
-                    .form(&[("grant_type", "client_credentials")])
-                    .send()
-                    .await?;
+            let response = Client::new()
+                .post(SPOTIFY_TOKEN_URL)
+                .header("Authorization", format!("Basic {}", encoded_credentials))
+                .form(&[("grant_type", "client_credentials")])
+                .send()
+                .await?;
 
-                let token_response: SpotifyTokenResponse = response.json().await?;
+            let token_response: SpotifyTokenResponse = response.json().await?;
 
-                Ok(token_response.access_token)
-            },
-        )
-        .await?;
+            Ok(token_response.access_token)
+        },
+    )
+    .await?;
 
     Ok(cached_response.response)
 }

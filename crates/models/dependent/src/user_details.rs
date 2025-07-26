@@ -85,6 +85,7 @@ pub struct UserDetails {
     pub is_disabled: Option<bool>,
     pub preferences: UserPreferences,
     pub oidc_issuer_id: Option<String>,
+    pub access_link_id: Option<String>,
     pub extra_information: Option<UserExtraInformation>,
     pub times_two_factor_backup_codes_used: Option<usize>,
 }

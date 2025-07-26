@@ -15,10 +15,11 @@ use dependent_models::{
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
-    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, post_review, update_metadata_and_notify_users,
-    update_metadata_group_and_notify_users, update_person_and_notify_users,
-    user_metadata_groups_list, user_metadata_list, user_people_list,
+    core_details, deploy_background_job, deploy_update_metadata_group_job,
+    deploy_update_metadata_job, deploy_update_person_job, post_review,
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
+    user_people_list,
 };
 use enum_models::EntityLot;
 use media_models::{
@@ -52,7 +53,7 @@ pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
     pub async fn core_details(&self) -> Result<CoreDetails> {
-        self.0.core_details().await
+        core_details(&self.0).await
     }
 
     pub async fn metadata_details(

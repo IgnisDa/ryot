@@ -250,10 +250,6 @@ users:
   # @envvar USERS_DISABLE_LOCAL_AUTH
   disable_local_auth: false
 
-  # The secret used for generating JWT tokens.
-  # @envvar USERS_JWT_SECRET
-  jwt_secret: ""
-
   # The number of days till login authentication token is valid.
   # @envvar USERS_TOKEN_VALID_FOR_DAYS
   token_valid_for_days: 90

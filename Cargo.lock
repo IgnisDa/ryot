@@ -260,12 +260,13 @@ dependencies = [
  "chrono-tz",
  "common-utils",
  "config",
- "jwt-service",
  "media-models",
  "openidconnect",
  "reqwest",
  "rust_decimal",
  "sea-orm",
+ "session-service",
+ "supporting-service",
  "tracing",
 ]
 
@@ -881,7 +882,6 @@ dependencies = [
  "axum",
  "background-models",
  "bon",
- "cache-service",
  "chrono-tz",
  "collection-resolver",
  "collection-service",
@@ -1209,13 +1209,13 @@ dependencies = [
  "async-graphql",
  "chrono",
  "common-utils",
- "config",
  "database-models",
  "dependent-models",
  "sea-orm",
  "sea-query",
  "serde",
  "serde_json",
+ "supporting-service",
  "tracing",
  "uuid",
 ]
@@ -1344,6 +1344,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "background-models",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -1803,13 +1804,13 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "itertools 0.14.0",
- "jwt-service",
  "markdown",
  "media-models",
  "migrations",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
+ "session-service",
  "supporting-service",
  "tracing",
  "user-models",
@@ -1849,6 +1850,7 @@ dependencies = [
  "application-utils",
  "audible-provider",
  "background-models",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -1858,6 +1860,7 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "enum_meta",
+ "env-utils",
  "fitness-models",
  "futures",
  "giant-bomb-provider",
@@ -1865,6 +1868,7 @@ dependencies = [
  "hardcover-provider",
  "igdb-provider",
  "importer-models",
+ "isolang",
  "itertools 0.14.0",
  "itunes-provider",
  "listennotes-provider",
@@ -1879,6 +1883,7 @@ dependencies = [
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
+ "rustypipe",
  "sea-orm",
  "sea-query",
  "serde",
@@ -3330,6 +3335,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-trait",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -3472,6 +3478,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
+ "cache-service",
  "chrono",
  "chrono-tz",
  "common-models",
@@ -3633,31 +3640,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonwebtoken"
-version = "9.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
-dependencies = [
- "base64 0.22.1",
- "js-sys",
- "ring",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "jwt-service"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "jsonwebtoken",
- "serde",
- "serde_with",
- "uuid",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3711,6 +3693,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-trait",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -3955,6 +3938,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "background-models",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -5887,6 +5871,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "session-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "chrono",
+ "dependent-models",
+ "supporting-service",
+ "uuid",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6053,6 +6049,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-trait",
+ "cache-service",
  "common-models",
  "common-utils",
  "config",
@@ -6316,6 +6313,7 @@ name = "statistics-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cache-service",
  "common-models",
  "database-models",
  "dependent-models",
@@ -6394,20 +6392,12 @@ dependencies = [
  "apalis",
  "background-models",
  "bon",
- "cache-service",
  "chrono",
  "chrono-tz",
- "common-models",
  "common-utils",
  "config",
- "dependent-models",
- "enum-models",
- "enum_meta",
  "env-utils",
  "file-storage-service",
- "isolang",
- "itertools 0.14.0",
- "rustypipe",
  "sea-orm",
  "serde",
  "serde_json",
@@ -6611,6 +6601,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "async-trait",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -7144,6 +7135,7 @@ dependencies = [
  "anyhow",
  "application-utils",
  "argon2",
+ "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -7156,7 +7148,6 @@ dependencies = [
  "enum_meta",
  "futures",
  "itertools 0.14.0",
- "jwt-service",
  "media-models",
  "nanoid",
  "notification-service",
@@ -7164,6 +7155,7 @@ dependencies = [
  "rand 0.9.1",
  "ring",
  "sea-orm",
+ "session-service",
  "subtle",
  "supporting-service",
  "tokio",

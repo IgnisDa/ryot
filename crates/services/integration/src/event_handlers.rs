@@ -5,6 +5,7 @@ use database_models::{
     seen, user_to_entity,
 };
 use database_utils::server_key_validation_guard;
+use dependent_utils::is_server_key_validated;
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::SeenShowExtraInformation;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
@@ -131,7 +132,7 @@ impl IntegrationService {
             let specifics = integration.provider_specifics.clone().unwrap();
             let push_result = match integration.provider {
                 IntegrationProvider::JellyfinPush => {
-                    server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+                    server_key_validation_guard(is_server_key_validated(&self.0).await?).await?;
                     push::jellyfin::push_progress(
                         specifics.jellyfin_push_base_url.unwrap(),
                         specifics.jellyfin_push_username.unwrap(),

@@ -427,12 +427,14 @@ pub async fn calculate_user_activities_and_summary(
         model.insert(&ss.db).await.unwrap();
     }
 
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::BySanitizedKey {
+    cache_service::expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
             user_id: Some(user_id.to_owned()),
             key: ApplicationCacheKeyDiscriminants::UserAnalytics,
-        })
-        .await?;
+        },
+    )
+    .await?;
 
     Ok(())
 }

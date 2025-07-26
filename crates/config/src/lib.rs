@@ -436,9 +436,6 @@ pub struct ServerConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
-    /// The secret used for generating JWT tokens.
-    #[setting(default = format!("{}", PROJECT_NAME))]
-    pub jwt_secret: String,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
@@ -531,7 +528,6 @@ impl AppConfig {
         cl.video_games.twitch.client_id = gt();
         cl.video_games.twitch.client_secret = gt();
         cl.video_games.giant_bomb.api_key = gt();
-        cl.users.jwt_secret = gt();
         cl.server.cors_origins = vec![gt()];
         cl.server.smtp.server = gt();
         cl.server.smtp.user = gt();

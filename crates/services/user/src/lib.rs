@@ -7,6 +7,7 @@ use database_utils::server_key_validation_guard;
 use dependent_models::{
     BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
+use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
@@ -64,7 +65,7 @@ impl UserService {
     }
 
     pub async fn revoke_access_link(&self, access_link_id: String) -> Result<bool> {
-        server_key_validation_guard(self.0.is_server_key_validated().await?).await?;
+        server_key_validation_guard(is_server_key_validated(&self.0).await?).await?;
         authentication_operations::revoke_access_link(&self.0, access_link_id).await
     }
 
@@ -98,6 +99,10 @@ impl UserService {
 
     pub async fn login_user(&self, input: AuthUserInput) -> Result<LoginResult> {
         authentication_operations::login_user(&self.0, input).await
+    }
+
+    pub async fn logout_user(&self, session_id: String) -> Result<bool> {
+        authentication_operations::logout_user(&self.0, session_id).await
     }
 
     pub async fn update_user(
@@ -165,8 +170,8 @@ impl UserService {
         notification_operations::test_user_notification_platforms(&self.0, user_id).await
     }
 
-    pub async fn user_details(&self, token: &str) -> Result<UserDetailsResult> {
-        authentication_operations::user_details(&self.0, token).await
+    pub async fn user_details(&self, session_id: &str) -> Result<UserDetailsResult> {
+        authentication_operations::user_details(&self.0, session_id).await
     }
 
     pub async fn user_integrations(&self, user_id: &String) -> Result<Vec<integration::Model>> {

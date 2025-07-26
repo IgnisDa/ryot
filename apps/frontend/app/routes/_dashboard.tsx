@@ -73,7 +73,6 @@ import { FitnessAction } from "~/lib/types";
 import {
 	getCookieValue,
 	getCoreDetails,
-	getDecodedJwt,
 	getEnhancedCookieName,
 	getUserCollectionsList,
 	getUserPreferences,
@@ -107,8 +106,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		onboardingTourCompletedCookie,
 	);
 
-	const decodedCookie = getDecodedJwt(request);
-	const isAccessLinkSession = Boolean(decodedCookie?.access_link_id);
+	const isAccessLinkSession = Boolean(userDetails.accessLinkId);
 	const isDemoInstance = coreDetails.isDemoInstance;
 
 	const shouldHaveUmami =

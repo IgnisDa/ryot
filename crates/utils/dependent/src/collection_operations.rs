@@ -24,7 +24,7 @@ use supporting_service::SupportingService;
 use uuid::Uuid;
 
 use crate::{
-    expire_user_collection_contents_cache,
+    expire_user_collection_contents_cache, is_server_key_validated,
     utility_operations::{
         associate_user_with_entity, expire_user_collections_list_cache,
         mark_entity_as_recently_consumed,
@@ -289,7 +289,7 @@ pub async fn reorder_collection_entity(
     input: ReorderCollectionEntityInput,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
 
     let collection = Collection::find()
         .filter(collection::Column::Name.eq(&input.collection_name))

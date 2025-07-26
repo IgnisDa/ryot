@@ -18,6 +18,7 @@ serde_with = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { path = "../../utils/application" }
+cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }

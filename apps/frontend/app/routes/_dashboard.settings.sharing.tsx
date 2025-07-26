@@ -58,17 +58,17 @@ import {
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
-	getDecodedJwt,
+	getUserDetails,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.sharing";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const decodedJwt = getDecodedJwt(request);
-	const [{ userAccessLinks }] = await Promise.all([
+	const [{ userAccessLinks }, userDetails] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
+		getUserDetails(request),
 	]);
-	return { userAccessLinks, activeAccessLinkId: decodedJwt?.access_link_id };
+	return { userAccessLinks, activeAccessLinkId: userDetails.accessLinkId };
 };
 
 export const meta = () => {

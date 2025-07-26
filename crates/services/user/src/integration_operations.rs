@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use database_models::{integration, prelude::Integration};
 use database_utils::server_key_validation_guard;
+use dependent_utils::is_server_key_validated;
 use enum_models::{IntegrationLot, IntegrationProvider};
 use media_models::CreateOrUpdateUserIntegrationInput;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, ModelTrait};
@@ -36,7 +37,7 @@ pub async fn create_or_update_user_integration(
             IntegrationProvider::JellyfinPush
             | IntegrationProvider::YoutubeMusic
             | IntegrationProvider::RyotBrowserExtension => {
-                server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+                server_key_validation_guard(is_server_key_validated(ss).await?).await?;
             }
             _ => {}
         }

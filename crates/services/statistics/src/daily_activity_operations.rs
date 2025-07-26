@@ -21,38 +21,37 @@ pub async fn user_analytics_parameters(
     supporting_service: &Arc<SupportingService>,
     user_id: &String,
 ) -> Result<CachedResponse<ApplicationDateRange>> {
-    supporting_service
-        .cache_service
-        .get_or_set_with_callback(
-            ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
-                input: (),
-                user_id: user_id.to_owned(),
-            }),
-            ApplicationCacheValue::UserAnalyticsParameters,
-            || async {
-                let get_date = |ordering: Order| {
-                    DailyUserActivity::find()
-                        .filter(daily_user_activity::Column::UserId.eq(user_id))
-                        .select_only()
-                        .column(daily_user_activity::Column::Date)
-                        .order_by_with_nulls(
-                            daily_user_activity::Column::Date,
-                            ordering,
-                            NullOrdering::Last,
-                        )
-                        .into_tuple::<Date>()
-                        .one(&supporting_service.db)
-                };
-                let start_date = get_date(Order::Asc).await?;
-                let end_date = get_date(Order::Desc).await?;
-                let response = ApplicationDateRange {
-                    end_date,
-                    start_date,
-                };
-                Ok(response)
-            },
-        )
-        .await
+    cache_service::get_or_set_with_callback(
+        supporting_service,
+        ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
+            input: (),
+            user_id: user_id.to_owned(),
+        }),
+        ApplicationCacheValue::UserAnalyticsParameters,
+        || async {
+            let get_date = |ordering: Order| {
+                DailyUserActivity::find()
+                    .filter(daily_user_activity::Column::UserId.eq(user_id))
+                    .select_only()
+                    .column(daily_user_activity::Column::Date)
+                    .order_by_with_nulls(
+                        daily_user_activity::Column::Date,
+                        ordering,
+                        NullOrdering::Last,
+                    )
+                    .into_tuple::<Date>()
+                    .one(&supporting_service.db)
+            };
+            let start_date = get_date(Order::Asc).await?;
+            let end_date = get_date(Order::Desc).await?;
+            let response = ApplicationDateRange {
+                end_date,
+                start_date,
+            };
+            Ok(response)
+        },
+    )
+    .await
 }
 
 pub async fn get_daily_user_activities(

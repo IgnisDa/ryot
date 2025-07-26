@@ -556,15 +556,14 @@ impl IgdbService {
     }
 
     async fn get_client_config(&self) -> Result<Client> {
-        let cc = &self.ss.cache_service;
-        let cached_response = cc
-            .get_or_set_with_callback(
-                ApplicationCacheKey::IgdbSettings,
-                ApplicationCacheValue::IgdbSettings,
-                || async { Ok(self.get_access_token().await) },
-            )
-            .await
-            .unwrap();
+        let cached_response = cache_service::get_or_set_with_callback(
+            &self.ss,
+            ApplicationCacheKey::IgdbSettings,
+            ApplicationCacheValue::IgdbSettings,
+            || async { Ok(self.get_access_token().await) },
+        )
+        .await
+        .unwrap();
         let access_token = cached_response.response;
         Ok(get_base_http_client(Some(vec![
             (

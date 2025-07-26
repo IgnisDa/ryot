@@ -15,9 +15,9 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
+supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

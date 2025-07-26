@@ -25,6 +25,10 @@ mutation LoginUser($input: AuthUserInput!) {
 	}
 }
 
+mutation LogoutUser {
+	logoutUser
+}
+
 mutation DeployAddEntitiesToCollectionJob(
 	$input: ChangeCollectionToEntitiesInput!
 ) {

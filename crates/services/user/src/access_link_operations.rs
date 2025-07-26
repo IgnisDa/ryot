@@ -5,7 +5,7 @@ use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{access_link, prelude::AccessLink, user};
 use database_utils::{get_enabled_users_query, server_key_validation_guard};
-use jwt_service::sign;
+use dependent_utils::is_server_key_validated;
 use media_models::{
     CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
     ProcessAccessLinkInput, ProcessAccessLinkResponse, ProcessAccessLinkResult,
@@ -21,7 +21,7 @@ pub async fn create_access_link(
     input: CreateAccessLinkInput,
     user_id: String,
 ) -> Result<StringIdObject> {
-    server_key_validation_guard(ss.is_server_key_validated().await?).await?;
+    server_key_validation_guard(is_server_key_validated(ss).await?).await?;
     let new_link = access_link::ActiveModel {
         user_id: ActiveValue::Set(user_id),
         name: ActiveValue::Set(input.name),
@@ -86,17 +86,13 @@ pub async fn process_access_link(
             error: ProcessAccessLinkErrorVariant::Revoked,
         }));
     }
-    let validity = if let Some(expires) = link.expires_on {
-        (expires - Utc::now()).num_days().try_into().unwrap()
-    } else {
-        ss.config.users.token_valid_for_days
-    };
-    let api_key = sign(
+    let api_key = session_service::create_session(
+        ss,
         link.user_id.clone(),
-        &ss.config.users.jwt_secret,
-        validity,
         Some(link.id.clone()),
-    )?;
+        link.expires_on.map(|s| s - Utc::now()),
+    )
+    .await?;
     let mut issued_tokens = link.issued_tokens.clone();
     issued_tokens.push(api_key.clone());
     let mut link = link.into_active_model();
@@ -104,7 +100,7 @@ pub async fn process_access_link(
     let link = link.update(&ss.db).await?;
     Ok(ProcessAccessLinkResult::Ok(ProcessAccessLinkResponse {
         api_key,
-        token_valid_for_days: validity,
         redirect_to: link.redirect_to,
+        token_valid_for_days: ss.config.users.token_valid_for_days,
     }))
 }
