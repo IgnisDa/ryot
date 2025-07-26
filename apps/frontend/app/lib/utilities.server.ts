@@ -16,7 +16,6 @@ import {
 	type RequestDocument,
 	type Variables,
 } from "graphql-request";
-import { jwtDecode } from "jwt-decode";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import {
 	createCookie,
@@ -165,18 +164,13 @@ export const MetadataSpecificsSchema = z.object({
 	podcastEpisodeNumber: zodEmptyNumberString,
 });
 
-export const getDecodedJwt = (request: Request) => {
-	const token = getAuthorizationCookie(request) ?? "";
-	return jwtDecode<{ sub: string; access_link_id?: string }>(token);
-};
-
 export const getCoreDetails = async () => {
 	return await serverGqlService
 		.request(CoreDetailsDocument)
 		.then((d) => d.coreDetails);
 };
 
-const getUserDetails = async (request: Request) => {
+export const getUserDetails = async (request: Request) => {
 	const { userDetails } = await serverGqlService.authenticatedRequest(
 		request,
 		UserDetailsDocument,
