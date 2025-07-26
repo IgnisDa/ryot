@@ -29,7 +29,7 @@ use reqwest::{
 };
 use rust_decimal::Decimal;
 use sea_orm::Order;
-use session_service::SessionService;
+use supporting_service::SupportingService;
 
 #[derive(Debug, Default)]
 pub struct AuthContext {
@@ -54,17 +54,17 @@ where
             ctx.session_id = h.to_str().map(String::from).ok();
         }
         if let Some(session_id) = ctx.session_id.as_ref() {
-            let Extension(session_service) = parts
-                .extract::<Extension<Arc<SessionService>>>()
+            let Extension(ss) = parts
+                .extract::<Extension<Arc<SupportingService>>>()
                 .await
                 .map_err(|_| {
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        "Session service not available",
+                        "Supporting service not available",
                     )
                 })?;
 
-            if let Ok(Some(user_id)) = session_service.validate_session(session_id).await {
+            if let Ok(Some(user_id)) = session_service::validate_session(&ss, session_id).await {
                 ctx.user_id = Some(user_id);
             }
         }

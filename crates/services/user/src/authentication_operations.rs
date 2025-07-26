@@ -14,12 +14,10 @@ use media_models::{UserDetailsError, UserDetailsErrorVariant};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
 };
-use session_service::SessionService;
 use supporting_service::SupportingService;
 
 pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
-    let session_service = SessionService(ss.clone());
-    let session_id = session_service.create_session(user_id).await?;
+    let session_id = session_service::create_session(ss, user_id).await?;
     Ok(session_id)
 }
 
@@ -31,8 +29,7 @@ pub async fn revoke_access_link(
 }
 
 pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<UserDetailsResult> {
-    let session_service = SessionService(ss.clone());
-    let user_id = match session_service.validate_session(token).await? {
+    let user_id = match session_service::validate_session(ss, token).await? {
         Some(user_id) => user_id,
         None => {
             return Ok(UserDetailsResult::Error(UserDetailsError {
@@ -93,7 +90,6 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
 }
 
 pub async fn logout_user(ss: &Arc<SupportingService>, session_id: String) -> Result<bool> {
-    let session_service = SessionService(ss.clone());
-    session_service.invalidate_session(&session_id).await?;
+    session_service::invalidate_session(ss, &session_id).await?;
     Ok(true)
 }
