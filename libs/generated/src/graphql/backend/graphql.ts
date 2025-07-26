@@ -3013,7 +3013,8 @@ export type VerifyTwoFactorError = {
 };
 
 export enum VerifyTwoFactorErrorVariant {
-  Invalid = 'INVALID'
+  Invalid = 'INVALID',
+  RateLimited = 'RATE_LIMITED'
 }
 
 export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
