@@ -15,15 +15,15 @@ pub const PROJECT_NAME: &str = "ryot";
 pub const TEMPORARY_DIRECTORY: &str = "tmp";
 #[cfg(debug_assertions)]
 pub const TEMPORARY_DIRECTORY: &str = "/tmp";
-pub static TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
+pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
 pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
-pub static BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
+pub const BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
 pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
 pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
-pub static BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
+pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
-pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
+pub const APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 pub const AVATAR_URL: &str =
     "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 pub const USER_AGENT_STR: &str = const_str::concat!(
