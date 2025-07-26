@@ -3,7 +3,7 @@ use std::{collections::HashMap, future::Future, sync::Arc};
 use anyhow::Result;
 use async_graphql::OutputType;
 use chrono::{Duration, Utc};
-use common_utils::ryot_log;
+use common_utils::{COMPILATION_TIMESTAMP, ryot_log};
 use database_models::{application_cache, prelude::ApplicationCache};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, ExpireCacheKeyInput,
@@ -76,7 +76,7 @@ pub async fn set_keys_with_custom_expiry(
         return Ok(HashMap::new());
     }
     let now = Utc::now();
-    let version = now.to_rfc2822();
+    let version = COMPILATION_TIMESTAMP.to_string();
     let mut response = HashMap::new();
     for (key, value) in items {
         let version = should_respect_version(&key).then(|| version.to_owned());
@@ -166,11 +166,10 @@ pub async fn get_values(
         .all(&ss.db)
         .await?;
 
-    let version = Utc::now().to_rfc2822();
     let mut values = HashMap::new();
     for cache in caches {
         if let Some(cache_version) = cache.version {
-            if cache_version != version {
+            if cache_version != COMPILATION_TIMESTAMP.to_string() {
                 continue;
             }
         }
