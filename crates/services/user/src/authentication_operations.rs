@@ -5,8 +5,8 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{prelude::User, user};
-use database_utils::{revoke_access_link as db_revoke_access_link, user_details_by_id};
-use dependent_models::UserDetailsResult;
+use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
+use dependent_models::{UserDetails, UserDetailsResult};
 use media_models::{
     ApiKeyResponse, AuthUserInput, LoginError, LoginErrorVariant, LoginResult, PasswordUserInput,
 };
@@ -37,8 +37,23 @@ pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<Us
             }));
         }
     };
-    let user = user_details_by_id(&user_id, ss).await?;
-    Ok(UserDetailsResult::Ok(Box::new(user)))
+    let user = user_by_id(&user_id, ss).await?;
+    let details = UserDetails {
+        id: user.id,
+        lot: user.lot,
+        name: user.name,
+        preferences: user.preferences,
+        is_disabled: user.is_disabled,
+        oidc_issuer_id: user.oidc_issuer_id,
+        extra_information: user.extra_information,
+        times_two_factor_backup_codes_used: user.two_factor_information.as_ref().map(|info| {
+            info.backup_codes
+                .iter()
+                .filter(|code| code.used_at.is_some())
+                .count()
+        }),
+    };
+    Ok(UserDetailsResult::Ok(Box::new(details)))
 }
 
 pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Result<LoginResult> {
