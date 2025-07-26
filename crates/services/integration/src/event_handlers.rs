@@ -10,9 +10,12 @@ use media_models::SeenShowExtraInformation;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use uuid::Uuid;
 
-use crate::integration_operations::{select_integrations_to_process, set_trigger_result};
-use crate::utils::{ArrPushConfig, ArrPushConfigExternalId};
-use crate::{IntegrationService, push};
+use crate::{
+    IntegrationService,
+    integration_operations::{select_integrations_to_process, set_trigger_result},
+    push,
+    utils::{ArrPushConfig, ArrPushConfigExternalId},
+};
 
 impl IntegrationService {
     pub async fn handle_entity_added_to_collection_event(

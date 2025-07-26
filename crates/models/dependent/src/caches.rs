@@ -13,16 +13,18 @@ use serde_with::skip_serializing_none;
 use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
-use crate::analytics::UserAnalytics;
-use crate::core_systems::{CoreDetails, TmdbSettings};
-use crate::generic_types::{
-    CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
-    UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserMetadataRecommendationsResponse, UserPeopleListInput,
-    UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
-    UserWorkoutsTemplatesListResponse,
+use crate::{
+    analytics::UserAnalytics,
+    core_systems::{CoreDetails, TmdbSettings},
+    generic_types::{
+        CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
+        MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
+        UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
+        UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+        UserMetadataListResponse, UserMetadataRecommendationsResponse, UserPeopleListInput,
+        UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
+        UserWorkoutsTemplatesListResponse,
+    },
 };
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
