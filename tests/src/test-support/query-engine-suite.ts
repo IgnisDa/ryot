@@ -1,5 +1,9 @@
 import { expect, it } from "bun:test";
 import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils";
+import {
 	buildGridDisplayConfiguration,
 	buildGridRequest,
 	buildListRequest,
@@ -13,12 +17,10 @@ import {
 	createQueryEngineEvent,
 	createSingleSchemaQueryEngineFixture,
 	createTracker,
-	entityColumnExpression,
 	entityField,
 	executeQueryEngine,
 	getQueryEngineFieldOrThrow,
 	literalExpression,
-	schemaPropertyExpression,
 	toRequiredExpression,
 } from "~/fixtures";
 
@@ -338,8 +340,8 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					expression: {
 						type: "coalesce",
 						values: [
-							schemaPropertyExpression(smartphoneSlug, "year"),
-							schemaPropertyExpression(tabletSlug, "releaseYear"),
+							createEntityPropertyExpression(smartphoneSlug, "year"),
+							createEntityPropertyExpression(tabletSlug, "releaseYear"),
 						],
 					},
 				},
@@ -399,7 +401,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("No Image Device"),
-					left: entityColumnExpression(schema.slug, "name"),
+					left: createEntityColumnExpression(schema.slug, "name"),
 				},
 				displayConfiguration: {
 					calloutProperty: null,
@@ -430,7 +432,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("No Image Device"),
-					left: entityColumnExpression(schema.slug, "name"),
+					left: createEntityColumnExpression(schema.slug, "name"),
 				},
 				displayConfiguration: {
 					calloutProperty: null,
@@ -461,7 +463,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("No Image Device"),
-					left: entityColumnExpression(schema.slug, "name"),
+					left: createEntityColumnExpression(schema.slug, "name"),
 				},
 				displayConfiguration: buildTableDisplayConfiguration([
 					{
@@ -613,7 +615,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("phone"),
-					left: schemaPropertyExpression(schema.slug, "missingProperty"),
+					left: createEntityPropertyExpression(schema.slug, "missingProperty"),
 				},
 			}),
 		);
@@ -626,7 +628,7 @@ export function registerQueryEnginePresentationAndErrorTests() {
 					operator: "eq",
 					type: "comparison",
 					right: literalExpression("2020"),
-					left: schemaPropertyExpression(schema.slug, "year"),
+					left: createEntityPropertyExpression(schema.slug, "year"),
 				},
 			}),
 		);
