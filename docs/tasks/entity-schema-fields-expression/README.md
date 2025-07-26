@@ -124,16 +124,16 @@ When implementing, follow the existing patterns in the expression compiler close
 
 ## Tasks
 
-**Overall Progress:** 0 of 5 tasks completed
+**Overall Progress:** 5 of 5 tasks completed
 
-**Current Task:** [Task 01](./01-shared-types-runtimeref-definition.md) (todo)
+**Current Task:** None — all tasks complete.
 
 ### Task List
 
 | #   | Task                                                                                       | Type | Status |
 | --- | ------------------------------------------------------------------------------------------ | ---- | ------ |
-| 01  | [Shared Types and RuntimeRef Definition](./01-shared-types-runtimeref-definition.md)       | AFK  | todo   |
-| 02  | [Validation and Type Inference](./02-validation-type-inference.md)                         | AFK  | todo   |
-| 03  | [Expression Compiler, Query Builder, and Response Shape](./03-expression-compiler-query-builder.md) | AFK  | todo   |
-| 04  | [Frontend: Read Entity Schema Info from Fields](./04-frontend-entity-schema-fields.md)     | AFK  | todo   |
-| 05  | [Codebase Cleanup](./05-codebase-cleanup.md)                                               | AFK  | todo   |
+| 01  | [Shared Types and RuntimeRef Definition](./01-shared-types-runtimeref-definition.md)       | AFK  | done  |
+| 02  | [Validation and Type Inference](./02-validation-type-inference.md)                         | AFK  | done  |
+| 03  | [Expression Compiler, Query Builder, and Response Shape](./03-expression-compiler-query-builder.md) | AFK  | done   |
+| 04  | [Frontend: Read Entity Schema Info from Fields](./04-frontend-entity-schema-fields.md)     | AFK  | done   |
+| 05  | [Codebase Cleanup](./05-codebase-cleanup.md)                                               | AFK  | done   |

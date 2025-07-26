@@ -194,7 +194,7 @@ export function useTrackerOverviewData(input: {
 	const recentEntityCards = recentEntities
 		.map((entity) => {
 			const schema =
-				schemaById.get(entity.entitySchemaId) ?? input.entitySchemas[0];
+				schemaById.get(entity.entitySchemaId ?? "") ?? input.entitySchemas[0];
 			return schema
 				? { entity, latestEvent: eventsByEntityId.get(entity.id)?.[0], schema }
 				: undefined;
