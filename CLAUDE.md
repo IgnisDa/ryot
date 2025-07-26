@@ -33,3 +33,6 @@
 - We try to keep the code files below 500 lines. If a file is larger than that, consider
   splitting it into smaller files (using functions, components, etc.) to improve
   readability.
+- React components should use a single `props` parameter instead of destructured props in
+  function arguments. Use `props.propertyName` syntax rather than destructuring
+  `{ propertyName }` in the function signature.

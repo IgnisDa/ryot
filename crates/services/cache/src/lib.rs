@@ -31,10 +31,13 @@ impl CacheService {
 }
 
 impl CacheService {
-    fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> i64 {
+    fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> Duration {
         match key {
+            ApplicationCacheKey::UserTwoFactorRateLimit { .. } => Duration::seconds(5),
+
+            ApplicationCacheKey::SpotifyAccessToken => Duration::minutes(50),
+
             ApplicationCacheKey::CoreDetails
-            | ApplicationCacheKey::SpotifyAccessToken
             | ApplicationCacheKey::PeopleSearch { .. }
             | ApplicationCacheKey::UserAnalytics { .. }
             | ApplicationCacheKey::UserPeopleList { .. }
@@ -42,32 +45,33 @@ impl CacheService {
             | ApplicationCacheKey::UserMetadataList { .. }
             | ApplicationCacheKey::UserWorkoutsList { .. }
             | ApplicationCacheKey::UserExercisesList { .. }
+            | ApplicationCacheKey::UserTwoFactorSetup { .. }
             | ApplicationCacheKey::MetadataGroupSearch { .. }
             | ApplicationCacheKey::UserMeasurementsList { .. }
             | ApplicationCacheKey::UserMetadataGroupsList { .. }
             | ApplicationCacheKey::UserCollectionContents { .. }
             | ApplicationCacheKey::UserWorkoutTemplatesList { .. }
             | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
-            | ApplicationCacheKey::UserMetadataRecommendations { .. } => 1,
+            | ApplicationCacheKey::UserMetadataRecommendations { .. } => Duration::hours(1),
 
             ApplicationCacheKey::MetadataProgressUpdateCompletedCache { .. } => {
-                self.config.server.progress_update_threshold
+                Duration::hours(self.config.server.progress_update_threshold)
             }
 
             ApplicationCacheKey::UserCollectionsList { .. }
-            | ApplicationCacheKey::UserAnalyticsParameters { .. } => 8,
+            | ApplicationCacheKey::UserAnalyticsParameters { .. } => Duration::hours(8),
 
             ApplicationCacheKey::TrendingMetadataIds
             | ApplicationCacheKey::MetadataLookup { .. }
             | ApplicationCacheKey::YoutubeMusicSongListened { .. }
             | ApplicationCacheKey::CollectionRecommendations { .. }
-            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => 24,
+            | ApplicationCacheKey::UserMetadataRecommendationsSet { .. } => Duration::days(1),
 
             ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
-            | ApplicationCacheKey::ListennotesSettings => 120,
+            | ApplicationCacheKey::ListennotesSettings => Duration::days(5),
 
-            ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => 720,
+            ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
         }
     }
 
@@ -106,7 +110,7 @@ impl CacheService {
                 version: ActiveValue::Set(version),
                 sanitized_key: ActiveValue::Set(sanitized_key),
                 value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
-                expires_at: ActiveValue::Set(now + Duration::hours(self.get_expiry_for_key(&key))),
+                expires_at: ActiveValue::Set(now + self.get_expiry_for_key(&key)),
                 ..Default::default()
             };
             let inserted = ApplicationCache::insert(to_insert)

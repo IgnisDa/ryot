@@ -6,8 +6,9 @@ import {
 	UserByOidcIssuerIdDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
-import { redirect } from "react-router";
+import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	getCookiesForApplication,
@@ -54,10 +55,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {
 		input: { oidc: oidcInput },
 	});
-	if (loginUser.__typename === "LoginResponse") {
+	if (loginUser.__typename === "ApiKeyResponse") {
 		const headers = await getCookiesForApplication(loginUser.apiKey);
 		return redirect($path("/"), { headers });
 	}
+	if (loginUser.__typename === "StringIdObject") {
+		return redirect(withQuery("/two-factor", { userId: loginUser.id }));
+	}
 	console.error("Login failed:", loginUser);
-	return Response.json({ input });
+	return data({ input });
 };

@@ -8,11 +8,20 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::de;
 use tokio::time::{Duration, sleep};
 
-pub const PROJECT_NAME: &str = "ryot";
+pub const PAGE_SIZE: i32 = 20;
 pub const AUTHOR: &str = "ignisda";
-pub static BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
-pub static BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
+pub const PROJECT_NAME: &str = "ryot";
+pub const TWO_FACTOR_BACKUP_CODES_COUNT: u8 = 12;
+pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
+pub const BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
+pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
+pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
+pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
+pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
+pub const APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
+pub const AVATAR_URL: &str =
+    "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
 pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR,
     "/",
@@ -23,18 +32,6 @@ pub const USER_AGENT_STR: &str = const_str::concat!(
     AUTHOR_EMAIL,
     ")"
 );
-pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
-pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
-pub const AVATAR_URL: &str =
-    "https://raw.githubusercontent.com/IgnisDa/ryot/main/libs/assets/icon-512x512.png";
-#[cfg(not(debug_assertions))]
-pub const TEMPORARY_DIRECTORY: &str = "tmp";
-#[cfg(debug_assertions)]
-pub const TEMPORARY_DIRECTORY: &str = "/tmp";
-pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
-pub static APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
-pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
-pub const PAGE_SIZE: i32 = 20;
 
 pub const PEOPLE_SEARCH_SOURCES: [MediaSource; 11] = [
     MediaSource::Tmdb,
@@ -57,6 +54,13 @@ pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 5] = [
     MediaSource::Spotify,
     MediaSource::GoogleBooks,
 ];
+
+pub fn get_temporary_directory() -> &'static str {
+    if cfg!(debug_assertions) {
+        return "/tmp";
+    }
+    "tmp"
+}
 
 pub fn get_first_and_last_day_of_month(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();

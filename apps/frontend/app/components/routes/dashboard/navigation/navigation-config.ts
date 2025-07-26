@@ -80,8 +80,12 @@ export const getSettingsLinks = (
 			link: $path("/settings/imports-and-exports"),
 		},
 		{
-			label: "Profile and Sharing",
-			link: $path("/settings/profile-and-sharing"),
+			label: "Security",
+			link: $path("/settings/security"),
+		},
+		{
+			label: "Sharing",
+			link: $path("/settings/sharing"),
 		},
 		{ label: "Integrations", link: $path("/settings/integrations") },
 		{ label: "Notifications", link: $path("/settings/notifications") },

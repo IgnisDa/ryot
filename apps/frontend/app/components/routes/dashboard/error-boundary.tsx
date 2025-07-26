@@ -8,7 +8,7 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { Form, isRouteErrorResponse, useRouteError } from "react-router";
+import { Link, isRouteErrorResponse, useRouteError } from "react-router";
 import { $path } from "safe-routes";
 import { discordLink } from "./utils";
 
@@ -40,16 +40,15 @@ export function ErrorBoundary() {
 					>
 						Reload
 					</Button>
-					<Form
-						replace
-						method="POST"
-						style={{ width: "100%" }}
-						action={$path("/actions", { intent: "logout" })}
+					<Button
+						fullWidth
+						color="blue"
+						component={Link}
+						variant="outline"
+						to={$path("/api/logout")}
 					>
-						<Button type="submit" variant="outline" color="blue" fullWidth>
-							Logout
-						</Button>
-					</Form>
+						Logout
+					</Button>
 				</Group>
 				{isRouteErrorResponse(error) ? null : (
 					<>

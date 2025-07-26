@@ -1,4 +1,5 @@
 import { EventName } from "@paddle/paddle-node-sdk";
+import { data } from "react-router";
 import {
 	RegisterUserDocument,
 	UpdateUserDocument,
@@ -33,7 +34,7 @@ const getRenewOnFromPlanType = (planType: TPlanTypes) =>
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
-	if (!paddleSignature) return Response.json({ error: "No paddle signature" });
+	if (!paddleSignature) return data({ error: "No paddle signature" });
 
 	const paddleClient = getPaddleServerClient();
 	const requestBody = await request.text();
@@ -42,17 +43,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		serverVariables.PADDLE_WEBHOOK_SECRET_KEY,
 		paddleSignature,
 	);
-	if (!eventData)
-		return Response.json({ error: "No event data found in request body" });
+	if (!eventData) return data({ error: "No event data found in request body" });
 
-	const { eventType, data } = eventData;
+	const { eventType, data: paddleData } = eventData;
 
 	console.log("Received event:", { eventType });
 
 	if (eventType === EventName.TransactionCompleted) {
-		const paddleCustomerId = data.customerId;
+		const paddleCustomerId = paddleData.customerId;
 		if (!paddleCustomerId)
-			return Response.json({
+			return data({
 				error: "No customer ID found in transaction completed event",
 			});
 		console.log("Received transaction completed event", { paddleCustomerId });
@@ -60,7 +60,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			where: eq(customers.paddleCustomerId, paddleCustomerId),
 		});
 		if (!customer) {
-			const parsed = customDataSchema.safeParse(data.customData);
+			const parsed = customDataSchema.safeParse(paddleData.customData);
 			if (parsed.success)
 				customer = await db.query.customers.findFirst({
 					where: eq(customers.id, parsed.data.customerId),
@@ -68,14 +68,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		}
 
 		if (!customer)
-			return Response.json({
+			return data({
 				error: `No customer found for customer ID: ${paddleCustomerId}`,
 			});
 
 		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 		if (!customer.planType) {
-			const priceId = data.details?.lineItems[0].priceId;
-			if (!priceId) return Response.json({ error: "Price ID not found" });
+			const priceId = paddleData.details?.lineItems[0].priceId;
+			if (!priceId) return data({ error: "Price ID not found" });
 
 			const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
 			console.log("Customer purchased plan:", {
@@ -180,11 +180,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		eventType === EventName.SubscriptionPaused ||
 		eventType === EventName.SubscriptionPastDue
 	) {
-		const customerId = data.customerId;
+		const customerId = paddleData.customerId;
 		const customer = await db.query.customers.findFirst({
 			where: eq(customers.paddleCustomerId, customerId),
 		});
-		if (!customer) return Response.json({ message: "No customer found" });
+		if (!customer) return data({ message: "No customer found" });
 		await db
 			.update(customers)
 			.set({ hasCancelled: true })
@@ -200,16 +200,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	}
 
 	if (eventType === EventName.SubscriptionResumed) {
-		const customerId = data.customerId;
+		const customerId = paddleData.customerId;
 		const customer = await db.query.customers.findFirst({
 			where: eq(customers.paddleCustomerId, customerId),
 		});
-		if (!customer) return Response.json({ message: "No customer found" });
+		if (!customer) return data({ message: "No customer found" });
 		await db
 			.update(customers)
 			.set({ hasCancelled: null })
 			.where(eq(customers.id, customer.id));
 	}
 
-	return Response.json({ message: "Webhook ran successfully" });
+	return data({ message: "Webhook ran successfully" });
 };

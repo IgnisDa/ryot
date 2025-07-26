@@ -68,15 +68,15 @@ pub struct UserResetResponse {
 
 #[derive(Union)]
 pub enum UserResetResult {
-    Ok(UserResetResponse),
     Error(RegisterError),
+    Ok(UserResetResponse),
 }
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum LoginErrorVariant {
     AccountDisabled,
-    UsernameDoesNotExist,
     CredentialsMismatch,
+    UsernameDoesNotExist,
     IncorrectProviderChosen,
 }
 
@@ -86,20 +86,21 @@ pub struct LoginError {
 }
 
 #[derive(Debug, SimpleObject)]
-pub struct LoginResponse {
+pub struct ApiKeyResponse {
     pub api_key: String,
 }
 
 #[derive(Union)]
 pub enum LoginResult {
-    Ok(LoginResponse),
     Error(LoginError),
+    Ok(ApiKeyResponse),
+    TwoFactorRequired(StringIdObject),
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 pub struct OidcTokenOutput {
-    pub subject: String,
     pub email: String,
+    pub subject: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -142,4 +143,51 @@ pub struct ProcessAccessLinkResponse {
 pub enum ProcessAccessLinkResult {
     Ok(ProcessAccessLinkResponse),
     Error(ProcessAccessLinkError),
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserTwoFactorInitiateResponse {
+    #[graphql(secret)]
+    pub secret: String,
+    pub qr_code_url: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct UserTwoFactorSetupInput {
+    pub totp_code: String,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum UserTwoFactorVerifyMethod {
+    Totp,
+    BackupCode,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct UserTwoFactorVerifyInput {
+    pub code: String,
+    pub user_id: String,
+    pub method: UserTwoFactorVerifyMethod,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserTwoFactorBackupCodesResponse {
+    pub backup_codes: Vec<String>,
+}
+
+#[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
+pub enum VerifyTwoFactorErrorVariant {
+    Invalid,
+    RateLimited,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct VerifyTwoFactorError {
+    pub error: VerifyTwoFactorErrorVariant,
+}
+
+#[derive(Union)]
+pub enum VerifyTwoFactorResult {
+    Ok(ApiKeyResponse),
+    Error(VerifyTwoFactorError),
 }

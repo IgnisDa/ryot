@@ -4,9 +4,9 @@ import { produce } from "immer";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
-export const PodcastForm = ({ metadataDetails }: MediaFormProps) => {
+export const PodcastForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
-	if (metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate)
+	if (props.metadataDetails.lot !== MediaLot.Podcast || !metadataToUpdate)
 		return null;
 
 	return (
@@ -19,7 +19,7 @@ export const PodcastForm = ({ metadataDetails }: MediaFormProps) => {
 				searchable
 				label="Episode"
 				value={metadataToUpdate.podcastEpisodeNumber?.toString()}
-				data={metadataDetails.podcastSpecifics?.episodes.map((se) => ({
+				data={props.metadataDetails.podcastSpecifics?.episodes.map((se) => ({
 					label: se.title.toString(),
 					value: se.number.toString(),
 				}))}

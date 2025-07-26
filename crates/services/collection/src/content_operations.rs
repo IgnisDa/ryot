@@ -5,21 +5,19 @@ use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, UserLevelCacheKey};
 use database_models::{
     collection_to_entity,
-    prelude::{
-        Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, User, Workout,
-    },
+    prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
 };
-use database_utils::{ilike_sql, item_reviews, user_by_id};
+use database_utils::{ilike_sql, item_reviews, user_by_id, user_details_by_id};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CachedResponse, CollectionContents,
-    CollectionContentsInput, CollectionContentsResponse, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
+    CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
 };
 use enum_models::EntityLot;
 use media_models::{CollectionContentsSortBy, EntityWithLot};
 use migrations::{AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson};
 use sea_orm::{
-    ColumnTrait, EntityTrait, ItemsAndPagesNumber, ModelTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QueryTrait,
+    ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
+    QueryTrait,
 };
 use sea_query::{Condition, Expr, Func, extension::postgres::PgExpr};
 use supporting_service::SupportingService;
@@ -154,7 +152,7 @@ pub async fn collection_contents(
                         next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
                     },
                 };
-                let user = details.find_related(User).one(&ss.db).await?.unwrap();
+                let user = user_details_by_id(&details.user_id, ss).await?;
                 let reviews = item_reviews(
                     &details.user_id,
                     &input.collection_id,
@@ -164,11 +162,16 @@ pub async fn collection_contents(
                 )
                 .await?;
                 let response = CollectionContents {
-                    user,
                     reviews,
                     results,
                     details,
                     total_items: number_of_items,
+                    user: BasicUserDetails {
+                        id: user.id,
+                        lot: user.lot,
+                        name: user.name,
+                        is_disabled: user.is_disabled,
+                    },
                 };
                 Ok(response)
             },

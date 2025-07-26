@@ -14,7 +14,7 @@ use database_models::{
     review, seen, user, user_to_entity, workout,
 };
 use dependent_models::{
-    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
+    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserDetails, UserWorkoutDetails,
     UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
@@ -54,6 +54,29 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
         .await?
         .ok_or_else(|| anyhow!("No user found"))?;
     Ok(user)
+}
+
+pub async fn user_details_by_id(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<UserDetails> {
+    let user = user_by_id(user_id, ss).await?;
+    let details = UserDetails {
+        id: user.id,
+        lot: user.lot,
+        name: user.name,
+        preferences: user.preferences,
+        is_disabled: user.is_disabled,
+        oidc_issuer_id: user.oidc_issuer_id,
+        extra_information: user.extra_information,
+        times_two_factor_backup_codes_used: user.two_factor_information.as_ref().map(|info| {
+            info.backup_codes
+                .iter()
+                .filter(|code| code.used_at.is_some())
+                .count()
+        }),
+    };
+    Ok(details)
 }
 
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {

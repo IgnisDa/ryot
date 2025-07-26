@@ -21,6 +21,7 @@ import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-reques
 import {
 	createCookie,
 	createCookieSessionStorage,
+	data,
 	redirect,
 } from "react-router";
 import { $path } from "safe-routes";
@@ -84,7 +85,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 							() => "You must be an admin to perform this action",
 						)
 						.otherwise(() => error);
-					return Response.json({ message });
+					return data({ message });
 				});
 		}
 	}

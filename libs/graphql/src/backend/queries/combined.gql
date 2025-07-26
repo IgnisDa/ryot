@@ -327,6 +327,7 @@ query CoreDetails {
 		fileStorageEnabled
 		peopleSearchSources
 		isServerKeyValidated
+		twoFactorBackupCodesCount
 		metadataGroupSourceLotMappings {
 			lot
 			source

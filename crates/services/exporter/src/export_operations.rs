@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{DateTime, Utc};
 use common_models::ExportJob;
-use common_utils::{TEMPORARY_DIRECTORY, ryot_log};
+use common_utils::{get_temporary_directory, ryot_log};
 use nanoid::nanoid;
 use reqwest::{
     Body, Client,
@@ -75,7 +75,7 @@ pub async fn perform_export(service: &Arc<SupportingService>, user_id: String) -
     }
     let started_at = Utc::now();
     let export_path =
-        PathBuf::from(TEMPORARY_DIRECTORY).join(format!("ryot-export-{}.json", nanoid!()));
+        PathBuf::from(get_temporary_directory()).join(format!("ryot-export-{}.json", nanoid!()));
     let file = std::fs::File::create(&export_path)?;
     let mut writer = JsonStreamWriter::new(file);
     writer.begin_object()?;

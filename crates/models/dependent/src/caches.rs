@@ -13,21 +13,28 @@ use serde_with::skip_serializing_none;
 use strum::{Display, EnumDiscriminants};
 use uuid::Uuid;
 
-use crate::analytics::UserAnalytics;
-use crate::core_systems::{CoreDetails, TmdbSettings};
-use crate::generic_types::{
-    CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
-    UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
-    UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
-    UserMetadataListResponse, UserMetadataRecommendationsResponse, UserPeopleListInput,
-    UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
-    UserWorkoutsTemplatesListResponse,
+use crate::{
+    analytics::UserAnalytics,
+    core_systems::{CoreDetails, TmdbSettings},
+    generic_types::{
+        CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
+        MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
+        UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
+        UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
+        UserMetadataListResponse, UserMetadataRecommendationsResponse, UserPeopleListInput,
+        UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
+        UserWorkoutsTemplatesListResponse,
+    },
 };
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct EmptyCacheValue {
     pub _empty: (),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
+pub struct UserTwoFactorSetupCacheValue {
+    pub secret: String,
 }
 
 #[skip_serializing_none]
@@ -58,7 +65,9 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     TrendingMetadataIds,
     MetadataLookup(MetadataLookupCacheInput),
+    UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
+    UserTwoFactorRateLimit(UserLevelCacheKey<()>),
     UserAnalyticsParameters(UserLevelCacheKey<()>),
     UserMetadataRecommendations(UserLevelCacheKey<()>),
     PeopleSearch(UserLevelCacheKey<PeopleSearchInput>),
@@ -99,12 +108,14 @@ pub enum ApplicationCacheValue {
     MetadataLookup(MetadataLookupResponse),
     MetadataSearch(MetadataSearchResponse),
     UserPeopleList(UserPeopleListResponse),
+    UserTwoFactorRateLimit(EmptyCacheValue),
     ListennotesSettings(ListennotesSettings),
     MetadataRecentlyConsumed(EmptyCacheValue),
     UserWorkoutsList(UserWorkoutsListResponse),
     UserMetadataList(UserMetadataListResponse),
     UserExercisesList(UserExercisesListResponse),
     UserAnalyticsParameters(ApplicationDateRange),
+    UserTwoFactorSetup(UserTwoFactorSetupCacheValue),
     TrendingMetadataIds(TrendingMetadataIdsResponse),
     UserCollectionsList(UserCollectionsListResponse),
     MetadataGroupSearch(MetadataGroupSearchResponse),

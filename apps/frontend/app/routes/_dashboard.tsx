@@ -404,22 +404,17 @@ export default function Layout() {
 								</UnstyledButton>
 							</Group>
 						</Form>
-						<Form
-							method="POST"
-							style={{ display: "flex" }}
-							action={withQuery("/actions", { intent: "logout" })}
+						<UnstyledButton
+							mx="auto"
+							component={Link}
+							className={classes.oldLink}
+							to={$path("/api/logout")}
 						>
-							<UnstyledButton
-								mx="auto"
-								type="submit"
-								className={classes.oldLink}
-							>
-								<Group>
-									<IconLogout size={19.2} />
-									<Text>Logout</Text>
-								</Group>
-							</UnstyledButton>
-						</Form>
+							<Group>
+								<IconLogout size={19.2} />
+								<Text>Logout</Text>
+							</Group>
+						</UnstyledButton>
 					</Flex>
 				</AppShell.Navbar>
 				<Flex direction="column" h="90%">

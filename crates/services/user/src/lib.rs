@@ -2,14 +2,18 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common_models::StringIdObject;
-use database_models::{access_link, integration, notification_platform, user};
+use database_models::{access_link, integration, notification_platform};
 use database_utils::server_key_validation_guard;
-use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
+use dependent_models::{
+    BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
+};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput, UserResetResult,
+    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
 use openidconnect::Nonce;
 use supporting_service::SupportingService;
@@ -21,6 +25,7 @@ mod integration_operations;
 mod notification_operations;
 mod oidc_operations;
 mod recommendation_operations;
+mod two_factor_operations;
 mod user_data_operations;
 mod user_management_operations;
 mod user_preferences_operations;
@@ -63,7 +68,7 @@ impl UserService {
         authentication_operations::revoke_access_link(&self.0, access_link_id).await
     }
 
-    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<user::Model>> {
+    pub async fn users_list(&self, query: Option<String>) -> Result<Vec<BasicUserDetails>> {
         user_data_operations::users_list(&self.0, query).await
     }
 
@@ -185,5 +190,38 @@ impl UserService {
 
     pub async fn user_by_oidc_issuer_id(&self, oidc_issuer_id: String) -> Result<Option<String>> {
         user_data_operations::user_by_oidc_issuer_id(&self.0, oidc_issuer_id).await
+    }
+
+    pub async fn verify_two_factor(
+        &self,
+        input: UserTwoFactorVerifyInput,
+    ) -> Result<VerifyTwoFactorResult> {
+        two_factor_operations::verify_two_factor(&self.0, input).await
+    }
+
+    pub async fn initiate_two_factor_setup(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorInitiateResponse> {
+        two_factor_operations::initiate_two_factor_setup(&self.0, user_id).await
+    }
+
+    pub async fn complete_two_factor_setup(
+        &self,
+        user_id: String,
+        input: UserTwoFactorSetupInput,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        two_factor_operations::complete_two_factor_setup(&self.0, user_id, input).await
+    }
+
+    pub async fn disable_two_factor(&self, user_id: String) -> Result<bool> {
+        two_factor_operations::disable_two_factor(&self.0, user_id).await
+    }
+
+    pub async fn regenerate_two_factor_backup_codes(
+        &self,
+        user_id: String,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        two_factor_operations::regenerate_two_factor_backup_codes(&self.0, user_id).await
     }
 }

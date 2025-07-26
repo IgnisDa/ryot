@@ -16,8 +16,11 @@ mutation LoginUser($input: AuthUserInput!) {
 		... on LoginError {
 			error
 		}
-		... on LoginResponse {
+		... on ApiKeyResponse {
 			apiKey
+		}
+		... on StringIdObject {
+			id
 		}
 	}
 }
@@ -259,4 +262,39 @@ mutation DeployBulkMetadataProgressUpdate(
 	$input: [MetadataProgressUpdateInput!]!
 ) {
 	deployBulkMetadataProgressUpdate(input: $input)
+}
+
+mutation InitiateTwoFactorSetup {
+	initiateTwoFactorSetup {
+		secret
+		qrCodeUrl
+	}
+}
+
+mutation CompleteTwoFactorSetup($input: UserTwoFactorSetupInput!) {
+	completeTwoFactorSetup(input: $input) {
+		backupCodes
+	}
+}
+
+mutation VerifyTwoFactor($input: UserTwoFactorVerifyInput!) {
+	verifyTwoFactor(input: $input) {
+		__typename
+		... on VerifyTwoFactorError {
+			error
+		}
+		... on ApiKeyResponse {
+			apiKey
+		}
+	}
+}
+
+mutation DisableTwoFactor {
+	disableTwoFactor
+}
+
+mutation RegenerateTwoFactorBackupCodes {
+	regenerateTwoFactorBackupCodes {
+		backupCodes
+	}
 }

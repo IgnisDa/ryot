@@ -5,17 +5,14 @@ import {
 	Button,
 	Checkbox,
 	Container,
-	Divider,
 	Flex,
 	Group,
 	Indicator,
 	Modal,
 	NumberInput,
 	Paper,
-	PasswordInput,
 	Skeleton,
 	Stack,
-	Tabs,
 	Text,
 	TextInput,
 	ThemeIcon,
@@ -27,7 +24,6 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	CreateAccessLinkDocument,
 	RevokeAccessLinkDocument,
-	UpdateUserDocument,
 	UserAccessLinksDocument,
 	type UserAccessLinksQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -46,8 +42,7 @@ import {
 	IconLock,
 	IconLockAccess,
 } from "@tabler/icons-react";
-import Cookies from "js-cookie";
-import { Form, useLoaderData, useNavigate } from "react-router";
+import { Form, data, useLoaderData } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -58,18 +53,15 @@ import {
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
-	useIsMobile,
-	useIsOnboardingTourCompleted,
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import { useOnboardingTour } from "~/lib/state/general";
 import {
 	createToastHeaders,
 	getDecodedJwt,
 	serverGqlService,
 } from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.settings.profile-and-sharing";
+import type { Route } from "./+types/_dashboard.settings.sharing";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const decodedJwt = getDecodedJwt(request);
@@ -80,25 +72,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 };
 
 export const meta = () => {
-	return [{ title: "Profile and Sharing | Ryot" }];
+	return [{ title: "Sharing | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.formData();
 	const intent = getActionIntent(request);
 	return await match(intent)
-		.with("updateProfile", async () => {
-			const submission = processSubmission(formData, updateProfileFormSchema);
-			await serverGqlService.authenticatedRequest(request, UpdateUserDocument, {
-				input: submission,
-			});
-			return Response.json({ status: "success", submission } as const, {
-				headers: await createToastHeaders({
-					type: "success",
-					message: "Profile updated successfully",
-				}),
-			});
-		})
 		.with("revokeAccessLink", async () => {
 			const submission = processSubmission(
 				formData,
@@ -109,7 +89,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				RevokeAccessLinkDocument,
 				submission,
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Access link revoked successfully",
@@ -130,7 +110,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				CreateAccessLinkDocument,
 				{ input: submission },
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Access link created successfully",
@@ -143,7 +123,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				CreateAccessLinkDocument,
 				{ input: { name: "Account default", isAccountDefault: true } },
 			);
-			return Response.json({ status: "success" } as const, {
+			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
 					message: "Account default access link created successfully",
@@ -152,13 +132,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		})
 		.run();
 };
-
-const updateProfileFormSchema = z.object({
-	userId: z.string(),
-	username: z.string().optional(),
-	email: z.string().email().optional(),
-	password: z.string().optional(),
-});
 
 const revokeAccessLinkFormSchema = z.object({
 	accessLinkId: z.string(),
@@ -175,16 +148,11 @@ const createAccessLinkFormSchema = z.object({
 export default function Page() {
 	const userDetails = useUserDetails();
 	const loaderData = useLoaderData<typeof loader>();
-	const submit = useConfirmSubmit();
-	const navigate = useNavigate();
 	const dashboardData = useDashboardLayoutData();
 	const [
 		createAccessLinkModalOpened,
 		{ open: openCreateAccessLinkModal, close: closeCreateAccessLinkModal },
 	] = useDisclosure(false);
-	const isMobile = useIsMobile();
-	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
-	const { startOnboardingTour } = useOnboardingTour();
 
 	const isEditDisabled = dashboardData.isDemoInstance;
 	const defaultAccountLink = loaderData.userAccessLinks.find(
@@ -195,171 +163,80 @@ export default function Page() {
 
 	return (
 		<Container size="xs">
-			<Tabs defaultValue="profile">
-				<Tabs.List>
-					<Tabs.Tab value="profile">Profile</Tabs.Tab>
-					<Tabs.Tab value="sharing">Sharing</Tabs.Tab>
-				</Tabs.List>
-				<Box mt="md">
-					<Tabs.Panel value="profile">
-						<Stack>
+			<Stack>
+				<ClientOnly fallback={<Skeleton h={90} />}>
+					{() => (
+						<Paper withBorder p="md">
 							<Form
 								method="POST"
-								action={withQuery(".", { intent: "updateProfile" })}
+								action={withQuery(".", {
+									intent: hasDefaultAccountLink
+										? "revokeAccessLink"
+										: "createDefaultAccessLink",
+								})}
 							>
-								<input
-									type="hidden"
-									name="userId"
-									defaultValue={userDetails.id}
-								/>
-								<Stack>
-									<TextInput
+								{hasDefaultAccountLink ? (
+									<input
 										readOnly
-										description="Database generated user ID"
-										defaultValue={userDetails.id}
+										type="hidden"
+										name="accessLinkId"
+										value={defaultAccountLink.id}
 									/>
-									<TextInput
-										label="Username"
-										name="username"
-										disabled={Boolean(isEditDisabled)}
-										description={
-											isEditDisabled &&
-											"Username can not be changed for the demo user"
-										}
-										defaultValue={userDetails.name}
-									/>
-									<PasswordInput
-										label="Password"
-										name="password"
-										disabled={
-											Boolean(isEditDisabled) ||
-											Boolean(userDetails.oidcIssuerId)
-										}
-										description={
-											userDetails.oidcIssuerId
-												? "Not applicable since this user was created via OIDC"
-												: isEditDisabled
-													? "Password can not be changed for the demo user"
-													: undefined
-										}
-									/>
-									<Button
-										type="submit"
-										onClick={(e) => {
-											const form = e.currentTarget.form;
-											e.preventDefault();
-											openConfirmationModal(
-												"Are you sure you want to update your profile?",
-												() => submit(form),
-											);
-										}}
-										fullWidth
+								) : null}
+								<Group wrap="nowrap">
+									<Box>
+										<Text>Make my account public</Text>
+										<Text size="xs" c="dimmed">
+											Anyone would be able to view your profile by visiting{" "}
+											{applicationBaseUrl}/u/{userDetails.name}
+										</Text>
+									</Box>
+									<Tooltip
+										disabled={!isEditDisabled}
+										label="Can not change default access links for demo user"
 									>
-										Update
-									</Button>
-								</Stack>
-							</Form>
-							<ClientOnly>
-								{() =>
-									isOnboardingTourCompleted && !isMobile ? (
-										<>
-											<Divider />
-											<Button
-												variant="default"
-												onClick={async () => {
-													await startOnboardingTour();
-													Cookies.remove(
-														dashboardData.onboardingTourCompletedCookie,
-													);
-													navigate("/");
-												}}
-											>
-												Restart onboarding
-											</Button>
-										</>
-									) : null
-								}
-							</ClientOnly>
-						</Stack>
-					</Tabs.Panel>
-					<Tabs.Panel value="sharing">
-						<Stack>
-							<ClientOnly fallback={<Skeleton h={90} />}>
-								{() => (
-									<Paper withBorder p="md">
-										<Form
-											method="POST"
-											action={withQuery(".", {
-												intent: hasDefaultAccountLink
-													? "revokeAccessLink"
-													: "createDefaultAccessLink",
-											})}
+										<Button
+											w="30%"
+											type="submit"
+											variant="light"
+											disabled={isEditDisabled}
+											color={hasDefaultAccountLink ? "blue" : "green"}
 										>
-											{hasDefaultAccountLink ? (
-												<input
-													readOnly
-													type="hidden"
-													name="accessLinkId"
-													value={defaultAccountLink.id}
-												/>
-											) : null}
-											<Group wrap="nowrap">
-												<Box>
-													<Text>Make my account public</Text>
-													<Text size="xs" c="dimmed">
-														Anyone would be able to view your profile by
-														visiting {applicationBaseUrl}/u/{userDetails.name}
-													</Text>
-												</Box>
-												<Tooltip
-													disabled={!isEditDisabled}
-													label="Can not change default access links for demo user"
-												>
-													<Button
-														w="30%"
-														type="submit"
-														variant="light"
-														disabled={isEditDisabled}
-														color={hasDefaultAccountLink ? "blue" : "green"}
-													>
-														{hasDefaultAccountLink ? "Disable" : "Enable"}
-													</Button>
-												</Tooltip>
-											</Group>
-										</Form>
-									</Paper>
-								)}
-							</ClientOnly>
-							{loaderData.userAccessLinks.length > 0 ? (
-								loaderData.userAccessLinks.map((link, idx) => (
-									<DisplayAccessLink
-										accessLink={link}
-										key={`${link.id}-${idx}`}
-										isEditDisabled={isEditDisabled}
-									/>
-								))
-							) : (
-								<Text>No access links configured</Text>
-							)}
-							<Flex w="100%">
-								<Button
-									size="xs"
-									variant="light"
-									radius="md"
-									onClick={openCreateAccessLinkModal}
-									ml="auto"
-								>
-									Create new access link
-								</Button>
-								<CreateAccessLinkModal
-									createModalOpened={createAccessLinkModalOpened}
-									closeModal={closeCreateAccessLinkModal}
-								/>
-							</Flex>
-						</Stack>
-					</Tabs.Panel>
-				</Box>
-			</Tabs>
+											{hasDefaultAccountLink ? "Disable" : "Enable"}
+										</Button>
+									</Tooltip>
+								</Group>
+							</Form>
+						</Paper>
+					)}
+				</ClientOnly>
+				{loaderData.userAccessLinks.length > 0 ? (
+					loaderData.userAccessLinks.map((link, idx) => (
+						<DisplayAccessLink
+							accessLink={link}
+							key={`${link.id}-${idx}`}
+							isEditDisabled={isEditDisabled}
+						/>
+					))
+				) : (
+					<Text>No access links configured</Text>
+				)}
+				<Flex w="100%">
+					<Button
+						size="xs"
+						variant="light"
+						radius="md"
+						onClick={openCreateAccessLinkModal}
+						ml="auto"
+					>
+						Create new access link
+					</Button>
+					<CreateAccessLinkModal
+						createModalOpened={createAccessLinkModalOpened}
+						closeModal={closeCreateAccessLinkModal}
+					/>
+				</Flex>
+			</Stack>
 		</Container>
 	);
 }

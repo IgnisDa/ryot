@@ -59,7 +59,7 @@ import type { Route } from "./+types/_index";
 dayjs.extend(duration);
 
 const searchParamsSchema = z.object({
-	email: z.string().email().optional(),
+	email: z.email().optional(),
 	contactSubmission: zodBoolAsString.optional(),
 });
 
@@ -170,14 +170,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const emailSchema = z.object({ email: z.string().email() });
+const emailSchema = z.object({ email: z.email() });
 
 const registerSchema = z
 	.object({ otpCode: z.string().length(6) })
 	.merge(emailSchema);
 
 const contactSubmissionSchema = z.object({
-	email: z.string().email(),
+	email: z.email(),
 	message: z.string(),
 });
 

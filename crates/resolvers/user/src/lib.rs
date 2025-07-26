@@ -2,13 +2,17 @@ use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
-use database_models::{access_link, integration, notification_platform, user};
-use dependent_models::{CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse};
+use database_models::{access_link, integration, notification_platform};
+use dependent_models::{
+    BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
+};
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
     ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput, UserResetResult,
+    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
 use traits::AuthProvider;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -45,7 +49,7 @@ impl UserQuery {
         &self,
         gql_ctx: &Context<'_>,
         query: Option<String>,
-    ) -> Result<Vec<user::Model>> {
+    ) -> Result<Vec<BasicUserDetails>> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let response = service.users_list(query).await?;
         Ok(response)
@@ -297,6 +301,59 @@ impl UserMutation {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
         let response = service.generate_auth_token(user_id).await?;
+        Ok(response)
+    }
+
+    /// Verify a two-factor authentication code (TOTP or backup code).
+    async fn verify_two_factor(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserTwoFactorVerifyInput,
+    ) -> Result<VerifyTwoFactorResult> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let response = service.verify_two_factor(input).await?;
+        Ok(response)
+    }
+
+    /// Initiate two-factor authentication setup by generating a TOTP secret.
+    async fn initiate_two_factor_setup(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<UserTwoFactorInitiateResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.initiate_two_factor_setup(user_id).await?;
+        Ok(response)
+    }
+
+    /// Complete two-factor authentication setup by verifying the TOTP code.
+    async fn complete_two_factor_setup(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: UserTwoFactorSetupInput,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.complete_two_factor_setup(user_id, input).await?;
+        Ok(response)
+    }
+
+    /// Disable two-factor authentication for the currently logged in user.
+    async fn disable_two_factor(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.disable_two_factor(user_id).await?;
+        Ok(response)
+    }
+
+    /// Regenerate backup codes for the currently logged in user.
+    async fn regenerate_two_factor_backup_codes(
+        &self,
+        gql_ctx: &Context<'_>,
+    ) -> Result<UserTwoFactorBackupCodesResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.regenerate_two_factor_backup_codes(user_id).await?;
         Ok(response)
     }
 }

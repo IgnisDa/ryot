@@ -4,16 +4,22 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes-gcm = { workspace = true }
 anyhow = { workspace = true }
 argon2 = { workspace = true }
 chrono = { workspace = true }
+data-encoding = { workspace = true }
 enum_meta = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 nanoid = { workspace = true }
 openidconnect = { workspace = true }
 rand = { workspace = true }
+ring = { workspace = true }
 sea-orm = { workspace = true }
+subtle = { workspace = true }
+tokio = { workspace = true }
+totp-lite = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { path = "../../utils/application" }

@@ -61,6 +61,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+aes-gcm = "=0.10.3"
 anyhow = "=1.0.98"
 apalis = { version = "=0.7.2", features = ["catch-panic", "limit", "retry"] }
 apalis-cron = "=0.7.2"
@@ -116,6 +117,7 @@ nest_struct = "=0.5.5"
 openidconnect = "=4.0.1"
 paginate = "=1.1.11"
 rand = "=0.9.1"
+ring = "=0.17.8"
 regex = "=1.11.1"
 reqwest = { version = "=0.12.22", features = [
     "json",
@@ -168,10 +170,12 @@ slug = "=0.1.6"
 sqlx = { version = "=0.8.6", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
+subtle = "=2.6.1"
 tokio = { version = "=1.46.1", features = ["full"] }
 tokio-util = { version = "=0.7.15", features = ["codec"] }
 tower = "=0.5.2"
 tower_governor = "=0.7.0"
+totp-lite = "=2.0.1"
 tower-http = { version = "=0.6.6", features = ["catch-panic", "cors", "trace"] }
 tracing = { version = "=0.1.41", features = ["attributes"] }
 tracing-subscriber = "=0.3.19"

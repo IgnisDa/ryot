@@ -2,10 +2,10 @@ use async_graphql::{SimpleObject, Union};
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics};
 use database_models::{
-    exercise, metadata_group::MetadataGroupWithoutId, person, seen, user, user_to_entity, workout,
+    exercise, metadata_group::MetadataGroupWithoutId, person, seen, user_to_entity, workout,
     workout_template,
 };
-use enum_models::{MediaSource, UserToMediaReason};
+use enum_models::{MediaSource, UserLot, UserToMediaReason};
 use fitness_models::UserToExerciseHistoryExtraInformation;
 use media_models::{
     PartialMetadataWithoutId, PersonDetailsGroupedByRole, ReviewItem, UserDetailsError,
@@ -15,6 +15,7 @@ use rust_decimal::Decimal;
 use schematic::Schematic;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
+use user_models::{UserExtraInformation, UserPreferences};
 use uuid::Uuid;
 
 #[derive(Debug, Default, Serialize, Deserialize, SimpleObject, Clone, Schematic)]
@@ -68,9 +69,29 @@ pub struct PersonDetails {
     pub related_metadata_groups: Vec<MetadataGroupPersonRelated>,
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct BasicUserDetails {
+    pub id: String,
+    pub name: String,
+    pub lot: UserLot,
+    pub is_disabled: Option<bool>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct UserDetails {
+    pub id: String,
+    pub name: String,
+    pub lot: UserLot,
+    pub is_disabled: Option<bool>,
+    pub preferences: UserPreferences,
+    pub oidc_issuer_id: Option<String>,
+    pub extra_information: Option<UserExtraInformation>,
+    pub times_two_factor_backup_codes_used: Option<usize>,
+}
+
 #[derive(Union)]
 pub enum UserDetailsResult {
-    Ok(Box<user::Model>),
+    Ok(Box<UserDetails>),
     Error(UserDetailsError),
 }
 

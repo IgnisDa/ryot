@@ -41,9 +41,9 @@ describe("User related tests", () => {
 		);
 
 		expect(userDetails).toBeDefined();
-		expect(userDetails.__typename).toBe("User");
+		expect(userDetails.__typename).toBe("UserDetails");
 
-		if (userDetails.__typename === "User") {
+		if (userDetails.__typename === "UserDetails") {
 			expect(userDetails.preferences).toBeDefined();
 		}
 	});
@@ -151,7 +151,7 @@ describe("Reset User functionality", () => {
 			{},
 			{ Authorization: `Bearer ${targetUserApiKey}` },
 		);
-		expect(beforeReset.__typename).toBe("User");
+		expect(beforeReset.__typename).toBe("UserDetails");
 		const { resetUser } = await client.request(
 			ResetUserDocument,
 			{ toResetUserId: targetUserId },
@@ -168,7 +168,7 @@ describe("Reset User functionality", () => {
 			{},
 			{ Authorization: `Bearer ${targetUserApiKey}` },
 		);
-		expect(afterReset.__typename).toBe("User");
+		expect(afterReset.__typename).toBe("UserDetails");
 		const collectionsAfterReset = await getUserCollectionsList(
 			url,
 			targetUserApiKey,
@@ -246,7 +246,7 @@ describe("Reset User functionality", () => {
 			{},
 			{ Authorization: `Bearer ${targetUserApiKey}` },
 		);
-		expect(userDetails.__typename).toBe("User");
+		expect(userDetails.__typename).toBe("UserDetails");
 		const collectionsAfterReset = await getUserCollectionsList(
 			url,
 			targetUserApiKey,

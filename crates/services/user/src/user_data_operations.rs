@@ -7,6 +7,7 @@ use database_models::{
     user,
 };
 use database_utils::{get_enabled_users_query, ilike_sql};
+use dependent_models::BasicUserDetails;
 use sea_orm::{
     ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr,
     sea_query::extension::postgres::PgExpr,
@@ -28,7 +29,7 @@ pub async fn user_access_links(
 pub async fn users_list(
     ss: &Arc<SupportingService>,
     query: Option<String>,
-) -> Result<Vec<user::Model>> {
+) -> Result<Vec<BasicUserDetails>> {
     let users = User::find()
         .apply_if(query, |query, value| {
             query.filter(
@@ -40,6 +41,15 @@ pub async fn users_list(
         .order_by_asc(user::Column::Name)
         .all(&ss.db)
         .await?;
+    let users = users
+        .into_iter()
+        .map(|user| BasicUserDetails {
+            id: user.id,
+            lot: user.lot,
+            name: user.name,
+            is_disabled: user.is_disabled,
+        })
+        .collect();
     Ok(users)
 }
 

@@ -1,3 +1,5 @@
+use std::{collections::HashMap, iter::zip, sync::Arc};
+
 use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
 use common_models::{EntityAssets, PersonSourceSpecifics, StringIdObject};
@@ -29,13 +31,12 @@ use sea_orm::{
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
 };
 use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
-use std::{collections::HashMap, iter::zip, sync::Arc};
 use supporting_service::SupportingService;
 
-use crate::deploy_update_metadata_job;
-use crate::details_from_provider;
-use crate::get_metadata_provider;
-use crate::get_non_metadata_provider;
+use crate::{
+    deploy_update_metadata_job, details_from_provider, get_metadata_provider,
+    get_non_metadata_provider,
+};
 
 async fn ensure_metadata_updated(
     metadata_id: &String,

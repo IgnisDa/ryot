@@ -56,6 +56,11 @@ export type AnimeSpecificsInput = {
   episodes?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type ApiKeyResponse = {
+  __typename?: 'ApiKeyResponse';
+  apiKey: Scalars['String']['output'];
+};
+
 /** The start date must be before the end date. */
 export type ApplicationDateRange = {
   __typename?: 'ApplicationDateRange';
@@ -99,6 +104,14 @@ export enum BackgroundJob {
   UpdateAllExercises = 'UPDATE_ALL_EXERCISES',
   UpdateAllMetadata = 'UPDATE_ALL_METADATA'
 }
+
+export type BasicUserDetails = {
+  __typename?: 'BasicUserDetails';
+  id: Scalars['String']['output'];
+  isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  lot: UserLot;
+  name: Scalars['String']['output'];
+};
 
 export type BookSpecifics = {
   __typename?: 'BookSpecifics';
@@ -182,7 +195,7 @@ export type CollectionContents = {
   results: MediaCollectionContentsResults;
   reviews: Array<ReviewItem>;
   totalItems: Scalars['Int']['output'];
-  user: User;
+  user: BasicUserDetails;
 };
 
 export type CollectionContentsFilter = {
@@ -269,6 +282,8 @@ export type CollectionToEntityDetails = {
   creatorUserId: Scalars['String']['output'];
   information?: Maybe<Scalars['JSON']['output']>;
   lastUpdatedOn: Scalars['DateTime']['output'];
+  /** The rank of this entity in the collection. This is ignored during importing. */
+  rank: Scalars['Decimal']['output'];
 };
 
 export type CoreDetails = {
@@ -293,6 +308,7 @@ export type CoreDetails = {
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
   tokenValidForDays: Scalars['Int']['output'];
+  twoFactorBackupCodesCount: Scalars['Int']['output'];
   version: Scalars['String']['output'];
   websiteUrl: Scalars['String']['output'];
 };
@@ -1114,12 +1130,7 @@ export enum LoginErrorVariant {
   UsernameDoesNotExist = 'USERNAME_DOES_NOT_EXIST'
 }
 
-export type LoginResponse = {
-  __typename?: 'LoginResponse';
-  apiKey: Scalars['String']['output'];
-};
-
-export type LoginResult = LoginError | LoginResponse;
+export type LoginResult = ApiKeyResponse | LoginError | StringIdObject;
 
 export type MangaSpecifics = {
   __typename?: 'MangaSpecifics';
@@ -1392,6 +1403,8 @@ export type MusicSpecificsInput = {
 
 export type MutationRoot = {
   __typename?: 'MutationRoot';
+  /** Complete two-factor authentication setup by verifying the TOTP code. */
+  completeTwoFactorSetup: UserTwoFactorBackupCodesResponse;
   /** Create or edit an access link. */
   createAccessLink: StringIdObject;
   /** Create a custom exercise. */
@@ -1456,6 +1469,8 @@ export type MutationRoot = {
    * It is only available in development mode.
    */
   developmentMutation: Scalars['Boolean']['output'];
+  /** Disable two-factor authentication for the currently logged in user. */
+  disableTwoFactor: Scalars['Boolean']['output'];
   /**
    * Delete all history and reviews for a given media item and remove it from all
    * collections for the user.
@@ -1465,6 +1480,8 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
+  /** Initiate two-factor authentication setup by generating a TOTP secret. */
+  initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
   /** Mark an entity as partial. */
@@ -1480,6 +1497,8 @@ export type MutationRoot = {
   presignedPutS3Url: PresignedPutUrlResponse;
   /** Get an access token using an access link. */
   processAccessLink: ProcessAccessLinkResult;
+  /** Regenerate backup codes for the currently logged in user. */
+  regenerateTwoFactorBackupCodes: UserTwoFactorBackupCodesResponse;
   /**
    * Create a new user for the service. Also set their `lot` as admin if
    * they are the first user.
@@ -1512,6 +1531,13 @@ export type MutationRoot = {
   updateUserPreference: Scalars['Boolean']['output'];
   /** Change the details about a user's workout. */
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
+  /** Verify a two-factor authentication code (TOTP or backup code). */
+  verifyTwoFactor: VerifyTwoFactorResult;
+};
+
+
+export type MutationRootCompleteTwoFactorSetupArgs = {
+  input: UserTwoFactorSetupInput;
 };
 
 
@@ -1750,6 +1776,11 @@ export type MutationRootUpdateUserPreferenceArgs = {
 
 export type MutationRootUpdateUserWorkoutAttributesArgs = {
   input: UpdateUserWorkoutAttributesInput;
+};
+
+
+export type MutationRootVerifyTwoFactorArgs = {
+  input: UserTwoFactorVerifyInput;
 };
 
 export type NotificationPlatform = {
@@ -2027,7 +2058,7 @@ export type QueryRoot = {
   /** Get a paginated list of workouts done by the user. */
   userWorkoutsList: CachedSearchIdResponse;
   /** Get details about all the users in the service. */
-  usersList: Array<User>;
+  usersList: Array<BasicUserDetails>;
 };
 
 
@@ -2463,18 +2494,6 @@ export type UpdateUserWorkoutAttributesInput = {
   startTime?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
-export type User = {
-  __typename?: 'User';
-  createdOn: Scalars['DateTime']['output'];
-  extraInformation?: Maybe<UserExtraInformation>;
-  id: Scalars['String']['output'];
-  isDisabled?: Maybe<Scalars['Boolean']['output']>;
-  lot: UserLot;
-  name: Scalars['String']['output'];
-  oidcIssuerId?: Maybe<Scalars['String']['output']>;
-  preferences: UserPreferences;
-};
-
 export type UserAnalytics = {
   __typename?: 'UserAnalytics';
   activities: DailyUserActivitiesResponse;
@@ -2506,6 +2525,18 @@ export type UserCustomMeasurementInput = {
   unit?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UserDetails = {
+  __typename?: 'UserDetails';
+  extraInformation?: Maybe<UserExtraInformation>;
+  id: Scalars['String']['output'];
+  isDisabled?: Maybe<Scalars['Boolean']['output']>;
+  lot: UserLot;
+  name: Scalars['String']['output'];
+  oidcIssuerId?: Maybe<Scalars['String']['output']>;
+  preferences: UserPreferences;
+  timesTwoFactorBackupCodesUsed?: Maybe<Scalars['Int']['output']>;
+};
+
 export type UserDetailsError = {
   __typename?: 'UserDetailsError';
   error: UserDetailsErrorVariant;
@@ -2515,7 +2546,7 @@ export enum UserDetailsErrorVariant {
   AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
 }
 
-export type UserDetailsResult = User | UserDetailsError;
+export type UserDetailsResult = UserDetails | UserDetailsError;
 
 export type UserExerciseDetails = {
   __typename?: 'UserExerciseDetails';
@@ -3005,6 +3036,32 @@ export enum UserToMediaReason {
   Watchlist = 'WATCHLIST'
 }
 
+export type UserTwoFactorBackupCodesResponse = {
+  __typename?: 'UserTwoFactorBackupCodesResponse';
+  backupCodes: Array<Scalars['String']['output']>;
+};
+
+export type UserTwoFactorInitiateResponse = {
+  __typename?: 'UserTwoFactorInitiateResponse';
+  qrCodeUrl: Scalars['String']['output'];
+  secret: Scalars['String']['output'];
+};
+
+export type UserTwoFactorSetupInput = {
+  totpCode: Scalars['String']['input'];
+};
+
+export type UserTwoFactorVerifyInput = {
+  code: Scalars['String']['input'];
+  method: UserTwoFactorVerifyMethod;
+  userId: Scalars['String']['input'];
+};
+
+export enum UserTwoFactorVerifyMethod {
+  BackupCode = 'BACKUP_CODE',
+  Totp = 'TOTP'
+}
+
 export enum UserUnitSystem {
   Imperial = 'IMPERIAL',
   Metric = 'METRIC'
@@ -3060,6 +3117,18 @@ export type UserWorkoutsListSortInput = {
   by?: UserTemplatesOrWorkoutsListSortBy;
   order?: GraphqlSortOrder;
 };
+
+export type VerifyTwoFactorError = {
+  __typename?: 'VerifyTwoFactorError';
+  error: VerifyTwoFactorErrorVariant;
+};
+
+export enum VerifyTwoFactorErrorVariant {
+  Invalid = 'INVALID',
+  RateLimited = 'RATE_LIMITED'
+}
+
+export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
 
 export type VideoGameSpecifics = {
   __typename?: 'VideoGameSpecifics';

@@ -13,7 +13,7 @@ use apalis::{
 };
 use apalis_cron::{CronStream, Schedule};
 use aws_sdk_s3::config::Region;
-use common_utils::{PROJECT_NAME, TEMPORARY_DIRECTORY, ryot_log};
+use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
 use logs_wheel::LogFileInitializer;
@@ -73,7 +73,9 @@ async fn main() -> Result<()> {
     let infrequent_cron_jobs_hours_format =
         config.scheduler.infrequent_cron_jobs_hours_format.clone();
 
-    let config_dump_path = PathBuf::new().join(TEMPORARY_DIRECTORY).join("config.json");
+    let config_dump_path = PathBuf::new()
+        .join(get_temporary_directory())
+        .join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
 
     let mut aws_conf = aws_sdk_s3::Config::builder()
@@ -233,7 +235,7 @@ async fn main() -> Result<()> {
 }
 
 fn init_tracing() -> Result<()> {
-    let tmp_dir = PathBuf::new().join(TEMPORARY_DIRECTORY);
+    let tmp_dir = PathBuf::new().join(get_temporary_directory());
     create_dir_all(&tmp_dir)?;
     let log_file = LogFileInitializer {
         max_n_old_files: 2,
