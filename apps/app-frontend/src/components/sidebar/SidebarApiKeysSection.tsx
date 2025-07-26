@@ -47,7 +47,7 @@ export function SidebarApiKeysSection(props: { opened: boolean }) {
 				query: { sortBy: "createdAt", sortDirection: "desc" },
 			});
 			if (response.error) {
-				throw new Error(response.error.message || "Failed to load API keys.");
+				throw new Error(response.error.message ?? "Failed to load API keys.");
 			}
 			return response.data;
 		},
@@ -57,7 +57,7 @@ export function SidebarApiKeysSection(props: { opened: boolean }) {
 		mutationFn: async (name: string) => {
 			const response = await authClient.apiKey.create({ name });
 			if (response.error) {
-				throw new Error(response.error.message || "Failed to create API key.");
+				throw new Error(response.error.message ?? "Failed to create API key.");
 			}
 			return response.data;
 		},
@@ -73,7 +73,7 @@ export function SidebarApiKeysSection(props: { opened: boolean }) {
 		mutationFn: async (keyId: string) => {
 			const response = await authClient.apiKey.delete({ keyId });
 			if (response.error) {
-				throw new Error(response.error.message || "Failed to delete API key.");
+				throw new Error(response.error.message ?? "Failed to delete API key.");
 			}
 			return keyId;
 		},
