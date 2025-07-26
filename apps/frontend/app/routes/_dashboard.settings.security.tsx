@@ -29,7 +29,8 @@ import { getActionIntent, processSubmission } from "@ryot/ts-utils";
 import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { Form, data, useRevalidator } from "react-router";
+import { Form, data, useNavigate, useRevalidator } from "react-router";
+import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
@@ -153,6 +154,7 @@ const PasswordSection = () => {
 const TwoFactorAuthSection = () => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
+	const navigate = useNavigate();
 	const revalidator = useRevalidator();
 	const dashboardData = useDashboardLayoutData();
 	const isEditDisabled = dashboardData.isDemoInstance;
@@ -176,6 +178,7 @@ const TwoFactorAuthSection = () => {
 				message: "Two-Factor Authentication Disabled",
 			});
 			revalidator.revalidate();
+			navigate($path("/api/logout"));
 		},
 	});
 
@@ -255,7 +258,7 @@ const TwoFactorAuthSection = () => {
 									disabled={isEditDisabled}
 									onClick={() => {
 										openConfirmationModal(
-											"Are you sure you want to disable two-factor authentication? This will make your account less secure.",
+											"Are you sure you want to disable two-factor authentication? This will make your account less secure and you will be logged out.",
 											() => disableMutation.mutate(),
 										);
 									}}
@@ -283,16 +286,16 @@ const TwoFactorAuthSection = () => {
 			)}
 			<Modal
 				size="md"
+				title="New Backup Codes Generated"
 				opened={regeneratedBackupCodes.length > 0}
 				onClose={() => setRegeneratedBackupCodes([])}
-				title="New Backup Codes Generated"
 			>
 				<BackupCodesDisplay
-					backupCodes={regeneratedBackupCodes}
 					title="Save your new backup codes!"
-					description="Your previous backup codes are no longer valid. Save these new codes in a safe place - you won't be able to see them again."
-					onComplete={() => setRegeneratedBackupCodes([])}
+					backupCodes={regeneratedBackupCodes}
 					completeButtonText="I've Saved My New Backup Codes"
+					onComplete={() => setRegeneratedBackupCodes([])}
+					description="Your previous backup codes are no longer valid. Save these new codes in a safe place - you won't be able to see them again."
 				/>
 			</Modal>
 		</Stack>
@@ -379,29 +382,28 @@ interface TwoFactorAuthStepProps {
 	onClose: () => void;
 }
 
-const TwoFactorAuthStep = ({
-	onNext,
-	onClose,
-	isLoading,
-	error,
-}: TwoFactorAuthStepProps) => {
+const TwoFactorAuthStep = (props: TwoFactorAuthStepProps) => {
 	return (
 		<Stack>
 			<Alert>
 				You are about to enable two-factor authentication for your account. This
 				will require you to enter a code from your authenticator app each time
-				you log in.
+				you log in. You will be logged out after enabling 2FA.
 			</Alert>
-			{error && (
+			{props.error && (
 				<Text c="red" size="sm">
 					Failed to initiate two-factor setup. Please try again.
 				</Text>
 			)}
 			<Group justify="flex-end">
-				<Button variant="subtle" onClick={onClose} disabled={isLoading}>
+				<Button
+					variant="subtle"
+					onClick={props.onClose}
+					disabled={props.isLoading}
+				>
 					Cancel
 				</Button>
-				<Button onClick={onNext} loading={isLoading}>
+				<Button onClick={props.onNext} loading={props.isLoading}>
 					Continue
 				</Button>
 			</Group>
@@ -463,11 +465,7 @@ interface VerifyCodeStepProps {
 	setBackupCodes: (codes: string[]) => void;
 }
 
-const VerifyCodeStep = ({
-	onNext,
-	onCancel,
-	setBackupCodes,
-}: VerifyCodeStepProps) => {
+const VerifyCodeStep = (props: VerifyCodeStepProps) => {
 	const [code, setCode] = useState("");
 
 	const completeMutation = useMutation({
@@ -479,8 +477,8 @@ const VerifyCodeStep = ({
 			return completeTwoFactorSetup;
 		},
 		onSuccess: (data) => {
-			setBackupCodes(data.backupCodes);
-			onNext();
+			props.setBackupCodes(data.backupCodes);
+			props.onNext();
 		},
 	});
 
@@ -507,7 +505,7 @@ const VerifyCodeStep = ({
 				<Button
 					color="red"
 					variant="subtle"
-					onClick={onCancel}
+					onClick={props.onCancel}
 					disabled={completeMutation.isPending}
 				>
 					Cancel
@@ -525,40 +523,39 @@ const VerifyCodeStep = ({
 };
 
 interface BackupCodesDisplayProps {
-	backupCodes: string[];
 	title?: string;
 	description?: string;
+	backupCodes: string[];
 	onComplete?: () => void;
 	completeButtonText?: string;
 }
 
-const BackupCodesDisplay = ({
-	backupCodes,
-	title = "Save these backup codes!",
-	description = "These codes can be used to access your account if you lose your phone. Store them in a safe place - you won't be able to see them again.",
-	onComplete,
-	completeButtonText = "I've Saved My Backup Codes",
-}: BackupCodesDisplayProps) => {
+const BackupCodesDisplay = (props: BackupCodesDisplayProps) => {
 	return (
 		<Stack>
 			<Alert color="yellow">
 				<Text fw="bold" mb="xs">
-					{title}
+					{props.title || "Save your backup codes!"}
 				</Text>
-				<Text size="sm">{description}</Text>
+				<Text size="sm">
+					{props.description ||
+						"These codes can be used to access your account if you lose your phone. Store them in a safe place - you won't be able to see them again."}
+				</Text>
 			</Alert>
 			<Paper withBorder p="md">
 				<SimpleGrid cols={3}>
-					{backupCodes.map((code) => (
+					{props.backupCodes.map((code) => (
 						<Text key={code} ff="monospace" size="sm" ta="center">
 							{code}
 						</Text>
 					))}
 				</SimpleGrid>
 			</Paper>
-			{onComplete && (
+			{props.onComplete && (
 				<Group justify="flex-end">
-					<Button onClick={onComplete}>{completeButtonText}</Button>
+					<Button onClick={props.onComplete}>
+						{props.completeButtonText || "I've Saved My Backup Codes"}
+					</Button>
 				</Group>
 			)}
 		</Stack>
@@ -571,10 +568,17 @@ interface BackupCodesStepProps {
 }
 
 const BackupCodesStep = (props: BackupCodesStepProps) => {
+	const navigate = useNavigate();
+
+	const handleComplete = () => {
+		props.onComplete();
+		navigate($path("/api/logout"));
+	};
+
 	return (
 		<BackupCodesDisplay
+			onComplete={handleComplete}
 			backupCodes={props.backupCodes}
-			onComplete={props.onComplete}
 		/>
 	);
 };
