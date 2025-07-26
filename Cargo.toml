@@ -47,6 +47,7 @@ members = [
     "crates/services/jwt",
     "crates/services/miscellaneous",
     "crates/services/notification",
+    "crates/services/session",
     "crates/services/statistics",
     "crates/services/supporting",
     "crates/services/user",

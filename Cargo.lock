@@ -5887,6 +5887,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "session-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "dependent-models",
+ "uuid",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
