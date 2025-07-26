@@ -222,7 +222,7 @@ export const uploadFileAndGetKey = async (
 	return presignedPutS3Url.key;
 };
 
-export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
+const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	const formData = new FormData();
 	formData.append("files[]", fileUpload, fileUpload.name);
 	const resp = await fetch(`${API_URL}/upload`, {
