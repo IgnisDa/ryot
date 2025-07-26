@@ -109,6 +109,10 @@ const jsonLiteralValueSchema = z
 	.nullable()
 	.refine(isJsonValue, "Literal values must be JSON-safe");
 
+export const viewTransformNameSchema = z.enum(["titleCase", "kebabCase"]);
+
+export type ViewTransformName = z.infer<typeof viewTransformNameSchema>;
+
 export const viewExpressionSchema: z.ZodType<ViewExpression> = z
 	.lazy(() => {
 		return z.discriminatedUnion("type", [
@@ -170,6 +174,13 @@ export const viewExpressionSchema: z.ZodType<ViewExpression> = z
 					condition: z.lazy(() => viewPredicateSchema),
 				})
 				.strict(),
+			z
+				.object({
+					name: viewTransformNameSchema,
+					expression: viewExpressionSchema,
+					type: z.literal("transform"),
+				})
+				.strict(),
 		]);
 	})
 	.openapi("ViewExpression");
@@ -182,22 +193,23 @@ export const nullableViewExpressionSchema = createNullableOpenApiRefSchema(
 export type ViewExpression =
 	| { type: "literal"; value: unknown | null }
 	| { type: "reference"; reference: RuntimeRef }
+	| { type: "concat"; values: ViewExpression[] }
+	| { type: "round"; expression: ViewExpression }
+	| { type: "floor"; expression: ViewExpression }
 	| { type: "coalesce"; values: ViewExpression[] }
+	| { type: "integer"; expression: ViewExpression }
+	| { type: "transform"; name: ViewTransformName; expression: ViewExpression }
+	| {
+			type: "conditional";
+			whenTrue: ViewExpression;
+			condition: ViewPredicate;
+			whenFalse: ViewExpression;
+	  }
 	| {
 			type: "arithmetic";
 			left: ViewExpression;
 			right: ViewExpression;
 			operator: "add" | "subtract" | "multiply" | "divide";
-	  }
-	| { type: "round"; expression: ViewExpression }
-	| { type: "floor"; expression: ViewExpression }
-	| { type: "integer"; expression: ViewExpression }
-	| { type: "concat"; values: ViewExpression[] }
-	| {
-			type: "conditional";
-			whenTrue: ViewExpression;
-			whenFalse: ViewExpression;
-			condition: ViewPredicate;
 	  };
 
 export const nullViewExpression = {
