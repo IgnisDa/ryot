@@ -13,7 +13,6 @@ import {
 import {
 	UserTwoFactorVerifyMethod,
 	VerifyTwoFactorDocument,
-	VerifyTwoFactorErrorVariant,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parseSearchQuery } from "@ryot/ts-utils";
 import { useState } from "react";
@@ -75,18 +74,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	}
 
 	const message = match(verifyTwoFactor)
-		.with({ __typename: "VerifyTwoFactorError" }, (error) =>
-			match(error.error)
-				.with(
-					VerifyTwoFactorErrorVariant.Invalid,
-					() => "Invalid verification code. Please try again.",
-				)
-				.with(
-					VerifyTwoFactorErrorVariant.Disabled,
-					() =>
-						"Two-factor authentication is disabled. Please contact support.",
-				)
-				.otherwise(() => "Verification failed. Please try again."),
+		.with({ __typename: "VerifyTwoFactorError" }, () => 
+			"Invalid verification code. Please try again."
 		)
 		.otherwise(() => "Verification failed. Please try again.");
 

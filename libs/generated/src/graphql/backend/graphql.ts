@@ -3013,7 +3013,6 @@ export type VerifyTwoFactorError = {
 };
 
 export enum VerifyTwoFactorErrorVariant {
-  Disabled = 'DISABLED',
   Invalid = 'INVALID'
 }
 

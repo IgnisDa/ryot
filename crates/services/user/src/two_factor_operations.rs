@@ -67,7 +67,7 @@ pub async fn verify_two_factor(
     let user = user_by_id(&input.user_id, ss).await?;
     let Some(two_factor_info) = &user.two_factor_information else {
         return Ok(VerifyTwoFactorResult::Error(VerifyTwoFactorError {
-            error: VerifyTwoFactorErrorVariant::Disabled,
+            error: VerifyTwoFactorErrorVariant::Invalid,
         }));
     };
 
