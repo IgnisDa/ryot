@@ -5,9 +5,10 @@ import {
 	serviceError,
 	wrapServiceValidator,
 } from "~/lib/result";
+import { propertySchemaInputSchema } from "~/modules/property-schemas/schemas";
 import {
 	createCollectionForUser,
-	getBuiltinCollectionSchemaForUser,
+	getBuiltinCollectionSchema,
 } from "./repository";
 import type { CollectionResponse, CreateCollectionBody } from "./schemas";
 
@@ -17,7 +18,7 @@ const invalidMembershipSchemaError =
 
 export type CollectionServiceDeps = {
 	createCollectionForUser: typeof createCollectionForUser;
-	getBuiltinCollectionSchemaForUser: typeof getBuiltinCollectionSchemaForUser;
+	getBuiltinCollectionSchema: typeof getBuiltinCollectionSchema;
 };
 
 export type CollectionServiceResult<T> = ServiceResult<
@@ -27,7 +28,7 @@ export type CollectionServiceResult<T> = ServiceResult<
 
 const collectionServiceDeps: CollectionServiceDeps = {
 	createCollectionForUser,
-	getBuiltinCollectionSchemaForUser,
+	getBuiltinCollectionSchema,
 };
 
 export const resolveCollectionName = (name: string) =>
@@ -48,20 +49,21 @@ export const createCollection = async (
 		return nameResult;
 	}
 
-	const collectionSchema = await deps.getBuiltinCollectionSchemaForUser({
-		userId: input.userId,
-	});
+	const collectionSchema = await deps.getBuiltinCollectionSchema();
 	if (!collectionSchema) {
 		return serviceError("not_found", collectionSchemaNotFoundError);
 	}
 
 	// Validate membershipPropertiesSchema as a valid AppSchema if provided
 	if (input.body.membershipPropertiesSchema !== undefined) {
-		const schemaValidation = validateMembershipPropertiesSchema(
+		const parseResult = propertySchemaInputSchema.safeParse(
 			input.body.membershipPropertiesSchema,
 		);
-		if (schemaValidation !== null) {
-			return serviceError("validation", schemaValidation);
+		if (!parseResult.success) {
+			return serviceError(
+				"validation",
+				`${invalidMembershipSchemaError}: ${parseResult.error.message}`,
+			);
 		}
 	}
 
@@ -83,122 +85,4 @@ export const createCollection = async (
 	});
 
 	return serviceData(createdCollection);
-};
-
-const validateMembershipPropertiesSchema = (schema: unknown): string | null => {
-	if (typeof schema !== "object" || schema === null) {
-		return invalidMembershipSchemaError;
-	}
-
-	const maybeSchema = schema as Record<string, unknown>;
-
-	// Check required AppSchema structure
-	if (maybeSchema.fields === undefined) {
-		return invalidMembershipSchemaError;
-	}
-
-	if (typeof maybeSchema.fields !== "object" || maybeSchema.fields === null) {
-		return invalidMembershipSchemaError;
-	}
-
-	// fields must be a record of property definitions
-	const fields = maybeSchema.fields as Record<string, unknown>;
-	for (const [key, value] of Object.entries(fields)) {
-		if (!isValidPropertyDefinition(value)) {
-			return `Invalid property definition for field '${key}'`;
-		}
-	}
-
-	// Validate rules if present
-	if (maybeSchema.rules !== undefined) {
-		if (!Array.isArray(maybeSchema.rules)) {
-			return "Schema rules must be an array";
-		}
-		for (const rule of maybeSchema.rules) {
-			if (!isValidRule(rule)) {
-				return "Invalid schema rule";
-			}
-		}
-	}
-
-	return null;
-};
-
-const isValidPropertyDefinition = (value: unknown): boolean => {
-	if (typeof value !== "object" || value === null) {
-		return false;
-	}
-
-	const def = value as Record<string, unknown>;
-
-	// Must have a type property
-	if (typeof def.type !== "string") {
-		return false;
-	}
-
-	const validTypes = [
-		"string",
-		"number",
-		"integer",
-		"boolean",
-		"date",
-		"datetime",
-		"array",
-		"object",
-	];
-
-	if (!validTypes.includes(def.type)) {
-		return false;
-	}
-
-	// Validate nested items for array type
-	if (def.type === "array" && def.items !== undefined) {
-		if (!isValidPropertyDefinition(def.items)) {
-			return false;
-		}
-	}
-
-	// Validate nested properties for object type
-	if (def.type === "object" && def.properties !== undefined) {
-		if (typeof def.properties !== "object" || def.properties === null) {
-			return false;
-		}
-		for (const propValue of Object.values(
-			def.properties as Record<string, unknown>,
-		)) {
-			if (!isValidPropertyDefinition(propValue)) {
-				return false;
-			}
-		}
-	}
-
-	return true;
-};
-
-const isValidRule = (value: unknown): boolean => {
-	if (typeof value !== "object" || value === null) {
-		return false;
-	}
-
-	const rule = value as Record<string, unknown>;
-
-	// Must have kind, path, and when properties
-	if (rule.kind !== "validation") {
-		return false;
-	}
-
-	if (!Array.isArray(rule.path)) {
-		return false;
-	}
-
-	if (typeof rule.when !== "object" || rule.when === null) {
-		return false;
-	}
-
-	const when = rule.when as Record<string, unknown>;
-	if (typeof when.operator !== "string") {
-		return false;
-	}
-
-	return true;
 };
