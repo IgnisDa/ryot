@@ -1,17 +1,13 @@
+use std::sync::Arc;
+
 use anyhow::Result;
-use cache_service::CacheService;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput};
+use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub struct SessionService {
-    cache: CacheService,
-}
+pub struct SessionService(pub Arc<SupportingService>);
 
 impl SessionService {
-    pub fn new(cache: CacheService) -> Self {
-        Self { cache }
-    }
-
     pub async fn create_session(&self, user_id: String) -> Result<String> {
         let session_id = Uuid::new_v4().to_string();
 
@@ -20,7 +16,7 @@ impl SessionService {
         };
         let cache_value = ApplicationCacheValue::UserSession(user_id);
 
-        self.cache.set_key(cache_key, cache_value).await?;
+        self.0.cache_service.set_key(cache_key, cache_value).await?;
 
         Ok(session_id)
     }
@@ -30,7 +26,7 @@ impl SessionService {
             session_id: session_id.to_string(),
         };
 
-        match self.cache.get_value::<String>(cache_key).await {
+        match self.0.cache_service.get_value::<String>(cache_key).await {
             Some((_, user_id)) => Ok(Some(user_id)),
             None => Ok(None),
         }
@@ -41,7 +37,8 @@ impl SessionService {
             session_id: session_id.to_string(),
         };
 
-        self.cache
+        self.0
+            .cache_service
             .expire_key(ExpireCacheKeyInput::ByKey(cache_key))
             .await?;
 

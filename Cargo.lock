@@ -266,6 +266,7 @@ dependencies = [
  "reqwest",
  "rust_decimal",
  "sea-orm",
+ "session-service",
  "tracing",
 ]
 
@@ -5891,8 +5892,8 @@ name = "session-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cache-service",
  "dependent-models",
+ "supporting-service",
  "uuid",
 ]
 
