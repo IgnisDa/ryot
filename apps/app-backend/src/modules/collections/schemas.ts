@@ -8,6 +8,28 @@ import {
 } from "~/lib/zod/base";
 import { propertySchemaInputSchema } from "../property-schemas/schemas";
 
+export const addToCollectionBody = z.object({
+	collectionId: z.string(),
+	entityId: z.string(),
+	properties: stringUnknownRecordSchema.optional(),
+});
+
+export const addToCollectionResponseSchema = itemDataSchema(
+	z.object({
+		id: z.string(),
+		relType: z.string(),
+		createdAt: z.string(),
+		sourceEntityId: z.string(),
+		targetEntityId: z.string(),
+		properties: stringUnknownRecordSchema,
+	}),
+);
+
+export type AddToCollectionBody = z.infer<typeof addToCollectionBody>;
+export type AddToCollectionResponse = z.infer<
+	typeof addToCollectionResponseSchema
+>;
+
 export const collectionResponseSchema = z.object({
 	id: z.string(),
 	name: z.string(),
