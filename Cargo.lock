@@ -1797,7 +1797,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "background-models",
- "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -1811,6 +1810,7 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
+ "session-service",
  "supporting-service",
  "tracing",
  "user-models",
