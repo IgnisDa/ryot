@@ -56,6 +56,12 @@ export async function registerTestUser(baseUrl: string) {
 			throw new Error(`Failed to login test user: ${loginUser.error}`);
 		}
 
+		if (loginUser.__typename !== "ApiKeyResponse") {
+			throw new Error(
+				`Expected ApiKeyResponse but got ${loginUser.__typename}`,
+			);
+		}
+
 		console.log(
 			`[Test Utils] Test user '${username}' logged in successfully with API key: ${loginUser.apiKey}`,
 		);
