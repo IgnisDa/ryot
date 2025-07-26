@@ -127,13 +127,13 @@ pub async fn verify_two_factor(
         mark_backup_code_as_used(&input.user_id, &input.code, ss).await?;
     }
 
-    let jwt_key = generate_auth_token(ss, input.user_id.clone()).await?;
+    let session_id = generate_auth_token(ss, input.user_id.clone()).await?;
     let mut user = user.into_active_model();
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
     user.update(&ss.db).await?;
 
     Ok(VerifyTwoFactorResult::Ok(ApiKeyResponse {
-        api_key: jwt_key,
+        api_key: session_id,
     }))
 }
 

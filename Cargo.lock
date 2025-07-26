@@ -7175,6 +7175,7 @@ dependencies = [
  "rand 0.9.1",
  "ring",
  "sea-orm",
+ "session-service",
  "subtle",
  "supporting-service",
  "tokio",

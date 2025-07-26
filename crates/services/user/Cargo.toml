@@ -33,6 +33,7 @@ enum-models = { path = "../../models/enum" }
 jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
 notification-service = { path = "../../services/notification" }
+session-service = { path = "../session" }
 supporting-service = { path = "../supporting" }
 user-models = { path = "../../models/user" }
 
