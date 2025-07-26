@@ -178,6 +178,7 @@ pub struct UserTwoFactorBackupCodesResponse {
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum VerifyTwoFactorErrorVariant {
     Invalid,
+    RateLimited,
 }
 
 #[derive(Debug, SimpleObject)]
