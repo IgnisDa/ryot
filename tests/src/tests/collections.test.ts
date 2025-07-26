@@ -455,23 +455,70 @@ describe("POST /collections", () => {
 			expect(response.status).toBe(404);
 			expect(error?.error?.message).toContain("Entity not found");
 		});
-	});
 
-	it("rejects unauthenticated requests", async () => {
-		const { client } = await createAuthenticatedClient();
+		it("returns 404 when trying to add to another user's collection", async () => {
+			// Create two different users
+			const { client: clientA, cookies: cookiesA } =
+				await createAuthenticatedClient();
+			const { client: clientB, cookies: cookiesB } =
+				await createAuthenticatedClient();
 
-		const { response } = await client.POST("/collections/memberships", {
-			body: {
-				collectionId: "some-collection-id",
-				entityId: "some-entity-id",
-			},
+			// User A creates a collection
+			const collection = await createCollection(clientA, cookiesA, {
+				name: "User A's Private Collection",
+				description: "Should not be accessible by User B",
+			});
+
+			// User B creates an entity
+			const tracker = await createTracker(clientB, cookiesB, {
+				name: `Test Tracker ${crypto.randomUUID()}`,
+			});
+
+			const { schemaId: entitySchemaId } = await createEntitySchema(
+				clientB,
+				cookiesB,
+				{
+					trackerId: tracker.trackerId,
+					propertiesSchema: { fields: { title: { type: "string" as const } } },
+				},
+			);
+
+			const entity = await createEntity(clientB, cookiesB, {
+				entitySchemaId,
+				name: "User B's Entity",
+				image: null,
+				properties: { title: "Test Title" },
+			});
+
+			// User B tries to add their entity to User A's collection
+			const { response, error } = await clientB.POST(
+				"/collections/memberships",
+				{
+					headers: { Cookie: cookiesB },
+					body: {
+						collectionId: collection.id,
+						entityId: entity.id,
+					},
+				},
+			);
+
+			expect(response.status).toBe(404);
+			expect(error?.error?.message).toContain("Collection not found");
 		});
 
-		expect(response.status).toBe(401);
-	});
-});
+		it("rejects unauthenticated requests", async () => {
+			const { client } = await createAuthenticatedClient();
 
-describe("DELETE /collections/memberships", () => {
+			const { response } = await client.POST("/collections/memberships", {
+				body: {
+					collectionId: "some-collection-id",
+					entityId: "some-entity-id",
+				},
+			});
+
+			expect(response.status).toBe(401);
+		});
+	});
 	it("removes an entity from a collection and deletes both relationships", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
@@ -616,6 +663,56 @@ describe("DELETE /collections/memberships", () => {
 				headers: { Cookie: cookies },
 				body: {
 					collectionId: "nonexistent-collection-id",
+					entityId: entity.id,
+				},
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toContain("Collection not found");
+	});
+
+	it("returns 404 when trying to remove from another user's collection", async () => {
+		// Create two different users
+		const { client: clientA, cookies: cookiesA } =
+			await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } =
+			await createAuthenticatedClient();
+
+		// User A creates a collection
+		const collection = await createCollection(clientA, cookiesA, {
+			name: "User A's Private Collection",
+			description: "Should not be accessible by User B",
+		});
+
+		// User B creates an entity
+		const tracker = await createTracker(clientB, cookiesB, {
+			name: `Test Tracker ${crypto.randomUUID()}`,
+		});
+
+		const { schemaId: entitySchemaId } = await createEntitySchema(
+			clientB,
+			cookiesB,
+			{
+				trackerId: tracker.trackerId,
+				propertiesSchema: { fields: { title: { type: "string" as const } } },
+			},
+		);
+
+		const entity = await createEntity(clientB, cookiesB, {
+			entitySchemaId,
+			name: "User B's Entity",
+			image: null,
+			properties: { title: "Test Title" },
+		});
+
+		// User B tries to remove their entity from User A's collection
+		const { response, error } = await clientB.DELETE(
+			"/collections/memberships",
+			{
+				headers: { Cookie: cookiesB },
+				body: {
+					collectionId: collection.id,
 					entityId: entity.id,
 				},
 			},
