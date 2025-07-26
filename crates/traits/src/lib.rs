@@ -90,7 +90,7 @@ pub trait AuthProvider {
         false
     }
 
-    fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
+    fn user_session_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         auth_ctx
             .session_id

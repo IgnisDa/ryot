@@ -64,8 +64,8 @@ where
                     )
                 })?;
 
-            if let Ok(Some(user_id)) = session_service::validate_session(&ss, session_id).await {
-                ctx.user_id = Some(user_id);
+            if let Ok(Some(session)) = session_service::validate_session(&ss, session_id).await {
+                ctx.user_id = Some(session.user_id);
             }
         }
 

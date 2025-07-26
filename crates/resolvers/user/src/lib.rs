@@ -58,8 +58,8 @@ impl UserQuery {
     /// Get details about the currently logged in user.
     async fn user_details(&self, gql_ctx: &Context<'_>) -> Result<UserDetailsResult> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let token = self.user_auth_token_from_ctx(gql_ctx)?;
-        let response = service.user_details(&token).await?;
+        let session_id = self.user_session_id_from_ctx(gql_ctx)?;
+        let response = service.user_details(&session_id).await?;
         Ok(response)
     }
 
@@ -360,7 +360,7 @@ impl UserMutation {
     /// Logout the current user by invalidating their session.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let session_id = self.user_auth_token_from_ctx(gql_ctx)?;
+        let session_id = self.user_session_id_from_ctx(gql_ctx)?;
         let response = service.logout_user(session_id).await?;
         Ok(response)
     }
