@@ -33,6 +33,8 @@ impl CacheService {
 impl CacheService {
     fn get_expiry_for_key(&self, key: &ApplicationCacheKey) -> Duration {
         match key {
+            ApplicationCacheKey::UserTwoFactorRateLimit { .. } => Duration::seconds(5),
+
             ApplicationCacheKey::SpotifyAccessToken => Duration::minutes(50),
 
             ApplicationCacheKey::CoreDetails
