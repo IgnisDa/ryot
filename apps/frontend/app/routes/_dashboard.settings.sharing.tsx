@@ -58,7 +58,7 @@ import {
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	createToastHeaders,
-	getUserDetails,
+	redirectIfNotAuthenticatedOrUpdated,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.sharing";
@@ -66,7 +66,7 @@ import type { Route } from "./+types/_dashboard.settings.sharing";
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const [{ userAccessLinks }, userDetails] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UserAccessLinksDocument, {}),
-		getUserDetails(request),
+		redirectIfNotAuthenticatedOrUpdated(request),
 	]);
 	return { userAccessLinks, activeAccessLinkId: userDetails.accessLinkId };
 };

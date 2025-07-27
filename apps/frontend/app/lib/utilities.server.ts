@@ -170,7 +170,7 @@ export const getCoreDetails = async () => {
 		.then((d) => d.coreDetails);
 };
 
-export const getUserDetails = async (request: Request) => {
+const getUserDetails = async (request: Request) => {
 	const { userDetails } = await serverGqlService.authenticatedRequest(
 		request,
 		UserDetailsDocument,
