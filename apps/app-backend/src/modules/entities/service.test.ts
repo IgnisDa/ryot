@@ -222,7 +222,8 @@ describe("getEntityDetail", () => {
 		expect(result).toEqual({ data: globalEntity });
 	});
 
-	it("returns not found for a user-scoped builtin entity", async () => {
+	it("returns entity data for a user-owned builtin library entity", async () => {
+		const libraryEntity = createListedEntity({ id: "entity_library" });
 		const result = await getEntityDetail(
 			{ entityId: "entity_library", userId: "user_1" },
 			createEntityDeps({
@@ -233,13 +234,30 @@ describe("getEntityDetail", () => {
 					entitySchemaSlug: "library",
 					entitySchemaId: "schema_library",
 				}),
-				getEntityByIdForUser: async () => {
-					throw new Error("Should not fetch hidden builtin entity details");
-				},
+				getEntityByIdForUser: async () => libraryEntity,
 			}),
 		);
 
-		expect(result).toEqual({ error: "not_found", message: "Entity not found" });
+		expect(result).toEqual({ data: libraryEntity });
+	});
+
+	it("returns entity data for a user-owned builtin entity (e.g. workout)", async () => {
+		const workoutEntity = createListedEntity({ id: "entity_workout" });
+		const result = await getEntityDetail(
+			{ entityId: "entity_workout", userId: "user_1" },
+			createEntityDeps({
+				getEntityScopeForUser: async (input) => ({
+					isBuiltin: true,
+					entityId: input.entityId,
+					entityUserId: input.userId,
+					entitySchemaSlug: "workout",
+					entitySchemaId: "schema_workout",
+				}),
+				getEntityByIdForUser: async () => workoutEntity,
+			}),
+		);
+
+		expect(result).toEqual({ data: workoutEntity });
 	});
 });
 
