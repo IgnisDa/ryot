@@ -9,9 +9,14 @@ describe("buildCreateEntityFormSchema", () => {
 	it("builds schema for simple string and number properties", () => {
 		const propertiesSchema = {
 			fields: {
-				pages: { label: "Pages", type: "integer" as const },
+				pages: {
+					label: "Pages",
+					description: "Pages",
+					type: "integer" as const,
+				},
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -33,6 +38,7 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -54,6 +60,7 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -70,9 +77,14 @@ describe("buildCreateEntityFormSchema", () => {
 	it("allows optional properties to be missing", () => {
 		const propertiesSchema = {
 			fields: {
-				subtitle: { label: "Subtitle", type: "string" as const },
+				subtitle: {
+					label: "Subtitle",
+					description: "Subtitle",
+					type: "string" as const,
+				},
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -94,10 +106,19 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				metadata: {
 					label: "Metadata",
+					description: "Metadata",
 					type: "object" as const,
 					properties: {
-						year: { label: "Year", type: "integer" as const },
-						author: { label: "Author", type: "string" as const },
+						year: {
+							label: "Year",
+							description: "Year",
+							type: "integer" as const,
+						},
+						author: {
+							label: "Author",
+							description: "Author",
+							type: "string" as const,
+						},
 					},
 				},
 			},
@@ -118,8 +139,13 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Item", type: "string" as const },
+					items: {
+						label: "Item",
+						description: "Item",
+						type: "string" as const,
+					},
 				},
 			},
 		};
@@ -139,6 +165,7 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -160,20 +187,27 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Tag", type: "string" as const },
+					items: { label: "Tag", description: "Tag", type: "string" as const },
 					validation: { required: true as const },
 				},
 				metadata: {
 					label: "Metadata",
+					description: "Metadata",
 					type: "object" as const,
 					properties: {
-						year: { label: "Year", type: "integer" as const },
+						year: {
+							label: "Year",
+							description: "Year",
+							type: "integer" as const,
+						},
 					},
 					validation: { required: true as const },
 				},
@@ -201,13 +235,15 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Tag", type: "string" as const },
+					items: { label: "Tag", description: "Tag", type: "string" as const },
 				},
 			},
 		};
@@ -227,6 +263,7 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				status: {
 					label: "Status",
+					description: "Status",
 					type: "enum" as const,
 					validation: { required: true as const },
 					options: ["draft", "published"] as [string, ...string[]],
@@ -251,6 +288,7 @@ describe("buildCreateEntityFormSchema", () => {
 			fields: {
 				genres: {
 					label: "Genres",
+					description: "Genres",
 					type: "enum-array" as const,
 					options: ["fiction", "mystery"] as [string, ...string[]],
 				},
@@ -274,9 +312,14 @@ describe("buildCreateEntityFormSchema", () => {
 	it("applies conditional required rules", () => {
 		const schema = buildCreateEntityFormSchema({
 			fields: {
-				progressPercent: { label: "Progress Percent", type: "number" as const },
+				progressPercent: {
+					label: "Progress Percent",
+					description: "Progress Percent",
+					type: "number" as const,
+				},
 				status: {
 					label: "Status",
+					description: "Status",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -323,9 +366,14 @@ describe("buildDefaultEntityFormValues", () => {
 	it("creates default values with empty name and required properties", () => {
 		const propertiesSchema = {
 			fields: {
-				pages: { label: "Pages", type: "integer" as const },
+				pages: {
+					label: "Pages",
+					description: "Pages",
+					type: "integer" as const,
+				},
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -344,16 +392,19 @@ describe("buildDefaultEntityFormValues", () => {
 			fields: {
 				title: {
 					label: "Title",
+					description: "Title",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
 				pages: {
 					label: "Pages",
+					description: "Pages",
 					type: "integer" as const,
 					validation: { required: true as const },
 				},
 				active: {
 					label: "Active",
+					description: "Active",
 					type: "boolean" as const,
 					validation: { required: true as const },
 				},
@@ -374,11 +425,20 @@ describe("buildDefaultEntityFormValues", () => {
 			fields: {
 				metadata: {
 					label: "Metadata",
+					description: "Metadata",
 					type: "object" as const,
 					validation: { required: true as const },
 					properties: {
-						year: { label: "Year", type: "integer" as const },
-						author: { label: "Author", type: "string" as const },
+						year: {
+							label: "Year",
+							description: "Year",
+							type: "integer" as const,
+						},
+						author: {
+							label: "Author",
+							description: "Author",
+							type: "string" as const,
+						},
 					},
 				},
 			},
@@ -394,12 +454,14 @@ describe("buildDefaultEntityFormValues", () => {
 			fields: {
 				genres: {
 					label: "Genres",
+					description: "Genres",
 					type: "enum-array" as const,
 					validation: { required: true as const },
 					options: ["fiction", "mystery"] as [string, ...string[]],
 				},
 				status: {
 					label: "Status",
+					description: "Status",
 					type: "enum" as const,
 					validation: { required: true as const },
 					options: ["draft", "published"] as [string, ...string[]],
@@ -424,8 +486,16 @@ describe("toCreateEntityPayload", () => {
 
 		const propertiesSchema = {
 			fields: {
-				pages: { label: "Pages", type: "integer" as const },
-				title: { label: "Title", type: "string" as const },
+				pages: {
+					label: "Pages",
+					description: "Pages",
+					type: "integer" as const,
+				},
+				title: {
+					label: "Title",
+					description: "Title",
+					type: "string" as const,
+				},
 			},
 		};
 
@@ -456,17 +526,27 @@ describe("toCreateEntityPayload", () => {
 
 		const propertiesSchema = {
 			fields: {
-				title: { label: "Title", type: "string" as const },
+				title: {
+					label: "Title",
+					description: "Title",
+					type: "string" as const,
+				},
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Tag", type: "string" as const },
+					items: { label: "Tag", description: "Tag", type: "string" as const },
 				},
 				metadata: {
 					label: "Metadata",
+					description: "Metadata",
 					type: "object" as const,
 					properties: {
-						year: { label: "Year", type: "integer" as const },
+						year: {
+							label: "Year",
+							description: "Year",
+							type: "integer" as const,
+						},
 					},
 				},
 			},

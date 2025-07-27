@@ -228,10 +228,12 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 					status: {
 						label: "Status",
 						type: "enum" as const,
+						description: "Status",
 						options: ["draft", "published", "archived"],
 					},
 					genres: {
 						label: "Genres",
+						description: "Genres",
 						type: "enum-array" as const,
 						options: ["fiction", "non-fiction", "mystery"],
 					},
@@ -254,10 +256,12 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 					status: {
 						label: "Status",
 						type: "enum" as const,
+						description: "Status",
 						options: ["draft", "published"],
 					},
 					genres: {
 						label: "Genres",
+						description: "Genres",
 						type: "enum-array" as const,
 						options: ["fiction", "mystery"],
 					},
@@ -270,11 +274,13 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		expect(schema.propertiesSchema.fields.status).toMatchObject({
 			type: "enum",
 			label: "Status",
+			description: "Status",
 			options: ["draft", "published"],
 		});
 		expect(schema.propertiesSchema.fields.genres).toMatchObject({
-			type: "enum-array",
 			label: "Genres",
+			type: "enum-array",
+			description: "Genres",
 			options: ["fiction", "mystery"],
 		});
 	});

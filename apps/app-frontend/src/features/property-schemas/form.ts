@@ -17,6 +17,7 @@ const propertySchemaBaseSchema = z.object({
 	required: z.boolean(),
 	type: propertySchemaTypeSchema,
 	label: zodNonEmptyTrimmedString("Label is required"),
+	description: zodNonEmptyTrimmedString("Description is required"),
 });
 
 const propertySchemaRowSchema = propertySchemaBaseSchema.extend({
@@ -38,6 +39,7 @@ function buildPropertySchemaRow(row: PropertySchemaInput): PropertySchemaRow {
 		key: row.key,
 		type: row.type,
 		label: row.label,
+		description: row.description,
 		required: row.required,
 		id: row.id ?? crypto.randomUUID(),
 	};
@@ -47,6 +49,7 @@ export function buildDefaultPropertySchemaRow(): PropertySchemaRow {
 	return buildPropertySchemaRow({
 		key: "",
 		label: "",
+		description: "",
 		type: "string",
 		required: false,
 	});
@@ -113,6 +116,7 @@ export const buildPropertiesSchema = (properties: PropertySchemaInput[]) => {
 		const propertyDef: AppSchema["fields"][string] = {
 			type: property.type,
 			label: property.label.trim(),
+			description: property.description.trim(),
 		};
 
 		if (property.required) {

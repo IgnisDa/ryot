@@ -42,20 +42,23 @@ describe("buildDefaultMembershipFormValues", () => {
 			id: "collection-1",
 			membershipPropertiesSchema: {
 				fields: {
-					notes: { label: "Notes", type: "string" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
 					rating: {
 						label: "Rating",
+						description: "Rating",
 						type: "number",
 						validation: { required: true },
 					},
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -77,22 +80,26 @@ describe("buildDefaultMembershipFormValues", () => {
 				fields: {
 					pages: {
 						label: "Pages",
+						description: "Pages",
 						type: "integer",
 						validation: { required: true },
 					},
 					tags: {
 						label: "Tags",
+						description: "Tags",
 						type: "array",
-						items: { label: "Tag", type: "string" },
+						items: { label: "Tag", description: "Tag", type: "string" },
 						validation: { required: true },
 					},
 					metadata: {
 						type: "object",
 						label: "Metadata",
+						description: "Metadata",
 						validation: { required: true },
 						properties: {
 							rating: {
 								label: "Rating",
+								description: "Rating",
 								type: "number",
 								validation: { required: true },
 							},
@@ -125,11 +132,13 @@ describe("buildMembershipFormSchema", () => {
 				fields: {
 					notes: {
 						label: "Notes",
+						description: "Notes",
 						type: "string",
 						validation: { required: true },
 					},
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
@@ -163,6 +172,7 @@ describe("buildMembershipFormSchema", () => {
 				fields: {
 					notes: {
 						label: "Notes",
+						description: "Notes",
 						type: "string",
 						validation: { required: true },
 					},
@@ -197,6 +207,7 @@ describe("buildMembershipFormSchema", () => {
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -223,22 +234,26 @@ describe("buildMembershipFormSchema", () => {
 				fields: {
 					notes: {
 						label: "Notes",
+						description: "Notes",
 						type: "string",
 						validation: { required: true },
 					},
 					tags: {
 						label: "Tags",
+						description: "Tags",
 						type: "array",
-						items: { label: "Tag", type: "string" },
+						items: { label: "Tag", description: "Tag", type: "string" },
 						validation: { required: true },
 					},
 					metadata: {
 						type: "object",
 						label: "Metadata",
+						description: "Metadata",
 						validation: { required: true },
 						properties: {
 							rating: {
 								label: "Rating",
+								description: "Rating",
 								type: "number",
 								validation: { required: true },
 							},
@@ -290,6 +305,7 @@ describe("buildMembershipFormSchema", () => {
 						notes: {
 							type: "string",
 							label: "Notes",
+							description: "Notes",
 							validation: { required: true },
 						},
 					},
@@ -316,28 +332,37 @@ describe("getUnsupportedRequiredProperties", () => {
 			fields: {
 				pages: {
 					label: "Pages",
+					description: "Pages",
 					type: "integer" as const,
 					validation: { required: true as const },
 				},
 				notes: {
 					label: "Notes",
+					description: "Notes",
 					type: "array" as const,
-					items: { label: "Note", type: "string" as const },
+					items: {
+						label: "Note",
+						description: "Note",
+						type: "string" as const,
+					},
 				},
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Tag", type: "string" as const },
+					items: { label: "Tag", description: "Tag", type: "string" as const },
 					validation: { required: true as const },
 				},
 				metadata: {
 					type: "object" as const,
 					label: "Metadata",
+					description: "Metadata",
 					validation: { required: true as const },
 					properties: {
 						rating: {
 							type: "number" as const,
 							label: "Rating",
+							description: "Rating",
 							validation: { required: true as const },
 						},
 					},
@@ -416,6 +441,7 @@ describe("toMembershipPayload", () => {
 				fields: {
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
@@ -466,6 +492,7 @@ describe("toMembershipPayload", () => {
 				fields: {
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
@@ -491,17 +518,20 @@ describe("toMembershipPayload", () => {
 				fields: {
 					notes: {
 						label: "Notes",
+						description: "Notes",
 						type: "string",
 						validation: { required: true },
 					},
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -530,15 +560,17 @@ describe("reconcileMembershipProperties", () => {
 			reconcileMembershipProperties(
 				{
 					fields: {
-						notes: { label: "Notes", type: "string" },
+						notes: { label: "Notes", description: "Notes", type: "string" },
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
 						completed: {
 							type: "boolean",
 							label: "Completed",
+							description: "Completed",
 							validation: { required: true },
 						},
 					},
@@ -555,14 +587,16 @@ describe("reconcileMembershipProperties", () => {
 					fields: {
 						pages: {
 							label: "Pages",
+							description: "Pages",
 							type: "integer",
 							validation: { required: true },
 						},
 						tags: {
 							label: "Tags",
+							description: "Tags",
 							type: "array",
 							validation: { required: true },
-							items: { label: "Tag", type: "string" },
+							items: { label: "Tag", description: "Tag", type: "string" },
 						},
 					},
 				},
@@ -584,21 +618,25 @@ describe("buildMembershipPropertyDefaults", () => {
 			fields: {
 				name: {
 					label: "Name",
+					description: "Name",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
 				count: {
 					label: "Count",
+					description: "Count",
 					type: "integer" as const,
 					validation: { required: true as const },
 				},
 				score: {
 					label: "Score",
+					description: "Score",
 					type: "number" as const,
 					validation: { required: true as const },
 				},
 				active: {
 					label: "Active",
+					description: "Active",
 					type: "boolean" as const,
 					validation: { required: true as const },
 				},
@@ -615,9 +653,14 @@ describe("buildMembershipPropertyDefaults", () => {
 	it("skips optional primitive properties", () => {
 		const schema = {
 			fields: {
-				optional: { label: "Optional", type: "string" as const },
+				optional: {
+					label: "Optional",
+					description: "Optional",
+					type: "string" as const,
+				},
 				required: {
 					label: "Required",
+					description: "Required",
 					type: "string" as const,
 					validation: { required: true as const },
 				},
@@ -635,10 +678,11 @@ describe("syncMembershipFormValues", () => {
 			id: "collection-2",
 			membershipPropertiesSchema: {
 				fields: {
-					notes: { label: "Notes", type: "string" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -687,10 +731,11 @@ describe("buildCollectionSelectionPatch", () => {
 			id: "collection-2",
 			membershipPropertiesSchema: {
 				fields: {
-					notes: { label: "Notes", type: "string" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -717,6 +762,7 @@ describe("getMembershipFormReconciliationState", () => {
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -730,6 +776,7 @@ describe("getMembershipFormReconciliationState", () => {
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -757,16 +804,22 @@ describe("getMembershipPropertyEntries", () => {
 	it("returns property entries with labels for primitive properties only", () => {
 		const schema = {
 			fields: {
-				notes: { label: "My Notes", type: "string" as const },
+				notes: {
+					label: "My Notes",
+					description: "My Notes",
+					type: "string" as const,
+				},
 				quantity: {
 					label: "Item Quantity",
+					description: "Item Quantity",
 					type: "integer" as const,
 					validation: { required: true as const },
 				},
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Tag", type: "string" as const },
+					items: { label: "Tag", description: "Tag", type: "string" as const },
 				},
 			},
 		};
@@ -777,13 +830,18 @@ describe("getMembershipPropertyEntries", () => {
 		expect(entries).toContainEqual({
 			key: "notes",
 			label: "My Notes",
-			definition: { label: "My Notes", type: "string" },
+			definition: {
+				label: "My Notes",
+				description: "My Notes",
+				type: "string",
+			},
 		});
 		expect(entries).toContainEqual({
 			key: "quantity",
 			label: "Item Quantity",
 			definition: {
 				label: "Item Quantity",
+				description: "Item Quantity",
 				type: "integer",
 				validation: { required: true },
 			},
@@ -795,8 +853,9 @@ describe("getMembershipPropertyEntries", () => {
 			fields: {
 				tags: {
 					label: "Tags",
+					description: "Tags",
 					type: "array" as const,
-					items: { label: "Tag", type: "string" as const },
+					items: { label: "Tag", description: "Tag", type: "string" as const },
 				},
 			},
 		};
@@ -811,9 +870,17 @@ describe("getMembershipPropertyEntries", () => {
 	it("generates label from key when property label is empty", () => {
 		const schema = {
 			fields: {
-				myPropertyName: { label: "", type: "string" as const },
-				another_property: { label: "", type: "integer" as const },
-				someKey: { label: "Existing Label", type: "boolean" as const },
+				myPropertyName: { label: "", description: "", type: "string" as const },
+				another_property: {
+					label: "",
+					description: "",
+					type: "integer" as const,
+				},
+				someKey: {
+					label: "Existing Label",
+					description: "Existing Label",
+					type: "boolean" as const,
+				},
 			},
 		};
 
@@ -823,17 +890,29 @@ describe("getMembershipPropertyEntries", () => {
 		expect(entries).toContainEqual({
 			key: "myPropertyName",
 			label: "My Property Name",
-			definition: { label: "My Property Name", type: "string" },
+			definition: {
+				label: "My Property Name",
+				description: "",
+				type: "string",
+			},
 		});
 		expect(entries).toContainEqual({
 			key: "another_property",
 			label: "Another Property",
-			definition: { label: "Another Property", type: "integer" },
+			definition: {
+				label: "Another Property",
+				description: "",
+				type: "integer",
+			},
 		});
 		expect(entries).toContainEqual({
 			key: "someKey",
 			label: "Existing Label",
-			definition: { label: "Existing Label", type: "boolean" },
+			definition: {
+				label: "Existing Label",
+				description: "Existing Label",
+				type: "boolean",
+			},
 		});
 	});
 });
@@ -864,20 +943,23 @@ describe("deriveInitialValuesFromEntity", () => {
 			id: "collection-1",
 			membershipPropertiesSchema: {
 				fields: {
-					notes: { label: "Notes", type: "string" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
 					pages: {
 						label: "Pages",
+						description: "Pages",
 						type: "integer",
 						validation: { required: true },
 					},
 					rating: {
 						label: "Rating",
+						description: "Rating",
 						type: "number",
 						validation: { required: true },
 					},
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -907,15 +989,17 @@ describe("deriveInitialValuesFromEntity", () => {
 			id: "collection-1",
 			membershipPropertiesSchema: {
 				fields: {
-					notes: { label: "Notes", type: "string" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
 					pages: {
 						label: "Pages",
+						description: "Pages",
 						type: "integer",
 						validation: { required: true },
 					},
 					completed: {
 						type: "boolean",
 						label: "Completed",
+						description: "Completed",
 						validation: { required: true },
 					},
 				},
@@ -941,9 +1025,10 @@ describe("deriveInitialValuesFromEntity", () => {
 			id: "collection-1",
 			membershipPropertiesSchema: {
 				fields: {
-					notes: { label: "Notes", type: "string" },
+					notes: { label: "Notes", description: "Notes", type: "string" },
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
@@ -965,13 +1050,15 @@ describe("deriveInitialValuesFromEntity", () => {
 				fields: {
 					pages: {
 						label: "Pages",
+						description: "Pages",
 						type: "integer",
 						validation: { required: true },
 					},
 					tags: {
 						label: "Tags",
+						description: "Tags",
 						type: "array",
-						items: { label: "Tag", type: "string" },
+						items: { label: "Tag", description: "Tag", type: "string" },
 						validation: { required: true },
 					},
 				},
@@ -995,6 +1082,7 @@ describe("deriveInitialValuesFromEntity", () => {
 				fields: {
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
@@ -1014,6 +1102,7 @@ describe("deriveInitialValuesFromEntity", () => {
 				fields: {
 					quantity: {
 						label: "Quantity",
+						description: "Quantity",
 						type: "integer",
 						validation: { required: true },
 					},
