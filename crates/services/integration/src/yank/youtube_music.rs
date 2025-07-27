@@ -2,7 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use application_utils::{get_current_date, get_current_time};
-use cache_service;
 use chrono::{Duration, NaiveDate, NaiveDateTime, Offset, Utc};
 use chrono_tz::Tz;
 use common_models::{UserLevelCacheKey, YoutubeMusicSongListened};
