@@ -19,6 +19,97 @@ use rustypipe::param::{LANGUAGES, Language};
 use sea_orm::Iterable;
 use supporting_service::SupportingService;
 
+fn build_metadata_mappings() -> (
+    Vec<MetadataLotSourceMappings>,
+    Vec<MetadataGroupSourceLotMapping>,
+) {
+    let metadata_lot_source_mappings = MediaLot::iter()
+        .map(|lot| MetadataLotSourceMappings {
+            lot,
+            sources: lot.meta(),
+        })
+        .collect();
+
+    let metadata_group_source_lot_mappings = MediaSource::iter()
+        .flat_map(|source| {
+            source
+                .meta()
+                .map(|lot| MetadataGroupSourceLotMapping { source, lot })
+        })
+        .collect();
+
+    (
+        metadata_lot_source_mappings,
+        metadata_group_source_lot_mappings,
+    )
+}
+
+fn build_exercise_parameters() -> ExerciseParameters {
+    ExerciseParameters {
+        filters: ExerciseFilters {
+            lot: ExerciseLot::iter().collect_vec(),
+            level: ExerciseLevel::iter().collect_vec(),
+            force: ExerciseForce::iter().collect_vec(),
+            muscle: ExerciseMuscle::iter().collect_vec(),
+            mechanic: ExerciseMechanic::iter().collect_vec(),
+            equipment: ExerciseEquipment::iter().collect_vec(),
+        },
+        lot_mapping: ExerciseLot::iter()
+            .map(|lot| ExerciseParametersLotMapping {
+                lot,
+                bests: lot.meta(),
+            })
+            .collect(),
+    }
+}
+
+fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
+    MediaSource::iter()
+        .map(|source| {
+            let (supported, default) = match source {
+                MediaSource::YoutubeMusic => (
+                    LANGUAGES.iter().map(|l| l.name().to_owned()).collect(),
+                    Language::En.name().to_owned(),
+                ),
+                MediaSource::Itunes => (
+                    ["en_us", "ja_jp"].into_iter().map(String::from).collect(),
+                    "en_us".to_owned(),
+                ),
+                MediaSource::Audible => (
+                    ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"]
+                        .into_iter()
+                        .map(String::from)
+                        .collect(),
+                    "us".to_owned(),
+                ),
+                MediaSource::Tmdb => (
+                    isolang::languages()
+                        .filter_map(|l| l.to_639_1().map(String::from))
+                        .collect(),
+                    "en".to_owned(),
+                ),
+                MediaSource::Igdb
+                | MediaSource::Vndb
+                | MediaSource::Custom
+                | MediaSource::Anilist
+                | MediaSource::Spotify
+                | MediaSource::GiantBomb
+                | MediaSource::Hardcover
+                | MediaSource::Myanimelist
+                | MediaSource::GoogleBooks
+                | MediaSource::Listennotes
+                | MediaSource::Openlibrary
+                | MediaSource::MangaUpdates => (vec!["us".to_owned()], "us".to_owned()),
+            };
+            ProviderLanguageInformation {
+                source,
+                default,
+                supported,
+            }
+        })
+        .collect()
+}
+
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
     let cached_response = cache_service::get_or_set_with_callback(
         ss,
@@ -29,10 +120,20 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             if files_enabled && !file_storage_service::is_enabled(ss).await {
                 files_enabled = false;
             }
+
+            let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
+                build_metadata_mappings();
+            let exercise_parameters = build_exercise_parameters();
+            let metadata_provider_languages = build_provider_language_information();
+
             let core_details = CoreDetails {
                 page_size: PAGE_SIZE,
+                exercise_parameters,
+                metadata_provider_languages,
+                metadata_lot_source_mappings,
                 version: APP_VERSION.to_owned(),
                 oidc_enabled: ss.is_oidc_enabled,
+                metadata_group_source_lot_mappings,
                 file_storage_enabled: files_enabled,
                 frontend: ss.config.frontend.clone(),
                 website_url: "https://ryot.io".to_owned(),
@@ -49,79 +150,6 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 two_factor_backup_codes_count: TWO_FACTOR_BACKUP_CODES_COUNT,
                 repository_link: "https://github.com/ignisda/ryot".to_owned(),
                 is_server_key_validated: ss.get_is_server_key_validated().await,
-                metadata_lot_source_mappings: MediaLot::iter()
-                    .map(|lot| MetadataLotSourceMappings {
-                        lot,
-                        sources: lot.meta(),
-                    })
-                    .collect(),
-                metadata_group_source_lot_mappings: MediaSource::iter()
-                    .flat_map(|source| {
-                        source
-                            .meta()
-                            .map(|lot| MetadataGroupSourceLotMapping { source, lot })
-                    })
-                    .collect(),
-                exercise_parameters: ExerciseParameters {
-                    filters: ExerciseFilters {
-                        lot: ExerciseLot::iter().collect_vec(),
-                        level: ExerciseLevel::iter().collect_vec(),
-                        force: ExerciseForce::iter().collect_vec(),
-                        muscle: ExerciseMuscle::iter().collect_vec(),
-                        mechanic: ExerciseMechanic::iter().collect_vec(),
-                        equipment: ExerciseEquipment::iter().collect_vec(),
-                    },
-                    lot_mapping: ExerciseLot::iter()
-                        .map(|lot| ExerciseParametersLotMapping {
-                            lot,
-                            bests: lot.meta(),
-                        })
-                        .collect(),
-                },
-                metadata_provider_languages: MediaSource::iter()
-                    .map(|source| {
-                        let (supported, default) = match source {
-                            MediaSource::YoutubeMusic => (
-                                LANGUAGES.iter().map(|l| l.name().to_owned()).collect(),
-                                Language::En.name().to_owned(),
-                            ),
-                            MediaSource::Itunes => (
-                                ["en_us", "ja_jp"].into_iter().map(String::from).collect(),
-                                "en_us".to_owned(),
-                            ),
-                            MediaSource::Audible => (
-                                ["au", "ca", "de", "es", "fr", "in", "it", "jp", "gb", "us"]
-                                    .into_iter()
-                                    .map(String::from)
-                                    .collect(),
-                                "us".to_owned(),
-                            ),
-                            MediaSource::Tmdb => (
-                                isolang::languages()
-                                    .filter_map(|l| l.to_639_1().map(String::from))
-                                    .collect(),
-                                "en".to_owned(),
-                            ),
-                            MediaSource::Igdb
-                            | MediaSource::Vndb
-                            | MediaSource::Custom
-                            | MediaSource::Anilist
-                            | MediaSource::Spotify
-                            | MediaSource::GiantBomb
-                            | MediaSource::Hardcover
-                            | MediaSource::Myanimelist
-                            | MediaSource::GoogleBooks
-                            | MediaSource::Listennotes
-                            | MediaSource::Openlibrary
-                            | MediaSource::MangaUpdates => (vec!["us".to_owned()], "us".to_owned()),
-                        };
-                        ProviderLanguageInformation {
-                            source,
-                            default,
-                            supported,
-                        }
-                    })
-                    .collect(),
             };
             Ok(core_details)
         },
