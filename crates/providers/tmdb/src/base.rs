@@ -368,7 +368,6 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
             Ok(settings)
         },
     )
-    .await
-    .unwrap();
+    .await?;
     Ok(cached_response.response)
 }

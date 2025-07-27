@@ -201,8 +201,7 @@ impl ListennotesService {
                 Ok(genres)
             },
         )
-        .await
-        .unwrap();
+        .await?;
         Ok(cached_response.response)
     }
 

@@ -562,8 +562,7 @@ impl IgdbService {
             ApplicationCacheValue::IgdbSettings,
             || async { Ok(self.get_access_token().await) },
         )
-        .await
-        .unwrap();
+        .await?;
         let access_token = cached_response.response;
         Ok(get_base_http_client(Some(vec![
             (
