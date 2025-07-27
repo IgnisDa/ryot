@@ -9,6 +9,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, ExpireCacheKeyInput,
     GetCacheKeyResponse,
 };
+use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use sea_query::OnConflict;
 use serde::de::DeserializeOwned;
@@ -98,12 +99,12 @@ pub async fn set_keys_with_custom_expiry(
         };
 
         let to_insert = application_cache::ActiveModel {
-            key: ActiveValue::Set(key_value),
             created_at: ActiveValue::Set(now),
             version: ActiveValue::Set(version),
             expires_at: ActiveValue::Set(expires_at),
             sanitized_key: ActiveValue::Set(sanitized_key),
             value: ActiveValue::Set(serde_json::to_value(&value).unwrap()),
+            key: ActiveValue::Set(serde_json::to_string(&key_value).unwrap()),
             ..Default::default()
         };
         let inserted = ApplicationCache::insert(to_insert)
@@ -160,8 +161,12 @@ pub async fn get_values(
     ss: &Arc<SupportingService>,
     keys: Vec<ApplicationCacheKey>,
 ) -> Result<HashMap<ApplicationCacheKey, GetCacheKeyResponse>> {
+    let string_keys = keys
+        .iter()
+        .map(|k| serde_json::to_string(k).unwrap())
+        .collect_vec();
     let caches = ApplicationCache::find()
-        .filter(application_cache::Column::Key.is_in(keys))
+        .filter(application_cache::Column::Key.is_in(string_keys))
         .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
         .all(&ss.db)
         .await?;
@@ -174,7 +179,7 @@ pub async fn get_values(
             }
         }
         values.insert(
-            serde_json::from_value(cache.key).unwrap(),
+            serde_json::from_str(&cache.key).unwrap(),
             GetCacheKeyResponse {
                 id: cache.id,
                 value: serde_json::from_value(cache.value)?,
@@ -222,7 +227,9 @@ pub async fn expire_key(ss: &Arc<SupportingService>, by: ExpireCacheKeyInput) ->
         .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
         .filter(match by.clone() {
             ExpireCacheKeyInput::ById(id) => application_cache::Column::Id.eq(id),
-            ExpireCacheKeyInput::ByKey(key) => application_cache::Column::Key.eq(key),
+            ExpireCacheKeyInput::ByKey(key) => {
+                application_cache::Column::Key.eq(serde_json::to_string(&key).unwrap())
+            }
             ExpireCacheKeyInput::ByUser(user_id) => {
                 application_cache::Column::SanitizedKey.like(format!("%-{}", user_id))
             }

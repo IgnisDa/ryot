@@ -4,6 +4,7 @@ pub static APPLICATION_CACHE_SANITIZED_KEY_INDEX: &str = "application_cache_sani
 pub static APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX: &str =
     "application_cache_sanitized_key_trigram_idx";
 pub static APPLICATION_CACHE_EXPIRES_AT_INDEX: &str = "application_cache_expires_at_index";
+pub static APPLICATION_CACHE_KEY_HASH_INDEX: &str = "application_cache_key_hash_index";
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -42,7 +43,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(ApplicationCache::Key)
-                            .json_binary()
+                            .text()
                             .not_null()
                             .unique_key(),
                     )
@@ -80,6 +81,17 @@ impl MigrationTrait for Migration {
                     .name(APPLICATION_CACHE_EXPIRES_AT_INDEX)
                     .table(ApplicationCache::Table)
                     .col(ApplicationCache::ExpiresAt)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name(APPLICATION_CACHE_KEY_HASH_INDEX)
+                    .table(ApplicationCache::Table)
+                    .col(ApplicationCache::Key)
+                    .index_type(IndexType::Hash)
                     .to_owned(),
             )
             .await?;
