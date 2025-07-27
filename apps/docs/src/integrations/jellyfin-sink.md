@@ -16,4 +16,4 @@ to be installed and active in Jellyfin.
     - Webhook URL => `<paste_url_copied>`
     - Payload format => `Default`
     - Listen to events only for => Choose your user
-    - Events => `Play`, `Pause`, `Resume`, `Stop`, `Progress` and `MarkPlayed`
+    - Events => `Play`, `Pause`, `Resume`, `Stop` and `Progress`
