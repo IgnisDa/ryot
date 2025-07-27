@@ -35,3 +35,9 @@ export const showPropertiesSchema = mediaPropertiesSchema.extend({
 });
 
 export const showPropertiesJsonSchema = toAppSchemaProperties(showPropertiesSchema);
+
+export type ShowEpisode = z.infer<typeof showEpisodeSchema>;
+
+export type ShowSeason = z.infer<typeof showSeasonSchema>;
+
+export type ShowProperties = z.infer<typeof showPropertiesSchema>;
