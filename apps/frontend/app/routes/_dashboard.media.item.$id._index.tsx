@@ -80,6 +80,7 @@ import {
 import {
 	MarkEntityAsPartialMenuItem,
 	ToggleMediaMonitorMenuItem,
+	WebSearchMenuItem,
 } from "~/components/media/menu-items";
 import {
 	JUST_WATCH_URL,
@@ -965,6 +966,7 @@ export default function Page() {
 													entityLot={EntityLot.Metadata}
 													entityId={loaderData.metadataId}
 												/>
+												<WebSearchMenuItem title={title} />
 											</Menu.Dropdown>
 										</Menu>
 										{metadataDetails.data && (
