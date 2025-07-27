@@ -36,7 +36,7 @@ pub async fn user_details(
         Some(session) => session,
         None => {
             return Ok(UserDetailsResult::Error(UserDetailsError {
-                error: UserDetailsErrorVariant::AuthTokenInvalid,
+                error: UserDetailsErrorVariant::SessionInvalid,
             }));
         }
     };

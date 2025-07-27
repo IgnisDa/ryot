@@ -59,7 +59,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 			throw await match(error)
 				.with(
 					BackendError.NoUserId,
-					BackendError.NoAuthToken,
+					BackendError.NoSessionId,
 					BackendError.SessionExpired,
 					async () => {
 						return redirect($path("/auth"), {

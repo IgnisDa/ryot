@@ -95,7 +95,7 @@ pub trait AuthProvider {
         auth_ctx
             .session_id
             .clone()
-            .ok_or_else(|| Error::new(BackendError::NoAuthToken.to_string()))
+            .ok_or_else(|| Error::new(BackendError::NoSessionId.to_string()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {

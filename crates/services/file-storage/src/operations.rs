@@ -60,15 +60,16 @@ pub async fn get_presigned_url(ss: &Arc<SupportingService>, key: String) -> Resu
     Ok(url)
 }
 
-pub async fn delete_object(ss: &Arc<SupportingService>, key: String) -> bool {
+pub async fn delete_object(ss: &Arc<SupportingService>, key: String) -> Result<bool> {
     let (s3_client, bucket_name) = get_client_and_bucket_name(&ss.config);
-    s3_client
+    let response = s3_client
         .delete_object()
         .bucket(bucket_name)
         .key(key)
         .send()
         .await
-        .is_ok()
+        .is_ok();
+    Ok(response)
 }
 
 pub async fn get_presigned_put_url(

@@ -38,7 +38,7 @@ impl FileStorageMutation {
     /// Delete an S3 object by the given key.
     async fn delete_s3_object(&self, gql_ctx: &Context<'_>, key: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<FileStorageService>>();
-        let resp = service.delete_object(key).await;
-        Ok(resp)
+        let response = service.delete_object(key).await?;
+        Ok(response)
     }
 }

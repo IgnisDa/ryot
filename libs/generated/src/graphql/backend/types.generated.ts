@@ -91,7 +91,7 @@ export type AuthUserInput = {
 export enum BackendError {
   AdminOnlyAction = 'ADMIN_ONLY_ACTION',
   MutationNotAllowed = 'MUTATION_NOT_ALLOWED',
-  NoAuthToken = 'NO_AUTH_TOKEN',
+  NoSessionId = 'NO_SESSION_ID',
   NoUserId = 'NO_USER_ID',
   SessionExpired = 'SESSION_EXPIRED'
 }
@@ -2546,7 +2546,7 @@ export type UserDetailsError = {
 };
 
 export enum UserDetailsErrorVariant {
-  AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
+  SessionInvalid = 'SESSION_INVALID'
 }
 
 export type UserDetailsResult = UserDetails | UserDetailsError;

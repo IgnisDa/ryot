@@ -18,7 +18,7 @@ impl FileStorageService {
         operations::get_presigned_url(&self.0, key).await
     }
 
-    pub async fn delete_object(&self, key: String) -> bool {
+    pub async fn delete_object(&self, key: String) -> Result<bool> {
         operations::delete_object(&self.0, key).await
     }
 
