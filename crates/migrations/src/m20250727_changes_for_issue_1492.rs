@@ -13,10 +13,6 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
-        db.execute_unprepared("DROP INDEX IF EXISTS application_cache_key_expires_at_idx")
-            .await
-            .ok();
-
         let result = db.query_one(Statement::from_string(
             manager.get_database_backend(),
             "SELECT data_type FROM information_schema.columns WHERE table_name = 'application_cache' AND column_name = 'key'"
