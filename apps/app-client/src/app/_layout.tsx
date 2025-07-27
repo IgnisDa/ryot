@@ -27,11 +27,11 @@ export { ErrorBoundary } from "expo-router";
 
 void SplashScreen.preventAutoHideAsync();
 
-// if (__DEV__ && Platform.OS !== "web") {
-// 	void DevClient.registerDevMenuItems([
-// 		{ name: "Clear app storage", callback: () => clearAppStorage() },
-// 	]);
-// }
+if (__DEV__ && Platform.OS !== "web") {
+	void DevClient.registerDevMenuItems([
+		{ name: "Clear app storage", callback: () => clearAppStorage() },
+	]);
+}
 
 export default function RootLayout() {
 	const [fontsLoaded] = useFonts({
@@ -61,7 +61,7 @@ export default function RootLayout() {
 					<GluestackUIProvider mode="system">
 						{/* oxlint-disable-next-line react/style-prop-object */}
 						<StatusBar style="auto" />
-						<Stack screenOptions={{ headerShown: false }} />;
+						<Stack screenOptions={{ headerShown: false }} />
 					</GluestackUIProvider>
 				</GestureHandlerRootView>
 			</Provider>
