@@ -27,6 +27,7 @@ import {
 	getWeekActivity,
 } from "./service";
 
+// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 const getMediaOverviewUpNextRoute = createAuthRoute(
 	createRoute({
 		method: "get",
