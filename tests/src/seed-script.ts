@@ -57,9 +57,13 @@ type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
 type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
+type EntitySavedViewQueryDefinition = Extract<
+	SavedViewQueryDefinition,
+	{ mode: "entities" }
+>;
 type SavedViewQueryInput = {
 	scope: string[];
-	eventJoins?: SavedViewQueryDefinition["eventJoins"];
+	eventJoins?: EntitySavedViewQueryDefinition["eventJoins"];
 	computedFields?: SavedViewQueryDefinition["computedFields"];
 	filter?: SavedViewQueryDefinition["filter"];
 	filters?: Array<{
@@ -78,7 +82,7 @@ type SavedViewQueryInput = {
 		value?: unknown;
 	}>;
 	sort:
-		| SavedViewQueryDefinition["sort"]
+		| EntitySavedViewQueryDefinition["sort"]
 		| { direction: "asc" | "desc"; fields: string[] };
 };
 type SavedViewDisplayConfiguration =
@@ -88,7 +92,7 @@ type SavedViewTableColumn = {
 	expression?: SavedViewDisplayConfiguration["table"]["columns"][number]["expression"];
 	property?: string[];
 };
-type SavedViewExpression = SavedViewQueryDefinition["sort"]["expression"];
+type SavedViewExpression = EntitySavedViewQueryDefinition["sort"]["expression"];
 type SavedViewPredicate = NonNullable<SavedViewQueryDefinition["filter"]>;
 type SavedViewQueryEngineRef = Extract<
 	SavedViewExpression,
@@ -97,7 +101,9 @@ type SavedViewQueryEngineRef = Extract<
 type ComputedFieldDef = NonNullable<
 	SavedViewQueryDefinition["computedFields"]
 >[number];
-type EventJoinDef = NonNullable<SavedViewQueryDefinition["eventJoins"]>[number];
+type EventJoinDef = NonNullable<
+	EntitySavedViewQueryDefinition["eventJoins"]
+>[number];
 type SavedViewSortInput = Extract<
 	SavedViewQueryInput["sort"],
 	{ fields: string[] }
@@ -405,14 +411,14 @@ async function createSavedView(
 					throw new Error(`Invalid saved view reference '${reference}'`);
 				}
 
-				return { type: "event", joinKey: segment, path: [third, ...rest] };
+				return { type: "event-join", joinKey: segment, path: [third, ...rest] };
 			}
 
 			if (rest.length > 0) {
 				throw new Error(`Invalid saved view reference '${reference}'`);
 			}
 
-			return { type: "event", joinKey: segment, path: [third] };
+			return { type: "event-join", joinKey: segment, path: [third] };
 		}
 
 		throw new Error(`Invalid saved view reference '${reference}'`);
@@ -703,11 +709,11 @@ export function computedRef(key: string): SavedViewExpression {
 }
 
 function eventProp(joinKey: string, property: string): SavedViewExpression {
-	return ref({ type: "event", joinKey, path: ["properties", property] });
+	return ref({ type: "event-join", joinKey, path: ["properties", property] });
 }
 
 function eventCol(joinKey: string, column: string): SavedViewExpression {
-	return ref({ type: "event", joinKey, path: [column] });
+	return ref({ type: "event-join", joinKey, path: [column] });
 }
 
 function arithmetic(
@@ -798,7 +804,7 @@ function eventJoin(key: string, eventSchemaSlug: string): EventJoinDef {
 function sortByExpr(
 	direction: "asc" | "desc",
 	expression: SavedViewExpression,
-): SavedViewQueryDefinition["sort"] {
+): EntitySavedViewQueryDefinition["sort"] {
 	return { direction, expression };
 }
 

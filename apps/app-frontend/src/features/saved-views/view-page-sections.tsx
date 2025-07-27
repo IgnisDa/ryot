@@ -24,7 +24,10 @@ type ViewLayout =
 	keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 type SavedViewDisplayConfiguration =
 	ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
-type QueryEngineMeta = ApiPostResponseData<"/query-engine/execute">["meta"];
+type QueryEngineMeta = Extract<
+	ApiPostResponseData<"/query-engine/execute">,
+	{ mode: "entities" }
+>["data"]["meta"];
 
 function EntityThumbnail(props: {
 	label?: string;

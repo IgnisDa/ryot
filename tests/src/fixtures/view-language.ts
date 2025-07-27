@@ -10,8 +10,10 @@ type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]
 >["content"]["application/json"];
 
-export type ViewExpression =
-	CreateSavedViewBody["queryDefinition"]["sort"]["expression"];
+export type ViewExpression = Extract<
+	CreateSavedViewBody["queryDefinition"],
+	{ sort: unknown }
+>["sort"]["expression"];
 export type ViewPredicate = NonNullable<
 	CreateSavedViewBody["queryDefinition"]["filter"]
 >;
@@ -43,14 +45,14 @@ export const parseFieldPath = (field: string): RuntimeRef => {
 				throw new Error(`Invalid field path: ${field}`);
 			}
 
-			return { joinKey: segment, path: [tail, ...rest], type: "event" };
+			return { joinKey: segment, path: [tail, ...rest], type: "event-join" };
 		}
 
 		if (rest.length > 0 || !eventJoinBuiltinColumns.has(tail)) {
 			throw new Error(`Invalid field path: ${field}`);
 		}
 
-		return { joinKey: segment, path: [tail], type: "event" };
+		return { joinKey: segment, path: [tail], type: "event-join" };
 	}
 
 	if (namespace === "entity-schema") {
