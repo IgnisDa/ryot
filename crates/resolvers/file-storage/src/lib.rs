@@ -31,7 +31,7 @@ impl FileStorageMutation {
         let service = gql_ctx.data_unchecked::<Arc<FileStorageService>>();
         let (key, upload_url) = service
             .get_presigned_put_url(input.file_name, input.prefix, true, None)
-            .await;
+            .await?;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }
 

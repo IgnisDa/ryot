@@ -34,10 +34,9 @@ impl FileStorageService {
             .get_object()
             .bucket(&self.bucket_name)
             .key(key)
-            .presigned(
-                PresigningConfig::expires_in(Duration::try_minutes(90).unwrap().to_std().unwrap())
-                    .unwrap(),
-            )
+            .presigned(PresigningConfig::expires_in(
+                Duration::minutes(90).to_std()?,
+            )?)
             .await?
             .uri()
             .to_string();
@@ -60,7 +59,7 @@ impl FileStorageService {
         prefix: String,
         with_uploads: bool,
         metadata: Option<HashMap<String, String>>,
-    ) -> (String, String) {
+    ) -> Result<(String, String)> {
         let first = if with_uploads { "uploads/" } else { "" };
         let key = format!("{}{}/{}-{}", first, prefix, nanoid!(10), filename);
         let url = self
@@ -69,41 +68,41 @@ impl FileStorageService {
             .bucket(&self.bucket_name)
             .key(&key)
             .set_metadata(metadata)
-            .presigned(
-                PresigningConfig::expires_in(Duration::try_minutes(10).unwrap().to_std().unwrap())
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
+            .presigned(PresigningConfig::expires_in(
+                Duration::minutes(10).to_std()?,
+            )?)
+            .await?
             .uri()
             .to_string();
-        (key, url)
+        Ok((key, url))
     }
 
-    pub async fn list_objects_at_prefix(&self, prefix: String) -> Vec<(i64, String)> {
-        self.s3_client
+    pub async fn list_objects_at_prefix(&self, prefix: String) -> Result<Vec<(i64, String)>> {
+        let items = self
+            .s3_client
             .list_objects_v2()
             .bucket(&self.bucket_name)
             .prefix(prefix)
             .send()
-            .await
-            .unwrap()
+            .await?
             .contents
             .unwrap_or_default()
             .into_iter()
             .map(|o| (o.size.unwrap_or_default(), o.key.unwrap()))
-            .collect()
+            .collect();
+        Ok(items)
     }
 
-    pub async fn get_object_metadata(&self, key: String) -> HashMap<String, String> {
-        self.s3_client
+    pub async fn get_object_metadata(&self, key: String) -> Result<HashMap<String, String>> {
+        let meta = self
+            .s3_client
             .head_object()
             .bucket(&self.bucket_name)
             .key(key)
             .send()
-            .await
-            .unwrap()
+            .await?
             .metadata
-            .unwrap()
+            .unwrap_or_default();
+        Ok(meta)
     }
 }

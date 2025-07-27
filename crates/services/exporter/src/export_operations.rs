@@ -43,7 +43,7 @@ pub async fn user_exports(
     let objects = service
         .file_storage_service
         .list_objects_at_prefix(format!("exports/{}", user_id))
-        .await;
+        .await?;
     for (size, key) in objects {
         let url = service
             .file_storage_service
@@ -52,7 +52,7 @@ pub async fn user_exports(
         let metadata = service
             .file_storage_service
             .get_object_metadata(key.clone())
-            .await;
+            .await?;
         let started_at =
             DateTime::parse_from_rfc2822(metadata.get("started_at").unwrap())?.with_timezone(&Utc);
         let ended_at =
@@ -120,7 +120,7 @@ pub async fn perform_export(service: &Arc<SupportingService>, user_id: String) -
                 ("ended_at".to_string(), ended_at.to_rfc2822()),
             ])),
         )
-        .await;
+        .await?;
     let file = File::open(&export_path).await?;
     let content_length = file.metadata().await?.len();
     let content_type = mime_guess::from_path(&export_path).first_or_octet_stream();
