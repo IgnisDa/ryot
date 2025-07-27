@@ -102,7 +102,7 @@ pub async fn update_custom_exercise(
     let mut update = input.update.clone();
     let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
     for image in old_exercise.attributes.assets.s3_images.clone() {
-        ss.file_storage_service.delete_object(image).await;
+        file_storage_service::delete_object(ss, image).await?;
     }
     if input.should_delete.unwrap_or_default() {
         let ute = UserToEntity::find()

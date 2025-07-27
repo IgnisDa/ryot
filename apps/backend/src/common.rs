@@ -12,7 +12,6 @@ use axum::{
 };
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::builder;
-use cache_service::CacheService;
 use collection_resolver::{CollectionMutation, CollectionQuery};
 use collection_service::CollectionService;
 use exporter_resolver::{ExporterMutation, ExporterQuery};
@@ -61,17 +60,12 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     timezone: chrono_tz::Tz,
-    s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,
 ) -> (Router, Arc<AppServices>) {
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
-    let file_storage_service = Arc::new(FileStorageService::new(
-        s3_client,
-        config.file_storage.s3_bucket_name.clone(),
-    ));
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(2)
@@ -81,18 +75,15 @@ pub async fn create_app_services(
             .finish()
             .unwrap(),
     );
-    let cache_service = CacheService::new(&db, config.clone());
     let supporting_service = Arc::new(
         SupportingService::builder()
             .db(&db)
             .timezone(timezone)
             .config(config.clone())
-            .cache_service(cache_service)
             .is_oidc_enabled(is_oidc_enabled)
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)
-            .file_storage_service(file_storage_service.clone())
             .build()
             .await,
     );
@@ -103,6 +94,7 @@ pub async fn create_app_services(
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
     let statistics_service = Arc::new(StatisticsService(supporting_service.clone()));
     let integration_service = Arc::new(IntegrationService(supporting_service.clone()));
+    let file_storage_service = Arc::new(FileStorageService(supporting_service.clone()));
     let miscellaneous_service = Arc::new(MiscellaneousService(supporting_service.clone()));
     let schema = Schema::build(
         QueryRoot::default(),
@@ -152,9 +144,10 @@ pub async fn create_app_services(
         .route("/config", get(config_handler))
         .route("/graphql", gql)
         .route("/upload", post(upload_file_handler))
-        .layer(Extension(config.clone()))
-        .layer(Extension(integration_service.clone()))
         .layer(Extension(schema))
+        .layer(Extension(config.clone()))
+        .layer(Extension(supporting_service.clone()))
+        .layer(Extension(integration_service.clone()))
         .layer(TowerTraceLayer::new_for_http())
         .layer(TowerCatchPanicLayer::new())
         .layer(DefaultBodyLimit::max(
@@ -163,7 +156,7 @@ pub async fn create_app_services(
         .layer(cors);
 
     let _ = try_join!(
-        supporting_service.core_details(),
+        miscellaneous_service.core_details(),
         supporting_service
             .perform_application_job(ApplicationJob::Mp(MpApplicationJob::SyncIntegrationsData)),
         supporting_service

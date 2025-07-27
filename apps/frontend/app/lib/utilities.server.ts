@@ -16,7 +16,6 @@ import {
 	type RequestDocument,
 	type Variables,
 } from "graphql-request";
-import { jwtDecode } from "jwt-decode";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import {
 	createCookie,
@@ -59,8 +58,8 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 			const error = e.response.errors?.at(0)?.message || "";
 			throw await match(error)
 				.with(
-					BackendError.NoAuthToken,
 					BackendError.NoUserId,
+					BackendError.NoSessionId,
 					BackendError.SessionExpired,
 					async () => {
 						return redirect($path("/auth"), {
@@ -158,17 +157,12 @@ export const MetadataIdSchema = z.object({ metadataId: z.string() });
 
 export const MetadataSpecificsSchema = z.object({
 	showSeasonNumber: zodEmptyNumberString,
+	mangaVolumeNumber: zodEmptyNumberString,
 	showEpisodeNumber: zodEmptyNumberString,
-	podcastEpisodeNumber: zodEmptyNumberString,
 	animeEpisodeNumber: zodEmptyNumberString,
 	mangaChapterNumber: zodEmptyDecimalString,
-	mangaVolumeNumber: zodEmptyNumberString,
+	podcastEpisodeNumber: zodEmptyNumberString,
 });
-
-export const getDecodedJwt = (request: Request) => {
-	const token = getAuthorizationCookie(request) ?? "";
-	return jwtDecode<{ sub: string; access_link_id?: string }>(token);
-};
 
 export const getCoreDetails = async () => {
 	return await serverGqlService
@@ -215,14 +209,14 @@ export const uploadFileAndGetKey = async (
 		{ input: { fileName, prefix } },
 	);
 	await fetch(presignedPutS3Url.uploadUrl, {
-		method: "PUT",
 		body,
+		method: "PUT",
 		headers: { "Content-Type": contentType },
 	});
 	return presignedPutS3Url.key;
 };
 
-export const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
+const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	const formData = new FormData();
 	formData.append("files[]", fileUpload, fileUpload.name);
 	const resp = await fetch(`${API_URL}/upload`, {
@@ -248,10 +242,10 @@ export const createS3FileUploader = (prefix: string) => {
 
 export const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
-		sameSite: "lax",
 		path: "/",
-		secrets: (process.env.SESSION_SECRET || "secret").split(","),
 		name: toastKey,
+		sameSite: "lax",
+		secrets: (process.env.SESSION_SECRET || "secret").split(","),
 	},
 });
 
@@ -262,10 +256,10 @@ export const colorSchemeCookie = createCookie("ColorScheme", {
 const TypeSchema = z.enum(["message", "success", "error"]);
 const ToastSchema = z.object({
 	message: z.string(),
-	id: z.string().default(() => randomUUID()),
 	title: z.string().optional(),
-	type: TypeSchema.default("message"),
 	closeAfter: z.number().optional(),
+	type: TypeSchema.default("message"),
+	id: z.string().default(() => randomUUID()),
 });
 
 export type Toast = z.infer<typeof ToastSchema>;

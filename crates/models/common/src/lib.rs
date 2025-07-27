@@ -205,7 +205,7 @@ pub enum BackgroundJob {
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum BackendError {
     NoUserId,
-    NoAuthToken,
+    NoSessionId,
     SessionExpired,
     AdminOnlyAction,
     MutationNotAllowed,

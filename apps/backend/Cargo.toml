@@ -12,7 +12,6 @@ apalis-cron = { workspace = true }
 async-graphql = { workspace = true }
 async-graphql-axum = { workspace = true }
 axum = { workspace = true }
-aws-sdk-s3 = { workspace = true }
 bon = { workspace = true }
 chrono-tz = { workspace = true }
 dotenvy = { workspace = true }
@@ -32,7 +31,6 @@ tracing-subscriber = { workspace = true }
 
 application-utils = { path = "../../crates/utils/application" }
 background-models = { path = "../../crates/models/background" }
-cache-service = { path = "../../crates/services/cache" }
 collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }
 common-utils = { path = "../../crates/utils/common" }

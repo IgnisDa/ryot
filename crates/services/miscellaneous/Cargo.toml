@@ -23,6 +23,7 @@ uuid = { workspace = true }
 
 application-utils = { path = "../../utils/application" }
 background-models = { path = "../../models/background" }
+cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
@@ -30,6 +31,7 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
+file-storage-service = { path = "../file-storage" }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 supporting-service = { path = "../supporting" }

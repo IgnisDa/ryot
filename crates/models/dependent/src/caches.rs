@@ -44,6 +44,19 @@ pub struct CollectionRecommendationsCachedInput {
 }
 
 #[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserSessionInput {
+    pub session_id: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserSessionValue {
+    pub user_id: String,
+    pub access_link_id: Option<String>,
+}
+
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -64,6 +77,7 @@ pub enum ApplicationCacheKey {
     SpotifyAccessToken,
     ListennotesSettings,
     TrendingMetadataIds,
+    UserSession(UserSessionInput),
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
@@ -103,6 +117,7 @@ pub enum ApplicationCacheValue {
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),
+    UserSession(UserSessionValue),
     PeopleSearch(PeopleSearchResponse),
     SpotifyAccessToken(SpotifyAccessToken),
     MetadataLookup(MetadataLookupResponse),

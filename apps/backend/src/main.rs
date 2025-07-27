@@ -12,7 +12,6 @@ use apalis::{
     prelude::{MemoryStorage, Monitor, WorkerBuilder, WorkerFactoryFn},
 };
 use apalis_cron::{CronStream, Schedule};
-use aws_sdk_s3::config::Region;
 use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
@@ -78,26 +77,6 @@ async fn main() -> Result<()> {
         .join("config.json");
     fs::write(config_dump_path, serde_json::to_string_pretty(&config)?)?;
 
-    let mut aws_conf = aws_sdk_s3::Config::builder()
-        .region(Region::new(config.file_storage.s3_region.clone()))
-        .force_path_style(true);
-    if !config.file_storage.s3_url.is_empty() {
-        aws_conf = aws_conf.endpoint_url(&config.file_storage.s3_url);
-    }
-    if !config.file_storage.s3_access_key_id.is_empty()
-        && !config.file_storage.s3_secret_access_key.is_empty()
-    {
-        aws_conf = aws_conf.credentials_provider(aws_sdk_s3::config::Credentials::new(
-            &config.file_storage.s3_access_key_id,
-            &config.file_storage.s3_secret_access_key,
-            None,
-            None,
-            PROJECT_NAME,
-        ));
-    }
-    let aws_conf = aws_conf.build();
-    let s3_client = aws_sdk_s3::Client::from_conf(aws_conf);
-
     let db = Database::connect(config.database.url.clone())
         .await
         .expect("Database connection failed");
@@ -125,7 +104,6 @@ async fn main() -> Result<()> {
         .db(db)
         .timezone(tz)
         .config(config)
-        .s3_client(s3_client)
         .lp_application_job(&lp_application_job_storage)
         .mp_application_job(&mp_application_job_storage)
         .hp_application_job(&hp_application_job_storage)

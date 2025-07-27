@@ -99,7 +99,7 @@ pub async fn user_upcoming_calendar_events(
     Ok(events)
 }
 
-pub async fn recalculate_calendar_events(ss: &SupportingService) -> Result<()> {
+pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<()> {
     let date_to_calculate_from = get_current_date(&ss.timezone).pred_opt().unwrap();
 
     let selected_metadata = Metadata::find()

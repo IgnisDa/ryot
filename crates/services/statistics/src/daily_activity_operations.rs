@@ -18,45 +18,44 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn user_analytics_parameters(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
 ) -> Result<CachedResponse<ApplicationDateRange>> {
-    supporting_service
-        .cache_service
-        .get_or_set_with_callback(
-            ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
-                input: (),
-                user_id: user_id.to_owned(),
-            }),
-            ApplicationCacheValue::UserAnalyticsParameters,
-            || async {
-                let get_date = |ordering: Order| {
-                    DailyUserActivity::find()
-                        .filter(daily_user_activity::Column::UserId.eq(user_id))
-                        .select_only()
-                        .column(daily_user_activity::Column::Date)
-                        .order_by_with_nulls(
-                            daily_user_activity::Column::Date,
-                            ordering,
-                            NullOrdering::Last,
-                        )
-                        .into_tuple::<Date>()
-                        .one(&supporting_service.db)
-                };
-                let start_date = get_date(Order::Asc).await?;
-                let end_date = get_date(Order::Desc).await?;
-                let response = ApplicationDateRange {
-                    end_date,
-                    start_date,
-                };
-                Ok(response)
-            },
-        )
-        .await
+    cache_service::get_or_set_with_callback(
+        ss,
+        ApplicationCacheKey::UserAnalyticsParameters(UserLevelCacheKey {
+            input: (),
+            user_id: user_id.to_owned(),
+        }),
+        ApplicationCacheValue::UserAnalyticsParameters,
+        || async {
+            let get_date = |ordering: Order| {
+                DailyUserActivity::find()
+                    .filter(daily_user_activity::Column::UserId.eq(user_id))
+                    .select_only()
+                    .column(daily_user_activity::Column::Date)
+                    .order_by_with_nulls(
+                        daily_user_activity::Column::Date,
+                        ordering,
+                        NullOrdering::Last,
+                    )
+                    .into_tuple::<Date>()
+                    .one(&ss.db)
+            };
+            let start_date = get_date(Order::Asc).await?;
+            let end_date = get_date(Order::Desc).await?;
+            let response = ApplicationDateRange {
+                end_date,
+                start_date,
+            };
+            Ok(response)
+        },
+    )
+    .await
 }
 
 pub async fn get_daily_user_activities(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     input: UserAnalyticsInput,
 ) -> Result<DailyUserActivitiesResponse> {
@@ -82,7 +81,7 @@ pub async fn get_daily_user_activities(
                 "num_days",
             )
             .into_tuple::<Option<i32>>()
-            .one(&supporting_service.db)
+            .one(&ss.db)
             .await?;
         if let Some(Some(num_days)) = total {
             if num_days >= 500 {
@@ -234,7 +233,7 @@ pub async fn get_daily_user_activities(
         .group_by(day_alias.clone())
         .order_by_asc(day_alias)
         .into_model::<DailyUserActivityItem>()
-        .all(&supporting_service.db)
+        .all(&ss.db)
         .await
         .unwrap();
     let total_count = items.iter().map(|i| i.total_count).sum();

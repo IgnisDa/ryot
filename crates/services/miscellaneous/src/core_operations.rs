@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::{Result, bail};
 use database_models::{
     metadata, metadata_group, person,
@@ -11,15 +13,13 @@ use sea_query::{Expr, PostgresQueryBuilder, SelectStatement};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub async fn expire_cache_key(ss: &SupportingService, cache_id: Uuid) -> Result<bool> {
-    ss.cache_service
-        .expire_key(ExpireCacheKeyInput::ById(cache_id))
-        .await?;
+pub async fn expire_cache_key(ss: &Arc<SupportingService>, cache_id: Uuid) -> Result<bool> {
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ById(cache_id)).await?;
     Ok(true)
 }
 
 pub async fn mark_entity_as_partial(
-    ss: &SupportingService,
+    ss: &Arc<SupportingService>,
     input: MarkEntityAsPartialInput,
 ) -> Result<bool> {
     match input.entity_lot {

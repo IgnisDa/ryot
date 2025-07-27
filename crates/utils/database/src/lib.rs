@@ -14,13 +14,12 @@ use database_models::{
     review, seen, user, user_to_entity, workout,
 };
 use dependent_models::{
-    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserDetails, UserWorkoutDetails,
+    CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
     UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
-use jwt_service::verify;
 use markdown::to_html as markdown_to_html;
 use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewItem};
 use migrations::AliasedCollectionToEntity;
@@ -54,29 +53,6 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
         .await?
         .ok_or_else(|| anyhow!("No user found"))?;
     Ok(user)
-}
-
-pub async fn user_details_by_id(
-    user_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<UserDetails> {
-    let user = user_by_id(user_id, ss).await?;
-    let details = UserDetails {
-        id: user.id,
-        lot: user.lot,
-        name: user.name,
-        preferences: user.preferences,
-        is_disabled: user.is_disabled,
-        oidc_issuer_id: user.oidc_issuer_id,
-        extra_information: user.extra_information,
-        times_two_factor_backup_codes_used: user.two_factor_information.as_ref().map(|info| {
-            info.backup_codes
-                .iter()
-                .filter(|code| code.used_at.is_some())
-                .count()
-        }),
-    };
-    Ok(details)
 }
 
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {
@@ -298,12 +274,14 @@ where
 /// If any of the above conditions are not met, then an error is returned.
 #[inline]
 pub async fn check_token(
-    token: &str,
+    session_id: &str,
     is_mutation: bool,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let claims = verify(token, &ss.config.users.jwt_secret)?;
-    let Some(access_link_id) = claims.access_link_id else {
+    let Some(session) = session_service::validate_session(ss, session_id).await? else {
+        bail!(BackendError::SessionExpired.to_string());
+    };
+    let Some(access_link_id) = session.access_link_id else {
         return Ok(true);
     };
     let access_link = AccessLink::find_by_id(access_link_id)
@@ -469,16 +447,10 @@ pub async fn transform_entity_assets(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     for image in assets.s3_images.iter_mut() {
-        *image = ss
-            .file_storage_service
-            .get_presigned_url(image.clone())
-            .await?;
+        *image = file_storage_service::get_presigned_url(ss, image.clone()).await?;
     }
     for video in assets.s3_videos.iter_mut() {
-        *video = ss
-            .file_storage_service
-            .get_presigned_url(video.clone())
-            .await?;
+        *video = file_storage_service::get_presigned_url(ss, video.clone()).await?;
     }
     Ok(())
 }

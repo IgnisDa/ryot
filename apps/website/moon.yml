@@ -1,3 +1,5 @@
+layer: application
+
 dependsOn:
   - "assets"
 

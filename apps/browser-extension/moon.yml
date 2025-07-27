@@ -1,3 +1,5 @@
+layer: application
+
 tasks:
   build-chrome:
     command: "wxt zip -b chrome"

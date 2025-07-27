@@ -90,19 +90,19 @@ pub trait AuthProvider {
         false
     }
 
-    fn user_auth_token_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
+    fn user_session_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         auth_ctx
-            .auth_token
+            .session_id
             .clone()
-            .ok_or_else(|| Error::new(BackendError::NoAuthToken.to_string()))
+            .ok_or_else(|| Error::new(BackendError::NoSessionId.to_string()))
     }
 
     async fn user_id_from_ctx(&self, ctx: &Context<'_>) -> GraphqlResult<String> {
         let auth_ctx = ctx.data_unchecked::<AuthContext>();
         let ss = ctx.data_unchecked::<Arc<SupportingService>>();
-        if let Some(auth_token) = &auth_ctx.auth_token {
-            check_token(auth_token, self.is_mutation(), ss).await?;
+        if let Some(session_id) = &auth_ctx.session_id {
+            check_token(session_id, self.is_mutation(), ss).await?;
         }
         if let Some(user_id) = &auth_ctx.user_id {
             deploy_job_to_mark_user_last_activity(user_id, ss).await?;

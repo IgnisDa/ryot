@@ -68,10 +68,10 @@ pub async fn update_custom_metadata(
         .exec(&ss.db)
         .await?;
     for image in metadata.assets.s3_images.clone() {
-        ss.file_storage_service.delete_object(image).await;
+        file_storage_service::delete_object(ss, image).await?;
     }
     for video in metadata.assets.s3_videos.clone() {
-        ss.file_storage_service.delete_object(video).await;
+        file_storage_service::delete_object(ss, video).await?;
     }
     let mut new_metadata =
         get_data_for_custom_metadata(input.update.clone(), metadata.identifier, user_id);

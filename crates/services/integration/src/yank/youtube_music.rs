@@ -88,9 +88,7 @@ pub async fn yank_progress(
             )
         })
         .collect::<HashMap<_, _>>();
-    let items_in_cache = ss
-        .cache_service
-        .get_values(cache_keys.values().cloned().collect())
+    let items_in_cache = cache_service::get_values(ss, cache_keys.values().cloned().collect())
         .await
         .unwrap_or_default()
         .into_iter()
@@ -129,6 +127,6 @@ pub async fn yank_progress(
             }));
         items_to_cache.push((cache_key.to_owned(), cache_value));
     }
-    ss.cache_service.set_keys(items_to_cache).await.ok();
+    cache_service::set_keys(ss, items_to_cache).await.ok();
     Ok(result)
 }

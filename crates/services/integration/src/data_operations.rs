@@ -7,8 +7,11 @@ use database_models::{
     prelude::{Integration, User},
     user,
 };
-use database_utils::user_by_id;
-use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
+use database_utils::{server_key_validation_guard, user_by_id};
+use dependent_utils::{
+    get_google_books_service, get_hardcover_service, get_openlibrary_service,
+    is_server_key_validated,
+};
 use enum_models::{IntegrationLot, IntegrationProvider};
 use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
@@ -59,10 +62,7 @@ impl IntegrationService {
                     .await
                 }
                 IntegrationProvider::YoutubeMusic => {
-                    database_utils::server_key_validation_guard(
-                        self.0.is_server_key_validated().await?,
-                    )
-                    .await?;
+                    server_key_validation_guard(is_server_key_validated(&self.0).await?).await?;
                     yank::youtube_music::yank_progress(
                         user_id,
                         specifics.youtube_music_timezone.unwrap(),

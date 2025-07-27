@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+cache-service = { path = "../cache" }
 hashbag = { workspace = true }
 itertools = { workspace = true }
 sea-orm = { workspace = true }

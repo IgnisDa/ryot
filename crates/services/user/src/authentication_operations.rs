@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use application_utils::user_id_from_token;
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{prelude::User, user};
-use database_utils::{revoke_access_link as db_revoke_access_link, user_details_by_id};
-use dependent_models::UserDetailsResult;
-use jwt_service::sign;
+use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
+use dependent_models::{UserDetails, UserDetailsResult};
 use media_models::{
     ApiKeyResponse, AuthUserInput, LoginError, LoginErrorVariant, LoginResult, PasswordUserInput,
 };
@@ -19,13 +17,8 @@ use sea_orm::{
 use supporting_service::SupportingService;
 
 pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -> Result<String> {
-    let auth_token = sign(
-        user_id,
-        &ss.config.users.jwt_secret,
-        ss.config.users.token_valid_for_days,
-        None,
-    )?;
-    Ok(auth_token)
+    let session_id = session_service::create_session(ss, user_id, None, None).await?;
+    Ok(session_id)
 }
 
 pub async fn revoke_access_link(
@@ -35,15 +28,36 @@ pub async fn revoke_access_link(
     db_revoke_access_link(&ss.db, access_link_id).await
 }
 
-pub async fn user_details(ss: &Arc<SupportingService>, token: &str) -> Result<UserDetailsResult> {
-    let found_token = user_id_from_token(token, &ss.config.users.jwt_secret);
-    let Ok(user_id) = found_token else {
-        return Ok(UserDetailsResult::Error(UserDetailsError {
-            error: UserDetailsErrorVariant::AuthTokenInvalid,
-        }));
+pub async fn user_details(
+    ss: &Arc<SupportingService>,
+    session_id: &str,
+) -> Result<UserDetailsResult> {
+    let session = match session_service::validate_session(ss, session_id).await? {
+        Some(session) => session,
+        None => {
+            return Ok(UserDetailsResult::Error(UserDetailsError {
+                error: UserDetailsErrorVariant::SessionInvalid,
+            }));
+        }
     };
-    let user = user_details_by_id(&user_id, ss).await?;
-    Ok(UserDetailsResult::Ok(Box::new(user)))
+    let user = user_by_id(&session.user_id, ss).await?;
+    let details = UserDetails {
+        id: user.id,
+        lot: user.lot,
+        name: user.name,
+        preferences: user.preferences,
+        is_disabled: user.is_disabled,
+        oidc_issuer_id: user.oidc_issuer_id,
+        access_link_id: session.access_link_id,
+        extra_information: user.extra_information,
+        times_two_factor_backup_codes_used: user.two_factor_information.as_ref().map(|info| {
+            info.backup_codes
+                .iter()
+                .filter(|code| code.used_at.is_some())
+                .count()
+        }),
+    };
+    Ok(UserDetailsResult::Ok(Box::new(details)))
 }
 
 pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Result<LoginResult> {
@@ -85,9 +99,16 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
             id: user.id.clone(),
         }));
     }
-    let jwt_key = generate_auth_token(ss, user.id.clone()).await?;
+    let session_id = generate_auth_token(ss, user.id.clone()).await?;
     let mut user = user.into_active_model();
     user.last_login_on = ActiveValue::Set(Some(Utc::now()));
     user.update(&ss.db).await?;
-    Ok(LoginResult::Ok(ApiKeyResponse { api_key: jwt_key }))
+    Ok(LoginResult::Ok(ApiKeyResponse {
+        api_key: session_id,
+    }))
+}
+
+pub async fn logout_user(ss: &Arc<SupportingService>, session_id: String) -> Result<bool> {
+    session_service::invalidate_session(ss, &session_id).await?;
+    Ok(true)
 }

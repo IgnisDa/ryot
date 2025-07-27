@@ -91,7 +91,7 @@ export type AuthUserInput = {
 export enum BackendError {
   AdminOnlyAction = 'ADMIN_ONLY_ACTION',
   MutationNotAllowed = 'MUTATION_NOT_ALLOWED',
-  NoAuthToken = 'NO_AUTH_TOKEN',
+  NoSessionId = 'NO_SESSION_ID',
   NoUserId = 'NO_USER_ID',
   SessionExpired = 'SESSION_EXPIRED'
 }
@@ -1484,6 +1484,8 @@ export type MutationRoot = {
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
   loginUser: LoginResult;
+  /** Logout the current user by invalidating their session. */
+  logoutUser: Scalars['Boolean']['output'];
   /** Mark an entity as partial. */
   markEntityAsPartial: Scalars['Boolean']['output'];
   /** Merge an exercise into another. */
@@ -2527,6 +2529,7 @@ export type UserCustomMeasurementInput = {
 
 export type UserDetails = {
   __typename?: 'UserDetails';
+  accessLinkId?: Maybe<Scalars['String']['output']>;
   extraInformation?: Maybe<UserExtraInformation>;
   id: Scalars['String']['output'];
   isDisabled?: Maybe<Scalars['Boolean']['output']>;
@@ -2543,7 +2546,7 @@ export type UserDetailsError = {
 };
 
 export enum UserDetailsErrorVariant {
-  AuthTokenInvalid = 'AUTH_TOKEN_INVALID'
+  SessionInvalid = 'SESSION_INVALID'
 }
 
 export type UserDetailsResult = UserDetails | UserDetailsError;

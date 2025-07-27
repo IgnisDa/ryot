@@ -174,12 +174,11 @@ const emailSchema = z.object({ email: z.email() });
 
 const registerSchema = z
 	.object({ otpCode: z.string().length(6) })
-	.merge(emailSchema);
+	.extend(emailSchema.shape);
 
-const contactSubmissionSchema = z.object({
-	email: z.email(),
-	message: z.string(),
-});
+const contactSubmissionSchema = z
+	.object({ message: z.string() })
+	.extend(emailSchema.shape);
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();

@@ -17,9 +17,11 @@ use supporting_service::SupportingService;
 
 pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMetadataIdsResponse> {
     let key = ApplicationCacheKey::TrendingMetadataIds;
-    let cached_response = ss
-        .cache_service
-        .get_or_set_with_callback(key, ApplicationCacheValue::TrendingMetadataIds, || async {
+    let cached_response = cache_service::get_or_set_with_callback(
+        ss,
+        key,
+        ApplicationCacheValue::TrendingMetadataIds,
+        || async {
             let mut trending_ids = HashSet::new();
             let provider_configs = MediaLot::iter()
                 .flat_map(|lot| lot.meta().into_iter().map(move |source| (lot, source)));
@@ -42,8 +44,9 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
 
             let vec = trending_ids.into_iter().collect_vec();
             Ok(vec)
-        })
-        .await?;
+        },
+    )
+    .await?;
     let (_id, cached) = (cached_response.cache_id, cached_response.response);
     let actually_in_db = Metadata::find()
         .select_only()

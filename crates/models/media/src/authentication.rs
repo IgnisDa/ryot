@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Enum, Clone, Debug, Copy, PartialEq, Eq)]
 pub enum UserDetailsErrorVariant {
-    AuthTokenInvalid,
+    SessionInvalid,
 }
 
 #[derive(Debug, SimpleObject)]

@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = { workspace = true }
 async-graphql = { workspace = true }
 chrono = { workspace = true }
+itertools = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }
@@ -15,9 +16,9 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
+supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

@@ -23,6 +23,7 @@ totp-lite = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { path = "../../utils/application" }
+cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
@@ -30,9 +31,9 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
-jwt-service = { path = "../../services/jwt" }
 media-models = { path = "../../models/media" }
-notification-service = { path = "../../services/notification" }
+notification-service = { path = "../notification" }
+session-service = { path = "../session" }
 supporting-service = { path = "../supporting" }
 user-models = { path = "../../models/user" }
 

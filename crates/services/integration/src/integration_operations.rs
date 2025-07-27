@@ -16,7 +16,7 @@ use traits::TraceOk;
 static MAX_ERRORS_BEFORE_DISABLE: usize = 5;
 
 pub async fn set_trigger_result(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     error: Option<String>,
     integration: &integration::Model,
 ) -> Result<()> {
@@ -46,12 +46,12 @@ pub async fn set_trigger_result(
         integration.is_disabled = ActiveValue::Set(Some(true));
     }
 
-    let integration = integration.update(&service.db).await?;
+    let integration = integration.update(&ss.db).await?;
 
     if should_disable {
         send_notification_for_user(
             &integration.user_id,
-            service,
+            ss,
             &(
                 format!(
                     "Integration {} has been disabled due to too many errors",
@@ -67,7 +67,7 @@ pub async fn set_trigger_result(
 }
 
 pub async fn select_integrations_to_process(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     lot: IntegrationLot,
     provider: Option<IntegrationProvider>,
@@ -84,7 +84,7 @@ pub async fn select_integrations_to_process(
             query.filter(integration::Column::Provider.eq(provider))
         })
         .order_by_asc(integration::Column::CreatedOn)
-        .all(&service.db)
+        .all(&ss.db)
         .await?;
     Ok(integrations)
 }
