@@ -447,16 +447,10 @@ pub async fn transform_entity_assets(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     for image in assets.s3_images.iter_mut() {
-        *image = ss
-            .file_storage_service
-            .get_presigned_url(image.clone())
-            .await?;
+        *image = file_storage_service::get_presigned_url(ss, image.clone()).await?;
     }
     for video in assets.s3_videos.iter_mut() {
-        *video = ss
-            .file_storage_service
-            .get_presigned_url(video.clone())
-            .await?;
+        *video = file_storage_service::get_presigned_url(ss, video.clone()).await?;
     }
     Ok(())
 }

@@ -21,6 +21,7 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
+file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 supporting-service = { path = "../supporting" }
 

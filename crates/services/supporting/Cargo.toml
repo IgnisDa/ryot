@@ -19,7 +19,6 @@ background-models = { path = "../../models/background" }
 common-utils = { path = "../../utils/common" }
 config = { path = "../../config" }
 env-utils = { path = "../../utils/env" }
-file-storage-service = { path = "../../services/file-storage" }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

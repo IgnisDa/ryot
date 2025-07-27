@@ -8,3 +8,7 @@ anyhow = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 chrono = { workspace = true }
 nanoid = { workspace = true }
+
+common-utils = { path = "../../utils/common" }
+config = { path = "../../config" }
+supporting-service = { path = "../../services/supporting" }

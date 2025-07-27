@@ -25,7 +25,7 @@ use supporting_service::SupportingService;
 use crate::export_utilities::get_review_export_item;
 
 pub async fn export_workouts(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -41,12 +41,12 @@ pub async fn export_workouts(
                 },
                 ..Default::default()
             },
-            service,
+            ss,
         )
         .await?;
         ryot_log!(debug, "Exporting workouts list page: {current_page}");
         for workout_id in workout_ids.response.items {
-            let details = user_workout_details(user_id, workout_id, service).await?;
+            let details = user_workout_details(user_id, workout_id, ss).await?;
             let exp = ImportOrExportWorkoutItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.details).collect(),
@@ -63,12 +63,12 @@ pub async fn export_workouts(
 }
 
 pub async fn export_measurements(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
     let measurements =
-        user_measurements_list(user_id, service, UserMeasurementsListInput::default()).await?;
+        user_measurements_list(user_id, ss, UserMeasurementsListInput::default()).await?;
     for measurement in measurements.response {
         writer.serialize_value(&measurement).unwrap();
     }
@@ -76,7 +76,7 @@ pub async fn export_measurements(
 }
 
 pub async fn export_exercises(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -92,17 +92,17 @@ pub async fn export_exercises(
                 },
                 ..Default::default()
             },
-            service,
+            ss,
         )
         .await?;
         for exercise_id in exercises.response.items {
-            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, service)
+            let reviews = item_reviews(user_id, &exercise_id, EntityLot::Exercise, false, ss)
                 .await?
                 .into_iter()
                 .map(get_review_export_item)
                 .collect_vec();
             let collections = entity_in_collections_with_details(
-                &service.db,
+                &ss.db,
                 user_id,
                 &exercise_id,
                 EntityLot::Exercise,
@@ -115,7 +115,7 @@ pub async fn export_exercises(
                 continue;
             }
             let exercise = Exercise::find_by_id(exercise_id.clone())
-                .one(&service.db)
+                .one(&ss.db)
                 .await?
                 .ok_or_else(|| anyhow!("Exercise with the given ID does not exist"))?;
             let exp = ImportOrExportExerciseItem {
@@ -136,7 +136,7 @@ pub async fn export_exercises(
 }
 
 pub async fn export_workout_templates(
-    service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     writer: &mut JsonStreamWriter<StdFile>,
 ) -> Result<()> {
@@ -144,7 +144,7 @@ pub async fn export_workout_templates(
     loop {
         let workout_template_ids = user_workout_templates_list(
             user_id,
-            service,
+            ss,
             UserTemplatesOrWorkoutsListInput {
                 search: SearchInput {
                     take: Some(1000),
@@ -158,7 +158,7 @@ pub async fn export_workout_templates(
         ryot_log!(debug, "Exporting templates list page: {current_page}");
         for workout_template_id in workout_template_ids.response.items {
             let details =
-                user_workout_template_details(&service.db, user_id, workout_template_id).await?;
+                user_workout_template_details(&ss.db, user_id, workout_template_id).await?;
             let exp = ImportOrExportWorkoutTemplateItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.details).collect(),

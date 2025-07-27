@@ -38,6 +38,7 @@ database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }
 env-utils = { path = "../env" }
+file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
 giant-bomb-provider = { path = "../../providers/giant-bomb" }
 google-books-provider = { path = "../../providers/google-books" }

@@ -60,17 +60,12 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     timezone: chrono_tz::Tz,
-    s3_client: aws_sdk_s3::Client,
     config: Arc<config::AppConfig>,
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,
 ) -> (Router, Arc<AppServices>) {
     let is_oidc_enabled = create_oidc_client(&config).await.is_some();
-    let file_storage_service = Arc::new(FileStorageService::new(
-        s3_client,
-        config.file_storage.s3_bucket_name.clone(),
-    ));
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(2)
@@ -89,7 +84,6 @@ pub async fn create_app_services(
             .lp_application_job(lp_application_job)
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)
-            .file_storage_service(file_storage_service.clone())
             .build()
             .await,
     );
@@ -100,6 +94,7 @@ pub async fn create_app_services(
     let collection_service = Arc::new(CollectionService(supporting_service.clone()));
     let statistics_service = Arc::new(StatisticsService(supporting_service.clone()));
     let integration_service = Arc::new(IntegrationService(supporting_service.clone()));
+    let file_storage_service = Arc::new(FileStorageService(supporting_service.clone()));
     let miscellaneous_service = Arc::new(MiscellaneousService(supporting_service.clone()));
     let schema = Schema::build(
         QueryRoot::default(),

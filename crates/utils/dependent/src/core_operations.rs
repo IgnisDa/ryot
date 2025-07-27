@@ -26,7 +26,7 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
         |data| ApplicationCacheValue::CoreDetails(Box::new(data)),
         || async {
             let mut files_enabled = ss.config.file_storage.is_enabled();
-            if files_enabled && !ss.file_storage_service.is_enabled().await {
+            if files_enabled && !file_storage_service::is_enabled(ss).await {
                 files_enabled = false;
             }
             let core_details = CoreDetails {

@@ -7,7 +7,6 @@ use bon::bon;
 use chrono::{NaiveDate, TimeZone, Utc};
 use common_utils::{COMPILATION_TIMESTAMP, convert_naive_to_utc, ryot_log};
 use env_utils::UNKEY_API_ID;
-use file_storage_service::FileStorageService;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use unkey::{Client, models::VerifyKeyRequest};
@@ -17,7 +16,6 @@ pub struct SupportingService {
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
     pub config: Arc<config::AppConfig>,
-    pub file_storage_service: Arc<FileStorageService>,
 
     lp_application_job: MemoryStorage<LpApplicationJob>,
     hp_application_job: MemoryStorage<HpApplicationJob>,
@@ -32,7 +30,6 @@ impl SupportingService {
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
         config: Arc<config::AppConfig>,
-        file_storage_service: Arc<FileStorageService>,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
         mp_application_job: &MemoryStorage<MpApplicationJob>,
         hp_application_job: &MemoryStorage<HpApplicationJob>,
@@ -42,7 +39,6 @@ impl SupportingService {
             timezone,
             db: db.clone(),
             is_oidc_enabled,
-            file_storage_service,
             lp_application_job: lp_application_job.clone(),
             mp_application_job: mp_application_job.clone(),
             hp_application_job: hp_application_job.clone(),
