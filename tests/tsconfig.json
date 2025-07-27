@@ -1,10 +1,7 @@
 {
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules"],
 	"compilerOptions": {
 		"strict": true,
 		"noEmit": true,
-		"baseUrl": ".",
 		"outDir": "dist",
 		"target": "ES2022",
 		"module": "ESNext",
@@ -12,12 +9,11 @@
 		"types": ["bun-types"],
 		"lib": ["ES2022", "DOM"],
 		"esModuleInterop": true,
-		"moduleResolution": "node",
 		"noUncheckedIndexedAccess": true,
 		"forceConsistentCasingInFileNames": true,
 		"paths": {
-			"@ryot/generated/*": ["../libs/generated/src/*"],
-			"@ryot/ts-utils/dayjs": ["../libs/ts-utils/src/dayjs.ts"]
+			"~/*": ["./src/*"],
+			"@ryot/generated/*": ["../libs/generated/src/*"]
 		}
 	}
 }
