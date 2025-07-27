@@ -18,7 +18,10 @@ import {
 } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
 
-const manuallyCreatableBuiltinEntitySchemaSlug = "workout";
+const manuallyCreatableBuiltinEntitySchemaSlugs = new Set([
+	"workout",
+	"measurement",
+]);
 
 export type EntityPropertiesShape = Record<string, unknown>;
 
@@ -218,7 +221,7 @@ export const createEntity = async (
 
 	if (
 		scope.isBuiltin &&
-		scope.slug !== manuallyCreatableBuiltinEntitySchemaSlug
+		!manuallyCreatableBuiltinEntitySchemaSlugs.has(scope.slug)
 	) {
 		return serviceError("validation", customEntitySchemaError);
 	}
