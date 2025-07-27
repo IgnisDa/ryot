@@ -1,5 +1,4 @@
 import { EventName } from "@paddle/paddle-node-sdk";
-import { data } from "react-router";
 import {
 	RegisterUserDocument,
 	UpdateUserDocument,
@@ -10,6 +9,7 @@ import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { data } from "react-router";
 import { match } from "ts-pattern";
 import { type TPlanTypes, customers } from "~/drizzle/schema.server";
 import {
