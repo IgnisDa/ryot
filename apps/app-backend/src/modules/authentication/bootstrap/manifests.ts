@@ -28,9 +28,10 @@ const mediaLifecycleEventSchemas = () => [
 		slug: "complete",
 		propertiesSchema: {
 			fields: {
-				startedOn: { type: "datetime" as const },
-				completedOn: { type: "datetime" as const },
+				startedOn: { label: "Started On", type: "datetime" as const },
+				completedOn: { label: "Completed On", type: "datetime" as const },
 				completionMode: {
+					label: "Completion Mode",
 					type: "string" as const,
 					validation: {
 						required: true as const,
@@ -59,6 +60,7 @@ const mediaLifecycleEventSchemas = () => [
 			fields: {
 				progressPercent: {
 					type: "number" as const,
+					label: "Progress Percent",
 					transform: { round: { mode: "half_up" as const, scale: 2 } },
 					validation: {
 						exclusiveMinimum: 0,
@@ -74,8 +76,9 @@ const mediaLifecycleEventSchemas = () => [
 		slug: "review",
 		propertiesSchema: {
 			fields: {
-				review: { type: "string" as const },
+				review: { label: "Review", type: "string" as const },
 				rating: {
+					label: "Rating",
 					type: "integer" as const,
 					validation: { maximum: 5, minimum: 1, required: true as const },
 				},
@@ -94,8 +97,9 @@ export const authenticationBuiltinEntitySchemas = () => [
 		accentColor: "#F59E0B",
 		propertiesSchema: {
 			fields: {
-				description: { type: "string" as const },
+				description: { label: "Description", type: "string" as const },
 				membershipPropertiesSchema: {
+					label: "Membership Properties Schema",
 					properties: {},
 					type: "object" as const,
 					unknownKeys: "passthrough" as const,

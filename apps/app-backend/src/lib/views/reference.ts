@@ -47,16 +47,44 @@ type RuntimeColumnConfig = {
 
 const entityRuntimeColumns = {
 	image: { display: true, filter: false },
-	id: { display: true, filter: true, property: { type: "string" } },
-	name: { display: true, filter: true, property: { type: "string" } },
-	createdAt: { filter: true, display: true, property: { type: "datetime" } },
-	updatedAt: { filter: true, display: true, property: { type: "datetime" } },
+	id: {
+		filter: true,
+		display: true,
+		property: { label: "ID", type: "string" },
+	},
+	name: {
+		filter: true,
+		display: true,
+		property: { label: "Name", type: "string" },
+	},
+	createdAt: {
+		filter: true,
+		display: true,
+		property: { label: "Created At", type: "datetime" },
+	},
+	updatedAt: {
+		filter: true,
+		display: true,
+		property: { label: "Updated At", type: "datetime" },
+	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
 const eventJoinColumns = {
-	id: { display: true, filter: true, property: { type: "string" } },
-	createdAt: { filter: true, display: true, property: { type: "datetime" } },
-	updatedAt: { filter: true, display: true, property: { type: "datetime" } },
+	id: {
+		filter: true,
+		display: true,
+		property: { label: "ID", type: "string" },
+	},
+	createdAt: {
+		filter: true,
+		display: true,
+		property: { label: "Created At", type: "datetime" },
+	},
+	updatedAt: {
+		filter: true,
+		display: true,
+		property: { label: "Updated At", type: "datetime" },
+	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
 const hasOwnKey = <T extends object>(
