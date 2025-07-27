@@ -9,7 +9,9 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { hexToRgba } from "@/features/media/overview-utils";
 
+import { formatMinutes, formatSeconds } from "./duration";
 import { ExpandableText } from "./expandable-text";
+import { formatRoleLabel, getPrimaryCreator } from "./people";
 import type {
 	EntityDetail,
 	PodcastDetail,
@@ -17,36 +19,7 @@ import type {
 	UnlinkedCreator,
 	VideoGameDetail,
 } from "./types";
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-export function formatMinutes(mins: number): string {
-	const h = Math.floor(mins / 60);
-	const m = mins % 60;
-	if (h === 0) {
-		return `${m}m`;
-	}
-	return m === 0 ? `${h}h` : `${h}h ${m}m`;
-}
-
-export function formatSeconds(secs: number): string {
-	return formatMinutes(Math.round(secs / 60));
-}
-
-export function getPrimaryCreator(entity: EntityDetail) {
-	if (!("unlinkedCreators" in entity)) {
-		return undefined;
-	}
-	return (
-		entity.unlinkedCreators.find((c) =>
-			["director", "creator", "author"].includes(c.role.toLowerCase()),
-		) ?? entity.unlinkedCreators[0]
-	);
-}
-
 const ACCENT = "#C9943A";
-
-// ─── small atoms ──────────────────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
 	return (
@@ -68,9 +41,9 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 		<Box
 			className="flex-1 items-center rounded-xl py-3"
 			style={{
-				backgroundColor: hexToRgba(ACCENT, 0.07),
 				borderWidth: 1,
 				borderColor: hexToRgba(ACCENT, 0.14),
+				backgroundColor: hexToRgba(ACCENT, 0.07),
 			}}
 		>
 			<Text className="text-[22px] font-heading-semibold web:text-[26px]" style={{ color: ACCENT }}>
@@ -83,8 +56,6 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 	);
 }
 
-// ─── AboutSection ─────────────────────────────────────────────────────────────
-
 export function AboutSection({ entity }: { entity: EntityDetail }) {
 	if (!entity.description) {
 		return null;
@@ -92,10 +63,10 @@ export function AboutSection({ entity }: { entity: EntityDetail }) {
 
 	const primaryCreator = getPrimaryCreator(entity);
 	const creatorLabel = match(entity.entitySchemaSlug)
-		.with("movie", () => "Directed by")
 		.with("show", () => "Created by")
-		.with("book", "comic-book", "audiobook", () => "Written by")
 		.with("podcast", () => "Hosted by")
+		.with("movie", () => "Directed by")
+		.with("book", "comic-book", "audiobook", () => "Written by")
 		.otherwise(() => "By");
 
 	return (
@@ -122,8 +93,6 @@ export function AboutSection({ entity }: { entity: EntityDetail }) {
 	);
 }
 
-// ─── CreatorsSection ──────────────────────────────────────────────────────────
-
 export function CreatorsSection({ creators }: { creators: UnlinkedCreator[] }) {
 	if (creators.length === 0) {
 		return null;
@@ -132,15 +101,15 @@ export function CreatorsSection({ creators }: { creators: UnlinkedCreator[] }) {
 	return (
 		<Box className="mt-8">
 			<Text className="mb-3 font-heading-semibold text-[16px] text-foreground web:text-[18px]">
-				Cast & Crew
+				People
 			</Text>
 			<ScrollView
 				horizontal
-				showsHorizontalScrollIndicator={false}
 				contentContainerStyle={{ gap: 16 }}
+				showsHorizontalScrollIndicator={false}
 			>
 				{creators.map((c) => (
-					<Box key={`${c.name}-${c.role}`} className="items-center" style={{ width: 110 }}>
+					<Box key={c.id ?? `${c.name}-${c.role}`} className="items-center" style={{ width: 110 }}>
 						<Box
 							className="overflow-hidden rounded-lg"
 							style={{
@@ -154,16 +123,16 @@ export function CreatorsSection({ creators }: { creators: UnlinkedCreator[] }) {
 							) : null}
 						</Box>
 						<Text
-							className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
 							numberOfLines={1}
+							className="mt-2 text-center text-[13px] font-sans-semibold text-foreground web:text-[15px]"
 						>
 							{c.name}
 						</Text>
 						<Text
-							className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
 							numberOfLines={1}
+							className="mt-0.5 text-center text-[11px] italic text-muted-foreground web:text-[13px]"
 						>
-							{c.role}
+							{formatRoleLabel(c.role)}
 						</Text>
 					</Box>
 				))}
@@ -172,9 +141,11 @@ export function CreatorsSection({ creators }: { creators: UnlinkedCreator[] }) {
 	);
 }
 
-// ─── CollectionsSection ───────────────────────────────────────────────────────
-
-export function CollectionsSection({ collections }: { collections: string[] | null }) {
+export function CollectionsSection({
+	collections,
+}: {
+	collections: Array<{ id: string; name: string }> | null;
+}) {
 	if (!collections || collections.length === 0) {
 		return null;
 	}
@@ -185,11 +156,14 @@ export function CollectionsSection({ collections }: { collections: string[] | nu
 				Collections
 			</Text>
 			<Box className="flex-row flex-wrap gap-2">
-				{collections.map((name) => (
-					<Box key={name} className="flex-row items-center gap-2 rounded-full bg-muted px-3 py-2">
+				{collections.map((collection) => (
+					<Box
+						key={collection.id}
+						className="flex-row items-center gap-2 rounded-full bg-muted px-3 py-2"
+					>
 						<Library size={14} color={ACCENT} strokeWidth={2} />
 						<Text className="text-[13px] font-sans-medium text-foreground web:text-[15px]">
-							{name}
+							{collection.name}
 						</Text>
 					</Box>
 				))}
@@ -197,8 +171,6 @@ export function CollectionsSection({ collections }: { collections: string[] | nu
 		</Box>
 	);
 }
-
-// ─── DetailsSection ───────────────────────────────────────────────────────────
 
 function DetailRow({ label, value }: { label: string; value: string }) {
 	return (
@@ -335,8 +307,6 @@ export function DetailsSection({ entity }: { entity: EntityDetail }) {
 		</Box>
 	);
 }
-
-// ─── type-specific sub-sections ───────────────────────────────────────────────
 
 function ShowSeasonsList({ entity }: { entity: ShowDetail }) {
 	const [openId, setOpenId] = useState<number | null>(null);
@@ -492,8 +462,6 @@ function VideoGameStats({ entity }: { entity: VideoGameDetail }) {
 		</Box>
 	);
 }
-
-// ─── TypeSpecificSection ──────────────────────────────────────────────────────
 
 export function TypeSpecificSection({ entity }: { entity: EntityDetail }) {
 	return match(entity)
