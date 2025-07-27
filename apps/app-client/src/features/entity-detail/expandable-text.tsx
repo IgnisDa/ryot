@@ -5,17 +5,13 @@ import { Platform } from "react-native";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 
-export function ExpandableText({
-	children,
-	className,
-	toggleTextStyle,
-	collapsedLines = 4,
-}: {
+export function ExpandableText(props: {
 	children: string;
 	className: string;
 	collapsedLines?: number;
 	toggleTextStyle?: ComponentProps<typeof Text>["style"];
 }) {
+	const { children, className, toggleTextStyle, collapsedLines = 4 } = props;
 	const [expanded, setExpanded] = useState(false);
 	const [canExpand, setCanExpand] = useState(false);
 	const textRef = useRef<ComponentRef<typeof Text>>(null);
