@@ -47,6 +47,7 @@ const getMediaOverviewUpNextRoute = createAuthRoute(
 	}),
 );
 
+// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 const getMediaOverviewContinueRoute = createAuthRoute(
 	createRoute({
 		method: "get",
