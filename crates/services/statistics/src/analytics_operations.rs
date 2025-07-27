@@ -18,12 +18,12 @@ use supporting_service::SupportingService;
 use crate::daily_activity_operations::get_daily_user_activities;
 
 pub async fn user_analytics(
-    supporting_service: &Arc<SupportingService>,
+    ss: &Arc<SupportingService>,
     user_id: &String,
     input: UserAnalyticsInput,
 ) -> Result<CachedResponse<UserAnalytics>> {
     cache_service::get_or_set_with_callback(
-        supporting_service,
+        ss,
         ApplicationCacheKey::UserAnalytics(UserLevelCacheKey {
             input: input.clone(),
             user_id: user_id.to_owned(),
@@ -56,7 +56,7 @@ pub async fn user_analytics(
                     query.filter(daily_user_activity::Column::Date.lte(v))
                 })
                 .into_partial_model::<CustomFitnessAnalytics>()
-                .all(&supporting_service.db)
+                .all(&ss.db)
                 .await?;
             let mut hours: Vec<DailyUserActivityHourRecord> = vec![];
             items.iter().for_each(|item| {
@@ -111,7 +111,7 @@ pub async fn user_analytics(
                 })
                 .sorted_by_key(|f| Reverse(f.count))
                 .collect_vec();
-            let activities = get_daily_user_activities(supporting_service, user_id, input).await?;
+            let activities = get_daily_user_activities(ss, user_id, input).await?;
             let response = UserAnalytics {
                 hours,
                 activities,
