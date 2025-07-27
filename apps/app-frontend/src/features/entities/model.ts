@@ -124,7 +124,7 @@ export function createEntityRuntimeRequest(
 		eventJoins: [],
 		computedFields: [],
 		pagination: { page: 1, limit: 1000 },
-		entitySchemaSlugs: [entitySchemaSlug],
+		scope: [entitySchemaSlug],
 		sort: {
 			direction: "asc",
 			expression: createEntityColumnExpression(entitySchemaSlug, "name"),

@@ -69,7 +69,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				relationships: [{ relationshipSchemaSlug: "in-library" }],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
@@ -177,7 +177,7 @@ describe("Query engine E2E", () => {
 		await waitForEventCount(userB.client, userB.cookies, entity.id, 1);
 
 		const request = buildGridRequest({
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			relationships: [{ relationshipSchemaSlug: "in-library" }],
 			displayConfiguration: buildGridDisplayConfiguration(
 				{
@@ -247,7 +247,7 @@ describe("Query engine E2E", () => {
 		});
 
 		const request = buildGridRequest({
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			relationships: [{ relationshipSchemaSlug: "in-library" }],
 			displayConfiguration: buildGridDisplayConfiguration(
 				{
@@ -288,7 +288,7 @@ describe("Query engine E2E", () => {
 		const { data, response } = await executeQueryEngine(
 			client,
 			cookies,
-			buildGridRequest({ entitySchemaSlugs: [schema.slug] }),
+			buildGridRequest({ scope: [schema.slug] }),
 		);
 		const result = data?.data;
 		const firstItem = result?.items[0];
@@ -342,7 +342,7 @@ describe("Query engine E2E", () => {
 		const { client, cookies, schema } =
 			await createSingleSchemaQueryEngineFixture();
 		const { data, response } = await executeQueryEngine(client, cookies, {
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			eventJoins: [],
 			pagination: { page: 1, limit: 1 },
 			sort: {
@@ -392,7 +392,7 @@ describe("Query engine E2E", () => {
 		});
 
 		const { data, response } = await executeQueryEngine(client, cookies, {
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				expression: createEntityColumnExpression(schema.slug, "name"),
@@ -442,7 +442,7 @@ describe("Query engine E2E", () => {
 
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: { direction: "desc", expression: nextYearReference },
 			filter: {
@@ -498,7 +498,7 @@ describe("Query engine E2E", () => {
 			{
 				eventJoins: [],
 				computedFields: [],
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 5 },
 				sort: {
 					direction: "asc",
@@ -510,7 +510,7 @@ describe("Query engine E2E", () => {
 		);
 		const cycleResult = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				direction: "asc",
@@ -540,7 +540,7 @@ describe("Query engine E2E", () => {
 		const imageSortResult = await executeQueryEngine(client, cookies, {
 			filter: null,
 			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				direction: "asc",
@@ -558,7 +558,7 @@ describe("Query engine E2E", () => {
 		});
 		const mismatchedFilterResult = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			sort: {
 				direction: "asc",
@@ -608,7 +608,7 @@ describe("Query engine E2E", () => {
 		const result = await executeQueryEngine(
 			client,
 			cookies,
-			buildGridRequest({ entitySchemaSlugs: ["does-not-exist"] }),
+			buildGridRequest({ scope: ["does-not-exist"] }),
 		);
 
 		expect(result.response.status).toBe(404);
@@ -629,7 +629,7 @@ describe("Query engine E2E", () => {
 
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
 			sort: { direction: "asc", expression: nameExpression },
 			filter: {
@@ -715,7 +715,7 @@ describe("Query engine E2E", () => {
 		const { data, response } = await executeQueryEngine(client, cookies, {
 			eventJoins: [],
 			computedFields: [],
-			entitySchemaSlugs: [schema.slug],
+			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
 			filter: {
 				operator: "eq",
@@ -834,7 +834,7 @@ describe("Query engine E2E", () => {
 				cookies,
 				buildGridRequest({
 					filter: scenario.filter,
-					entitySchemaSlugs: [schema.slug],
+					scope: [schema.slug],
 				}),
 			);
 
@@ -850,7 +850,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					type: "and",
 					predicates: [
@@ -882,7 +882,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: null,
@@ -929,7 +929,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: null,
@@ -972,13 +972,13 @@ describe("Query engine E2E", () => {
 		const ascResult = await executeQueryEngine(
 			client,
 			cookies,
-			buildGridRequest({ entitySchemaSlugs: [schema.slug] }),
+			buildGridRequest({ scope: [schema.slug] }),
 		);
 		const descResult = await executeQueryEngine(
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				sort: {
 					expression: createEntityColumnExpression(schema.slug, "name"),
 					direction: "desc",
@@ -989,7 +989,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				sort: {
 					expression: createEntityPropertyExpression(schema.slug, "year"),
 					direction: "asc",
@@ -1032,7 +1032,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				sort: {
 					expression: createEntityColumnExpression(schema.slug, "id"),
 					direction: "asc",
@@ -1073,7 +1073,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: [entityField(schema.slug, "id")],
@@ -1125,7 +1125,7 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				displayConfiguration: neutralDisplay,
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				sort: coalesceSort,
 			}),
 		);
@@ -1143,7 +1143,7 @@ describe("Query engine E2E", () => {
 			cookies,
 			buildGridRequest({
 				displayConfiguration: neutralDisplay,
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				sort: coalesceSort,
 			}),
 		);
@@ -1210,7 +1210,7 @@ describe("Query engine E2E", () => {
 				cookies,
 				buildGridRequest({
 					pagination: scenario.pagination,
-					entitySchemaSlugs: [schema.slug],
+					scope: [schema.slug],
 				}),
 			);
 
@@ -1227,7 +1227,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 100, limit: 2 },
 			}),
 		);
@@ -1235,7 +1235,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					type: "comparison",
 					operator: "eq",
@@ -1275,7 +1275,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 2, limit: 5 },
 				filter: {
 					type: "comparison",
@@ -1289,7 +1289,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 3, limit: 2 },
 				filter: {
 					type: "comparison",
@@ -1330,7 +1330,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				sort: { expression: literalExpression(null), direction: "asc" },
 			}),
 		);
@@ -1349,7 +1349,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					type: "contains",
 					expression: createEntityColumnExpression(schema.slug, "name"),
@@ -1361,7 +1361,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				filter: {
 					type: "contains",
 					expression: createEntityPropertyExpression(schema.slug, "category"),
@@ -1431,7 +1431,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration(
 					{
 						calloutProperty: null,
@@ -1504,7 +1504,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: neutralDisplay,
 				filter: {
 					type: "contains",
@@ -1517,7 +1517,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: neutralDisplay,
 				filter: {
 					type: "contains",
@@ -1561,7 +1561,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
 					calloutProperty: null,
 					primarySubtitleProperty: null,
@@ -1605,7 +1605,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: buildTableDisplayConfiguration([
 					{
 						label: "ExternalId",
@@ -1641,7 +1641,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				displayConfiguration: buildTableDisplayConfiguration([
 					{
@@ -1678,7 +1678,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildGridRequest({
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
 					calloutProperty: null,
 					primarySubtitleProperty: null,
@@ -1745,7 +1745,7 @@ describe("Query engine E2E", () => {
 			client,
 			cookies,
 			buildTableRequest({
-				entitySchemaSlugs: [mediaSchema.slug, userSchema.slug],
+				scope: [mediaSchema.slug, userSchema.slug],
 				displayConfiguration: buildTableDisplayConfiguration([
 					{
 						label: "Name",
@@ -1805,7 +1805,7 @@ describe("Query engine E2E", () => {
 				await createSingleSchemaQueryEngineFixture();
 			const { data, response } = await executeQueryEngine(client, cookies, {
 				eventJoins: [],
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				sort: {
 					direction: "asc",
@@ -1833,7 +1833,7 @@ describe("Query engine E2E", () => {
 				await createSingleSchemaQueryEngineFixture();
 			const { data, response } = await executeQueryEngine(client, cookies, {
 				eventJoins: [],
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				sort: {
 					direction: "asc",
@@ -1858,7 +1858,7 @@ describe("Query engine E2E", () => {
 				await createSingleSchemaQueryEngineFixture();
 			const { data, response } = await executeQueryEngine(client, cookies, {
 				eventJoins: [],
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				sort: {
 					direction: "asc",
@@ -1884,7 +1884,7 @@ describe("Query engine E2E", () => {
 			const { data, response } = await executeQueryEngine(client, cookies, {
 				eventJoins: [],
 				pagination: { page: 1, limit: 20 },
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				sort: {
 					direction: "asc",
 					expression: createEntityColumnExpression(smartphoneSlug, "name"),
@@ -1914,7 +1914,7 @@ describe("Query engine E2E", () => {
 			const { data, response } = await executeQueryEngine(client, cookies, {
 				fields: [],
 				eventJoins: [],
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 10 },
 				sort: {
 					direction: "asc",
@@ -1936,7 +1936,7 @@ describe("Query engine E2E", () => {
 			const { client, cookies, smartphoneSlug, tabletSlug } =
 				await createCrossSchemaQueryEngineFixture();
 			const { data, response } = await executeQueryEngine(client, cookies, {
-				entitySchemaSlugs: [smartphoneSlug, tabletSlug],
+				scope: [smartphoneSlug, tabletSlug],
 				eventJoins: [],
 				pagination: { page: 1, limit: 20 },
 				sort: {
@@ -1963,7 +1963,7 @@ describe("Query engine E2E", () => {
 				await createSingleSchemaQueryEngineFixture();
 			const { response } = await executeQueryEngine(client, cookies, {
 				eventJoins: [],
-				entitySchemaSlugs: [schema.slug],
+				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
 				sort: {
 					direction: "asc",

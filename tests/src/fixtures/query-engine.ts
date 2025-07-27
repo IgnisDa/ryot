@@ -177,14 +177,14 @@ const defaultSort = (
 const buildQueryEngineRequest = (
 	input: Partial<Omit<QueryEngineRequest, "fields" | "sort">> & {
 		fields: RuntimeField[];
-		entitySchemaSlugs: string[];
+		scope: string[];
 		sort?: QueryEngineRequest["sort"];
 	},
 ): QueryEngineRequest => ({
 	eventJoins: [],
 	computedFields: [],
 	pagination: { page: 1, limit: 10 },
-	sort: defaultSort(input.entitySchemaSlugs),
+	sort: defaultSort(input.scope),
 	...input,
 });
 
@@ -211,20 +211,19 @@ export function buildComputedField(
 export function buildGridRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
 		displayConfiguration?: GridDisplayConfiguration;
-		entitySchemaSlugs: string[];
+		scope: string[];
 	},
 ): QueryEngineRequest {
 	const {
-		entitySchemaSlugs: schemaSlugs,
+		scope,
 		displayConfiguration: displayConfigurationOverride,
 		...requestOverrides
 	} = overrides;
 	const displayConfiguration =
-		displayConfigurationOverride ??
-		buildGridDisplayConfiguration({}, schemaSlugs);
+		displayConfigurationOverride ?? buildGridDisplayConfiguration({}, scope);
 
 	return buildQueryEngineRequest({
-		entitySchemaSlugs: schemaSlugs,
+		scope,
 		fields: toQueryEngineFields({ layout: "grid", displayConfiguration }),
 		...requestOverrides,
 	});
@@ -232,21 +231,20 @@ export function buildGridRequest(
 
 export function buildListRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
-		entitySchemaSlugs: string[];
+		scope: string[];
 		displayConfiguration?: ListDisplayConfiguration;
 	},
 ): QueryEngineRequest {
 	const {
-		entitySchemaSlugs: schemaSlugs,
+		scope,
 		displayConfiguration: displayConfigurationOverride,
 		...requestOverrides
 	} = overrides;
 	const displayConfiguration =
-		displayConfigurationOverride ??
-		buildListDisplayConfiguration({}, schemaSlugs);
+		displayConfigurationOverride ?? buildListDisplayConfiguration({}, scope);
 
 	return buildQueryEngineRequest({
-		entitySchemaSlugs: schemaSlugs,
+		scope,
 		fields: toQueryEngineFields({ layout: "list", displayConfiguration }),
 		...requestOverrides,
 	});
@@ -254,21 +252,21 @@ export function buildListRequest(
 
 export function buildTableRequest(
 	overrides: Partial<Omit<QueryEngineRequest, "fields">> & {
-		entitySchemaSlugs: string[];
+		scope: string[];
 		displayConfiguration?: TableDisplayConfiguration;
 	},
 ): QueryEngineRequest {
 	const {
-		entitySchemaSlugs: schemaSlugs,
+		scope,
 		displayConfiguration: displayConfigurationOverride,
 		...requestOverrides
 	} = overrides;
 	const displayConfiguration =
 		displayConfigurationOverride ??
-		buildTableDisplayConfiguration(undefined, schemaSlugs);
+		buildTableDisplayConfiguration(undefined, scope);
 
 	return buildQueryEngineRequest({
-		entitySchemaSlugs: schemaSlugs,
+		scope,
 		fields: toQueryEngineFields({ layout: "table", displayConfiguration }),
 		...requestOverrides,
 	});
