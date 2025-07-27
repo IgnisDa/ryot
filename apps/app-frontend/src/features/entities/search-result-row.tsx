@@ -117,14 +117,16 @@ function SearchResultActions(props: {
 	accentColor: string;
 	onBacklog: () => void;
 	isPersonSchema: boolean;
+	isCompanySchema: boolean;
 	canUseLifecycleActions: boolean;
 	canUseCollectionAction: boolean;
 	actionState: SearchResultRowActionState;
 	onTogglePanel: (panel: "log" | "rate" | "collection") => void;
 }) {
+	const showLifecycleActions = !props.isPersonSchema && !props.isCompanySchema;
 	return (
 		<Group gap={6} wrap="wrap">
-			{!props.isPersonSchema && (
+			{showLifecycleActions && (
 				<Button
 					size="compact-xs"
 					onClick={() => props.onTogglePanel("log")}
@@ -155,7 +157,7 @@ function SearchResultActions(props: {
 					Log progress
 				</Button>
 			)}
-			{!props.isPersonSchema && (
+			{showLifecycleActions && (
 				<Button
 					size="compact-xs"
 					onClick={props.onBacklog}
@@ -237,6 +239,7 @@ export function SearchResultRow(props: {
 	onSaveLog: () => void;
 	item: SearchResultItem;
 	isPersonSchema: boolean;
+	isCompanySchema: boolean;
 	entitySchemaSlug: string;
 	onSaveReview: () => void;
 	isLifecycleLoading: boolean;
@@ -314,7 +317,7 @@ export function SearchResultRow(props: {
 						</Text>
 					</Group>
 					<Group gap="xs" wrap="nowrap" justify="flex-end">
-						{!props.isPersonSchema ? (
+						{!props.isPersonSchema && !props.isCompanySchema ? (
 							<Button
 								size="compact-sm"
 								onClick={props.onBacklog}
@@ -406,6 +409,7 @@ export function SearchResultRow(props: {
 							accentColor={props.accentColor}
 							onTogglePanel={props.onTogglePanel}
 							isPersonSchema={props.isPersonSchema}
+							isCompanySchema={props.isCompanySchema}
 							canUseLifecycleActions={canUseLifecycleActions}
 							canUseCollectionAction={props.canUseCollectionAction}
 						/>

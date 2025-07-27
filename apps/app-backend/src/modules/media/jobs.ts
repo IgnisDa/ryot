@@ -27,3 +27,15 @@ export const personPopulateJobData = z.object({
 });
 
 export type PersonPopulateJobData = z.infer<typeof personPopulateJobData>;
+
+export const companyPopulateJobName = "company-populate";
+
+export const companyPopulateJobData = z.object({
+	userId: nonEmptyStringSchema,
+	scriptSlug: nonEmptyStringSchema,
+	externalId: nonEmptyStringSchema,
+	companyEntityId: nonEmptyStringSchema,
+	step: z.literal(mediaJobWaitingForSandboxStep).optional(),
+});
+
+export type CompanyPopulateJobData = z.infer<typeof companyPopulateJobData>;
