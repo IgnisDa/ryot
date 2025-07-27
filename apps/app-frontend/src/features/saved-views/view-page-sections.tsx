@@ -95,24 +95,15 @@ export function SavedViewResults(props: {
 		return (
 			<SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 5 }} spacing="sm">
 				{props.items.map((item) => {
-					const title = item.fields
-						? getRuntimeField(item, "title")
-						: undefined;
-					const image = item.fields
-						? getRuntimeField(item, "image")
-						: undefined;
-					const callout = item.fields
-						? getRuntimeField(item, "callout")
-						: undefined;
-					const primarySubtitle = item.fields
-						? getRuntimeField(item, "primarySubtitle")
-						: undefined;
-					const secondarySubtitle = item.fields
-						? getRuntimeField(item, "secondarySubtitle")
-						: undefined;
-					const entitySchemaSlugField = item.fields
-						? getRuntimeField(item, "entitySchemaSlug")
-						: undefined;
+					const title = getRuntimeField(item, "title");
+					const image = getRuntimeField(item, "image");
+					const callout = getRuntimeField(item, "callout");
+					const primarySubtitle = getRuntimeField(item, "primarySubtitle");
+					const secondarySubtitle = getRuntimeField(item, "secondarySubtitle");
+					const entitySchemaSlugField = getRuntimeField(
+						item,
+						"entitySchemaSlug",
+					);
 
 					return (
 						<Link
@@ -210,24 +201,15 @@ export function SavedViewResults(props: {
 		return (
 			<Stack gap="sm">
 				{props.items.map((item) => {
-					const title = item.fields
-						? getRuntimeField(item, "title")
-						: undefined;
-					const image = item.fields
-						? getRuntimeField(item, "image")
-						: undefined;
-					const callout = item.fields
-						? getRuntimeField(item, "callout")
-						: undefined;
-					const primarySubtitle = item.fields
-						? getRuntimeField(item, "primarySubtitle")
-						: undefined;
-					const secondarySubtitle = item.fields
-						? getRuntimeField(item, "secondarySubtitle")
-						: undefined;
-					const entitySchemaSlugField = item.fields
-						? getRuntimeField(item, "entitySchemaSlug")
-						: undefined;
+					const title = getRuntimeField(item, "title");
+					const image = getRuntimeField(item, "image");
+					const callout = getRuntimeField(item, "callout");
+					const primarySubtitle = getRuntimeField(item, "primarySubtitle");
+					const secondarySubtitle = getRuntimeField(item, "secondarySubtitle");
+					const entitySchemaSlugField = getRuntimeField(
+						item,
+						"entitySchemaSlug",
+					);
 
 					return (
 						<Link
@@ -308,8 +290,7 @@ export function SavedViewResults(props: {
 	);
 	const linkColumnKey = tableColumns.find((column) =>
 		props.items.some(
-			(item) =>
-				item.fields?.find((entry) => entry.key === column.key)?.kind === "text",
+			(item) => getRuntimeField(item, column.key)?.kind === "text",
 		),
 	)?.key;
 
@@ -326,7 +307,7 @@ export function SavedViewResults(props: {
 				fontFamily: "var(--mantine-headings-font-family)",
 			},
 			render: (item) => {
-				const field = item.fields?.find((entry) => entry.key === column.key);
+				const field = getRuntimeField(item, column.key);
 
 				if (field?.kind === "image") {
 					return (

@@ -16,7 +16,7 @@ For concrete executable examples, see:
 - Query definitions can also declare reusable `computedFields`.
 - The same expression and predicate language is used by saved views under `queryDefinition`.
 - Each field has a `key` and a single `expression`.
-- The response returns entities plus resolved `fields` as `{ key, kind, value }`.
+- The response returns an ordered array of resolved field arrays, where each inner array contains `{ key, kind, value }` entries for the requested fields only.
 
 ## Top-Level Keys
 
@@ -72,8 +72,8 @@ Supported expression nodes: `literal`, `reference`, `coalesce`, `arithmetic`, `r
 **`concat`** — composes string values in order (scalars only — images, arrays, and objects are rejected).
 
 **`transform`** — applies a named string transformation to the inner expression (must be concat-compatible):
-- `titleCase`: normalizes underscores/hyphens to spaces, capitalizes each word (`reps_and_weight` → `Reps And Weight`)
-- `kebabCase`: normalizes underscores/spaces to hyphens, lowercases (`Reps And Weight` → `reps-and-weight`)
+  - `titleCase`: normalizes underscores/hyphens to spaces, capitalizes each word (`reps_and_weight` → `Reps And Weight`)
+  - `kebabCase`: normalizes underscores/spaces to hyphens, lowercases (`Reps And Weight` → `reps-and-weight`)
 
 **Image rules**: image references are display-only. Rejected from sort, filter, arithmetic, and string composition. Conditional/coalesce branches cannot mix image and non-image values.
 
@@ -182,19 +182,10 @@ Combine predicates with `and` / `or` (each takes a `predicates` array). Negate a
       }
     },
     "items": [
-      {
-        "id": "ent_123",
-        "name": "Dune",
-        "createdAt": "2026-03-28T10:00:00.000Z",
-        "updatedAt": "2026-03-28T10:00:00.000Z",
-        "externalId": null,
-        "sandboxScriptId": null,
-        "image": { "kind": "remote", "url": "https://example.com/dune.jpg" },
-        "fields": [
-          { "key": "title", "kind": "text", "value": "Dune" },
-          { "key": "rating", "kind": "number", "value": 5 }
-        ]
-      }
+      [
+        { "key": "title", "kind": "text", "value": "Dune" },
+        { "key": "rating", "kind": "number", "value": 5 }
+      ]
     ]
   }
 }
@@ -202,7 +193,8 @@ Combine predicates with `and` / `or` (each takes a `predicates` array). Negate a
 
 Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
 
-- `fields` is always an array.
+- `items` is always an array.
+- Each `items[n]` entry is always an array.
 - A field resolving to null returns `{ "kind": "null", "value": null }`.
 
 ## Event Query Notes
@@ -216,7 +208,7 @@ Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`
 ## Gotchas
 
 - All references must be explicit; shorthand like `book.title` is invalid in request bodies.
-- `fields` may be empty, but then `items[].fields` will also be empty.
+- `fields` may be empty, but then every `items[n]` will also be an empty array.
 - `event.*` references require the join to be declared in `eventJoins`.
 - `event-aggregate` references do not require an entry in `eventJoins`.
 - Sort/filter references must point to schemas included in `entitySchemaSlugs`.

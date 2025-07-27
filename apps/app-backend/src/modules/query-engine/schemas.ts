@@ -5,7 +5,6 @@ import {
 	viewExpressionSchema,
 } from "~/lib/views/expression";
 import { nullableViewPredicateSchema } from "~/lib/views/filtering";
-import { ImageSchema, timestampFields } from "~/lib/zod";
 import {
 	eventJoinDefinitionArraySchema,
 	relationshipFilterArraySchema,
@@ -67,22 +66,7 @@ const resolvedQueryEngineFieldSchema = resolvedDisplayValueSchema
 	.extend({ key: z.string() })
 	.strict();
 
-const queryEngineBaseItemSchema = z
-	.object({
-		id: z.string(),
-		name: z.string(),
-		...timestampFields,
-		image: ImageSchema.nullable(),
-		externalId: z.string().nullable(),
-		sandboxScriptId: z.string().nullable(),
-	})
-	.strict();
-
-const queryEngineItemSchema = queryEngineBaseItemSchema
-	.extend({
-		fields: z.array(resolvedQueryEngineFieldSchema),
-	})
-	.strict();
+const queryEngineItemSchema = z.array(resolvedQueryEngineFieldSchema);
 
 const queryEnginePaginationSchema = z.object({
 	page: z.number().int(),

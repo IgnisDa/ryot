@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { dayjs } from "@ryot/ts-utils";
 import { calculatePagination, mapQueryRowToItem } from "./query-builder";
 
 describe("calculatePagination", () => {
@@ -60,51 +59,28 @@ describe("calculatePagination", () => {
 });
 
 describe("mapQueryRowToItem", () => {
-	it("keeps rows with empty string names", () => {
+	it("keeps rows with empty string field values", () => {
 		expect(
 			mapQueryRowToItem({
-				name: "",
 				total: 1,
-				image: null,
-				id: "entity-1",
-				external_id: null,
-				sandbox_script_id: null,
-				entity_schema_data: { slug: "books" },
-				created_at: dayjs("2024-01-01T00:00:00.000Z").toDate(),
-				updated_at: dayjs("2024-01-02T00:00:00.000Z").toDate(),
+				entity_id: "entity-1",
 				fields: [
 					{ key: "title", kind: "text", value: "" },
 					{ key: "image", kind: "null", value: null },
 				],
 			}),
-		).toEqual({
-			name: "",
-			image: null,
-			id: "entity-1",
-			externalId: null,
-			sandboxScriptId: null,
-			createdAt: dayjs("2024-01-01T00:00:00.000Z").toDate(),
-			updatedAt: dayjs("2024-01-02T00:00:00.000Z").toDate(),
-			fields: [
-				{ key: "title", kind: "text", value: "" },
-				{ key: "image", kind: "null", value: null },
-			],
-		});
+		).toEqual([
+			{ key: "title", kind: "text", value: "" },
+			{ key: "image", kind: "null", value: null },
+		]);
 	});
 
 	it("drops the left join sentinel row", () => {
 		expect(
 			mapQueryRowToItem({
 				total: 0,
-				id: null,
-				name: null,
-				image: null,
+				entity_id: null,
 				fields: null,
-				created_at: null,
-				updated_at: null,
-				external_id: null,
-				sandbox_script_id: null,
-				entity_schema_data: null,
 			}),
 		).toBeNull();
 	});
@@ -113,31 +89,15 @@ describe("mapQueryRowToItem", () => {
 		expect(
 			mapQueryRowToItem({
 				total: 1,
-				image: null,
-				id: "entity-1",
-				name: "Entity",
-				external_id: null,
-				sandbox_script_id: null,
-				entity_schema_data: { slug: "books" },
-				created_at: dayjs("2024-01-01T00:00:00.000Z").toDate(),
-				updated_at: dayjs("2024-01-02T00:00:00.000Z").toDate(),
+				entity_id: "entity-1",
 				fields: [
 					{ key: "column_0", kind: "text", value: "Entity" },
 					{ key: "column_1", kind: "number", value: 2024 },
 				],
 			}),
-		).toEqual({
-			image: null,
-			id: "entity-1",
-			name: "Entity",
-			externalId: null,
-			sandboxScriptId: null,
-			createdAt: dayjs("2024-01-01T00:00:00.000Z").toDate(),
-			updatedAt: dayjs("2024-01-02T00:00:00.000Z").toDate(),
-			fields: [
-				{ key: "column_0", kind: "text", value: "Entity" },
-				{ key: "column_1", kind: "number", value: 2024 },
-			],
-		});
+		).toEqual([
+			{ key: "column_0", kind: "text", value: "Entity" },
+			{ key: "column_1", kind: "number", value: 2024 },
+		]);
 	});
 });

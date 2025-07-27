@@ -6,7 +6,6 @@ import type {
 	QueryEngineReferenceContext,
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
-import type { ImageSchemaType } from "~/lib/zod";
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { buildFilterWhereClause } from "./filter-builder";
 import type {
@@ -24,15 +23,8 @@ export type QueryEnginePreparedEventJoin = QueryEngineEventJoinLike;
 
 type QueryRow = {
 	total: number;
-	id: string | null;
-	name: string | null;
-	created_at: Date | null;
-	updated_at: Date | null;
-	external_id: string | null;
-	image: ImageSchemaType | null;
-	sandbox_script_id: string | null;
-	fields: QueryEngineItem["fields"] | null;
-	entity_schema_data: Record<string, unknown> | null;
+	entity_id: string | null;
+	fields: QueryEngineItem | null;
 };
 
 type PaginationInput = {
@@ -194,27 +186,11 @@ export const calculatePagination = (
 };
 
 export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
-	if (
-		row.id === null ||
-		row.name === null ||
-		row.created_at === null ||
-		row.updated_at === null
-	) {
+	if (row.entity_id === null) {
 		return null;
 	}
 
-	const baseItem = {
-		id: row.id,
-		name: row.name,
-		image: row.image,
-		fields: row.fields ?? [],
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-		externalId: row.external_id,
-		sandboxScriptId: row.sandbox_script_id,
-	};
-
-	return baseItem satisfies QueryEngineItem;
+	return row.fields ?? [];
 };
 
 export const executePreparedQuery = async (input: {
@@ -296,14 +272,7 @@ export const executePreparedQuery = async (input: {
 				limit ${input.request.pagination.limit}
 			)
 		select
-			id,
-			name,
-			image,
-			created_at,
-			updated_at,
-			external_id,
-			sandbox_script_id,
-			entity_schema_data,
+			paginated_entities.id as entity_id,
 			entity_count.total,
 			${resolvedFields} as fields
 		from entity_count
