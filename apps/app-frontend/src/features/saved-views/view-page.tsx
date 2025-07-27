@@ -13,7 +13,15 @@ import {
 	Text,
 } from "@mantine/core";
 import { useDisclosure, useLocalStorage } from "@mantine/hooks";
-import { Copy, Info, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
+import {
+	Copy,
+	FolderPlus,
+	Info,
+	LayoutGrid,
+	List,
+	Table2,
+	Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "#/components/PageStates";
 import { useResolvedImageUrls } from "#/features/entities/image";
@@ -49,6 +57,8 @@ export function SavedViewPage(props: {
 	actionError?: string | null;
 	onClone: () => void | Promise<void>;
 	onDelete: () => void | Promise<void>;
+	onCreateCollection: () => void;
+	isCreatingCollection: boolean;
 }) {
 	const apiClient = useApiClient();
 	const { surface, textPrimary, textSecondary } = useThemeTokens();
@@ -217,6 +227,17 @@ export function SavedViewPage(props: {
 							</Group>
 						</Stack>
 						<Group gap="xs">
+							{savedView.name === "Collections" && props.onCreateCollection ? (
+								<Button
+									size="sm"
+									variant="light"
+									onClick={props.onCreateCollection}
+									loading={props.isCreatingCollection}
+									leftSection={<FolderPlus size={14} />}
+								>
+									New collection
+								</Button>
+							) : null}
 							<Button
 								size="sm"
 								variant="light"
