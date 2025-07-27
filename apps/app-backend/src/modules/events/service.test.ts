@@ -8,6 +8,7 @@ import {
 	createBuiltinProgressEventDeps,
 	createBuiltinReviewEventDeps,
 	createBuiltinShowProgressEventDeps,
+	createBuiltinWorkoutSetEventDeps,
 	createEventBody,
 	createEventCreateScope,
 	createEventDeps,
@@ -25,6 +26,7 @@ import {
 	resolveEventCreateInput,
 	resolveEventEntityId,
 	resolveEventSchemaId,
+	resolveSessionEntityId,
 } from "./service";
 
 describe("resolveEventEntityId", () => {
@@ -47,6 +49,18 @@ describe("resolveEventSchemaId", () => {
 	it("throws when the event schema id is blank", () => {
 		expect(() => resolveEventSchemaId("   ")).toThrow(
 			"Event schema id is required",
+		);
+	});
+});
+
+describe("resolveSessionEntityId", () => {
+	it("trims the provided session entity id", () => {
+		expect(resolveSessionEntityId("  workout_123  ")).toBe("workout_123");
+	});
+
+	it("throws when the session entity id is blank", () => {
+		expect(() => resolveSessionEntityId("   ")).toThrow(
+			"Session entity id is required",
 		);
 	});
 });
@@ -206,6 +220,42 @@ describe("listEntityEvents", () => {
 			message: "Entity not found",
 		});
 	});
+
+	it("returns events when filtering by sessionEntityId", async () => {
+		const listedEvent = createListedEvent({
+			sessionEntityId: "workout_1",
+			eventSchemaSlug: "workout-set",
+		});
+
+		const result = await listEntityEvents(
+			{ sessionEntityId: "workout_1", userId: "user_1" },
+			createEventDeps({
+				listEventsByEntityForUser: async (input) => {
+					expect(input).toEqual({
+						userId: "user_1",
+						sessionEntityId: "workout_1",
+					});
+					return [listedEvent];
+				},
+			}),
+		);
+
+		expect(result).toEqual({ data: [listedEvent] });
+	});
+
+	it("returns not found when the session entity does not exist", async () => {
+		const result = await listEntityEvents(
+			{ sessionEntityId: "workout_1", userId: "user_1" },
+			createEventDeps({
+				getSessionEntityScopeForUser: async () => undefined,
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Session entity not found",
+		});
+	});
 });
 
 describe("createEvent", () => {
@@ -234,6 +284,129 @@ describe("createEvent", () => {
 
 		expect(createdEventSchemaId).toBe("event_schema_123");
 		expect(createdEvent.properties).toEqual({ rating: 4 });
+	});
+
+	it("passes sessionEntityId through when creating a workout-set event", async () => {
+		let capturedSessionEntityId: string | undefined;
+
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					sessionEntityId: "workout_1",
+					eventSchemaId: "event_schema_workout_set",
+					properties: {
+						reps: 10,
+						setOrder: 0,
+						setLot: "normal",
+						exerciseOrder: 0,
+					},
+				}),
+			},
+			createBuiltinWorkoutSetEventDeps({
+				createEventForUser: async (input) => {
+					capturedSessionEntityId = input.sessionEntityId;
+					return createListedEvent({
+						entityId: input.entityId,
+						properties: input.properties,
+						eventSchemaId: input.eventSchemaId,
+						eventSchemaName: input.eventSchemaName,
+						eventSchemaSlug: input.eventSchemaSlug,
+						sessionEntityId: input.sessionEntityId ?? null,
+					});
+				},
+			}),
+		);
+
+		expect(result).toEqual({ data: expect.anything() });
+		expect(capturedSessionEntityId).toBe("workout_1");
+	});
+
+	it("does not set sessionEntityId when not supplied", async () => {
+		let capturedSessionEntityId = "unexpected";
+
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					eventSchemaId: "event_schema_workout_set",
+					properties: {
+						reps: 10,
+						setOrder: 0,
+						setLot: "normal",
+						exerciseOrder: 0,
+					},
+				}),
+			},
+			createBuiltinWorkoutSetEventDeps({
+				createEventForUser: async (input) => {
+					capturedSessionEntityId = input.sessionEntityId ?? "undefined";
+					return createListedEvent({
+						entityId: input.entityId,
+						properties: input.properties,
+						eventSchemaId: input.eventSchemaId,
+						eventSchemaName: input.eventSchemaName,
+						eventSchemaSlug: input.eventSchemaSlug,
+						sessionEntityId: input.sessionEntityId ?? null,
+					});
+				},
+			}),
+		);
+
+		expect(result).toEqual({ data: expect.anything() });
+		expect(capturedSessionEntityId).toBe("undefined");
+	});
+
+	it("returns not found when the session entity does not exist", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					sessionEntityId: "missing_workout",
+					eventSchemaId: "event_schema_workout_set",
+					properties: {
+						reps: 10,
+						setOrder: 0,
+						setLot: "normal",
+						exerciseOrder: 0,
+					},
+				}),
+			},
+			createBuiltinWorkoutSetEventDeps({
+				getSessionEntityScopeForUser: async () => undefined,
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Session entity not found",
+		});
+	});
+
+	it("returns not found when the session entity is inaccessible", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					sessionEntityId: "hidden_workout",
+					eventSchemaId: "event_schema_workout_set",
+					properties: {
+						reps: 10,
+						setOrder: 0,
+						setLot: "normal",
+						exerciseOrder: 0,
+					},
+				}),
+			},
+			createBuiltinWorkoutSetEventDeps({
+				getSessionEntityScopeForUser: async () => undefined,
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "not_found",
+			message: "Session entity not found",
+		});
 	});
 
 	it("upserts in-library before creating an event for a global entity", async () => {

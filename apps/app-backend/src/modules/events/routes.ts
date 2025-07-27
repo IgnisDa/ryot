@@ -57,6 +57,7 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const result = await listEntityEvents({
 			userId: user.id,
 			entityId: query.entityId,
+			sessionEntityId: query.sessionEntityId,
 			eventSchemaSlug: query.eventSchemaSlug,
 		});
 		if ("error" in result) {
