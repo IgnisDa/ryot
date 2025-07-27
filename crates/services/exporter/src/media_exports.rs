@@ -98,7 +98,7 @@ pub async fn export_media(
                 source_id: m.title,
                 identifier: m.identifier.clone(),
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = related_metadata.response.details.next_page {
             current_page = next_page;
@@ -158,7 +158,7 @@ pub async fn export_media_group(
                 source: m.source,
                 identifier: m.identifier.clone(),
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = related_metadata.response.details.next_page {
             current_page = next_page;
@@ -214,7 +214,7 @@ pub async fn export_people(
                 identifier: p.identifier,
                 source_specifics: p.source_specifics,
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = related_people.response.details.next_page {
             current_page = next_page;

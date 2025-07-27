@@ -70,7 +70,7 @@ pub async fn export_measurements(
     let measurements =
         user_measurements_list(user_id, ss, UserMeasurementsListInput::default()).await?;
     for measurement in measurements.response {
-        writer.serialize_value(&measurement).unwrap();
+        writer.serialize_value(&measurement)?;
     }
     Ok(())
 }
@@ -124,7 +124,7 @@ pub async fn export_exercises(
                 id: exercise_id,
                 name: exercise.name,
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = exercises.response.details.next_page {
             current_page = next_page;
@@ -163,7 +163,7 @@ pub async fn export_workout_templates(
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.details).collect(),
             };
-            writer.serialize_value(&exp).unwrap();
+            writer.serialize_value(&exp)?;
         }
         if let Some(next_page) = workout_template_ids.response.details.next_page {
             current_page = next_page;

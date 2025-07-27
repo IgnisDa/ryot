@@ -17,7 +17,7 @@ pub async fn export_collections(
 
     ryot_log!(debug, "Exporting {} collections", collections.len());
     for collection in collections {
-        writer.serialize_value(&collection).unwrap();
+        writer.serialize_value(&collection)?;
     }
     Ok(())
 }
