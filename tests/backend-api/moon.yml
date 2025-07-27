@@ -1,3 +1,5 @@
+layer: automation
+
 tasks:
   test:
     command: "vitest run"

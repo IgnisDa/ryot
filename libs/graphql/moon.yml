@@ -1,7 +1,7 @@
-type: 'library'
+layer: "library"
 
 workspace:
   inheritedTasks:
     exclude:
-      - 'build'
-      - 'test'
+      - "build"
+      - "test"
