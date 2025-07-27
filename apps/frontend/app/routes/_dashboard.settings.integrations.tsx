@@ -902,6 +902,11 @@ const CreateOrUpdateModal = (props: {
 							</Button>
 						</Group>
 					)}
+					<Checkbox
+						name="isDisabled"
+						label="Pause integration"
+						defaultChecked={props.integrationData?.isDisabled || undefined}
+					/>
 					<Collapse in={isAdvancedSettingsOpened}>
 						<Stack>
 							<TextInput
@@ -954,11 +959,6 @@ const CreateOrUpdateModal = (props: {
 									/>
 								</Tooltip>
 							) : undefined}
-							<Checkbox
-								name="isDisabled"
-								label="Pause integration"
-								defaultChecked={props.integrationData?.isDisabled || undefined}
-							/>
 							<Checkbox
 								label="Disable on continuous errors"
 								name="extraSettings.disableOnContinuousErrors"
