@@ -5,6 +5,7 @@ use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{prelude::User, user};
 use database_utils::{admin_account_guard, deploy_job_to_calculate_user_activities_and_summary};
+use dependent_models::ExpireCacheKeyInput;
 use dependent_utils::create_or_update_collection;
 use enum_meta::Meta;
 use enum_models::UserLot;
@@ -119,11 +120,7 @@ pub async fn reset_user(
     };
 
     let register_result = register_user(ss, register_input).await?;
-    cache_service::expire_key(
-        ss,
-        dependent_models::ExpireCacheKeyInput::ByUser(original_id),
-    )
-    .await?;
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByUser(original_id)).await?;
     match register_result {
         RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
         RegisterResult::Ok(result) => {
