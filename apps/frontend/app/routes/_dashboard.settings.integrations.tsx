@@ -667,25 +667,17 @@ const createProviderSpecificsSchema = () => {
 				case "textarea":
 				case "select":
 					fieldSchema = field.transform
-						? field.notRequired
-							? z.string().optional().transform(field.transform)
-							: z.string().transform(field.transform)
-						: field.notRequired
-							? z.string().optional()
-							: z.string();
+						? z.string().optional().transform(field.transform)
+						: z.string().optional();
 					break;
 				case "number":
-					fieldSchema = field.notRequired ? z.number().optional() : z.number();
+					fieldSchema = z.number().optional();
 					break;
 				case "multiselect":
-					fieldSchema = field.notRequired
-						? zodCommaDelimitedString.optional()
-						: zodCommaDelimitedString;
+					fieldSchema = zodCommaDelimitedString.optional();
 					break;
 				default:
-					fieldSchema = field.notRequired
-						? z.unknown().optional()
-						: z.unknown();
+					fieldSchema = z.unknown().optional();
 			}
 
 			schemas[field.name] = fieldSchema;
