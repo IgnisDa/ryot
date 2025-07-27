@@ -170,13 +170,17 @@ const apiUrlImportFormSchema = z.object({
 	apiUrl: z.string(),
 });
 
-const urlAndKeyImportFormSchema = apiUrlImportFormSchema.merge(
-	z.object({ apiKey: z.string() }),
+const apiKeySchema = z.object({ apiKey: z.string() });
+
+const urlAndKeyImportFormSchema = apiUrlImportFormSchema.extend(
+	apiKeySchema.shape,
 );
 
+const optionalPasswordSchema = z.object({ password: z.string().optional() });
+
 const jellyfinImportFormSchema = usernameImportFormSchema
-	.merge(apiUrlImportFormSchema)
-	.merge(z.object({ password: z.string().optional() }));
+	.extend(apiUrlImportFormSchema.shape)
+	.extend(optionalPasswordSchema.shape);
 
 const genericCsvImportFormSchema = z.object({ csvPath: z.string() });
 
@@ -184,7 +188,7 @@ const strongAppImportFormSchema = z.object({ dataExportPath: z.string() });
 
 const igdbImportFormSchema = z
 	.object({ collection: z.string() })
-	.merge(genericCsvImportFormSchema);
+	.extend(genericCsvImportFormSchema.shape);
 
 const movaryImportFormSchema = z.object({
 	ratings: z.string(),

@@ -154,7 +154,7 @@ const reviewSchema = z
 		entityLot: z.enum(EntityLot).optional(),
 		visibility: z.enum(Visibility).optional(),
 	})
-	.merge(MetadataSpecificsSchema);
+	.extend(MetadataSpecificsSchema.shape);
 
 const markEntityAsPartialSchema = z.object({
 	entityId: z.string(),
