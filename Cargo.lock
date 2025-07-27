@@ -5879,8 +5879,8 @@ dependencies = [
  "cache-service",
  "chrono",
  "dependent-models",
+ "rand 0.9.1",
  "supporting-service",
- "uuid",
 ]
 
 [[package]]

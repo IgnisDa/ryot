@@ -6,8 +6,8 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserSessionInput,
     UserSessionValue,
 };
+use rand::{RngCore, rng};
 use supporting_service::SupportingService;
-use uuid::Uuid;
 
 pub async fn create_session(
     ss: &Arc<SupportingService>,
@@ -15,7 +15,12 @@ pub async fn create_session(
     access_link_id: Option<String>,
     expiry_duration: Option<Duration>,
 ) -> Result<String> {
-    let session_id = Uuid::new_v4().to_string();
+    let mut token_bytes = [0u8; 32];
+    rng().fill_bytes(&mut token_bytes);
+    let session_id = token_bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>();
     let cache_key = ApplicationCacheKey::UserSession(UserSessionInput {
         session_id: session_id.clone(),
     });
