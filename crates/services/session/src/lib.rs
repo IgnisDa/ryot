@@ -17,10 +17,7 @@ pub async fn create_session(
 ) -> Result<String> {
     let mut token_bytes = [0u8; 32];
     rng().fill_bytes(&mut token_bytes);
-    let session_id = token_bytes
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<String>();
+    let session_id = hex::encode(token_bytes);
     let cache_key = ApplicationCacheKey::UserSession(UserSessionInput {
         session_id: session_id.clone(),
     });
@@ -48,7 +45,7 @@ pub async fn validate_session(
     });
     let value = cache_service::get_value::<UserSessionValue>(ss, cache_key)
         .await
-        .map(|value| value.1);
+        .map(|(_key, value)| value);
     Ok(value)
 }
 
