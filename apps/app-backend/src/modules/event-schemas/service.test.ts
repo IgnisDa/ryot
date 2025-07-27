@@ -7,8 +7,8 @@ import {
 	createNoteProgressPropertiesSchema,
 } from "~/lib/test-fixtures";
 import { expectDataResult } from "~/lib/test-helpers";
+import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
 
-import { authenticationBuiltinEntitySchemas } from "../authentication/bootstrap/manifests";
 import {
 	createEventSchema,
 	listEventSchemas,

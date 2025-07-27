@@ -6,6 +6,8 @@ export type {
 	ListedEntitySchema,
 	Provider,
 } from "./schemas";
+export { getBuiltinEntitySchemaBySlug } from "./repository";
+export { createTrackerEntitySchemas, listBuiltinEntitySchemas } from "./repository";
 export type {
 	EntityImportDeps,
 	EntitySchemaPropertiesShape,

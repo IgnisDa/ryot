@@ -10,12 +10,12 @@ import {
 	tracker,
 	trackerEntitySchema,
 } from "~/lib/db/schema";
-
 import {
+	buildBuiltinSavedViewName,
 	createDefaultDisplayConfiguration,
 	createDefaultQueryDefinition,
-} from "../saved-views/constants";
-import { buildBuiltinSavedViewName } from "../saved-views/service";
+} from "~/modules/saved-views";
+
 import type { ListedEntitySchema, Provider } from "./schemas";
 import type { EntitySchemaPropertiesShape } from "./service";
 
