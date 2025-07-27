@@ -9,7 +9,6 @@ import { useSetNavSheetOpen } from "@/lib/navigation";
 
 import {
 	ActivitySection,
-	hexToRgba,
 	RateTheseSection,
 	SECTION_ACCENTS,
 	StatCard,
@@ -17,6 +16,7 @@ import {
 	StoryRingRow,
 	UpNextSection,
 } from "./overview-sections";
+import { hexToRgba } from "./overview-utils";
 import { useMediaOverviewData } from "./use-overview-data";
 
 export function MediaTrackerOverview() {
