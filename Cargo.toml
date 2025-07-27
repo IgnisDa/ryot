@@ -116,7 +116,7 @@ nest_struct = "=0.5.5"
 openidconnect = "=4.0.1"
 paginate = "=1.1.11"
 rand = "=0.9.1"
-ring = "=0.17.8"
+ring = "=0.17.14"
 regex = "=1.11.1"
 reqwest = { version = "=0.12.22", features = [
     "json",
