@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useApiClient } from "#/hooks/api";
+import { useApiClient } from "~/hooks/api";
 import { type AppEventSchema, sortEventSchemas } from "./model";
 
 export function useEventSchemasQuery(entitySchemaId: string, enabled = true) {

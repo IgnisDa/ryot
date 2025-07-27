@@ -1,4 +1,4 @@
-import type { AppEntitySchema } from "#/features/entity-schemas/model";
+import type { AppEntitySchema } from "~/features/entity-schemas/model";
 
 export function createEntitySchemaFixture(
 	overrides: Partial<AppEntitySchema> = {},

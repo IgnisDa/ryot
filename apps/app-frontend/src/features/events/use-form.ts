@@ -1,4 +1,4 @@
-import { useAppForm } from "#/hooks/forms";
+import { useAppForm } from "~/hooks/forms";
 import type { AppEventSchema } from "../event-schemas/model";
 import {
 	buildCreateEventFormSchema,

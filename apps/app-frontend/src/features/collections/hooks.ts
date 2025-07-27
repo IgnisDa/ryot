@@ -1,5 +1,5 @@
 import type { AppSchema } from "@ryot/ts-utils";
-import { useApiClient } from "#/hooks/api";
+import { useApiClient } from "~/hooks/api";
 
 export function useCollectionMutations() {
 	const apiClient = useApiClient();
