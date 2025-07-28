@@ -45,7 +45,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(AccessLink::IssuedTokens)
                             .array(ColumnType::Text)
                             .not_null()
-                            .default(Expr::cust("'{}'")),
+                            .default("{}"),
                     )
                     .col(ColumnDef::new(AccessLink::ExpiresOn).timestamp_with_time_zone())
                     .col(
