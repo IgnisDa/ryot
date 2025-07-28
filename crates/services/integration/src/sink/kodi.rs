@@ -18,7 +18,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
             identifier: payload.identifier,
             seen_history: vec![ImportOrExportMetadataItemSeen {
                 progress: Some(payload.progress),
-                provider_watched_on: Some("Kodi".to_string()),
+                providers_consumed_on: Some(vec!["Kodi".to_string()]),
                 show_season_number: payload.show_season_number,
                 show_episode_number: payload.show_episode_number,
                 ..Default::default()

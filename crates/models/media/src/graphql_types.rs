@@ -36,7 +36,7 @@ pub struct MetadataProgressUpdateCommonInput {
     pub manga_volume_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
-    pub provider_watched_on: Option<String>,
+    pub providers_consumed_on: Option<Vec<String>>,
     pub manga_chapter_number: Option<Decimal>,
 }
 
@@ -187,7 +187,7 @@ pub struct UpdateSeenItemInput {
     pub started_on: Option<DateTimeUtc>,
     pub finished_on: Option<DateTimeUtc>,
     pub manual_time_spent: Option<Decimal>,
-    pub provider_watched_on: Option<String>,
+    pub providers_consumed_on: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]

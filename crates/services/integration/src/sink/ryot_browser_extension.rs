@@ -57,7 +57,7 @@ pub async fn sink_progress(
             identifier: media_seen.identifier,
             seen_history: vec![ImportOrExportMetadataItemSeen {
                 progress: Some(media_seen.progress),
-                provider_watched_on: Some(provider_name),
+                providers_consumed_on: Some(vec![provider_name]),
                 show_season_number: media_seen.show_season_number,
                 show_episode_number: media_seen.show_episode_number,
                 ..Default::default()

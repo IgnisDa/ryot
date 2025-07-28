@@ -152,7 +152,7 @@ fn process_grouvee_record(
             .any(|c| c.collection_name == DefaultCollection::Completed.to_string());
         if is_completed {
             seen_history.push(ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some(ImportSource::Grouvee.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Grouvee.to_string()]),
                 ..Default::default()
             });
         }
@@ -241,7 +241,7 @@ fn parse_dates(dates_str: &str) -> Vec<ImportOrExportMetadataItemSeen> {
             .filter_map(
                 |entry| match (entry.date_finished.as_ref(), entry.seconds_played) {
                     (Some(_), _) | (_, Some(_)) => Some(ImportOrExportMetadataItemSeen {
-                        provider_watched_on: Some(ImportSource::Grouvee.to_string()),
+                        providers_consumed_on: Some(vec![ImportSource::Grouvee.to_string()]),
                         started_on: entry.date_started.and_then(|d| parse_date(&d)),
                         ended_on: entry.date_finished.and_then(|d| parse_date(&d)),
                         ..Default::default()

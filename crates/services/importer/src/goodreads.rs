@@ -137,7 +137,7 @@ async fn process_book_record(
 
     let mut seen_history = vec![
         ImportOrExportMetadataItemSeen {
-            provider_watched_on: Some(ImportSource::Goodreads.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Goodreads.to_string()]),
             ..Default::default()
         };
         record.read_count

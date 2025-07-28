@@ -31,8 +31,8 @@ pub async fn update_seen_item(
     if let Some(finished_on) = input.finished_on {
         seen.finished_on = ActiveValue::Set(Some(finished_on));
     }
-    if let Some(provider_watched_on) = input.provider_watched_on {
-        seen.provider_watched_on = ActiveValue::Set(Some(provider_watched_on));
+    if let Some(providers_consumed_on) = input.providers_consumed_on {
+        seen.providers_consumed_on = ActiveValue::Set(providers_consumed_on);
     }
     if let Some(manual_time_spent) = input.manual_time_spent {
         seen.manual_time_spent = ActiveValue::Set(Some(manual_time_spent));

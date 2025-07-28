@@ -53,7 +53,7 @@ async fn process_metadata_item(
             identifier: tmdb_id.to_string(),
             seen_history: vec![ImportOrExportMetadataItemSeen {
                 ended_on: item.last_viewed_at,
-                provider_watched_on: Some(ImportSource::Plex.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Plex.to_string()]),
                 ..Default::default()
             }],
             ..Default::default()
@@ -104,7 +104,7 @@ async fn process_metadata_item(
                             ended_on: leaf.last_viewed_at,
                             show_episode_number: leaf.index,
                             show_season_number: leaf.parent_index,
-                            provider_watched_on: Some(ImportSource::Plex.to_string()),
+                            providers_consumed_on: Some(vec![ImportSource::Plex.to_string()]),
                             ..Default::default()
                         });
                 }

@@ -27,7 +27,7 @@ pub struct Model {
     pub user_id: String,
     pub metadata_id: String,
     pub state: SeenState,
-    pub provider_watched_on: Option<String>,
+    pub providers_consumed_on: Vec<String>,
     #[graphql(skip)]
     #[serde(skip)]
     #[educe(Debug(ignore))]

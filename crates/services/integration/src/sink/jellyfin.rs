@@ -71,7 +71,7 @@ pub async fn sink_progress(payload: String) -> Result<Option<ImportResult>> {
     let mut seen_item = ImportOrExportMetadataItemSeen {
         show_season_number: payload.item.season_number,
         show_episode_number: payload.item.episode_number,
-        provider_watched_on: Some("Jellyfin".to_string()),
+        providers_consumed_on: Some(vec!["Jellyfin".to_string()]),
         ..Default::default()
     };
 

@@ -118,7 +118,7 @@ pub async fn sink_progress(
             source: MediaSource::Tmdb,
             seen_history: vec![ImportOrExportMetadataItemSeen {
                 progress: Some(progress),
-                provider_watched_on: Some("Plex".to_string()),
+                providers_consumed_on: Some(vec!["Plex".to_string()]),
                 show_season_number: payload.metadata.season_number,
                 show_episode_number: payload.metadata.episode_number,
                 ..Default::default()

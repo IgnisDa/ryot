@@ -16,8 +16,8 @@ pub async fn import(input: DeployJsonImportInput) -> Result<ImportResult> {
         .iter_mut()
         .map(|m| {
             m.seen_history.iter_mut().for_each(|s| {
-                if s.provider_watched_on.is_none() {
-                    s.provider_watched_on = Some(ImportSource::GenericJson.to_string());
+                if s.providers_consumed_on.is_none() {
+                    s.providers_consumed_on = Some(vec![ImportSource::GenericJson.to_string()]);
                 }
             });
             m.to_owned()
