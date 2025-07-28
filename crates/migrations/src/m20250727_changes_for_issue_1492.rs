@@ -23,7 +23,7 @@ impl MigrationTrait for Migration {
 
             if data_type != "text" {
                 db.execute_unprepared(
-                    "ALTER TABLE application_cache ALTER COLUMN key TYPE text USING key::text",
+                    "ALTER TABLE application_cache ALTER COLUMN key TYPE text USING REPLACE(key::text, ' ', '')",
                 )
                 .await?;
             }
