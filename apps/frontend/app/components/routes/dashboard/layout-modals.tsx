@@ -19,8 +19,10 @@ import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/pro
 import { ReviewEntityForm } from "./forms/review-entity-form";
 
 export function LayoutModals() {
-	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
-	const closeMetadataProgressUpdateModal = () => setMetadataToUpdate(null);
+	const { metadataToUpdate, initializeMetadataToUpdate } =
+		useMetadataProgressUpdate();
+	const closeMetadataProgressUpdateModal = () =>
+		initializeMetadataToUpdate(null);
 	const [entityToReview, setEntityToReview] = useReviewEntity();
 	const closeReviewEntityModal = () => setEntityToReview(null);
 	const [addEntityToCollectionsData, setAddEntityToCollectionsData] =

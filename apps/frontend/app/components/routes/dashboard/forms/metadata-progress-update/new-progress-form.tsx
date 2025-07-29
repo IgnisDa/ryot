@@ -37,7 +37,8 @@ export const MetadataNewProgressUpdateForm = ({
 	metadataDetails,
 }: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
-	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { metadataToUpdate, updateMetadataToUpdate } =
+		useMetadataProgressUpdate();
 	const [startDate, setStartDate] = useState<Date | null>(null);
 	const [finishDate, setFinishDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
@@ -124,9 +125,9 @@ export const MetadataNewProgressUpdateForm = ({
 	if (!metadataToUpdate) return null;
 
 	const handleProviderChange = (providers: string[]) => {
-		setMetadataToUpdate(
+		updateMetadataToUpdate(
 			produce(metadataToUpdate, (draft) => {
-				draft.providersConsumedOn = providers;
+				draft.providersConsumedOn = [...providers];
 			}),
 		);
 	};

@@ -14,7 +14,7 @@ export const DisplayShowSeason = (props: {
 	openSeasonModal: () => void;
 	userMetadataDetails: UserMetadataDetails;
 }) => {
-	const { setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 
 	const seasonProgress =
 		props.userMetadataDetails.showProgress?.[props.seasonIdx];
@@ -39,7 +39,7 @@ export const DisplayShowSeason = (props: {
 						color="blue"
 						variant={isSeen ? "default" : "outline"}
 						onClick={() => {
-							setMetadataToUpdate({
+							initializeMetadataToUpdate({
 								showAllEpisodesBefore: true,
 								metadataId: props.metadataId,
 								showSeasonNumber: props.season.seasonNumber,

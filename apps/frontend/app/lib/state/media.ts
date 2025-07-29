@@ -57,10 +57,8 @@ export const useMetadataProgressUpdate = () => {
 	const [isMetadataToUpdateLoading, setIsLoading] = useState(false);
 	const [metadataToUpdate, setProgress] = useAtom(metadataProgressUpdateAtom);
 
-	const setMetadataToUpdate = async (
+	const initializeMetadataToUpdate = async (
 		draft: UpdateProgressData | null,
-		// DEV: This is not true by default because this function is mostly being called by the
-		// seasons and episodes tab in media details page.
 		determineNext?: boolean,
 	) => {
 		setIsLoading(true);
@@ -71,8 +69,9 @@ export const useMetadataProgressUpdate = () => {
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
-			draft.providersConsumedOn =
-				userMetadataDetails.history.at(0)?.providersConsumedOn || [];
+			draft.providersConsumedOn = [
+				...(userMetadataDetails.history.at(0)?.providersConsumedOn || []),
+			];
 			if (determineNext) {
 				const nextEntry = userMetadataDetails?.nextEntry;
 				if (nextEntry) {
@@ -98,7 +97,16 @@ export const useMetadataProgressUpdate = () => {
 		setProgress(draft);
 	};
 
-	return { metadataToUpdate, setMetadataToUpdate, isMetadataToUpdateLoading };
+	const updateMetadataToUpdate = (draft: UpdateProgressData | null) => {
+		setProgress(draft);
+	};
+
+	return {
+		metadataToUpdate,
+		initializeMetadataToUpdate,
+		updateMetadataToUpdate,
+		isMetadataToUpdateLoading,
+	};
 };
 
 export type ReviewEntityData = {

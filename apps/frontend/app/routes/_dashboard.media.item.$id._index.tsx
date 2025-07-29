@@ -246,7 +246,7 @@ export default function Page() {
 		mergeMetadataModalOpened,
 		{ open: mergeMetadataModalOpen, close: mergeMetadataModalClose },
 	] = useDisclosure(false);
-	const { setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const [_r, setEntityToReview] = useReviewEntity();
 	const [_a, setAddEntityToCollectionsData] = useAddEntityToCollections();
 	const [openedShowSeason, setOpenedShowSeason] = useState<number>();
@@ -711,7 +711,7 @@ export default function Page() {
 														<>
 															<Menu.Item
 																onClick={() => {
-																	setMetadataToUpdate({
+																	initializeMetadataToUpdate({
 																		metadataId: loaderData.metadataId,
 																		showSeasonNumber: nextEntry.season,
 																		showEpisodeNumber: nextEntry.episode,
@@ -740,7 +740,7 @@ export default function Page() {
 													<Menu.Label>Anime</Menu.Label>
 													<Menu.Item
 														onClick={() => {
-															setMetadataToUpdate({
+															initializeMetadataToUpdate({
 																metadataId: loaderData.metadataId,
 																animeEpisodeNumber: nextEntry?.episode || 1,
 															});
@@ -761,7 +761,7 @@ export default function Page() {
 													<Menu.Label>Manga</Menu.Label>
 													<Menu.Item
 														onClick={() => {
-															setMetadataToUpdate({
+															initializeMetadataToUpdate({
 																metadataId: loaderData.metadataId,
 																mangaVolumeNumber: nextEntry?.volume,
 																mangaChapterNumber: nextEntry?.chapter,
@@ -789,7 +789,7 @@ export default function Page() {
 														<>
 															<Menu.Item
 																onClick={() => {
-																	setMetadataToUpdate({
+																	initializeMetadataToUpdate({
 																		metadataId: loaderData.metadataId,
 																		podcastEpisodeNumber: nextEntry.episode,
 																	});
@@ -816,7 +816,7 @@ export default function Page() {
 													<Menu.Label>In progress</Menu.Label>
 													<Menu.Item
 														onClick={() => {
-															setMetadataToUpdate({
+															initializeMetadataToUpdate({
 																metadataId: loaderData.metadataId,
 															});
 														}}
@@ -867,7 +867,7 @@ export default function Page() {
 													) : null}
 													<Menu.Item
 														onClick={() => {
-															setMetadataToUpdate({
+															initializeMetadataToUpdate({
 																metadataId: loaderData.metadataId,
 															});
 														}}
