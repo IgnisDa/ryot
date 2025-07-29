@@ -147,13 +147,21 @@ export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	path: "/",
 });
 
-const getRenewOnFromPlanType = (planType: TPlanTypes, createdOn: Date) => {
-	const baseDate = dayjs(createdOn);
+export const calculateRenewalDate = (
+	planType: TPlanTypes,
+	baseDate?: Date | dayjs.Dayjs,
+) => {
+	const date = baseDate ? dayjs(baseDate) : dayjs();
 	return match(planType)
 		.with("free", "lifetime", () => null)
-		.with("yearly", () => baseDate.add(1, "year"))
-		.with("monthly", () => baseDate.add(1, "month"))
+		.with("yearly", () => date.add(1, "year"))
+		.with("monthly", () => date.add(1, "month"))
 		.exhaustive();
+};
+
+const getRenewOnFromPlanType = (planType: TPlanTypes, createdOn: Date) => {
+	const renewalDate = calculateRenewalDate(planType, createdOn);
+	return renewalDate ? formatDateToNaiveDate(renewalDate) : null;
 };
 
 export const getCustomerFromCookie = async (request: Request) => {

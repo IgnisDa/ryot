@@ -65,4 +65,7 @@ export const customerPurchases = pgTable("customer_purchase", {
 	createdOn: timestamp("created_on", { withTimezone: true })
 		.defaultNow()
 		.notNull(),
+	updatedOn: timestamp("updated_on", { withTimezone: true })
+		.defaultNow()
+		.notNull(),
 });

@@ -43,6 +43,13 @@
 			"when": 1753769466418,
 			"tag": "0005_cynical_ma_gnuci",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1753813569267,
+			"tag": "0006_mature_hercules",
+			"breakpoints": true
 		}
 	]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "customer_purchase" ADD COLUMN "updated_on" timestamp with time zone DEFAULT now() NOT NULL;

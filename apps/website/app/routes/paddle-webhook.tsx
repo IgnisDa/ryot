@@ -6,7 +6,6 @@ import {
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
-import dayjs from "dayjs";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { data } from "react-router";
@@ -14,6 +13,7 @@ import { match } from "ts-pattern";
 import { customerPurchases, customers } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
+	calculateRenewalDate,
 	createUnkeyKey,
 	customDataSchema,
 	db,
@@ -75,7 +75,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		});
 
 		if (!activePurchase) {
-			const priceId = paddleData.details?.lineItems[0].priceId;
+			const priceId = paddleData.details?.lineItems.at(0)?.priceId;
 			if (!priceId) return data({ error: "Price ID not found" });
 
 			const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
@@ -88,6 +88,24 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const { email, oidcIssuerId } = customer;
 			const { ryotUserId, unkeyKeyId, details } = await match(productType)
 				.with("cloud", async () => {
+					if (customer.ryotUserId) {
+						await serverGqlService.request(UpdateUserDocument, {
+							input: {
+								isDisabled: false,
+								userId: customer.ryotUserId,
+								adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+							},
+						});
+						return {
+							ryotUserId: customer.ryotUserId,
+							unkeyKeyId: null,
+							details: {
+								__typename: "cloud" as const,
+								auth: oidcIssuerId ? email : "User reactivated",
+							},
+						};
+					}
+
 					const password = nanoid(10);
 					const { registerUser } = await serverGqlService.request(
 						RegisterUserDocument,
@@ -114,12 +132,29 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					};
 				})
 				.with("self_hosted", async () => {
-					const purchaseDate = dayjs();
-					const renewalDate = match(planType)
-						.with("free", "lifetime", () => null)
-						.with("yearly", () => purchaseDate.add(1, "year"))
-						.with("monthly", () => purchaseDate.add(1, "month"))
-						.exhaustive();
+					const renewalDate = calculateRenewalDate(planType);
+
+					if (customer.unkeyKeyId) {
+						await unkey.keys.update({
+							enabled: true,
+							keyId: customer.unkeyKeyId,
+							meta: renewalDate
+								? {
+										expiry: formatDateToNaiveDate(
+											renewalDate.add(GRACE_PERIOD, "days"),
+										),
+									}
+								: undefined,
+						});
+						return {
+							ryotUserId: null,
+							unkeyKeyId: customer.unkeyKeyId,
+							details: {
+								key: "API key reactivated with new expiry",
+								__typename: "self_hosted" as const,
+							},
+						};
+					}
 
 					const created = await createUnkeyKey(
 						customer,
@@ -135,12 +170,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					};
 				})
 				.exhaustive();
+			const renewalDate = calculateRenewalDate(planType);
+			const renewOn = renewalDate
+				? formatDateToNaiveDate(renewalDate)
+				: undefined;
+
 			await sendEmail({
 				recipient: customer.email,
 				subject: PurchaseCompleteEmail.subject,
 				element: PurchaseCompleteEmail({
 					planType,
-					renewOn: undefined,
+					renewOn,
 					details,
 				}),
 			});
@@ -151,14 +191,27 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				customerId: customer.id,
 			});
 
-			await db
-				.update(customers)
-				.set({
-					ryotUserId,
-					unkeyKeyId,
-					paddleCustomerId,
-				})
-				.where(eq(customers.id, customer.id));
+			const updateData: {
+				ryotUserId?: string | null;
+				unkeyKeyId?: string | null;
+				paddleCustomerId?: string | null;
+			} = {};
+			if (ryotUserId && ryotUserId !== customer.ryotUserId) {
+				updateData.ryotUserId = ryotUserId;
+			}
+			if (unkeyKeyId && unkeyKeyId !== customer.unkeyKeyId) {
+				updateData.unkeyKeyId = unkeyKeyId;
+			}
+			if (paddleCustomerId && paddleCustomerId !== customer.paddleCustomerId) {
+				updateData.paddleCustomerId = paddleCustomerId;
+			}
+
+			if (Object.keys(updateData).length > 0) {
+				await db
+					.update(customers)
+					.set(updateData)
+					.where(eq(customers.id, customer.id));
+			}
 		} else {
 			const priceId = paddleData.details?.lineItems[0].priceId;
 			if (!priceId) return data({ error: "Price ID not found" });
@@ -170,11 +223,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				planType,
 			});
 
-			await db.insert(customerPurchases).values({
-				customerId: customer.id,
-				planType,
-				productType,
-			});
+			await db
+				.update(customerPurchases)
+				.set({
+					planType,
+					productType,
+					updatedOn: new Date(),
+				})
+				.where(eq(customerPurchases.id, activePurchase.id));
 
 			if (customer.ryotUserId) {
 				await serverGqlService.request(UpdateUserDocument, {
@@ -187,14 +243,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			if (customer.unkeyKeyId) {
-				const purchaseDate = dayjs();
-				const renewal = match(planType)
-					.with("free", "lifetime", () => null)
-					.with("yearly", () => purchaseDate.add(1, "year"))
-					.with("monthly", () => purchaseDate.add(1, "month"))
-					.exhaustive();
+				const renewal = calculateRenewalDate(planType);
 
 				await unkey.keys.update({
+					enabled: true,
 					keyId: customer.unkeyKeyId,
 					meta: renewal
 						? {
@@ -221,7 +273,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 		await db
 			.update(customerPurchases)
-			.set({ cancelledOn: new Date() })
+			.set({
+				cancelledOn: new Date(),
+				updatedOn: new Date(),
+			})
 			.where(
 				and(
 					eq(customerPurchases.customerId, customer.id),
@@ -253,7 +308,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		if (cancelledPurchase) {
 			await db
 				.update(customerPurchases)
-				.set({ cancelledOn: null })
+				.set({
+					cancelledOn: null,
+					updatedOn: new Date(),
+				})
 				.where(eq(customerPurchases.id, cancelledPurchase.id));
 		}
 	}

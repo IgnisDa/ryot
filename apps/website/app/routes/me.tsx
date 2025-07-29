@@ -6,7 +6,6 @@ import {
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import {
 	changeCase,
-	formatDateToNaiveDate,
 	getActionIntent,
 } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
@@ -44,9 +43,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		customerDetails,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
-		renewOn: customerDetails.renewOn
-			? formatDateToNaiveDate(customerDetails.renewOn)
-			: undefined,
+		renewOn: customerDetails.renewOn,
 	};
 };
 
@@ -80,9 +77,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				element: PurchaseCompleteEmail({
 					planType: customer.planType,
 					details: { __typename: "self_hosted", key: created.key },
-					renewOn: customer.renewOn
-						? formatDateToNaiveDate(customer.renewOn)
-						: undefined,
+					renewOn: customer.renewOn || undefined,
 				}),
 			});
 			return data({});
