@@ -1166,7 +1166,7 @@ export enum MediaLot {
 }
 
 export enum MediaSortBy {
-  LastSeen = 'LAST_SEEN',
+  LastConsumed = 'LAST_CONSUMED',
   LastUpdated = 'LAST_UPDATED',
   ProviderRating = 'PROVIDER_RATING',
   Random = 'RANDOM',
