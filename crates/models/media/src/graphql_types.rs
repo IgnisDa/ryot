@@ -36,8 +36,8 @@ pub struct MetadataProgressUpdateCommonInput {
     pub manga_volume_number: Option<i32>,
     pub anime_episode_number: Option<i32>,
     pub podcast_episode_number: Option<i32>,
-    pub providers_consumed_on: Option<Vec<String>>,
     pub manga_chapter_number: Option<Decimal>,
+    pub providers_consumed_on: Option<Vec<String>>,
 }
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
@@ -111,11 +111,11 @@ pub enum GraphqlSortOrder {
 pub enum MediaSortBy {
     Title,
     Random,
-    LastSeen,
     UserRating,
     #[default]
     ReleaseDate,
     LastUpdated,
+    LastConsumed,
     TimesConsumed,
     ProviderRating,
 }
@@ -176,8 +176,8 @@ pub struct UserMetadataDetailsShowSeasonProgress {
 pub struct UserMediaNextEntry {
     pub season: Option<i32>,
     pub volume: Option<i32>,
-    pub chapter: Option<Decimal>,
     pub episode: Option<i32>,
+    pub chapter: Option<Decimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -194,12 +194,6 @@ pub struct UpdateSeenItemInput {
 pub struct MarkEntityAsPartialInput {
     pub entity_id: String,
     pub entity_lot: EntityLot,
-}
-
-#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
-pub struct PresignedPutUrlResponse {
-    pub upload_url: String,
-    pub key: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
