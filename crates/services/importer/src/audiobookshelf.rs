@@ -214,13 +214,13 @@ async fn process_item(
         for episode in podcasts {
             seen_history.push(ImportOrExportMetadataItemSeen {
                 podcast_episode_number: Some(episode),
-                provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Audiobookshelf.to_string()]),
                 ..Default::default()
             });
         }
     } else {
         seen_history.push(ImportOrExportMetadataItemSeen {
-            provider_watched_on: Some(ImportSource::Audiobookshelf.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Audiobookshelf.to_string()]),
             ..Default::default()
         });
     };

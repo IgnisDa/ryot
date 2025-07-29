@@ -21,26 +21,26 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
+    pub user_id: String,
+    pub state: SeenState,
     pub progress: Decimal,
+    pub metadata_id: String,
     pub started_on: Option<DateTimeUtc>,
     pub finished_on: Option<DateTimeUtc>,
-    pub user_id: String,
-    pub metadata_id: String,
-    pub state: SeenState,
-    pub provider_watched_on: Option<String>,
     #[graphql(skip)]
     #[serde(skip)]
     #[educe(Debug(ignore))]
     pub updated_at: Vec<DateTimeUtc>,
+    pub manual_time_spent: Option<Decimal>,
+    pub providers_consumed_on: Vec<String>,
     pub show_extra_information: Option<SeenShowExtraInformation>,
-    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     pub anime_extra_information: Option<SeenAnimeExtraInformation>,
     pub manga_extra_information: Option<SeenMangaExtraInformation>,
-    pub manual_time_spent: Option<Decimal>,
+    pub podcast_extra_information: Option<SeenPodcastExtraInformation>,
     // Generated columns
-    pub last_updated_on: DateTimeUtc,
     pub num_times_updated: i32,
     pub review_id: Option<String>,
+    pub last_updated_on: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

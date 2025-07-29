@@ -109,7 +109,7 @@ pub async fn import(
         ryot_log!(debug, "Identifier = {identifier:?}, Source = {source:?}");
         let mut seen_history = vec![
             ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some(ImportSource::Storygraph.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Storygraph.to_string()]),
                 ..Default::default()
             };
             record.read_count

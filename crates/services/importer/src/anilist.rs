@@ -91,7 +91,7 @@ pub async fn import(
         };
         for num in 1..progress.unwrap_or_default() + 1 {
             let mut history = ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some(ImportSource::Anilist.to_string()),
+                providers_consumed_on: Some(vec![ImportSource::Anilist.to_string()]),
                 ended_on: item
                     .updated_at
                     .clone()

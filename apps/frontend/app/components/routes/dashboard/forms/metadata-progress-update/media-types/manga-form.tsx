@@ -5,7 +5,8 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const MangaForm = (props: MediaFormProps) => {
-	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { metadataToUpdate, updateMetadataToUpdate } =
+		useMetadataProgressUpdate();
 	if (props.metadataDetails.lot !== MediaLot.Manga || !metadataToUpdate)
 		return null;
 
@@ -22,7 +23,7 @@ export const MangaForm = (props: MediaFormProps) => {
 						description="Chapter"
 						value={metadataToUpdate.mangaChapterNumber?.toString()}
 						onChange={(e) => {
-							setMetadataToUpdate(
+							updateMetadataToUpdate(
 								produce(metadataToUpdate, (draft) => {
 									draft.mangaChapterNumber =
 										e === "" ? undefined : Number(e).toString();
@@ -39,7 +40,7 @@ export const MangaForm = (props: MediaFormProps) => {
 						description="Volume"
 						value={metadataToUpdate.mangaVolumeNumber?.toString()}
 						onChange={(e) => {
-							setMetadataToUpdate(
+							updateMetadataToUpdate(
 								produce(metadataToUpdate, (draft) => {
 									draft.mangaVolumeNumber = e === "" ? undefined : Number(e);
 								}),
@@ -53,7 +54,7 @@ export const MangaForm = (props: MediaFormProps) => {
 				label="Mark all unread volumes/chapters before this as watched"
 				defaultChecked={metadataToUpdate.mangaAllChaptersOrVolumesBefore}
 				onChange={(e) => {
-					setMetadataToUpdate(
+					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.mangaAllChaptersOrVolumesBefore = e.target.checked;
 						}),

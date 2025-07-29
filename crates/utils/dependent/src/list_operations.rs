@@ -179,7 +179,7 @@ pub async fn user_metadata_list(
                         order_by,
                         NullOrdering::Last,
                     ),
-                    MediaSortBy::LastSeen => query.order_by_with_nulls(
+                    MediaSortBy::LastConsumed => query.order_by_with_nulls(
                         seen::Column::FinishedOn.max(),
                         order_by,
                         NullOrdering::Last,

@@ -37,7 +37,8 @@ export const MetadataNewProgressUpdateForm = ({
 	metadataDetails,
 }: MetadataNewProgressFormProps) => {
 	const [parent] = useAutoAnimate();
-	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { metadataToUpdate, updateMetadataToUpdate } =
+		useMetadataProgressUpdate();
 	const [startDate, setStartDate] = useState<Date | null>(null);
 	const [finishDate, setFinishDate] = useState<Date | null>(new Date());
 	const [watchTime, setWatchTime] = useState<WatchTimes>(
@@ -57,7 +58,7 @@ export const MetadataNewProgressUpdateForm = ({
 			showSeasonNumber: metadataToUpdate.showSeasonNumber,
 			mangaVolumeNumber: metadataToUpdate.mangaVolumeNumber,
 			showEpisodeNumber: metadataToUpdate.showEpisodeNumber,
-			providerWatchedOn: metadataToUpdate.providerWatchedOn,
+			providersConsumedOn: metadataToUpdate.providersConsumedOn,
 			mangaChapterNumber: metadataToUpdate.mangaChapterNumber,
 			animeEpisodeNumber: metadataToUpdate.animeEpisodeNumber,
 			podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
@@ -123,10 +124,10 @@ export const MetadataNewProgressUpdateForm = ({
 
 	if (!metadataToUpdate) return null;
 
-	const handleProviderChange = (provider: string | null) => {
-		setMetadataToUpdate(
+	const handleProviderChange = (providers: string[]) => {
+		updateMetadataToUpdate(
 			produce(metadataToUpdate, (draft) => {
-				draft.providerWatchedOn = provider;
+				draft.providersConsumedOn = [...providers];
 			}),
 		);
 	};
@@ -154,7 +155,7 @@ export const MetadataNewProgressUpdateForm = ({
 				<ProviderSelect
 					onChange={handleProviderChange}
 					metadataLot={metadataDetails.lot}
-					value={metadataToUpdate.providerWatchedOn}
+					value={metadataToUpdate.providersConsumedOn}
 				/>
 			) : null}
 			<Button

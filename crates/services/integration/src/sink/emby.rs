@@ -92,7 +92,7 @@ pub async fn sink_progress(
             identifier,
             source: MediaSource::Tmdb,
             seen_history: vec![ImportOrExportMetadataItemSeen {
-                provider_watched_on: Some("Emby".to_string()),
+                providers_consumed_on: Some(vec!["Emby".to_string()]),
                 progress: Some(position / runtime * dec!(100)),
                 show_season_number: payload.item.season_number,
                 show_episode_number: payload.item.episode_number,

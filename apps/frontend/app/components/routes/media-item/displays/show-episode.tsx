@@ -12,7 +12,7 @@ export const DisplayShowEpisode = (props: {
 	episode: Season["episodes"][number];
 	episodeProgress?: SeasonProgress["episodes"][number];
 }) => {
-	const { setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen = props.episodeProgress?.timesSeen || 0;
 
 	return (
@@ -30,7 +30,7 @@ export const DisplayShowEpisode = (props: {
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					onClick={() => {
 						if (props.beforeOpenModal) props.beforeOpenModal();
-						setMetadataToUpdate({
+						initializeMetadataToUpdate({
 							metadataId: props.metadataDetails.id,
 							showSeasonNumber: props.seasonNumber,
 							showEpisodeNumber: props.episode.episodeNumber,

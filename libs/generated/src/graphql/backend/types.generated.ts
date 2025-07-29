@@ -1319,7 +1319,7 @@ export type MetadataProgressUpdateCommonInput = {
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -1334,7 +1334,7 @@ export type MetadataProgressUpdateNewInProgressInput = {
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   startedOn: Scalars['DateTime']['input'];
@@ -1345,7 +1345,7 @@ export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   startedOn: Scalars['DateTime']['input'];
@@ -1357,7 +1357,7 @@ export type MetadataProgressUpdateStartedOrFinishedOnDateInput = {
   mangaChapterNumber?: InputMaybe<Scalars['Decimal']['input']>;
   mangaVolumeNumber?: InputMaybe<Scalars['Int']['input']>;
   podcastEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
   timestamp: Scalars['DateTime']['input'];
@@ -2290,7 +2290,7 @@ export type Seen = {
   numTimesUpdated: Scalars['Int']['output'];
   podcastExtraInformation?: Maybe<SeenPodcastExtraInformation>;
   progress: Scalars['Decimal']['output'];
-  providerWatchedOn?: Maybe<Scalars['String']['output']>;
+  providersConsumedOn: Array<Scalars['String']['output']>;
   reviewId?: Maybe<Scalars['String']['output']>;
   showExtraInformation?: Maybe<SeenShowExtraInformation>;
   startedOn?: Maybe<Scalars['DateTime']['output']>;
@@ -2464,7 +2464,7 @@ export type UpdateCustomMetadataInput = {
 export type UpdateSeenItemInput = {
   finishedOn?: InputMaybe<Scalars['DateTime']['input']>;
   manualTimeSpent?: InputMaybe<Scalars['Decimal']['input']>;
-  providerWatchedOn?: InputMaybe<Scalars['String']['input']>;
+  providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   reviewId?: InputMaybe<Scalars['String']['input']>;
   seenId: Scalars['String']['input'];
   startedOn?: InputMaybe<Scalars['DateTime']['input']>;

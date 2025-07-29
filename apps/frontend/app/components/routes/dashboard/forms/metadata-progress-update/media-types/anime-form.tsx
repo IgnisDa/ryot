@@ -5,7 +5,8 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const AnimeForm = (props: MediaFormProps) => {
-	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { metadataToUpdate, updateMetadataToUpdate } =
+		useMetadataProgressUpdate();
 	if (props.metadataDetails.lot !== MediaLot.Anime || !metadataToUpdate)
 		return null;
 
@@ -18,7 +19,7 @@ export const AnimeForm = (props: MediaFormProps) => {
 				label="Episode"
 				value={metadataToUpdate.animeEpisodeNumber?.toString()}
 				onChange={(e) => {
-					setMetadataToUpdate(
+					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.animeEpisodeNumber = Number(e);
 						}),
@@ -30,7 +31,7 @@ export const AnimeForm = (props: MediaFormProps) => {
 				label="Mark all unseen episodes before this as watched"
 				defaultChecked={metadataToUpdate.animeAllEpisodesBefore}
 				onChange={(e) => {
-					setMetadataToUpdate(
+					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.animeAllEpisodesBefore = e.target.checked;
 						}),

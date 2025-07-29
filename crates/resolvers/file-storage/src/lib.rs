@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use async_graphql::{Context, Object, Result};
+use common_models::PresignedPutUrlResponse;
 use file_storage_service::FileStorageService;
-use media_models::{PresignedPutUrlInput, PresignedPutUrlResponse};
+use media_models::PresignedPutUrlInput;
 
 #[derive(Default)]
 pub struct FileStorageQuery;

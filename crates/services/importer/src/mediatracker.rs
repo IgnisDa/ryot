@@ -243,7 +243,7 @@ async fn process_item(
                     ended_on: s.date,
                     show_season_number: season_number,
                     show_episode_number: episode_number,
-                    provider_watched_on: Some(ImportSource::Mediatracker.to_string()),
+                    providers_consumed_on: Some(vec![ImportSource::Mediatracker.to_string()]),
                     ..Default::default()
                 }
             })

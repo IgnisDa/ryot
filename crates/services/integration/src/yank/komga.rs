@@ -369,7 +369,7 @@ async fn process_events(
                 book.read_progress.page,
                 book.media.pages_count,
             )),
-            provider_watched_on: Some("Komga".to_string()),
+            providers_consumed_on: Some(vec!["Komga".to_string()]),
             manga_chapter_number: Some(book.metadata.number.parse().unwrap_or_default()),
             ..Default::default()
         },

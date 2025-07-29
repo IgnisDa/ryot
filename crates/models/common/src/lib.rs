@@ -450,3 +450,9 @@ pub struct YoutubeMusicSongListened {
 pub struct UserToCollectionExtraInformation {
     pub is_hidden: Option<bool>,
 }
+
+#[derive(Debug, Serialize, Deserialize, SimpleObject, Clone)]
+pub struct PresignedPutUrlResponse {
+    pub key: String,
+    pub upload_url: String,
+}

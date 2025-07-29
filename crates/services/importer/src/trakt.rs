@@ -254,7 +254,7 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
                             show_season_number,
                             show_episode_number,
                             ended_on: item.watched_at,
-                            provider_watched_on: Some(ImportSource::Trakt.to_string()),
+                            providers_consumed_on: Some(vec![ImportSource::Trakt.to_string()]),
                             ..Default::default()
                         });
                         completed.push(d);

@@ -1,4 +1,4 @@
-import { Select } from "@mantine/core";
+import { MultiSelect, Select } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import type { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
@@ -72,9 +72,9 @@ export const CustomDatePicker = ({
 };
 
 interface ProviderSelectProps {
-	value?: string | null;
+	value?: string[];
 	metadataLot: MediaLot;
-	onChange: (provider: string | null) => void;
+	onChange: (providers: string[]) => void;
 }
 
 export const ProviderSelect = ({
@@ -85,12 +85,12 @@ export const ProviderSelect = ({
 	const watchProviders = useGetWatchProviders(metadataLot);
 
 	return (
-		<Select
+		<MultiSelect
 			size="xs"
-			value={value}
+			value={value || []}
 			onChange={onChange}
 			data={watchProviders}
-			name="providerWatchedOn"
+			name="providersConsumedOn"
 			label={`Where did you ${getVerb(Verb.Read, metadataLot)} it?`}
 			nothingFoundMessage="Please add your provider from the general preference settings"
 		/>

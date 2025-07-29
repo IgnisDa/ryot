@@ -2409,6 +2409,7 @@ name = "file-storage-resolver"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
+ "common-models",
  "file-storage-service",
  "media-models",
 ]

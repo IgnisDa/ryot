@@ -5,7 +5,8 @@ import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const ShowForm = (props: MediaFormProps) => {
-	const { metadataToUpdate, setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { metadataToUpdate, updateMetadataToUpdate } =
+		useMetadataProgressUpdate();
 	if (props.metadataDetails.lot !== MediaLot.Show || !metadataToUpdate)
 		return null;
 
@@ -23,7 +24,7 @@ export const ShowForm = (props: MediaFormProps) => {
 					value: s.seasonNumber.toString(),
 				}))}
 				onChange={(v) => {
-					setMetadataToUpdate(
+					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.showSeasonNumber = Number(v);
 						}),
@@ -38,7 +39,7 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Episode"
 				value={metadataToUpdate.showEpisodeNumber?.toString()}
 				onChange={(v) => {
-					setMetadataToUpdate(
+					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.showEpisodeNumber = Number(v);
 						}),
@@ -58,7 +59,7 @@ export const ShowForm = (props: MediaFormProps) => {
 				label="Mark all unseen episodes before this as seen"
 				defaultChecked={metadataToUpdate.showAllEpisodesBefore}
 				onChange={(e) => {
-					setMetadataToUpdate(
+					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.showAllEpisodesBefore = e.target.checked;
 						}),

@@ -10,7 +10,7 @@ export const DisplayPodcastEpisode = (props: {
 	metadataDetails: MetadataDetails;
 	podcastProgress: UserMetadataDetails["podcastProgress"];
 }) => {
-	const { setMetadataToUpdate } = useMetadataProgressUpdate();
+	const { initializeMetadataToUpdate } = useMetadataProgressUpdate();
 	const numTimesEpisodeSeen =
 		props.podcastProgress?.[props.index]?.timesSeen || 0;
 
@@ -28,7 +28,7 @@ export const DisplayPodcastEpisode = (props: {
 					color="blue"
 					variant={numTimesEpisodeSeen > 0 ? "default" : "outline"}
 					onClick={() => {
-						setMetadataToUpdate({
+						initializeMetadataToUpdate({
 							metadataId: props.metadataDetails.id,
 							podcastEpisodeNumber: props.episode.number,
 						});

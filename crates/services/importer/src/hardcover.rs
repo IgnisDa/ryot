@@ -129,7 +129,7 @@ fn process_hardcover_record(
     let mut seen_history = vec![];
     if record.status == "Read" || record.date_finished.is_some() {
         let mut seen_item = ImportOrExportMetadataItemSeen {
-            provider_watched_on: Some(ImportSource::Hardcover.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Hardcover.to_string()]),
             ..Default::default()
         };
 

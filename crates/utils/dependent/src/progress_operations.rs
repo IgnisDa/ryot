@@ -43,7 +43,7 @@ pub async fn commit_import_seen_item(
 ) -> Result<()> {
     let common = MetadataProgressUpdateCommonInput {
         show_season_number: input.show_season_number,
-        provider_watched_on: input.provider_watched_on,
+        providers_consumed_on: input.providers_consumed_on,
         manga_volume_number: input.manga_volume_number,
         show_episode_number: input.show_episode_number,
         anime_episode_number: input.anime_episode_number,
@@ -255,7 +255,9 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
         anime_extra_information: ActiveValue::Set(extra_info.anime_ei),
         manga_extra_information: ActiveValue::Set(extra_info.manga_ei),
         podcast_extra_information: ActiveValue::Set(extra_info.podcast_ei),
-        provider_watched_on: ActiveValue::Set(input.payload.provider_watched_on),
+        providers_consumed_on: ActiveValue::Set(
+            input.payload.providers_consumed_on.unwrap_or_default(),
+        ),
         ..Default::default()
     };
     let resp = seen_insert.insert(&input.ss.db).await?;

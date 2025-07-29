@@ -153,7 +153,7 @@ pub async fn yank_progress(
                         seen_history: vec![ImportOrExportMetadataItemSeen {
                             podcast_episode_number,
                             progress: Some(progress * dec!(100)),
-                            provider_watched_on: Some("Audiobookshelf".to_string()),
+                            providers_consumed_on: Some(vec!["Audiobookshelf".to_string()]),
                             ..Default::default()
                         }],
                         ..Default::default()

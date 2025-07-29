@@ -74,7 +74,7 @@ pub async fn export_media(
                         ended_on: s.finished_on,
                         started_on: s.started_on,
                         progress: Some(s.progress),
-                        provider_watched_on: s.provider_watched_on,
+                        providers_consumed_on: Some(s.providers_consumed_on),
                     }
                 })
                 .collect();

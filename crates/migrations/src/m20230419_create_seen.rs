@@ -26,7 +26,7 @@ pub enum Seen {
     PodcastExtraInformation,
     AnimeExtraInformation,
     MangaExtraInformation,
-    ProviderWatchedOn,
+    ProvidersConsumedOn,
     ManualTimeSpent,
 }
 
@@ -62,7 +62,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::PodcastExtraInformation).json_binary())
                     .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
                     .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
-                    .col(ColumnDef::new(Seen::ProviderWatchedOn).text())
+                    .col(
+                        ColumnDef::new(Seen::ProvidersConsumedOn)
+                            .array(ColumnType::Text)
+                            .not_null()
+                    )
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()

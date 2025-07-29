@@ -114,7 +114,7 @@ pub async fn import(input: DeployMovaryImportInput) -> Result<ImportResult> {
         let watched_at = Some(convert_naive_to_utc(record.watched_at));
         let seen_item = ImportOrExportMetadataItemSeen {
             ended_on: watched_at,
-            provider_watched_on: Some(ImportSource::Movary.to_string()),
+            providers_consumed_on: Some(vec![ImportSource::Movary.to_string()]),
             ..Default::default()
         };
         let review = record.comment.map(|c| ImportOrExportItemReview {
