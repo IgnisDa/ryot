@@ -4,6 +4,7 @@ import {
 	Group,
 	Input,
 	Modal,
+	MultiSelect,
 	NumberInput,
 	Select,
 	Stack,
@@ -44,7 +45,7 @@ export const EditHistoryItemModal = (props: {
 	const reviewsByThisCurrentUser = props.userMetadataDetails.reviews.filter(
 		(r) => r.postedBy.id === userDetails.id,
 	);
-	const { startedOn, finishedOn, id, manualTimeSpent, providerWatchedOn } =
+	const { startedOn, finishedOn, id, manualTimeSpent, providersConsumedOn } =
 		props.seen;
 	const coreDetails = useCoreDetails();
 	const isNotCompleted = props.seen.state !== SeenState.Completed;
@@ -83,10 +84,10 @@ export const EditHistoryItemModal = (props: {
 						disabled={isNotCompleted}
 						defaultValue={finishedOn ? new Date(finishedOn) : undefined}
 					/>
-					<Select
+					<MultiSelect
 						data={watchProviders}
-						name="providerWatchedOn"
-						defaultValue={providerWatchedOn}
+						name="providersConsumedOn"
+						defaultValue={providersConsumedOn || []}
 						nothingFoundMessage="No watch providers configured. Please add them in your general preferences."
 						label={`Where did you ${getVerb(
 							Verb.Read,

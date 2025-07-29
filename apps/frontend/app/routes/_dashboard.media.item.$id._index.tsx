@@ -226,7 +226,7 @@ const editSeenItem = z.object({
 	manualTimeSpent: z.string().optional(),
 	startedOn: zodDateTimeString.optional(),
 	finishedOn: zodDateTimeString.optional(),
-	providerWatchedOn: z.string().optional(),
+	providersConsumedOn: z.array(z.string()).optional(),
 });
 
 export default function Page() {

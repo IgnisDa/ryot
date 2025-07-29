@@ -118,7 +118,9 @@ export const HistoryItem = (props: {
 
 		return null;
 	})();
-	const watchedOnInformation = props.history.providerWatchedOn;
+	const watchedOnInformation = props.history.providersConsumedOn?.length
+		? props.history.providersConsumedOn.join(", ")
+		: null;
 
 	const filteredDisplayInformation = [
 		watchedOnInformation,

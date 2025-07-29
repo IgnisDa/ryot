@@ -21,7 +21,7 @@ export type UpdateProgressData = {
 	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
 	showSeasonNumber?: number | null;
-	providerWatchedOn?: string | null;
+	providersConsumedOn?: string[];
 	mangaVolumeNumber?: number | null;
 	showEpisodeNumber?: number | null;
 	animeEpisodeNumber?: number | null;
@@ -71,8 +71,8 @@ export const useMetadataProgressUpdate = () => {
 					getUserMetadataDetailsQuery(draft.metadataId),
 				),
 			]);
-			draft.providerWatchedOn =
-				userMetadataDetails.history.at(0)?.providerWatchedOn;
+			draft.providersConsumedOn =
+				userMetadataDetails.history.at(0)?.providersConsumedOn || [];
 			if (determineNext) {
 				const nextEntry = userMetadataDetails?.nextEntry;
 				if (nextEntry) {

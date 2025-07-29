@@ -57,7 +57,7 @@ export const MetadataNewProgressUpdateForm = ({
 			showSeasonNumber: metadataToUpdate.showSeasonNumber,
 			mangaVolumeNumber: metadataToUpdate.mangaVolumeNumber,
 			showEpisodeNumber: metadataToUpdate.showEpisodeNumber,
-			providerWatchedOn: metadataToUpdate.providerWatchedOn,
+			providersConsumedOn: metadataToUpdate.providersConsumedOn,
 			mangaChapterNumber: metadataToUpdate.mangaChapterNumber,
 			animeEpisodeNumber: metadataToUpdate.animeEpisodeNumber,
 			podcastEpisodeNumber: metadataToUpdate.podcastEpisodeNumber,
@@ -123,10 +123,10 @@ export const MetadataNewProgressUpdateForm = ({
 
 	if (!metadataToUpdate) return null;
 
-	const handleProviderChange = (provider: string | null) => {
+	const handleProviderChange = (providers: string[]) => {
 		setMetadataToUpdate(
 			produce(metadataToUpdate, (draft) => {
-				draft.providerWatchedOn = provider;
+				draft.providersConsumedOn = providers;
 			}),
 		);
 	};
@@ -154,7 +154,7 @@ export const MetadataNewProgressUpdateForm = ({
 				<ProviderSelect
 					onChange={handleProviderChange}
 					metadataLot={metadataDetails.lot}
-					value={metadataToUpdate.providerWatchedOn}
+					value={metadataToUpdate.providersConsumedOn}
 				/>
 			) : null}
 			<Button
