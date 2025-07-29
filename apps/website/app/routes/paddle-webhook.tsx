@@ -7,11 +7,11 @@ import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { data } from "react-router";
 import { match } from "ts-pattern";
-import { type TPlanTypes, customers } from "~/drizzle/schema.server";
+import { customerPurchases, customers } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
 	createUnkeyKey,
@@ -24,13 +24,6 @@ import {
 	serverVariables,
 } from "~/lib/config.server";
 import type { Route } from "./+types/paddle-webhook";
-
-const getRenewOnFromPlanType = (planType: TPlanTypes) =>
-	match(planType)
-		.with("free", "lifetime", () => undefined)
-		.with("yearly", () => dayjs().add(1, "year"))
-		.with("monthly", () => dayjs().add(1, "month"))
-		.exhaustive();
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const paddleSignature = request.headers.get("paddle-signature");
@@ -73,7 +66,15 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 
 		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-		if (!customer.planType) {
+
+		const activePurchase = await db.query.customerPurchases.findFirst({
+			where: and(
+				eq(customerPurchases.customerId, customer.id),
+				isNull(customerPurchases.cancelledOn),
+			),
+		});
+
+		if (!activePurchase) {
 			const priceId = paddleData.details?.lineItems[0].priceId;
 			if (!priceId) return data({ error: "Price ID not found" });
 
@@ -85,7 +86,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 
 			const { email, oidcIssuerId } = customer;
-			const renewOn = getRenewOnFromPlanType(planType);
 			const { ryotUserId, unkeyKeyId, details } = await match(productType)
 				.with("cloud", async () => {
 					const password = nanoid(10);
@@ -114,9 +114,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					};
 				})
 				.with("self_hosted", async () => {
+					const purchaseDate = dayjs();
+					const renewalDate = match(planType)
+						.with("free", "lifetime", () => null)
+						.with("yearly", () => purchaseDate.add(1, "year"))
+						.with("monthly", () => purchaseDate.add(1, "month"))
+						.exhaustive();
+
 					const created = await createUnkeyKey(
 						customer,
-						renewOn ? renewOn.add(GRACE_PERIOD, "days") : undefined,
+						renewalDate ? renewalDate.add(GRACE_PERIOD, "days") : undefined,
 					);
 					return {
 						ryotUserId: null,
@@ -128,32 +135,48 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					};
 				})
 				.exhaustive();
-			const renewal = renewOn ? formatDateToNaiveDate(renewOn) : undefined;
 			await sendEmail({
 				recipient: customer.email,
 				subject: PurchaseCompleteEmail.subject,
-				element: PurchaseCompleteEmail({ planType, renewOn: renewal, details }),
+				element: PurchaseCompleteEmail({
+					planType,
+					renewOn: undefined,
+					details,
+				}),
 			});
+
+			await db.insert(customerPurchases).values({
+				planType,
+				productType,
+				customerId: customer.id,
+			});
+
 			await db
 				.update(customers)
 				.set({
-					planType,
 					ryotUserId,
 					unkeyKeyId,
-					productType,
-					renewOn: renewal,
 					paddleCustomerId,
 				})
 				.where(eq(customers.id, customer.id));
 		} else {
-			const renewal = getRenewOnFromPlanType(customer.planType);
-			const renewOn = renewal ? formatDateToNaiveDate(renewal) : undefined;
-			console.log("Updating customer with renewOn", { renewOn });
-			await db
-				.update(customers)
-				.set({ renewOn, hasCancelled: null })
-				.where(eq(customers.id, customer.id));
-			if (customer.ryotUserId)
+			const priceId = paddleData.details?.lineItems[0].priceId;
+			if (!priceId) return data({ error: "Price ID not found" });
+
+			const { planType, productType } = getProductAndPlanTypeByPriceId(priceId);
+			console.log("Customer renewed plan:", {
+				paddleCustomerId,
+				productType,
+				planType,
+			});
+
+			await db.insert(customerPurchases).values({
+				customerId: customer.id,
+				planType,
+				productType,
+			});
+
+			if (customer.ryotUserId) {
 				await serverGqlService.request(UpdateUserDocument, {
 					input: {
 						isDisabled: false,
@@ -161,7 +184,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 					},
 				});
-			if (customer.unkeyKeyId)
+			}
+
+			if (customer.unkeyKeyId) {
+				const purchaseDate = dayjs();
+				const renewal = match(planType)
+					.with("free", "lifetime", () => null)
+					.with("yearly", () => purchaseDate.add(1, "year"))
+					.with("monthly", () => purchaseDate.add(1, "month"))
+					.exhaustive();
+
 				await unkey.keys.update({
 					keyId: customer.unkeyKeyId,
 					meta: renewal
@@ -172,6 +204,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 							}
 						: undefined,
 				});
+			}
 		}
 	}
 
@@ -185,10 +218,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			where: eq(customers.paddleCustomerId, customerId),
 		});
 		if (!customer) return data({ message: "No customer found" });
+
 		await db
-			.update(customers)
-			.set({ hasCancelled: true })
-			.where(eq(customers.id, customer.id));
+			.update(customerPurchases)
+			.set({ cancelledOn: new Date() })
+			.where(
+				and(
+					eq(customerPurchases.customerId, customer.id),
+					isNull(customerPurchases.cancelledOn),
+				),
+			);
 		if (customer.ryotUserId)
 			await serverGqlService.request(UpdateUserDocument, {
 				input: {
@@ -205,10 +244,18 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			where: eq(customers.paddleCustomerId, customerId),
 		});
 		if (!customer) return data({ message: "No customer found" });
-		await db
-			.update(customers)
-			.set({ hasCancelled: null })
-			.where(eq(customers.id, customer.id));
+
+		const cancelledPurchase = await db.query.customerPurchases.findFirst({
+			where: and(eq(customerPurchases.customerId, customer.id)),
+			orderBy: [desc(customerPurchases.createdOn)],
+		});
+
+		if (cancelledPurchase) {
+			await db
+				.update(customerPurchases)
+				.set({ cancelledOn: null })
+				.where(eq(customerPurchases.id, cancelledPurchase.id));
+		}
 	}
 
 	return data({ message: "Webhook ran successfully" });

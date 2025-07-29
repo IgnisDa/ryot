@@ -2,8 +2,8 @@ import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
 import { formatDateToNaiveDate, zodBoolAsString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
-import type { Dayjs } from "dayjs";
-import { eq } from "drizzle-orm";
+import dayjs, { type Dayjs } from "dayjs";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
@@ -11,9 +11,14 @@ import { Issuer } from "openid-client";
 import type { ReactElement } from "react";
 import { createCookie } from "react-router";
 import { Honeypot } from "remix-utils/honeypot/server";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
-import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+import {
+	PlanTypes,
+	ProductTypes,
+	type TPlanTypes,
+} from "~/drizzle/schema.server";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
@@ -142,6 +147,15 @@ export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	path: "/",
 });
 
+const getRenewOnFromPlanType = (planType: TPlanTypes, createdOn: Date) => {
+	const baseDate = dayjs(createdOn);
+	return match(planType)
+		.with("free", "lifetime", () => null)
+		.with("yearly", () => baseDate.add(1, "year"))
+		.with("monthly", () => baseDate.add(1, "month"))
+		.exhaustive();
+};
+
 export const getCustomerFromCookie = async (request: Request) => {
 	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
 	if (!cookie || Object.keys(cookie).length === 0) return null;
@@ -149,6 +163,33 @@ export const getCustomerFromCookie = async (request: Request) => {
 	return await db.query.customers.findFirst({
 		where: eq(schema.customers.id, customerId),
 	});
+};
+
+export const getCustomerWithActivePurchase = async (request: Request) => {
+	const customer = await getCustomerFromCookie(request);
+	if (!customer) return null;
+
+	const activePurchase = await db.query.customerPurchases.findFirst({
+		where: and(
+			eq(schema.customerPurchases.customerId, customer.id),
+			isNull(schema.customerPurchases.cancelledOn),
+		),
+		orderBy: [desc(schema.customerPurchases.createdOn)],
+	});
+
+	return {
+		...customer,
+		activePurchase,
+		planType: activePurchase?.planType || null,
+		hasCancelled: !!activePurchase?.cancelledOn,
+		productType: activePurchase?.productType || null,
+		renewOn: activePurchase
+			? getRenewOnFromPlanType(
+					activePurchase.planType,
+					activePurchase.createdOn,
+				)
+			: null,
+	};
 };
 
 export const serverGqlService = new GraphQLClient(

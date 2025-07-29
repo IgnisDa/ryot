@@ -24,9 +24,10 @@ import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
 	type CustomData,
+	GRACE_PERIOD,
 	createUnkeyKey,
 	db,
-	getCustomerFromCookie,
+	getCustomerWithActivePurchase,
 	prices,
 	sendEmail,
 	serverVariables,
@@ -36,13 +37,16 @@ import { startUrl } from "~/lib/utils";
 import type { Route } from "./+types/me";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const customerDetails = await getCustomerFromCookie(request);
+	const customerDetails = await getCustomerWithActivePurchase(request);
 	if (!customerDetails) return redirect(startUrl);
 	return {
 		prices,
 		customerDetails,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
+		renewOn: customerDetails.renewOn
+			? formatDateToNaiveDate(customerDetails.renewOn)
+			: undefined,
 	};
 };
 
@@ -54,25 +58,31 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {
-			const customer = await getCustomerFromCookie(request);
+			const customer = await getCustomerWithActivePurchase(request);
 			if (!customer || !customer.planType) throw new Error("No customer found");
 			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
 			const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 			await unkey.keys.update({ keyId: customer.unkeyKeyId, enabled: false });
-			const renewOn = customer.renewOn ? dayjs(customer.renewOn) : undefined;
-			const created = await createUnkeyKey(customer, renewOn);
+			const renewOnDayjs = customer.renewOn
+				? dayjs(customer.renewOn)
+				: undefined;
+			const created = await createUnkeyKey(
+				customer,
+				renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
+			);
 			await db
 				.update(customers)
 				.set({ unkeyKeyId: created.keyId })
 				.where(eq(customers.id, customer.id));
-			const renewal = renewOn ? formatDateToNaiveDate(renewOn) : undefined;
 			await sendEmail({
 				recipient: customer.email,
 				subject: PurchaseCompleteEmail.subject,
 				element: PurchaseCompleteEmail({
-					renewOn: renewal,
 					planType: customer.planType,
 					details: { __typename: "self_hosted", key: created.key },
+					renewOn: customer.renewOn
+						? formatDateToNaiveDate(customer.renewOn)
+						: undefined,
 				}),
 			});
 			return data({});
@@ -140,11 +150,11 @@ export default function Index() {
 								{changeCase(loaderData.customerDetails.planType)}
 							</p>
 						</div>
-						{loaderData.customerDetails.renewOn ? (
+						{loaderData.renewOn ? (
 							<div>
 								<Label>Renewal Status</Label>
 								<p className="text-muted-foreground">
-									Renews on {loaderData.customerDetails.renewOn}
+									Renews on {loaderData.renewOn}
 								</p>
 							</div>
 						) : null}
