@@ -1,7 +1,6 @@
 import {
 	bigint,
 	boolean,
-	date,
 	pgEnum,
 	pgSequence,
 	pgTable,
@@ -29,13 +28,9 @@ export const PlanTypes = z.enum(planTypes.enumValues);
 export type TPlanTypes = z.infer<typeof PlanTypes>;
 
 export const customers = pgTable("customer", {
-	renewOn: date("renew_on"),
-	planType: planTypes("plan_type"),
 	unkeyKeyId: text("unkey_key_id"),
 	ryotUserId: text("ryot_user_id"),
-	hasCancelled: boolean("has_cancelled"),
 	email: text("email").notNull().unique(),
-	productType: productTypes("product_type"),
 	oidcIssuerId: text("oidc_issuer_id").unique(),
 	id: uuid("id").notNull().primaryKey().defaultRandom(),
 	paddleCustomerId: text("paddle_customer_id").unique(),
@@ -57,4 +52,17 @@ export const contactSubmissions = pgTable("contact_submission", {
 	id: uuid("id").defaultRandom().primaryKey(),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	ticketNumber: bigint("ticket_number", { mode: "bigint" }),
+});
+
+export const customerPurchases = pgTable("customer_purchase", {
+	id: uuid("id").notNull().primaryKey().defaultRandom(),
+	customerId: uuid("customer_id")
+		.notNull()
+		.references(() => customers.id),
+	planType: planTypes("plan_type").notNull(),
+	cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
+	productType: productTypes("product_type").notNull(),
+	createdOn: timestamp("created_on", { withTimezone: true })
+		.defaultNow()
+		.notNull(),
 });
