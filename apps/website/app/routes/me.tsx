@@ -4,10 +4,7 @@ import {
 	initializePaddle,
 } from "@paddle/paddle-js";
 import PurchaseCompleteEmail from "@ryot/transactional/emails/PurchaseComplete";
-import {
-	changeCase,
-	getActionIntent,
-} from "@ryot/ts-utils";
+import { changeCase, getActionIntent } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
