@@ -93,7 +93,7 @@ export type SearchParams = {
 
 const defaultFilters = {
 	mineCollections: [],
-	mineSortBy: MediaSortBy.LastSeen,
+	mineSortBy: MediaSortBy.LastUpdated,
 	mineSortOrder: GraphqlSortOrder.Desc,
 	mineGeneralFilter: MediaGeneralFilter.All,
 	mineDateRange: ApplicationTimeRange.AllTime,
