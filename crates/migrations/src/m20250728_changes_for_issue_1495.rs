@@ -28,8 +28,13 @@ impl MigrationTrait for Migration {
         .await?;
 
         // Drop the old column
-        db.execute_unprepared("ALTER TABLE seen DROP COLUMN provider_watched_on")
-            .await?;
+        db.execute_unprepared(
+            "
+        ALTER TABLE seen ALTER COLUMN providers_consumed_on DROP DEFAULT;
+        ALTER TABLE seen DROP COLUMN provider_watched_on;
+        ",
+        )
+        .await?;
 
         Ok(())
     }

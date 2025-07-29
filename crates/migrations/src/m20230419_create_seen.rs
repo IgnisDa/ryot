@@ -66,7 +66,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(Seen::ProvidersConsumedOn)
                             .array(ColumnType::Text)
                             .not_null()
-                            .default("{}")
                     )
                     .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
