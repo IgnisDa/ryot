@@ -36,6 +36,9 @@ impl MigrationTrait for Migration {
         )
         .await?;
 
+        db.execute_unprepared("DROP INDEX IF EXISTS collection__name__index")
+            .await?;
+
         Ok(())
     }
 

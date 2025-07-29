@@ -2,8 +2,6 @@ use sea_orm_migration::prelude::*;
 
 use super::m20230404_create_user::User;
 
-pub static COLLECTION_NAME_INDEX: &str = "collection__name__index";
-
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -56,15 +54,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(COLLECTION_NAME_INDEX)
-                    .table(Collection::Table)
-                    .col(Collection::Name)
                     .to_owned(),
             )
             .await?;
