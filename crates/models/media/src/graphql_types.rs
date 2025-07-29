@@ -206,11 +206,11 @@ pub struct PresignedPutUrlResponse {
 pub struct CreateReviewCommentInput {
     /// The review this comment belongs to.
     pub review_id: String,
-    pub comment_id: Option<String>,
     pub text: Option<String>,
+    pub comment_id: Option<String>,
+    pub should_delete: Option<bool>,
     pub increment_likes: Option<bool>,
     pub decrement_likes: Option<bool>,
-    pub should_delete: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
@@ -234,10 +234,10 @@ pub struct UserCalendarEventInput {
 
 #[derive(Debug, Serialize, Deserialize, OneofObject, Clone)]
 pub enum UserUpcomingCalendarEventInput {
-    /// The number of media to select
-    NextMedia(u64),
     /// The number of days to select
     NextDays(u64),
+    /// The number of media to select
+    NextMedia(u64),
 }
 
 #[derive(Debug, Serialize, Deserialize, InputObject, Clone)]
@@ -248,8 +248,8 @@ pub struct PresignedPutUrlInput {
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
 pub struct GroupedCalendarEvent {
-    pub events: Vec<GraphqlCalendarEvent>,
     pub date: NaiveDate,
+    pub events: Vec<GraphqlCalendarEvent>,
 }
 
 #[derive(Debug, Default)]
