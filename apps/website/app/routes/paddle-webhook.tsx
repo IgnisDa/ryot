@@ -17,10 +17,10 @@ import { nanoid } from "nanoid";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import {
-	customerPurchases,
-	customers,
 	type TPlanTypes,
 	type TProductTypes,
+	customerPurchases,
+	customers,
 } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
