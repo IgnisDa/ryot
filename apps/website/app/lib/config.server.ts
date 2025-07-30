@@ -162,10 +162,6 @@ export const calculateRenewalDate = (
 		.exhaustive();
 };
 
-const getRenewOnFromPlanType = (planType: TPlanTypes, createdOn: Date) => {
-	const renewalDate = calculateRenewalDate(planType, createdOn);
-	return renewalDate ? formatDateToNaiveDate(renewalDate) : null;
-};
 
 export const getCustomerFromCookie = async (request: Request) => {
 	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
@@ -195,11 +191,8 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 		planType: activePurchase?.planType || null,
 		hasCancelled: !!activePurchase?.cancelledOn,
 		productType: activePurchase?.productType || null,
-		renewOn: activePurchase
-			? getRenewOnFromPlanType(
-					activePurchase.planType,
-					activePurchase.createdOn,
-				)
+		renewOn: activePurchase?.renewOn
+			? formatDateToNaiveDate(activePurchase.renewOn)
 			: null,
 	};
 };

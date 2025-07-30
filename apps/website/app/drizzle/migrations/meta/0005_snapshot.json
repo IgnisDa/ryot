@@ -98,6 +98,12 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"renew_on": {
+					"name": "renew_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"created_on": {
 					"name": "created_on",
 					"type": "timestamp with time zone",

@@ -55,13 +55,14 @@ export const contactSubmissions = pgTable("contact_submission", {
 });
 
 export const customerPurchases = pgTable("customer_purchase", {
+	planType: planTypes("plan_type").notNull(),
+	productType: productTypes("product_type").notNull(),
 	id: uuid("id").notNull().primaryKey().defaultRandom(),
+	renewOn: timestamp("renew_on", { withTimezone: true }),
+	cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
 	customerId: uuid("customer_id")
 		.notNull()
 		.references(() => customers.id),
-	planType: planTypes("plan_type").notNull(),
-	cancelledOn: timestamp("cancelled_on", { withTimezone: true }),
-	productType: productTypes("product_type").notNull(),
 	createdOn: timestamp("created_on", { withTimezone: true })
 		.defaultNow()
 		.notNull(),

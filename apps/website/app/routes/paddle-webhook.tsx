@@ -210,6 +210,7 @@ async function processNewPurchase(
 		planType,
 		productType,
 		customerId: customer.id,
+		renewOn: renewalDate?.toDate(),
 	});
 
 	const updateData: {
@@ -242,12 +243,14 @@ async function processRenewal(
 	productType: TProductTypes,
 	activePurchase: NonNullable<Awaited<ReturnType<typeof getActivePurchase>>>,
 ) {
+	const renewalDate = calculateRenewalDate(planType);
 	await db
 		.update(customerPurchases)
 		.set({
 			planType,
 			productType,
 			updatedOn: new Date(),
+			renewOn: renewalDate?.toDate(),
 		})
 		.where(eq(customerPurchases.id, activePurchase.id));
 
