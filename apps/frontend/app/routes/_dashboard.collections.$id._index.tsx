@@ -101,8 +101,8 @@ enum TabNames {
 const DEFAULT_TAB = TabNames.Contents;
 
 const defaultFiltersValue = {
-	order: GraphqlSortOrder.Asc,
-	sort: CollectionContentsSortBy.Rank,
+	order: GraphqlSortOrder.Desc,
+	sort: CollectionContentsSortBy.LastUpdatedOn,
 };
 
 const searchParamsSchema = z.object({

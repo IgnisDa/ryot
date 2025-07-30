@@ -13,6 +13,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	type CalendarEventPartFragment,
 	CollectionContentsDocument,
+	CollectionContentsSortBy,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	ExpireCacheKeyDocument,
@@ -103,8 +104,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
 			input: {
 				search: { take: takeInProgress },
-				sort: { order: GraphqlSortOrder.Desc },
 				collectionId: foundInProgressCollection.id,
+				sort: {
+					order: GraphqlSortOrder.Desc,
+					by: CollectionContentsSortBy.LastUpdatedOn,
+				},
 			},
 		}),
 		serverGqlService.authenticatedRequest(
