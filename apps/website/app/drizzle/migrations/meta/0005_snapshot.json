@@ -104,6 +104,13 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
+				},
+				"updated_on": {
+					"name": "updated_on",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
 				}
 			},
 			"indexes": {},

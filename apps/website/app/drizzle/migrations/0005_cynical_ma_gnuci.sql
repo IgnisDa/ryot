@@ -4,19 +4,21 @@ CREATE TABLE "customer_purchase" (
 	"plan_type" "plan_type" NOT NULL,
 	"cancelled_on" timestamp with time zone,
 	"product_type" "product_type" NOT NULL,
-	"created_on" timestamp with time zone DEFAULT now() NOT NULL
+	"created_on" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_on" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 ALTER TABLE "customer_purchase" ADD CONSTRAINT "customer_purchase_customer_id_customer_id_fk" FOREIGN KEY ("customer_id") REFERENCES "public"."customer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-INSERT INTO "customer_purchase" ("customer_id", "plan_type", "product_type", "cancelled_on", "created_on")
-SELECT 
+INSERT INTO "customer_purchase" ("customer_id", "plan_type", "product_type", "cancelled_on", "created_on", "updated_on")
+SELECT
 	"id" as "customer_id",
 	"plan_type",
 	"product_type",
-	CASE 
+	CASE
 		WHEN "has_cancelled" = true THEN "created_on"
 		ELSE NULL
 	END as "cancelled_on",
+	"created_on",
 	"created_on"
 FROM "customer"
 WHERE "plan_type" IS NOT NULL AND "product_type" IS NOT NULL;
