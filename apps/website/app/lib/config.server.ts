@@ -111,6 +111,10 @@ export const sendEmail = async (input: {
 	recipient: string;
 	element: ReactElement;
 }) => {
+	if (IS_DEVELOPMENT_ENV) {
+		console.warn("Email sending is disabled in development mode.");
+		return "dev-mode-email";
+	}
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
 		secure: serverVariables.SERVER_SMTP_SECURE,
