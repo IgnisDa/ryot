@@ -7,7 +7,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
-import { Issuer } from "openid-client";
+import * as openidClient from "openid-client";
 import type { ReactElement } from "react";
 import { createCookie } from "react-router";
 import { Honeypot } from "remix-utils/honeypot/server";
@@ -88,14 +88,13 @@ export const db = drizzle(serverVariables.DATABASE_URL, {
 	logger: IS_DEVELOPMENT_ENV,
 });
 
-export const oauthClient = async () => {
-	const issuer = await Issuer.discover(serverVariables.SERVER_OIDC_ISSUER_URL);
-	const client = new issuer.Client({
-		client_id: serverVariables.SERVER_OIDC_CLIENT_ID,
-		client_secret: serverVariables.SERVER_OIDC_CLIENT_SECRET,
-		redirect_uris: [OAUTH_CALLBACK_URL],
-	});
-	return client;
+export const oauthConfig = async () => {
+	const config = await openidClient.discovery(
+		new URL(serverVariables.SERVER_OIDC_ISSUER_URL),
+		serverVariables.SERVER_OIDC_CLIENT_ID,
+		serverVariables.SERVER_OIDC_CLIENT_SECRET,
+	);
+	return config;
 };
 
 export const getPaddleServerClient = () =>

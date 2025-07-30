@@ -19,6 +19,7 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
+import * as openidClient from "openid-client";
 import {
 	Form,
 	Link,
@@ -44,9 +45,10 @@ import {
 } from "~/lib/components/ui/input-otp";
 import { Textarea } from "~/lib/components/ui/textarea";
 import {
+	OAUTH_CALLBACK_URL,
 	db,
 	honeypot,
-	oauthClient,
+	oauthConfig,
 	prices,
 	sendEmail,
 	websiteAuthCookie,
@@ -122,9 +124,12 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 		})
 		.with("registerWithOidc", async () => {
-			const client = await oauthClient();
-			const redirectUrl = client.authorizationUrl({ scope: "openid email" });
-			return redirect(redirectUrl);
+			const config = await oauthConfig();
+			const redirectUrl = openidClient.buildAuthorizationUrl(config, {
+				scope: "openid email",
+				redirect_uri: OAUTH_CALLBACK_URL,
+			});
+			return redirect(redirectUrl.href);
 		})
 		.with("contactSubmission", async () => {
 			let isSpam = false;
