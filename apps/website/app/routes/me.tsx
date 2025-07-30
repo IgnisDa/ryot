@@ -267,6 +267,12 @@ export default function Index() {
 							method="POST"
 							className="pb-6"
 							action={withQuery(".", { intent: "cancelSubscription" })}
+							onSubmit={(e) => {
+								const yes = confirm(
+									"Are you sure you want to cancel your subscription? You will lose access to the pro features immediately.",
+								);
+								if (!yes) e.preventDefault();
+							}}
 						>
 							<Button variant="outline" type="submit">
 								{isCancelLoading ? "Cancelling..." : "Cancel Subscription"}
