@@ -73,6 +73,7 @@ export default function Pricing(props: {
 									{p.trial ? ` with a ${p.trial} days trial` : null}
 								</p>
 								<Link
+									target={p.linkToGithub ? "_blank" : undefined}
 									to={
 										p.linkToGithub
 											? "https://docs.ryot.io"

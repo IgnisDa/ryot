@@ -4,7 +4,7 @@ import Layout from "../components/Layout";
 
 const applicationLink = "https://app.ryot.io";
 
-type PurchaseCompleteEmailProps = {
+export type PurchaseCompleteEmailProps = {
 	planType: string;
 	renewOn?: string;
 	details:

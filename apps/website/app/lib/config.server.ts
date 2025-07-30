@@ -2,24 +2,30 @@ import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/render";
 import { formatDateToNaiveDate, zodBoolAsString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
-import type { Dayjs } from "dayjs";
-import { eq } from "drizzle-orm";
+import dayjs, { type Dayjs } from "dayjs";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { GraphQLClient } from "graphql-request";
 import { createTransport } from "nodemailer";
-import { Issuer } from "openid-client";
+import * as openidClient from "openid-client";
 import type { ReactElement } from "react";
 import { createCookie } from "react-router";
 import { Honeypot } from "remix-utils/honeypot/server";
+import { match } from "ts-pattern";
 import { z } from "zod";
 import * as schema from "~/drizzle/schema.server";
-import { PlanTypes, ProductTypes } from "~/drizzle/schema.server";
+import {
+	PlanTypes,
+	ProductTypes,
+	type TPlanTypes,
+} from "~/drizzle/schema.server";
 
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
 
-export const TEMP_DIRECTORY =
-	process.env.NODE_ENV === "development" ? "/tmp" : "tmp";
+export const IS_DEVELOPMENT_ENV = process.env.NODE_ENV === "development";
+
+export const TEMP_DIRECTORY = IS_DEVELOPMENT_ENV ? "/tmp" : "tmp";
 
 export const serverVariablesSchema = z.object({
 	FRONTEND_URL: z.string(),
@@ -33,7 +39,6 @@ export const serverVariablesSchema = z.object({
 	PADDLE_CLIENT_TOKEN: z.string(),
 	PADDLE_SERVER_TOKEN: z.string(),
 	SERVER_SMTP_MAILBOX: z.string(),
-	NODE_ENV: z.string().optional(),
 	SERVER_SMTP_PASSWORD: z.string(),
 	SERVER_OIDC_CLIENT_ID: z.string(),
 	SERVER_OIDC_ISSUER_URL: z.string(),
@@ -80,17 +85,16 @@ export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 
 export const db = drizzle(serverVariables.DATABASE_URL, {
 	schema,
-	logger: serverVariables.NODE_ENV === "development",
+	logger: IS_DEVELOPMENT_ENV,
 });
 
-export const oauthClient = async () => {
-	const issuer = await Issuer.discover(serverVariables.SERVER_OIDC_ISSUER_URL);
-	const client = new issuer.Client({
-		client_id: serverVariables.SERVER_OIDC_CLIENT_ID,
-		client_secret: serverVariables.SERVER_OIDC_CLIENT_SECRET,
-		redirect_uris: [OAUTH_CALLBACK_URL],
-	});
-	return client;
+export const oauthConfig = async () => {
+	const config = await openidClient.discovery(
+		new URL(serverVariables.SERVER_OIDC_ISSUER_URL),
+		serverVariables.SERVER_OIDC_CLIENT_ID,
+		serverVariables.SERVER_OIDC_CLIENT_SECRET,
+	);
+	return config;
 };
 
 export const getPaddleServerClient = () =>
@@ -106,6 +110,10 @@ export const sendEmail = async (input: {
 	recipient: string;
 	element: ReactElement;
 }) => {
+	if (IS_DEVELOPMENT_ENV) {
+		console.warn("Email sending is disabled in development mode.");
+		return "dev-mode-email";
+	}
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
 		secure: serverVariables.SERVER_SMTP_SECURE,
@@ -142,13 +150,50 @@ export const websiteAuthCookie = createCookie("WebsiteAuth", {
 	path: "/",
 });
 
+export const calculateRenewalDate = (
+	planType: TPlanTypes,
+	baseDate?: Date | dayjs.Dayjs,
+) => {
+	const date = baseDate ? dayjs(baseDate) : dayjs();
+	return match(planType)
+		.with("free", "lifetime", () => null)
+		.with("yearly", () => date.add(1, "year"))
+		.with("monthly", () => date.add(1, "month"))
+		.exhaustive();
+};
+
 export const getCustomerFromCookie = async (request: Request) => {
 	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
 	if (!cookie || Object.keys(cookie).length === 0) return null;
 	const customerId = z.string().parse(cookie);
+
 	return await db.query.customers.findFirst({
 		where: eq(schema.customers.id, customerId),
 	});
+};
+
+export const getCustomerWithActivePurchase = async (request: Request) => {
+	const customer = await getCustomerFromCookie(request);
+	if (!customer) return null;
+
+	const activePurchase = await db.query.customerPurchases.findFirst({
+		orderBy: [desc(schema.customerPurchases.createdOn)],
+		where: and(
+			eq(schema.customerPurchases.customerId, customer.id),
+			isNull(schema.customerPurchases.cancelledOn),
+		),
+	});
+
+	return {
+		...customer,
+		activePurchase,
+		planType: activePurchase?.planType || null,
+		hasCancelled: !!activePurchase?.cancelledOn,
+		productType: activePurchase?.productType || null,
+		renewOn: activePurchase?.renewOn
+			? formatDateToNaiveDate(activePurchase.renewOn)
+			: null,
+	};
 };
 
 export const serverGqlService = new GraphQLClient(
