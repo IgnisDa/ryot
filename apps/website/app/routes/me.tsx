@@ -192,8 +192,8 @@ export default function Index() {
 				</Card>
 			) : (
 				<Pricing
-					prices={loaderData.prices}
 					isLoggedIn
+					prices={loaderData.prices}
 					onClick={(priceId) => {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
