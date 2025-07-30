@@ -23,8 +23,9 @@ import {
 // The number of days after a subscription expires that we allow access
 export const GRACE_PERIOD = 7;
 
-export const TEMP_DIRECTORY =
-	process.env.NODE_ENV === "development" ? "/tmp" : "tmp";
+export const IS_DEVELOPMENT_ENV = process.env.NODE_ENV === "development";
+
+export const TEMP_DIRECTORY = IS_DEVELOPMENT_ENV ? "/tmp" : "tmp";
 
 export const serverVariablesSchema = z.object({
 	FRONTEND_URL: z.string(),
@@ -38,7 +39,6 @@ export const serverVariablesSchema = z.object({
 	PADDLE_CLIENT_TOKEN: z.string(),
 	PADDLE_SERVER_TOKEN: z.string(),
 	SERVER_SMTP_MAILBOX: z.string(),
-	NODE_ENV: z.string().optional(),
 	SERVER_SMTP_PASSWORD: z.string(),
 	SERVER_OIDC_CLIENT_ID: z.string(),
 	SERVER_OIDC_ISSUER_URL: z.string(),
@@ -85,7 +85,7 @@ export const getProductAndPlanTypeByPriceId = (priceId: string) => {
 
 export const db = drizzle(serverVariables.DATABASE_URL, {
 	schema,
-	logger: serverVariables.NODE_ENV === "development",
+	logger: IS_DEVELOPMENT_ENV,
 });
 
 export const oauthClient = async () => {
