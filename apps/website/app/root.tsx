@@ -125,7 +125,7 @@ export default function App() {
 							</Link>
 						</nav>
 					</header>
-					<main className="flex-1">
+					<main className="flex-1 px-2 md:px-0">
 						<HoneypotProvider {...loaderData.honeypotInputProps}>
 							<Outlet />
 						</HoneypotProvider>
