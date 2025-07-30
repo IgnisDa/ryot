@@ -24,6 +24,7 @@ import {
 	createUnkeyKey,
 	db,
 	getCustomerWithActivePurchase,
+	getPaddleServerClient,
 	prices,
 	sendEmail,
 	serverVariables,
@@ -50,9 +51,9 @@ export const meta = () => {
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
+	const customer = await getCustomerWithActivePurchase(request);
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {
-			const customer = await getCustomerWithActivePurchase(request);
 			if (!customer || !customer.planType) throw new Error("No customer found");
 			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
 			const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
@@ -78,6 +79,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				}),
 			});
 			return data({});
+		})
+		.with("visitPaddleCustomerPortal", async () => {
+			if (!customer?.paddleCustomerId)
+				throw new Error("No Paddle customer ID found");
+			const paddleClient = getPaddleServerClient();
+			const session = await paddleClient.customerPortalSessions.create(
+				customer?.paddleCustomerId,
+				[],
+			);
+			return redirect(session.urls.general.overview);
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
@@ -208,13 +219,29 @@ export default function Index() {
 					}}
 				/>
 			)}
-			<Form
-				method="POST"
-				action={withQuery(".", { intent: "logout" })}
-				className="flex w-full items-end justify-end mt-4 md:mt-0 md:px-10 pb-6"
-			>
-				<Button type="submit">Sign out</Button>
-			</Form>
+			<div className="mt-4 md:px-10 flex gap-4 justify-end items-center w-full">
+				{!loaderData.customerDetails.hasCancelled &&
+					!(["free", "lifetime", null] as unknown[]).includes(
+						loaderData.customerDetails.planType,
+					) && (
+						<Form
+							method="POST"
+							className="pb-6"
+							action={withQuery(".", { intent: "visitPaddleCustomerPortal" })}
+						>
+							<Button variant="outline" type="submit">
+								Cancel
+							</Button>
+						</Form>
+					)}
+				<Form
+					method="POST"
+					className="pb-6"
+					action={withQuery(".", { intent: "logout" })}
+				>
+					<Button type="submit">Sign out</Button>
+				</Form>
+			</div>
 		</>
 	);
 }
