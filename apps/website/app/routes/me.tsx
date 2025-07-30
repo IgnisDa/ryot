@@ -9,7 +9,7 @@ import { Unkey } from "@unkey/api";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import { useEffect, useState } from "react";
-import { Form, data, redirect, useLoaderData } from "react-router";
+import { Form, data, redirect, useFetcher, useLoaderData } from "react-router";
 import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
@@ -49,6 +49,20 @@ export const meta = () => {
 	return [{ title: "My account | Ryot" }];
 };
 
+const getAllSubscriptionsForCustomer = async (customerId: string) => {
+	const paddleClient = getPaddleServerClient();
+	const allSubscriptions = [];
+	const subscriptionsQuery = paddleClient.subscriptions.list({
+		customerId: [customerId],
+	});
+
+	for await (const subscription of subscriptionsQuery) {
+		allSubscriptions.push(subscription);
+	}
+
+	return allSubscriptions;
+};
+
 export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
 	const customer = await getCustomerWithActivePurchase(request);
@@ -80,15 +94,38 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 			return data({});
 		})
-		.with("visitPaddleCustomerPortal", async () => {
+		.with("cancelSubscription", async () => {
 			if (!customer?.paddleCustomerId)
 				throw new Error("No Paddle customer ID found");
 			const paddleClient = getPaddleServerClient();
-			const session = await paddleClient.customerPortalSessions.create(
-				customer?.paddleCustomerId,
-				[],
+
+			const subscriptionsResponse = await getAllSubscriptionsForCustomer(
+				customer.paddleCustomerId,
 			);
-			return redirect(session.urls.general.overview);
+
+			const activeSubscription = subscriptionsResponse.find((sub) =>
+				["active", "trialing"].includes(sub.status),
+			);
+
+			console.log("Active Subscription:", {
+				activeSubscription,
+				customerId: customer.id,
+			});
+
+			if (!activeSubscription) {
+				throw new Error("No active subscription found");
+			}
+
+			await paddleClient.subscriptions.cancel(activeSubscription.id, {
+				effectiveFrom: "immediately",
+			});
+
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+
+			return data({
+				success: true,
+				message: "Subscription cancelled successfully",
+			});
 		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
@@ -102,7 +139,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 export default function Index() {
 	const loaderData = useLoaderData<typeof loader>();
 	const [paddle, setPaddle] = useState<Paddle>();
+	const fetcher = useFetcher();
 
+	const isCancelLoading = fetcher.state !== "idle";
 	const paddleCustomerId = loaderData.customerDetails.paddleCustomerId;
 
 	useEffect(() => {
@@ -224,15 +263,15 @@ export default function Index() {
 					!(["free", "lifetime", null] as unknown[]).includes(
 						loaderData.customerDetails.planType,
 					) && (
-						<Form
+						<fetcher.Form
 							method="POST"
 							className="pb-6"
-							action={withQuery(".", { intent: "visitPaddleCustomerPortal" })}
+							action={withQuery(".", { intent: "cancelSubscription" })}
 						>
 							<Button variant="outline" type="submit">
-								Cancel
+								{isCancelLoading ? "Cancelling..." : "Cancel Subscription"}
 							</Button>
-						</Form>
+						</fetcher.Form>
 					)}
 				<Form
 					method="POST"
