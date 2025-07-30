@@ -38,9 +38,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		prices,
 		customerDetails,
+		renewOn: customerDetails.renewOn,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
-		renewOn: customerDetails.renewOn,
 	};
 };
 

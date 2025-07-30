@@ -168,6 +168,7 @@ export const getCustomerFromCookie = async (request: Request) => {
 	const cookie = await websiteAuthCookie.parse(request.headers.get("cookie"));
 	if (!cookie || Object.keys(cookie).length === 0) return null;
 	const customerId = z.string().parse(cookie);
+
 	return await db.query.customers.findFirst({
 		where: eq(schema.customers.id, customerId),
 	});
@@ -178,11 +179,11 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 	if (!customer) return null;
 
 	const activePurchase = await db.query.customerPurchases.findFirst({
+		orderBy: [desc(schema.customerPurchases.createdOn)],
 		where: and(
 			eq(schema.customerPurchases.customerId, customer.id),
 			isNull(schema.customerPurchases.cancelledOn),
 		),
-		orderBy: [desc(schema.customerPurchases.createdOn)],
 	});
 
 	return {
