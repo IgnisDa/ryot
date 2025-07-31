@@ -9,6 +9,10 @@ order.
 Default access tokens for MyAnimeList, Trakt, and TMDB have been removed. Self-hosted
 instances must obtain their own API credentials before upgrading to v9. This change affects
 **self-hosted instances only** - cloud users are unaffected.
+
+This change was made because the shared default API keys were hitting rate limits and
+exceeding free tier quotas due to Ryot's growing popularity with many self-hosted instances,
+causing errors for all users.
 :::
 
 1. **REQUIRED**: Obtain and configure API credentials for the services you use:
