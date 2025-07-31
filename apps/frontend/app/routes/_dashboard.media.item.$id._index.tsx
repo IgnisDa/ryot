@@ -713,8 +713,10 @@ export default function Page() {
 																onClick={() => {
 																	initializeMetadataToUpdate({
 																		metadataId: loaderData.metadataId,
-																		showSeasonNumber: nextEntry.season,
-																		showEpisodeNumber: nextEntry.episode,
+																		showSeasonNumber:
+																			nextEntry.season || undefined,
+																		showEpisodeNumber:
+																			nextEntry.episode || undefined,
 																	});
 																}}
 															>
@@ -763,8 +765,10 @@ export default function Page() {
 														onClick={() => {
 															initializeMetadataToUpdate({
 																metadataId: loaderData.metadataId,
-																mangaVolumeNumber: nextEntry?.volume,
-																mangaChapterNumber: nextEntry?.chapter,
+																mangaVolumeNumber:
+																	nextEntry?.volume || undefined,
+																mangaChapterNumber:
+																	nextEntry?.chapter || undefined,
 															});
 														}}
 													>
@@ -791,7 +795,8 @@ export default function Page() {
 																onClick={() => {
 																	initializeMetadataToUpdate({
 																		metadataId: loaderData.metadataId,
-																		podcastEpisodeNumber: nextEntry.episode,
+																		podcastEpisodeNumber:
+																			nextEntry.episode || undefined,
 																	});
 																}}
 															>
