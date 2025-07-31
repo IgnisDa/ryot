@@ -26,38 +26,7 @@ mod m20240827_create_daily_user_activity;
 mod m20240904_create_monitored_entity;
 mod m20241004_create_application_cache;
 mod m20241214_create_user_notification;
-mod m20250118_is_v8_migration;
-mod m20250122_changes_for_issue_1188;
-mod m20250126_changes_for_issue_1201;
-mod m20250201_changes_for_issue_1211;
-mod m20250204_changes_for_issue_1231;
-mod m20250208_changes_for_issue_1233;
-mod m20250210_changes_for_issue_1217;
-mod m20250210_changes_for_issue_1232;
-mod m20250211_changes_for_issue_1216;
-mod m20250225_changes_for_issue_1271;
-mod m20250225_changes_for_issue_1274;
-mod m20250310_changes_for_issue_1259;
-mod m20250317_changes_for_issue_1292;
-mod m20250319_changes_for_issue_1294;
-mod m20250401_changes_for_issue_1326;
-mod m20250402_changes_for_issue_1281;
-mod m20250403_changes_for_issue_1330;
-mod m20250404_changes_for_issue_1339;
-mod m20250405_changes_for_issue_1347;
-mod m20250423_changes_for_issue_1355;
-mod m20250425_changes_for_issue_1397;
-mod m20250507_changes_for_issue_1361;
-mod m20250612_changes_for_issue_1401;
-mod m20250614_changes_for_issue_1375;
-mod m20250622_changes_for_issue_1419;
-mod m20250626_changes_for_issue_1426;
-mod m20250716_changes_for_issue_1470;
-mod m20250723_changes_for_issue_1484;
-mod m20250724_changes_for_issue_1488;
-mod m20250727_changes_for_issue_1492;
-mod m20250728_changes_for_issue_1495;
-mod m20250731_is_last_v8_migration;
+mod m20250801_is_v9_migration;
 
 pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -105,38 +74,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240904_create_monitored_entity::Migration),
             Box::new(m20241004_create_application_cache::Migration),
             Box::new(m20241214_create_user_notification::Migration),
-            Box::new(m20250118_is_v8_migration::Migration),
-            Box::new(m20250122_changes_for_issue_1188::Migration),
-            Box::new(m20250126_changes_for_issue_1201::Migration),
-            Box::new(m20250201_changes_for_issue_1211::Migration),
-            Box::new(m20250204_changes_for_issue_1231::Migration),
-            Box::new(m20250208_changes_for_issue_1233::Migration),
-            Box::new(m20250210_changes_for_issue_1217::Migration),
-            Box::new(m20250210_changes_for_issue_1232::Migration),
-            Box::new(m20250211_changes_for_issue_1216::Migration),
-            Box::new(m20250225_changes_for_issue_1271::Migration),
-            Box::new(m20250225_changes_for_issue_1274::Migration),
-            Box::new(m20250310_changes_for_issue_1259::Migration),
-            Box::new(m20250317_changes_for_issue_1292::Migration),
-            Box::new(m20250319_changes_for_issue_1294::Migration),
-            Box::new(m20250401_changes_for_issue_1326::Migration),
-            Box::new(m20250402_changes_for_issue_1281::Migration),
-            Box::new(m20250403_changes_for_issue_1330::Migration),
-            Box::new(m20250404_changes_for_issue_1339::Migration),
-            Box::new(m20250405_changes_for_issue_1347::Migration),
-            Box::new(m20250423_changes_for_issue_1355::Migration),
-            Box::new(m20250507_changes_for_issue_1361::Migration),
-            Box::new(m20250425_changes_for_issue_1397::Migration),
-            Box::new(m20250612_changes_for_issue_1401::Migration),
-            Box::new(m20250614_changes_for_issue_1375::Migration),
-            Box::new(m20250622_changes_for_issue_1419::Migration),
-            Box::new(m20250626_changes_for_issue_1426::Migration),
-            Box::new(m20250716_changes_for_issue_1470::Migration),
-            Box::new(m20250723_changes_for_issue_1484::Migration),
-            Box::new(m20250724_changes_for_issue_1488::Migration),
-            Box::new(m20250727_changes_for_issue_1492::Migration),
-            Box::new(m20250728_changes_for_issue_1495::Migration),
-            Box::new(m20250731_is_last_v8_migration::Migration),
+            Box::new(m20250801_is_v9_migration::Migration),
         ]
     }
 }
