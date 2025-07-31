@@ -426,11 +426,6 @@ const DisplayNotification = (props: {
 												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
 												() => "Integration disabled due to too many errors",
 											)
-											.with(
-												UserNotificationContent.EntityRemovedFromMonitoringCollection,
-												() =>
-													"An entity is removed from the monitoring collection",
-											)
 											.exhaustive()}
 									/>
 								))}
