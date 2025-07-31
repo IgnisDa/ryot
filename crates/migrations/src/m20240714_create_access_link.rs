@@ -56,11 +56,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(AccessLink::MaximumUses).integer())
                     .col(ColumnDef::new(AccessLink::IsRevoked).boolean())
-                    .col(ColumnDef::new(AccessLink::IsAccountDefault).boolean())
                     .col(ColumnDef::new(AccessLink::UserId).text().not_null())
                     .col(ColumnDef::new(AccessLink::Name).text().not_null())
                     .col(ColumnDef::new(AccessLink::IsMutationAllowed).boolean())
                     .col(ColumnDef::new(AccessLink::RedirectTo).text())
+                    .col(ColumnDef::new(AccessLink::IsAccountDefault).boolean())
                     .foreign_key(
                         ForeignKey::create()
                             .name("access_link_to_user_foreign_key")

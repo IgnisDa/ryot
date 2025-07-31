@@ -63,11 +63,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
                     .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
                     .col(
-                        ColumnDef::new(Seen::ProvidersConsumedOn)
-                            .array(ColumnType::Text)
-                            .not_null()
-                    )
-                    .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
@@ -82,6 +77,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .col(ColumnDef::new(Seen::UserId).text().not_null())
                     .col(ColumnDef::new(Seen::ManualTimeSpent).decimal())
+                    .col(
+                        ColumnDef::new(Seen::ProvidersConsumedOn)
+                            .array(ColumnType::Text)
+                            .not_null()
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")

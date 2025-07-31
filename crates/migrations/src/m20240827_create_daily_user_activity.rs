@@ -94,8 +94,6 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(
                         DailyUserActivity::MetadataGroupReviewCount,
                     ))
-                    .col(integer_not_null(DailyUserActivity::TotalMetadataGroupCount))
-                    .col(integer_not_null(DailyUserActivity::TotalPersonCount))
                     .col(integer_not_null(DailyUserActivity::PersonReviewCount))
                     .col(integer_not_null(DailyUserActivity::ExerciseReviewCount))
                     .col(integer_not_null(DailyUserActivity::WorkoutCount))
@@ -129,12 +127,6 @@ impl MigrationTrait for Migration {
                     .col(integer_not_null(DailyUserActivity::TotalCount))
                     .col(integer_not_null(DailyUserActivity::TotalDuration))
                     .col(integer_not_null(DailyUserActivity::WorkoutCaloriesBurnt))
-                    .col(integer_not_null(DailyUserActivity::PersonCollectionCount))
-                    .col(integer_not_null(DailyUserActivity::MetadataCollectionCount))
-                    .col(integer_not_null(
-                        DailyUserActivity::MetadataGroupCollectionCount,
-                    ))
-                    .col(integer_not_null(DailyUserActivity::TotalCollectionCount))
                     .col(
                         ColumnDef::new(DailyUserActivity::HourRecords)
                             .json_binary()
@@ -159,6 +151,14 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::cust("'{}'")),
                     )
+                    .col(integer_not_null(DailyUserActivity::TotalPersonCount))
+                    .col(integer_not_null(DailyUserActivity::TotalMetadataGroupCount))
+                    .col(integer_not_null(DailyUserActivity::PersonCollectionCount))
+                    .col(integer_not_null(DailyUserActivity::MetadataCollectionCount))
+                    .col(integer_not_null(
+                        DailyUserActivity::MetadataGroupCollectionCount,
+                    ))
+                    .col(integer_not_null(DailyUserActivity::TotalCollectionCount))
                     .foreign_key(
                         ForeignKey::create()
                             .name("daily_user_activity_to_user_foreign_key")

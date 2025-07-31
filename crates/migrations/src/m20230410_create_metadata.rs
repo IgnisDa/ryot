@@ -83,13 +83,11 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(Metadata::Title).text().not_null())
-                    .col(ColumnDef::new(Metadata::SourceUrl).text())
                     .col(ColumnDef::new(Metadata::Description).text())
                     .col(ColumnDef::new(Metadata::PublishYear).integer())
                     .col(ColumnDef::new(Metadata::PublishDate).date())
                     .col(ColumnDef::new(Metadata::ProviderRating).decimal())
                     .col(ColumnDef::new(Metadata::IsNsfw).boolean())
-                    .col(ColumnDef::new(Metadata::Assets).json_binary().not_null())
                     .col(ColumnDef::new(Metadata::FreeCreators).json_binary())
                     .col(ColumnDef::new(Metadata::OriginalLanguage).text())
                     .col(ColumnDef::new(Metadata::IsPartial).boolean())
@@ -105,7 +103,9 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Metadata::WatchProviders).json_binary())
                     .col(ColumnDef::new(Metadata::ExternalIdentifiers).json_binary())
                     .col(ColumnDef::new(Metadata::MusicSpecifics).json_binary())
+                    .col(ColumnDef::new(Metadata::SourceUrl).text())
                     .col(ColumnDef::new(Metadata::CreatedByUserId).text())
+                    .col(ColumnDef::new(Metadata::Assets).json_binary().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name(METADATA_TO_USER_FOREIGN_KEY)

@@ -68,8 +68,8 @@ impl MigrationTrait for Migration {
                             .default(Expr::current_timestamp()),
                     )
                     .col(ColumnDef::new(UserToEntity::ExerciseNumTimesInteracted).integer())
-                    .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .col(ColumnDef::new(UserToEntity::ExerciseId).text())
+                    .col(ColumnDef::new(UserToEntity::ExerciseExtraInformation).json_binary())
                     .col(ColumnDef::new(UserToEntity::MediaReason).array(ColumnType::Text))
                     .col(
                         ColumnDef::new(UserToEntity::CreatedOn)
@@ -81,7 +81,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UserToEntity::MetadataGroupId).text())
                     .col(ColumnDef::new(UserToEntity::PersonId).text())
                     .col(ColumnDef::new(UserToEntity::MetadataId).text())
-                    .col(ColumnDef::new(UserToEntity::CollectionId).text())
                     .col(ColumnDef::new(UserToEntity::UserId).text().not_null())
                     .col(
                         ColumnDef::new(UserToEntity::Id)
@@ -90,6 +89,7 @@ impl MigrationTrait for Migration {
                             .default(PgFunc::gen_random_uuid())
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(UserToEntity::CollectionId).text())
                     .col(ColumnDef::new(UserToEntity::CollectionExtraInformation).json_binary())
                     .foreign_key(
                         ForeignKey::create()

@@ -9,29 +9,14 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         db.execute_unprepared(
             r#"
-ALTER TABLE "application_cache" ALTER COLUMN "version" DROP NOT NULL;
-ALTER TABLE "application_cache" ALTER COLUMN "expires_at" SET NOT NULL;
+ALTER TABLE calendar_event MODIFY COLUMN "date" SET NOT NULL;
 
-ALTER TABLE "user_notification" ALTER COLUMN "id" DROP DEFAULT;
-ALTER TABLE "user_notification" ALTER COLUMN "id" TYPE text;
-ALTER TABLE "user_notification" ADD COLUMN IF NOT EXISTS "created_on" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE collection_to_entity MODIFY COLUMN "entity_id" SET NOT NULL;
+ALTER TABLE collection_to_entity MODIFY COLUMN "entity_lot" SET NOT NULL;
 
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "last_activity_on" TIMESTAMP WITH TIME ZONE;
+ALTER TABLE exercise MODIFY COLUMN "muscles" SET NOT NULL;
 
-UPDATE "user_notification" SET "lot" = 'queued' WHERE "lot" = 'immediate';
-
-UPDATE
-  "user"
-SET
-  preferences = JSONB_SET(
-    preferences,
-    '{notifications,to_send}',
-    (preferences -> 'notifications' -> 'to_send') || '"OutdatedSeenEntries"'
-  )
-where
-  NOT (
-    preferences -> 'notifications' -> 'to_send' ? 'OutdatedSeenEntries'
-  );
+ALTER TABLE review MODIFY COLUMN "entity_lot" SET NOT NULL;
         "#,
         )
         .await?;
