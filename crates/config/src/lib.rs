@@ -3,14 +3,9 @@ use std::path::PathBuf;
 use anyhow::Result;
 use async_graphql::SimpleObject;
 use common_utils::PROJECT_NAME;
-use env_utils::DEFAULT_TMDB_ACCESS_TOKEN;
 use schematic::{Config, ConfigEnum, ConfigLoader, HandlerError, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
 
-// FIXME: Remove this in the next major version
-fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_string()))
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
@@ -163,7 +158,6 @@ pub struct MediaConfig {
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
     /// The access token for the TMDB API.
-    #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
     /// The locale to use for making requests to TMDB API.
     #[setting(default = "en")]

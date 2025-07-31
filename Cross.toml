@@ -1,10 +1,5 @@
 [build.env]
-passthrough = [
-    "APP_VERSION",
-    "UNKEY_API_ID",
-    # FIXME: Remove this in the next major version
-    "DEFAULT_TMDB_ACCESS_TOKEN",
-]
+passthrough = ["APP_VERSION", "UNKEY_API_ID"]
 
 [build]
 pre-build = "ci/cross-pre-build.sh"
