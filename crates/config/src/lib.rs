@@ -144,15 +144,6 @@ pub struct DatabaseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 pub struct ExerciseConfig {}
 
-// FIXME: Remove this in the next major version
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
-pub struct MediaConfig {
-    /// Number of days after which a media should be removed from the Monitoring collection.
-    #[setting(default = 30)]
-    pub monitoring_remove_after_days: i64,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
@@ -458,9 +449,6 @@ pub struct AppConfig {
     /// Settings related to frontend storage.
     #[setting(nested)]
     pub frontend: FrontendConfig,
-    /// Settings related to media.
-    #[setting(nested)]
-    pub media: MediaConfig,
     /// Settings related to movies and shows.
     #[setting(nested)]
     pub movies_and_shows: MovieAndShowConfig,
