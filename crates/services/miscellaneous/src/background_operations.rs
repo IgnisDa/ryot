@@ -6,17 +6,17 @@ use std::{
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
 use chrono::{Duration, Utc};
-use common_models::{DefaultCollection, UserLevelCacheKey};
+use common_models::UserLevelCacheKey;
 use common_utils::{
     BULK_APPLICATION_UPDATE_CHUNK_SIZE, BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, ryot_log,
 };
 use convert_case::{Case, Casing};
 use database_models::{
-    access_link, application_cache, collection, collection_to_entity, genre, import_report,
-    metadata, metadata_group, metadata_to_genre, monitored_entity, person,
+    access_link, application_cache, genre, import_report, metadata, metadata_group,
+    metadata_to_genre, monitored_entity, person,
     prelude::{
-        AccessLink, ApplicationCache, Collection, CollectionToEntity, Genre, ImportReport,
-        Metadata, MetadataGroup, MetadataToGenre, MonitoredEntity, Person, Seen, UserToEntity,
+        AccessLink, ApplicationCache, Genre, ImportReport, Metadata, MetadataGroup,
+        MetadataToGenre, MonitoredEntity, Person, Seen, UserToEntity,
     },
     seen, user, user_to_entity,
 };
@@ -25,21 +25,19 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput,
 };
 use dependent_utils::{
-    calculate_user_activities_and_summary, get_entity_title_from_id_and_lot,
-    is_server_key_validated, send_notification_for_user, update_metadata_and_notify_users,
-    update_person_and_notify_users,
+    calculate_user_activities_and_summary, is_server_key_validated, send_notification_for_user,
+    update_metadata_and_notify_users, update_person_and_notify_users,
 };
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use futures::future::join_all;
 use itertools::Itertools;
 use sea_orm::{
-    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult,
-    ModelTrait, QueryFilter, QuerySelect, Statement, prelude::DateTimeUtc, query::UpdateMany,
+    ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait,
+    QueryFilter, QuerySelect, Statement, query::UpdateMany,
 };
 use sea_query::Expr;
 use supporting_service::SupportingService;
 use traits::TraceOk;
-use uuid::Uuid;
 
 use crate::{
     calendar_operations::{
@@ -121,64 +119,6 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
         .exec(&ss.db)
         .await?;
     ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
-    Ok(())
-}
-
-// FIXME: Remove this in the next major version
-async fn remove_old_entities_from_monitoring_collection(ss: &Arc<SupportingService>) -> Result<()> {
-    #[derive(Debug, FromQueryResult)]
-    struct CustomQueryResponse {
-        id: Uuid,
-        entity_id: String,
-        collection_id: String,
-        entity_lot: EntityLot,
-        last_updated_on: DateTimeUtc,
-    }
-    let all_cte = CollectionToEntity::find()
-        .select_only()
-        .column(collection_to_entity::Column::Id)
-        .column(collection_to_entity::Column::EntityId)
-        .column(collection_to_entity::Column::EntityLot)
-        .column(collection_to_entity::Column::CollectionId)
-        .column(collection_to_entity::Column::LastUpdatedOn)
-        .inner_join(Collection)
-        .filter(collection::Column::Name.eq(DefaultCollection::Monitoring.to_string()))
-        .into_model::<CustomQueryResponse>()
-        .all(&ss.db)
-        .await?;
-    let mut to_delete = vec![];
-    for cte in all_cte {
-        let delta = Utc::now() - cte.last_updated_on;
-        if delta.num_days() > ss.config.media.monitoring_remove_after_days {
-            to_delete.push(cte);
-        }
-    }
-    if to_delete.is_empty() {
-        return Ok(());
-    }
-    for item in to_delete.iter() {
-        let users_in_this_collection = UserToEntity::find()
-            .filter(user_to_entity::Column::CollectionId.eq(&item.collection_id))
-            .all(&ss.db)
-            .await?;
-        let title = get_entity_title_from_id_and_lot(&item.entity_id, item.entity_lot, ss).await?;
-        for user in users_in_this_collection {
-            send_notification_for_user(
-                &user.user_id,
-                ss,
-                &(
-                    format!("{} has been removed from the monitoring collection", title),
-                    UserNotificationContent::EntityRemovedFromMonitoringCollection,
-                ),
-            )
-            .await?;
-        }
-    }
-    let result = CollectionToEntity::delete_many()
-        .filter(collection_to_entity::Column::Id.is_in(to_delete.into_iter().map(|c| c.id)))
-        .exec(&ss.db)
-        .await?;
-    ryot_log!(debug, "Deleted collection to entity: {:#?}", result);
     Ok(())
 }
 
@@ -543,10 +483,6 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
         .trace_ok();
     ryot_log!(trace, "Checking for updates for monitored people");
     update_monitored_people_and_queue_notifications(ss)
-        .await
-        .trace_ok();
-    ryot_log!(trace, "Removing stale entities from Monitoring collection");
-    remove_old_entities_from_monitoring_collection(ss)
         .await
         .trace_ok();
     ryot_log!(trace, "Checking and queuing any pending reminders");
