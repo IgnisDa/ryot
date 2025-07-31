@@ -1,12 +1,10 @@
 import {
 	ActionIcon,
 	Box,
-	Center,
 	Container,
 	Divider,
 	Flex,
 	Group,
-	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -46,6 +44,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
+	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 } from "~/components/common";
@@ -326,14 +325,11 @@ export default function Page() {
 							) : (
 								<Text>No information to display</Text>
 							)}
-							<Center>
-								<Pagination
-									size="sm"
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
-								/>
-							</Center>
+							<ApplicationPagination
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
 						</>
 					) : null}
 
@@ -358,14 +354,11 @@ export default function Page() {
 							) : (
 								<Text>No groups found matching your query</Text>
 							)}
-							<Center>
-								<Pagination
-									size="sm"
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
-								/>
-							</Center>
+							<ApplicationPagination
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
 						</>
 					) : null}
 				</Stack>

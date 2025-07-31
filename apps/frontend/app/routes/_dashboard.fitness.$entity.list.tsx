@@ -4,12 +4,10 @@ import {
 	ActionIcon,
 	Anchor,
 	Box,
-	Center,
 	Container,
 	Divider,
 	Flex,
 	Group,
-	Pagination,
 	Select,
 	Skeleton,
 	Stack,
@@ -55,7 +53,10 @@ import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
-import { DisplayListDetailsAndRefresh } from "~/components/common";
+import {
+	ApplicationPagination,
+	DisplayListDetailsAndRefresh,
+} from "~/components/common";
 import {
 	DebouncedSearchInput,
 	FiltersModal,
@@ -254,14 +255,11 @@ export default function Page() {
 						<Text>No {loaderData.entity} found</Text>
 					)}
 				</Stack>
-				<Center>
-					<Pagination
-						size="sm"
-						total={loaderData.totalPages}
-						value={loaderData.query[pageQueryParam]}
-						onChange={(v) => setP(pageQueryParam, v.toString())}
-					/>
-				</Center>
+				<ApplicationPagination
+					total={loaderData.totalPages}
+					value={loaderData.query[pageQueryParam]}
+					onChange={(v) => setP(pageQueryParam, v.toString())}
+				/>
 			</Stack>
 		</Container>
 	);

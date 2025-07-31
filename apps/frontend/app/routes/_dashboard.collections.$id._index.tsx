@@ -2,11 +2,9 @@ import {
 	ActionIcon,
 	Box,
 	Button,
-	Center,
 	Container,
 	Flex,
 	Group,
-	Pagination,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -56,6 +54,7 @@ import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import {
+	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayCollectionEntity,
 	DisplayListDetailsAndRefresh,
@@ -328,16 +327,11 @@ export default function Page() {
 								) : (
 									<Text>You have not added anything this collection</Text>
 								)}
-								{details.details ? (
-									<Center>
-										<Pagination
-											size="sm"
-											total={loaderData.totalPages}
-											value={loaderData.query[pageQueryParam]}
-											onChange={(v) => setP(pageQueryParam, v.toString())}
-										/>
-									</Center>
-								) : null}
+								<ApplicationPagination
+									total={loaderData.totalPages}
+									value={loaderData.query[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
 							</Stack>
 						</Tabs.Panel>
 						<Tabs.Panel value={TabNames.Recommendations}>
@@ -537,17 +531,14 @@ const RecommendationsSection = () => {
 								/>
 							))}
 						</ApplicationGrid>
-						<Center>
-							<Pagination
-								size="sm"
-								value={searchInput.page}
-								onChange={(v) => setSearchInput({ ...searchInput, page: v })}
-								total={Math.ceil(
-									recommendations.data.collectionRecommendations.details.total /
-										userPreferences.general.listPageSize,
-								)}
-							/>
-						</Center>
+						<ApplicationPagination
+							value={searchInput.page}
+							onChange={(v) => setSearchInput({ ...searchInput, page: v })}
+							total={Math.ceil(
+								recommendations.data.collectionRecommendations.details.total /
+									userPreferences.general.listPageSize,
+							)}
+						/>
 					</>
 				) : (
 					<Text>No recommendations found</Text>
