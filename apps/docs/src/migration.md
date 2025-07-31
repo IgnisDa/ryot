@@ -5,14 +5,25 @@ order.
 
 ## From `v8.*` to `v9.*`
 
-1. Upgrade the server to `v8.10.0` to make sure all `v8` migrations are applied. For
+::: warning API Credentials Required
+Default access tokens for MyAnimeList, Trakt, and TMDB have been removed. Self-hosted
+instances must obtain their own API credentials before upgrading to v9. This change affects
+**self-hosted instances only** - cloud users are unaffected.
+:::
+
+1. **REQUIRED**: Obtain and configure API credentials for the services you use:
+   - **TMDB**: Follow the [movies and shows guide](./guides/movies-and-shows.md)
+   - **Trakt**: Follow the [Trakt guide](./guides/trakt.md)
+   - **MyAnimeList**: Follow the [anime and manga guide](./guides/anime-and-manga.md)
+
+2. Upgrade the server to `v8.10.0` to make sure all `v8` migrations are applied. For
    example, you can make this change: `image: "ignisda/ryot:v8.10.0"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+3. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
-3. Now you can upgrade to the latest version (`v9.*`). For example you can make this
+4. Now you can upgrade to the latest version (`v9.*`). For example you can make this
    change: `image: "ignisda/ryot:v9"` in your docker-compose file. This will
    automatically apply all migrations required for the new version.
 
