@@ -7464,7 +7464,7 @@ __metadata:
     "@types/nodemailer": "npm:6.4.17"
     "@types/react": "npm:19.1.9"
     "@types/react-dom": "npm:19.1.7"
-    "@unkey/api": "npm:0.38.0"
+    "@unkey/api": "npm:2.0.1"
     autoprefixer: "npm:10.4.21"
     class-variance-authority: "npm:0.7.1"
     clsx: "npm:2.1.1"
@@ -8949,31 +8949,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@unkey/api@npm:0.38.0":
-  version: 0.38.0
-  resolution: "@unkey/api@npm:0.38.0"
+"@unkey/api@npm:2.0.1":
+  version: 2.0.1
+  resolution: "@unkey/api@npm:2.0.1"
   dependencies:
-    "@unkey/rbac": "npm:^0.3.1"
-  checksum: 10/f61bf55139f197f49fc9738dce96dd77f841be2d1b6457069323a46dc2fb306c412dd89f9c923a6deec7c6ed2cdfe503d0c0db9bbd9a4737de37d184570410ae
-  languageName: node
-  linkType: hard
-
-"@unkey/error@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "@unkey/error@npm:0.2.0"
-  dependencies:
-    zod: "npm:^3.23.5"
-  checksum: 10/7bae43e8d70a559252880a31193e7511d0c877faf149801daaa7b0fcadad90464f5117f4c399fb7586c6f61d1949b6c01c8d7a35db283523acf71b2e9685b508
-  languageName: node
-  linkType: hard
-
-"@unkey/rbac@npm:^0.3.1":
-  version: 0.3.1
-  resolution: "@unkey/rbac@npm:0.3.1"
-  dependencies:
-    "@unkey/error": "npm:^0.2.0"
-    zod: "npm:^3.23.5"
-  checksum: 10/1a977e65de51a22ca205dc58d0f2becfea11ad4eae23ee5d812abe8630f91dfeadbff33d89e9ae10a7c978992fc0be1bd4e100be2ee3898b2a8b3add0c6586bf
+    zod: "npm:^3.20.0"
+  peerDependencies:
+    "@modelcontextprotocol/sdk": ">=1.5.0 <1.10.0"
+  peerDependenciesMeta:
+    "@modelcontextprotocol/sdk":
+      optional: true
+  bin:
+    mcp: bin/mcp-server.js
+  checksum: 10/c91a56e816d019f7c0c00f30e0fd0ea944a1e0e43faa0f0e96fb4608db3628432df42f21fea8ee17833a6c9812b0f13c86e6dfba936a3d75ed5c120dbbf71f35
   languageName: node
   linkType: hard
 
@@ -21527,7 +21515,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.22.4, zod@npm:^3.23.5":
+"zod@npm:^3.20.0, zod@npm:^3.22.4":
   version: 3.25.76
   resolution: "zod@npm:3.25.76"
   checksum: 10/f0c963ec40cd96858451d1690404d603d36507c1fc9682f2dae59ab38b578687d542708a7fdbf645f77926f78c9ed558f57c3d3aa226c285f798df0c4da16995

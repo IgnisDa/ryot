@@ -214,12 +214,11 @@ export const createUnkeyKey = async (
 	renewOn?: Dayjs,
 ) => {
 	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-	const created = await unkey.keys.create({
+	const created = await unkey.keys.createKey({
 		name: customer.email,
 		externalId: customer.id,
 		apiId: serverVariables.UNKEY_API_ID,
 		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
 	});
-	if (created.error) throw new Error(created.error.message);
-	return created.result;
+	return created.data;
 };
