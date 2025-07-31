@@ -323,9 +323,9 @@ export default function Page() {
 				<Center>
 					<Pagination
 						size="sm"
+						total={loaderData.totalPages}
 						value={loaderData.query[pageQueryParam]}
 						onChange={(v) => setP(pageQueryParam, v.toString())}
-						total={loaderData.totalPages}
 					/>
 				</Center>
 			</Stack>
