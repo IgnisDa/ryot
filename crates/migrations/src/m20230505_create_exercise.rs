@@ -51,7 +51,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("workout_to_user_foreign_key")
+                            .name("exercise_to_user_foreign_key")
                             .from(Exercise::Table, Exercise::CreatedByUserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::SetNull)
