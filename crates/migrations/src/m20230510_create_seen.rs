@@ -107,8 +107,8 @@ impl MigrationTrait for Migration {
                             .name("review_to_seen_foreign_key")
                             .from(Seen::Table, Seen::ReviewId)
                             .to(Review::Table, Review::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::SetNull),
+                            .on_delete(ForeignKeyAction::SetNull)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
