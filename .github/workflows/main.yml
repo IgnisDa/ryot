@@ -146,8 +146,6 @@ jobs:
           UNKEY_API_ID: ${{ secrets.UNKEY_API_ID }}
           APP_VERSION: ${{ steps.build.outputs.version }}
           # FIXME: Remove this in the next major version
-          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
-          # FIXME: Remove this in the next major version
           DEFAULT_MAL_CLIENT_ID: ${{ secrets.DEFAULT_MAL_CLIENT_ID }}
           # FIXME: Remove this in the next major version
           DEFAULT_TMDB_ACCESS_TOKEN: ${{ secrets.DEFAULT_TMDB_ACCESS_TOKEN }}

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use async_graphql::SimpleObject;
 use common_utils::PROJECT_NAME;
-use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN, TRAKT_CLIENT_ID};
+use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN};
 use schematic::{Config, ConfigEnum, ConfigLoader, HandlerError, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
 
@@ -15,11 +15,6 @@ fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> 
 // FIXME: Remove this in the next major version
 fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
     Ok(Some(DEFAULT_MAL_CLIENT_ID.to_string()))
-}
-
-// FIXME: Remove this in the next major version
-fn default_trakt_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(TRAKT_CLIENT_ID.to_string()))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
@@ -381,7 +376,6 @@ pub struct OidcConfig {
 #[config(rename_all = "snake_case", env_prefix = "SERVER_IMPORTER_")]
 pub struct ImporterConfig {
     /// The client ID for the Trakt importer. **Required** to enable Trakt importer.
-    #[setting(default = default_trakt_client_id)]
     pub trakt_client_id: String,
 }
 
