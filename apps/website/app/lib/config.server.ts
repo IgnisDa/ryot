@@ -190,9 +190,15 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 		planType: activePurchase?.planType || null,
 		hasCancelled: !!activePurchase?.cancelledOn,
 		productType: activePurchase?.productType || null,
+		ryotUserId:
+			activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
 		renewOn: activePurchase?.renewOn
 			? formatDateToNaiveDate(activePurchase.renewOn)
 			: null,
+		unkeyKeyId:
+			activePurchase?.productType === "self_hosted"
+				? customer.unkeyKeyId
+				: null,
 	};
 };
 
