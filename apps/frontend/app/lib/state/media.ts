@@ -1,6 +1,7 @@
 import {
 	type EntityLot,
 	MediaLot,
+	MediaSource,
 	MetadataDetailsDocument,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -39,6 +40,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 	);
 	if (
 		!meta.isPartial ||
+		meta.source === MediaSource.Custom ||
 		!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(meta.lot)
 	)
 		return meta;
