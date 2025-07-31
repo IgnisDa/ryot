@@ -13,7 +13,7 @@ mod m20230505_create_exercise;
 mod m20230506_create_workout_template;
 mod m20230507_create_workout;
 mod m20230508_create_review;
-mod m20230509_create_import_report;
+mod m20230513_create_import_report;
 mod m20230820_create_user_measurement;
 mod m20230912_create_calendar_event;
 mod m20231016_create_collection_to_entity;
@@ -60,7 +60,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230506_create_workout_template::Migration),
             Box::new(m20230507_create_workout::Migration),
             Box::new(m20230508_create_review::Migration),
-            Box::new(m20230509_create_import_report::Migration),
+            Box::new(m20230513_create_import_report::Migration),
             Box::new(m20230820_create_user_measurement::Migration),
             Box::new(m20230912_create_calendar_event::Migration),
             Box::new(m20231016_create_collection_to_entity::Migration),

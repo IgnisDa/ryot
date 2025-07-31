@@ -267,7 +267,7 @@ BEGIN
                 ('m20230506_create_workout_template', 1684693325),
                 ('m20230507_create_workout', 1684693326),
                 ('m20230508_create_review', 1684693327),
-                ('m20230509_create_import_report', 1684693328),
+                ('m20230513_create_import_report', 1684693328),
                 ('m20230820_create_user_measurement', 1684693329),
                 ('m20230912_create_calendar_event', 1684693330),
                 ('m20231016_create_collection_to_entity', 1684693331),
