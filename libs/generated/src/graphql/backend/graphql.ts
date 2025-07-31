@@ -2788,7 +2788,6 @@ export type UserMetadataListInput = {
 };
 
 export enum UserNotificationContent {
-  EntityRemovedFromMonitoringCollection = 'ENTITY_REMOVED_FROM_MONITORING_COLLECTION',
   IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
