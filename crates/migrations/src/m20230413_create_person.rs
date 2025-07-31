@@ -104,6 +104,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .extra(PERSON_ASSOCIATED_METADATA_GROUPS_COUNT_GENERATED_SQL),
                     )
+                    .col(
+                        ColumnDef::new(Person::AssociatedEntityCount)
+                            .integer()
+                            .not_null()
+                            .extra(PERSON_ASSOCIATED_ENTITY_COUNT_GENERATED_SQL),
+                    )
                     .to_owned(),
             )
             .await?;
