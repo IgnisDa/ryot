@@ -33,6 +33,11 @@ BEGIN
 END $$;
 
 ALTER TABLE review ALTER COLUMN "entity_lot" SET NOT NULL;
+
+-- Remove entity_removed_from_monitoring_collection from configured_events arrays
+UPDATE notification_platform 
+SET configured_events = array_remove(configured_events, 'entity_removed_from_monitoring_collection')
+WHERE 'entity_removed_from_monitoring_collection' = ANY(configured_events);
         "#,
         )
         .await?;
