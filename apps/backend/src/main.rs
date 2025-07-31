@@ -278,8 +278,7 @@ BEGIN
                 ('m20240714_create_access_link', 1684693336),
                 ('m20240827_create_daily_user_activity', 1684693337),
                 ('m20240904_create_monitored_entity', 1684693338),
-                ('m20241004_create_application_cache', 1684693339),
-                ('m20241214_create_user_notification', 1684693340);
+                ('m20241004_create_application_cache', 1684693339);
         END IF;
     END IF;
 END $$;
