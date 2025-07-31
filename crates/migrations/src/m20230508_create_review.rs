@@ -5,8 +5,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230404_create_user::User, m20230410_create_metadata::Metadata,
     m20230411_create_metadata_group::MetadataGroup, m20230413_create_person::Person,
-    m20230419_create_seen::Seen, m20230504_create_collection::Collection,
-    m20230505_create_exercise::Exercise,
+    m20230504_create_collection::Collection, m20230505_create_exercise::Exercise,
 };
 
 #[derive(DeriveMigrationName)]
@@ -162,24 +161,6 @@ impl MigrationTrait for Migration {
                             .from(Review::Table, Review::ExerciseId)
                             .to(Exercise::Table, Exercise::Id)
                             .on_delete(ForeignKeyAction::Cascade)
-                            .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(Seen::Table)
-                    .add_column(ColumnDef::new(Seen::ReviewId).text())
-                    .add_foreign_key(
-                        TableForeignKey::new()
-                            .name("review_to_seen_foreign_key")
-                            .from_tbl(Seen::Table)
-                            .from_col(Seen::ReviewId)
-                            .to_tbl(Review::Table)
-                            .to_col(Review::Id)
-                            .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),

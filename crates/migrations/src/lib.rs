@@ -6,13 +6,13 @@ mod m20230404_create_user;
 mod m20230410_create_metadata;
 mod m20230411_create_metadata_group;
 mod m20230413_create_person;
-mod m20230419_create_seen;
 mod m20230502_create_genre;
 mod m20230504_create_collection;
 mod m20230505_create_exercise;
 mod m20230506_create_workout_template;
 mod m20230507_create_workout;
 mod m20230508_create_review;
+mod m20230510_create_seen;
 mod m20230513_create_import_report;
 mod m20230820_create_user_measurement;
 mod m20230912_create_calendar_event;
@@ -31,13 +31,13 @@ pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
 pub use m20230411_create_metadata_group::MetadataGroup as AliasedMetadataGroup;
 pub use m20230413_create_person::Person as AliasedPerson;
-pub use m20230419_create_seen::Seen as AliasedSeen;
 pub use m20230502_create_genre::{
     Genre as AliasedGenre, MetadataToGenre as AliasedMetadataToGenre,
 };
 pub use m20230504_create_collection::Collection as AliasedCollection;
 pub use m20230505_create_exercise::Exercise as AliasedExercise;
 pub use m20230508_create_review::Review as AliasedReview;
+pub use m20230510_create_seen::Seen as AliasedSeen;
 pub use m20230912_create_calendar_event::CalendarEvent as AliasedCalendarEvent;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
@@ -53,7 +53,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20230410_create_metadata::Migration),
             Box::new(m20230411_create_metadata_group::Migration),
             Box::new(m20230413_create_person::Migration),
-            Box::new(m20230419_create_seen::Migration),
+            Box::new(m20230510_create_seen::Migration),
             Box::new(m20230502_create_genre::Migration),
             Box::new(m20230504_create_collection::Migration),
             Box::new(m20230505_create_exercise::Migration),
