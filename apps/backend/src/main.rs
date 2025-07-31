@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v7_if_applicable(&db).await {
+    if let Err(err) = migrate_from_v8_if_applicable(&db).await {
         ryot_log!(error, "Migration from v7 failed: {}", err);
         bail!("There was an error migrating from v7.")
     }
@@ -233,7 +233,7 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-async fn migrate_from_v7_if_applicable(db: &DatabaseConnection) -> Result<()> {
+async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -244,13 +244,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240825_is_v7_migration'
+            WHERE version = 'm20250118_is_v8_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20250117_is_last_v7_migration'
+                WHERE version = 'm20250731_is_last_v8_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v7 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v8 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
