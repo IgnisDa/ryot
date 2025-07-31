@@ -13,7 +13,6 @@ CLAUDE.md is an excellent place to start reading on coding conventions followed 
   ```bash title=".env"
   DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres
   DEFAULT_TMDB_ACCESS_TOKEN=your-tmdb-access-token
-  DEFAULT_MAL_CLIENT_ID=your-mal-client-id
   UNKEY_API_ID=dummy-api-id
   APP_VERSION=v5.2.1
   ```

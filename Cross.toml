@@ -3,8 +3,6 @@ passthrough = [
     "APP_VERSION",
     "UNKEY_API_ID",
     # FIXME: Remove this in the next major version
-    "DEFAULT_MAL_CLIENT_ID",
-    # FIXME: Remove this in the next major version
     "DEFAULT_TMDB_ACCESS_TOKEN",
 ]
 
