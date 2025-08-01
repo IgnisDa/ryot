@@ -557,7 +557,9 @@ export const ApplicationPagination = (props: {
 					</ActionIcon>
 				)}
 
-				<Text size="sm">1</Text>
+				<Button size="compact-xs" onClick={() => props.onChange(1)}>
+					1
+				</Button>
 
 				<Select
 					size="xs"
@@ -571,7 +573,12 @@ export const ApplicationPagination = (props: {
 
 				{currentPage < totalPages && (
 					<>
-						<Text size="sm">{totalPages}</Text>
+						<Button
+							size="compact-xs"
+							onClick={() => props.onChange(totalPages)}
+						>
+							{totalPages}
+						</Button>
 						<ActionIcon
 							size="sm"
 							variant="default"
