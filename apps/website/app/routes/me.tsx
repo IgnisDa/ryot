@@ -71,7 +71,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			if (!customer || !customer.planType) throw new Error("No customer found");
 			if (!customer.unkeyKeyId) throw new Error("No unkey key found");
 			const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-			await unkey.keys.update({ keyId: customer.unkeyKeyId, enabled: false });
+			await unkey.keys.updateKey({
+				enabled: false,
+				keyId: customer.unkeyKeyId,
+			});
 			const renewOnDayjs = customer.renewOn
 				? dayjs(customer.renewOn)
 				: undefined;

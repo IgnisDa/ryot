@@ -190,9 +190,15 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 		planType: activePurchase?.planType || null,
 		hasCancelled: !!activePurchase?.cancelledOn,
 		productType: activePurchase?.productType || null,
+		ryotUserId:
+			activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
 		renewOn: activePurchase?.renewOn
 			? formatDateToNaiveDate(activePurchase.renewOn)
 			: null,
+		unkeyKeyId:
+			activePurchase?.productType === "self_hosted"
+				? customer.unkeyKeyId
+				: null,
 	};
 };
 
@@ -214,12 +220,11 @@ export const createUnkeyKey = async (
 	renewOn?: Dayjs,
 ) => {
 	const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
-	const created = await unkey.keys.create({
+	const created = await unkey.keys.createKey({
 		name: customer.email,
 		externalId: customer.id,
 		apiId: serverVariables.UNKEY_API_ID,
 		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
 	});
-	if (created.error) throw new Error(created.error.message);
-	return created.result;
+	return created.data;
 };

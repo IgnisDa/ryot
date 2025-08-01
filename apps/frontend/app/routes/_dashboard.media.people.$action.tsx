@@ -1,13 +1,11 @@
 import {
 	ActionIcon,
 	Box,
-	Center,
 	Checkbox,
 	Container,
 	Divider,
 	Flex,
 	Group,
-	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -47,6 +45,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
+	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 } from "~/components/common";
@@ -368,14 +367,11 @@ export default function Page() {
 							) : (
 								<Text>No information to display</Text>
 							)}
-							<Center>
-								<Pagination
-									size="sm"
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
-								/>
-							</Center>
+							<ApplicationPagination
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
 						</>
 					) : null}
 					{loaderData.search ? (
@@ -399,14 +395,11 @@ export default function Page() {
 							) : (
 								<Text>No people found matching your query</Text>
 							)}
-							<Center>
-								<Pagination
-									size="sm"
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
-								/>
-							</Center>
+							<ApplicationPagination
+								total={loaderData.totalPages}
+								value={loaderData[pageQueryParam]}
+								onChange={(v) => setP(pageQueryParam, v.toString())}
+							/>
 						</>
 					) : null}
 				</Stack>

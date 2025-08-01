@@ -1,6 +1,7 @@
 import {
 	type EntityLot,
 	MediaLot,
+	MediaSource,
 	MetadataDetailsDocument,
 	type ReviewItem,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -18,16 +19,16 @@ import {
 
 export type UpdateProgressData = {
 	metadataId: string;
+	showSeasonNumber?: number;
+	mangaVolumeNumber?: number;
+	showEpisodeNumber?: number;
+	animeEpisodeNumber?: number;
+	mangaChapterNumber?: string;
+	podcastEpisodeNumber?: number;
+	providersConsumedOn?: string[];
 	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
-	showSeasonNumber?: number | null;
-	providersConsumedOn?: string[];
-	mangaVolumeNumber?: number | null;
-	showEpisodeNumber?: number | null;
-	animeEpisodeNumber?: number | null;
-	mangaChapterNumber?: string | null;
 	podcastAllEpisodesBefore?: boolean;
-	podcastEpisodeNumber?: number | null;
 	mangaAllChaptersOrVolumesBefore?: boolean;
 };
 
@@ -39,6 +40,7 @@ const getUpdateMetadata = async (metadataId: string) => {
 	);
 	if (
 		!meta.isPartial ||
+		meta.source === MediaSource.Custom ||
 		!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(meta.lot)
 	)
 		return meta;
@@ -77,17 +79,17 @@ export const useMetadataProgressUpdate = () => {
 				if (nextEntry) {
 					match(metadataDetails.lot)
 						.with(MediaLot.Manga, () => {
-							draft.mangaChapterNumber = nextEntry.chapter;
+							draft.mangaChapterNumber = nextEntry.chapter || undefined;
 						})
 						.with(MediaLot.Anime, () => {
-							draft.animeEpisodeNumber = nextEntry.episode;
+							draft.animeEpisodeNumber = nextEntry.episode || undefined;
 						})
 						.with(MediaLot.Podcast, () => {
-							draft.podcastEpisodeNumber = nextEntry.episode;
+							draft.podcastEpisodeNumber = nextEntry.episode || undefined;
 						})
 						.with(MediaLot.Show, () => {
-							draft.showSeasonNumber = nextEntry.season;
-							draft.showEpisodeNumber = nextEntry.episode;
+							draft.showSeasonNumber = nextEntry.season || undefined;
+							draft.showEpisodeNumber = nextEntry.episode || undefined;
 						})
 						.otherwise(() => undefined);
 				}

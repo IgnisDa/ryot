@@ -1,12 +1,4 @@
-import {
-	Box,
-	Center,
-	Container,
-	Pagination,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { Box, Container, Stack, Text, Title } from "@mantine/core";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import {
 	parseParameters,
@@ -15,6 +7,7 @@ import {
 } from "@ryot/ts-utils";
 import { useLoaderData } from "react-router";
 import { z } from "zod";
+import { ApplicationPagination } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
@@ -74,14 +67,11 @@ export default function Page() {
 						<MetadataDisplayItem key={media} metadataId={media} />
 					))}
 				</ApplicationGrid>
-				<Center>
-					<Pagination
-						size="sm"
-						total={loaderData.totalPages}
-						value={loaderData.query[pageQueryParam]}
-						onChange={(v) => setP(pageQueryParam, v.toString())}
-					/>
-				</Center>
+				<ApplicationPagination
+					total={loaderData.totalPages}
+					value={loaderData.query[pageQueryParam]}
+					onChange={(v) => setP(pageQueryParam, v.toString())}
+				/>
 			</Stack>
 		</Container>
 	);

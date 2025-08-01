@@ -31,18 +31,18 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Exercise::Table)
                     .col(ColumnDef::new(Exercise::Id).primary_key().text().not_null())
+                    .col(ColumnDef::new(Exercise::Name).text())
                     .col(ColumnDef::new(Exercise::Lot).text().not_null())
                     .col(ColumnDef::new(Exercise::Level).text().not_null())
                     .col(ColumnDef::new(Exercise::Force).text())
                     .col(ColumnDef::new(Exercise::Mechanic).text())
                     .col(ColumnDef::new(Exercise::Equipment).text())
-                    .col(ColumnDef::new(Exercise::Name).text())
+                    .col(ColumnDef::new(Exercise::Source).text().not_null())
                     .col(
                         ColumnDef::new(Exercise::Attributes)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Exercise::Source).text().not_null())
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .col(
                         ColumnDef::new(Exercise::Muscles)
@@ -51,7 +51,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("workout_to_user_foreign_key")
+                            .name("exercise_to_user_foreign_key")
                             .from(Exercise::Table, Exercise::CreatedByUserId)
                             .to(User::Table, User::Id)
                             .on_delete(ForeignKeyAction::SetNull)

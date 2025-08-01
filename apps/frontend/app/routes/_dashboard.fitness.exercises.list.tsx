@@ -4,14 +4,12 @@ import {
 	Alert,
 	Avatar,
 	Box,
-	Center,
 	Checkbox,
 	Container,
 	Flex,
 	Group,
 	Indicator,
 	MantineThemeProvider,
-	Pagination,
 	Select,
 	SimpleGrid,
 	Skeleton,
@@ -59,7 +57,10 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-import { DisplayListDetailsAndRefresh } from "~/components/common";
+import {
+	ApplicationPagination,
+	DisplayListDetailsAndRefresh,
+} from "~/components/common";
 import {
 	DebouncedSearchInput,
 	FiltersModal,
@@ -320,14 +321,11 @@ export default function Page() {
 				) : (
 					<Text>No information to display</Text>
 				)}
-				<Center>
-					<Pagination
-						size="sm"
-						value={loaderData.query[pageQueryParam]}
-						onChange={(v) => setP(pageQueryParam, v.toString())}
-						total={loaderData.totalPages}
-					/>
-				</Center>
+				<ApplicationPagination
+					total={loaderData.totalPages}
+					value={loaderData.query[pageQueryParam]}
+					onChange={(v) => setP(pageQueryParam, v.toString())}
+				/>
 			</Stack>
 			{allowAddingExerciseToWorkout ? (
 				<Affix position={{ bottom: rem(40), right: rem(30) }}>

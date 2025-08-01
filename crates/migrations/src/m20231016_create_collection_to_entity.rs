@@ -117,16 +117,16 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(CollectionToEntity::WorkoutId).text())
                     .col(ColumnDef::new(CollectionToEntity::WorkoutTemplateId).text())
                     .col(
-                        ColumnDef::new(CollectionToEntity::EntityId)
-                            .text()
-                            .not_null()
-                            .extra(ENTITY_ID_SQL),
-                    )
-                    .col(
                         ColumnDef::new(CollectionToEntity::EntityLot)
                             .text()
                             .not_null()
                             .extra(ENTITY_LOT_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionToEntity::EntityId)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_ID_SQL),
                     )
                     .col(
                         ColumnDef::new(CollectionToEntity::Rank)

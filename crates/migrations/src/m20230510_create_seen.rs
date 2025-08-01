@@ -2,7 +2,10 @@ use sea_orm_migration::prelude::*;
 
 use enum_models::SeenState;
 
-use super::{m20230404_create_user::User, m20230410_create_metadata::Metadata};
+use super::{
+    m20230404_create_user::User, m20230410_create_metadata::Metadata,
+    m20230508_create_review::Review,
+};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -63,11 +66,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::AnimeExtraInformation).json_binary())
                     .col(ColumnDef::new(Seen::MangaExtraInformation).json_binary())
                     .col(
-                        ColumnDef::new(Seen::ProvidersConsumedOn)
-                            .array(ColumnType::Text)
-                            .not_null()
-                    )
-                    .col(
                         ColumnDef::new(Seen::LastUpdatedOn)
                             .timestamp_with_time_zone()
                             .not_null()
@@ -82,6 +80,12 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Seen::MetadataId).text().not_null())
                     .col(ColumnDef::new(Seen::UserId).text().not_null())
                     .col(ColumnDef::new(Seen::ManualTimeSpent).decimal())
+                    .col(ColumnDef::new(Seen::ReviewId).text())
+                    .col(
+                        ColumnDef::new(Seen::ProvidersConsumedOn)
+                            .array(ColumnType::Text)
+                            .not_null()
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_seen_foreign_key")
@@ -96,6 +100,14 @@ impl MigrationTrait for Migration {
                             .from(Seen::Table, Seen::MetadataId)
                             .to(Metadata::Table, Metadata::Id)
                             .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
+                    )
+                     .foreign_key(
+                        ForeignKey::create()
+                            .name("review_to_seen_foreign_key")
+                            .from(Seen::Table, Seen::ReviewId)
+                            .to(Review::Table, Review::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),

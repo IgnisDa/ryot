@@ -2,13 +2,11 @@ import {
 	ActionIcon,
 	Box,
 	Button,
-	Center,
 	Checkbox,
 	Container,
 	Divider,
 	Flex,
 	Group,
-	Pagination,
 	Select,
 	Stack,
 	Tabs,
@@ -53,6 +51,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
+	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
@@ -421,14 +420,11 @@ export default function Page() {
 								<Text>You do not have any saved yet</Text>
 							)}
 							{loaderData.mediaList.list ? (
-								<Center>
-									<Pagination
-										size="sm"
-										total={loaderData.totalPages}
-										value={loaderData[pageQueryParam]}
-										onChange={(v) => setP(pageQueryParam, v.toString())}
-									/>
-								</Center>
+								<ApplicationPagination
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
 							) : null}
 						</>
 					) : null}
@@ -516,14 +512,11 @@ export default function Page() {
 								<Text>No media found matching your query</Text>
 							)}
 							{mediaSearch.search ? (
-								<Center>
-									<Pagination
-										size="sm"
-										total={loaderData.totalPages}
-										value={loaderData[pageQueryParam]}
-										onChange={(v) => setP(pageQueryParam, v.toString())}
-									/>
-								</Center>
+								<ApplicationPagination
+									total={loaderData.totalPages}
+									value={loaderData[pageQueryParam]}
+									onChange={(v) => setP(pageQueryParam, v.toString())}
+								/>
 							) : null}
 						</>
 					) : null}

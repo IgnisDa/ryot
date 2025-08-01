@@ -18,7 +18,7 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::{ImportFailStep, ImportFailedItem};
+use crate::{ImportFailStep, ImportFailedItem};
 
 #[derive(Debug, Deserialize)]
 struct GrouveeGame {

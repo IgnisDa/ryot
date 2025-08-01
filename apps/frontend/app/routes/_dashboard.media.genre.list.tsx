@@ -1,12 +1,10 @@
 import {
 	Anchor,
 	Box,
-	Center,
 	Container,
 	Flex,
 	Group,
 	Image,
-	Pagination,
 	Paper,
 	Skeleton,
 	Stack,
@@ -28,7 +26,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";
-import { ProRequiredAlert } from "~/components/common";
+import { ApplicationPagination, ProRequiredAlert } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { pageQueryParam } from "~/lib/shared/constants";
@@ -112,16 +110,11 @@ export default function Page() {
 				) : (
 					<Text>No information to display</Text>
 				)}
-				{loaderData.genresList ? (
-					<Center mt="xl">
-						<Pagination
-							size="sm"
-							total={loaderData.totalPages}
-							value={loaderData.query[pageQueryParam]}
-							onChange={(v) => setP(pageQueryParam, v.toString())}
-						/>
-					</Center>
-				) : null}
+				<ApplicationPagination
+					total={loaderData.totalPages}
+					value={loaderData.query[pageQueryParam]}
+					onChange={(v) => setP(pageQueryParam, v.toString())}
+				/>
 			</Stack>
 		</Container>
 	);

@@ -9,7 +9,7 @@ use media_models::DeployGenericCsvImportInput;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use super::{ImportFailStep, ImportFailedItem, utils};
+use crate::{ImportFailStep, ImportFailedItem, utils};
 
 #[derive(Debug, Deserialize)]
 struct Record {

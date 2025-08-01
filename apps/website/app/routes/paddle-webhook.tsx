@@ -147,7 +147,7 @@ async function handleSelfHostedPurchase(
 	const renewalDate = calculateRenewalDate(planType);
 
 	if (customer.unkeyKeyId) {
-		await unkey.keys.update({
+		await unkey.keys.updateKey({
 			enabled: true,
 			keyId: customer.unkeyKeyId,
 			meta: renewalDate
@@ -268,7 +268,7 @@ async function processRenewal(
 		const unkey = new Unkey({ rootKey: serverVariables.UNKEY_ROOT_KEY });
 		const renewal = calculateRenewalDate(planType);
 
-		await unkey.keys.update({
+		await unkey.keys.updateKey({
 			enabled: true,
 			keyId: customer.unkeyKeyId,
 			meta: renewal

@@ -6,11 +6,14 @@ import {
 	Badge,
 	Box,
 	Button,
+	Center,
 	Divider,
 	Flex,
 	Group,
+	type MantineSize,
 	Modal,
 	NumberInput,
+	Pagination,
 	Paper,
 	Stack,
 	Switch,
@@ -506,5 +509,25 @@ export const CollectionTemplateRenderer = ({
 				))
 				.exhaustive()}
 		</Fragment>
+	);
+};
+
+export const ApplicationPagination = (props: {
+	value?: number;
+	total?: number;
+	size?: MantineSize;
+	onChange: (value: number) => void;
+}) => {
+	if (!props.total || props.total <= 0 || !props.value) return null;
+
+	return (
+		<Center>
+			<Pagination
+				total={props.total}
+				value={props.value}
+				onChange={props.onChange}
+				size={props.size || "sm"}
+			/>
+		</Center>
 	);
 };

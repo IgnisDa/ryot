@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
         .await
         .expect("Database connection failed");
 
-    if let Err(err) = migrate_from_v7_if_applicable(&db).await {
+    if let Err(err) = migrate_from_v8_if_applicable(&db).await {
         ryot_log!(error, "Migration from v7 failed: {}", err);
         bail!("There was an error migrating from v7.")
     }
@@ -233,7 +233,7 @@ fn init_tracing() -> Result<()> {
     Ok(())
 }
 
-async fn migrate_from_v7_if_applicable(db: &DatabaseConnection) -> Result<()> {
+async fn migrate_from_v8_if_applicable(db: &DatabaseConnection) -> Result<()> {
     db.execute_unprepared(
         r#"
 DO $$
@@ -244,13 +244,13 @@ BEGIN
     ) THEN
         IF EXISTS (
             SELECT 1 FROM seaql_migrations
-            WHERE version = 'm20240825_is_v7_migration'
+            WHERE version = 'm20250118_is_v8_migration'
         ) THEN
             IF NOT EXISTS (
                 SELECT 1 FROM seaql_migrations
-                WHERE version = 'm20250117_is_last_v7_migration'
+                WHERE version = 'm20250731_is_last_v8_migration'
             ) THEN
-                RAISE EXCEPTION 'Final migration for v7 does not exist, upgrade aborted.';
+                RAISE EXCEPTION 'Final migration for v8 does not exist, upgrade aborted.';
             END IF;
 
             DELETE FROM seaql_migrations;
@@ -260,14 +260,14 @@ BEGIN
                 ('m20230410_create_metadata', 1684693318),
                 ('m20230411_create_metadata_group', 1684693319),
                 ('m20230413_create_person', 1684693320),
-                ('m20230419_create_seen', 1684693321),
                 ('m20230502_create_genre', 1684693322),
                 ('m20230504_create_collection', 1684693323),
                 ('m20230505_create_exercise', 1684693324),
                 ('m20230506_create_workout_template', 1684693325),
                 ('m20230507_create_workout', 1684693326),
                 ('m20230508_create_review', 1684693327),
-                ('m20230509_create_import_report', 1684693328),
+                ('m20230510_create_seen', 1684693321),
+                ('m20230513_create_import_report', 1684693328),
                 ('m20230820_create_user_measurement', 1684693329),
                 ('m20230912_create_calendar_event', 1684693330),
                 ('m20231016_create_collection_to_entity', 1684693331),
@@ -278,8 +278,7 @@ BEGIN
                 ('m20240714_create_access_link', 1684693336),
                 ('m20240827_create_daily_user_activity', 1684693337),
                 ('m20240904_create_monitored_entity', 1684693338),
-                ('m20241004_create_application_cache', 1684693339),
-                ('m20241214_create_user_notification', 1684693340);
+                ('m20241004_create_application_cache', 1684693339);
         END IF;
     END IF;
 END $$;

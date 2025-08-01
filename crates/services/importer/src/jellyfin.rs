@@ -13,7 +13,7 @@ use reqwest::Client;
 use serde_json::json;
 use tokio::sync::Mutex;
 
-use super::{ImportFailStep, ImportFailedItem};
+use crate::{ImportFailStep, ImportFailedItem};
 
 pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
     let mut failed = vec![];

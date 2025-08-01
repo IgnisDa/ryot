@@ -21,7 +21,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_with::{TimestampMilliSeconds, formats::Flexible, serde_as};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]

@@ -18,7 +18,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use super::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
+use crate::{ImportFailStep, ImportFailedItem, ImportOrExportMetadataItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]

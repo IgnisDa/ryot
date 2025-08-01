@@ -45,6 +45,13 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(Expr::current_timestamp()),
                     )
+                    .col(ColumnDef::new(Integration::ProviderSpecifics).json_binary())
+                    .col(ColumnDef::new(Integration::UserId).text().not_null())
+                    .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
+                    .col(ColumnDef::new(Integration::MinimumProgress).decimal())
+                    .col(ColumnDef::new(Integration::MaximumProgress).decimal())
+                    .col(ColumnDef::new(Integration::IsDisabled).boolean())
+                    .col(ColumnDef::new(Integration::Name).text())
                     .col(
                         ColumnDef::new(Integration::TriggerResult)
                             .json_binary()
@@ -52,13 +59,6 @@ impl MigrationTrait for Migration {
                             .default("[]"),
                     )
                     .col(ColumnDef::new(Integration::LastFinishedAt).timestamp_with_time_zone())
-                    .col(ColumnDef::new(Integration::ProviderSpecifics).json_binary())
-                    .col(ColumnDef::new(Integration::UserId).text().not_null())
-                    .col(ColumnDef::new(Integration::MinimumProgress).decimal())
-                    .col(ColumnDef::new(Integration::MaximumProgress).decimal())
-                    .col(ColumnDef::new(Integration::SyncToOwnedCollection).boolean())
-                    .col(ColumnDef::new(Integration::IsDisabled).boolean())
-                    .col(ColumnDef::new(Integration::Name).text())
                     .col(
                         ColumnDef::new(Integration::ExtraSettings)
                             .json_binary()

@@ -219,8 +219,8 @@ export default function Page() {
 							multiple
 							name="images"
 							label="Images"
+							accept="image/*"
 							leftSection={<IconPhoto />}
-							accept="image/png,image/jpeg,image/jpg"
 							description={
 								loaderData.details &&
 								"Please re-upload the images while updating the metadata, old ones will be deleted"

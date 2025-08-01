@@ -39,17 +39,17 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Workout::Duration).integer().not_null())
+                    .col(ColumnDef::new(Workout::Name).text().not_null())
                     .col(ColumnDef::new(Workout::Summary).json_binary().not_null())
                     .col(
                         ColumnDef::new(Workout::Information)
                             .json_binary()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Workout::Name).text().not_null())
                     .col(ColumnDef::new(Workout::RepeatedFrom).text())
                     .col(ColumnDef::new(Workout::UserId).text().not_null())
                     .col(ColumnDef::new(Workout::TemplateId).text())
+                    .col(ColumnDef::new(Workout::Duration).integer().not_null())
                     .col(ColumnDef::new(Workout::CaloriesBurnt).decimal())
                     .foreign_key(
                         ForeignKey::create()

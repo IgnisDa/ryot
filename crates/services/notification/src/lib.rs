@@ -9,7 +9,6 @@ use reqwest::{
 };
 use user_models::NotificationPlatformSpecifics;
 
-// TODO: Allow formatting messages
 pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &str) -> Result<()> {
     let project_name = PROJECT_NAME.to_case(Case::Title);
     let client = Client::new();

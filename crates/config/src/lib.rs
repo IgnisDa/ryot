@@ -3,30 +3,13 @@ use std::path::PathBuf;
 use anyhow::Result;
 use async_graphql::SimpleObject;
 use common_utils::PROJECT_NAME;
-use env_utils::{DEFAULT_MAL_CLIENT_ID, DEFAULT_TMDB_ACCESS_TOKEN, TRAKT_CLIENT_ID};
-use schematic::{Config, ConfigEnum, ConfigLoader, HandlerError, derive_enum, validate::not_empty};
+use schematic::{Config, ConfigEnum, ConfigLoader, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
-
-// FIXME: Remove this in the next major version
-fn default_tmdb_access_token(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_TMDB_ACCESS_TOKEN.to_string()))
-}
-
-// FIXME: Remove this in the next major version
-fn default_mal_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(DEFAULT_MAL_CLIENT_ID.to_string()))
-}
-
-// FIXME: Remove this in the next major version
-fn default_trakt_client_id(_ctx: &()) -> Result<Option<String>, HandlerError> {
-    Ok(Some(TRAKT_CLIENT_ID.to_string()))
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "ANIME_AND_MANGA_MAL_")]
 pub struct MalConfig {
     /// The client ID to be used for the MAL API.
-    #[setting(default = default_mal_client_id)]
     pub client_id: String,
 }
 
@@ -161,20 +144,10 @@ pub struct DatabaseConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, PartialEq, Eq)]
 pub struct ExerciseConfig {}
 
-// FIXME: Remove this in the next major version
-#[derive(Debug, Serialize, Deserialize, Clone, Config)]
-#[config(rename_all = "snake_case", env_prefix = "MEDIA_")]
-pub struct MediaConfig {
-    /// Number of days after which a media should be removed from the Monitoring collection.
-    #[setting(default = 30)]
-    pub monitoring_remove_after_days: i64,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Config)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
     /// The access token for the TMDB API.
-    #[setting(default = default_tmdb_access_token)]
     pub access_token: String,
     /// The locale to use for making requests to TMDB API.
     #[setting(default = "en")]
@@ -381,7 +354,6 @@ pub struct OidcConfig {
 #[config(rename_all = "snake_case", env_prefix = "SERVER_IMPORTER_")]
 pub struct ImporterConfig {
     /// The client ID for the Trakt importer. **Required** to enable Trakt importer.
-    #[setting(default = default_trakt_client_id)]
     pub trakt_client_id: String,
 }
 
@@ -477,9 +449,6 @@ pub struct AppConfig {
     /// Settings related to frontend storage.
     #[setting(nested)]
     pub frontend: FrontendConfig,
-    /// Settings related to media.
-    #[setting(nested)]
-    pub media: MediaConfig,
     /// Settings related to movies and shows.
     #[setting(nested)]
     pub movies_and_shows: MovieAndShowConfig,
