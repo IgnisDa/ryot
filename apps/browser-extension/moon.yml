@@ -11,6 +11,7 @@ tasks:
     command: "wxt zip -b firefox"
     outputs:
       - "dist/firefox-mv2"
+      - "dist/*-sources.zip"
       - "dist/*-firefox.zip"
 
   build:
