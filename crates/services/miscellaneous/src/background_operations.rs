@@ -504,7 +504,7 @@ async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -> Re
     let _results: Vec<_> = stream::iter(user_cache_operations)
         .map(|(user_id, cache_key)| async move {
             cache_service::expire_key(
-                &ss,
+                ss,
                 ExpireCacheKeyInput::BySanitizedKey {
                     key: cache_key,
                     user_id: Some(user_id),
