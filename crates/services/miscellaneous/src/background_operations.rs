@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
+use cache_service::expire_key;
 use chrono::{Duration, Utc};
 use common_models::UserLevelCacheKey;
 use common_utils::{
@@ -29,7 +30,10 @@ use dependent_utils::{
     update_metadata_and_notify_users, update_person_and_notify_users,
 };
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
-use futures::future::join_all;
+use futures::{
+    future::join_all,
+    stream::{self, StreamExt},
+};
 use itertools::Itertools;
 use sea_orm::{
     ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait,
@@ -474,6 +478,66 @@ async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<()> {
     Ok(())
 }
 
+async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -> Result<()> {
+    let user_ids: Vec<String> = get_enabled_users_query()
+        .select_only()
+        .column(user::Column::Id)
+        .into_tuple()
+        .all(&ss.db)
+        .await?;
+
+    let user_cache_operations: Vec<_> = user_ids
+        .iter()
+        .flat_map(|user_id| {
+            vec![
+                (
+                    user_id.clone(),
+                    ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
+                ),
+                (
+                    user_id.clone(),
+                    ApplicationCacheKeyDiscriminants::UserMetadataRecommendations,
+                ),
+            ]
+        })
+        .collect();
+
+    let _results: Vec<_> = stream::iter(user_cache_operations)
+        .map(|(user_id, cache_key)| {
+            let ss = Arc::clone(&ss);
+            async move {
+                expire_key(
+                    &ss,
+                    ExpireCacheKeyInput::BySanitizedKey {
+                        key: cache_key,
+                        user_id: Some(user_id),
+                    },
+                )
+                .await
+            }
+        })
+        .buffer_unordered(5)
+        .collect()
+        .await;
+
+    expire_key(
+        ss,
+        ExpireCacheKeyInput::ByKey(ApplicationCacheKey::TrendingMetadataIds),
+    )
+    .await?;
+
+    expire_key(
+        ss,
+        ExpireCacheKeyInput::BySanitizedKey {
+            key: ApplicationCacheKeyDiscriminants::CollectionRecommendations,
+            user_id: None,
+        },
+    )
+    .await?;
+
+    Ok(())
+}
+
 pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     ryot_log!(debug, "Starting background jobs...");
 
@@ -505,6 +569,8 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
         .trace_ok();
     ryot_log!(trace, "Removing useless data");
     remove_useless_data(ss).await.trace_ok();
+    ryot_log!(trace, "Removing cached metadata after metadata updates");
+    remove_cached_metadata_after_updates(ss).await.trace_ok();
     ryot_log!(trace, "Putting entities in partial state");
     put_entities_in_partial_state(ss).await.trace_ok();
     // DEV: Invalid access tokens are revoked before being deleted, so we call this
