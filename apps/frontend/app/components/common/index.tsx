@@ -15,6 +15,7 @@ import {
 	NumberInput,
 	Pagination,
 	Paper,
+	Select,
 	Stack,
 	Switch,
 	Text,
@@ -36,6 +37,8 @@ import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
 	IconCancel,
+	IconChevronLeft,
+	IconChevronRight,
 	IconPencil,
 	IconX,
 } from "@tabler/icons-react";
@@ -518,16 +521,74 @@ export const ApplicationPagination = (props: {
 	size?: MantineSize;
 	onChange: (value: number) => void;
 }) => {
-	if (!props.total || props.total <= 0 || !props.value) return null;
+	if (!props.total || props.total <= 0) return null;
+
+	const currentPage = props.value || 1;
+	const totalPages = props.total;
+
+	if (totalPages <= 7) {
+		return (
+			<Center>
+				<Pagination
+					total={totalPages}
+					value={currentPage}
+					onChange={props.onChange}
+					size={props.size || "sm"}
+				/>
+			</Center>
+		);
+	}
+
+	const pageOptions = Array.from({ length: totalPages }, (_, i) => ({
+		value: String(i + 1),
+		label: `Page ${i + 1}`,
+	}));
 
 	return (
 		<Center>
-			<Pagination
-				total={props.total}
-				value={props.value}
-				onChange={props.onChange}
-				size={props.size || "sm"}
-			/>
+			<Group gap="xs">
+				{currentPage > 1 && (
+					<ActionIcon
+						size="sm"
+						variant="default"
+						onClick={() => props.onChange(currentPage - 1)}
+					>
+						<IconChevronLeft size={16} />
+					</ActionIcon>
+				)}
+
+				<Button size="compact-xs" onClick={() => props.onChange(1)}>
+					1
+				</Button>
+
+				<Select
+					size="xs"
+					limit={10}
+					searchable
+					w={rem(100)}
+					data={pageOptions}
+					value={String(currentPage)}
+					onChange={(value) => value && props.onChange(Number(value))}
+				/>
+
+				{currentPage < totalPages && (
+					<>
+						<Button
+							size="compact-xs"
+							onClick={() => props.onChange(totalPages)}
+						>
+							{totalPages}
+						</Button>
+						<ActionIcon
+							size="sm"
+							variant="default"
+							onClick={() => props.onChange(currentPage + 1)}
+						>
+							<IconChevronRight size={16} />
+						</ActionIcon>
+					</>
+				)}
+			</Group>
 		</Center>
 	);
 };
