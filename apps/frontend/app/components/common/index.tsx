@@ -518,13 +518,13 @@ export const ApplicationPagination = (props: {
 	size?: MantineSize;
 	onChange: (value: number) => void;
 }) => {
-	if (!props.total || props.total <= 0 || !props.value) return null;
+	if (!props.total || props.total <= 0) return null;
 
 	return (
 		<Center>
 			<Pagination
 				total={props.total}
-				value={props.value}
+				value={props.value || 1}
 				onChange={props.onChange}
 				size={props.size || "sm"}
 			/>
