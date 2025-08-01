@@ -504,7 +504,7 @@ async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -> Re
 
     let _results: Vec<_> = stream::iter(user_cache_operations)
         .map(|(user_id, cache_key)| {
-            let ss = Arc::clone(&ss);
+            let ss = Arc::clone(ss);
             async move {
                 expire_key(
                     &ss,
