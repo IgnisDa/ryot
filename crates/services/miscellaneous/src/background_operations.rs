@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::Result;
 use background_models::{ApplicationJob, MpApplicationJob};
-use cache_service::expire_key;
 use chrono::{Duration, Utc};
 use common_models::UserLevelCacheKey;
 use common_utils::{
@@ -503,30 +502,27 @@ async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -> Re
         .collect();
 
     let _results: Vec<_> = stream::iter(user_cache_operations)
-        .map(|(user_id, cache_key)| {
-            let ss = Arc::clone(ss);
-            async move {
-                expire_key(
-                    &ss,
-                    ExpireCacheKeyInput::BySanitizedKey {
-                        key: cache_key,
-                        user_id: Some(user_id),
-                    },
-                )
-                .await
-            }
+        .map(|(user_id, cache_key)| async move {
+            cache_service::expire_key(
+                &ss,
+                ExpireCacheKeyInput::BySanitizedKey {
+                    key: cache_key,
+                    user_id: Some(user_id),
+                },
+            )
+            .await
         })
         .buffer_unordered(5)
         .collect()
         .await;
 
-    expire_key(
+    cache_service::expire_key(
         ss,
         ExpireCacheKeyInput::ByKey(ApplicationCacheKey::TrendingMetadataIds),
     )
     .await?;
 
-    expire_key(
+    cache_service::expire_key(
         ss,
         ExpireCacheKeyInput::BySanitizedKey {
             key: ApplicationCacheKeyDiscriminants::CollectionRecommendations,
