@@ -15,6 +15,7 @@ import {
 	NumberInput,
 	Pagination,
 	Paper,
+	Select,
 	Stack,
 	Switch,
 	Text,
@@ -36,6 +37,8 @@ import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
 	IconCancel,
+	IconChevronLeft,
+	IconChevronRight,
 	IconPencil,
 	IconX,
 } from "@tabler/icons-react";
@@ -520,14 +523,65 @@ export const ApplicationPagination = (props: {
 }) => {
 	if (!props.total || props.total <= 0) return null;
 
+	const currentPage = props.value || 1;
+	const totalPages = props.total;
+
+	if (totalPages <= 7) {
+		return (
+			<Center>
+				<Pagination
+					total={totalPages}
+					value={currentPage}
+					onChange={props.onChange}
+					size={props.size || "sm"}
+				/>
+			</Center>
+		);
+	}
+
+	const pageOptions = Array.from({ length: totalPages }, (_, i) => ({
+		value: String(i + 1),
+		label: `Page ${i + 1}`,
+	}));
+
 	return (
 		<Center>
-			<Pagination
-				total={props.total}
-				value={props.value || 1}
-				onChange={props.onChange}
-				size={props.size || "sm"}
-			/>
+			<Group gap="xs">
+				{currentPage > 1 && (
+					<ActionIcon
+						size="sm"
+						variant="default"
+						onClick={() => props.onChange(currentPage - 1)}
+					>
+						<IconChevronLeft size={16} />
+					</ActionIcon>
+				)}
+
+				<Text size="sm">1</Text>
+
+				<Select
+					size="xs"
+					limit={10}
+					searchable
+					w={rem(100)}
+					data={pageOptions}
+					value={String(currentPage)}
+					onChange={(value) => value && props.onChange(Number(value))}
+				/>
+
+				{currentPage < totalPages && (
+					<>
+						<Text size="sm">{totalPages}</Text>
+						<ActionIcon
+							size="sm"
+							variant="default"
+							onClick={() => props.onChange(currentPage + 1)}
+						>
+							<IconChevronRight size={16} />
+						</ActionIcon>
+					</>
+				)}
+			</Group>
 		</Center>
 	);
 };
