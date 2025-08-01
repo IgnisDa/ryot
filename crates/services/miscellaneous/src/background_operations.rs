@@ -525,8 +525,8 @@ async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -> Re
     cache_service::expire_key(
         ss,
         ExpireCacheKeyInput::BySanitizedKey {
-            key: ApplicationCacheKeyDiscriminants::CollectionRecommendations,
             user_id: None,
+            key: ApplicationCacheKeyDiscriminants::CollectionRecommendations,
         },
     )
     .await?;
