@@ -159,7 +159,7 @@ pub type ApplicationOidcClient<
 >;
 
 pub async fn create_oidc_client(
-    config: &config::AppConfig,
+    config: &config_definition::AppConfig,
 ) -> Option<(reqwest::Client, ApplicationOidcClient)> {
     match RedirectUrl::new(config.frontend.url.clone() + FRONTEND_OAUTH_ENDPOINT) {
         Ok(redirect_url) => match IssuerUrl::new(config.server.oidc.issuer_url.clone()) {

@@ -23,15 +23,21 @@ use youtube_music_provider::YoutubeMusicService;
 
 pub type Provider = Box<(dyn MediaProvider + Send + Sync)>;
 
-pub async fn get_openlibrary_service(config: &config::AppConfig) -> Result<OpenlibraryService> {
+pub async fn get_openlibrary_service(
+    config: &config_definition::AppConfig,
+) -> Result<OpenlibraryService> {
     OpenlibraryService::new(&config.books.openlibrary).await
 }
 
-pub async fn get_google_books_service(config: &config::AppConfig) -> Result<GoogleBooksService> {
+pub async fn get_google_books_service(
+    config: &config_definition::AppConfig,
+) -> Result<GoogleBooksService> {
     GoogleBooksService::new(&config.books.google_books).await
 }
 
-pub async fn get_hardcover_service(config: &config::AppConfig) -> Result<HardcoverService> {
+pub async fn get_hardcover_service(
+    config: &config_definition::AppConfig,
+) -> Result<HardcoverService> {
     HardcoverService::new(&config.books.hardcover).await
 }
 

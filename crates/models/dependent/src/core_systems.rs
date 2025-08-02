@@ -1,6 +1,6 @@
 use async_graphql::SimpleObject;
 use common_models::BackendError;
-use config::FrontendConfig;
+use config_definition::FrontendConfig;
 use database_models::metadata;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,

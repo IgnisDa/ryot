@@ -24,7 +24,7 @@ pub struct ITunesService {
 }
 
 impl ITunesService {
-    pub async fn new(config: &config::ITunesConfig) -> Result<Self> {
+    pub async fn new(config: &config_definition::ITunesConfig) -> Result<Self> {
         let client = get_base_http_client(None);
         Ok(Self {
             client,

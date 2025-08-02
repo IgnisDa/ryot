@@ -1,6 +1,6 @@
 use anyhow::Result;
 use application_utils::get_base_http_client;
-use config::OpenlibraryConfig;
+use config_definition::OpenlibraryConfig;
 
 use crate::{
     models::{MetadataDetailsBook, OpenlibraryService},

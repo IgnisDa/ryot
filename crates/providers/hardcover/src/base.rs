@@ -12,7 +12,7 @@ pub struct HardcoverService {
 }
 
 impl HardcoverService {
-    pub async fn new(config: &config::HardcoverConfig) -> Result<Self> {
+    pub async fn new(config: &config_definition::HardcoverConfig) -> Result<Self> {
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
             HeaderValue::from_str(&config.api_key)?,

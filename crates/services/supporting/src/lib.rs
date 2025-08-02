@@ -15,7 +15,7 @@ pub struct SupportingService {
     pub is_oidc_enabled: bool,
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
-    pub config: Arc<config::AppConfig>,
+    pub config: Arc<config_definition::AppConfig>,
 
     lp_application_job: MemoryStorage<LpApplicationJob>,
     hp_application_job: MemoryStorage<HpApplicationJob>,
@@ -29,7 +29,7 @@ impl SupportingService {
         is_oidc_enabled: bool,
         db: &DatabaseConnection,
         timezone: chrono_tz::Tz,
-        config: Arc<config::AppConfig>,
+        config: Arc<config_definition::AppConfig>,
         lp_application_job: &MemoryStorage<LpApplicationJob>,
         mp_application_job: &MemoryStorage<MpApplicationJob>,
         hp_application_job: &MemoryStorage<HpApplicationJob>,

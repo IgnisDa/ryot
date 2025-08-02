@@ -60,7 +60,7 @@ pub struct AppServices {
 pub async fn create_app_services(
     db: DatabaseConnection,
     timezone: chrono_tz::Tz,
-    config: Arc<config::AppConfig>,
+    config: Arc<config_definition::AppConfig>,
     lp_application_job: &MemoryStorage<LpApplicationJob>,
     mp_application_job: &MemoryStorage<MpApplicationJob>,
     hp_application_job: &MemoryStorage<HpApplicationJob>,

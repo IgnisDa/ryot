@@ -44,7 +44,7 @@ pub struct MalAnimeService {
 }
 
 impl MalAnimeService {
-    pub async fn new(config: &config::MalConfig) -> Result<Self> {
+    pub async fn new(config: &config_definition::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
         Ok(Self {
             base: MalService { client },
@@ -80,7 +80,7 @@ pub struct MalMangaService {
 }
 
 impl MalMangaService {
-    pub async fn new(config: &config::MalConfig) -> Result<Self> {
+    pub async fn new(config: &config_definition::MalConfig) -> Result<Self> {
         let client = get_client_config(&config.client_id).await;
         Ok(Self {
             base: MalService { client },

@@ -11,7 +11,7 @@ use common_utils::PROJECT_NAME;
 use nanoid::nanoid;
 use supporting_service::SupportingService;
 
-fn get_client_and_bucket_name(config: &Arc<config::AppConfig>) -> (Client, String) {
+fn get_client_and_bucket_name(config: &Arc<config_definition::AppConfig>) -> (Client, String) {
     let mut aws_conf = Config::builder()
         .region(Region::new(config.file_storage.s3_region.clone()))
         .force_path_style(true);

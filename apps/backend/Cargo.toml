@@ -34,7 +34,7 @@ background-models = { path = "../../crates/models/background" }
 collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }
 common-utils = { path = "../../crates/utils/common" }
-config = { path = "../../crates/config" }
+config-definition = { path = "../../crates/config/definition" }
 dependent-models = { path = "../../crates/models/dependent" }
 env-utils = { path = "../../crates/utils/env" }
 exporter-resolver = { path = "../../crates/resolvers/exporter" }

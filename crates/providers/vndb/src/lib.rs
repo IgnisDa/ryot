@@ -31,7 +31,7 @@ pub struct VndbService {
 }
 
 impl VndbService {
-    pub async fn new(_config: &config::VisualNovelConfig) -> Result<Self> {
+    pub async fn new(_config: &config_definition::VisualNovelConfig) -> Result<Self> {
         let client = get_base_http_client(None);
         Ok(Self { client })
     }

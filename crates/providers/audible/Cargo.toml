@@ -20,7 +20,7 @@ tracing = { workspace = true }
 application-utils = { path = "../../utils/application" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
-config = { path = "../../config" }
+config-definition = { path = "../../config/definition" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }

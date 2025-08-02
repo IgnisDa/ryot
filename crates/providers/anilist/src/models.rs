@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
 };
-use config::AnilistPreferredLanguage;
+use config_definition::AnilistPreferredLanguage;
 use convert_case::{Case, Casing};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;

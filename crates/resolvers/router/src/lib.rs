@@ -20,7 +20,7 @@ pub async fn graphql_playground_handler() -> impl IntoResponse {
 }
 
 pub async fn config_handler(
-    Extension(config): Extension<Arc<config::AppConfig>>,
+    Extension(config): Extension<Arc<config_definition::AppConfig>>,
 ) -> impl IntoResponse {
     Json(config.masked_value())
 }
