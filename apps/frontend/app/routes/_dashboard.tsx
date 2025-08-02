@@ -468,7 +468,6 @@ export default function Layout() {
 				<script
 					defer
 					src={loaderData.coreDetails.frontend.umami.scriptUrl}
-					data-domains={loaderData.coreDetails.frontend.umami.domains}
 					data-website-id={loaderData.coreDetails.frontend.umami.websiteId}
 				/>
 			) : null}
