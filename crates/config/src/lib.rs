@@ -330,7 +330,6 @@ impl FileStorageConfig {
 )]
 #[config(rename_all = "snake_case", env_prefix = "FRONTEND_UMAMI_")]
 pub struct FrontendUmamiConfig {
-    pub domains: String,
     /// For example: https://umami.is/script.js.
     pub script_url: String,
     pub website_id: String,
