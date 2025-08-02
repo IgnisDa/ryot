@@ -39,40 +39,31 @@ const CARD_HOVER_STYLES =
 	"hover:shadow-lg transition-all duration-300 hover:-translate-y-1";
 const SECTION_STYLES = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8";
 
-const FeatureItem = ({
-	children,
-	isPro,
-}: {
+const FeatureItem = (props: {
 	children: React.ReactNode;
 	isPro?: boolean;
 }) => (
 	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
 		<CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
 		<div className="flex items-start flex-wrap gap-1">
-			<span className="text-foreground leading-relaxed">{children}</span>
-			{isPro && <ProBadge />}
+			<span className="text-foreground leading-relaxed">{props.children}</span>
+			{props.isPro && <ProBadge />}
 		</div>
 	</div>
 );
 
-const FeatureCarousel = ({
-	images,
-	altPrefix,
-}: {
-	images: string[];
-	altPrefix: string;
-}) => (
+const FeatureCarousel = (props: { images: string[]; altPrefix: string }) => (
 	<div className="mb-16">
 		<Carousel
 			plugins={[Autoplay({ delay: 5000 })]}
 			className="w-full max-w-5xl mx-auto"
 		>
 			<CarouselContent>
-				{images.map((image, index) => (
+				{props.images.map((image, index) => (
 					<CarouselItem key={image} className="flex flex-col space-y-4">
 						<img
 							src={`/features/${image}`}
-							alt={`${altPrefix} ${index + 1}`}
+							alt={`${props.altPrefix} ${index + 1}`}
 							className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
 						/>
 					</CarouselItem>
@@ -82,68 +73,71 @@ const FeatureCarousel = ({
 	</div>
 );
 
-const FeatureSection = ({
-	data,
-	isEven,
-	showDescription,
-	customGrid = "lg:grid-cols-2",
-}: {
+const FeatureSection = (props: {
 	data: (typeof FEATURE_DATA)[0];
 	isEven: boolean;
 	showDescription?: boolean;
 	customGrid?: string;
-}) => (
-	<section className={`py-20 ${!isEven ? "bg-muted/30" : ""}`}>
-		<div className={SECTION_STYLES}>
-			<div className="text-center mb-16">
-				<Badge variant="outline" className="mb-6">
-					<data.icon className="w-4 h-4 mr-2" />
-					{data.heading}
-				</Badge>
-				<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
-					{data.title}
-				</h2>
-				{showDescription && (
-					<div className="mb-8">
-						<h3 className="text-2xl font-semibold text-foreground mb-4">
-							{data.description?.title}
-						</h3>
-						<p className="text-muted-foreground max-w-2xl mx-auto">
-							{data.description?.text}
-						</p>
-					</div>
+}) => {
+	const {
+		data,
+		isEven,
+		showDescription,
+		customGrid = "lg:grid-cols-2",
+	} = props;
+	return (
+		<section className={`py-20 ${!isEven ? "bg-muted/30" : ""}`}>
+			<div className={SECTION_STYLES}>
+				<div className="text-center mb-16">
+					<Badge variant="outline" className="mb-6">
+						<data.icon className="w-4 h-4 mr-2" />
+						{data.heading}
+					</Badge>
+					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
+						{data.title}
+					</h2>
+					{showDescription && (
+						<div className="mb-8">
+							<h3 className="text-2xl font-semibold text-foreground mb-4">
+								{data.description?.title}
+							</h3>
+							<p className="text-muted-foreground max-w-2xl mx-auto">
+								{data.description?.text}
+							</p>
+						</div>
+					)}
+				</div>
+
+				{data.images.length > 0 && (
+					<FeatureCarousel
+						images={data.images}
+						altPrefix={`${data.heading} interface`}
+					/>
 				)}
-			</div>
 
-			{data.images.length > 0 && (
-				<FeatureCarousel
-					images={data.images}
-					altPrefix={`${data.heading} interface`}
-				/>
-			)}
-
-			<div
-				className={`${customGrid === "single" ? "max-w-4xl mx-auto" : `grid ${customGrid} gap-2`} ${!isEven ? "mb-16" : ""}`}
-			>
-				{customGrid === "single" ? (
-					<div className="space-y-2">
-						{data.features.map((feature) => (
+				<div
+					className={`${customGrid === "single" ? "max-w-4xl mx-auto" : `grid ${customGrid} gap-2`} ${!isEven ? "mb-16" : ""}`}
+				>
+					{customGrid === "single" ? (
+						<div className="space-y-2">
+							{data.features.map((feature) => (
+								<FeatureItem key={feature.text} isPro={feature.isPro}>
+									{feature.text}
+								</FeatureItem>
+							))}
+						</div>
+					) : (
+						data.features.map((feature) => (
 							<FeatureItem key={feature.text} isPro={feature.isPro}>
 								{feature.text}
 							</FeatureItem>
-						))}
-					</div>
-				) : (
-					data.features.map((feature) => (
-						<FeatureItem key={feature.text} isPro={feature.isPro}>
-							{feature.text}
-						</FeatureItem>
-					))
-				)}
+						))
+					)}
+				</div>
 			</div>
-		</div>
-	</section>
-);
+		</section>
+	);
+};
 
 // Feature data structure
 const FEATURE_DATA = [
@@ -278,10 +272,37 @@ const FEATURE_DATA = [
 	},
 ];
 
+const colorMap = {
+	blue: {
+		bg: "bg-blue-100",
+		text: "text-blue-600",
+	},
+	green: {
+		bg: "bg-green-100",
+		text: "text-green-600",
+	},
+	purple: {
+		bg: "bg-purple-100",
+		text: "text-purple-600",
+	},
+	orange: {
+		bg: "bg-orange-100",
+		text: "text-orange-600",
+	},
+	red: {
+		bg: "bg-red-100",
+		text: "text-red-600",
+	},
+	gray: {
+		bg: "bg-gray-100",
+		text: "text-gray-600",
+	},
+};
+
 const FEATURE_CARDS = [
 	{
 		icon: Play,
-		color: "blue",
+		color: "blue" as const,
 		title: "Smart Tracking",
 		description:
 			"Automatically organize and categorize your media with intelligent detection and classification.",
@@ -290,7 +311,7 @@ const FEATURE_CARDS = [
 	},
 	{
 		icon: BarChart3,
-		color: "green",
+		color: "green" as const,
 		title: "Advanced Analytics",
 		description:
 			"Get deep insights into your habits with beautiful charts and comprehensive statistics.",
@@ -299,7 +320,7 @@ const FEATURE_CARDS = [
 	},
 	{
 		icon: Bell,
-		color: "purple",
+		color: "purple" as const,
 		title: "Smart Notifications",
 		description:
 			"Never miss new releases or important updates with intelligent notification system.",
@@ -308,7 +329,7 @@ const FEATURE_CARDS = [
 	},
 	{
 		icon: Share2,
-		color: "orange",
+		color: "orange" as const,
 		title: "Social Features",
 		description:
 			"Share your progress and collections with friends and family members.",
@@ -317,7 +338,7 @@ const FEATURE_CARDS = [
 	},
 	{
 		icon: Heart,
-		color: "red",
+		color: "red" as const,
 		title: "Personal Collections",
 		description:
 			"Create custom collections and add personal touches to make them uniquely yours.",
@@ -326,7 +347,7 @@ const FEATURE_CARDS = [
 	},
 	{
 		icon: Lock,
-		color: "gray",
+		color: "gray" as const,
 		title: "Privacy First",
 		description:
 			"Your data stays secure with self-hosting options and complete privacy control.",
@@ -376,16 +397,18 @@ export default function Page() {
 							<Card key={card.title} className={CARD_HOVER_STYLES}>
 								<CardContent className="p-6">
 									<div
-										className={`w-12 h-12 bg-${card.color}-100 rounded-lg flex items-center justify-center mb-4`}
+										className={`w-12 h-12 ${colorMap[card.color].bg} rounded-lg flex items-center justify-center mb-4`}
 									>
-										<card.icon className={`w-6 h-6 text-${card.color}-600`} />
+										<card.icon
+											className={`w-6 h-6 ${colorMap[card.color].text}`}
+										/>
 									</div>
 									<h3 className="text-xl font-semibold mb-3">{card.title}</h3>
 									<p className="text-muted-foreground mb-4">
 										{card.description}
 									</p>
 									<div
-										className={`flex items-center text-sm text-${card.color}-600`}
+										className={`flex items-center text-sm ${colorMap[card.color].text}`}
 									>
 										<card.featureIcon className="w-4 h-4 mr-1" />
 										{card.feature}
