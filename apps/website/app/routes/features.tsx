@@ -12,37 +12,6 @@ import {
 	FolderHeart,
 	Heart,
 	Lock,
-	LucideAmpersands,
-	LucideBadgeInfo,
-	LucideBellDot,
-	LucideBookHeart,
-	LucideCalendarRange,
-	LucideCandy,
-	LucideChartColumnBig,
-	LucideChartLine,
-	LucideCog,
-	LucideDatabaseZap,
-	LucideDumbbell,
-	LucideImageUp,
-	LucideImport,
-	LucideLayoutTemplate,
-	LucideLibraryBig,
-	LucideMegaphone,
-	LucideMessageSquareText,
-	LucideNotebookPen,
-	LucideNotebookTabs,
-	LucidePackageOpen,
-	LucideProjector,
-	LucideRefreshCcwDot,
-	LucideRouter,
-	LucideRuler,
-	LucideScale3D,
-	LucideShare,
-	LucideSquareStack,
-	LucideTimer,
-	LucideToggleLeft,
-	LucideVibrate,
-	LucideWatch,
 	Play,
 	Share2,
 	Sparkles,
@@ -68,26 +37,310 @@ export const meta = () => {
 
 const CARD_HOVER_STYLES =
 	"hover:shadow-lg transition-all duration-300 hover:-translate-y-1";
+const SECTION_STYLES = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8";
 
-const FeatureItem = (props: {
+const FeatureItem = ({
+	children,
+	isPro,
+}: {
 	children: React.ReactNode;
 	isPro?: boolean;
 }) => (
 	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
 		<CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
 		<div className="flex items-start flex-wrap gap-1">
-			<span className="text-foreground leading-relaxed">{props.children}</span>
-			{props.isPro && <ProBadge />}
+			<span className="text-foreground leading-relaxed">{children}</span>
+			{isPro && <ProBadge />}
 		</div>
 	</div>
 );
+
+const FeatureCarousel = ({
+	images,
+	altPrefix,
+}: {
+	images: string[];
+	altPrefix: string;
+}) => (
+	<div className="mb-16">
+		<Carousel
+			plugins={[Autoplay({ delay: 5000 })]}
+			className="w-full max-w-5xl mx-auto"
+		>
+			<CarouselContent>
+				{images.map((image, index) => (
+					<CarouselItem key={image} className="flex flex-col space-y-4">
+						<img
+							src={`/features/${image}`}
+							alt={`${altPrefix} ${index + 1}`}
+							className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
+						/>
+					</CarouselItem>
+				))}
+			</CarouselContent>
+		</Carousel>
+	</div>
+);
+
+const FeatureSection = ({
+	data,
+	isEven,
+	showDescription,
+	customGrid = "lg:grid-cols-2",
+}: {
+	data: (typeof FEATURE_DATA)[0];
+	isEven: boolean;
+	showDescription?: boolean;
+	customGrid?: string;
+}) => (
+	<section className={`py-20 ${!isEven ? "bg-muted/30" : ""}`}>
+		<div className={SECTION_STYLES}>
+			<div className="text-center mb-16">
+				<Badge variant="outline" className="mb-6">
+					<data.icon className="w-4 h-4 mr-2" />
+					{data.heading}
+				</Badge>
+				<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
+					{data.title}
+				</h2>
+				{showDescription && (
+					<div className="mb-8">
+						<h3 className="text-2xl font-semibold text-foreground mb-4">
+							{data.description?.title}
+						</h3>
+						<p className="text-muted-foreground max-w-2xl mx-auto">
+							{data.description?.text}
+						</p>
+					</div>
+				)}
+			</div>
+
+			{data.images.length > 0 && (
+				<FeatureCarousel
+					images={data.images}
+					altPrefix={`${data.heading} interface`}
+				/>
+			)}
+
+			<div
+				className={`${customGrid === "single" ? "max-w-4xl mx-auto" : `grid ${customGrid} gap-2`} ${!isEven ? "mb-16" : ""}`}
+			>
+				{customGrid === "single" ? (
+					<div className="space-y-2">
+						{data.features.map((feature) => (
+							<FeatureItem key={feature.text} isPro={feature.isPro}>
+								{feature.text}
+							</FeatureItem>
+						))}
+					</div>
+				) : (
+					data.features.map((feature) => (
+						<FeatureItem key={feature.text} isPro={feature.isPro}>
+							{feature.text}
+						</FeatureItem>
+					))
+				)}
+			</div>
+		</div>
+	</section>
+);
+
+// Feature data structure
+const FEATURE_DATA = [
+	{
+		heading: "Media Tracking",
+		title: "Your Complete Media Universe",
+		icon: Film,
+		images: ["desktop.png", "genres.png", "group.png"],
+		features: [
+			{
+				text: "Track everything you want: movies, shows, books, podcasts, games, anime, manga, music, visual novels",
+			},
+			{
+				text: "Add media to your watchlist, favorite or any other custom collection",
+				isPro: true,
+			},
+			{
+				text: "Get recommendations based on your favorites and watch history",
+				isPro: true,
+			},
+			{
+				text: "Track media you've watched and mark them as seen as many times as you want",
+			},
+			{
+				text: "Import your data from 16 different sources (with more to come)",
+			},
+			{
+				text: "Integrations with 13 different services (with more on the way)",
+			},
+			{
+				text: "Consolidated activity and statistics graphs and views across all your media",
+				isPro: true,
+			},
+			{
+				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
+			},
+			{
+				text: "Get notifications when a new episode is released or your favorite actor is back on screen",
+			},
+			{
+				text: "Support for 9 different notification platforms (more being released soon)",
+			},
+			{
+				text: "Set reminders for when you want to watch something and get notified",
+			},
+			{ text: "Review media privately or publicly and see what others think" },
+			{
+				text: "Get information on where you can watch a movie/show legally in your country",
+			},
+			{ text: "Browse media by genre or groups (eg: Star Wars collection)" },
+			{
+				text: "Calendar view to get an overview on when a media is being released",
+			},
+			{
+				text: "Suggestions that cater to your tastes based on your watch history",
+				isPro: true,
+			},
+			{
+				text: "Integrations with Youtube Music and Jellyfin for your music collection",
+			},
+		],
+	},
+	{
+		heading: "Fitness Tracking",
+		title: "Transform Your Fitness Journey",
+		icon: Dumbbell,
+		description: {
+			title: "Comprehensive Exercise Database",
+			text: "Access over 800 exercises with detailed instructions, search functionality, and the ability to add your own custom exercises.",
+		},
+		images: [
+			"current-workout.png",
+			"measurements-graph.png",
+			"logged-workout.png",
+			"exercise-dataset.png",
+		],
+		features: [
+			{ text: "Hit the gym and track workouts in realtime" },
+			{
+				text: "Dataset of over 800 exercises with instructions (and the ability to add your own)",
+			},
+			{ text: "Add rest timers to each set you complete" },
+			{
+				text: "Create supersets and upload images for each exercise to track progression",
+			},
+			{
+				text: "Inline history and images of exercises while logging an active workout",
+				isPro: true,
+			},
+			{ text: "Create templates to pre plan workouts beforehand" },
+			{
+				text: "Graphs of progress for exercises to visualize your progress over time",
+			},
+			{
+				text: "Keep track of your measurements like body weight, sugar level etc.",
+			},
+			{
+				text: "Visualizations of how your measurements fluctuate over time. Use them to identify trends and patterns.",
+			},
+		],
+	},
+	{
+		heading: "Other Goodies",
+		title: "Even More Amazing Features",
+		icon: Sparkles,
+		images: [
+			"sharing.png",
+			"recommendations.png",
+			"sharing-form.png",
+			"supercharged-collections.png",
+		],
+		features: [
+			{
+				text: "Share access links to your data with your friends and family",
+				isPro: true,
+			},
+			{
+				text: "Fine grained preferences to customize exactly what you want to track",
+			},
+			{
+				text: "Add collaborators to your collections to allow them to add to them",
+				isPro: true,
+			},
+			{
+				text: "Dark and light mode, because Ryot is at your fingertips the whole time",
+			},
+			{
+				text: "Add custom information to your collections to make them more personalized",
+				isPro: true,
+			},
+		],
+	},
+];
+
+const FEATURE_CARDS = [
+	{
+		icon: Play,
+		color: "blue",
+		title: "Smart Tracking",
+		description:
+			"Automatically organize and categorize your media with intelligent detection and classification.",
+		feature: "Auto-classification",
+		featureIcon: CheckCircle,
+	},
+	{
+		icon: BarChart3,
+		color: "green",
+		title: "Advanced Analytics",
+		description:
+			"Get deep insights into your habits with beautiful charts and comprehensive statistics.",
+		feature: "Beautiful charts",
+		featureIcon: AreaChart,
+	},
+	{
+		icon: Bell,
+		color: "purple",
+		title: "Smart Notifications",
+		description:
+			"Never miss new releases or important updates with intelligent notification system.",
+		feature: "9 Platforms",
+		featureIcon: Target,
+	},
+	{
+		icon: Share2,
+		color: "orange",
+		title: "Social Features",
+		description:
+			"Share your progress and collections with friends and family members.",
+		feature: "Share with friends",
+		featureIcon: Users,
+	},
+	{
+		icon: Heart,
+		color: "red",
+		title: "Personal Collections",
+		description:
+			"Create custom collections and add personal touches to make them uniquely yours.",
+		feature: "Custom collections",
+		featureIcon: FolderHeart,
+	},
+	{
+		icon: Lock,
+		color: "gray",
+		title: "Privacy First",
+		description:
+			"Your data stays secure with self-hosting options and complete privacy control.",
+		feature: "Self-hosted",
+		featureIcon: CheckCircle,
+	},
+];
 
 export default function Page() {
 	return (
 		<div className="min-h-screen">
 			{/* Hero Section */}
 			<section className="py-20 lg:py-32">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div className={SECTION_STYLES}>
 					<div className="text-center mb-16">
 						<Badge variant="secondary" className="mb-6">
 							<Brain className="w-4 h-4 mr-2" />
@@ -105,165 +358,20 @@ export default function Page() {
 				</div>
 			</section>
 
-			{/* Media Tracking Section */}
-			<section className="py-20 bg-muted/30">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="text-center mb-16">
-						<Badge variant="outline" className="mb-6">
-							<Film className="w-4 h-4 mr-2" />
-							Media Tracking
-						</Badge>
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
-							Your Complete Media Universe
-						</h2>
-					</div>
-
-					{/* Media Screenshots Carousel */}
-					{dataToDisplay[0].images.length > 0 && (
-						<div className="mb-16">
-							<Carousel
-								plugins={[Autoplay({ delay: 5000 })]}
-								className="w-full max-w-5xl mx-auto"
-							>
-								<CarouselContent>
-									{dataToDisplay[0].images.map((image, index) => (
-										<CarouselItem
-											key={image}
-											className="flex flex-col space-y-4"
-										>
-											<img
-												src={`/features/${image}`}
-												alt={`Media tracking interface ${index + 1}`}
-												className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
-											/>
-										</CarouselItem>
-									))}
-								</CarouselContent>
-							</Carousel>
-						</div>
-					)}
-
-					<div className="grid lg:grid-cols-2 gap-2 mb-16">
-						{dataToDisplay[0].features.map((feature) => (
-							<FeatureItem key={feature.text} isPro={feature.isPro}>
-								{feature.text}
-							</FeatureItem>
-						))}
-					</div>
-				</div>
-			</section>
-
-			{/* Fitness Tracking Section */}
-			<section className="py-20">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="text-center mb-16">
-						<Badge variant="outline" className="mb-6">
-							<Dumbbell className="w-4 h-4 mr-2" />
-							Fitness Tracking
-						</Badge>
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
-							Transform Your Fitness Journey
-						</h2>
-					</div>
-
-					{/* Fitness Screenshots Carousel */}
-					{dataToDisplay[1].images.length > 0 && (
-						<div className="mb-16">
-							<div className="text-center mb-8">
-								<h3 className="text-2xl font-semibold text-foreground mb-4">
-									Comprehensive Exercise Database
-								</h3>
-								<p className="text-muted-foreground max-w-2xl mx-auto">
-									Access over 800 exercises with detailed instructions, search
-									functionality, and the ability to add your own custom
-									exercises.
-								</p>
-							</div>
-							<Carousel
-								plugins={[Autoplay({ delay: 5000 })]}
-								className="w-full max-w-5xl mx-auto"
-							>
-								<CarouselContent>
-									{dataToDisplay[1].images.map((image, index) => (
-										<CarouselItem
-											key={image}
-											className="flex flex-col space-y-4"
-										>
-											<img
-												src={`/features/${image}`}
-												alt={`Fitness tracking interface ${index + 1}`}
-												className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
-											/>
-										</CarouselItem>
-									))}
-								</CarouselContent>
-							</Carousel>
-						</div>
-					)}
-
-					<div className="grid lg:grid-cols-2 gap-2">
-						{dataToDisplay[1].features.map((feature) => (
-							<FeatureItem key={feature.text} isPro={feature.isPro}>
-								{feature.text}
-							</FeatureItem>
-						))}
-					</div>
-				</div>
-			</section>
-
-			{/* Other Goodies Section */}
-			<section className="py-20 bg-muted/30">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="text-center mb-16">
-						<Badge variant="outline" className="mb-6">
-							<Sparkles className="w-4 h-4 mr-2" />
-							Other Goodies
-						</Badge>
-						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
-							Even More Amazing Features
-						</h2>
-					</div>
-
-					{/* Other Features Screenshots Carousel */}
-					{dataToDisplay[2].images.length > 0 && (
-						<div className="mb-16">
-							<Carousel
-								plugins={[Autoplay({ delay: 5000 })]}
-								className="w-full max-w-5xl mx-auto"
-							>
-								<CarouselContent>
-									{dataToDisplay[2].images.map((image, index) => (
-										<CarouselItem
-											key={image}
-											className="flex flex-col space-y-4"
-										>
-											<img
-												src={`/features/${image}`}
-												alt={`Additional features interface ${index + 1}`}
-												className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
-											/>
-										</CarouselItem>
-									))}
-								</CarouselContent>
-							</Carousel>
-						</div>
-					)}
-
-					<div className="max-w-4xl mx-auto">
-						<div className="space-y-2">
-							{dataToDisplay[2].features.map((feature) => (
-								<FeatureItem key={feature.text} isPro={feature.isPro}>
-									{feature.text}
-								</FeatureItem>
-							))}
-						</div>
-					</div>
-				</div>
-			</section>
+			{/* Feature Sections */}
+			{FEATURE_DATA.map((data, index) => (
+				<FeatureSection
+					key={data.heading}
+					data={data}
+					isEven={index % 2 === 0}
+					showDescription={index === 1}
+					customGrid={index === 2 ? "single" : "lg:grid-cols-2"}
+				/>
+			))}
 
 			{/* Feature Categories Grid */}
 			<section className="py-20">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div className={SECTION_STYLES}>
 					<div className="text-center mb-16">
 						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
 							Everything You Need in One Place
@@ -275,112 +383,27 @@ export default function Page() {
 					</div>
 
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-						<Card className={CARD_HOVER_STYLES}>
-							<CardContent className="p-6">
-								<div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-									<Play className="w-6 h-6 text-blue-600" />
-								</div>
-								<h3 className="text-xl font-semibold mb-3">Smart Tracking</h3>
-								<p className="text-muted-foreground mb-4">
-									Automatically organize and categorize your media with
-									intelligent detection and classification.
-								</p>
-								<div className="flex items-center text-sm text-blue-600">
-									<CheckCircle className="w-4 h-4 mr-1" />
-									Auto-classification
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className={CARD_HOVER_STYLES}>
-							<CardContent className="p-6">
-								<div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-									<BarChart3 className="w-6 h-6 text-green-600" />
-								</div>
-								<h3 className="text-xl font-semibold mb-3">
-									Advanced Analytics
-								</h3>
-								<p className="text-muted-foreground mb-4">
-									Get deep insights into your habits with beautiful charts and
-									comprehensive statistics.
-								</p>
-								<div className="flex items-center text-sm text-green-600">
-									<AreaChart className="w-4 h-4 mr-1" />
-									Beautiful charts
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className={CARD_HOVER_STYLES}>
-							<CardContent className="p-6">
-								<div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-									<Bell className="w-6 h-6 text-purple-600" />
-								</div>
-								<h3 className="text-xl font-semibold mb-3">
-									Smart Notifications
-								</h3>
-								<p className="text-muted-foreground mb-4">
-									Never miss new releases or important updates with intelligent
-									notification system.
-								</p>
-								<div className="flex items-center text-sm text-purple-600">
-									<Target className="w-4 h-4 mr-1" />9 Platforms
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className={CARD_HOVER_STYLES}>
-							<CardContent className="p-6">
-								<div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-									<Share2 className="w-6 h-6 text-orange-600" />
-								</div>
-								<h3 className="text-xl font-semibold mb-3">Social Features</h3>
-								<p className="text-muted-foreground mb-4">
-									Share your progress and collections with friends and family
-									members.
-								</p>
-								<div className="flex items-center text-sm text-orange-600">
-									<Users className="w-4 h-4 mr-1" />
-									Share with friends
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className={CARD_HOVER_STYLES}>
-							<CardContent className="p-6">
-								<div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
-									<Heart className="w-6 h-6 text-red-600" />
-								</div>
-								<h3 className="text-xl font-semibold mb-3">
-									Personal Collections
-								</h3>
-								<p className="text-muted-foreground mb-4">
-									Create custom collections and add personal touches to make
-									them uniquely yours.
-								</p>
-								<div className="flex items-center text-sm text-red-600">
-									<FolderHeart className="w-4 h-4 mr-1" />
-									Custom collections
-								</div>
-							</CardContent>
-						</Card>
-
-						<Card className={CARD_HOVER_STYLES}>
-							<CardContent className="p-6">
-								<div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-									<Lock className="w-6 h-6 text-gray-600" />
-								</div>
-								<h3 className="text-xl font-semibold mb-3">Privacy First</h3>
-								<p className="text-muted-foreground mb-4">
-									Your data stays secure with self-hosting options and complete
-									privacy control.
-								</p>
-								<div className="flex items-center text-sm text-gray-600">
-									<CheckCircle className="w-4 h-4 mr-1" />
-									Self-hosted
-								</div>
-							</CardContent>
-						</Card>
+						{FEATURE_CARDS.map((card) => (
+							<Card key={card.title} className={CARD_HOVER_STYLES}>
+								<CardContent className="p-6">
+									<div
+										className={`w-12 h-12 bg-${card.color}-100 rounded-lg flex items-center justify-center mb-4`}
+									>
+										<card.icon className={`w-6 h-6 text-${card.color}-600`} />
+									</div>
+									<h3 className="text-xl font-semibold mb-3">{card.title}</h3>
+									<p className="text-muted-foreground mb-4">
+										{card.description}
+									</p>
+									<div
+										className={`flex items-center text-sm text-${card.color}-600`}
+									>
+										<card.featureIcon className="w-4 h-4 mr-1" />
+										{card.feature}
+									</div>
+								</CardContent>
+							</Card>
+						))}
 					</div>
 				</div>
 			</section>
@@ -414,166 +437,3 @@ export default function Page() {
 		</div>
 	);
 }
-
-const dataToDisplay = [
-	{
-		heading: "Media Tracking",
-		images: ["desktop.png", "genres.png", "group.png"],
-		features: [
-			{
-				icon: LucideNotebookTabs,
-				text: "Track everything you want: movies, shows, books, podcasts, games, anime, manga, music, visual novels",
-			},
-			{
-				icon: LucideLibraryBig,
-				text: "Add media to your watchlist, favorite or any other custom collection",
-				isPro: true,
-			},
-			{
-				icon: LucideBookHeart,
-				text: "Get recommendations based on your favorites and watch history",
-				isPro: true,
-			},
-			{
-				icon: LucideNotebookPen,
-				text: "Track media you've watched and mark them as seen as many times as you want",
-			},
-			{
-				icon: LucideImport,
-				text: "Import your data from 16 different sources (with more to come)",
-			},
-			{
-				icon: LucideRefreshCcwDot,
-				text: "Integrations with 13 different services (with more on the way)",
-			},
-			{
-				icon: LucideChartColumnBig,
-				text: "Consolidated activity and statistics graphs and views across all your media",
-				isPro: true,
-			},
-			{
-				icon: LucideWatch,
-				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
-			},
-			{
-				icon: LucideMegaphone,
-				text: "Get notifications when a new episode is released or your favorite actor is back on screen",
-			},
-			{
-				icon: LucideVibrate,
-				text: "Support for 9 different notification platforms (more being released soon)",
-			},
-			{
-				icon: LucideBellDot,
-				text: "Set reminders for when you want to watch something and get notified",
-			},
-			{
-				icon: LucideMessageSquareText,
-				text: "Review media privately or publicly and see what others think",
-			},
-			{
-				icon: LucideProjector,
-				text: "Get information on where you can watch a movie/show legally in your country",
-			},
-			{
-				icon: LucidePackageOpen,
-				text: "Browse media by genre or groups (eg: Star Wars collection)",
-			},
-			{
-				icon: LucideCalendarRange,
-				text: "Calendar view to get an overview on when a media is being released",
-			},
-			{
-				icon: LucideCandy,
-				text: "Suggestions that cater to your tastes based on your watch history",
-				isPro: true,
-			},
-			{
-				icon: LucideRouter,
-				text: "Integrations with Youtube Music and Jellyfin for your music collection",
-			},
-		],
-	},
-	{
-		heading: "Fitness Tracking",
-		images: [
-			"current-workout.png",
-			"measurements-graph.png",
-			"logged-workout.png",
-			"exercise-dataset.png",
-		],
-		features: [
-			{
-				icon: LucideDumbbell,
-				text: "Hit the gym and track workouts in realtime",
-			},
-			{
-				icon: LucideDatabaseZap,
-				text: "Dataset of over 800 exercises with instructions (and the ability to add your own)",
-			},
-			{
-				icon: LucideTimer,
-				text: "Add rest timers to each set you complete",
-			},
-			{
-				icon: LucideImageUp,
-				text: "Create supersets and upload images for each exercise to track progression",
-			},
-			{
-				icon: LucideSquareStack,
-				text: "Inline history and images of exercises while logging an active workout",
-				isPro: true,
-			},
-			{
-				icon: LucideLayoutTemplate,
-				text: "Create templates to pre plan workouts beforehand",
-			},
-			{
-				icon: LucideChartLine,
-				text: "Graphs of progress for exercises to visualize your progress over time",
-			},
-			{
-				icon: LucideRuler,
-				text: "Keep track of your measurements like body weight, sugar level etc.",
-			},
-			{
-				icon: LucideScale3D,
-				text: "Visualizations of how your measurements fluctuate over time. Use them to identify trends and patterns.",
-			},
-		],
-	},
-	{
-		heading: "Other Goodies",
-		images: [
-			"sharing.png",
-			"recommendations.png",
-			"sharing-form.png",
-			"supercharged-collections.png",
-		],
-		features: [
-			{
-				icon: LucideShare,
-				text: "Share access links to your data with your friends and family",
-				isPro: true,
-			},
-			{
-				icon: LucideCog,
-				text: "Fine grained preferences to customize exactly what you want to track",
-			},
-			{
-				icon: LucideAmpersands,
-				text: "Add collaborators to your collections to allow them to add to them",
-				isPro: true,
-			},
-			{
-				icon: LucideToggleLeft,
-				text: "Dark and light mode, because Ryot is at your fingertips the whole time",
-			},
-			{
-				icon: LucideBadgeInfo,
-				text: "Add custom information to your collections to make them more personalized",
-				isPro: true,
-			},
-		],
-	},
-];
