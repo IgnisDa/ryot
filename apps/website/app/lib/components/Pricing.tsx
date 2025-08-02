@@ -107,27 +107,27 @@ export default function Pricing(props: {
 						. Choose the one that best fits your needs.
 					</p>
 
-						<div className="flex items-center justify-center gap-4">
-							<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
-								<span className="text-muted-foreground">You have chosen:</span>
-								<div className="flex items-center gap-1 text-primary font-medium">
-									{isCloudType ? (
-										<Cloud className="w-4 h-4" />
-									) : (
-										<Server className="w-4 h-4" />
-									)}
-									{changeCase(selectedProductType.type)}
-								</div>
+					<div className="flex items-center justify-center gap-4">
+						<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
+							<span className="text-muted-foreground">You have chosen:</span>
+							<div className="flex items-center gap-1 text-primary font-medium">
+								{isCloudType ? (
+									<Cloud className="w-4 h-4" />
+								) : (
+									<Server className="w-4 h-4" />
+								)}
+								{changeCase(selectedProductType.type)}
 							</div>
-							{isSelfHosted ? (
-								<Link
-									to={$path("/features")}
-									className="text-blue-500 underline hover:no-underline transition-colors"
-								>
-									See differences
-								</Link>
-							) : null}
 						</div>
+						{isSelfHosted ? (
+							<Link
+								to={$path("/features")}
+								className="text-blue-500 underline hover:no-underline transition-colors"
+							>
+								See differences
+							</Link>
+						) : null}
+					</div>
 				</div>
 
 				<div className="max-w-6xl mx-auto mb-8">
@@ -156,9 +156,7 @@ export default function Pricing(props: {
 									</div>
 								)}
 								<CardHeader
-									className={`text-center ${
-										isThreeColumn ? "pb-6" : "pb-4"
-									}`}
+									className={`text-center ${isThreeColumn ? "pb-6" : "pb-4"}`}
 								>
 									<div
 										className={`${
@@ -307,9 +305,8 @@ export default function Pricing(props: {
 								"text-green-700",
 							)}`}
 						>
-							With any paid{" "}
-							{isCloudType ? "cloud" : "self-hosted"}{" "}
-							plan, you get access to all Pro features.{" "}
+							With any paid {isCloudType ? "cloud" : "self-hosted"} plan, you
+							get access to all Pro features.{" "}
 							{isCloudType
 								? "The only difference is the payment frequency and trial period - choose what works best for you."
 								: "The only difference is the payment frequency - choose what works best for you."}
