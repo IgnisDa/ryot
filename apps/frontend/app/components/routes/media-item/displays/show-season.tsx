@@ -40,7 +40,6 @@ export const DisplayShowSeason = (props: {
 						variant={isSeen ? "default" : "outline"}
 						onClick={() => {
 							initializeMetadataToUpdate({
-								showAllEpisodesBefore: true,
 								metadataId: props.metadataId,
 								showSeasonNumber: props.season.seasonNumber,
 								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,

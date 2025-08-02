@@ -49,19 +49,31 @@ export const ShowForm = (props: MediaFormProps) => {
 					props.metadataDetails.showSpecifics?.seasons
 						.find((s) => s.seasonNumber === metadataToUpdate.showSeasonNumber)
 						?.episodes.map((e) => ({
-							label: `${e.episodeNumber}. ${e.name.toString()}`,
 							value: e.episodeNumber.toString(),
+							label: `${e.episodeNumber}. ${e.name.toString()}`,
 						})) || []
 				}
 			/>
 			<Checkbox
 				size="xs"
-				label="Mark all unseen episodes before this as seen"
-				defaultChecked={metadataToUpdate.showAllEpisodesBefore}
+				label="Mark all unseen episodes before this"
+				checked={metadataToUpdate.showAllEpisodesBefore || false}
 				onChange={(e) => {
 					updateMetadataToUpdate(
 						produce(metadataToUpdate, (draft) => {
 							draft.showAllEpisodesBefore = e.target.checked;
+						}),
+					);
+				}}
+			/>
+			<Checkbox
+				size="xs"
+				label="Mark all unseen episodes in this season before this"
+				checked={metadataToUpdate.showSeasonEpisodesBefore || false}
+				onChange={(e) => {
+					updateMetadataToUpdate(
+						produce(metadataToUpdate, (draft) => {
+							draft.showSeasonEpisodesBefore = e.target.checked;
 						}),
 					);
 				}}

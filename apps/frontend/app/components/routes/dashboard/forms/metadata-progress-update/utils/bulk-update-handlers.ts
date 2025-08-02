@@ -6,7 +6,12 @@ import {
 import { isFiniteNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "~/components/routes/dashboard/types";
+import type { MetadataDetails } from "~/components/routes/media-item/types";
 import type { BulkUpdateContext } from "./form-types";
+
+type EpisodeWithSeason = NonNullable<
+	MetadataDetails["showSpecifics"]
+>["seasons"][number]["episodes"][number] & { seasonNumber: number };
 
 export const createCustomDatesCompletedChange = (params: {
 	startDateFormatted: string | null;
@@ -207,48 +212,61 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Show &&
-		context.metadataToUpdate.showAllEpisodesBefore &&
+		(context.metadataToUpdate.showAllEpisodesBefore ||
+			context.metadataToUpdate.showSeasonEpisodesBefore) &&
 		context.metadataToUpdate.showSeasonNumber &&
 		context.metadataToUpdate.showEpisodeNumber
 	) {
-		const latestHistoryItem = context.history[0];
 		const allEpisodesInShow =
 			context.metadataDetails.showSpecifics?.seasons.flatMap((s) =>
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
-		const selectedEpisodeIndex = allEpisodesInShow.findIndex(
+		const selectedEpisode = allEpisodesInShow.find(
 			(e) =>
 				e.seasonNumber === context.metadataToUpdate.showSeasonNumber &&
 				e.episodeNumber === context.metadataToUpdate.showEpisodeNumber,
 		);
 
-		const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
-		const firstEpisodeOfShow = allEpisodesInShow[0];
-		const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
-			episode: firstEpisodeOfShow?.episodeNumber,
-			season: firstEpisodeOfShow?.seasonNumber,
+		if (!selectedEpisode) return;
+
+		const seenEpisodes = new Set<string>();
+		for (const historyItem of context.history) {
+			if (historyItem.showExtraInformation) {
+				const season = historyItem.showExtraInformation.season;
+				const episode = historyItem.showExtraInformation.episode;
+				seenEpisodes.add(`S${season}E${episode}`);
+			}
+		}
+
+		const episodeComesAfterOrIs = (
+			episodeA: EpisodeWithSeason,
+			episodeB: EpisodeWithSeason,
+		) => {
+			if (episodeA.seasonNumber > episodeB.seasonNumber) return true;
+			if (episodeA.seasonNumber === episodeB.seasonNumber) {
+				return episodeA.episodeNumber >= episodeB.episodeNumber;
+			}
+			return false;
 		};
 
-		const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
-			(e) =>
-				e.seasonNumber === lastSeenEpisode.season &&
-				e.episodeNumber === lastSeenEpisode.episode,
-		);
+		const episodesToConsider = allEpisodesInShow.filter((episode) => {
+			if (episodeComesAfterOrIs(episode, selectedEpisode)) return false;
 
-		const firstEpisodeIndexToMark =
-			lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
+			if (context.metadataToUpdate.showSeasonEpisodesBefore) {
+				if (episode.seasonNumber !== selectedEpisode.seasonNumber) return false;
+			}
 
-		if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
-			for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
-				const currentEpisode = allEpisodesInShow[i];
-				if (
-					currentEpisode.seasonNumber === 0 &&
-					selectedEpisode.seasonNumber !== 0
-				) {
-					continue;
-				}
+			if (episode.seasonNumber === 0 && selectedEpisode.seasonNumber !== 0) {
+				return false;
+			}
 
+			return true;
+		});
+
+		for (const episode of episodesToConsider) {
+			const episodeKey = `S${episode.seasonNumber}E${episode.episodeNumber}`;
+			if (!seenEpisodes.has(episodeKey)) {
 				context.updates.push({
 					metadataId: context.metadataToUpdate.metadataId,
 					change: createUpdateChange({
@@ -258,8 +276,8 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 						finishDateFormatted: context.finishDateFormatted,
 						currentDateFormatted: context.currentDateFormatted,
 						fields: {
-							showSeasonNumber: currentEpisode.seasonNumber,
-							showEpisodeNumber: currentEpisode.episodeNumber,
+							showSeasonNumber: episode.seasonNumber,
+							showEpisodeNumber: episode.episodeNumber,
 						},
 					}),
 				});

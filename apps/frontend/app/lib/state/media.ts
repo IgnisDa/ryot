@@ -29,6 +29,7 @@ export type UpdateProgressData = {
 	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
 	podcastAllEpisodesBefore?: boolean;
+	showSeasonEpisodesBefore?: boolean;
 	mangaAllChaptersOrVolumesBefore?: boolean;
 };
 
