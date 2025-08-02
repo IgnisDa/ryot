@@ -93,9 +93,6 @@ frontend:
 
   # Settings related to Umami analytics.
   umami:
-    # @envvar FRONTEND_UMAMI_DOMAINS
-    domains: ""
-
     # For example: https://umami.is/script.js.
     # @envvar FRONTEND_UMAMI_SCRIPT_URL
     script_url: ""
