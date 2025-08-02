@@ -18,6 +18,7 @@ import {
 	Target,
 	Users,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
@@ -40,7 +41,7 @@ const CARD_HOVER_STYLES =
 const SECTION_STYLES = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8";
 
 const FeatureItem = (props: {
-	children: React.ReactNode;
+	children: ReactNode;
 	isPro?: boolean;
 }) => (
 	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">

@@ -1,10 +1,9 @@
 import { cn } from "@ryot/ts-utils";
-import * as React from "react";
+import { type InputHTMLAttributes, forwardRef } from "react";
 
-export interface InputProps
-	extends React.InputHTMLAttributes<HTMLInputElement> {}
+export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>((props, ref) => {
+const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
 	const { className, type, ...rest } = props;
 	return (
 		<input
