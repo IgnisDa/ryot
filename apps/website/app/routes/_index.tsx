@@ -9,7 +9,6 @@ import {
 	processSubmission,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
-import { IconPlayerPlay } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
@@ -18,6 +17,7 @@ import {
 	CheckCircle,
 	Github,
 	MessageCircle,
+	PlayIcon,
 	Shield,
 	Star,
 	TrendingUp,
@@ -451,7 +451,7 @@ export default function Page() {
 						{rootLoaderData?.isLoggedIn ? (
 							<Link to={$path("/me")}>
 								<Button size="lg" className="text-base px-8">
-									<IconPlayerPlay size={16} className="mr-2" />
+									<PlayIcon size={16} className="mr-2" />
 									Get started
 								</Button>
 							</Link>

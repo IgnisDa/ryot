@@ -1,6 +1,12 @@
 import { changeCase } from "@ryot/ts-utils";
-import { IconPlayerPlay } from "@tabler/icons-react";
-import { CheckCircle, Cloud, Crown, Server, Sparkles } from "lucide-react";
+import {
+	CheckCircle,
+	Cloud,
+	Crown,
+	PlayIcon,
+	Server,
+	Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -216,7 +222,7 @@ export default function Pricing(props: {
 													: ""
 											}`}
 										>
-											<IconPlayerPlay size={16} className="mr-2" />
+											<PlayIcon size={16} className="mr-2" />
 											<span>
 												{props.isLoggedIn ? "Choose this" : "Get started"}
 											</span>
