@@ -64,7 +64,7 @@ function TypeSwitcherFab({
 							}}
 							className={clsx(
 								"rounded-full px-3 py-2",
-								slug === activeSlug ? "bg-[#C9943A]" : "bg-[#292524]",
+								slug === activeSlug ? "bg-[#C9943A]" : "bg-stone-800",
 							)}
 						>
 							<Text
@@ -106,14 +106,18 @@ export function EntityDetailScreen() {
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
 			>
-				<Box className="w-full web:mx-auto web:max-w-screen-xl">
-					<HeroSection entity={entity} />
-					<Box className="px-[28] pt-8">
-						<AboutSection entity={entity} />
-						{hasFreeCreators(entity) && <CreatorsSection creators={entity.freeCreators} />}
-						<CollectionsSection collections={entity.collections} />
-						<DetailsSection entity={entity} />
-						<TypeSpecificSection entity={entity} />
+				<HeroSection entity={entity} />
+				<Box className="web:mx-auto web:max-w-7xl">
+					<Box className="px-7 pt-8 md:grid md:grid-cols-[2fr_1fr] md:items-start md:gap-10 md:px-10">
+						<Box>
+							<AboutSection entity={entity} />
+							{hasFreeCreators(entity) && <CreatorsSection creators={entity.freeCreators} />}
+							<TypeSpecificSection entity={entity} />
+						</Box>
+						<Box>
+							<DetailsSection entity={entity} />
+							<CollectionsSection collections={entity.collections} />
+						</Box>
 					</Box>
 				</Box>
 			</ScrollView>
