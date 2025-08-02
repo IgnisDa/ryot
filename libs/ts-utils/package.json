@@ -2,6 +2,7 @@
 	"name": "@ryot/ts-utils",
 	"main": "src/index.ts",
 	"scripts": {
+		"build": "tsc",
 		"typecheck": "tsc",
 		"lint": "biome check .",
 		"test": "bun test --only-failures"
