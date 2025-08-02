@@ -224,17 +224,18 @@ const DETAIL_FIELDS = [
   "summary",
   "genres.name",
   "cover.image_id",
+  "collections.id",
   "artworks.image_id",
   "first_release_date",
   "release_dates.date",
+  "involved_companies.porting",
   "release_dates.platform.name",
-  "release_dates.release_region.region",
-  "involved_companies.company.id",
-  "involved_companies.company.name",
   "involved_companies.developer",
   "involved_companies.publisher",
-  "involved_companies.porting",
+  "involved_companies.company.id",
   "involved_companies.supporting",
+  "involved_companies.company.name",
+  "release_dates.release_region.region",
 ].join(", ");
 
 function collectCompanies(involvedCompanies) {
@@ -474,11 +475,30 @@ driver("details", async function(context) {
       ? game.slug.trim()
       : toSlug(name);
 
+  const groups = Array.isArray(game.collections)
+    ? game.collections
+      .map((collection) => {
+        const externalId =
+          typeof collection?.id === "number"
+            ? String(Math.trunc(collection.id))
+            : null;
+        if (!externalId) return null;
+
+        return {
+          externalId,
+          name: "Loading...",
+          scriptSlug: "video-game-group.igdb",
+        };
+      })
+      .filter((group) => group !== null)
+    : [];
+
   return {
     name,
     properties: {
       images,
       genres,
+      groups,
       timeToBeat,
       description,
       providerRating,
