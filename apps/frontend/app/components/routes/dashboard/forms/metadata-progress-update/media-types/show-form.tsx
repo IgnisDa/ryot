@@ -1,7 +1,7 @@
-import { Checkbox, Select } from "@mantine/core";
+import { Paper, SegmentedControl, Select, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
+import { ShowMarkingMode, useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const ShowForm = (props: MediaFormProps) => {
@@ -54,18 +54,29 @@ export const ShowForm = (props: MediaFormProps) => {
 						})) || []
 				}
 			/>
-			<Checkbox
-				size="xs"
-				label="Mark all unseen episodes before this as seen"
-				defaultChecked={metadataToUpdate.showAllEpisodesBefore}
-				onChange={(e) => {
-					updateMetadataToUpdate(
-						produce(metadataToUpdate, (draft) => {
-							draft.showAllEpisodesBefore = e.target.checked;
-						}),
-					);
-				}}
-			/>
+			<Paper p="xs" withBorder>
+				<SegmentedControl
+					size="xs"
+					fullWidth
+					data={[
+						{ label: "All", value: ShowMarkingMode.All },
+						{ label: "Season", value: ShowMarkingMode.Season },
+					]}
+					value={metadataToUpdate.showMarkingMode || ShowMarkingMode.All}
+					onChange={(value) => {
+						updateMetadataToUpdate(
+							produce(metadataToUpdate, (draft) => {
+								draft.showMarkingMode = value as ShowMarkingMode;
+							}),
+						);
+					}}
+				/>
+				<Text size="xs" c="dimmed" mt="xs">
+					{metadataToUpdate.showMarkingMode === ShowMarkingMode.Season
+						? "Mark all unseen episodes in this season before this"
+						: "Mark all unseen episodes before this"}
+				</Text>
+			</Paper>
 		</>
 	);
 };
