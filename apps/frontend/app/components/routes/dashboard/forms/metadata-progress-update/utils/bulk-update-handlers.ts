@@ -207,8 +207,7 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Show &&
-		(context.metadataToUpdate.showAllEpisodesBefore ||
-			context.metadataToUpdate.showSeasonEpisodesBefore) &&
+		context.metadataToUpdate.showAllEpisodesBefore &&
 		context.metadataToUpdate.showSeasonNumber &&
 		context.metadataToUpdate.showEpisodeNumber
 	) {
@@ -218,39 +217,31 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
-		const useSeasonMode = context.metadataToUpdate.showSeasonEpisodesBefore;
-		const episodesToConsider = useSeasonMode
-			? allEpisodesInShow.filter(
-					(e) => e.seasonNumber === context.metadataToUpdate.showSeasonNumber,
-				)
-			: allEpisodesInShow;
-
-		const selectedEpisodeIndex = episodesToConsider.findIndex(
+		const selectedEpisodeIndex = allEpisodesInShow.findIndex(
 			(e) =>
 				e.seasonNumber === context.metadataToUpdate.showSeasonNumber &&
 				e.episodeNumber === context.metadataToUpdate.showEpisodeNumber,
 		);
 
-		const selectedEpisode = episodesToConsider[selectedEpisodeIndex];
-		const firstEpisodeOfShow = episodesToConsider[0];
+		const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
+		const firstEpisodeOfShow = allEpisodesInShow[0];
 		const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
 			episode: firstEpisodeOfShow?.episodeNumber,
 			season: firstEpisodeOfShow?.seasonNumber,
 		};
 
-		const lastSeenEpisodeIndex = episodesToConsider.findIndex(
+		const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
 			(e) =>
 				e.seasonNumber === lastSeenEpisode.season &&
 				e.episodeNumber === lastSeenEpisode.episode,
 		);
 
-		const firstEpisodeIndexToMark = useSeasonMode
-			? 0
-			: lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
+		const firstEpisodeIndexToMark =
+			lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 
 		if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
 			for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
-				const currentEpisode = episodesToConsider[i];
+				const currentEpisode = allEpisodesInShow[i];
 				if (
 					currentEpisode.seasonNumber === 0 &&
 					selectedEpisode.seasonNumber !== 0
