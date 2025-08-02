@@ -4,20 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "@/lib/api-client";
 import { toEntityImage, useResolvedImageUrls } from "@/lib/image";
 
-const MEDIA_SCOPE_SLUGS = [
-	"book",
-	"show",
-	"anime",
-	"manga",
-	"music",
-	"movie",
-	"person",
-	"podcast",
-	"audiobook",
-	"comic-book",
-	"video-game",
-	"visual-novel",
-];
+import { MEDIA_SCOPE_SLUGS } from "./constants";
 
 const CONTINUE_UNIT_LABELS: Record<string, string> = {
 	book: "pages",
@@ -93,7 +80,7 @@ export function useMediaOverviewData() {
 			const response = await apiClient.POST("/query-engine/execute", {
 				body: {
 					mode: "entities",
-					scope: MEDIA_SCOPE_SLUGS,
+					scope: [...MEDIA_SCOPE_SLUGS],
 					relationships: [{ relationshipSchemaSlug: "in-library" }],
 					eventJoins: [
 						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
@@ -237,7 +224,7 @@ export function useMediaOverviewData() {
 			const response = await apiClient.POST("/query-engine/execute", {
 				body: {
 					mode: "entities",
-					scope: MEDIA_SCOPE_SLUGS,
+					scope: [...MEDIA_SCOPE_SLUGS],
 					relationships: [{ relationshipSchemaSlug: "in-library" }],
 					eventJoins: [
 						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
@@ -420,7 +407,7 @@ export function useMediaOverviewData() {
 			const response = await apiClient.POST("/query-engine/execute", {
 				body: {
 					mode: "entities",
-					scope: MEDIA_SCOPE_SLUGS,
+					scope: [...MEDIA_SCOPE_SLUGS],
 					relationships: [{ relationshipSchemaSlug: "in-library" }],
 					eventJoins: [
 						{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
@@ -566,7 +553,7 @@ export function useMediaOverviewData() {
 			const response = await apiClient.POST("/query-engine/execute", {
 				body: {
 					mode: "events",
-					scope: MEDIA_SCOPE_SLUGS,
+					scope: [...MEDIA_SCOPE_SLUGS],
 					pagination: { page: 1, limit: 12 },
 					eventSchemas: ["review", "backlog", "progress", "complete"],
 					sort: {
