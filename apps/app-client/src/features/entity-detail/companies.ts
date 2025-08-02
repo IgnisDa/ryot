@@ -145,7 +145,7 @@ export async function loadRelatedCompanies(
 	});
 
 	return sortBy(companies, [
-		(c) => (c.order ?? Number.POSITIVE_INFINITY),
+		(c) => c.order ?? Number.POSITIVE_INFINITY,
 		(c) => c.createdAt ?? "",
 		(c) => c.position,
 	]).map(({ id, image, name, role }) => ({
