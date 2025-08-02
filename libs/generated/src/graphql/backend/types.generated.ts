@@ -807,7 +807,6 @@ export type FrontendConfig = {
  */
 export type FrontendUmamiConfig = {
   __typename?: 'FrontendUmamiConfig';
-  domains: Scalars['String']['output'];
   /** For example: https://umami.is/script.js. */
   scriptUrl: Scalars['String']['output'];
   websiteId: Scalars['String']['output'];
