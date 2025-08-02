@@ -125,6 +125,16 @@ export default function App() {
 										Features
 									</Link>
 									<Link
+										to={$path("/features")}
+										className={`transition-colors ${
+											isActivePage("/features")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										Features
+									</Link>
+									<Link
 										to={withFragment($path("/"), "pricing")}
 										className="text-muted-foreground hover:text-foreground transition-colors"
 									>
@@ -192,6 +202,12 @@ export default function App() {
 								</div>
 								<div className="flex items-center space-x-6 text-muted-foreground">
 									<Link
+										to={$path("/features")}
+										className="hover:text-foreground transition-colors"
+									>
+										Features
+									</Link>
+									<Link
 										to={withFragment($path("/"), "contact")}
 										className="hover:text-foreground transition-colors"
 									>
@@ -199,7 +215,7 @@ export default function App() {
 									</Link>
 									<Link
 										to={$path("/terms")}
-										className="hover:text-foreground transition-colors"
+										className="hover:text-foreground hidden sm:block transition-colors"
 									>
 										Terms
 									</Link>
