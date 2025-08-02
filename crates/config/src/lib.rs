@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use async_graphql::SimpleObject;
 use common_utils::PROJECT_NAME;
-use ryot_macros::MaskedConfig;
+use config_macros::MaskedConfig;
 use schematic::{Config, ConfigEnum, ConfigLoader, derive_enum, validate::not_empty};
 use serde::{Deserialize, Serialize};
 

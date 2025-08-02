@@ -1445,9 +1445,17 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "common-utils",
- "ryot-macros",
+ "config-macros",
  "schematic",
  "serde",
+]
+
+[[package]]
+name = "config-macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -5411,14 +5419,6 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
-]
-
-[[package]]
-name = "ryot-macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn 2.0.104",
 ]
 
 [[package]]
