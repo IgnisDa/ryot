@@ -24,7 +24,7 @@ export type SearchResultItem = {
 	};
 };
 
-type AddStatus = "idle" | "loading" | "done" | "error";
+type AddStatus = "idle" | "loading" | "done" | "error" | "partial_error";
 
 type SubmittedSearch = {
 	page: number;
@@ -50,6 +50,8 @@ type AddItemState = {
 	status: AddStatus;
 	error: string | null;
 	entity: EnsuredEntity | null;
+	collectionId?: string;
+	collectionError?: string;
 };
 
 const POLL_MS = 500;
