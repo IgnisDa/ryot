@@ -1,6 +1,15 @@
-import { cn, snakeCase } from "@ryot/ts-utils";
 import Autoplay from "embla-carousel-autoplay";
 import {
+	ArrowRight,
+	BarChart3,
+	Bell,
+	Brain,
+	CheckCircle,
+	Crown,
+	Dumbbell,
+	Film,
+	Heart,
+	Lock,
 	LucideAmpersands,
 	LucideBadgeInfo,
 	LucideBellDot,
@@ -32,93 +41,405 @@ import {
 	LucideToggleLeft,
 	LucideVibrate,
 	LucideWatch,
+	Play,
+	Share2,
+	Sparkles,
+	Target,
 } from "lucide-react";
+import { Link } from "react-router";
+import { $path } from "safe-routes";
+import { withFragment } from "ufo";
+import { Badge } from "~/lib/components/ui/badge";
+import { Button } from "~/lib/components/ui/button";
+import { Card, CardContent } from "~/lib/components/ui/card";
 import {
 	Carousel,
 	CarouselContent,
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
-import { logoUrl } from "~/lib/utils";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
+const ProBadge = () => (
+	<Badge className="ml-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white border-0 text-xs">
+		<Crown className="w-3 h-3 mr-1" />
+		PRO
+	</Badge>
+);
+
+const FeatureItem = ({
+	children,
+	isPro = false,
+}: { children: React.ReactNode; isPro?: boolean }) => (
+	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+		<CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+		<div className="flex items-start flex-wrap gap-1">
+			<span className="text-foreground leading-relaxed">{children}</span>
+			{isPro && <ProBadge />}
+		</div>
+	</div>
+);
+
 export default function Page() {
 	return (
-		<div>
-			<div className="bg-muted py-20 md:py-32">
-				<img
-					alt="Ryot"
-					src={logoUrl}
-					className="size-28 sm:size-40 mx-auto mb-10"
-				/>
-				<div className="space-y-4">
-					<h1 className="text-center text-2xl sm:text-3xl">
-						Think of Ryot as your second brain with superpowers ✨
-					</h1>
-					<h2 className="text-center sm:text-xl text-gray-500">
-						What all can Ryot do for you?
-					</h2>
-				</div>
-			</div>
-			{dataToDisplay.map((data, index) => (
-				<div
-					key={data.heading}
-					id={snakeCase(data.heading)}
-					className={cn(
-						"py-10 space-y-4 md:space-y-8",
-						index % 2 === 1 ? "bg-muted" : "bg-white",
-					)}
-				>
-					<h2 className="text-center text-2xl sm:text-3xl font-semibold lowercase underline underline-offset-4">
-						{data.heading}
-					</h2>
-					{data.images.length > 0 ? (
-						<Carousel
-							plugins={[Autoplay({ delay: 5000 })]}
-							className="w-screen"
-						>
-							<CarouselContent>
-								{data.images.map((image, index) => (
-									<CarouselItem key={image} className="flex flex-col space-y-4">
-										<img
-											src={`/features/${image}`}
-											alt={`${data.heading}-${index + 1}`}
-											className="mx-auto rounded-xl md:max-h-96 md:max-w-3xl lg:max-w-4xl xl:max-w-6xl object-contain"
-										/>
-									</CarouselItem>
-								))}
-							</CarouselContent>
-						</Carousel>
-					) : null}
-					<div className="px-2 md:px-0 mx-auto grid items-start gap-5 md:gap-8 sm:max-w-4xl sm:grid-cols-2 lg:max-w-5xl lg:grid-cols-3">
-						{data.features.map((f) => (
-							<div
-								className="flex items-center justify-center gap-x-3 h-full"
-								key={f.text}
-							>
-								<div
-									className={cn(
-										"p-2 border rounded-md",
-										f.isPro
-											? "border-black bg-green-200/20"
-											: "border-transparent",
-									)}
-								>
-									<f.icon className="size-6 flex-none mx-auto" />
-									{f.isPro ? (
-										<div className="text-green-700 text-[10px] mt-2 text-center font-semibold">
-											PRO
-										</div>
-									) : null}
-								</div>
-								<p className="text-muted-foreground">{f.text}</p>
-							</div>
-						))}
+		<div className="min-h-screen">
+			{/* Hero Section */}
+			<section className="py-20 lg:py-32">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="secondary" className="mb-6">
+							<Brain className="w-4 h-4 mr-2" />
+							Comprehensive Tracking
+						</Badge>
+						<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
+							Think of Ryot as your{" "}
+							<span className="text-primary">second brain</span> with
+							superpowers ✨
+						</h1>
+						<p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+							What all can Ryot do for you?
+						</p>
 					</div>
 				</div>
-			))}
+			</section>
+
+			{/* Media Tracking Section */}
+			<section className="py-20 bg-muted/30">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="outline" className="mb-6">
+							<Film className="w-4 h-4 mr-2" />
+							Media Tracking
+						</Badge>
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
+							Your Complete Media Universe
+						</h2>
+					</div>
+
+					{/* Media Screenshots Carousel */}
+					{dataToDisplay[0].images.length > 0 && (
+						<div className="mb-16">
+							<Carousel
+								plugins={[Autoplay({ delay: 5000 })]}
+								className="w-full max-w-5xl mx-auto"
+							>
+								<CarouselContent>
+									{dataToDisplay[0].images.map((image, index) => (
+										<CarouselItem
+											key={image}
+											className="flex flex-col space-y-4"
+										>
+											<img
+												src={`/features/${image}`}
+												alt={`Media tracking interface ${index + 1}`}
+												className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
+											/>
+										</CarouselItem>
+									))}
+								</CarouselContent>
+							</Carousel>
+						</div>
+					)}
+
+					<div className="grid lg:grid-cols-2 gap-12 mb-16">
+						<div className="space-y-2">
+							{dataToDisplay[0].features
+								.slice(0, Math.ceil(dataToDisplay[0].features.length / 2))
+								.map((feature) => (
+									<FeatureItem key={feature.text} isPro={feature.isPro}>
+										{feature.text}
+									</FeatureItem>
+								))}
+						</div>
+						<div className="space-y-2">
+							{dataToDisplay[0].features
+								.slice(Math.ceil(dataToDisplay[0].features.length / 2))
+								.map((feature) => (
+									<FeatureItem key={feature.text} isPro={feature.isPro}>
+										{feature.text}
+									</FeatureItem>
+								))}
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* Fitness Tracking Section */}
+			<section className="py-20">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="outline" className="mb-6">
+							<Dumbbell className="w-4 h-4 mr-2" />
+							Fitness Tracking
+						</Badge>
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
+							Transform Your Fitness Journey
+						</h2>
+					</div>
+
+					{/* Fitness Screenshots Carousel */}
+					{dataToDisplay[1].images.length > 0 && (
+						<div className="mb-16">
+							<div className="text-center mb-8">
+								<h3 className="text-2xl font-semibold text-foreground mb-4">
+									Comprehensive Exercise Database
+								</h3>
+								<p className="text-muted-foreground max-w-2xl mx-auto">
+									Access over 800 exercises with detailed instructions, search
+									functionality, and the ability to add your own custom
+									exercises.
+								</p>
+							</div>
+							<Carousel
+								plugins={[Autoplay({ delay: 5000 })]}
+								className="w-full max-w-5xl mx-auto"
+							>
+								<CarouselContent>
+									{dataToDisplay[1].images.map((image, index) => (
+										<CarouselItem
+											key={image}
+											className="flex flex-col space-y-4"
+										>
+											<img
+												src={`/features/${image}`}
+												alt={`Fitness tracking interface ${index + 1}`}
+												className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
+											/>
+										</CarouselItem>
+									))}
+								</CarouselContent>
+							</Carousel>
+						</div>
+					)}
+
+					<div className="grid lg:grid-cols-2 gap-12">
+						<div className="space-y-2">
+							{dataToDisplay[1].features
+								.slice(0, Math.ceil(dataToDisplay[1].features.length / 2))
+								.map((feature) => (
+									<FeatureItem key={feature.text} isPro={feature.isPro}>
+										{feature.text}
+									</FeatureItem>
+								))}
+						</div>
+						<div className="space-y-2">
+							{dataToDisplay[1].features
+								.slice(Math.ceil(dataToDisplay[1].features.length / 2))
+								.map((feature) => (
+									<FeatureItem key={feature.text} isPro={feature.isPro}>
+										{feature.text}
+									</FeatureItem>
+								))}
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* Other Goodies Section */}
+			<section className="py-20 bg-muted/30">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="outline" className="mb-6">
+							<Sparkles className="w-4 h-4 mr-2" />
+							Other Goodies
+						</Badge>
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-8">
+							Even More Amazing Features
+						</h2>
+					</div>
+
+					{/* Other Features Screenshots Carousel */}
+					{dataToDisplay[2].images.length > 0 && (
+						<div className="mb-16">
+							<Carousel
+								plugins={[Autoplay({ delay: 5000 })]}
+								className="w-full max-w-5xl mx-auto"
+							>
+								<CarouselContent>
+									{dataToDisplay[2].images.map((image, index) => (
+										<CarouselItem
+											key={image}
+											className="flex flex-col space-y-4"
+										>
+											<img
+												src={`/features/${image}`}
+												alt={`Additional features interface ${index + 1}`}
+												className="mx-auto rounded-2xl max-h-96 md:max-h-[500px] lg:max-h-[600px] w-full object-contain"
+											/>
+										</CarouselItem>
+									))}
+								</CarouselContent>
+							</Carousel>
+						</div>
+					)}
+
+					<div className="max-w-4xl mx-auto">
+						<div className="space-y-2">
+							{dataToDisplay[2].features.map((feature) => (
+								<FeatureItem key={feature.text} isPro={feature.isPro}>
+									{feature.text}
+								</FeatureItem>
+							))}
+						</div>
+					</div>
+				</div>
+			</section>
+
+			{/* Feature Categories Grid */}
+			<section className="py-20">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+							Everything You Need in One Place
+						</h2>
+						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+							Discover all the powerful features that make Ryot your ultimate
+							personal tracking companion.
+						</p>
+					</div>
+
+					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+							<CardContent className="p-6">
+								<div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+									<Play className="w-6 h-6 text-blue-600" />
+								</div>
+								<h3 className="text-xl font-semibold mb-3">Smart Tracking</h3>
+								<p className="text-muted-foreground mb-4">
+									Automatically organize and categorize your media with
+									intelligent detection and classification.
+								</p>
+								<div className="flex items-center text-sm text-blue-600">
+									<CheckCircle className="w-4 h-4 mr-1" />
+									Auto-classification
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+							<CardContent className="p-6">
+								<div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+									<BarChart3 className="w-6 h-6 text-green-600" />
+								</div>
+								<h3 className="text-xl font-semibold mb-3">
+									Advanced Analytics
+								</h3>
+								<p className="text-muted-foreground mb-4">
+									Get deep insights into your habits with beautiful charts and
+									comprehensive statistics.
+								</p>
+								<div className="flex items-center text-sm text-green-600">
+									<Crown className="w-4 h-4 mr-1" />
+									Pro Feature
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+							<CardContent className="p-6">
+								<div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+									<Bell className="w-6 h-6 text-purple-600" />
+								</div>
+								<h3 className="text-xl font-semibold mb-3">
+									Smart Notifications
+								</h3>
+								<p className="text-muted-foreground mb-4">
+									Never miss new releases or important updates with intelligent
+									notification system.
+								</p>
+								<div className="flex items-center text-sm text-purple-600">
+									<Target className="w-4 h-4 mr-1" />9 Platforms
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+							<CardContent className="p-6">
+								<div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+									<Share2 className="w-6 h-6 text-orange-600" />
+								</div>
+								<h3 className="text-xl font-semibold mb-3">Social Features</h3>
+								<p className="text-muted-foreground mb-4">
+									Share your progress and collections with friends and family
+									members.
+								</p>
+								<div className="flex items-center text-sm text-orange-600">
+									<Crown className="w-4 h-4 mr-1" />
+									Pro Feature
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+							<CardContent className="p-6">
+								<div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
+									<Heart className="w-6 h-6 text-red-600" />
+								</div>
+								<h3 className="text-xl font-semibold mb-3">
+									Personal Collections
+								</h3>
+								<p className="text-muted-foreground mb-4">
+									Create custom collections and add personal touches to make
+									them uniquely yours.
+								</p>
+								<div className="flex items-center text-sm text-red-600">
+									<Crown className="w-4 h-4 mr-1" />
+									Pro Feature
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+							<CardContent className="p-6">
+								<div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+									<Lock className="w-6 h-6 text-gray-600" />
+								</div>
+								<h3 className="text-xl font-semibold mb-3">Privacy First</h3>
+								<p className="text-muted-foreground mb-4">
+									Your data stays secure with self-hosting options and complete
+									privacy control.
+								</p>
+								<div className="flex items-center text-sm text-gray-600">
+									<CheckCircle className="w-4 h-4 mr-1" />
+									Self-hostable
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			</section>
+
+			{/* Pro Features Callout */}
+			<section className="py-20 bg-gradient-to-r from-orange-50 to-pink-50">
+				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+					<div className="flex items-center justify-center gap-3 mb-6">
+						<div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-pink-500 rounded-full flex items-center justify-center">
+							<Crown className="w-6 h-6 text-white" />
+						</div>
+						<span className="text-2xl font-bold text-foreground">
+							Unlock Pro Features
+						</span>
+					</div>
+					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed">
+						Get access to advanced analytics, custom collections, sharing
+						features, and much more with Ryot Pro. Upgrade your tracking
+						experience today.
+					</p>
+					<div className="flex flex-col sm:flex-row gap-4 justify-center">
+						<Link to={withFragment($path("/"), "pricing")}>
+							<Button size="lg">
+								View Pricing Plans
+								<ArrowRight className="w-4 h-4 ml-2" />
+							</Button>
+						</Link>
+						<Button variant="outline" size="lg">
+							Try Live Demo
+						</Button>
+					</div>
+				</div>
+			</section>
 		</div>
 	);
 }
@@ -135,11 +456,11 @@ const dataToDisplay = [
 			{
 				icon: LucideLibraryBig,
 				text: "Add media to your watchlist, favorite or any other custom collection",
+				isPro: true,
 			},
 			{
 				icon: LucideBookHeart,
 				text: "Get recommendations based on your favorites and watch history",
-				isPro: true,
 			},
 			{
 				icon: LucideNotebookPen,
@@ -156,11 +477,11 @@ const dataToDisplay = [
 			{
 				icon: LucideChartColumnBig,
 				text: "Consolidated activity and statistics graphs and views across all your media",
+				isPro: true,
 			},
 			{
 				icon: LucideWatch,
 				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
-				isPro: true,
 			},
 			{
 				icon: LucideMegaphone,
@@ -193,11 +514,11 @@ const dataToDisplay = [
 			{
 				icon: LucideCandy,
 				text: "Suggestions that cater to your tastes based on your watch history",
+				isPro: true,
 			},
 			{
 				icon: LucideRouter,
 				text: "Integrations with Youtube Music and Jellyfin for your music collection",
-				isPro: true,
 			},
 		],
 	},
@@ -229,11 +550,11 @@ const dataToDisplay = [
 			{
 				icon: LucideSquareStack,
 				text: "Inline history and images of exercises while logging an active workout",
+				isPro: true,
 			},
 			{
 				icon: LucideLayoutTemplate,
 				text: "Create templates to pre plan workouts beforehand",
-				isPro: true,
 			},
 			{
 				icon: LucideChartLine,
