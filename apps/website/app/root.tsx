@@ -177,6 +177,55 @@ export default function App() {
 							<Outlet />
 						</HoneypotProvider>
 					</main>
+					<footer className="border-t border-border/50 py-12 bg-muted/20">
+						<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+							<div className="flex flex-col md:flex-row justify-between items-center">
+								<div className="flex items-center space-x-3 mb-4 md:mb-0">
+									<img
+										src={logoUrl}
+										alt="Ryot Logo"
+										className="w-8 h-8 object-contain"
+									/>
+									<span className="text-xl font-semibold text-foreground">
+										Ryot
+									</span>
+								</div>
+								<div className="flex items-center space-x-6 text-muted-foreground">
+									<Link
+										to={withFragment($path("/"), "contact")}
+										className="hover:text-foreground transition-colors"
+									>
+										Support
+									</Link>
+									<Link
+										to={$path("/terms")}
+										className="hover:text-foreground transition-colors"
+									>
+										Terms
+									</Link>
+									<a
+										href="https://docs.ryot.io"
+										target="_blank"
+										rel="noopener noreferrer"
+										className="hover:text-foreground transition-colors"
+									>
+										Docs
+									</a>
+									<a
+										href="https://github.com/IgnisDa/ryot"
+										target="_blank"
+										rel="noopener noreferrer"
+										className="hover:text-foreground transition-colors"
+									>
+										GitHub
+									</a>
+								</div>
+							</div>
+							<div className="border-t border-border/50 mt-8 pt-8 text-center text-muted-foreground">
+								<p>&copy; 2025 Ryot. All rights reserved.</p>
+							</div>
+						</div>
+					</footer>
 				</div>
 				<ScrollRestoration />
 				<Scripts />
