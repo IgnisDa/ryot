@@ -1,7 +1,5 @@
 import type { EntityImage } from "@/lib/image";
 
-export type { EntityImage };
-
 export type FreeCreator = { name: string; role: string; image?: string };
 
 type CommonBase = {
@@ -13,38 +11,38 @@ type CommonBase = {
 	sourceUrl: string | null;
 	description: string | null;
 	publishYear: number | null;
+	collections: string[] | null;
 	providerRating: number | null;
 	productionStatus: string | null;
-	collections: string[] | null;
 };
 
 export type BookDetail = CommonBase & {
-	entitySchemaSlug: "book";
 	pages: number | null;
+	entitySchemaSlug: "book";
 	freeCreators: FreeCreator[];
 	isCompilation: boolean | null;
 };
 
 export type MovieDetail = CommonBase & {
-	entitySchemaSlug: "movie";
 	runtime: number | null;
+	entitySchemaSlug: "movie";
 	freeCreators: FreeCreator[];
 };
 
 export type ShowEpisode = {
 	id: number;
 	name: string;
+	episodeNumber: number;
 	runtime: number | null;
 	overview: string | null;
-	episodeNumber: number;
 };
 
 export type ShowSeason = {
 	id: number;
 	name: string;
-	publishDate: string | null;
 	seasonNumber: number;
 	episodes: ShowEpisode[];
+	publishDate: string | null;
 };
 
 export type ShowDetail = CommonBase & {
@@ -54,26 +52,26 @@ export type ShowDetail = CommonBase & {
 };
 
 export type AnimeDetail = CommonBase & {
-	entitySchemaSlug: "anime";
 	episodes: number | null;
+	entitySchemaSlug: "anime";
 	airingSchedule: Array<{ episode: number; airingAt: string }> | null;
 };
 
 export type MangaDetail = CommonBase & {
-	entitySchemaSlug: "manga";
 	volumes: number | null;
 	chapters: number | null;
+	entitySchemaSlug: "manga";
 };
 
 export type ComicBookDetail = CommonBase & {
-	entitySchemaSlug: "comic-book";
 	pages: number | null;
+	entitySchemaSlug: "comic-book";
 };
 
 export type AudiobookDetail = CommonBase & {
-	entitySchemaSlug: "audiobook";
 	runtime: number | null;
 	freeCreators: FreeCreator[];
+	entitySchemaSlug: "audiobook";
 };
 
 export type PodcastEpisode = {
@@ -86,43 +84,43 @@ export type PodcastEpisode = {
 };
 
 export type PodcastDetail = CommonBase & {
-	entitySchemaSlug: "podcast";
 	episodes: PodcastEpisode[];
 	freeCreators: FreeCreator[];
+	entitySchemaSlug: "podcast";
 	totalEpisodes: number | null;
 };
 
 export type MusicDetail = CommonBase & {
-	entitySchemaSlug: "music";
 	duration: number | null;
+	entitySchemaSlug: "music";
 	byVariousArtists: boolean | null;
 };
 
 export type VideoGameDetail = CommonBase & {
 	entitySchemaSlug: "video-game";
+	platformReleases: Array<{ name: string; releaseDate: string | null }> | null;
 	timeToBeat: {
 		hastily: number | null;
 		normally: number | null;
 		completely: number | null;
 	} | null;
-	platformReleases: Array<{ name: string; releaseDate: string | null }> | null;
 };
 
 export type VisualNovelDetail = CommonBase & {
-	entitySchemaSlug: "visual-novel";
 	lengthMinutes: number | null;
+	entitySchemaSlug: "visual-novel";
 };
 
 export type EntityDetail =
 	| BookDetail
-	| MovieDetail
 	| ShowDetail
+	| MovieDetail
 	| AnimeDetail
 	| MangaDetail
+	| MusicDetail
+	| PodcastDetail
 	| ComicBookDetail
 	| AudiobookDetail
-	| PodcastDetail
-	| MusicDetail
 	| VideoGameDetail
 	| VisualNovelDetail;
 
