@@ -202,13 +202,11 @@ export default function Page() {
 					)}
 
 					<div className="grid lg:grid-cols-2 gap-2">
-						{dataToDisplay[1].features
-							.slice(0, Math.ceil(dataToDisplay[1].features.length / 2))
-							.map((feature) => (
-								<FeatureItem key={feature.text} isPro={feature.isPro}>
-									{feature.text}
-								</FeatureItem>
-							))}
+						{dataToDisplay[1].features.map((feature) => (
+							<FeatureItem key={feature.text} isPro={feature.isPro}>
+								{feature.text}
+							</FeatureItem>
+						))}
 					</div>
 				</div>
 			</section>
@@ -410,9 +408,6 @@ export default function Page() {
 								<ArrowRight className="w-4 h-4 ml-2" />
 							</Button>
 						</Link>
-						<Button variant="outline" size="lg">
-							Try Live Demo
-						</Button>
 					</div>
 				</div>
 			</section>
