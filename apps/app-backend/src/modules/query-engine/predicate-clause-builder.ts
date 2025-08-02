@@ -15,14 +15,13 @@ import {
 } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { QueryEngineValidationError } from "~/lib/views/errors";
-import type { ViewExpression } from "~/lib/views/expression";
 import {
 	assertContainsCompatibleExpression,
 	normalizeExpressionPropertyType,
 	type ViewExpressionTypeInfo,
 } from "~/lib/views/expression-analysis";
 import type { ViewPredicate } from "~/lib/views/filtering";
-import type { PropertyType } from "~/lib/views/reference";
+import type { ExpressionCompiler } from "./expression-compiler";
 import type { SqlExpression } from "./sql-expression-helpers";
 
 const toJsonbExpression = (expression: SqlExpression) =>
@@ -48,105 +47,11 @@ const normalizeJsonNullForNullChecks = (input: {
 		: input.expression;
 };
 
-type PredicateExpressionCompiler = {
-	compile: (
-		expression: ViewExpression,
-		targetType?: PropertyType,
-	) => SqlExpression;
-	getTypeInfo: (expression: ViewExpression) => ViewExpressionTypeInfo;
-};
-
-export const buildPredicateClause = (input: {
-	predicate: ViewPredicate;
-	compiler: PredicateExpressionCompiler;
+const buildContainsClause = (input: {
+	compiler: ExpressionCompiler;
+	predicate: Extract<ViewPredicate, { type: "contains" }>;
 }): SqlExpression => {
-	const compiler = input.compiler;
-
-	if (input.predicate.type === "and") {
-		const [first, ...rest] = input.predicate.predicates.map((predicate) =>
-			buildPredicateClause({ predicate, compiler }),
-		);
-		if (!first) {
-			throw new QueryEngineValidationError("And predicates must not be empty");
-		}
-
-		return rest.length ? (and(first, ...rest) ?? first) : first;
-	}
-
-	if (input.predicate.type === "or") {
-		const [first, ...rest] = input.predicate.predicates.map((predicate) =>
-			buildPredicateClause({ predicate, compiler }),
-		);
-		if (!first) {
-			throw new QueryEngineValidationError("Or predicates must not be empty");
-		}
-
-		return rest.length ? (or(first, ...rest) ?? first) : first;
-	}
-
-	if (input.predicate.type === "not") {
-		return not(
-			buildPredicateClause({
-				predicate: input.predicate.predicate,
-				compiler,
-			}),
-		);
-	}
-
-	if (input.predicate.type === "isNull") {
-		return isNull(
-			normalizeJsonNullForNullChecks({
-				expression: compiler.compile(input.predicate.expression),
-				typeInfo: compiler.getTypeInfo(input.predicate.expression),
-			}),
-		);
-	}
-
-	if (input.predicate.type === "isNotNull") {
-		return isNotNull(
-			normalizeJsonNullForNullChecks({
-				expression: compiler.compile(input.predicate.expression),
-				typeInfo: compiler.getTypeInfo(input.predicate.expression),
-			}),
-		);
-	}
-
-	if (input.predicate.type === "comparison") {
-		const leftType = compiler.getTypeInfo(input.predicate.left);
-		const rightType = compiler.getTypeInfo(input.predicate.right);
-		const targetType =
-			leftType.kind === "property"
-				? normalizeExpressionPropertyType(leftType.propertyType)
-				: rightType.kind === "property"
-					? normalizeExpressionPropertyType(rightType.propertyType)
-					: undefined;
-		const left = compiler.compile(input.predicate.left, targetType);
-		const right = compiler.compile(input.predicate.right, targetType);
-
-		return match(input.predicate.operator)
-			.with("eq", () => eq(left, right))
-			.with("gt", () => gt(left, right))
-			.with("lt", () => lt(left, right))
-			.with("neq", () => ne(left, right))
-			.with("gte", () => gte(left, right))
-			.with("lte", () => lte(left, right))
-			.exhaustive();
-	}
-
-	if (input.predicate.type === "in") {
-		const expressionType = compiler.getTypeInfo(input.predicate.expression);
-		const targetType =
-			expressionType.kind === "property"
-				? normalizeExpressionPropertyType(expressionType.propertyType)
-				: undefined;
-		const expression = compiler.compile(input.predicate.expression, targetType);
-		const values = input.predicate.values.map((value) =>
-			compiler.compile(value, targetType),
-		);
-		return inArray(expression, values);
-	}
-
-	const expressionType = compiler.getTypeInfo(input.predicate.expression);
+	const expressionType = input.compiler.getTypeInfo(input.predicate.expression);
 	assertContainsCompatibleExpression(expressionType);
 	if (expressionType.kind !== "property") {
 		throw new QueryEngineValidationError(
@@ -154,26 +59,122 @@ export const buildPredicateClause = (input: {
 		);
 	}
 
-	if (expressionType.propertyType === "string") {
-		const expression = compiler.compile(input.predicate.expression, "string");
-		const value = compiler.compile(input.predicate.value, "string");
-		return sql`${expression} ilike ${buildEscapedContainsPattern(value)} escape '\\'`;
-	}
+	return match(expressionType.propertyType)
+		.with("string", () => {
+			const expression = input.compiler.compile(
+				input.predicate.expression,
+				"string",
+			);
+			const value = input.compiler.compile(input.predicate.value, "string");
+			return sql`${expression} ilike ${buildEscapedContainsPattern(value)} escape '\\'`;
+		})
+		.with("array", () => {
+			const expression = input.compiler.compile(
+				input.predicate.expression,
+				"array",
+			);
+			const valueType = input.compiler.getTypeInfo(input.predicate.value);
+			const value = input.compiler.compile(input.predicate.value);
+			return sql`${expression} @> jsonb_build_array(${valueType.kind === "property" && ["array", "object"].includes(valueType.propertyType) ? value : toJsonbExpression(value)})`;
+		})
+		.with("object", () => {
+			const expression = input.compiler.compile(
+				input.predicate.expression,
+				"object",
+			);
+			const value = toJsonbExpression(
+				input.compiler.compile(input.predicate.value),
+			);
+			return sql`${expression} @> ${value}`;
+		})
+		.otherwise(() => {
+			throw new QueryEngineValidationError(
+				`Filter operator 'contains' is not supported for expression type '${expressionType.propertyType}'`,
+			);
+		});
+};
 
-	if (expressionType.propertyType === "array") {
-		const expression = compiler.compile(input.predicate.expression, "array");
-		const valueType = compiler.getTypeInfo(input.predicate.value);
-		const value = compiler.compile(input.predicate.value);
-		return sql`${expression} @> jsonb_build_array(${valueType.kind === "property" && ["array", "object"].includes(valueType.propertyType) ? value : toJsonbExpression(value)})`;
-	}
+export const buildPredicateClause = (input: {
+	predicate: ViewPredicate;
+	compiler: ExpressionCompiler;
+}): SqlExpression => {
+	const { compiler } = input;
 
-	if (expressionType.propertyType === "object") {
-		const expression = compiler.compile(input.predicate.expression, "object");
-		const value = toJsonbExpression(compiler.compile(input.predicate.value));
-		return sql`${expression} @> ${value}`;
-	}
+	return match(input.predicate)
+		.with({ type: "and" }, (predicate) => {
+			const [first, ...rest] = predicate.predicates.map((p) =>
+				buildPredicateClause({ predicate: p, compiler }),
+			);
+			if (!first) {
+				throw new QueryEngineValidationError(
+					"And predicates must not be empty",
+				);
+			}
+			return rest.length ? (and(first, ...rest) ?? first) : first;
+		})
+		.with({ type: "or" }, (predicate) => {
+			const [first, ...rest] = predicate.predicates.map((p) =>
+				buildPredicateClause({ predicate: p, compiler }),
+			);
+			if (!first) {
+				throw new QueryEngineValidationError("Or predicates must not be empty");
+			}
+			return rest.length ? (or(first, ...rest) ?? first) : first;
+		})
+		.with({ type: "not" }, (predicate) =>
+			not(buildPredicateClause({ predicate: predicate.predicate, compiler })),
+		)
+		.with({ type: "isNull" }, (predicate) =>
+			isNull(
+				normalizeJsonNullForNullChecks({
+					expression: compiler.compile(predicate.expression),
+					typeInfo: compiler.getTypeInfo(predicate.expression),
+				}),
+			),
+		)
+		.with({ type: "isNotNull" }, (predicate) =>
+			isNotNull(
+				normalizeJsonNullForNullChecks({
+					expression: compiler.compile(predicate.expression),
+					typeInfo: compiler.getTypeInfo(predicate.expression),
+				}),
+			),
+		)
+		.with({ type: "comparison" }, (predicate) => {
+			const leftType = compiler.getTypeInfo(predicate.left);
+			const rightType = compiler.getTypeInfo(predicate.right);
+			const targetType =
+				leftType.kind === "property"
+					? normalizeExpressionPropertyType(leftType.propertyType)
+					: rightType.kind === "property"
+						? normalizeExpressionPropertyType(rightType.propertyType)
+						: undefined;
+			const left = compiler.compile(predicate.left, targetType);
+			const right = compiler.compile(predicate.right, targetType);
 
-	throw new QueryEngineValidationError(
-		`Filter operator 'contains' is not supported for expression type '${expressionType.propertyType}'`,
-	);
+			return match(predicate.operator)
+				.with("eq", () => eq(left, right))
+				.with("gt", () => gt(left, right))
+				.with("lt", () => lt(left, right))
+				.with("neq", () => ne(left, right))
+				.with("gte", () => gte(left, right))
+				.with("lte", () => lte(left, right))
+				.exhaustive();
+		})
+		.with({ type: "in" }, (predicate) => {
+			const expressionType = compiler.getTypeInfo(predicate.expression);
+			const targetType =
+				expressionType.kind === "property"
+					? normalizeExpressionPropertyType(expressionType.propertyType)
+					: undefined;
+			const expression = compiler.compile(predicate.expression, targetType);
+			const values = predicate.values.map((value) =>
+				compiler.compile(value, targetType),
+			);
+			return inArray(expression, values);
+		})
+		.with({ type: "contains" }, (predicate) =>
+			buildContainsClause({ predicate, compiler }),
+		)
+		.exhaustive();
 };

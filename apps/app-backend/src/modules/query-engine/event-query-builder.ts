@@ -1,17 +1,19 @@
 import { sql } from "drizzle-orm";
 import { buildResolvedFieldsExpression } from "./display-builder";
+import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import { executePaginatedQuery } from "./paginated-query-sql";
-import type { PreparedQueryContext } from "./preparer";
+import { buildQueryContext, type PreparedQueryContext } from "./preparer";
 import {
 	buildEventFirstCte,
 	buildJoinedCte,
 	buildLatestEventJoinCte,
+	EVENT_CTE_ALIASES,
 	EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
 } from "./query-ctes";
 import type {
 	EventsQueryEngineRequest,
-	QueryEngineContext,
 	QueryEngineEventsResponse,
 } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
@@ -21,17 +23,27 @@ export const executeEventQuery = async (input: {
 	context: PreparedQueryContext;
 	request: EventsQueryEngineRequest;
 }): Promise<QueryEngineEventsResponse> => {
-	const queryContext: QueryEngineContext = {
-		userId: input.userId,
-		schemaMap: input.context.schemaMap,
-		eventJoinMap: input.context.eventJoinMap,
+	const queryContext = buildQueryContext(input.userId, input.context, {
 		eventSchemaMap: input.context.eventSchemaMap,
 		entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
+	});
+	const getTypeInfo = createExpressionTypeResolver({
+		context: queryContext,
+		computedFields: input.request.computedFields,
+	});
+	const createCompiler = (alias: string) => {
+		const { compile } = createScalarExpressionCompiler({
+			alias,
+			getTypeInfo,
+			context: queryContext,
+			computedFields: input.request.computedFields,
+		});
+		return { compile, getTypeInfo };
 	};
 
 	const baseEventsCte = buildEventFirstCte({
 		userId: input.userId,
-		cteName: "base_events",
+		cteName: EVENT_CTE_ALIASES.base,
 		eventSchemaSlugs: input.request.eventSchemas,
 		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
 	});
@@ -39,27 +51,30 @@ export const executeEventQuery = async (input: {
 		return buildLatestEventJoinCte({ join, userId: input.userId });
 	});
 	const joinedEventsCte = buildJoinedCte({
-		baseCte: "base_events",
-		cteName: "joined_events",
 		entityIdColumn: "entity_id",
+		baseCte: EVENT_CTE_ALIASES.base,
+		cteName: EVENT_CTE_ALIASES.joined,
 		eventJoins: input.context.eventJoins,
 	});
+	const filterCompiler = createCompiler(EVENT_CTE_ALIASES.joined);
 	const filterWhereClause = buildFilterWhereClause({
 		context: queryContext,
-		alias: "joined_events",
+		compiler: filterCompiler,
 		predicate: input.request.filter,
 		computedFields: input.request.computedFields,
 	});
+	const sortCompiler = createCompiler(EVENT_CTE_ALIASES.filtered);
 	const sortExpression = buildSortExpression({
 		context: queryContext,
-		alias: "filtered_events",
+		compiler: sortCompiler,
 		expression: input.request.sort.expression,
 		computedFields: input.request.computedFields,
 	});
 	const resolvedFields = buildResolvedFieldsExpression({
+		getTypeInfo,
 		context: queryContext,
-		alias: "paginated_events",
 		fields: input.request.fields,
+		alias: EVENT_CTE_ALIASES.paginated,
 		computedFields: input.request.computedFields,
 	});
 	const direction = sql.raw(input.request.sort.direction.toUpperCase());
@@ -74,11 +89,11 @@ export const executeEventQuery = async (input: {
 		withCtes: [baseEventsCte, ...latestEventJoinCtes, joinedEventsCte],
 		paginationConfig: {
 			rowIdColumn: "id",
-			countAlias: "event_count",
-			sortedAlias: "sorted_events",
-			filteredAlias: "filtered_events",
-			joinedTableName: "joined_events",
-			paginatedAlias: "paginated_events",
+			countAlias: EVENT_CTE_ALIASES.count,
+			sortedAlias: EVENT_CTE_ALIASES.sorted,
+			filteredAlias: EVENT_CTE_ALIASES.filtered,
+			joinedTableName: EVENT_CTE_ALIASES.joined,
+			paginatedAlias: EVENT_CTE_ALIASES.paginated,
 		},
 	});
 
