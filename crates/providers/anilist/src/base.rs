@@ -1,12 +1,11 @@
 use anyhow::Result;
 use application_utils::get_base_http_client;
-use config_definition::AnilistPreferredLanguage;
 use reqwest::Client;
 
 #[derive(Debug, Clone)]
 pub struct AnilistService {
     pub client: Client,
-    pub preferred_language: AnilistPreferredLanguage,
+    pub preferred_language: config_definition::AnilistPreferredLanguage,
 }
 
 impl AnilistService {

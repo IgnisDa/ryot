@@ -2,7 +2,6 @@ use anyhow::{Result, anyhow};
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics,
 };
-use config_definition::AnilistPreferredLanguage;
 use convert_case::{Case, Casing};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -338,12 +337,12 @@ pub fn get_in_preferred_language(
     native: Option<String>,
     english: Option<String>,
     romaji: Option<String>,
-    preferred_language: &AnilistPreferredLanguage,
+    preferred_language: &config_definition::AnilistPreferredLanguage,
 ) -> String {
     let title = match preferred_language {
-        AnilistPreferredLanguage::Native => native.clone(),
-        AnilistPreferredLanguage::English => english.clone(),
-        AnilistPreferredLanguage::Romaji => romaji.clone(),
+        config_definition::AnilistPreferredLanguage::Native => native.clone(),
+        config_definition::AnilistPreferredLanguage::English => english.clone(),
+        config_definition::AnilistPreferredLanguage::Romaji => romaji.clone(),
     };
     title.or(native).or(english).or(romaji).unwrap()
 }
@@ -351,7 +350,7 @@ pub fn get_in_preferred_language(
 pub async fn media_details(
     client: &Client,
     id: &str,
-    preferred_language: &AnilistPreferredLanguage,
+    preferred_language: &config_definition::AnilistPreferredLanguage,
 ) -> Result<MetadataDetails> {
     let query = r#"
         query MediaDetailsQuery($id: Int!) {
@@ -631,7 +630,7 @@ pub async fn search(
     page: Option<i32>,
     page_size: i32,
     _is_adult: bool,
-    preferred_language: &AnilistPreferredLanguage,
+    preferred_language: &config_definition::AnilistPreferredLanguage,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
     let page = page.unwrap_or(1);
 

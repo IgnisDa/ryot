@@ -1,6 +1,5 @@
 use async_graphql::SimpleObject;
 use common_models::BackendError;
-use config_definition::FrontendConfig;
 use database_models::metadata;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -68,7 +67,6 @@ pub struct CoreDetails {
     pub disable_telemetry: bool,
     pub max_file_size_mb: usize,
     pub repository_link: String,
-    pub frontend: FrontendConfig,
     pub token_valid_for_days: i32,
     pub local_auth_disabled: bool,
     pub file_storage_enabled: bool,
@@ -77,6 +75,7 @@ pub struct CoreDetails {
     pub two_factor_backup_codes_count: u8,
     pub people_search_sources: Vec<MediaSource>,
     pub exercise_parameters: ExerciseParameters,
+    pub frontend: config_definition::FrontendConfig,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,
