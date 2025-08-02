@@ -55,6 +55,26 @@ pub const MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS: [MediaSource; 5] = [
     MediaSource::GoogleBooks,
 ];
 
+/// Logging macro that targets the "ryot" tracing target
+#[macro_export]
+macro_rules! ryot_log {
+    (info, $($arg:tt)*) => {
+        tracing::info!(target: "ryot", $($arg)*);
+    };
+    (warn, $($arg:tt)*) => {
+        tracing::warn!(target: "ryot", $($arg)*);
+    };
+    (error, $($arg:tt)*) => {
+        tracing::error!(target: "ryot", $($arg)*);
+    };
+    (debug, $($arg:tt)*) => {
+        tracing::debug!(target: "ryot", $($arg)*);
+    };
+    (trace, $($arg:tt)*) => {
+        tracing::trace!(target: "ryot", $($arg)*);
+    };
+}
+
 pub fn get_temporary_directory() -> &'static str {
     if cfg!(debug_assertions) {
         return "/tmp";

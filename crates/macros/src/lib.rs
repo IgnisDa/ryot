@@ -2,26 +2,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Meta, parse_macro_input};
 
-/// Logging macro that targets the "ryot" tracing target
-#[macro_export]
-macro_rules! ryot_log {
-    (info, $($arg:tt)*) => {
-        tracing::info!(target: "ryot", $($arg)*);
-    };
-    (warn, $($arg:tt)*) => {
-        tracing::warn!(target: "ryot", $($arg)*);
-    };
-    (error, $($arg:tt)*) => {
-        tracing::error!(target: "ryot", $($arg)*);
-    };
-    (debug, $($arg:tt)*) => {
-        tracing::debug!(target: "ryot", $($arg)*);
-    };
-    (trace, $($arg:tt)*) => {
-        tracing::trace!(target: "ryot", $($arg)*);
-    };
-}
-
 /// Derive macro for implementing MaskedConfig trait
 #[proc_macro_derive(MaskedConfig, attributes(mask, mask_nested, mask_vec, skip_mask))]
 pub fn derive_masked_config(input: TokenStream) -> TokenStream {
