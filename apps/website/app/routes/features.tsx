@@ -140,25 +140,12 @@ export default function Page() {
 						</div>
 					)}
 
-					<div className="grid lg:grid-cols-2 gap-12 mb-16">
-						<div className="space-y-2">
-							{dataToDisplay[0].features
-								.slice(0, Math.ceil(dataToDisplay[0].features.length / 2))
-								.map((feature) => (
-									<FeatureItem key={feature.text} isPro={feature.isPro}>
-										{feature.text}
-									</FeatureItem>
-								))}
-						</div>
-						<div className="space-y-2">
-							{dataToDisplay[0].features
-								.slice(Math.ceil(dataToDisplay[0].features.length / 2))
-								.map((feature) => (
-									<FeatureItem key={feature.text} isPro={feature.isPro}>
-										{feature.text}
-									</FeatureItem>
-								))}
-						</div>
+					<div className="grid lg:grid-cols-2 gap-2 mb-16">
+						{dataToDisplay[0].features.map((feature) => (
+							<FeatureItem key={feature.text} isPro={feature.isPro}>
+								{feature.text}
+							</FeatureItem>
+						))}
 					</div>
 				</div>
 			</section>
@@ -211,25 +198,14 @@ export default function Page() {
 						</div>
 					)}
 
-					<div className="grid lg:grid-cols-2 gap-12">
-						<div className="space-y-2">
-							{dataToDisplay[1].features
-								.slice(0, Math.ceil(dataToDisplay[1].features.length / 2))
-								.map((feature) => (
-									<FeatureItem key={feature.text} isPro={feature.isPro}>
-										{feature.text}
-									</FeatureItem>
-								))}
-						</div>
-						<div className="space-y-2">
-							{dataToDisplay[1].features
-								.slice(Math.ceil(dataToDisplay[1].features.length / 2))
-								.map((feature) => (
-									<FeatureItem key={feature.text} isPro={feature.isPro}>
-										{feature.text}
-									</FeatureItem>
-								))}
-						</div>
+					<div className="grid lg:grid-cols-2 gap-2">
+						{dataToDisplay[1].features
+							.slice(0, Math.ceil(dataToDisplay[1].features.length / 2))
+							.map((feature) => (
+								<FeatureItem key={feature.text} isPro={feature.isPro}>
+									{feature.text}
+								</FeatureItem>
+							))}
 					</div>
 				</div>
 			</section>
@@ -458,6 +434,7 @@ const dataToDisplay = [
 			{
 				icon: LucideBookHeart,
 				text: "Get recommendations based on your favorites and watch history",
+				isPro: true,
 			},
 			{
 				icon: LucideNotebookPen,
@@ -465,11 +442,11 @@ const dataToDisplay = [
 			},
 			{
 				icon: LucideImport,
-				text: "Import your data from 13 different sources (with more to come)",
+				text: "Import your data from 16 different sources (with more to come)",
 			},
 			{
 				icon: LucideRefreshCcwDot,
-				text: "Integrations with 10 different services (with more on the way)",
+				text: "Integrations with 13 different services (with more on the way)",
 			},
 			{
 				icon: LucideChartColumnBig,
@@ -506,7 +483,7 @@ const dataToDisplay = [
 			},
 			{
 				icon: LucideCalendarRange,
-				text: "Calendar view to get an overview on when a media is coming out",
+				text: "Calendar view to get an overview on when a media is being released",
 			},
 			{
 				icon: LucideCandy,
