@@ -6,7 +6,7 @@ import {
 import { isFiniteNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "~/components/routes/dashboard/types";
-import { ShowMarkingMode } from "~/lib/state/media";
+import { UpdateProgressShowMarkingMode } from "~/lib/state/media";
 import type { BulkUpdateContext } from "./form-types";
 
 export const createCustomDatesCompletedChange = (params: {
@@ -219,7 +219,8 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 			) || [];
 
 		const episodesToConsider =
-			context.metadataToUpdate.showMarkingMode === ShowMarkingMode.Season
+			context.metadataToUpdate.showMarkingMode ===
+			UpdateProgressShowMarkingMode.Season
 				? allEpisodesInShow.filter(
 						(e) => e.seasonNumber === context.metadataToUpdate.showSeasonNumber,
 					)
@@ -245,7 +246,8 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 		);
 
 		const firstEpisodeIndexToMark =
-			context.metadataToUpdate.showMarkingMode === ShowMarkingMode.Season
+			context.metadataToUpdate.showMarkingMode ===
+			UpdateProgressShowMarkingMode.Season
 				? 0
 				: lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 

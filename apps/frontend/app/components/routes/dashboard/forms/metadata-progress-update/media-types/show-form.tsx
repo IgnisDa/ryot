@@ -1,7 +1,10 @@
 import { Paper, SegmentedControl, Select, Text } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
-import { ShowMarkingMode, useMetadataProgressUpdate } from "~/lib/state/media";
+import {
+	UpdateProgressShowMarkingMode,
+	useMetadataProgressUpdate,
+} from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const ShowForm = (props: MediaFormProps) => {
@@ -59,20 +62,24 @@ export const ShowForm = (props: MediaFormProps) => {
 					size="xs"
 					fullWidth
 					data={[
-						{ label: "All", value: ShowMarkingMode.All },
-						{ label: "Season", value: ShowMarkingMode.Season },
+						{ label: "All", value: UpdateProgressShowMarkingMode.All },
+						{ label: "Season", value: UpdateProgressShowMarkingMode.Season },
 					]}
-					value={metadataToUpdate.showMarkingMode || ShowMarkingMode.All}
+					value={
+						metadataToUpdate.showMarkingMode ||
+						UpdateProgressShowMarkingMode.All
+					}
 					onChange={(value) => {
 						updateMetadataToUpdate(
 							produce(metadataToUpdate, (draft) => {
-								draft.showMarkingMode = value as ShowMarkingMode;
+								draft.showMarkingMode = value as UpdateProgressShowMarkingMode;
 							}),
 						);
 					}}
 				/>
 				<Text size="xs" c="dimmed" mt="xs">
-					{metadataToUpdate.showMarkingMode === ShowMarkingMode.Season
+					{metadataToUpdate.showMarkingMode ===
+					UpdateProgressShowMarkingMode.Season
 						? "Mark all unseen episodes in this season before this"
 						: "Mark all unseen episodes before this"}
 				</Text>
