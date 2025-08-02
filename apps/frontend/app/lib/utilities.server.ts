@@ -202,7 +202,7 @@ export const uploadFileAndGetKey = async (
 	fileName: string,
 	prefix: string,
 	contentType: string,
-	body: ArrayBuffer | Buffer,
+	body: BodyInit,
 ) => {
 	const { presignedPutS3Url } = await serverGqlService.request(
 		PresignedPutS3UrlDocument,
