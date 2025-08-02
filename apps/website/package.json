@@ -58,7 +58,6 @@
 	},
 	"devDependencies": {
 		"@react-router/dev": "7.7.1",
-		"@types/lodash": "4.17.20",
 		"@types/nodemailer": "6.4.17",
 		"@types/react": "19.1.9",
 		"@types/react-dom": "19.1.7",
