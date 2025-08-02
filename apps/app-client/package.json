@@ -3,9 +3,6 @@
 	"version": "1.0.0",
 	"name": "@ryot/app-client",
 	"main": "expo-router/entry",
-	"overrides": {
-		"lightningcss": "1.30.1"
-	},
 	"scripts": {
 		"typecheck": "tsc",
 		"ios": "expo run:ios",
