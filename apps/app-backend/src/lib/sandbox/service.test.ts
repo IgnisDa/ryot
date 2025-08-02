@@ -73,7 +73,7 @@ describe("SandboxService.executeQueuedRun", () => {
 		});
 
 		const apiFunctions = capturedOptions?.apiFunctions ?? {};
-		expect(Object.keys(apiFunctions).toSorted()).toEqual(["getAppConfigValue"]);
+		expect(Object.keys(apiFunctions).sort()).toEqual(["getAppConfigValue"]);
 	});
 
 	it("uses no registry functions when metadata has no allowedHostFunctions", async () => {
@@ -90,7 +90,7 @@ describe("SandboxService.executeQueuedRun", () => {
 		await testService.executeQueuedRun(createJobData(), createScriptFetcher());
 
 		const apiFunctions = capturedOptions?.apiFunctions ?? {};
-		expect(Object.keys(apiFunctions).toSorted()).toEqual([]);
+		expect(Object.keys(apiFunctions).sort()).toEqual([]);
 	});
 
 	it("returns error before execute when metadata is invalid", async () => {
