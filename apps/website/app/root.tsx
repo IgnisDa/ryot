@@ -10,12 +10,14 @@ import {
 	ScrollRestoration,
 	isRouteErrorResponse,
 	useLoaderData,
+	useLocation,
 	useRouteError,
 } from "react-router";
 import { HoneypotProvider } from "remix-utils/honeypot/react";
 import "./tailwind.css";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
 import { getCustomerFromCookie, honeypot } from "./lib/config.server";
 import { logoUrl, startUrl } from "./lib/utils";
@@ -61,6 +63,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
 	const loaderData = useLoaderData<typeof loader>();
+	const location = useLocation();
+
+	const isActivePage = (path: string) => {
+		if (path === "/") return location.pathname === "/";
+		return location.pathname.startsWith(path);
+	};
 
 	return (
 		<html lang="en" className="scroll-smooth">
@@ -79,53 +87,92 @@ export default function App() {
 			<body>
 				<Toaster />
 				<div className="flex flex-col min-h-dvh">
-					<header className="px-4 lg:px-6 h-14 flex items-center">
-						<Link to={$path("/")} className="flex items-center justify-center">
-							<img alt="Ryot" src={logoUrl} className="size-10 mr-2" />
-							<span className="text-xl hidden md:block">Ryot</span>
-						</Link>
-						<nav className="ml-auto flex gap-4 sm:gap-6">
-							<Link
-								to={$path("/features")}
-								className="text-sm font-medium hover:underline underline-offset-4"
-							>
-								Features
-							</Link>
-							<Link
-								to={withFragment($path("/"), "pricing")}
-								className="text-sm font-medium hover:underline underline-offset-4"
-							>
-								Pricing
-							</Link>
-							<Link
-								to={loaderData.isLoggedIn ? $path("/me") : startUrl}
-								className="text-sm font-medium hover:underline underline-offset-4"
-							>
-								Your account
-							</Link>
-							<a
-								target="_blank"
-								href="https://docs.ryot.io"
-								rel="noopener noreferrer"
-								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
-							>
-								Documentation
-							</a>
-							<Link
-								to={withFragment($path("/"), "contact")}
-								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
-							>
-								Contact Us
-							</Link>
-							<Link
-								to={$path("/terms")}
-								className="text-sm font-medium hover:underline underline-offset-4 hidden md:block"
-							>
-								Terms
-							</Link>
-						</nav>
+					<header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+						<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+							<div className="flex items-center justify-between h-16">
+								<div className="flex items-center space-x-3">
+									<Link to={$path("/")} className="flex items-center space-x-3">
+										<img
+											alt="Ryot"
+											src={logoUrl}
+											className="w-8 h-8 object-contain"
+										/>
+										<span className="text-xl font-semibold text-foreground">
+											Ryot
+										</span>
+									</Link>
+								</div>
+
+								<nav className="hidden md:flex items-center space-x-8">
+									<Link
+										to={$path("/")}
+										className={`transition-colors ${
+											isActivePage("/") && location.pathname === "/"
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										Home
+									</Link>
+									<Link
+										to={$path("/features")}
+										className={`transition-colors ${
+											isActivePage("/features")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										Features
+									</Link>
+									<Link
+										to={withFragment($path("/"), "pricing")}
+										className="text-muted-foreground hover:text-foreground transition-colors"
+									>
+										Pricing
+									</Link>
+									<Link
+										to={withFragment($path("/"), "contact")}
+										className="text-muted-foreground hover:text-foreground transition-colors"
+									>
+										Contact
+									</Link>
+									<Link
+										to={$path("/terms")}
+										className={`transition-colors ${
+											isActivePage("/terms")
+												? "text-primary font-medium"
+												: "text-muted-foreground hover:text-foreground"
+										}`}
+									>
+										Terms
+									</Link>
+									<a
+										target="_blank"
+										href="https://docs.ryot.io"
+										rel="noopener noreferrer"
+										className="text-muted-foreground hover:text-foreground transition-colors"
+									>
+										Docs
+									</a>
+								</nav>
+
+								<div className="flex items-center space-x-4">
+									{loaderData.isLoggedIn ? (
+										<Link to={$path("/me")}>
+											<Button variant="ghost" size="sm">
+												Dashboard
+											</Button>
+										</Link>
+									) : (
+										<Link to={startUrl}>
+											<Button size="sm">Get Started</Button>
+										</Link>
+									)}
+								</div>
+							</div>
+						</div>
 					</header>
-					<main className="flex-1 px-2 md:px-0">
+					<main className="flex-1">
 						<HoneypotProvider {...loaderData.honeypotInputProps}>
 							<Outlet />
 						</HoneypotProvider>
