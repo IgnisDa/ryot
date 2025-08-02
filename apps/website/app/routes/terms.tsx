@@ -11,14 +11,14 @@ export default function Index() {
 	return (
 		<>
 			{/* Hero Section */}
-			<section className="py-20 lg:py-32 bg-muted/30">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+			<section className="py-10 lg:py-20 bg-muted/30">
+				<div className="max-w-4xl mx-auto px-4">
 					<div className="text-center mb-16">
 						<Badge variant="secondary" className="mb-6">
 							<Scale className="w-4 h-4 mr-2" />
 							Legal Information
 						</Badge>
-						<h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight">
+						<h1 className="text-3xl lg:text-5xl font-bold text-foreground mb-6 leading-tight">
 							Terms of Service
 						</h1>
 						<p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
@@ -31,17 +31,17 @@ export default function Index() {
 			</section>
 
 			{/* Terms Content */}
-			<section className="py-20">
-				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+			<section className="py-10">
+				<div className="max-w-4xl mx-auto px-4">
 					<Card className="mb-8">
-						<CardContent className="p-8">
+						<CardContent className="p-4 sm:p-8">
 							{/* Section 1: Introduction */}
 							<div className="mb-12">
 								<div className="flex items-center mb-6">
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">1</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Introduction
 									</h2>
 								</div>
@@ -58,11 +58,11 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">2</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Company Information
 									</h2>
 								</div>
-								<div className="bg-muted/50 p-6 rounded-lg space-y-3">
+								<div className="bg-muted/50 p-4 sm:p-6 rounded-lg space-y-3">
 									<div className="flex items-center">
 										<MapPin className="w-4 h-4 text-muted-foreground mr-3" />
 										<span className="text-foreground">
@@ -88,7 +88,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">3</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										User Eligibility
 									</h2>
 								</div>
@@ -104,7 +104,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">4</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										User Accounts and Pro Key
 									</h2>
 								</div>
@@ -123,7 +123,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">5</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Subscription and Payments
 									</h2>
 								</div>
@@ -141,7 +141,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">6</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										User Conduct
 									</h2>
 								</div>
@@ -160,7 +160,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">7</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Content Ownership
 									</h2>
 								</div>
@@ -179,7 +179,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">8</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Data Privacy
 									</h2>
 								</div>
@@ -196,7 +196,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">9</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Dispute Resolution
 									</h2>
 								</div>
@@ -213,7 +213,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">10</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Changes to Terms
 									</h2>
 								</div>
@@ -231,7 +231,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">11</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Termination
 									</h2>
 								</div>
@@ -249,7 +249,7 @@ export default function Index() {
 									<div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3">
 										<span className="text-primary font-semibold">12</span>
 									</div>
-									<h2 className="text-2xl font-semibold text-foreground">
+									<h2 className="text-xl sm:text-2xl font-semibold text-foreground">
 										Cancellation and Refund Policies
 									</h2>
 								</div>
@@ -267,7 +267,7 @@ export default function Index() {
 										and regulations.
 									</p>
 
-									<div className="bg-muted/50 p-6 rounded-lg">
+									<div className="bg-muted/50 p-4 sm:p-6 rounded-lg">
 										<h4 className="font-semibold text-foreground mb-3">
 											Refund Eligibility:
 										</h4>
