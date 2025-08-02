@@ -27,6 +27,10 @@ export default function Pricing(props: {
 	const [selectedProductTypeIndex, setSelectedProductTypeIndex] = useState(0);
 	const selectedProductType = props.prices[selectedProductTypeIndex];
 
+	const isThreeColumn = selectedProductType.prices.length === 3;
+	const isCloudType = selectedProductType.type === "cloud";
+	const isSelfHosted = selectedProductType.type === "self_hosted";
+
 	const getIcon = (name: string) => {
 		switch (name.toLowerCase()) {
 			case "free":
@@ -59,6 +63,16 @@ export default function Pricing(props: {
 
 	const isPopular = (name: string) => name.toLowerCase() === "yearly";
 
+	const getProductTypeButtonClass = (index: number) =>
+		`inline-flex items-center gap-1 underline hover:no-underline transition-colors ${
+			selectedProductTypeIndex === index
+				? "text-primary font-medium"
+				: "text-blue-500"
+		}`;
+
+	const getColorThemeClasses = (cloudClass: string, selfHostedClass: string) =>
+		isCloudType ? cloudClass : selfHostedClass;
+
 	return (
 		<section id="pricing" className="py-20 relative overflow-hidden">
 			<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
@@ -76,11 +90,7 @@ export default function Pricing(props: {
 						<button
 							type="button"
 							onClick={() => setSelectedProductTypeIndex(0)}
-							className={`inline-flex items-center gap-1 underline hover:no-underline transition-colors ${
-								selectedProductTypeIndex === 0
-									? "text-primary font-medium"
-									: "text-blue-500"
-							}`}
+							className={getProductTypeButtonClass(0)}
 						>
 							<Cloud className="w-4 h-4" />
 							Cloud
@@ -89,11 +99,7 @@ export default function Pricing(props: {
 						<button
 							type="button"
 							onClick={() => setSelectedProductTypeIndex(1)}
-							className={`inline-flex items-center gap-1 underline hover:no-underline transition-colors ${
-								selectedProductTypeIndex === 1
-									? "text-primary font-medium"
-									: "text-blue-500"
-							}`}
+							className={getProductTypeButtonClass(1)}
 						>
 							<Server className="w-4 h-4" />
 							Self Hosted
@@ -101,33 +107,33 @@ export default function Pricing(props: {
 						. Choose the one that best fits your needs.
 					</p>
 
-					<div className="flex items-center justify-center gap-4 mb-6">
-						<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
-							<span className="text-muted-foreground">You have chosen:</span>
-							<div className="flex items-center gap-1 text-primary font-medium">
-								{selectedProductTypeIndex === 0 ? (
-									<Cloud className="w-4 h-4" />
-								) : (
-									<Server className="w-4 h-4" />
-								)}
-								{changeCase(selectedProductType.type)}
+						<div className="flex items-center justify-center gap-4">
+							<div className="flex items-center gap-2 bg-muted/50 px-4 py-2 rounded-full">
+								<span className="text-muted-foreground">You have chosen:</span>
+								<div className="flex items-center gap-1 text-primary font-medium">
+									{isCloudType ? (
+										<Cloud className="w-4 h-4" />
+									) : (
+										<Server className="w-4 h-4" />
+									)}
+									{changeCase(selectedProductType.type)}
+								</div>
 							</div>
+							{isSelfHosted ? (
+								<Link
+									to={$path("/features")}
+									className="text-blue-500 underline hover:no-underline transition-colors"
+								>
+									See differences
+								</Link>
+							) : null}
 						</div>
-						{selectedProductType.type === "self_hosted" ? (
-							<Link
-								to={$path("/features")}
-								className="text-blue-500 underline hover:no-underline transition-colors"
-							>
-								See differences
-							</Link>
-						) : null}
-					</div>
 				</div>
 
 				<div className="max-w-6xl mx-auto mb-8">
 					<div
 						className={`grid gap-6 mx-auto ${
-							selectedProductType.prices.length === 3
+							isThreeColumn
 								? "md:grid-cols-3 max-w-5xl"
 								: "md:grid-cols-4 max-w-6xl"
 						}`}
@@ -151,27 +157,23 @@ export default function Pricing(props: {
 								)}
 								<CardHeader
 									className={`text-center ${
-										selectedProductType.prices.length === 3 ? "pb-6" : "pb-4"
+										isThreeColumn ? "pb-6" : "pb-4"
 									}`}
 								>
 									<div
 										className={`${
-											selectedProductType.prices.length === 3
-												? "w-12 h-12"
-												: "w-10 h-10"
+											isThreeColumn ? "w-12 h-12" : "w-10 h-10"
 										} ${getIconBg(
 											p.name,
 										)} rounded-full flex items-center justify-center mx-auto ${
-											selectedProductType.prices.length === 3 ? "mb-4" : "mb-3"
+											isThreeColumn ? "mb-4" : "mb-3"
 										}`}
 									>
 										{getIcon(p.name)}
 									</div>
 									<CardTitle
 										className={`${
-											selectedProductType.prices.length === 3
-												? "text-2xl mb-4"
-												: "text-lg mb-3"
+											isThreeColumn ? "text-2xl mb-4" : "text-lg mb-3"
 										}`}
 									>
 										{changeCase(p.name)}
@@ -179,14 +181,12 @@ export default function Pricing(props: {
 									{p.amount ? (
 										<div
 											className={`flex items-center justify-center ${
-												selectedProductType.prices.length === 3 ? "mb-2" : ""
+												isThreeColumn ? "mb-2" : ""
 											}`}
 										>
 											<span
 												className={`${
-													selectedProductType.prices.length === 3
-														? "text-4xl"
-														: "text-2xl"
+													isThreeColumn ? "text-4xl" : "text-2xl"
 												} font-bold text-foreground`}
 											>
 												${p.amount}
@@ -210,9 +210,7 @@ export default function Pricing(props: {
 									{p.trial && (
 										<div
 											className={`${
-												selectedProductType.prices.length === 3
-													? "text-sm"
-													: "text-xs"
+												isThreeColumn ? "text-sm" : "text-xs"
 											} text-muted-foreground`}
 										>
 											{isPopular(p.name) && (
@@ -229,9 +227,7 @@ export default function Pricing(props: {
 									{p.name.toLowerCase() === "lifetime" && (
 										<div
 											className={`${
-												selectedProductType.prices.length === 3
-													? "text-sm"
-													: "text-xs"
+												isThreeColumn ? "text-sm" : "text-xs"
 											} text-muted-foreground`}
 										>
 											One-time payment
@@ -257,9 +253,7 @@ export default function Pricing(props: {
 									>
 										<Button
 											variant={isPopular(p.name) ? "default" : "outline"}
-											className={`w-full ${
-												selectedProductType.prices.length === 4 ? "text-sm" : ""
-											} ${
+											className={`w-full ${!isThreeColumn ? "text-sm" : ""} ${
 												isPopular(p.name)
 													? "bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
 													: ""
@@ -278,50 +272,45 @@ export default function Pricing(props: {
 				</div>
 
 				<div
-					className={`max-w-4xl mx-auto p-8 rounded-2xl border ${
-						selectedProductType.type === "cloud"
-							? "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200"
-							: "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200"
-					}`}
+					className={`max-w-4xl mx-auto p-8 rounded-2xl border ${getColorThemeClasses(
+						"bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200",
+						"bg-gradient-to-r from-green-50 to-emerald-50 border-green-200",
+					)}`}
 				>
 					<div className="text-center">
 						<div className="flex items-center justify-center gap-3 mb-4">
 							<div
-								className={`w-10 h-10 rounded-full flex items-center justify-center ${
-									selectedProductType.type === "cloud"
-										? "bg-blue-100"
-										: "bg-green-100"
-								}`}
+								className={`w-10 h-10 rounded-full flex items-center justify-center ${getColorThemeClasses(
+									"bg-blue-100",
+									"bg-green-100",
+								)}`}
 							>
 								<CheckCircle
-									className={`w-6 h-6 ${
-										selectedProductType.type === "cloud"
-											? "text-blue-600"
-											: "text-green-600"
-									}`}
+									className={`w-6 h-6 ${getColorThemeClasses(
+										"text-blue-600",
+										"text-green-600",
+									)}`}
 								/>
 							</div>
 							<span
-								className={`text-xl font-semibold ${
-									selectedProductType.type === "cloud"
-										? "text-blue-900"
-										: "text-green-900"
-								}`}
+								className={`text-xl font-semibold ${getColorThemeClasses(
+									"text-blue-900",
+									"text-green-900",
+								)}`}
 							>
 								All Pro Features Included
 							</span>
 						</div>
 						<p
-							className={`max-w-2xl mx-auto leading-relaxed ${
-								selectedProductType.type === "cloud"
-									? "text-blue-700"
-									: "text-green-700"
-							}`}
+							className={`max-w-2xl mx-auto leading-relaxed ${getColorThemeClasses(
+								"text-blue-700",
+								"text-green-700",
+							)}`}
 						>
 							With any paid{" "}
-							{selectedProductType.type === "cloud" ? "cloud" : "self-hosted"}{" "}
+							{isCloudType ? "cloud" : "self-hosted"}{" "}
 							plan, you get access to all Pro features.{" "}
-							{selectedProductType.type === "cloud"
+							{isCloudType
 								? "The only difference is the payment frequency and trial period - choose what works best for you."
 								: "The only difference is the payment frequency - choose what works best for you."}
 						</p>

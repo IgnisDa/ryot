@@ -198,6 +198,9 @@ const contactSubmissionSchema = z
 	.object({ message: z.string() })
 	.extend(emailSchema.shape);
 
+const FEATURE_CARD_STYLES =
+	"border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg";
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
@@ -270,7 +273,7 @@ export default function Page() {
 					</div>
 
 					<div className="grid md:grid-cols-3 gap-8">
-						<Card className="border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg">
+						<Card className={FEATURE_CARD_STYLES}>
 							<CardHeader className="text-center pb-4">
 								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
 									<Zap className="w-6 h-6 text-primary" />
@@ -286,7 +289,7 @@ export default function Page() {
 							</CardHeader>
 						</Card>
 
-						<Card className="border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg">
+						<Card className={FEATURE_CARD_STYLES}>
 							<CardHeader className="text-center pb-4">
 								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
 									<TrendingUp className="w-6 h-6 text-primary" />
@@ -302,7 +305,7 @@ export default function Page() {
 							</CardHeader>
 						</Card>
 
-						<Card className="border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg">
+						<Card className={FEATURE_CARD_STYLES}>
 							<CardHeader className="text-center pb-4">
 								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
 									<Shield className="w-6 h-6 text-primary" />

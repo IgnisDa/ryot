@@ -57,17 +57,14 @@ import {
 	CarouselContent,
 	CarouselItem,
 } from "~/lib/components/ui/carousel";
+import { ProBadge } from "~/lib/components/ui/pro-badge";
 
 export const meta = () => {
 	return [{ title: "Features | Ryot" }];
 };
 
-const ProBadge = () => (
-	<Badge className="ml-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white border-0 text-xs">
-		<Crown className="w-3 h-3 mr-1" />
-		PRO
-	</Badge>
-);
+const CARD_HOVER_STYLES =
+	"hover:shadow-lg transition-all duration-300 hover:-translate-y-1";
 
 const FeatureItem = ({
 	children,
@@ -301,7 +298,7 @@ export default function Page() {
 					</div>
 
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+						<Card className={CARD_HOVER_STYLES}>
 							<CardContent className="p-6">
 								<div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
 									<Play className="w-6 h-6 text-blue-600" />
@@ -318,7 +315,7 @@ export default function Page() {
 							</CardContent>
 						</Card>
 
-						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+						<Card className={CARD_HOVER_STYLES}>
 							<CardContent className="p-6">
 								<div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
 									<BarChart3 className="w-6 h-6 text-green-600" />
@@ -337,7 +334,7 @@ export default function Page() {
 							</CardContent>
 						</Card>
 
-						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+						<Card className={CARD_HOVER_STYLES}>
 							<CardContent className="p-6">
 								<div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
 									<Bell className="w-6 h-6 text-purple-600" />
@@ -355,7 +352,7 @@ export default function Page() {
 							</CardContent>
 						</Card>
 
-						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+						<Card className={CARD_HOVER_STYLES}>
 							<CardContent className="p-6">
 								<div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
 									<Share2 className="w-6 h-6 text-orange-600" />
@@ -372,7 +369,7 @@ export default function Page() {
 							</CardContent>
 						</Card>
 
-						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+						<Card className={CARD_HOVER_STYLES}>
 							<CardContent className="p-6">
 								<div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4">
 									<Heart className="w-6 h-6 text-red-600" />
@@ -391,7 +388,7 @@ export default function Page() {
 							</CardContent>
 						</Card>
 
-						<Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+						<Card className={CARD_HOVER_STYLES}>
 							<CardContent className="p-6">
 								<div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
 									<Lock className="w-6 h-6 text-gray-600" />
@@ -403,7 +400,7 @@ export default function Page() {
 								</p>
 								<div className="flex items-center text-sm text-gray-600">
 									<CheckCircle className="w-4 h-4 mr-1" />
-									Self-hostable
+									Self-hosted
 								</div>
 							</CardContent>
 						</Card>
