@@ -125,16 +125,6 @@ export default function App() {
 										Features
 									</Link>
 									<Link
-										to={$path("/features")}
-										className={`transition-colors ${
-											isActivePage("/features")
-												? "text-primary font-medium"
-												: "text-muted-foreground hover:text-foreground"
-										}`}
-									>
-										Features
-									</Link>
-									<Link
 										to={withFragment($path("/"), "pricing")}
 										className="text-muted-foreground hover:text-foreground transition-colors"
 									>
