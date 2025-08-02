@@ -6,7 +6,6 @@ import {
 import { isFiniteNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "~/components/routes/dashboard/types";
-import { UpdateProgressShowMarkingMode } from "~/lib/state/media";
 import type { BulkUpdateContext } from "./form-types";
 
 export const createCustomDatesCompletedChange = (params: {
@@ -208,7 +207,8 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Show &&
-		context.metadataToUpdate.showMarkingMode &&
+		(context.metadataToUpdate.showAllEpisodesBefore ||
+			context.metadataToUpdate.showSeasonEpisodesBefore) &&
 		context.metadataToUpdate.showSeasonNumber &&
 		context.metadataToUpdate.showEpisodeNumber
 	) {
@@ -218,13 +218,12 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
-		const episodesToConsider =
-			context.metadataToUpdate.showMarkingMode ===
-			UpdateProgressShowMarkingMode.Season
-				? allEpisodesInShow.filter(
-						(e) => e.seasonNumber === context.metadataToUpdate.showSeasonNumber,
-					)
-				: allEpisodesInShow;
+		const useSeasonMode = context.metadataToUpdate.showSeasonEpisodesBefore;
+		const episodesToConsider = useSeasonMode
+			? allEpisodesInShow.filter(
+					(e) => e.seasonNumber === context.metadataToUpdate.showSeasonNumber,
+				)
+			: allEpisodesInShow;
 
 		const selectedEpisodeIndex = episodesToConsider.findIndex(
 			(e) =>
@@ -245,11 +244,9 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 				e.episodeNumber === lastSeenEpisode.episode,
 		);
 
-		const firstEpisodeIndexToMark =
-			context.metadataToUpdate.showMarkingMode ===
-			UpdateProgressShowMarkingMode.Season
-				? 0
-				: lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
+		const firstEpisodeIndexToMark = useSeasonMode
+			? 0
+			: lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 
 		if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
 			for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {

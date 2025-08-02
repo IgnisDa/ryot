@@ -1,10 +1,7 @@
-import { Paper, SegmentedControl, Select, Text } from "@mantine/core";
+import { Checkbox, Select } from "@mantine/core";
 import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
 import { produce } from "immer";
-import {
-	UpdateProgressShowMarkingMode,
-	useMetadataProgressUpdate,
-} from "~/lib/state/media";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { MediaFormProps } from "../utils/form-types";
 
 export const ShowForm = (props: MediaFormProps) => {
@@ -57,33 +54,30 @@ export const ShowForm = (props: MediaFormProps) => {
 						})) || []
 				}
 			/>
-			<Paper p="xs" withBorder>
-				<SegmentedControl
-					size="xs"
-					fullWidth
-					data={[
-						{ label: "All", value: UpdateProgressShowMarkingMode.All },
-						{ label: "Season", value: UpdateProgressShowMarkingMode.Season },
-					]}
-					value={
-						metadataToUpdate.showMarkingMode ||
-						UpdateProgressShowMarkingMode.All
-					}
-					onChange={(value) => {
-						updateMetadataToUpdate(
-							produce(metadataToUpdate, (draft) => {
-								draft.showMarkingMode = value as UpdateProgressShowMarkingMode;
-							}),
-						);
-					}}
-				/>
-				<Text size="xs" c="dimmed" mt="xs">
-					{metadataToUpdate.showMarkingMode ===
-					UpdateProgressShowMarkingMode.Season
-						? "Mark all unseen episodes in this season before this"
-						: "Mark all unseen episodes before this"}
-				</Text>
-			</Paper>
+			<Checkbox
+				size="xs"
+				label="Mark all unseen episodes before this"
+				checked={metadataToUpdate.showAllEpisodesBefore || false}
+				onChange={(e) => {
+					updateMetadataToUpdate(
+						produce(metadataToUpdate, (draft) => {
+							draft.showAllEpisodesBefore = e.target.checked;
+						}),
+					);
+				}}
+			/>
+			<Checkbox
+				size="xs"
+				label="Mark all unseen episodes in this season before this"
+				checked={metadataToUpdate.showSeasonEpisodesBefore || false}
+				onChange={(e) => {
+					updateMetadataToUpdate(
+						produce(metadataToUpdate, (draft) => {
+							draft.showSeasonEpisodesBefore = e.target.checked;
+						}),
+					);
+				}}
+			/>
 		</>
 	);
 };

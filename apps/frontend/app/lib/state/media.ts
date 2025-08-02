@@ -17,11 +17,6 @@ import {
 	queryClient,
 } from "~/lib/shared/query-factory";
 
-export enum UpdateProgressShowMarkingMode {
-	All = "all",
-	Season = "season",
-}
-
 export type UpdateProgressData = {
 	metadataId: string;
 	showSeasonNumber?: number;
@@ -31,10 +26,11 @@ export type UpdateProgressData = {
 	mangaChapterNumber?: string;
 	podcastEpisodeNumber?: number;
 	providersConsumedOn?: string[];
+	showAllEpisodesBefore?: boolean;
 	animeAllEpisodesBefore?: boolean;
 	podcastAllEpisodesBefore?: boolean;
+	showSeasonEpisodesBefore?: boolean;
 	mangaAllChaptersOrVolumesBefore?: boolean;
-	showMarkingMode?: UpdateProgressShowMarkingMode;
 };
 
 const metadataProgressUpdateAtom = atom<UpdateProgressData | null>(null);

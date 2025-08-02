@@ -1,9 +1,6 @@
 import { Box, Button } from "@mantine/core";
 import { sum } from "@ryot/ts-utils";
-import {
-	UpdateProgressShowMarkingMode,
-	useMetadataProgressUpdate,
-} from "~/lib/state/media";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import type { Season, UserMetadataDetails } from "../types";
 import { DisplaySeasonOrEpisodeDetails } from "./season-episode-details";
 
@@ -43,7 +40,7 @@ export const DisplayShowSeason = (props: {
 						variant={isSeen ? "default" : "outline"}
 						onClick={() => {
 							initializeMetadataToUpdate({
-								showMarkingMode: UpdateProgressShowMarkingMode.Season,
+								showAllEpisodesBefore: true,
 								metadataId: props.metadataId,
 								showSeasonNumber: props.season.seasonNumber,
 								showEpisodeNumber: props.season.episodes.at(-1)?.episodeNumber,
