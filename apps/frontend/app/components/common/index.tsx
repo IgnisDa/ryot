@@ -441,73 +441,69 @@ export const BulkCollectionEditingAffix = (props: {
 	);
 };
 
-export const CollectionTemplateRenderer = ({
-	value,
-	template,
-	onChange,
-}: {
+export const CollectionTemplateRenderer = (props: {
 	value: Scalars["JSON"]["input"];
 	template: CollectionExtraInformation;
 	onChange: (value: Scalars["JSON"]["input"]) => void;
 }) => {
 	return (
 		<Fragment>
-			{match(template.lot)
+			{match(props.template.lot)
 				.with(CollectionExtraInformationLot.String, () => (
 					<TextInput
-						value={value || ""}
-						label={template.name}
-						required={!!template.required}
-						description={template.description}
-						onChange={(e) => onChange(e.currentTarget.value)}
+						value={props.value || ""}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(e) => props.onChange(e.currentTarget.value)}
 					/>
 				))
 				.with(CollectionExtraInformationLot.Boolean, () => (
 					<Switch
-						label={template.name}
-						checked={value === "true"}
-						required={!!template.required}
-						description={template.description}
+						label={props.template.name}
+						checked={props.value === "true"}
+						required={!!props.template.required}
+						description={props.template.description}
 						onChange={(e) =>
-							onChange(e.currentTarget.checked ? "true" : "false")
+							props.onChange(e.currentTarget.checked ? "true" : "false")
 						}
 					/>
 				))
 				.with(CollectionExtraInformationLot.Number, () => (
 					<NumberInput
-						value={value}
-						label={template.name}
-						required={!!template.required}
-						description={template.description}
-						onChange={(v) => onChange(v)}
+						value={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(v) => props.onChange(v)}
 					/>
 				))
 				.with(CollectionExtraInformationLot.Date, () => (
 					<DateInput
-						value={value}
-						label={template.name}
-						required={!!template.required}
-						description={template.description}
-						onChange={(v) => onChange(v)}
+						value={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(v) => props.onChange(v)}
 					/>
 				))
 				.with(CollectionExtraInformationLot.DateTime, () => (
 					<DateTimePicker
-						value={value}
-						label={template.name}
-						required={!!template.required}
-						description={template.description}
-						onChange={(v) => onChange(dayjsLib(v).toISOString())}
+						value={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						onChange={(v) => props.onChange(dayjsLib(v).toISOString())}
 					/>
 				))
 				.with(CollectionExtraInformationLot.StringArray, () => (
 					<MultiSelectCreatable
-						values={value}
-						label={template.name}
-						required={!!template.required}
-						description={template.description}
-						data={template.possibleValues || []}
-						setValue={(newValue: string[]) => onChange(newValue)}
+						values={props.value}
+						label={props.template.name}
+						required={!!props.template.required}
+						description={props.template.description}
+						data={props.template.possibleValues || []}
+						setValue={(newValue: string[]) => props.onChange(newValue)}
 					/>
 				))
 				.exhaustive()}
