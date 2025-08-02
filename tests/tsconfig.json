@@ -12,8 +12,7 @@
 		"noUncheckedIndexedAccess": true,
 		"forceConsistentCasingInFileNames": true,
 		"paths": {
-			"~/*": ["./src/*"],
-			"@ryot/generated/*": ["../libs/generated/src/*"]
+			"~/*": ["./src/*"]
 		}
 	}
 }
