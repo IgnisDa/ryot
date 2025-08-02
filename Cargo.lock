@@ -1445,6 +1445,7 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "common-utils",
+ "ryot-macros",
  "schematic",
  "serde",
 ]
@@ -5410,6 +5411,15 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
+]
+
+[[package]]
+name = "ryot-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
 ]
 
 [[package]]

@@ -10,3 +10,4 @@ schematic = { workspace = true }
 serde = { workspace = true }
 
 common-utils = { path = "../utils/common" }
+ryot-macros = { path = "../macros" }
