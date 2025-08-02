@@ -66,15 +66,15 @@ export const meta = () => {
 const CARD_HOVER_STYLES =
 	"hover:shadow-lg transition-all duration-300 hover:-translate-y-1";
 
-const FeatureItem = ({
-	children,
-	isPro = false,
-}: { children: React.ReactNode; isPro?: boolean }) => (
+const FeatureItem = (props: {
+	children: React.ReactNode;
+	isPro?: boolean;
+}) => (
 	<div className="flex items-start space-x-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
 		<CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
 		<div className="flex items-start flex-wrap gap-1">
-			<span className="text-foreground leading-relaxed">{children}</span>
-			{isPro && <ProBadge />}
+			<span className="text-foreground leading-relaxed">{props.children}</span>
+			{props.isPro && <ProBadge />}
 		</div>
 	</div>
 );

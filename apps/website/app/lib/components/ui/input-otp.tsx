@@ -6,31 +6,38 @@ import * as React from "react";
 const InputOTP = React.forwardRef<
 	React.ComponentRef<typeof OTPInput>,
 	React.ComponentPropsWithoutRef<typeof OTPInput>
->(({ className, containerClassName, ...props }, ref) => (
-	<OTPInput
-		ref={ref}
-		containerClassName={cn(
-			"flex items-center gap-2 has-disabled:opacity-50",
-			containerClassName,
-		)}
-		className={cn("disabled:cursor-not-allowed", className)}
-		{...props}
-	/>
-));
+>((props, ref) => {
+	const { className, containerClassName, ...rest } = props;
+	return (
+		<OTPInput
+			ref={ref}
+			containerClassName={cn(
+				"flex items-center gap-2 has-disabled:opacity-50",
+				containerClassName,
+			)}
+			className={cn("disabled:cursor-not-allowed", className)}
+			{...rest}
+		/>
+	);
+});
 InputOTP.displayName = "InputOTP";
 
 const InputOTPGroup = React.forwardRef<
 	React.ComponentRef<"div">,
 	React.ComponentPropsWithoutRef<"div">
->(({ className, ...props }, ref) => (
-	<div ref={ref} className={cn("flex items-center", className)} {...props} />
-));
+>((props, ref) => {
+	const { className, ...rest } = props;
+	return (
+		<div ref={ref} className={cn("flex items-center", className)} {...rest} />
+	);
+});
 InputOTPGroup.displayName = "InputOTPGroup";
 
 const InputOTPSlot = React.forwardRef<
 	React.ComponentRef<"div">,
 	React.ComponentPropsWithoutRef<"div"> & { index: number }
->(({ index, className, ...props }, ref) => {
+>((props, ref) => {
+	const { index, className, ...rest } = props;
 	const inputOTPContext = React.useContext(OTPInputContext);
 	const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index];
 
@@ -42,7 +49,7 @@ const InputOTPSlot = React.forwardRef<
 				isActive && "z-10 ring-2 ring-ring ring-offset-background",
 				className,
 			)}
-			{...props}
+			{...rest}
 		>
 			{char}
 			{hasFakeCaret && (
@@ -58,7 +65,7 @@ InputOTPSlot.displayName = "InputOTPSlot";
 const InputOTPSeparator = React.forwardRef<
 	React.ComponentRef<"div">,
 	React.ComponentPropsWithoutRef<"div">
->(({ ...props }, ref) => (
+>((props, ref) => (
 	<div
 		ref={ref}
 		aria-valuemax={0}

@@ -697,12 +697,12 @@ type ImageProps = {
 	className: string;
 };
 
-const Image = ({ src, alt, className }: ImageProps) => (
+const Image = (props: ImageProps) => (
 	<img
-		src={src}
-		alt={alt}
+		src={props.src}
+		alt={props.alt}
 		className={cn(
-			className,
+			props.className,
 			"mx-auto aspect-16/9 overflow-hidden rounded-xl object-cover",
 		)}
 	/>
