@@ -435,7 +435,6 @@ pub struct ServerConfig {
     pub pro_key: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
-    #[mask_vec]
     pub cors_origins: Vec<String>,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
