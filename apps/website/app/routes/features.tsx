@@ -358,17 +358,6 @@ export default function Page() {
 				</div>
 			</section>
 
-			{/* Feature Sections */}
-			{FEATURE_DATA.map((data, index) => (
-				<FeatureSection
-					key={data.heading}
-					data={data}
-					isEven={index % 2 === 0}
-					showDescription={index === 1}
-					customGrid={index === 2 ? "single" : "lg:grid-cols-2"}
-				/>
-			))}
-
 			{/* Feature Categories Grid */}
 			<section className="py-20">
 				<div className={SECTION_STYLES}>
@@ -407,6 +396,17 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
+
+			{/* Feature Sections */}
+			{FEATURE_DATA.map((data, index) => (
+				<FeatureSection
+					key={data.heading}
+					data={data}
+					isEven={index % 2 === 0}
+					showDescription={index === 1}
+					customGrid={index === 2 ? "single" : "lg:grid-cols-2"}
+				/>
+			))}
 
 			{/* Pro Features Callout */}
 			<section className="py-20 bg-gradient-to-r from-orange-50 to-pink-50">
