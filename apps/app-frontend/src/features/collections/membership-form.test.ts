@@ -1,10 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { createAppCollectionFixture } from "~/features/test-fixtures";
+import {
+	createAppCollectionFixture,
+	createEntityFixture,
+} from "~/features/test-fixtures";
 import {
 	buildCollectionSelectionPatch,
 	buildDefaultMembershipFormValues,
 	buildMembershipFormSchema,
 	buildMembershipPropertyDefaults,
+	deriveInitialValuesFromEntity,
 	getMembershipFormReconciliationState,
 	getMembershipPropertyEntries,
 	getSelectedCollection,
@@ -672,5 +676,194 @@ describe("getMembershipPropertyEntries", () => {
 			label: "Existing Label",
 			definition: { label: "Existing Label", type: "boolean" },
 		});
+	});
+});
+
+describe("deriveInitialValuesFromEntity", () => {
+	it("returns empty collectionId and properties when no collection is selected", () => {
+		const entity = createEntityFixture({ properties: { notes: "test" } });
+		const values = deriveInitialValuesFromEntity(undefined, entity);
+
+		expect(values.collectionId).toBe("");
+		expect(values.properties).toEqual({});
+	});
+
+	it("returns collection id and empty properties when collection has no schema", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: null,
+		});
+		const entity = createEntityFixture({ properties: { notes: "test" } });
+		const values = deriveInitialValuesFromEntity(collection, entity);
+
+		expect(values.collectionId).toBe("collection-1");
+		expect(values.properties).toEqual({});
+	});
+
+	it("maps compatible entity properties to membership form values", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					notes: { label: "Notes", type: "string" },
+					pages: {
+						label: "Pages",
+						type: "integer",
+						validation: { required: true },
+					},
+					rating: {
+						label: "Rating",
+						type: "number",
+						validation: { required: true },
+					},
+					completed: {
+						type: "boolean",
+						label: "Completed",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const entity = createEntityFixture({
+			properties: {
+				notes: "Entity notes",
+				pages: 250,
+				rating: 4.5,
+				completed: true,
+			},
+		});
+		const values = deriveInitialValuesFromEntity(collection, entity);
+
+		expect(values.collectionId).toBe("collection-1");
+		expect(values.properties).toEqual({
+			notes: "Entity notes",
+			pages: 250,
+			rating: 4.5,
+			completed: true,
+		});
+	});
+
+	it("falls back to defaults for entity properties with incompatible types", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					notes: { label: "Notes", type: "string" },
+					pages: {
+						label: "Pages",
+						type: "integer",
+						validation: { required: true },
+					},
+					completed: {
+						type: "boolean",
+						label: "Completed",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const entity = createEntityFixture({
+			properties: {
+				notes: 123,
+				pages: "not-a-number",
+				completed: "yes",
+			},
+		});
+		const values = deriveInitialValuesFromEntity(collection, entity);
+
+		expect(values.properties).toEqual({
+			pages: 0,
+			completed: false,
+		});
+	});
+
+	it("uses schema defaults for missing entity properties", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					notes: { label: "Notes", type: "string" },
+					quantity: {
+						label: "Quantity",
+						type: "integer",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const entity = createEntityFixture({ properties: {} });
+		const values = deriveInitialValuesFromEntity(collection, entity);
+
+		expect(values.properties).toEqual({
+			quantity: 0,
+		});
+	});
+
+	it("ignores non-primitive entity properties", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					pages: {
+						label: "Pages",
+						type: "integer",
+						validation: { required: true },
+					},
+					tags: {
+						label: "Tags",
+						type: "array",
+						items: { label: "Tag", type: "string" },
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const entity = createEntityFixture({
+			properties: {
+				pages: 100,
+				tags: ["fiction", "classic"],
+			},
+		});
+		const values = deriveInitialValuesFromEntity(collection, entity);
+
+		expect(values.properties).toEqual({ pages: 100 });
+	});
+
+	it("handles undefined entity gracefully", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					quantity: {
+						label: "Quantity",
+						type: "integer",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const values = deriveInitialValuesFromEntity(collection, undefined);
+
+		expect(values.collectionId).toBe("collection-1");
+		expect(values.properties).toEqual({ quantity: 0 });
+	});
+
+	it("handles entity with undefined properties", () => {
+		const collection = createAppCollectionFixture({
+			id: "collection-1",
+			membershipPropertiesSchema: {
+				fields: {
+					quantity: {
+						label: "Quantity",
+						type: "integer",
+						validation: { required: true },
+					},
+				},
+			},
+		});
+		const entity = createEntityFixture({ properties: undefined });
+		const values = deriveInitialValuesFromEntity(collection, entity);
+
+		expect(values.properties).toEqual({ quantity: 0 });
 	});
 });
