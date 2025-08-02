@@ -60,9 +60,10 @@ impl MediaProvider for TmdbShowService {
                 source: EntityRemoteVideoSource::Youtube,
             }))
         }
-        let mut image_ids = Vec::from_iter(show_data.poster_path);
+        let mut image_ids =
+            Vec::from_iter(show_data.poster_path.map(|p| self.base.get_image_url(p)));
         if let Some(u) = show_data.backdrop_path {
-            image_ids.push(u);
+            image_ids.push(self.base.get_image_url(u));
         }
         let ((), suggestions) = try_join!(
             self.base.save_all_images("tv", identifier, &mut image_ids),

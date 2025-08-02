@@ -169,9 +169,9 @@ impl MediaProvider for TmdbMovieService {
                 })
                 .collect_vec(),
         );
-        let mut image_ids = Vec::from_iter(data.poster_path.clone());
+        let mut image_ids = Vec::from_iter(data.poster_path.map(|p| self.base.get_image_url(p)));
         if let Some(u) = data.backdrop_path {
-            image_ids.push(u);
+            image_ids.push(self.base.get_image_url(u));
         }
         let ((), suggestions, watch_providers, external_identifiers) = try_join!(
             self.base
