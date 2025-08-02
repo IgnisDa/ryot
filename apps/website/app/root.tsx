@@ -84,7 +84,7 @@ export default function App() {
 					data-domains="ryot.io,www.ryot.io"
 				/>
 			</head>
-			<body>
+			<body className="font-body">
 				<Toaster />
 				<div className="flex flex-col min-h-dvh">
 					<header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-50">
