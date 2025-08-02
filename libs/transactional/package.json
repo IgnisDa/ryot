@@ -6,6 +6,6 @@
 		"@ryot/ts-utils": "workspace:*",
 		"react": "19.1.1",
 		"react-dom": "19.1.1",
-		"react-email": "4.2.6"
+		"react-email": "4.2.7"
 	}
 }

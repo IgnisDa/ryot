@@ -169,9 +169,9 @@ impl MediaProvider for TmdbMovieService {
                 })
                 .collect_vec(),
         );
-        let mut image_ids = Vec::from_iter(data.poster_path.clone());
+        let mut image_ids = Vec::from_iter(data.poster_path.map(|p| self.base.get_image_url(p)));
         if let Some(u) = data.backdrop_path {
-            image_ids.push(u);
+            image_ids.push(self.base.get_image_url(u));
         }
         let ((), suggestions, watch_providers, external_identifiers) = try_join!(
             self.base
@@ -182,11 +182,7 @@ impl MediaProvider for TmdbMovieService {
         )?;
         let title = data.title.clone().unwrap();
 
-        let remote_images = image_ids
-            .into_iter()
-            .unique()
-            .map(|p| self.base.get_image_url(p))
-            .collect();
+        let remote_images = image_ids.into_iter().unique().collect();
 
         Ok(MetadataDetails {
             people,
@@ -305,10 +301,10 @@ impl MediaProvider for TmdbMovieService {
             .map_err(|e| anyhow!(e))?;
         let mut images = vec![];
         if let Some(i) = data.poster_path {
-            images.push(i);
+            images.push(self.base.get_image_url(i));
         }
         if let Some(i) = data.backdrop_path {
-            images.push(i);
+            images.push(self.base.get_image_url(i));
         }
         self.base
             .save_all_images("collection", identifier, &mut images)

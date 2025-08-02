@@ -1,6 +1,5 @@
 use anyhow::Result;
 use application_utils::get_base_http_client;
-use config::OpenlibraryConfig;
 
 use crate::{
     models::{MetadataDetailsBook, OpenlibraryService},
@@ -11,7 +10,7 @@ pub static URL: &str = "https://openlibrary.org";
 pub static IMAGE_BASE_URL: &str = "https://covers.openlibrary.org";
 
 impl OpenlibraryService {
-    pub async fn new(config: &OpenlibraryConfig) -> Result<Self> {
+    pub async fn new(config: &config_definition::OpenlibraryConfig) -> Result<Self> {
         let client = get_base_http_client(None);
         Ok(Self {
             image_url: IMAGE_BASE_URL.to_owned(),

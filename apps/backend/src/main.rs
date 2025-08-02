@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
 
     ryot_log!(info, "Running version: {}", APP_VERSION);
 
-    let config = Arc::new(config::load_app_config()?);
+    let config = Arc::new(config_definition::load_app_config()?);
     if config.server.sleep_before_startup_seconds > 0 {
         let duration = Duration::from_secs(config.server.sleep_before_startup_seconds);
         ryot_log!(warn, "Sleeping for {:?} before starting up...", duration);
@@ -123,7 +123,7 @@ async fn main() -> Result<()> {
             .join("includes");
 
         let mut generator = SchemaGenerator::default();
-        generator.add::<config::AppConfig>();
+        generator.add::<config_definition::AppConfig>();
         generator
             .generate(
                 base_dir.join("backend-config-schema.yaml"),

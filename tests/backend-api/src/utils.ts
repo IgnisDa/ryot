@@ -143,7 +143,7 @@ export async function getUserMetadataList(baseUrl: string, userApiKey: string) {
 	return userMetadataList.response.items;
 }
 
-export async function searchTmdbMovie(
+export async function searchAudibleAudiobook(
 	baseUrl: string,
 	userApiKey: string,
 	query: string,
@@ -154,8 +154,8 @@ export async function searchTmdbMovie(
 		{
 			input: {
 				search: { query },
-				lot: MediaLot.Movie,
-				source: MediaSource.Tmdb,
+				lot: MediaLot.AudioBook,
+				source: MediaSource.Audible,
 			},
 		},
 		{ Authorization: `Bearer ${userApiKey}` },

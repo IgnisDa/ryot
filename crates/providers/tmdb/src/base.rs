@@ -71,22 +71,22 @@ impl TmdbService {
         let new_images: TmdbImagesResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
         if let Some(imgs) = new_images.posters {
             for image in imgs {
-                images.push(image.file_path);
+                images.push(self.get_image_url(image.file_path));
             }
         }
         if let Some(imgs) = new_images.backdrops {
             for image in imgs {
-                images.push(image.file_path);
+                images.push(self.get_image_url(image.file_path));
             }
         }
         if let Some(imgs) = new_images.logos {
             for image in imgs {
-                images.push(image.file_path);
+                images.push(self.get_image_url(image.file_path));
             }
         }
         if let Some(imgs) = new_images.profiles {
             for image in imgs {
-                images.push(image.file_path);
+                images.push(self.get_image_url(image.file_path));
             }
         }
         Ok(())

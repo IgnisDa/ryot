@@ -26,7 +26,7 @@ pub struct MangaUpdatesService {
 }
 
 impl MangaUpdatesService {
-    pub async fn new(_config: &config::MangaUpdatesConfig) -> Result<Self> {
+    pub async fn new(_config: &config_definition::MangaUpdatesConfig) -> Result<Self> {
         let client = get_base_http_client(None);
         Ok(Self { client })
     }

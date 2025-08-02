@@ -7,7 +7,6 @@ use common_models::{
     EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
-use config::SpotifyConfig;
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
@@ -165,7 +164,7 @@ async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec
 }
 
 async fn get_spotify_access_token(
-    config: &SpotifyConfig,
+    config: &config_definition::SpotifyConfig,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let cached_response = cache_service::get_or_set_with_callback(
@@ -211,7 +210,10 @@ fn get_first_image(images: &[SpotifyImage]) -> Option<String> {
 }
 
 impl SpotifyService {
-    pub async fn new(config: &SpotifyConfig, ss: Arc<SupportingService>) -> Result<Self> {
+    pub async fn new(
+        config: &config_definition::SpotifyConfig,
+        ss: Arc<SupportingService>,
+    ) -> Result<Self> {
         let access_token = get_spotify_access_token(config, &ss).await?;
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,

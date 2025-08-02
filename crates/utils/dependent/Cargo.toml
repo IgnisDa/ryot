@@ -32,7 +32,7 @@ background-models = { path = "../../models/background" }
 cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../common" }
-config = { path = "../../config" }
+config-definition = { path = "../../config/definition" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }

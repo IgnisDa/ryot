@@ -22,7 +22,7 @@ import {
 	getUserWorkoutsList,
 	progressUpdate,
 	registerTestUser,
-	searchTmdbMovie,
+	searchAudibleAudiobook,
 	waitFor,
 } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -171,7 +171,11 @@ describe("Cache related tests", () => {
 		const initial = await getUserMetadataList(url, userApiKey);
 		expect(initial).toHaveLength(0);
 
-		const searchResult = await searchTmdbMovie(url, userApiKey, "avengers");
+		const searchResult = await searchAudibleAudiobook(
+			url,
+			userApiKey,
+			"becoming",
+		);
 		expect(searchResult.length).toBeGreaterThan(0);
 
 		const firstMetadataId = searchResult[0];
@@ -208,7 +212,7 @@ describe("Cache related tests", () => {
 		expect(afterDisassociate).toHaveLength(0);
 	});
 
-	it("should update collection ordering when movie progress is updated", async () => {
+	it("should update collection ordering when audiobook progress is updated", async () => {
 		const collectionsResponse = await getUserCollectionsList(url, userApiKey);
 		const inProgressCollection = collectionsResponse.find(
 			(c) => c.name === "In Progress",
@@ -219,21 +223,25 @@ describe("Cache related tests", () => {
 			throw new Error("In Progress collection not found");
 		}
 
-		const searchResult = await searchTmdbMovie(url, userApiKey, "star wars");
+		const searchResult = await searchAudibleAudiobook(
+			url,
+			userApiKey,
+			"harry potter",
+		);
 		expect(searchResult.length).toBeGreaterThan(1);
 
-		const firstMovieId = searchResult[0];
-		const secondMovieId = searchResult[1];
+		const firstAudiobookId = searchResult[0];
+		const secondAudiobookId = searchResult[1];
 
 		await progressUpdate(url, userApiKey, [
 			{
-				metadataId: firstMovieId,
+				metadataId: firstAudiobookId,
 				change: {
 					createNewInProgress: { startedOn: new Date().toISOString() },
 				},
 			},
 			{
-				metadataId: secondMovieId,
+				metadataId: secondAudiobookId,
 				change: {
 					createNewInProgress: { startedOn: new Date().toISOString() },
 				},
@@ -249,14 +257,14 @@ describe("Cache related tests", () => {
 
 		expect(initialContents).toHaveLength(2);
 
-		const initialFirstMovie = initialContents[0].entityId;
-		const initialSecondMovie = initialContents[1].entityId;
-		expect(initialFirstMovie).toBe(secondMovieId);
-		expect(initialSecondMovie).toBe(firstMovieId);
+		const initialFirstAudiobook = initialContents[0].entityId;
+		const initialSecondAudiobook = initialContents[1].entityId;
+		expect(initialFirstAudiobook).toBe(secondAudiobookId);
+		expect(initialSecondAudiobook).toBe(firstAudiobookId);
 
 		await progressUpdate(url, userApiKey, [
 			{
-				metadataId: firstMovieId,
+				metadataId: firstAudiobookId,
 				change: { changeLatestInProgress: { progress: "25" } },
 			},
 		]);
@@ -269,18 +277,18 @@ describe("Cache related tests", () => {
 		);
 		expect(updatedContents).toHaveLength(2);
 
-		const updatedFirstMovie = updatedContents[0].entityId;
-		const updatedSecondMovie = updatedContents[1].entityId;
-		expect(updatedFirstMovie).toBe(firstMovieId);
-		expect(updatedSecondMovie).toBe(secondMovieId);
+		const updatedFirstAudiobook = updatedContents[0].entityId;
+		const updatedSecondAudiobook = updatedContents[1].entityId;
+		expect(updatedFirstAudiobook).toBe(firstAudiobookId);
+		expect(updatedSecondAudiobook).toBe(secondAudiobookId);
 
 		await progressUpdate(url, userApiKey, [
 			{
-				metadataId: firstMovieId,
+				metadataId: firstAudiobookId,
 				change: { changeLatestInProgress: { progress: "100" } },
 			},
 			{
-				metadataId: secondMovieId,
+				metadataId: secondAudiobookId,
 				change: { changeLatestInProgress: { progress: "100" } },
 			},
 		]);

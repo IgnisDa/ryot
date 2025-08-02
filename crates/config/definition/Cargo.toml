@@ -1,5 +1,5 @@
 [package]
-name = "config"
+name = "config-definition"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,4 +9,5 @@ async-graphql = { workspace = true }
 schematic = { workspace = true }
 serde = { workspace = true }
 
-common-utils = { path = "../utils/common" }
+common-utils = { path = "../../utils/common" }
+config-macros = { path = "../macros" }

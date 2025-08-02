@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "apps/backend",
-    "crates/config",
+    "crates/config/definition",
+    "crates/config/macros",
     "crates/migrations",
     "crates/models/background",
     "crates/models/common",
@@ -116,6 +117,7 @@ nanoid = "=0.4.0"
 nest_struct = "=0.5.5"
 openidconnect = "=4.0.1"
 paginate = "=1.1.11"
+quote = "=1.0.40"
 rand = "=0.9.1"
 ring = "=0.17.14"
 regex = "=1.11.1"
@@ -171,6 +173,7 @@ sqlx = { version = "=0.8.6", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
 subtle = "=2.6.1"
+syn = { version = "=2.0.104", features = ["full", "derive"] }
 tokio = { version = "=1.46.1", features = ["full"] }
 tokio-util = { version = "=0.7.15", features = ["codec"] }
 tower = "=0.5.2"
