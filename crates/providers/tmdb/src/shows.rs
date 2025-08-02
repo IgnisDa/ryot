@@ -157,11 +157,7 @@ impl MediaProvider for TmdbShowService {
         )?;
         let title = show_data.name.unwrap();
 
-        let remote_images = image_ids
-            .into_iter()
-            .unique()
-            .map(|p| self.base.get_image_url(p))
-            .collect();
+        let remote_images = image_ids.into_iter().unique().collect();
 
         Ok(MetadataDetails {
             people,
