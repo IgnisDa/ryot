@@ -299,7 +299,6 @@ pub struct FileStorageConfig {
     pub s3_bucket_name: String,
     /// The region for the S3 compatible file storage.
     #[setting(default = "us-east-1")]
-    #[mask]
     pub s3_region: String,
     /// The secret access key for the S3 compatible file storage. **Required**
     /// to enable file storage.
