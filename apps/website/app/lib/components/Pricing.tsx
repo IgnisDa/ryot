@@ -1,20 +1,11 @@
 import { changeCase } from "@ryot/ts-utils";
 import { IconPlayerPlay } from "@tabler/icons-react";
-import {
-	CheckCircle,
-	Cloud,
-	Crown,
-	Gift,
-	Rocket,
-	Server,
-	Shield,
-	Sparkles,
-	Star,
-} from "lucide-react";
+import { CheckCircle, Cloud, Crown, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import type { TPrices } from "../config.server";
+import { getIcon, getIconBg, isPopular } from "./pricing-utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -30,38 +21,6 @@ export default function Pricing(props: {
 	const isThreeColumn = selectedProductType.prices.length === 3;
 	const isCloudType = selectedProductType.type === "cloud";
 	const isSelfHosted = selectedProductType.type === "self_hosted";
-
-	const getIcon = (name: string) => {
-		switch (name.toLowerCase()) {
-			case "free":
-				return <Shield className="w-5 h-5 text-gray-600" />;
-			case "monthly":
-				return <Rocket className="w-5 h-5 text-blue-600" />;
-			case "yearly":
-				return <Star className="w-5 h-5 text-white" />;
-			case "lifetime":
-				return <Gift className="w-5 h-5 text-purple-600" />;
-			default:
-				return <Star className="w-5 h-5 text-primary" />;
-		}
-	};
-
-	const getIconBg = (name: string) => {
-		switch (name.toLowerCase()) {
-			case "free":
-				return "bg-gray-100";
-			case "monthly":
-				return "bg-blue-100";
-			case "yearly":
-				return "bg-gradient-to-br from-primary to-primary/80";
-			case "lifetime":
-				return "bg-purple-100";
-			default:
-				return "bg-primary/10";
-		}
-	};
-
-	const isPopular = (name: string) => name.toLowerCase() === "yearly";
 
 	const getProductTypeButtonClass = (index: number) =>
 		`inline-flex items-center gap-1 underline hover:no-underline transition-colors ${
