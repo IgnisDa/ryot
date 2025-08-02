@@ -207,7 +207,8 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Show &&
-		context.metadataToUpdate.showAllEpisodesBefore &&
+		(context.metadataToUpdate.showAllEpisodesBefore ||
+			context.metadataToUpdate.showSeasonEpisodesBefore) &&
 		context.metadataToUpdate.showSeasonNumber &&
 		context.metadataToUpdate.showEpisodeNumber
 	) {
@@ -245,6 +246,14 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 				if (
 					currentEpisode.seasonNumber === 0 &&
 					selectedEpisode.seasonNumber !== 0
+				) {
+					continue;
+				}
+
+				if (
+					context.metadataToUpdate.showSeasonEpisodesBefore &&
+					currentEpisode.seasonNumber !==
+						context.metadataToUpdate.showSeasonNumber
 				) {
 					continue;
 				}
