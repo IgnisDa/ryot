@@ -28,11 +28,11 @@ export async function createEventSchema(
 	body: CreateEventSchemaBody,
 ) {
 	const { data, response } = await client.POST("/event-schemas", {
-		body: body as never,
+		body,
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data?.id) {
+	if (response.status !== 200 || !data?.data.id) {
 		throw new Error(`Failed to create event schema '${body.name}'`);
 	}
 

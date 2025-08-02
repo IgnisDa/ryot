@@ -1,3 +1,4 @@
+/* oxlint-disable */
 // TODO: delete this file eventually
 import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
@@ -572,9 +573,8 @@ async function createSavedView(
 			expression:
 				"expression" in queryDefinition.sort
 					? queryDefinition.sort.expression
-					: (toExpression(
-							normalizeSortFields((queryDefinition.sort).fields),
-						) ?? literalExpression(null)),
+					: (toExpression(normalizeSortFields(queryDefinition.sort.fields)) ??
+						literalExpression(null)),
 		},
 	} satisfies SavedViewQueryDefinition;
 	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
