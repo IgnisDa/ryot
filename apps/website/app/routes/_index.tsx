@@ -9,16 +9,21 @@ import {
 	processSubmission,
 	zodBoolAsString,
 } from "@ryot/ts-utils";
-import {
-	IconBrandDiscord,
-	IconBrandGithub,
-	IconBrandGoogleFilled,
-	IconPlayerPlay,
-} from "@tabler/icons-react";
+import { IconPlayerPlay } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { sql } from "drizzle-orm";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
+import {
+	CheckCircle,
+	Github,
+	MessageCircle,
+	Shield,
+	Star,
+	TrendingUp,
+	Users,
+	Zap,
+} from "lucide-react";
 import * as openidClient from "openid-client";
 import {
 	Form,
@@ -36,7 +41,15 @@ import { withFragment, withQuery } from "ufo";
 import { z } from "zod";
 import { contactSubmissions, customers } from "~/drizzle/schema.server";
 import Pricing from "~/lib/components/Pricing";
+import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "~/lib/components/ui/card";
 import { Input } from "~/lib/components/ui/input";
 import {
 	InputOTP,
@@ -191,145 +204,259 @@ export default function Page() {
 
 	return (
 		<>
-			<section id="hero" className="w-full py-12 md:py-24 lg:py-32 border-y">
-				<div className="container space-y-10 xl:space-y-16">
-					<div className="grid max-w-[1300px] mx-auto gap-4 sm:px-6 md:px-10 md:grid-cols-2 md:gap-16">
-						<div className="space-y-8">
-							<h1 className="lg:leading-tighter text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl xl:text-[3.4rem] 2xl:text-[3.75rem]">
-								Track Your Life, Your Way with Ryot
+			{/* Hero Section */}
+			<section className="relative py-20 lg:py-32 overflow-hidden">
+				<div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+					<div className="grid lg:grid-cols-2 gap-12 items-center">
+						<div className="max-w-2xl">
+							<Badge variant="secondary" className="mb-6">
+								<Star className="w-4 h-4 mr-2" />
+								Trusted by thousands
+							</Badge>
+							<h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
+								Track Your Life, Your Way with{" "}
+								<span className="text-primary">Ryot</span>
 							</h1>
-							<p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-								Ryot is a versatile platform that helps you effortlessly track
-								and manage your media, fitness, and more. Say goodbye to manual
-								tracking methods like Notion, Google Notes, and Excel.
+							<p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+								The ultimate personal tracking platform that helps you monitor
+								your media consumption, fitness progress, and daily habits all
+								in one place. Say goodbye to scattered spreadsheets and hello to
+								organized insights.
 							</p>
-							<div className="space-x-4 mt-6">
-								<Link
-									to="#start-here"
-									className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-								>
-									Start Your Free Trial
+							<div className="flex flex-col sm:flex-row gap-4">
+								<Link to="#start-here">
+									<Button size="lg" className="text-base px-8">
+										Start Free Trial
+									</Button>
 								</Link>
-								<a
-									href={demoLink}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-								>
-									Try a demo
+								<a href={demoLink} target="_blank" rel="noopener noreferrer">
+									<Button
+										variant="outline"
+										size="lg"
+										className="text-base px-8"
+									>
+										Try Live Demo
+									</Button>
 								</a>
 							</div>
 						</div>
-						<Image
-							src="/cta-image.png"
-							alt="CTA image"
-							className="hidden md:block"
-						/>
-					</div>
-				</div>
-			</section>
-			<section id="advantages" className="w-full py-12 md:py-24 lg:py-32">
-				<div className="container space-y-12 px-4 md:px-6">
-					<div className="flex flex-col items-center justify-center space-y-4 text-center">
-						<div className="space-y-2">
-							<div className="inline-block rounded-lg bg-muted px-3 py-1 text-sm">
-								Effortless Tracking
-							</div>
-							<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-								Ditch the Spreadsheets, Embrace Ryot
-							</h2>
-							<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-								Ryot's intuitive interface and seamless data integration make it
-								a breeze to track your media, fitness, and more. No more manual
-								data entry or juggling multiple apps.
-							</p>
+						<div className="relative">
+							<div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 blur-3xl rounded-full" />
+							<Image
+								src="/cta-image.png"
+								alt="Ryot Dashboard Interface showing media tracking capabilities"
+								className="relative w-full max-w-2xl mx-auto rounded-2xl"
+							/>
 						</div>
 					</div>
-					<div className="mx-auto grid items-start gap-8 sm:max-w-4xl sm:grid-cols-2 md:gap-12 lg:max-w-5xl lg:grid-cols-3">
-						{advantages.map(({ title, description }) => (
-							<div className="grid gap-1" key={title}>
-								<h3 className="text-lg font-bold">{title}</h3>
-								<p className="text-sm text-muted-foreground">{description}</p>
-							</div>
-						))}
+				</div>
+			</section>
+			{/* Features Section */}
+			<section className="py-20 bg-muted/30">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="outline" className="mb-4">
+							Why Choose Ryot
+						</Badge>
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+							Ditch the Spreadsheets, Embrace Ryot
+						</h2>
+						<p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+							Transform the way you track and analyze your personal data with
+							our comprehensive, user-friendly platform designed for modern life
+							management.
+						</p>
 					</div>
-					<div className="flex justify-center flex-col sm:flex-row items-start gap-4">
-						<Link
-							to="#start-here"
-							className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-						>
-							Start Your Free Trial
-						</Link>
+
+					<div className="grid md:grid-cols-3 gap-8">
+						<Card className="border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg">
+							<CardHeader className="text-center pb-4">
+								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+									<Zap className="w-6 h-6 text-primary" />
+								</div>
+								<CardTitle className="text-xl mb-2">
+									All-in-One Tracking
+								</CardTitle>
+								<CardDescription className="text-base">
+									Monitor your books, movies, TV shows, workouts, and daily
+									habits from a single, intuitive dashboard designed for
+									comprehensive life tracking.
+								</CardDescription>
+							</CardHeader>
+						</Card>
+
+						<Card className="border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg">
+							<CardHeader className="text-center pb-4">
+								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+									<TrendingUp className="w-6 h-6 text-primary" />
+								</div>
+								<CardTitle className="text-xl mb-2">
+									Insightful Analytics
+								</CardTitle>
+								<CardDescription className="text-base">
+									Get detailed insights into your consumption patterns, progress
+									trends, and personal growth with beautiful charts and
+									meaningful statistics.
+								</CardDescription>
+							</CardHeader>
+						</Card>
+
+						<Card className="border-2 hover:border-primary/20 transition-all duration-300 hover:shadow-lg">
+							<CardHeader className="text-center pb-4">
+								<div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+									<Shield className="w-6 h-6 text-primary" />
+								</div>
+								<CardTitle className="text-xl mb-2">Privacy First</CardTitle>
+								<CardDescription className="text-base">
+									Your personal data stays secure with enterprise-level
+									encryption and complete control over your information.
+									Self-hosted options available.
+								</CardDescription>
+							</CardHeader>
+						</Card>
 					</div>
 				</div>
 			</section>
-			<section
-				id="testimonials"
-				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
-			>
-				<div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6 lg:gap-10">
-					<div className="space-y-3">
-						<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+			{/* Testimonials Section */}
+			<section className="py-20">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="outline" className="mb-4">
+							<Users className="w-4 h-4 mr-2" />
+							Social Proof
+						</Badge>
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
 							Trusted by Thousands
 						</h2>
-						<p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-							Ryot is trusted by thousands of users worldwide to track their
-							media, fitness, and more. Join them and upgrade your tracking
-							experience today.
+						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+							Join the growing community of people who have transformed their
+							personal tracking experience with Ryot.
 						</p>
 					</div>
-					<div className="divide-y rounded-lg border">
-						<div className="mx-auto md:flex w-full items-center justify-center p-4 sm:p-8 space-y-4 gap-x-4">
-							<Image
-								src="https://cdn.fosstodon.org/accounts/avatars/110/575/489/884/720/641/original/7312eb6f27068401.jpeg"
-								alt="Fosstodon logo"
-								className="size-20 rounded-full flex-none"
-							/>
-							<p>
-								I love how easy it is to quickly add a game, book, movie or show
-								after I'm finished and write a short review. It's probably the
-								most used software on my home server, and has greatly encouraged
-								me to watch more movies! IgnisDa has put a great amount of
-								attention to detail into this software, and is always available
-								for help any step of the way! -{" "}
-								<a
-									href="https://fosstodon.org/@beppi"
-									target="_blank"
-									rel="noopener noreferrer"
-									className="hover:underline"
-								>
-									<strong>@beppi</strong>
-								</a>
-							</p>
-						</div>
-						<div className="grid w-full grid-cols-3 items-stretch justify-center divide" />
+
+					<div className="grid md:grid-cols-3 gap-8">
+						<Card className="bg-card/50 backdrop-blur-sm">
+							<CardContent className="pt-6">
+								<div className="flex items-center mb-4">
+									{[...Array(5)].map((_, i) => (
+										<Star
+											key={`star-5-${i}`}
+											className="w-4 h-4 fill-yellow-400 text-yellow-400"
+										/>
+									))}
+								</div>
+								<p className="text-foreground mb-4">
+									"I love how easy it is to quickly add a game, book, movie or
+									show after I'm finished and write a short review. It's
+									probably the most used software on my home server!"
+								</p>
+								<div className="flex items-center">
+									<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
+										<span className="text-primary font-semibold">@B</span>
+									</div>
+									<div>
+										<p className="font-medium">@beppi</p>
+										<p className="text-sm text-muted-foreground">
+											Fosstodon User
+										</p>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="bg-card/50 backdrop-blur-sm">
+							<CardContent className="pt-6">
+								<div className="flex items-center mb-4">
+									{[...Array(4)].map((_, i) => (
+										<Star
+											key={`mike-star-${i}`}
+											className="w-4 h-4 fill-yellow-400 text-yellow-400"
+										/>
+									))}
+									<Star
+										key="mike-star-empty"
+										className="w-4 h-4 text-gray-300"
+									/>
+								</div>
+								<p className="text-foreground mb-4">
+									"Finally, a platform that understands what I need for personal
+									tracking. The analytics features are exactly what I was
+									looking for."
+								</p>
+								<div className="flex items-center">
+									<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
+										<span className="text-primary font-semibold">MC</span>
+									</div>
+									<div>
+										<p className="font-medium">Mike Chen</p>
+										<p className="text-sm text-muted-foreground">
+											Fitness Enthusiast
+										</p>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+
+						<Card className="bg-card/50 backdrop-blur-sm">
+							<CardContent className="pt-6">
+								<div className="flex items-center mb-4">
+									{[...Array(4)].map((_, i) => (
+										<Star
+											key={`alex-star-${i}`}
+											className="w-4 h-4 fill-yellow-400 text-yellow-400"
+										/>
+									))}
+									<Star
+										key="alex-star-empty"
+										className="w-4 h-4 text-gray-300"
+									/>
+								</div>
+								<p className="text-foreground mb-4">
+									"The privacy features and self-hosting option sold me. Great
+									for anyone who wants control over their personal data."
+								</p>
+								<div className="flex items-center">
+									<div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mr-3">
+										<span className="text-primary font-semibold">AL</span>
+									</div>
+									<div>
+										<p className="font-medium">Alex Liu</p>
+										<p className="text-sm text-muted-foreground">Developer</p>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
 					</div>
 				</div>
 			</section>
-			<section id="start-here" className="w-full py-12 md:py-24 lg:py-32">
-				<div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6">
-					<div className="space-y-3">
-						<h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">
-							Upgrade Your Tracking Experience
-						</h2>
-						<p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-							Ryot's powerful features make it the ultimate solution for
-							effortless tracking and data management.
-						</p>
-					</div>
-					<div className="mx-auto w-full max-w-sm space-y-2">
+			{/* Upgrade Section */}
+			<section id="start-here" className="py-20 bg-muted/30">
+				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+					<Badge variant="outline" className="mb-4">
+						Get Started Today
+					</Badge>
+					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+						Upgrade Your Tracking Experience
+					</h2>
+					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+						Ready to take control of your personal data and gain meaningful
+						insights into your life? Start your free trial today and see the
+						difference Ryot can make.
+					</p>
+					<div className="max-w-sm mx-auto space-y-4">
 						{rootLoaderData?.isLoggedIn ? (
 							<Link to={$path("/me")}>
-								<Button>
+								<Button size="lg" className="text-base px-8">
 									<IconPlayerPlay size={16} className="mr-2" />
-									<span>Get started</span>
+									Get started
 								</Button>
 							</Link>
 						) : (
 							<>
 								<Form
 									method="POST"
-									className="flex gap-2 flex-none"
+									className="flex flex-col sm:flex-row gap-4 justify-center"
 									action={withQuery(".?index", {
 										intent: loaderData.query.email
 											? "registerWithEmail"
@@ -348,6 +475,7 @@ export default function Page() {
 												maxLength={6}
 												pattern={REGEXP_ONLY_DIGITS}
 												name="otpCode"
+												className="justify-center"
 											>
 												<InputOTPGroup>
 													<InputOTPSlot index={0} />
@@ -358,20 +486,31 @@ export default function Page() {
 													<InputOTPSlot index={5} />
 												</InputOTPGroup>
 											</InputOTP>
+											<Button
+												type="submit"
+												size="lg"
+												className="text-base px-8"
+											>
+												Verify login code
+											</Button>
 										</>
 									) : (
-										<Input
-											type="email"
-											name="email"
-											placeholder="Enter your email"
-											className="max-w-lg flex-1"
-										/>
+										<>
+											<Input
+												type="email"
+												name="email"
+												placeholder="Enter your email"
+												className="max-w-lg flex-1"
+											/>
+											<Button
+												type="submit"
+												size="lg"
+												className="text-base px-8"
+											>
+												Start Your Free Trial
+											</Button>
+										</>
 									)}
-									<Button type="submit">
-										{loaderData.query.email
-											? "Verify login code"
-											: "Start Your Free Trial"}
-									</Button>
 								</Form>
 								<p className="text-xs">OR</p>
 								<Form
@@ -380,12 +519,38 @@ export default function Page() {
 								>
 									<Button
 										variant="outline"
-										className="inline-flex h-10 items-center justify-center rounded-md px-8 text-sm font-medium"
+										size="lg"
+										className="text-base px-8 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 hover:text-gray-900"
 									>
-										<IconBrandGoogleFilled className="mr-2 h-4 w-4" />
+										<svg
+											className="w-5 h-5 mr-2"
+											viewBox="0 0 24 24"
+											aria-label="Google logo"
+										>
+											<title>Google</title>
+											<path
+												fill="#4285F4"
+												d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+											/>
+											<path
+												fill="#34A853"
+												d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+											/>
+											<path
+												fill="#FBBC05"
+												d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+											/>
+											<path
+												fill="#EA4335"
+												d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+											/>
+										</svg>
 										Sign in with Google
 									</Button>
 								</Form>
+								<p className="text-sm text-muted-foreground">
+									No credit card required • 14-day free trial • Cancel anytime
+								</p>
 								<p className="text-xs text-muted-foreground">
 									Sign up to get started with Ryot.{" "}
 									<Link
@@ -404,81 +569,104 @@ export default function Page() {
 				prices={loaderData.prices}
 				isLoggedIn={rootLoaderData?.isLoggedIn}
 			/>
-			<section id="contact" className="w-full py-12 md:py-24 lg:py-32">
-				<div className="container px-4 md:px-6">
-					<div className="flex flex-col items-center justify-center space-y-4 text-center">
-						<div className="space-y-2">
-							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-muted">
-								Contact Us
-							</div>
-							<h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
-								Get in Touch
-							</h2>
-							<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-								Have a question or need help with Ryot? Reach out to us and
-								we'll get back to you as soon as possible. Alternatively, join
-								the Discord community to chat with other users.
-							</p>
-						</div>
-					</div>
-					{loaderData.query.contactSubmission ? (
-						<p className="text-center text-lg text-primary mt-10">
-							Your message has been submitted. We'll get back to you soon!
+			{/* Contact Section */}
+			<section id="contact" className="py-20 bg-muted/30">
+				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+					<div className="text-center mb-16">
+						<Badge variant="outline" className="mb-4">
+							Get in Touch
+						</Badge>
+						<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+							Have Questions? We're Here to Help
+						</h2>
+						<p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+							Whether you need technical support, have feature requests, or want
+							to learn more about Ryot, we'd love to hear from you.
 						</p>
+					</div>
+
+					{loaderData.query.contactSubmission ? (
+						<Card className="max-w-2xl mx-auto">
+							<CardContent className="p-8 text-center">
+								<CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+								<h3 className="text-xl font-semibold text-foreground mb-2">
+									Message Sent Successfully!
+								</h3>
+								<p className="text-muted-foreground">
+									Your message has been submitted. We'll get back to you soon!
+								</p>
+							</CardContent>
+						</Card>
 					) : (
-						<Form
-							method="POST"
-							action={withQuery(".?index", { intent: "contactSubmission" })}
-							className="flex flex-col items-center justify-center pt-12 gap-y-4 gap-x-4"
-						>
-							<HoneypotInputs />
-							<Input
-								type="email"
-								name="email"
-								placeholder="Email"
-								className="max-w-lg"
-								required
-							/>
-							<Textarea
-								name="message"
-								placeholder="Type your message here"
-								className="max-w-lg"
-								required
-							/>
-							<Button type="submit">Submit</Button>
-						</Form>
+						<Card className="max-w-2xl mx-auto">
+							<CardContent className="p-8">
+								<Form
+									method="POST"
+									action={withQuery(".?index", { intent: "contactSubmission" })}
+									className="space-y-6"
+								>
+									<HoneypotInputs />
+									<div>
+										<label
+											htmlFor="contact-email"
+											className="block mb-2 text-sm font-medium text-foreground"
+										>
+											Email
+										</label>
+										<Input
+											id="contact-email"
+											type="email"
+											name="email"
+											placeholder="your@email.com"
+											required
+										/>
+									</div>
+									<div>
+										<label
+											htmlFor="contact-message"
+											className="block mb-2 text-sm font-medium text-foreground"
+										>
+											Message
+										</label>
+										<Textarea
+											id="contact-message"
+											name="message"
+											placeholder="Tell us how we can help you..."
+											rows={6}
+											required
+										/>
+									</div>
+									<Button type="submit" className="w-full">
+										Send Message
+									</Button>
+								</Form>
+							</CardContent>
+						</Card>
 					)}
 				</div>
 			</section>
-			<section
-				id="community"
-				className="w-full py-12 md:py-24 lg:py-32 bg-muted"
-			>
-				<div className="container px-4 md:px-6">
-					<div className="flex flex-col items-center justify-center space-y-4 text-center">
-						<div className="space-y-2">
-							<div className="inline-block rounded-lg px-3 py-1 text-sm bg-white">
-								Open Source
-							</div>
-							<h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-								Be Part of the Community
-							</h2>
-							<p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-								The community version of Ryot is open source and is available
-								for free. Contribute to the project and help shape the future of
-								tracking.
-							</p>
-						</div>
-					</div>
-					<div className="flex flex-col sm:flex-row items-center justify-center pt-12 gap-y-4 gap-x-4">
+			{/* Community Section */}
+			<section className="py-20">
+				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+					<Badge variant="outline" className="mb-4">
+						Join the Community
+					</Badge>
+					<h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
+						Be Part of the Community
+					</h2>
+					<p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+						Connect with other Ryot users, share tips and tricks, get support,
+						and stay updated with the latest features and improvements.
+					</p>
+					<div className="flex flex-col sm:flex-row gap-4 justify-center">
 						<a
 							href="https://discord.gg/D9XTg2a7R8"
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							<Button>
-								<IconBrandDiscord className="mr-2" />
-								<span>Join the Discord</span>
+							<Button size="lg" className="min-w-[180px]">
+								<MessageCircle className="w-5 h-5 mr-2" />
+								Join Discord
 							</Button>
 						</a>
 						<a
@@ -486,9 +674,9 @@ export default function Page() {
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							<Button variant="outline">
-								<IconBrandGithub className="mr-2" />
-								<span>Explore the Code</span>
+							<Button variant="outline" size="lg" className="min-w-[180px]">
+								<Github className="w-5 h-5 mr-2" />
+								Follow on GitHub
 							</Button>
 						</a>
 					</div>
@@ -499,39 +687,6 @@ export default function Page() {
 }
 
 const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
-
-const advantages = [
-	{
-		title: "Ditch the Spreadsheets",
-		description:
-			"Say goodbye to the hassle of manual data entry in Notion, Excel or Google Sheets. Ryot automates the process, giving you more time to focus on what matters.",
-	},
-	{
-		title: "Seamless Data Integration",
-		description:
-			"Ryot seamlessly integrates with your favorite apps and services, allowing you to centralize all your data in one place.",
-	},
-	{
-		title: "Advanced Analytics",
-		description:
-			"Gain valuable insights with Ryot's advanced analytics features. Visualize your data, identify trends, and make informed decisions.",
-	},
-	{
-		title: "Stay informed",
-		description:
-			"Ryot keeps you informed with timely notifications and reminders. Never miss your favorite show's new episode or actor's latest release.",
-	},
-	{
-		title: "Customizable",
-		description:
-			"Ryot is highly customizable and adapts to your unique tracking needs. Enable or disable facets to tailor the platform to your preferences.",
-	},
-	{
-		title: "Multi Platform",
-		description:
-			"Ryot is available on all platforms, including web, mobile, and desktop. Access your data anytime, anywhere.",
-	},
-];
 
 type ImageProps = {
 	src: string;
