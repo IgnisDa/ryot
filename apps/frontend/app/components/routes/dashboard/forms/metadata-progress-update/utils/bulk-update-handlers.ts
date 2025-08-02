@@ -6,6 +6,7 @@ import {
 import { isFiniteNumber } from "@ryot/ts-utils";
 import { match } from "ts-pattern";
 import { WatchTimes } from "~/components/routes/dashboard/types";
+import { ShowMarkingMode } from "~/lib/state/media";
 import type { BulkUpdateContext } from "./form-types";
 
 export const createCustomDatesCompletedChange = (params: {
@@ -207,7 +208,7 @@ const handleMangaBulkUpdates = (context: BulkUpdateContext) => {
 const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 	if (
 		context.metadataDetails.lot === MediaLot.Show &&
-		context.metadataToUpdate.showAllEpisodesBefore &&
+		context.metadataToUpdate.showMarkingMode &&
 		context.metadataToUpdate.showSeasonNumber &&
 		context.metadataToUpdate.showEpisodeNumber
 	) {
@@ -217,31 +218,40 @@ const handleShowBulkUpdates = (context: BulkUpdateContext) => {
 				s.episodes.map((e) => ({ seasonNumber: s.seasonNumber, ...e })),
 			) || [];
 
-		const selectedEpisodeIndex = allEpisodesInShow.findIndex(
+		const episodesToConsider =
+			context.metadataToUpdate.showMarkingMode === ShowMarkingMode.Season
+				? allEpisodesInShow.filter(
+						(e) => e.seasonNumber === context.metadataToUpdate.showSeasonNumber,
+					)
+				: allEpisodesInShow;
+
+		const selectedEpisodeIndex = episodesToConsider.findIndex(
 			(e) =>
 				e.seasonNumber === context.metadataToUpdate.showSeasonNumber &&
 				e.episodeNumber === context.metadataToUpdate.showEpisodeNumber,
 		);
 
-		const selectedEpisode = allEpisodesInShow[selectedEpisodeIndex];
-		const firstEpisodeOfShow = allEpisodesInShow[0];
+		const selectedEpisode = episodesToConsider[selectedEpisodeIndex];
+		const firstEpisodeOfShow = episodesToConsider[0];
 		const lastSeenEpisode = latestHistoryItem?.showExtraInformation || {
 			episode: firstEpisodeOfShow?.episodeNumber,
 			season: firstEpisodeOfShow?.seasonNumber,
 		};
 
-		const lastSeenEpisodeIndex = allEpisodesInShow.findIndex(
+		const lastSeenEpisodeIndex = episodesToConsider.findIndex(
 			(e) =>
 				e.seasonNumber === lastSeenEpisode.season &&
 				e.episodeNumber === lastSeenEpisode.episode,
 		);
 
 		const firstEpisodeIndexToMark =
-			lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
+			context.metadataToUpdate.showMarkingMode === ShowMarkingMode.Season
+				? 0
+				: lastSeenEpisodeIndex + (latestHistoryItem ? 1 : 0);
 
 		if (selectedEpisodeIndex > firstEpisodeIndexToMark) {
 			for (let i = firstEpisodeIndexToMark; i < selectedEpisodeIndex; i++) {
-				const currentEpisode = allEpisodesInShow[i];
+				const currentEpisode = episodesToConsider[i];
 				if (
 					currentEpisode.seasonNumber === 0 &&
 					selectedEpisode.seasonNumber !== 0
