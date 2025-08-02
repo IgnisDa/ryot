@@ -316,7 +316,7 @@ async function createEvents(apiClient: APIClient, events: EventPayload[]): Promi
 	}
 }
 
-const literalExpression = (value: unknown | null): SavedViewExpression => ({
+const literalExpression = (value: unknown): SavedViewExpression => ({
 	type: "literal",
 	value,
 });
@@ -573,7 +573,7 @@ async function createSavedView(
 				"expression" in queryDefinition.sort
 					? queryDefinition.sort.expression
 					: (toExpression(
-							normalizeSortFields((queryDefinition.sort as SavedViewSortInput).fields),
+							normalizeSortFields((queryDefinition.sort).fields),
 						) ?? literalExpression(null)),
 		},
 	} satisfies SavedViewQueryDefinition;
@@ -1760,7 +1760,7 @@ async function seedMedia(client: APIClient) {
 					}
 					console.log(`      Search "${searchConfig.query}" page ${page}: ${items.length} results`);
 				} catch (err) {
-					console.log(`      Search page ${page} failed: ${err}`);
+					console.log(`      Search page ${page} failed:`, err);
 				}
 			}
 			console.log(`    Collected ${identifiers.length} unique identifiers from ${provider.name}`);
