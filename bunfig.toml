@@ -1,0 +1,5 @@
+[install]
+# Use hoisted linker so packages are installed as real directories, not symlinks.
+# Bun's default "isolated" linker creates symlinks into node_modules/.bun which
+# Metro bundler cannot resolve (unstable_enableSymlinks is broken in Metro).
+linker = "hoisted"
