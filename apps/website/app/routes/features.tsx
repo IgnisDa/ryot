@@ -1,5 +1,6 @@
 import Autoplay from "embla-carousel-autoplay";
 import {
+	AreaChart,
 	ArrowRight,
 	BarChart3,
 	Bell,
@@ -8,6 +9,7 @@ import {
 	Crown,
 	Dumbbell,
 	Film,
+	FolderHeart,
 	Heart,
 	Lock,
 	LucideAmpersands,
@@ -45,6 +47,7 @@ import {
 	Share2,
 	Sparkles,
 	Target,
+	Users,
 } from "lucide-react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -304,8 +307,8 @@ export default function Page() {
 									comprehensive statistics.
 								</p>
 								<div className="flex items-center text-sm text-green-600">
-									<Crown className="w-4 h-4 mr-1" />
-									Pro Feature
+									<AreaChart className="w-4 h-4 mr-1" />
+									Beautiful charts
 								</div>
 							</CardContent>
 						</Card>
@@ -339,8 +342,8 @@ export default function Page() {
 									members.
 								</p>
 								<div className="flex items-center text-sm text-orange-600">
-									<Crown className="w-4 h-4 mr-1" />
-									Pro Feature
+									<Users className="w-4 h-4 mr-1" />
+									Share with friends
 								</div>
 							</CardContent>
 						</Card>
@@ -358,8 +361,8 @@ export default function Page() {
 									them uniquely yours.
 								</p>
 								<div className="flex items-center text-sm text-red-600">
-									<Crown className="w-4 h-4 mr-1" />
-									Pro Feature
+									<FolderHeart className="w-4 h-4 mr-1" />
+									Custom collections
 								</div>
 							</CardContent>
 						</Card>
