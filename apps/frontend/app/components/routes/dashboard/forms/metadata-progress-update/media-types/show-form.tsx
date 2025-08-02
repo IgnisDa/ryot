@@ -49,8 +49,8 @@ export const ShowForm = (props: MediaFormProps) => {
 					props.metadataDetails.showSpecifics?.seasons
 						.find((s) => s.seasonNumber === metadataToUpdate.showSeasonNumber)
 						?.episodes.map((e) => ({
-							label: `${e.episodeNumber}. ${e.name.toString()}`,
 							value: e.episodeNumber.toString(),
+							label: `${e.episodeNumber}. ${e.name.toString()}`,
 						})) || []
 				}
 			/>
