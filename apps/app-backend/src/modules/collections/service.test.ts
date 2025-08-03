@@ -472,36 +472,24 @@ describe("createCollection", () => {
 
 		const mockRelationship = {
 			id: "rel-1",
-			relType: "collection",
-			createdAt: "2024-01-01T00:00:00Z",
-			sourceEntityId: "collection-1",
-			targetEntityId: "entity-1",
 			properties: {},
-		};
-
-		const mockMemberOfRelationship = {
-			id: "rel-2",
 			relType: "member_of",
-			createdAt: "2024-01-01T00:00:00Z",
 			sourceEntityId: "entity-1",
 			targetEntityId: "collection-1",
-			properties: {},
+			createdAt: "2024-01-01T00:00:00Z",
 		};
 
 		const mockAddToCollectionDeps = {
-			addEntityToCollection: async () => ({
-				collection: mockRelationship,
-				memberOf: mockMemberOfRelationship,
-			}),
-			getCollectionById: async () => mockCollection,
 			getEntityById: async () => mockEntity,
+			getCollectionById: async () => mockCollection,
+			addEntityToCollection: async () => ({ memberOf: mockRelationship }),
 		};
 
 		it("returns validation error when trying to add collection to itself", async () => {
 			const result = await addToCollection(
 				{
-					body: { collectionId: "same-id", entityId: "same-id" },
 					userId: "user-1",
+					body: { collectionId: "same-id", entityId: "same-id" },
 				},
 				mockAddToCollectionDeps,
 			);
@@ -513,22 +501,18 @@ describe("createCollection", () => {
 			}
 		});
 
-		it("adds an entity to a collection and returns both relationships", async () => {
+		it("adds an entity to a collection and returns the membership", async () => {
 			const result = await addToCollection(
 				{
-					body: { collectionId: "collection-1", entityId: "entity-1" },
 					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				mockAddToCollectionDeps,
 			);
 
 			expect("data" in result).toBe(true);
 			if ("data" in result) {
-				expect(result.data.collection.id).toBe("rel-1");
-				expect(result.data.collection.relType).toBe("collection");
-				expect(result.data.collection.sourceEntityId).toBe("collection-1");
-				expect(result.data.collection.targetEntityId).toBe("entity-1");
-				expect(result.data.memberOf.id).toBe("rel-2");
+				expect(result.data.memberOf.id).toBe("rel-1");
 				expect(result.data.memberOf.relType).toBe("member_of");
 				expect(result.data.memberOf.sourceEntityId).toBe("entity-1");
 				expect(result.data.memberOf.targetEntityId).toBe("collection-1");
@@ -536,41 +520,30 @@ describe("createCollection", () => {
 		});
 
 		it("adds an entity with custom properties", async () => {
-			const collectionWithProps = {
-				...mockRelationship,
-				properties: { priority: "high", notes: "Important item" },
-			};
 			const memberOfWithProps = {
-				...mockMemberOfRelationship,
+				...mockRelationship,
 				properties: { priority: "high", notes: "Important item" },
 			};
 
 			const depsWithProps = {
 				...mockAddToCollectionDeps,
-				addEntityToCollection: async () => ({
-					collection: collectionWithProps,
-					memberOf: memberOfWithProps,
-				}),
+				addEntityToCollection: async () => ({ memberOf: memberOfWithProps }),
 			};
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
-						collectionId: "collection-1",
 						entityId: "entity-1",
+						collectionId: "collection-1",
 						properties: { priority: "high", notes: "Important item" },
 					},
-					userId: "user-1",
 				},
 				depsWithProps,
 			);
 
 			expect("data" in result).toBe(true);
 			if ("data" in result) {
-				expect(result.data.collection.properties).toEqual({
-					priority: "high",
-					notes: "Important item",
-				});
 				expect(result.data.memberOf.properties).toEqual({
 					priority: "high",
 					notes: "Important item",
@@ -604,20 +577,14 @@ describe("createCollection", () => {
 				}) => {
 					receivedProperties = input.properties;
 					return {
-						collection: {
-							...mockRelationship,
-							properties: input.properties,
-						},
-						memberOf: {
-							...mockMemberOfRelationship,
-							properties: input.properties,
-						},
+						memberOf: { ...mockRelationship, properties: input.properties },
 					};
 				},
 			};
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
 						collectionId: "collection-1",
 						entityId: "entity-1",
@@ -626,7 +593,6 @@ describe("createCollection", () => {
 							rating: 5,
 						},
 					},
-					userId: "user-1",
 				},
 				depsWithSchema,
 			);
@@ -637,7 +603,7 @@ describe("createCollection", () => {
 				rating: 5,
 			});
 			if ("data" in result) {
-				expect(result.data.collection.properties).toEqual({
+				expect(result.data.memberOf.properties).toEqual({
 					recommendedBy: "John",
 					rating: 5,
 				});
@@ -649,9 +615,7 @@ describe("createCollection", () => {
 				...mockCollection,
 				properties: {
 					membershipPropertiesSchema: {
-						fields: {
-							rating: { type: "integer" },
-						},
+						fields: { rating: { type: "integer" } },
 					},
 				},
 			};
@@ -663,14 +627,12 @@ describe("createCollection", () => {
 
 			const result = await addToCollection(
 				{
-					body: {
-						collectionId: "collection-1",
-						entityId: "entity-1",
-						properties: {
-							rating: "not a number",
-						},
-					},
 					userId: "user-1",
+					body: {
+						entityId: "entity-1",
+						collectionId: "collection-1",
+						properties: { rating: "not a number" },
+					},
 				},
 				depsWithSchema,
 			);
@@ -690,10 +652,7 @@ describe("createCollection", () => {
 				properties: {
 					membershipPropertiesSchema: {
 						fields: {
-							recommendedBy: {
-								type: "string",
-								validation: { required: true },
-							},
+							recommendedBy: { type: "string", validation: { required: true } },
 						},
 					},
 				},
@@ -706,12 +665,12 @@ describe("createCollection", () => {
 
 			const result = await addToCollection(
 				{
-					body: {
-						collectionId: "collection-1",
-						entityId: "entity-1",
-						properties: {},
-					},
 					userId: "user-1",
+					body: {
+						properties: {},
+						entityId: "entity-1",
+						collectionId: "collection-1",
+					},
 				},
 				depsWithRequired,
 			);
@@ -734,10 +693,7 @@ describe("createCollection", () => {
 					properties: {
 						membershipPropertiesSchema: {
 							fields: {
-								rating: {
-									type: "integer",
-									validation: { required: true },
-								},
+								rating: { type: "integer", validation: { required: true } },
 							},
 						},
 					},
@@ -750,12 +706,12 @@ describe("createCollection", () => {
 
 				const result = await addToCollection(
 					{
-						body: {
-							collectionId: "collection-1",
-							entityId: "entity-1",
-							properties: {},
-						},
 						userId: "user-1",
+						body: {
+							properties: {},
+							entityId: "entity-1",
+							collectionId: "collection-1",
+						},
 					},
 					depsWithRequired,
 				);
@@ -771,9 +727,7 @@ describe("createCollection", () => {
 					...mockCollection,
 					properties: {
 						membershipPropertiesSchema: {
-							fields: {
-								score: { type: "integer" },
-							},
+							fields: { score: { type: "integer" } },
 						},
 					},
 				};
@@ -785,12 +739,12 @@ describe("createCollection", () => {
 
 				const result = await addToCollection(
 					{
+						userId: "user-1",
 						body: {
-							collectionId: "collection-1",
 							entityId: "entity-1",
+							collectionId: "collection-1",
 							properties: { score: "not a number" },
 						},
-						userId: "user-1",
 					},
 					depsWithSchema,
 				);
@@ -827,12 +781,12 @@ describe("createCollection", () => {
 
 				const result = await addToCollection(
 					{
-						body: {
-							collectionId: "collection-1",
-							entityId: "entity-1",
-							properties: {},
-						},
 						userId: "user-1",
+						body: {
+							properties: {},
+							entityId: "entity-1",
+							collectionId: "collection-1",
+						},
 					},
 					depsWithMultipleRequired,
 				);
@@ -852,9 +806,7 @@ describe("createCollection", () => {
 							fields: {
 								details: {
 									type: "object",
-									properties: {
-										score: { type: "integer" },
-									},
+									properties: { score: { type: "integer" } },
 								},
 							},
 						},
@@ -868,14 +820,12 @@ describe("createCollection", () => {
 
 				const result = await addToCollection(
 					{
-						body: {
-							collectionId: "collection-1",
-							entityId: "entity-1",
-							properties: {
-								details: { score: "invalid" },
-							},
-						},
 						userId: "user-1",
+						body: {
+							entityId: "entity-1",
+							collectionId: "collection-1",
+							properties: { details: { score: "invalid" } },
+						},
 					},
 					depsWithNestedSchema,
 				);
@@ -888,10 +838,7 @@ describe("createCollection", () => {
 		});
 
 		it("allows any properties when collection has no membershipPropertiesSchema", async () => {
-			const collectionWithoutSchema = {
-				...mockCollection,
-				properties: {},
-			};
+			const collectionWithoutSchema = { ...mockCollection, properties: {} };
 
 			let receivedProperties: Record<string, unknown> | undefined;
 
@@ -899,27 +846,24 @@ describe("createCollection", () => {
 				...mockAddToCollectionDeps,
 				getCollectionById: async () => collectionWithoutSchema,
 				addEntityToCollection: async (input: {
-					collectionId: string;
-					entityId: string;
 					userId: string;
+					entityId: string;
+					collectionId: string;
 					properties: Record<string, unknown>;
 				}) => {
 					receivedProperties = input.properties;
-					return {
-						collection: mockRelationship,
-						memberOf: mockMemberOfRelationship,
-					};
+					return { memberOf: mockRelationship };
 				},
 			};
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
-						collectionId: "collection-1",
 						entityId: "entity-1",
+						collectionId: "collection-1",
 						properties: { anyCustomField: "any value", another: 123 },
 					},
-					userId: "user-1",
 				},
 				depsWithoutSchema,
 			);
@@ -955,55 +899,39 @@ describe("createCollection", () => {
 				...mockAddToCollectionDeps,
 				getCollectionById: async () => collectionWithNestedSchema,
 				addEntityToCollection: async (input: {
-					collectionId: string;
-					entityId: string;
 					userId: string;
+					entityId: string;
+					collectionId: string;
 					properties: Record<string, unknown>;
 				}) => {
 					receivedProperties = input.properties;
 					return {
-						collection: {
-							...mockRelationship,
-							properties: input.properties,
-						},
-						memberOf: {
-							...mockMemberOfRelationship,
-							properties: input.properties,
-						},
+						memberOf: { ...mockRelationship, properties: input.properties },
 					};
 				},
 			};
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
-						collectionId: "collection-1",
 						entityId: "entity-1",
+						collectionId: "collection-1",
 						properties: {
-							recommendationDetails: {
-								friend: "Alice",
-								context: "Work lunch",
-							},
+							recommendationDetails: { friend: "Alice", context: "Work lunch" },
 						},
 					},
-					userId: "user-1",
 				},
 				depsWithNestedSchema,
 			);
 
 			expect("data" in result).toBe(true);
 			expect(receivedProperties).toEqual({
-				recommendationDetails: {
-					friend: "Alice",
-					context: "Work lunch",
-				},
+				recommendationDetails: { friend: "Alice", context: "Work lunch" },
 			});
 			if ("data" in result) {
-				expect(result.data.collection.properties).toEqual({
-					recommendationDetails: {
-						friend: "Alice",
-						context: "Work lunch",
-					},
+				expect(result.data.memberOf.properties).toEqual({
+					recommendationDetails: { friend: "Alice", context: "Work lunch" },
 				});
 			}
 		});
@@ -1033,17 +961,14 @@ describe("createCollection", () => {
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
-						collectionId: "collection-1",
 						entityId: "entity-1",
+						collectionId: "collection-1",
 						properties: {
-							recommendationDetails: {
-								friend: "Alice",
-								score: "not a number",
-							},
+							recommendationDetails: { friend: "Alice", score: "not a number" },
 						},
 					},
-					userId: "user-1",
 				},
 				depsWithNestedSchema,
 			);
@@ -1065,11 +990,11 @@ describe("createCollection", () => {
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
 						collectionId: "collection-1",
 						entityId: "entity-with-invisible-schema",
 					},
-					userId: "user-1",
 				},
 				depsWithInvisibleEntitySchema,
 			);
@@ -1089,8 +1014,8 @@ describe("createCollection", () => {
 
 			const result = await addToCollection(
 				{
-					body: { collectionId: "nonexistent", entityId: "entity-1" },
 					userId: "user-1",
+					body: { collectionId: "nonexistent", entityId: "entity-1" },
 				},
 				depsWithMissingCollection,
 			);
@@ -1129,23 +1054,20 @@ describe("createCollection", () => {
 			const trackingDeps = {
 				...mockAddToCollectionDeps,
 				addEntityToCollection: async (input: {
-					collectionId: string;
-					entityId: string;
 					userId: string;
+					entityId: string;
+					collectionId: string;
 					properties: Record<string, unknown>;
 				}) => {
 					receivedProperties = input.properties;
-					return {
-						collection: mockRelationship,
-						memberOf: mockMemberOfRelationship,
-					};
+					return { memberOf: mockRelationship };
 				},
 			};
 
 			const result = await addToCollection(
 				{
-					body: { collectionId: "collection-1", entityId: "entity-1" },
 					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				trackingDeps,
 			);
@@ -1155,43 +1077,31 @@ describe("createCollection", () => {
 		});
 
 		it("updates existing membership when re-adding same entity to collection", async () => {
-			const updatedRelationship = {
+			const updatedMemberOf = {
 				...mockRelationship,
 				id: "existing-rel-1",
-				properties: { updated: true, newProp: "value" },
-			};
-			const updatedMemberOf = {
-				...mockMemberOfRelationship,
-				id: "existing-rel-2",
 				properties: { updated: true, newProp: "value" },
 			};
 
 			const depsWithUpsert = {
 				...mockAddToCollectionDeps,
-				addEntityToCollection: async () => ({
-					collection: updatedRelationship,
-					memberOf: updatedMemberOf,
-				}),
+				addEntityToCollection: async () => ({ memberOf: updatedMemberOf }),
 			};
 
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
-						collectionId: "collection-1",
 						entityId: "entity-1",
+						collectionId: "collection-1",
 						properties: { updated: true, newProp: "value" },
 					},
-					userId: "user-1",
 				},
 				depsWithUpsert,
 			);
 
 			expect("data" in result).toBe(true);
 			if ("data" in result) {
-				expect(result.data.collection.properties).toEqual({
-					updated: true,
-					newProp: "value",
-				});
 				expect(result.data.memberOf.properties).toEqual({
 					updated: true,
 					newProp: "value",
@@ -1205,18 +1115,15 @@ describe("createCollection", () => {
 				...mockAddToCollectionDeps,
 				addEntityToCollection: async () => {
 					callCount++;
-					return {
-						collection: { ...mockRelationship, id: `rel-${callCount}` },
-						memberOf: { ...mockMemberOfRelationship, id: `rel-${callCount}` },
-					};
+					return { memberOf: { ...mockRelationship, id: `rel-${callCount}` } };
 				},
 			};
 
 			// First add
 			await addToCollection(
 				{
-					body: { collectionId: "collection-1", entityId: "entity-1" },
 					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				depsWithTracking,
 			);
@@ -1224,12 +1131,12 @@ describe("createCollection", () => {
 			// Second add (should update, not create duplicate)
 			const result = await addToCollection(
 				{
+					userId: "user-1",
 					body: {
-						collectionId: "collection-1",
 						entityId: "entity-1",
+						collectionId: "collection-1",
 						properties: { updated: true },
 					},
-					userId: "user-1",
 				},
 				depsWithTracking,
 			);
@@ -1249,8 +1156,8 @@ describe("createCollection", () => {
 			expect(
 				addToCollection(
 					{
-						body: { collectionId: "collection-1", entityId: "entity-1" },
 						userId: "user-1",
+						body: { collectionId: "collection-1", entityId: "entity-1" },
 					},
 					failingDeps,
 				),
@@ -1261,60 +1168,48 @@ describe("createCollection", () => {
 
 describe("removeFromCollection", () => {
 	const mockCollection = {
+		image: null,
+		properties: {},
+		externalId: null,
 		id: "collection-1",
 		name: "My Collection",
-		image: null,
-		externalId: null,
 		createdAt: new Date(),
 		updatedAt: new Date(),
-		entitySchemaId: "schema-1",
-		properties: {},
 		sandboxScriptId: null,
+		entitySchemaId: "schema-1",
 	};
 
 	const mockEntity = { id: "entity-1" };
 
-	const mockRelationship = {
-		id: "rel-1",
-		relType: "collection",
-		createdAt: "2024-01-01T00:00:00Z",
-		sourceEntityId: "collection-1",
-		targetEntityId: "entity-1",
-		properties: {},
-	};
-
 	const mockMemberOfRelationship = {
-		id: "rel-2",
+		id: "rel-1",
+		properties: {},
 		relType: "member_of",
-		createdAt: "2024-01-01T00:00:00Z",
 		sourceEntityId: "entity-1",
 		targetEntityId: "collection-1",
-		properties: {},
+		createdAt: "2024-01-01T00:00:00Z",
 	};
 
 	const mockRemoveFromCollectionDeps = {
-		getCollectionById: async () => mockCollection,
 		getEntityById: async () => mockEntity,
+		getCollectionById: async () => mockCollection,
 		removeEntityFromCollection: async () => ({
-			collection: mockRelationship,
 			memberOf: mockMemberOfRelationship,
 		}),
 	};
 
-	it("removes an entity from a collection and returns the deleted relationships", async () => {
+	it("removes an entity from a collection and returns the deleted membership", async () => {
 		const result = await removeFromCollection(
 			{
-				body: { collectionId: "collection-1", entityId: "entity-1" },
 				userId: "user-1",
+				body: { collectionId: "collection-1", entityId: "entity-1" },
 			},
 			mockRemoveFromCollectionDeps,
 		);
 
 		expect("data" in result).toBe(true);
 		if ("data" in result) {
-			expect(result.data.collection.id).toBe("rel-1");
-			expect(result.data.collection.relType).toBe("collection");
-			expect(result.data.memberOf.id).toBe("rel-2");
+			expect(result.data.memberOf.id).toBe("rel-1");
 			expect(result.data.memberOf.relType).toBe("member_of");
 		}
 	});
@@ -1327,8 +1222,8 @@ describe("removeFromCollection", () => {
 
 		const result = await removeFromCollection(
 			{
-				body: { collectionId: "nonexistent", entityId: "entity-1" },
 				userId: "user-1",
+				body: { collectionId: "nonexistent", entityId: "entity-1" },
 			},
 			depsWithMissingCollection,
 		);
@@ -1348,8 +1243,8 @@ describe("removeFromCollection", () => {
 
 		const result = await removeFromCollection(
 			{
-				body: { collectionId: "collection-1", entityId: "nonexistent" },
 				userId: "user-1",
+				body: { collectionId: "collection-1", entityId: "nonexistent" },
 			},
 			depsWithMissingEntity,
 		);
@@ -1369,11 +1264,11 @@ describe("removeFromCollection", () => {
 
 		const result = await removeFromCollection(
 			{
+				userId: "user-1",
 				body: {
 					collectionId: "collection-1",
 					entityId: "entity-with-invisible-schema",
 				},
-				userId: "user-1",
 			},
 			depsWithInvisibleEntitySchema,
 		);
@@ -1393,8 +1288,8 @@ describe("removeFromCollection", () => {
 
 		const result = await removeFromCollection(
 			{
-				body: { collectionId: "collection-1", entityId: "entity-1" },
 				userId: "user-1",
+				body: { collectionId: "collection-1", entityId: "entity-1" },
 			},
 			depsWithNoMembership,
 		);
@@ -1417,8 +1312,8 @@ describe("removeFromCollection", () => {
 		expect(
 			removeFromCollection(
 				{
-					body: { collectionId: "collection-1", entityId: "entity-1" },
 					userId: "user-1",
+					body: { collectionId: "collection-1", entityId: "entity-1" },
 				},
 				failingDeps,
 			),
