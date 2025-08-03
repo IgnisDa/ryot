@@ -113,9 +113,11 @@ export default function Onboarding() {
 								<InputField
 									value={url}
 									keyboardType="url"
+									returnKeyType="go"
 									autoCorrect={false}
 									autoCapitalize="none"
 									placeholder="https://ryot.yourdomain.com"
+									onSubmitEditing={() => void handleConnect()}
 									onChangeText={(text) => {
 										setUrl(text);
 										setError(null);
