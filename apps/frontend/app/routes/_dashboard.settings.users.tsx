@@ -1,15 +1,13 @@
 import {
 	ActionIcon,
 	Avatar,
-	Box,
+	Badge,
 	Button,
 	Container,
 	CopyButton,
 	Flex,
 	Group,
 	Modal,
-	Paper,
-	SimpleGrid,
 	Stack,
 	Switch,
 	Text,
@@ -36,9 +34,9 @@ import {
 	IconTrash,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
-import { forwardRef, useState } from "react";
+import { DataTable } from "mantine-datatable";
+import { useState } from "react";
 import { redirect, useLoaderData, useRevalidator } from "react-router";
-import { VirtuosoGrid } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { z } from "zod";
 import { DebouncedSearchInput } from "~/components/common/filters";
@@ -98,6 +96,97 @@ export const meta = () => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
+const UserInvitationModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	onSuccess: (data: UrlDisplayData) => void;
+}) => {
+	const coreDetails = useCoreDetails();
+	const revalidator = useRevalidator();
+	const [username, setUsername] = useState("");
+
+	const handleClose = () => {
+		setUsername("");
+		props.onClose();
+	};
+
+	const handleCreateInvitation = () => {
+		if (username.trim()) {
+			createInvitationMutation.mutate(username.trim());
+		}
+	};
+
+	const createInvitationMutation = useMutation({
+		mutationFn: async (username: string) => {
+			const { createUserInvitation } = await clientGqlService.request(
+				CreateUserInvitationDocument,
+				{ username },
+			);
+			const url = createPasswordChangeUrl(
+				coreDetails.frontend.url,
+				createUserInvitation.sessionId,
+			);
+			return { ...createUserInvitation, invitationUrl: url };
+		},
+		onSuccess: (createUserInvitation) => {
+			showSuccessNotification("User invitation created successfully");
+			revalidator.revalidate();
+			props.onSuccess({
+				title: "User Invitation Created",
+				url: createUserInvitation.invitationUrl,
+				description: "Share this URL with the user to set their password",
+			});
+			handleClose();
+		},
+		onError: () => showErrorNotification("Failed to create user invitation"),
+	});
+
+	return (
+		<Modal
+			centered
+			opened={props.opened}
+			onClose={handleClose}
+			title="Create User Invitation"
+		>
+			<Stack>
+				<TextInput
+					required
+					autoFocus
+					value={username}
+					label="Username"
+					onChange={(e) => setUsername(e.currentTarget.value)}
+				/>
+				{createInvitationMutation.data?.invitationUrl && (
+					<TextInput
+						readOnly
+						label="Invitation URL"
+						value={createInvitationMutation.data.invitationUrl}
+						description="Share this URL with the user to set their password"
+						rightSection={
+							<CopyButton value={createInvitationMutation.data.invitationUrl}>
+								{({ copy }) => (
+									<ActionIcon onClick={copy}>
+										<IconCopy size={16} />
+									</ActionIcon>
+								)}
+							</CopyButton>
+						}
+					/>
+				)}
+				{!createInvitationMutation.data?.invitationUrl && (
+					<Button
+						disabled={!username.trim()}
+						onClick={handleCreateInvitation}
+						loading={createInvitationMutation.isPending}
+					>
+						Create Invitation
+					</Button>
+				)}
+			</Stack>
+		</Modal>
+	);
+};
+
 const UrlDisplayModal = (
 	props: {
 		opened: boolean;
@@ -135,54 +224,21 @@ const UrlDisplayModal = (
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
 	const [
 		registerUserModalOpened,
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
 	] = useDisclosure(false);
-	const [username, setUsername] = useState("");
 	const [urlDisplayData, setUrlDisplayData] = useState<UrlDisplayData | null>(
 		null,
 	);
-
-	const handleCloseRegisterModal = () => {
-		setUsername("");
-		closeRegisterUserModal();
-	};
 
 	const handleCloseUrlDisplayModal = () => {
 		setUrlDisplayData(null);
 	};
 
-	const handleCreateInvitation = () => {
-		if (username.trim()) {
-			createInvitationMutation.mutate(username.trim());
-		}
+	const handleInvitationSuccess = (data: UrlDisplayData) => {
+		setUrlDisplayData(data);
 	};
-
-	const createInvitationMutation = useMutation({
-		mutationFn: async (username: string) => {
-			const { createUserInvitation } = await clientGqlService.request(
-				CreateUserInvitationDocument,
-				{ username },
-			);
-			const url = createPasswordChangeUrl(
-				coreDetails.frontend.url,
-				createUserInvitation.sessionId,
-			);
-			return { ...createUserInvitation, invitationUrl: url };
-		},
-		onSuccess: (createUserInvitation) => {
-			showSuccessNotification("User invitation created successfully");
-			setUrlDisplayData({
-				title: "User Invitation Created",
-				url: createUserInvitation.invitationUrl,
-				description: "Share this URL with the user to set their password",
-			});
-			handleCloseRegisterModal();
-		},
-		onError: () => showErrorNotification("Failed to create user invitation"),
-	});
 
 	return (
 		<Container size="lg">
@@ -197,66 +253,81 @@ export default function Page() {
 						<IconPlus size={20} />
 					</ActionIcon>
 				</Flex>
-				<Modal
-					centered
-					title="Create User Invitation"
+				<UserInvitationModal
 					opened={registerUserModalOpened}
-					onClose={handleCloseRegisterModal}
-				>
-					<Stack>
-						<TextInput
-							required
-							autoFocus
-							value={username}
-							label="Username"
-							onChange={(e) => setUsername(e.currentTarget.value)}
-						/>
-						{createInvitationMutation.data?.invitationUrl && (
-							<TextInput
-								readOnly
-								label="Invitation URL"
-								value={createInvitationMutation.data.invitationUrl}
-								description="Share this URL with the user to set their password"
-								rightSection={
-									<CopyButton
-										value={createInvitationMutation.data.invitationUrl}
-									>
-										{({ copy }) => (
-											<ActionIcon onClick={copy}>
-												<IconCopy size={16} />
-											</ActionIcon>
-										)}
-									</CopyButton>
-								}
-							/>
-						)}
-						{!createInvitationMutation.data?.invitationUrl && (
-							<Button
-								disabled={!username.trim()}
-								onClick={handleCreateInvitation}
-								loading={createInvitationMutation.isPending}
-							>
-								Create Invitation
-							</Button>
-						)}
-					</Stack>
-				</Modal>
+					onClose={closeRegisterUserModal}
+					onSuccess={handleInvitationSuccess}
+				/>
 				<DebouncedSearchInput
 					placeholder="Search by name or ID"
 					initialValue={loaderData.query.query}
 					enhancedQueryParams={loaderData.cookieName}
 				/>
-				<VirtuosoGrid
-					style={{ height: "70vh" }}
-					totalCount={loaderData.usersList.length}
-					itemContent={(index) => (
-						<UserDisplay index={index} setUrlDisplayData={setUrlDisplayData} />
-					)}
-					components={{
-						List: forwardRef((props, ref) => (
-							<SimpleGrid ref={ref} {...props} cols={{ md: 2, xl: 3 }} />
-						)),
-					}}
+				<DataTable
+					height={600}
+					borderRadius="sm"
+					withColumnBorders
+					withTableBorder={false}
+					records={loaderData.usersList}
+					columns={[
+						{
+							width: 250,
+							accessor: "name",
+							title: "User",
+							render: ({ name }) => (
+								<Group wrap="nowrap">
+									<Avatar name={name} size="sm" />
+									<Text fw="bold">{name}</Text>
+								</Group>
+							),
+						},
+						{
+							width: 200,
+							accessor: "id",
+							title: "User ID",
+							render: ({ id }) => (
+								<Text size="sm" c="dimmed">
+									{truncate(id, { length: 20 })}
+								</Text>
+							),
+						},
+						{
+							width: 100,
+							accessor: "lot",
+							title: "Role",
+							render: ({ lot }) => (
+								<Badge size="sm" variant="light">
+									{changeCase(lot)}
+								</Badge>
+							),
+						},
+						{
+							width: 100,
+							accessor: "isDisabled",
+							title: "Status",
+							render: ({ isDisabled }) => (
+								<Badge
+									size="sm"
+									color={isDisabled ? "red" : "green"}
+									variant="light"
+								>
+									{isDisabled ? "Disabled" : "Active"}
+								</Badge>
+							),
+						},
+						{
+							width: 150,
+							accessor: "actions",
+							title: "Actions",
+							textAlign: "center",
+							render: (user) => (
+								<UserActions
+									user={user}
+									setUrlDisplayData={setUrlDisplayData}
+								/>
+							),
+						},
+					]}
 				/>
 				<UrlDisplayModal
 					opened={urlDisplayData !== null}
@@ -272,12 +343,10 @@ export default function Page() {
 
 type User = UsersListQuery["usersList"][number];
 
-const UserDisplay = (props: {
-	index: number;
+const UserActions = (props: {
+	user: User;
 	setUrlDisplayData: (data: UrlDisplayData) => void;
 }) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const user = loaderData.usersList[props.index];
 	const revalidator = useRevalidator();
 	const coreDetails = useCoreDetails();
 	const [updateUserData, setUpdateUserData] = useState<User | null>(null);
@@ -332,64 +401,48 @@ const UserDisplay = (props: {
 		onError: () => showErrorNotification("Failed to reset user"),
 	});
 
-	if (!user) return null;
-
 	return (
-		<Paper p="xs" withBorder key={user.id} data-user-id={user.id}>
+		<>
 			<UpdateUserModal
 				updateUserData={updateUserData}
 				closeUpdateUserDataModal={() => setUpdateUserData(null)}
 			/>
-			<Flex align="center" justify="space-between">
-				<Group wrap="nowrap">
-					<Avatar name={user.name} />
-					<Box>
-						<Text lineClamp={1} fw="bold">
-							{truncate(user.name, { length: 20 })}
-						</Text>
-						<Text size="xs">
-							Role: {changeCase(user.lot)}
-							{user.isDisabled ? ", Status: Disabled" : null}
-						</Text>
-					</Box>
-				</Group>
-				<Group gap={4}>
-					<ActionIcon
-						color="indigo"
-						variant="subtle"
-						onClick={() => setUpdateUserData(user)}
-					>
-						<IconPencil />
-					</ActionIcon>
-					<ActionIcon
-						color="orange"
-						variant="subtle"
-						loading={resetUserMutation.isPending}
-						onClick={() => {
-							openConfirmationModal(
-								"Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.",
-								() => resetUserMutation.mutate(user.id),
-							);
-						}}
-					>
-						<IconRotateClockwise />
-					</ActionIcon>
-					<ActionIcon
-						color="red"
-						variant="subtle"
-						loading={deleteUserMutation.isPending}
-						onClick={() => {
-							openConfirmationModal(
-								"Are you sure you want to delete this user?",
-								() => deleteUserMutation.mutate(user.id),
-							);
-						}}
-					>
-						<IconTrash />
-					</ActionIcon>
-				</Group>
-			</Flex>
-		</Paper>
+			<Group justify="center">
+				<ActionIcon
+					color="indigo"
+					variant="subtle"
+					onClick={() => setUpdateUserData(props.user)}
+				>
+					<IconPencil size={18} />
+				</ActionIcon>
+				<ActionIcon
+					color="orange"
+					variant="subtle"
+					loading={resetUserMutation.isPending}
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.",
+							() => resetUserMutation.mutate(props.user.id),
+						);
+					}}
+				>
+					<IconRotateClockwise size={18} />
+				</ActionIcon>
+				<ActionIcon
+					color="red"
+					variant="subtle"
+					loading={deleteUserMutation.isPending}
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to delete this user?",
+							() => deleteUserMutation.mutate(props.user.id),
+						);
+					}}
+				>
+					<IconTrash size={18} />
+				</ActionIcon>
+			</Group>
+		</>
 	);
 };
 
