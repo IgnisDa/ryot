@@ -158,6 +158,28 @@ export const buildMembershipFormSchema = (
 				});
 			}
 
+			// Validate required string fields are not empty
+			for (const [key, propertyDef] of Object.entries(schema.fields)) {
+				if (
+					isPrimitiveProperty(propertyDef) &&
+					isAppPropertyRequired(propertyDef) &&
+					propertyDef.type === "string"
+				) {
+					const fieldValue = value.properties[key];
+					if (
+						fieldValue === undefined ||
+						fieldValue === null ||
+						(typeof fieldValue === "string" && fieldValue.trim() === "")
+					) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["properties", key],
+							message: `${propertyDef.label || key} is required`,
+						});
+					}
+				}
+			}
+
 			const result = buildMembershipPropertiesSchema(schema).safeParse(
 				value.properties,
 			);
