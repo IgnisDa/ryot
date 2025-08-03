@@ -2,13 +2,18 @@ use std::sync::Arc;
 
 use anyhow::{Result, bail};
 use common_utils::generate_session_id;
-use database_utils::user_by_id;
+use database_utils::{admin_account_guard, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput,
     UserPasswordChangeSessionInput, UserPasswordChangeSessionValue,
 };
+use media_models::{
+    AuthUserInput, PasswordUserInput, RegisterResult, RegisterUserInput, UserInvitationResponse,
+};
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
+
+use crate::user_management_operations;
 
 pub async fn generate_password_change_session(
     ss: &Arc<SupportingService>,
@@ -58,4 +63,33 @@ pub async fn set_password_via_session(
 
     cache_service::expire_key(ss, ExpireCacheKeyInput::ById(cache_id)).await?;
     Ok(true)
+}
+
+pub async fn create_user_invitation(
+    ss: &Arc<SupportingService>,
+    admin_user_id: String,
+    username: String,
+) -> Result<UserInvitationResponse> {
+    admin_account_guard(&admin_user_id, ss).await?;
+
+    let register_input = RegisterUserInput {
+        data: AuthUserInput::Password(PasswordUserInput {
+            username,
+            password: String::new(),
+        }),
+        user_id: None,
+        admin_access_token: Some(ss.config.server.admin_access_token.clone()),
+    };
+
+    let register_result = user_management_operations::register_user(ss, register_input).await?;
+    match register_result {
+        RegisterResult::Ok(user) => {
+            let session_id = generate_password_change_session(ss, user.id.clone()).await?;
+            Ok(UserInvitationResponse {
+                user_id: user.id,
+                session_id,
+            })
+        }
+        RegisterResult::Error(_) => bail!("Failed to create user invitation"),
+    }
 }

@@ -62,8 +62,8 @@ pub enum RegisterResult {
 
 #[derive(Debug, SimpleObject)]
 pub struct UserResetResponse {
-    pub id: String,
-    pub password: Option<String>,
+    pub user_id: String,
+    pub session_id: Option<String>,
 }
 
 #[derive(Union)]
@@ -190,4 +190,17 @@ pub struct VerifyTwoFactorError {
 pub enum VerifyTwoFactorResult {
     Ok(ApiKeyResponse),
     Error(VerifyTwoFactorError),
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct UserInvitationResponse {
+    pub user_id: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct SetPasswordViaSessionInput {
+    #[graphql(secret)]
+    pub password: String,
+    pub session_id: String,
 }

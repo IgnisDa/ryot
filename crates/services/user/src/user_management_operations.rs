@@ -24,7 +24,7 @@ use supporting_service::SupportingService;
 use user_models::UpdateUserInput;
 use user_models::UserPreferences;
 
-use crate::user_data_operations;
+use crate::{password_change_operations, user_data_operations};
 
 pub async fn update_user(
     ss: &Arc<SupportingService>,
@@ -43,9 +43,6 @@ pub async fn update_user(
         .into_active_model();
     if let Some(n) = input.username {
         user_obj.name = ActiveValue::Set(n);
-    }
-    if let Some(p) = input.password {
-        user_obj.password = ActiveValue::Set(Some(p));
     }
     if let Some(l) = input.lot {
         user_obj.lot = ActiveValue::Set(l);
@@ -97,19 +94,14 @@ pub async fn reset_user(
 
     user_to_reset.delete(&ss.db).await?;
 
-    let new_password = match original_oidc_issuer_id {
-        Some(_) => None,
-        None => Some(nanoid!(12)),
-    };
-
     let auth_input = match original_oidc_issuer_id {
-        Some(issuer_id) => AuthUserInput::Oidc(OidcUserInput {
-            issuer_id,
+        Some(ref issuer_id) => AuthUserInput::Oidc(OidcUserInput {
             email: original_name,
+            issuer_id: issuer_id.clone(),
         }),
         None => AuthUserInput::Password(PasswordUserInput {
             username: original_name,
-            password: new_password.clone().unwrap_or_default(),
+            password: String::new(),
         }),
     };
 
@@ -125,9 +117,19 @@ pub async fn reset_user(
         RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
         RegisterResult::Ok(result) => {
             ryot_log!(debug, "User reset with id {:?}", result.id);
+            let session_id = match original_oidc_issuer_id {
+                Some(_) => None,
+                None => Some(
+                    password_change_operations::generate_password_change_session(
+                        ss,
+                        result.id.clone(),
+                    )
+                    .await?,
+                ),
+            };
             Ok(UserResetResult::Ok(UserResetResponse {
-                id: result.id,
-                password: new_password,
+                user_id: result.id,
+                session_id,
             }))
         }
     }

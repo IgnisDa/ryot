@@ -113,7 +113,8 @@ mutation ResetUser($toResetUserId: String!) {
 	resetUser(toResetUserId: $toResetUserId) {
 		__typename
 		... on UserResetResponse {
-			password
+			userId
+			sessionId
 		}
 	}
 }
@@ -301,4 +302,19 @@ mutation RegenerateTwoFactorBackupCodes {
 	regenerateTwoFactorBackupCodes {
 		backupCodes
 	}
+}
+
+mutation GeneratePasswordChangeSession {
+	generatePasswordChangeSession
+}
+
+mutation CreateUserInvitation($username: String!) {
+	createUserInvitation(username: $username) {
+		userId
+		sessionId
+	}
+}
+
+mutation SetPasswordViaSession($input: SetPasswordViaSessionInput!) {
+	setPasswordViaSession(input: $input)
 }

@@ -501,8 +501,6 @@ pub struct UserTwoFactorInformation {
 pub struct UpdateUserInput {
     pub user_id: String,
     pub lot: Option<UserLot>,
-    #[graphql(secret)]
-    pub password: Option<String>,
     pub username: Option<String>,
     pub is_disabled: Option<bool>,
     pub admin_access_token: Option<String>,

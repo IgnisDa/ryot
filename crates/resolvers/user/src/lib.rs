@@ -9,10 +9,10 @@ use dependent_models::{
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
-    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
-    VerifyTwoFactorResult,
+    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, SetPasswordViaSessionInput,
+    UpdateUserNotificationPlatformInput, UserInvitationResponse, UserResetResult,
+    UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse, UserTwoFactorSetupInput,
+    UserTwoFactorVerifyInput, VerifyTwoFactorResult,
 };
 use traits::AuthProvider;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -362,6 +362,37 @@ impl UserMutation {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let session_id = self.user_session_id_from_ctx(gql_ctx)?;
         let response = service.logout_user(session_id).await?;
+        Ok(response)
+    }
+
+    /// Generate a password change session for the currently logged in user.
+    async fn generate_password_change_session(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.generate_password_change_session(user_id).await?;
+        Ok(response)
+    }
+
+    /// Create a new user invitation. The account creating the invitation must be an `Admin`.
+    async fn create_user_invitation(
+        &self,
+        gql_ctx: &Context<'_>,
+        username: String,
+    ) -> Result<UserInvitationResponse> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.create_user_invitation(user_id, username).await?;
+        Ok(response)
+    }
+
+    /// Set password using a valid session ID (non-authenticated route).
+    async fn set_password_via_session(
+        &self,
+        gql_ctx: &Context<'_>,
+        input: SetPasswordViaSessionInput,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let response = service.set_password_via_session(input).await?;
         Ok(response)
     }
 }

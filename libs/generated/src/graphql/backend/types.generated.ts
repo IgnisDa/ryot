@@ -1422,6 +1422,8 @@ export type MutationRoot = {
   createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
   createReviewComment: Scalars['Boolean']['output'];
+  /** Create a new user invitation. The account creating the invitation must be an `Admin`. */
+  createUserInvitation: UserInvitationResponse;
   /** Create a user measurement. */
   createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
@@ -1479,6 +1481,8 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
+  /** Generate a password change session for the currently logged in user. */
+  generatePasswordChangeSession: Scalars['Boolean']['output'];
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
@@ -1514,6 +1518,8 @@ export type MutationRoot = {
   resetUser: UserResetResult;
   /** Revoke an access link. */
   revokeAccessLink: Scalars['Boolean']['output'];
+  /** Set password using a valid session ID (non-authenticated route). */
+  setPasswordViaSession: Scalars['Boolean']['output'];
   /** Test all notification platforms for the currently logged in user. */
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
@@ -1584,6 +1590,11 @@ export type MutationRootCreateOrUpdateUserWorkoutTemplateArgs = {
 
 export type MutationRootCreateReviewCommentArgs = {
   input: CreateReviewCommentInput;
+};
+
+
+export type MutationRootCreateUserInvitationArgs = {
+  username: Scalars['String']['input'];
 };
 
 
@@ -1737,6 +1748,11 @@ export type MutationRootResetUserArgs = {
 
 export type MutationRootRevokeAccessLinkArgs = {
   accessLinkId: Scalars['String']['input'];
+};
+
+
+export type MutationRootSetPasswordViaSessionArgs = {
+  input: SetPasswordViaSessionInput;
 };
 
 
@@ -2345,6 +2361,11 @@ export enum SetLot {
   WarmUp = 'WARM_UP'
 }
 
+export type SetPasswordViaSessionInput = {
+  password: Scalars['String']['input'];
+  sessionId: Scalars['String']['input'];
+};
+
 export type SetRestTimersSettings = {
   __typename?: 'SetRestTimersSettings';
   drop?: Maybe<Scalars['Int']['output']>;
@@ -2478,7 +2499,6 @@ export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
-  password?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
 };
@@ -2732,6 +2752,12 @@ export type UserGeneralWatchProviderInput = {
   values: Array<Scalars['String']['input']>;
 };
 
+export type UserInvitationResponse = {
+  __typename?: 'UserInvitationResponse';
+  sessionId: Scalars['String']['output'];
+  userId: Scalars['String']['output'];
+};
+
 export enum UserLot {
   Admin = 'ADMIN',
   Normal = 'NORMAL'
@@ -2940,8 +2966,8 @@ export type UserPreferencesInput = {
 
 export type UserResetResponse = {
   __typename?: 'UserResetResponse';
-  id: Scalars['String']['output'];
-  password?: Maybe<Scalars['String']['output']>;
+  sessionId?: Maybe<Scalars['String']['output']>;
+  userId: Scalars['String']['output'];
 };
 
 export type UserResetResult = RegisterError | UserResetResponse;
