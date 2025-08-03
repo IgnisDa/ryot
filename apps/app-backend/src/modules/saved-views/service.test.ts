@@ -45,7 +45,7 @@ describe("createSavedView", () => {
 		let validated = false;
 		let createdName: string | undefined;
 		const deps = createSavedViewDeps({
-			prepareForValidation: () => {
+			loadAndValidateQueryContext: () => {
 				validated = true;
 				return Promise.resolve();
 			},
@@ -73,7 +73,7 @@ describe("createSavedView", () => {
 	it("returns validation before persisting an invalid definition", async () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
-			prepareForValidation: () => {
+			loadAndValidateQueryContext: () => {
 				throw new QueryEngineValidationError("Invalid filter predicate");
 			},
 			createSavedViewForUser: () => {
@@ -93,7 +93,7 @@ describe("createSavedView", () => {
 
 	it("rethrows unexpected validation failures", () => {
 		const deps = createSavedViewDeps({
-			prepareForValidation: () => {
+			loadAndValidateQueryContext: () => {
 				throw new Error("Database connection lost");
 			},
 		});
@@ -106,7 +106,7 @@ describe("createSavedView", () => {
 	it("returns validation before persisting unsupported saved view query modes", async () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
-			prepareForValidation: () => {
+			loadAndValidateQueryContext: () => {
 				throw new QueryEngineValidationError(
 					"Saved view display configuration only supports entity mode queries",
 				);
@@ -153,7 +153,7 @@ describe("updateSavedView", () => {
 		let wasPersisted = false;
 		const deps = createSavedViewDeps({
 			getSavedViewBySlugForUser: () => Promise.resolve(createListedSavedView()),
-			prepareForValidation: () => {
+			loadAndValidateQueryContext: () => {
 				throw new QueryEngineValidationError("Invalid sort expression");
 			},
 			updateSavedViewBySlugForUser: () => {
@@ -182,7 +182,7 @@ describe("updateSavedView", () => {
 		let validated = false;
 		let currentTrackerId: string | null | undefined;
 		const deps = createSavedViewDeps({
-			prepareForValidation: () => {
+			loadAndValidateQueryContext: () => {
 				validated = true;
 				return Promise.resolve();
 			},

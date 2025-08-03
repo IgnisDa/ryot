@@ -27,6 +27,20 @@ export type QueryEngineEventJoinLike<
 	eventSchemaMap: Map<string, TEventSchema>;
 };
 
+export type QueryEngineRelationshipJoinEntitySchemaSide = {
+	slug: string;
+	propertiesSchema: AppSchema;
+};
+
+export type QueryEngineRelationshipJoinLike = {
+	key: string;
+	kind: "latestRelationship";
+	propertiesSchema: AppSchema;
+	relationshipSchemaSlug: string;
+	sourceEntitySchema?: QueryEngineRelationshipJoinEntitySchemaSide;
+	targetEntitySchema?: QueryEngineRelationshipJoinEntitySchemaSide;
+};
+
 // Partial override map for entity SQL column names. Used in events mode where
 // entity data is stored under prefixed column names to avoid conflicts with the
 // event row's own columns (e.g., `entity_properties` instead of `properties`).
@@ -40,12 +54,14 @@ export type EntityColumnOverrides = {
 export type QueryEngineReferenceContext<
 	TSchema extends QueryEngineSchemaLike = QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike = QueryEngineEventJoinLike,
+	TRelationshipJoin extends QueryEngineRelationshipJoinLike = QueryEngineRelationshipJoinLike,
 > = {
 	userId?: string;
 	supportsPrimaryEventRefs?: boolean;
 	requirePrimaryEventSchemaSlug?: boolean;
 	schemaMap: Map<string, TSchema>;
 	eventJoinMap: Map<string, TJoin>;
+	relationshipJoinMap?: Map<string, TRelationshipJoin>;
 	eventSchemaSlugs?: ReadonlySet<string>;
 	entityColumnOverrides?: EntityColumnOverrides;
 	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
@@ -136,7 +152,28 @@ const sharedEventRuntimeColumns = {
 
 const eventJoinColumns = sharedEventRuntimeColumns;
 
-const eventRuntimeColumns = sharedEventRuntimeColumns;
+const relationshipJoinColumns = {
+	id: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("ID", "string", "Relationship id"),
+	},
+	createdAt: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("Created At", "datetime", "Relationship creation timestamp"),
+	},
+	sourceEntityId: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("Source Entity ID", "string", "Source entity id"),
+	},
+	targetEntityId: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("Target Entity ID", "string", "Target entity id"),
+	},
+} satisfies Record<string, RuntimeColumnConfig>;
 
 const eventSchemaRuntimeColumns = {
 	id: {
@@ -277,6 +314,16 @@ export const getEventJoinColumnPropertyType = (column: string): PropertyType | n
 	return getEventJoinColumnPropertyDefinition(column)?.type ?? null;
 };
 
+export const getRelationshipJoinColumnPropertyDefinition = (
+	column: string,
+): AppPropertyDefinition | null => {
+	return getRuntimeColumnConfig(relationshipJoinColumns, column)?.property ?? null;
+};
+
+export const getRelationshipJoinColumnPropertyType = (column: string): PropertyType | null => {
+	return getRelationshipJoinColumnPropertyDefinition(column)?.type ?? null;
+};
+
 const formatEventJoinReferencePrefix = (joinKey: string) => `event.${joinKey}`;
 
 export const serializeComparablePropertyDefinition = (property: AppPropertyDefinition): string => {
@@ -386,6 +433,59 @@ export const getEventJoinForReference = <TJoin extends QueryEngineEventJoinLike>
 	return foundJoin;
 };
 
+const formatRelationshipJoinReferencePrefix = (joinKey: string) => `relationship.${joinKey}`;
+
+export const getRelationshipJoinForReference = <TJoin extends QueryEngineRelationshipJoinLike>(
+	relationshipJoinMap: Map<string, TJoin>,
+	reference: Extract<RuntimeRef, { type: "relationship-join" }>,
+): TJoin => {
+	const foundJoin = relationshipJoinMap.get(reference.joinKey);
+	if (!foundJoin) {
+		throw new QueryEngineValidationError(
+			`Relationship join '${formatRelationshipJoinReferencePrefix(reference.joinKey)}' is not part of this runtime request`,
+		);
+	}
+
+	return foundJoin;
+};
+
+export const getRelationshipJoinPropertyDefinition = (
+	join: QueryEngineRelationshipJoinLike,
+	propertyPath: string[],
+): AppPropertyDefinition => {
+	const propertyDefinition = getPropertyDefinition(
+		{ slug: join.relationshipSchemaSlug, propertiesSchema: join.propertiesSchema },
+		propertyPath,
+	);
+	if (!propertyDefinition) {
+		throw new QueryEngineValidationError(
+			`Property '${propertyPath.join(".")}' not found in relationship schema '${join.relationshipSchemaSlug}' for join '${join.key}'`,
+		);
+	}
+
+	return propertyDefinition;
+};
+
+export const getRelationshipJoinPropertyType = (
+	join: QueryEngineRelationshipJoinLike,
+	propertyPath: string[],
+): PropertyType => {
+	return getRelationshipJoinPropertyDefinition(join, propertyPath).type;
+};
+
+export const getRelationshipJoinEntitySchema = (
+	join: QueryEngineRelationshipJoinLike,
+	entitySide: "sourceEntity" | "targetEntity",
+): QueryEngineRelationshipJoinEntitySchemaSide | undefined => {
+	return entitySide === "sourceEntity" ? join.sourceEntitySchema : join.targetEntitySchema;
+};
+
+export const buildRelationshipJoinMap = <TJoin extends { key: string }>(
+	joins: TJoin[],
+): Map<string, TJoin> => {
+	return new Map(joins.map((join) => [join.key, join]));
+};
+
 export const getEventJoinPropertyDefinition = (
 	join: QueryEngineEventJoinLike,
 	propertyPath: string[],
@@ -449,7 +549,7 @@ export const getEventJoinPropertyType = (
 };
 
 export const getEventColumnPropertyDefinition = (column: string): AppPropertyDefinition | null => {
-	return getRuntimeColumnConfig(eventRuntimeColumns, column)?.property ?? null;
+	return getRuntimeColumnConfig(sharedEventRuntimeColumns, column)?.property ?? null;
 };
 
 export const getEventColumnPropertyType = (column: string): PropertyType | null => {
@@ -467,11 +567,11 @@ export const getEventSchemaColumnPropertyType = (column: string): PropertyType |
 };
 
 export const eventSortFilterBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(eventRuntimeColumns).map(([key]) => key),
+	Object.entries(sharedEventRuntimeColumns).map(([key]) => key),
 );
 
 export const eventDisplayBuiltins: ReadonlySet<string> = new Set(
-	Object.entries(eventRuntimeColumns).map(([key]) => key),
+	Object.entries(sharedEventRuntimeColumns).map(([key]) => key),
 );
 
 export const eventSchemaSortFilterBuiltins: ReadonlySet<string> = new Set(

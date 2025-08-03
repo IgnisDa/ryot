@@ -2,7 +2,7 @@ import type { EntityImage } from "@/lib/entity-image";
 
 import type { EntityDetail } from "./types";
 
-const img = (url: string): EntityImage => ({ kind: "remote", url });
+const img = (url: string): EntityImage => ({ type: "remote", url });
 
 // Image sources:
 //   book, comic-book, audiobook → Open Library / Apple Books

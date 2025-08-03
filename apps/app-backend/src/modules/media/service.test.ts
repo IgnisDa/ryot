@@ -7,6 +7,7 @@ import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/view
 import type {
 	AggregateQueryEngineRequest,
 	EventsQueryEngineRequest,
+	QueryEngineAggregateResponseData,
 	QueryEngineResponse,
 	ResolvedDisplayValue,
 	TimeSeriesQueryEngineRequest,
@@ -34,7 +35,7 @@ const makeSectionItem = (opts: {
 	name: string;
 	fields?: SectionField[];
 	entitySchemaSlug: string;
-	image?: { kind: "remote"; url: string } | null;
+	image?: { type: "remote"; url: string } | null;
 }) => [
 	{ key: "entityId", kind: "text" as const, value: opts.id },
 	{ key: "entityName", kind: "text" as const, value: opts.name },
@@ -906,6 +907,12 @@ describe("getWeekActivity", () => {
 								date: monday.add(i, "day").toISOString(),
 								value: i === 1 ? 2 : i === 4 ? 1 : 0,
 							})),
+							meta: {
+								alignedDateRange: {
+									startAt: monday.toISOString(),
+									endAt: monday.add(7, "day").toISOString(),
+								},
+							},
 						},
 					}),
 			}),
@@ -934,7 +941,12 @@ describe("getWeekActivity", () => {
 				}
 				return Promise.resolve({
 					mode: "timeSeries" as const,
-					data: { buckets: [] },
+					data: {
+						buckets: [],
+						meta: {
+							alignedDateRange: { endAt: "2024-01-01T00:00:00Z", startAt: "2024-01-01T00:00:00Z" },
+						},
+					},
 				});
 			},
 		});
@@ -972,11 +984,8 @@ describe("getWeekActivity", () => {
 });
 
 const makeAggregateResult = (
-	values: Array<ResolvedDisplayValue & { key: string }>,
-): QueryEngineResponse => ({
-	mode: "aggregate" as const,
-	data: { values },
-});
+	values: QueryEngineAggregateResponseData["values"],
+): QueryEngineResponse => ({ data: { values }, mode: "aggregate" as const });
 
 describe("getLibraryStats", () => {
 	it("maps aggregate response values to library stats shape", async () => {
@@ -1060,8 +1069,8 @@ describe("getLibraryStats", () => {
 			"inBacklog",
 			"inProgress",
 			"completed",
-			"avgRating",
 			"bySchema",
+			"avgRating",
 		]);
 	});
 
@@ -1086,7 +1095,15 @@ describe("getLibraryStats", () => {
 			},
 		});
 
-		expect(capturedRequest?.relationships).toEqual([{ relationshipSchemaSlug: "in-library" }]);
+		expect(capturedRequest?.relationshipJoins).toEqual([
+			{
+				required: true,
+				key: "inLibrary",
+				direction: "outgoing",
+				kind: "latestRelationship",
+				relationshipSchemaSlug: "in-library",
+			},
+		]);
 	});
 
 	it("maps QueryEngineNotFoundError to not_found error", async () => {

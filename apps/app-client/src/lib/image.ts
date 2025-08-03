@@ -12,7 +12,7 @@ export function useResolvedImageUrls(entries: ImageEntry[]) {
 	const s3Keys = Array.from(
 		new Set(
 			entries
-				.map((e) => (e.image?.kind === "s3" ? e.image.key : null))
+				.map((e) => (e.image?.type === "s3" ? e.image.key : null))
 				.filter((key): key is string => !!key),
 		),
 	);
@@ -39,9 +39,9 @@ export function useResolvedImageUrls(entries: ImageEntry[]) {
 
 	const imageUrlById = new Map<string, string | undefined>();
 	for (const entry of entries) {
-		if (entry.image?.kind === "remote") {
+		if (entry.image?.type === "remote") {
 			imageUrlById.set(entry.id, entry.image.url);
-		} else if (entry.image?.kind === "s3") {
+		} else if (entry.image?.type === "s3") {
 			imageUrlById.set(entry.id, urlByKey.get(entry.image.key));
 		} else {
 			imageUrlById.set(entry.id, undefined);

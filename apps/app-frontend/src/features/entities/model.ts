@@ -22,11 +22,11 @@ export type SearchResultItem = {
 	secondarySubtitleProperty: { kind: "null"; value: null };
 	imageProperty: {
 		kind: "image" | "null";
-		value: { kind: "remote"; url: string } | null;
+		value: { type: "remote"; url: string } | null;
 	};
 };
 
-export type AppEntityImage = null | { kind: "s3"; key: string } | { kind: "remote"; url: string };
+export type AppEntityImage = null | { type: "s3"; key: string } | { type: "remote"; url: string };
 
 export type AppEntity = Omit<
 	ApiEntity,
@@ -133,16 +133,16 @@ export function toAppEntityImage(image: unknown): AppEntityImage {
 	}
 
 	if (
-		"kind" in image &&
-		image.kind === "remote" &&
+		"type" in image &&
+		image.type === "remote" &&
 		"url" in image &&
 		typeof image.url === "string"
 	) {
-		return { kind: "remote", url: image.url };
+		return { type: "remote", url: image.url };
 	}
 
-	if ("kind" in image && image.kind === "s3" && "key" in image && typeof image.key === "string") {
-		return { kind: "s3", key: image.key };
+	if ("type" in image && image.type === "s3" && "key" in image && typeof image.key === "string") {
+		return { type: "s3", key: image.key };
 	}
 
 	return null;

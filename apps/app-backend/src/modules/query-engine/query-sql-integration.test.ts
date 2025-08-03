@@ -16,7 +16,7 @@ import {
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
 import { buildResolvedFieldsExpression } from "./display-builder";
-import { createScalarExpressionCompiler } from "./expression-compiler";
+import { createQueryCompiler, createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
 import { buildFilterWhereClause } from "./filter-builder";
 import { buildPaginatedQuerySql } from "./paginated-query-sql";
@@ -50,22 +50,17 @@ describe("query SQL integration", () => {
 				context,
 				computedFields,
 			});
-			const createCompiler = (alias: string) => {
-				const { compile } = createScalarExpressionCompiler({
-					alias,
-					context,
-					getTypeInfo,
-					computedFields,
-				});
-				return { compile, getTypeInfo };
-			};
 
-			const filterCompiler = createCompiler(ENTITY_CTE_ALIASES.joined);
+			const filterCompiler = createQueryCompiler({
+				context,
+				getTypeInfo,
+				computedFields,
+				alias: ENTITY_CTE_ALIASES.joined,
+			});
 			const filterClause = buildFilterWhereClause({
 				context,
 				computedFields,
 				compiler: filterCompiler,
-				alias: ENTITY_CTE_ALIASES.joined,
 				predicate: comparisonPredicate(
 					createEntityPropertyExpression("smartphones", "releaseYear"),
 					"gte",
@@ -73,12 +68,16 @@ describe("query SQL integration", () => {
 				),
 			});
 
-			const sortCompiler = createCompiler(ENTITY_CTE_ALIASES.filtered);
+			const sortCompiler = createQueryCompiler({
+				context,
+				getTypeInfo,
+				computedFields,
+				alias: ENTITY_CTE_ALIASES.filtered,
+			});
 			const sortExpression = buildSortExpression({
 				context,
 				computedFields,
 				compiler: sortCompiler,
-				alias: ENTITY_CTE_ALIASES.filtered,
 				expression: createEntityPropertyExpression("smartphones", "releaseYear"),
 			});
 
@@ -99,10 +98,6 @@ describe("query SQL integration", () => {
 					{ key: "schema", expression: createEntitySchemaExpression("name") },
 				],
 			});
-
-			if (!filterClause) {
-				throw new Error("Expected filter clause to be defined");
-			}
 
 			const fullSql = buildPaginatedQuerySql({
 				offset: 0,
@@ -159,30 +154,23 @@ describe("query SQL integration", () => {
 				context,
 				computedFields,
 			});
-			const filterCompiler = (() => {
-				const { compile } = createScalarExpressionCompiler({
-					context,
-					getTypeInfo,
-					computedFields,
-					alias: "joined_entities",
-				});
-				return { compile, getTypeInfo };
-			})();
-			const sortCompiler = (() => {
-				const { compile } = createScalarExpressionCompiler({
-					context,
-					getTypeInfo,
-					computedFields,
-					alias: "filtered_entities",
-				});
-				return { compile, getTypeInfo };
-			})();
+			const filterCompiler = createQueryCompiler({
+				context,
+				getTypeInfo,
+				computedFields,
+				alias: "joined_entities",
+			});
+			const sortCompiler = createQueryCompiler({
+				context,
+				getTypeInfo,
+				computedFields,
+				alias: "filtered_entities",
+			});
 
 			const filterClause = buildFilterWhereClause({
 				context,
 				computedFields,
 				compiler: filterCompiler,
-				alias: "joined_entities",
 				predicate: comparisonPredicate(
 					createComputedFieldExpression("decade"),
 					"eq",
@@ -193,13 +181,8 @@ describe("query SQL integration", () => {
 				context,
 				computedFields,
 				compiler: sortCompiler,
-				alias: "filtered_entities",
 				expression: createComputedFieldExpression("decade"),
 			});
-
-			if (!filterClause) {
-				throw new Error("Expected filter clause for computed field predicate");
-			}
 
 			const filterSql = dialect.sqlToQuery(filterClause).sql;
 			const sortSql = dialect.sqlToQuery(sortExpr).sql;

@@ -98,7 +98,7 @@ function collectImages(image) {
   }
 
   const trimmedCandidate = candidate.trim();
-  return trimmedCandidate ? [{ kind: "remote", url: trimmedCandidate }] : [];
+  return trimmedCandidate ? [{ type: "remote", url: trimmedCandidate }] : [];
 }
 
 driver("search", async function(context) {
@@ -176,7 +176,7 @@ driver("search", async function(context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
