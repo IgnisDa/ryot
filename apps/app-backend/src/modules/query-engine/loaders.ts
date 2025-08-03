@@ -90,6 +90,30 @@ export const validateRelationshipSlugs = (uniqueSlugs: string[], foundSlugs: Set
 	}
 };
 
+export const validateVisibleRelationshipSchemaRows = (
+	slugs: string[],
+	rows: { id: string; slug: string }[],
+) => {
+	const rowsBySlug = new Map<string, { id: string; slug: string }[]>();
+	for (const row of rows) {
+		const existing = rowsBySlug.get(row.slug) ?? [];
+		existing.push(row);
+		rowsBySlug.set(row.slug, existing);
+	}
+
+	for (const slug of slugs) {
+		const found = rowsBySlug.get(slug);
+		if (!found?.length) {
+			throw new QueryEngineNotFoundError(`Relationship schema '${slug}' not found`);
+		}
+		if (found.length > 1) {
+			throw new QueryEngineValidationError(
+				`Relationship schema '${slug}' resolves to multiple visible schemas`,
+			);
+		}
+	}
+};
+
 export const loadVisibleSchemas = async (input: {
 	userId: string;
 	scope: string[];
@@ -176,6 +200,25 @@ export const loadRelationshipSchemaIds = async (
 	validateRelationshipSlugs(uniqueSlugs, foundSlugs);
 
 	return rows.map((r) => r.id);
+};
+
+export const loadVisibleRelationshipSchemas = async (input: {
+	userId: string;
+	relationshipSchemaSlugs: string[];
+}): Promise<{ id: string; slug: string }[]> => {
+	const uniqueSlugs = [...new Set(input.relationshipSchemaSlugs)];
+	const rows = await db
+		.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
+		.from(relationshipSchema)
+		.where(
+			and(
+				inArray(relationshipSchema.slug, uniqueSlugs),
+				or(isNull(relationshipSchema.userId), eq(relationshipSchema.userId, input.userId)),
+			),
+		);
+
+	validateVisibleRelationshipSchemaRows(uniqueSlugs, rows);
+	return rows;
 };
 
 export const loadEventSchemaSlugs = async (input: {
