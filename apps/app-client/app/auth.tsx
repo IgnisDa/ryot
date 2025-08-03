@@ -1,7 +1,9 @@
+import { useForm } from "@tanstack/react-form";
 import { router } from "expo-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable } from "react-native";
+import { z } from "zod";
 import { Box } from "@/components/ui/box";
 import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
@@ -21,13 +23,18 @@ const modes = {
 		passwordAutoComplete: "current-password" as const,
 	},
 	signup: {
-		title: "Create account",
 		actionLabel: "Sign up",
+		title: "Create account",
 		pendingLabel: "Creating account...",
 		subtitle: "Start tracking your life",
 		passwordAutoComplete: "new-password" as const,
 	},
 } as const;
+
+const schema = z.object({
+	email: z.email("Enter a valid email"),
+	password: z.string().min(8, "Password must be at least 8 characters"),
+});
 
 function getNameFromEmail(email: string) {
 	const [localPart = ""] = email.split("@");
@@ -41,73 +48,61 @@ function getNameFromEmail(email: string) {
 		.join(" ");
 }
 
+function resolveError(error: unknown): string | undefined {
+	if (typeof error === "string") {
+		return error;
+	}
+	if (error && typeof error === "object" && "message" in error) {
+		return String((error as { message: unknown }).message);
+	}
+	return undefined;
+}
+
 export default function Auth() {
 	const serverUrl = useAtomValue(serverUrlAtom);
 	const setServerUrl = useSetAtom(serverUrlAtom);
-	const [email, setEmail] = useState("");
 	const authClient = useAtomValue(authClientAtom);
-	const [password, setPassword] = useState("");
-	const [loading, setLoading] = useState(false);
 	const [mode, setMode] = useState<AuthMode>("login");
-	const [error, setError] = useState<string | null>(null);
+	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const modeContent = modes[mode];
 	const apiClient = createApiClient((serverUrl ?? CLOUD_URL) as string);
 
-	function switchMode(next: AuthMode) {
-		setMode(next);
-		setError(null);
-		setPassword("");
-	}
+	const form = useForm({
+		validators: { onChange: schema },
+		defaultValues: { email: "", password: "" },
+		onSubmit: async ({ value }) => {
+			setSubmitError(null);
+			const { email, password } = value;
 
-	async function handleSubmit() {
-		setError(null);
-		const trimmedEmail = email.trim();
-
-		if (!trimmedEmail || !password) {
-			setError("Email and password are required");
-			return;
-		}
-		if (password.length < 8) {
-			setError("Password must be at least 8 characters");
-			return;
-		}
-
-		setLoading(true);
-		try {
 			if (mode === "signup") {
 				const { error: signupError } = await apiClient.POST(
 					"/authentication/email",
-					{
-						body: {
-							email: trimmedEmail,
-							password,
-							name: getNameFromEmail(trimmedEmail),
-						},
-					},
+					{ body: { email, password, name: getNameFromEmail(email) } },
 				);
 				if (signupError) {
-					setError(
-						(signupError as { error?: { message?: string } }).error?.message ??
-							"Could not create account",
-					);
+					setSubmitError(signupError.error.message);
 					return;
 				}
 			}
 
 			const { error: signInError } = await authClient.signIn.email({
-				email: trimmedEmail,
+				email,
 				password,
 			});
 			if (signInError) {
-				setError(signInError.message ?? "Invalid email or password");
+				setSubmitError(signInError.message ?? "Invalid email or password");
 				return;
 			}
 
 			router.replace("/(app)");
-		} finally {
-			setLoading(false);
-		}
+		},
+	});
+
+	function switchMode(next: AuthMode) {
+		setMode(next);
+		setSubmitError(null);
+		form.setFieldValue("password", "");
 	}
 
 	async function handleChangeServer() {
@@ -157,38 +152,77 @@ export default function Auth() {
 						))}
 					</Box>
 					<Box className="gap-3">
-						<Input>
-							<InputField
-								value={email}
-								autoCorrect={false}
-								autoCapitalize="none"
-								keyboardType="email-address"
-								placeholder="you@example.com"
-								onChangeText={(text) => {
-									setEmail(text);
-									setError(null);
-								}}
-							/>
-						</Input>
-						<Input>
-							<InputField
-								value={password}
-								secureTextEntry
-								placeholder="Password"
-								autoComplete={modeContent.passwordAutoComplete}
-								onChangeText={(text) => {
-									setPassword(text);
-									setError(null);
-								}}
-							/>
-						</Input>
-						{error && <Text className="text-destructive text-sm">{error}</Text>}
-						<Button disabled={loading} onPress={handleSubmit}>
-							{loading && <ButtonSpinner />}
-							<ButtonText>
-								{loading ? modeContent.pendingLabel : modeContent.actionLabel}
-							</ButtonText>
-						</Button>
+						<form.Field name="email">
+							{(field) => (
+								<Box className="gap-1">
+									<Input>
+										<InputField
+											autoCorrect={false}
+											autoCapitalize="none"
+											value={field.state.value}
+											onBlur={field.handleBlur}
+											keyboardType="email-address"
+											placeholder="you@example.com"
+											onChangeText={field.handleChange}
+										/>
+									</Input>
+									{field.state.meta.isTouched &&
+										field.state.meta.errors.length > 0 && (
+											<Text className="text-destructive text-xs">
+												{field.state.meta.errors
+													.map(resolveError)
+													.filter(Boolean)
+													.join(", ")}
+											</Text>
+										)}
+								</Box>
+							)}
+						</form.Field>
+						<form.Field name="password">
+							{(field) => (
+								<Box className="gap-1">
+									<Input>
+										<InputField
+											secureTextEntry
+											placeholder="Password"
+											value={field.state.value}
+											onBlur={field.handleBlur}
+											onChangeText={field.handleChange}
+											autoComplete={modeContent.passwordAutoComplete}
+										/>
+									</Input>
+									{field.state.meta.isTouched &&
+										field.state.meta.errors.length > 0 && (
+											<Text className="text-destructive text-xs">
+												{field.state.meta.errors
+													.map(resolveError)
+													.filter(Boolean)
+													.join(", ")}
+											</Text>
+										)}
+								</Box>
+							)}
+						</form.Field>
+						{submitError && (
+							<Text className="text-destructive text-sm">{submitError}</Text>
+						)}
+						<form.Subscribe
+							selector={(state) => [state.canSubmit, state.isSubmitting]}
+						>
+							{([canSubmit, isSubmitting]) => (
+								<Button
+									disabled={!canSubmit || isSubmitting}
+									onPress={() => void form.handleSubmit()}
+								>
+									{isSubmitting && <ButtonSpinner />}
+									<ButtonText>
+										{isSubmitting
+											? modeContent.pendingLabel
+											: modeContent.actionLabel}
+									</ButtonText>
+								</Button>
+							)}
+						</form.Subscribe>
 					</Box>
 				</Box>
 				<Box className="items-center">
