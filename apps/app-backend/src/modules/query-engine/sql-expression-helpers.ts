@@ -47,6 +47,32 @@ export const buildPropertyPathExpression = (
 	return mode === "text" ? sql`${current} ->> ${last}` : sql`${current} -> ${last}`;
 };
 
+const resolveLiteralInput = (input: unknown, literalType: string | undefined) => {
+	if (typeof input !== "object" || input === null) {
+		return { value: input };
+	}
+	if ("value" in input && ("literalType" in input || "kind" in input || "type" in input)) {
+		return { literalType, value: input.value };
+	}
+	return { value: input };
+};
+
+const inferLiteralType = (value: unknown): PropertyType => {
+	if (typeof value === "string") {
+		return "string";
+	}
+	if (typeof value === "boolean") {
+		return "boolean";
+	}
+	if (typeof value === "number") {
+		return Number.isInteger(value) ? "integer" : "number";
+	}
+	if (Array.isArray(value)) {
+		return "array";
+	}
+	return "object";
+};
+
 export const buildLiteralExpression = (input: unknown, targetType?: PropertyType) => {
 	const literalType =
 		typeof input === "object" && input !== null
@@ -56,15 +82,7 @@ export const buildLiteralExpression = (input: unknown, targetType?: PropertyType
 					? input.kind
 					: undefined
 			: undefined;
-	const literalInput = (() => {
-		if (typeof input !== "object" || input === null) {
-			return { value: input };
-		}
-		if ("value" in input && ("literalType" in input || "kind" in input || "type" in input)) {
-			return { literalType, value: input.value };
-		}
-		return { value: input };
-	})();
+	const literalInput = resolveLiteralInput(input, literalType);
 	const { value } = literalInput;
 	if (value === null) {
 		return sql`null`;
@@ -74,27 +92,7 @@ export const buildLiteralExpression = (input: unknown, targetType?: PropertyType
 		return sql`cast(${value} as timestamptz)`;
 	}
 
-	const inferredLiteralType = (() => {
-		if (typeof value === "string") {
-			return "string" satisfies PropertyType;
-		}
-
-		if (typeof value === "boolean") {
-			return "boolean" satisfies PropertyType;
-		}
-
-		if (typeof value === "number") {
-			return Number.isInteger(value)
-				? ("integer" satisfies PropertyType)
-				: ("number" satisfies PropertyType);
-		}
-
-		if (Array.isArray(value)) {
-			return "array" satisfies PropertyType;
-		}
-
-		return "object" satisfies PropertyType;
-	})();
+	const inferredLiteralType = inferLiteralType(value);
 	const propertyType = targetType ?? inferredLiteralType;
 
 	return match(propertyType)

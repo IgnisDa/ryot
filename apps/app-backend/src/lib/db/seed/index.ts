@@ -22,6 +22,13 @@ import {
 	personSchemaScriptLinks,
 } from "./manifests";
 
+const ensureId = (id: string | undefined, message: string): string => {
+	if (!id) {
+		throw new Error(message);
+	}
+	return id;
+};
+
 export const seedInitialDatabase = async (database: DbClient) => {
 	console.info("Seeding entity schemas...");
 
@@ -111,20 +118,16 @@ export const seedInitialDatabase = async (database: DbClient) => {
 
 		for (const schema of authenticationBuiltinRelationshipSchemas()) {
 			const sourceEntitySchemaId = schema.sourceEntitySchemaSlug
-				? (schemaIds.get(schema.sourceEntitySchemaSlug) ??
-					(() => {
-						throw new Error(
-							`Missing entity schema id for slug "${schema.sourceEntitySchemaSlug}" (relationship schema: "${schema.slug}")`,
-						);
-					})())
+				? ensureId(
+						schemaIds.get(schema.sourceEntitySchemaSlug),
+						`Missing entity schema id for slug "${schema.sourceEntitySchemaSlug}" (relationship schema: "${schema.slug}")`,
+					)
 				: undefined;
 			const targetEntitySchemaId = schema.targetEntitySchemaSlug
-				? (schemaIds.get(schema.targetEntitySchemaSlug) ??
-					(() => {
-						throw new Error(
-							`Missing entity schema id for slug "${schema.targetEntitySchemaSlug}" (relationship schema: "${schema.slug}")`,
-						);
-					})())
+				? ensureId(
+						schemaIds.get(schema.targetEntitySchemaSlug),
+						`Missing entity schema id for slug "${schema.targetEntitySchemaSlug}" (relationship schema: "${schema.slug}")`,
+					)
 				: undefined;
 
 			// oxlint-disable-next-line no-await-in-loop
