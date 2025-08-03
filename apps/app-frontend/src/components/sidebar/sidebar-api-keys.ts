@@ -11,7 +11,7 @@ export type SidebarCreatedApiKey = NonNullable<SidebarApiKeyCreateResponse["data
 
 export function getSidebarApiKeyDisplayName(key: Pick<SidebarApiKey, "name">) {
 	const name = key.name?.trim();
-	return name ? name : "Untitled key";
+	return name ?? "Untitled key";
 }
 
 export function getSidebarApiKeyHint(key: Pick<SidebarApiKey, "id" | "start" | "prefix">) {

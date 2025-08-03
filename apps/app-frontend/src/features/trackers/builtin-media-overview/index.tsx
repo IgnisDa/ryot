@@ -165,9 +165,7 @@ export function BuiltinMediaTrackerOverview(props: BuiltinMediaTrackerOverviewPr
 	});
 	const dateGroups = liveActivityEvents.reduce<Record<string, ActivityEventView[]>>(
 		(acc, event) => {
-			if (!acc[event.date]) {
-				acc[event.date] = [];
-			}
+			acc[event.date] ??= [];
 			acc[event.date]?.push(event);
 			return acc;
 		},

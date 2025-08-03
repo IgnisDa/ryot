@@ -254,7 +254,7 @@ function ImageField(props: ImageFieldProps) {
 						},
 					]}
 					onChange={(value) => {
-						setUploadMode(value as "url" | "file");
+						setUploadMode(value);
 						field.handleChange(null);
 						setTempFile(null);
 						setTempUrl("");
@@ -292,7 +292,7 @@ function ImageField(props: ImageFieldProps) {
 					<Stack gap="xs">
 						<FileButton
 							onChange={handleFileChange}
-							disabled={props.disabled || presignedMutation.isPending}
+							disabled={props.disabled ?? presignedMutation.isPending}
 							accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
 						>
 							{(fileButtonProps) => (
@@ -425,7 +425,7 @@ function SelectField(props: SelectFieldProps) {
 				error={!field.state.meta.isValid}
 				value={props.value !== undefined ? props.value : field.state.value || null}
 				onChange={
-					props.onChange !== undefined ? props.onChange : (value) => field.handleChange(value ?? "")
+					props.onChange ?? ((value) => field.handleChange(value ?? ""))
 				}
 			/>
 			{!field.state.meta.isValid && <FieldErrors errors={field.state.meta.errors} />}
@@ -575,7 +575,7 @@ function SubmitButton(props: SubmitButtonProps) {
 					type="submit"
 					variant={props.variant}
 					fullWidth={props.fullWidth}
-					disabled={props.disabled || isSubmitting || !canSubmit}
+					disabled={(props.disabled ?? isSubmitting) ?? !canSubmit}
 				>
 					{isSubmitting ? (props.pendingLabel ?? props.label) : props.label}
 				</Button>
