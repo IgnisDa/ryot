@@ -112,13 +112,19 @@ describe("toAppCollection", () => {
 
 describe("getCollectionDiscoveryState", () => {
 	it("returns loading state when isLoading is true", () => {
-		const result = getCollectionDiscoveryState(true, []);
+		const result = getCollectionDiscoveryState(true, false, []);
 
 		expect(result).toEqual({ type: "loading" });
 	});
 
+	it("returns error state when query fails", () => {
+		const result = getCollectionDiscoveryState(false, true, []);
+
+		expect(result).toEqual({ type: "error" });
+	});
+
 	it("returns empty state when not loading and no collections", () => {
-		const result = getCollectionDiscoveryState(false, []);
+		const result = getCollectionDiscoveryState(false, false, []);
 
 		expect(result).toEqual({ type: "empty" });
 	});
@@ -130,7 +136,7 @@ describe("getCollectionDiscoveryState", () => {
 			}),
 		].map(toAppCollection);
 
-		const result = getCollectionDiscoveryState(false, collections);
+		const result = getCollectionDiscoveryState(false, false, collections);
 
 		expect(result.type).toBe("collections");
 		if (result.type === "collections") {
