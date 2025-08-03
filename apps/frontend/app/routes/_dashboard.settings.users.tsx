@@ -9,7 +9,6 @@ import {
 	Group,
 	Modal,
 	Stack,
-	Switch,
 	Text,
 	TextInput,
 	Title,
@@ -28,10 +27,10 @@ import {
 import { changeCase, parseSearchQuery, truncate } from "@ryot/ts-utils";
 import {
 	IconCopy,
-	IconPencil,
 	IconPlus,
 	IconRotateClockwise,
 	IconTrash,
+	IconUserOff,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
@@ -73,7 +72,7 @@ type UrlDisplayData = {
 	url: string;
 	title: string;
 	description: string;
-};
+} | null;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
@@ -187,27 +186,26 @@ const UserInvitationModal = (props: {
 	);
 };
 
-const UrlDisplayModal = (
-	props: {
-		opened: boolean;
-		onClose: () => void;
-	} & UrlDisplayData,
-) => {
+const UrlDisplayModal = (props: {
+	opened: boolean;
+	onClose: () => void;
+	data: UrlDisplayData;
+}) => {
 	return (
 		<Modal
 			centered
-			title={props.title}
 			opened={props.opened}
 			onClose={props.onClose}
+			title={props.data?.title}
 		>
 			<Stack>
 				<TextInput
 					readOnly
-					value={props.url}
 					label="URL"
-					description={props.description}
+					value={props.data?.url}
+					description={props.data?.description}
 					rightSection={
-						<CopyButton value={props.url}>
+						<CopyButton value={props.data?.url || ""}>
 							{({ copy }) => (
 								<ActionIcon onClick={copy}>
 									<IconCopy size={16} />
@@ -330,11 +328,9 @@ export default function Page() {
 					]}
 				/>
 				<UrlDisplayModal
+					data={urlDisplayData}
 					opened={urlDisplayData !== null}
 					onClose={handleCloseUrlDisplayModal}
-					title={urlDisplayData?.title || ""}
-					url={urlDisplayData?.url || ""}
-					description={urlDisplayData?.description || ""}
 				/>
 			</Stack>
 		</Container>
@@ -349,7 +345,24 @@ const UserActions = (props: {
 }) => {
 	const revalidator = useRevalidator();
 	const coreDetails = useCoreDetails();
-	const [updateUserData, setUpdateUserData] = useState<User | null>(null);
+
+	const toggleUserStatusMutation = useMutation({
+		mutationFn: async (input: {
+			userId: string;
+			isDisabled: boolean;
+		}) => {
+			const { updateUser } = await clientGqlService.request(
+				UpdateUserDocument,
+				{ input },
+			);
+			return updateUser;
+		},
+		onSuccess: () => {
+			showSuccessNotification("User status updated successfully");
+			revalidator.revalidate();
+		},
+		onError: () => showErrorNotification("Failed to update user status"),
+	});
 
 	const deleteUserMutation = useMutation({
 		mutationFn: async (toDeleteUserId: string) => {
@@ -403,17 +416,25 @@ const UserActions = (props: {
 
 	return (
 		<>
-			<UpdateUserModal
-				updateUserData={updateUserData}
-				closeUpdateUserDataModal={() => setUpdateUserData(null)}
-			/>
 			<Group justify="center">
 				<ActionIcon
-					color="indigo"
 					variant="subtle"
-					onClick={() => setUpdateUserData(props.user)}
+					loading={toggleUserStatusMutation.isPending}
+					color={props.user.isDisabled ? "green" : "yellow"}
+					onClick={() => {
+						const action = props.user.isDisabled ? "enable" : "disable";
+						const newStatus = !props.user.isDisabled;
+						openConfirmationModal(
+							`Are you sure you want to ${action} this user? ${newStatus ? "The user will be unable to log in." : "The user will be able to log in again."}`,
+							() =>
+								toggleUserStatusMutation.mutate({
+									userId: props.user.id,
+									isDisabled: newStatus,
+								}),
+						);
+					}}
 				>
-					<IconPencil size={18} />
+					<IconUserOff size={18} />
 				</ActionIcon>
 				<ActionIcon
 					color="orange"
@@ -443,93 +464,5 @@ const UserActions = (props: {
 				</ActionIcon>
 			</Group>
 		</>
-	);
-};
-
-const UpdateUserModal = (props: {
-	updateUserData: User | null;
-	closeUpdateUserDataModal: () => void;
-}) => {
-	const revalidator = useRevalidator();
-	const [modalState, setModalState] = useState({
-		adminToken: "",
-		isDisabled: props.updateUserData?.isDisabled || false,
-	});
-
-	const updateIsDisabled = (isDisabled: boolean) => {
-		setModalState((prev) => ({ ...prev, isDisabled }));
-	};
-
-	const updateAdminToken = (adminToken: string) => {
-		setModalState((prev) => ({ ...prev, adminToken }));
-	};
-
-	const updateUserMutation = useMutation({
-		mutationFn: async (input: {
-			userId: string;
-			adminAccessToken: string;
-			isDisabled?: boolean;
-			lot?: UserLot;
-		}) => {
-			const { updateUser } = await clientGqlService.request(
-				UpdateUserDocument,
-				{ input },
-			);
-			return updateUser;
-		},
-		onSuccess: () => {
-			showSuccessNotification("User updated successfully");
-			revalidator.revalidate();
-			props.closeUpdateUserDataModal();
-		},
-		onError: () => showErrorNotification("Failed to update user"),
-	});
-
-	const handleClose = () => {
-		props.closeUpdateUserDataModal();
-	};
-
-	const handleUpdate = () => {
-		if (props.updateUserData?.id && modalState.adminToken) {
-			updateUserMutation.mutate({
-				userId: props.updateUserData.id,
-				adminAccessToken: modalState.adminToken,
-				isDisabled: modalState.isDisabled,
-			});
-		}
-	};
-
-	return (
-		<Modal
-			centered
-			onClose={handleClose}
-			withCloseButton={false}
-			opened={props.updateUserData !== null}
-		>
-			<Stack>
-				<Title order={3}>Update {props.updateUserData?.name}</Title>
-				<TextInput
-					required
-					value={modalState.adminToken}
-					onChange={(e) => updateAdminToken(e.currentTarget.value)}
-					label="Admin Access Token"
-					description="This is required as registration is disabled"
-				/>
-				<Switch
-					label="Is disabled"
-					checked={modalState.isDisabled}
-					onChange={(e) => updateIsDisabled(e.currentTarget.checked)}
-					description="This will disable the user from logging in"
-				/>
-				<Button
-					fullWidth
-					onClick={handleUpdate}
-					loading={updateUserMutation.isPending}
-					disabled={!modalState.adminToken}
-				>
-					Update
-				</Button>
-			</Stack>
-		</Modal>
 	);
 };
