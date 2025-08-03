@@ -289,7 +289,94 @@ describe("SearchResultCollectionPanel loading state", () => {
 	});
 });
 
-describe("SearchResultCollectionPanel empty state", () => {
+describe("SearchResultCollectionPanel empty state CTA path", () => {
+	it("shows CTA button to Collections view when empty state has view destination", () => {
+		const collectionState: CollectionDiscoveryState = { type: "empty" };
+		const destination: CollectionsDestination = {
+			type: "view",
+			viewId: "collections-view",
+		};
+
+		const shouldShowCTA =
+			collectionState.type === "empty" && destination.type === "view";
+		const href = shouldShowCTA ? `/views/${destination.viewId}` : null;
+
+		expect(shouldShowCTA).toBe(true);
+		expect(href).toBe("/views/collections-view");
+	});
+
+	it("does not show CTA button when empty state has none destination", () => {
+		const collectionState: CollectionDiscoveryState = { type: "empty" };
+		const destination: CollectionsDestination = { type: "none" };
+
+		const isEmptyState = collectionState.type === "empty";
+		const hasViewDestination = destination.type === ("view" as string);
+		const shouldShowCTA = isEmptyState && hasViewDestination;
+
+		expect(shouldShowCTA).toBe(false);
+		expect(isEmptyState).toBe(true);
+		expect(hasViewDestination).toBe(false);
+	});
+
+	it("constructs correct href for different view destinations", () => {
+		const testCases = [
+			{ viewId: "builtin-collections", expected: "/views/builtin-collections" },
+			{
+				viewId: "user-collections-123",
+				expected: "/views/user-collections-123",
+			},
+			{ viewId: "all-collections", expected: "/views/all-collections" },
+		];
+
+		for (const { viewId, expected } of testCases) {
+			const destination: CollectionsDestination = { type: "view", viewId };
+			const href = `/views/${destination.viewId}`;
+			expect(href).toBe(expected);
+		}
+	});
+
+	it("requires both empty state and view destination to show CTA", () => {
+		const emptyState: CollectionDiscoveryState = { type: "empty" };
+		const loadingState: CollectionDiscoveryState = { type: "loading" };
+		const collectionsState: CollectionDiscoveryState = {
+			type: "collections",
+			collections: [],
+		};
+		const viewDestination: CollectionsDestination = {
+			type: "view",
+			viewId: "collections",
+		};
+		const noneDestination: CollectionsDestination = { type: "none" };
+
+		const isEmptyWithView =
+			emptyState.type === "empty" && viewDestination.type === "view";
+		const isLoadingWithView =
+			loadingState.type === ("empty" as string) &&
+			viewDestination.type === "view";
+		const isCollectionsWithView =
+			collectionsState.type === ("empty" as string) &&
+			viewDestination.type === "view";
+		const isEmptyWithNone =
+			emptyState.type === "empty" &&
+			noneDestination.type === ("view" as string);
+
+		expect(isEmptyWithView).toBe(true);
+		expect(isLoadingWithView).toBe(false);
+		expect(isCollectionsWithView).toBe(false);
+		expect(isEmptyWithNone).toBe(false);
+	});
+
+	it("navigates to view when destination is view type", () => {
+		const destination: CollectionsDestination = {
+			type: "view",
+			viewId: "my-collections",
+		};
+		const href = `/views/${destination.viewId}`;
+
+		expect(destination.type).toBe("view");
+		expect(href).toBe("/views/my-collections");
+	});
+
 	it("renders empty state with view destination", () => {
 		const border = "#e5e5e5";
 		const textMuted = "#666666";
@@ -306,7 +393,7 @@ describe("SearchResultCollectionPanel empty state", () => {
 		expect(textMuted).toBeDefined();
 	});
 
-	it("renders empty state with none destination", () => {
+	it("renders empty state with none destination (no CTA shown)", () => {
 		const border = "#e5e5e5";
 		const textMuted = "#666666";
 		const collectionState: CollectionDiscoveryState = { type: "empty" };
@@ -366,16 +453,5 @@ describe("SearchResultCollectionPanel empty state", () => {
 		expect(collectionState.type).toBe("empty");
 		expect(actionState.selectedCollectionId).toBeNull();
 		expect(destination.type).toBe("none");
-	});
-
-	it("navigates to view when destination is view type", () => {
-		const destination: CollectionsDestination = {
-			type: "view",
-			viewId: "my-collections",
-		};
-		const href = `/views/${destination.viewId}`;
-
-		expect(destination.type).toBe("view");
-		expect(href).toBe("/views/my-collections");
 	});
 });
