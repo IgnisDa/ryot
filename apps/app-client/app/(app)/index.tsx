@@ -1,9 +1,10 @@
 import dayjs from "dayjs";
 import { useAtomValue } from "jotai";
+import { Plus } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PageHeader } from "@/components/spine/page-header";
 import { Box } from "@/components/ui/box";
-import { Button, ButtonText } from "@/components/ui/button";
+import { Button, ButtonIcon, ButtonText } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { trackersAtom } from "@/lib/navigation";
 
@@ -26,7 +27,8 @@ export default function HomeScreen() {
 							build your own.
 						</Text>
 						<Button className="mt-9 rounded" size="lg">
-							<ButtonText>＋ Add a tracker</ButtonText>
+							<ButtonIcon as={Plus} />
+							<ButtonText>Add a tracker</ButtonText>
 						</Button>
 					</Box>
 				</SafeAreaView>
