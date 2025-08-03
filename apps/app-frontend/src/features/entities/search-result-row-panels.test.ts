@@ -72,6 +72,7 @@ describe("SearchResultCollectionPanel props", () => {
 				pendingAction: null,
 				selectedCollectionId: null,
 				collectionProperties: {},
+				collectionError: null,
 			};
 			const collectionState: CollectionDiscoveryState = { type: "loading" };
 
@@ -93,6 +94,7 @@ describe("SearchResultCollectionPanel props", () => {
 				pendingAction: null,
 				selectedCollectionId: null,
 				collectionProperties: {},
+				collectionError: null,
 			};
 			const collectionState: CollectionDiscoveryState = { type: "empty" };
 			const destination: CollectionsDestination = {
@@ -119,6 +121,7 @@ describe("SearchResultCollectionPanel props", () => {
 				pendingAction: null,
 				selectedCollectionId: "collection-1",
 				collectionProperties: {},
+				collectionError: null,
 			};
 			const collectionState: CollectionDiscoveryState = {
 				type: "collections",
@@ -157,6 +160,7 @@ describe("SearchResultCollectionPanel entity ensuring", () => {
 			pendingAction: "collection",
 			selectedCollectionId: "collection-1",
 			collectionProperties: {},
+			collectionError: null,
 		};
 		const isEnsuringEntity = actionState.pendingAction === "collection";
 
@@ -179,6 +183,7 @@ describe("SearchResultCollectionPanel entity ensuring", () => {
 			pendingAction: null,
 			selectedCollectionId: "collection-1",
 			collectionProperties: {},
+			collectionError: null,
 		};
 		const isEnsuringEntity = actionState.pendingAction === "collection";
 
@@ -201,6 +206,7 @@ describe("SearchResultCollectionPanel entity ensuring", () => {
 			pendingAction: null,
 			selectedCollectionId: null,
 			collectionProperties: {},
+			collectionError: null,
 		};
 		const collectionState: CollectionDiscoveryState = {
 			type: "collections",
