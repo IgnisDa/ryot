@@ -5,7 +5,6 @@ import { textStyle } from "./styles";
 
 type ITextProps = React.ComponentProps<"span"> &
 	VariantProps<typeof textStyle> & {
-		// React Native prop — ignored on web
 		numberOfLines?: number;
 	};
 
@@ -13,6 +12,7 @@ const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function T
 	{
 		sub,
 		bold,
+		style,
 		italic,
 		className,
 		underline,
@@ -20,13 +20,26 @@ const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function T
 		isTruncated,
 		size = "md",
 		strikeThrough,
-		numberOfLines: _numberOfLines,
+		numberOfLines,
 		...props
 	},
 	ref,
 ) {
+	const clampStyle: React.CSSProperties | undefined =
+		numberOfLines !== undefined && numberOfLines > 0
+			? {
+					overflow: "hidden",
+					display: "-webkit-box",
+					WebkitBoxOrient: "vertical",
+					WebkitLineClamp: numberOfLines,
+				}
+			: undefined;
+
 	return (
 		<span
+			{...props}
+			ref={ref}
+			style={clampStyle ? { ...style, ...clampStyle } : style}
 			className={textStyle({
 				sub,
 				size,
@@ -38,8 +51,6 @@ const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function T
 				strikeThrough,
 				class: className,
 			})}
-			{...props}
-			ref={ref}
 		/>
 	);
 });
