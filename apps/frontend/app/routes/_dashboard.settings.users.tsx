@@ -353,7 +353,7 @@ const UserDisplay = (props: {
 						</Text>
 					</Box>
 				</Group>
-				<Group>
+				<Group gap={4}>
 					<ActionIcon
 						color="indigo"
 						variant="subtle"
