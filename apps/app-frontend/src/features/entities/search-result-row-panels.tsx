@@ -2,10 +2,8 @@ import {
 	ActionIcon,
 	Box,
 	Button,
-	Checkbox,
 	Group,
 	Loader,
-	NumberInput,
 	Select,
 	Stack,
 	Text,
@@ -15,13 +13,15 @@ import {
 import { Star } from "lucide-react";
 import {
 	buildCollectionSelectionPatch,
+	buildDefaultMembershipFormValues,
 	buildMembershipFormSchema,
 	type CollectionDiscoveryState,
+	type CollectionMembershipFormValues,
 	getMembershipPropertyEntries,
 	getSelectedCollection,
 } from "~/features/collections";
-import { getGeneratedPropertyFieldConfig } from "~/features/generated-property-fields";
-import { normalizeNumberInputValue } from "~/hooks/forms";
+import { GeneratedPropertyField } from "~/features/generated-property-fields";
+import { useAppForm } from "~/hooks/forms";
 import type { MediaSearchLogDateOption } from "./search-modal-media-actions";
 import type { SearchResultRowActionState } from "./search-result-row";
 
@@ -210,16 +210,28 @@ export function SearchResultReviewPanel(props: {
 export function SearchResultCollectionPanel(props: {
 	border: string;
 	textMuted: string;
-	actionState: SearchResultRowActionState;
 	accentColor: string;
-	collectionState: CollectionDiscoveryState;
-	collectionsDestination: { type: "view"; viewId: string } | { type: "none" };
-	onSaveCollection: () => void;
-	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
 	isEnsuringEntity: boolean;
+	collectionState: CollectionDiscoveryState;
+	onPatchActionState: (patch: Partial<SearchResultRowActionState>) => void;
+	collectionsDestination: { type: "view"; viewId: string } | { type: "none" };
+	onSaveCollection: (
+		values: CollectionMembershipFormValues,
+	) => Promise<void> | void;
 }) {
-	const hasSelectedCollection = props.actionState.selectedCollectionId !== null;
 	const isDisabled = props.isEnsuringEntity;
+	const collections =
+		props.collectionState.type === "collections"
+			? props.collectionState.collections
+			: [];
+	const defaultCollection = getSelectedCollection(collections);
+	const form = useAppForm({
+		defaultValues: buildDefaultMembershipFormValues(defaultCollection),
+		validators: {
+			onChange: buildMembershipFormSchema(collections) as never,
+		},
+		onSubmit: async ({ value }) => await props.onSaveCollection(value),
+	});
 
 	if (props.collectionState.type === "loading") {
 		return (
@@ -263,172 +275,136 @@ export function SearchResultCollectionPanel(props: {
 		);
 	}
 
-	const collections = props.collectionState.collections;
-	const selectedCollection = props.actionState.selectedCollectionId
-		? collections.find(
-				(collection) =>
-					collection.id === props.actionState.selectedCollectionId,
-			)
-		: undefined;
-	const propertyEntries = getMembershipPropertyEntries(
-		selectedCollection?.membershipPropertiesSchema,
-	);
-	const validationResult = buildMembershipFormSchema(
-		selectedCollection,
-	).safeParse({
-		properties: props.actionState.collectionProperties,
-		collectionId: props.actionState.selectedCollectionId ?? "",
-	});
-	const validationMessage = validationResult.success
-		? null
-		: (validationResult.error.issues[0]?.message ??
-			"Collection details are invalid.");
-	const canSave =
-		hasSelectedCollection && !isDisabled && validationResult.success;
-
 	return (
 		<Box mt="xs" pt="sm" style={{ borderTop: `1px solid ${props.border}` }}>
-			<Text fz="xs" fw={500} c={props.textMuted} mb={6}>
-				Select a collection
-			</Text>
-			<Select
-				size="xs"
-				mb="sm"
-				data={collections.map((c) => ({ value: c.id, label: c.name }))}
-				value={props.actionState.selectedCollectionId ?? null}
-				onChange={(value) => {
-					if (!value) {
-						props.onPatchActionState({
-							actionError: null,
-							selectedCollectionId: null,
-							collectionProperties: {},
-						});
-						return;
-					}
-
-					const nextCollection = getSelectedCollection(collections, value);
-					const nextValues = buildCollectionSelectionPatch(nextCollection, {
-						properties: props.actionState.collectionProperties,
-						collectionId: value,
-					});
-
-					props.onPatchActionState({
-						actionError: null,
-						selectedCollectionId: nextValues.collectionId,
-						collectionProperties: nextValues.properties,
-					});
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void form.handleSubmit();
 				}}
-				placeholder="Choose a collection..."
-			/>
-
-			{selectedCollection && propertyEntries.length > 0 ? (
-				<Stack gap="xs" mb="sm">
-					{propertyEntries.map(({ key, definition }) => {
-						const config = getGeneratedPropertyFieldConfig(key, definition);
-						if (!config) {
-							return null;
-						}
-
-						const value = props.actionState.collectionProperties[key];
-
-						if (config.kind === "checkbox") {
-							return (
-								<Checkbox
-									key={key}
-									label={config.label}
-									required={config.required}
-									disabled={isDisabled}
-									checked={Boolean(value)}
-									onChange={(event) =>
-										props.onPatchActionState({
-											actionError: null,
-											collectionProperties: {
-												...props.actionState.collectionProperties,
-												[key]: event.currentTarget.checked,
-											},
-										})
-									}
-								/>
+			>
+				<form.AppForm>
+					<form.Subscribe selector={(state) => state.values}>
+						{(values) => {
+							const selectedCollection = collections.find(
+								(collection) => collection.id === values.collectionId,
 							);
-						}
-
-						if (config.kind === "number") {
-							return (
-								<NumberInput
-									key={key}
-									size="xs"
-									label={config.label}
-									required={config.required}
-									disabled={isDisabled}
-									value={
-										typeof value === "number" || typeof value === "string"
-											? value
-											: ""
-									}
-									placeholder={config.placeholder}
-									onChange={(nextValue) =>
-										props.onPatchActionState({
-											actionError: null,
-											collectionProperties: {
-												...props.actionState.collectionProperties,
-												[key]: normalizeNumberInputValue(nextValue),
-											},
-										})
-									}
-								/>
+							const propertyEntries = getMembershipPropertyEntries(
+								selectedCollection?.membershipPropertiesSchema,
 							);
-						}
+							const validationResult =
+								buildMembershipFormSchema(collections).safeParse(values);
+							const validationMessage = validationResult.success
+								? null
+								: (validationResult.error.issues[0]?.message ??
+									"Collection details are invalid.");
+							const canSave = !isDisabled && validationResult.success;
 
-						return (
-							<TextInput
-								key={key}
-								size="xs"
-								label={config.label}
-								type={config.inputType}
-								required={config.required}
-								disabled={isDisabled}
-								value={typeof value === "string" ? value : ""}
-								placeholder={config.placeholder}
-								onChange={(event) =>
-									props.onPatchActionState({
-										actionError: null,
-										collectionProperties: {
-											...props.actionState.collectionProperties,
-											[key]: event.currentTarget.value,
-										},
-									})
-								}
-							/>
-						);
-					})}
-				</Stack>
-			) : null}
+							return (
+								<>
+									<Text fz="xs" fw={500} c={props.textMuted} mb={6}>
+										Select a collection
+									</Text>
+									<form.AppField
+										name="collectionId"
+										listeners={{
+											onChange: ({ value }) => {
+												const nextCollection = collections.find(
+													(collection) => collection.id === value,
+												);
+												const nextValues = buildCollectionSelectionPatch(
+													nextCollection,
+													{
+														collectionId: value,
+														properties: form.state.values.properties,
+													},
+												);
 
-			{hasSelectedCollection && validationMessage ? (
-				<Text c="red" fz="xs" mb="sm">
-					{validationMessage}
-				</Text>
-			) : null}
+												form.setFieldValue("properties", nextValues.properties);
+												if (nextValues.collectionId !== value) {
+													form.setFieldValue(
+														"collectionId",
+														nextValues.collectionId,
+													);
+												}
+											},
+										}}
+									>
+										{(field) => (
+											<Stack gap={4} mb="sm">
+												<Select
+													size="xs"
+													disabled={isDisabled}
+													onBlur={field.handleBlur}
+													value={field.state.value || null}
+													placeholder="Choose a collection..."
+													onChange={(value) => field.handleChange(value ?? "")}
+													data={collections.map((c) => ({
+														value: c.id,
+														label: c.name,
+													}))}
+												/>
+												{!field.state.meta.isValid ? (
+													<Text c="red" size="xs">
+														{field.state.meta.errors.map(String).join(", ")}
+													</Text>
+												) : null}
+											</Stack>
+										)}
+									</form.AppField>
 
-			<Group gap="xs">
-				<Button
-					size="compact-xs"
-					disabled={!canSave}
-					loading={props.isEnsuringEntity}
-					style={{ backgroundColor: props.accentColor, color: "white" }}
-					onClick={props.onSaveCollection}
-				>
-					Save
-				</Button>
-				<Button
-					size="compact-xs"
-					variant="subtle"
-					disabled={isDisabled}
-					onClick={() => props.onPatchActionState({ openPanel: null })}
-				>
-					Cancel
-				</Button>
-			</Group>
+									{selectedCollection && propertyEntries.length > 0 ? (
+										<Stack gap="xs" mb="sm">
+											{propertyEntries.map(({ key, definition }) => (
+												<GeneratedPropertyField
+													key={key}
+													form={form}
+													propertyKey={key}
+													disabled={isDisabled}
+													propertyDef={definition}
+												/>
+											))}
+										</Stack>
+									) : null}
+
+									{values.collectionId && validationMessage ? (
+										<Text c="red" fz="xs" mb="sm">
+											{validationMessage}
+										</Text>
+									) : null}
+
+									<Group gap="xs">
+										<Button
+											type="submit"
+											size="compact-xs"
+											disabled={!canSave}
+											loading={props.isEnsuringEntity}
+											style={{
+												color: "white",
+												backgroundColor: props.accentColor,
+											}}
+										>
+											Save
+										</Button>
+										<Button
+											type="button"
+											variant="subtle"
+											size="compact-xs"
+											disabled={isDisabled}
+											onClick={() =>
+												props.onPatchActionState({ openPanel: null })
+											}
+										>
+											Cancel
+										</Button>
+									</Group>
+								</>
+							);
+						}}
+					</form.Subscribe>
+				</form.AppForm>
+			</form>
 		</Box>
 	);
 }
