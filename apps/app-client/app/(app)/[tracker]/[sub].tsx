@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
-import { View } from "react-native";
 import { gridStyles, PageHeader } from "@/components/spine/page-header";
+import { Box } from "@/components/ui/box";
 
 export default function SubItemScreen() {
 	const { tracker, sub } = useLocalSearchParams<{
@@ -10,14 +10,15 @@ export default function SubItemScreen() {
 
 	return (
 		<PageHeader eyebrow={`${tracker} · ${sub}`} title="Entries">
-			<View style={gridStyles.grid}>
+			<Box className={gridStyles.grid}>
 				{Array.from({ length: 6 }).map((_, i) => (
-					<View
+					<Box
 						key={i}
-						style={[gridStyles.card, { opacity: 0.85 - i * 0.08 }]}
+						className={gridStyles.card}
+						style={{ opacity: 0.85 - i * 0.08 }}
 					/>
 				))}
-			</View>
+			</Box>
 		</PageHeader>
 	);
 }
