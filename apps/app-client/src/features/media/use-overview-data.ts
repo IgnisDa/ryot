@@ -55,7 +55,7 @@ const COMMON_ENTITY_FIELDS = [
 	},
 ];
 
-function extractEntityBase(item: readonly { key: string; value?: unknown }[] | undefined) {
+function extractEntityBase(item: QueryEngineItem | undefined) {
 	const getVal = (key: string) => getQueryEngineField(item, key)?.value;
 	const id = getVal("entityId");
 	const title = getVal("entityName");
@@ -751,3 +751,9 @@ export function useMediaOverviewData() {
 			entitySchemasQuery.isLoading,
 	};
 }
+type QueryEngineField = {
+	kind: string;
+	value: unknown;
+};
+
+type QueryEngineItem = Record<string, QueryEngineField>;

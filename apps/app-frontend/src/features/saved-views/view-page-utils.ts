@@ -17,8 +17,7 @@ type QueryEngineRequest = Extract<
 	ApiPostRequestBody<"/query-engine/execute">,
 	{ mode: "entities" }
 >;
-type RuntimeItem = QueryEngineEntitiesItem;
-type RuntimeField = RuntimeItem[number];
+type RuntimeField = QueryEngineEntitiesItem[string] & { key: string };
 type RuntimeRequestField = NonNullable<QueryEngineRequest["fields"]>[number];
 type ViewExpression = RuntimeRequestField["expression"];
 type CardDisplayConfiguration = SavedView["displayConfiguration"]["grid"];
@@ -155,14 +154,35 @@ export function getPageLimit(layout: ViewLayout) {
 }
 
 export function getRuntimeField(
-	item: { fields?: RuntimeField[] } | RuntimeField[],
+	item: { fields?: QueryEngineEntitiesItem },
+	key: string,
+): RuntimeField | undefined;
+export function getRuntimeField(
+	item: QueryEngineEntitiesItem,
+	key: string,
+): RuntimeField | undefined;
+export function getRuntimeField(
+	item: { fields?: QueryEngineEntitiesItem } | QueryEngineEntitiesItem,
 	key: string,
 ): RuntimeField | undefined {
-	return getQueryEngineField(Array.isArray(item) ? item : item.fields, key);
+	const fields =
+		"fields" in item &&
+		item.fields &&
+		typeof item.fields === "object" &&
+		!("kind" in item.fields) &&
+		!("value" in item.fields)
+			? item.fields
+			: item;
+	return getQueryEngineField<QueryEngineEntitiesItem[string]>(
+		fields as QueryEngineEntitiesItem | undefined,
+		key,
+	);
 }
 
 export function isRuntimeField(value: unknown): value is RuntimeField {
-	return !!value && typeof value === "object" && "kind" in value && "value" in value;
+	return (
+		!!value && typeof value === "object" && "key" in value && "kind" in value && "value" in value
+	);
 }
 
 export function formatRuntimeValue(value: unknown) {

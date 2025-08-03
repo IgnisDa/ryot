@@ -75,10 +75,8 @@ export async function waitForSeededExerciseId(client: Client, cookies: string) {
 				return null;
 			}
 
-			const idField = result.data.data.items[0]?.find(
-				(field) => field.key === "column_0" && field.kind === "text",
-			);
-			return typeof idField?.value === "string" ? idField.value : null;
+			const idField = result.data.data.items[0]?.column_0;
+			return idField?.kind === "text" && typeof idField.value === "string" ? idField.value : null;
 		},
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);

@@ -40,7 +40,7 @@ export const mapQueryRowToItem = (row: QueryRow): QueryEngineItem | null => {
 		return null;
 	}
 
-	return row.fields ?? [];
+	return row.fields ?? {};
 };
 
 export const buildPaginatedQuerySql = (input: PaginatedQueryInput) => {

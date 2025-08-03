@@ -164,7 +164,13 @@ export function toAppEntityImage(image: unknown): AppEntityImage {
 }
 
 function isQueryEngineEntity(entity: ApiEntityInput): entity is QueryEngineItem {
-	return Array.isArray(entity);
+	return (
+		!!entity &&
+		typeof entity === "object" &&
+		!Array.isArray(entity) &&
+		queryEngineEntityFieldKeys.id in entity &&
+		queryEngineEntityFieldKeys.name in entity
+	);
 }
 
 function getRequiredQueryEngineStringField(item: QueryEngineItem, key: string): string {
@@ -194,6 +200,15 @@ function getRequiredQueryEngineDateLikeField(
 }
 
 export function toAppEntity(entity: ApiEntityInput): AppEntity {
+	const hasPartialQueryEngineShape =
+		!!entity &&
+		typeof entity === "object" &&
+		!Array.isArray(entity) &&
+		(queryEngineEntityFieldKeys.id in entity || queryEngineEntityFieldKeys.name in entity);
+	if (hasPartialQueryEngineShape && !isQueryEngineEntity(entity)) {
+		throw new Error("Query engine entity rows must include both entityId and entityName");
+	}
+
 	const properties = isQueryEngineEntity(entity) ? {} : entity.properties;
 	const externalId = isQueryEngineEntity(entity)
 		? getOptionalQueryEngineStringField(entity, queryEngineEntityFieldKeys.externalId)
