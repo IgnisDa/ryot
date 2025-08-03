@@ -1,5 +1,5 @@
 import { ExerciseLot, type WorkoutSetStatistic } from "@ryot/generated/graphql/backend/graphql";
-import { isString } from "@ryot/ts-utils";
+import { isString } from "@ryot/ts-utils/lodash";
 import { useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 

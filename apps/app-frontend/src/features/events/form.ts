@@ -1,5 +1,5 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import { trimmedOrUndefined } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { trimmedOrUndefined } from "@ryot/ts-utils/string";
 import { z } from "zod";
 
 import type { ApiPostRequestBody } from "~/lib/api/types";

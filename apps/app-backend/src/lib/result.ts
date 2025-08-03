@@ -1,4 +1,4 @@
-import { resolveDataOrError } from "@ryot/ts-utils";
+import { resolveDataOrError } from "@ryot/ts-utils/error";
 
 export type ServiceResult<T, E extends string = string> =
 	| { data: T }

@@ -15,7 +15,7 @@ import {
 	Title,
 } from "@mantine/core";
 import type { EntityAssets, MediaLot, MediaSource } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase } from "@ryot/ts-utils/string";
 import { IconExternalLink } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 

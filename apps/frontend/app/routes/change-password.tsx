@@ -2,7 +2,7 @@ import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
 import { Alert, Button, Container, PasswordInput, Stack, Text, Title } from "@mantine/core";
 import { SetPasswordViaSessionDocument } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery } from "@ryot/ts-utils";
+import { parseSearchQuery } from "@ryot/ts-utils/request";
 import { IconLock } from "@tabler/icons-react";
 import { data, Form, useActionData, useLoaderData } from "react-router";
 import { $path } from "safe-routes";

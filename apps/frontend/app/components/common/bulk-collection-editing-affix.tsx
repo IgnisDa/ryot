@@ -2,7 +2,7 @@ import { ActionIcon, Affix, Button, Group, Modal, Paper, rem, Stack, Text } from
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import type { EntityToCollectionInput, Scalars } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils";
+import { changeCase } from "@ryot/ts-utils/string";
 import { IconCancel } from "@tabler/icons-react";
 import { type FormEvent, useState } from "react";
 

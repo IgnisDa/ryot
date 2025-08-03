@@ -6,7 +6,8 @@ import {
 	type UserMeasurement,
 	type UserMeasurementInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, snakeCase } from "@ryot/ts-utils";
+import { snakeCase } from "@ryot/ts-utils/lodash";
+import { changeCase } from "@ryot/ts-utils/string";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 

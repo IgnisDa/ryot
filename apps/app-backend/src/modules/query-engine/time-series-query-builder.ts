@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { sql } from "drizzle-orm";
 import { match } from "ts-pattern";
 

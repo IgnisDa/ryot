@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils";
+import { cn } from "@ryot/ts-utils/cn";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 

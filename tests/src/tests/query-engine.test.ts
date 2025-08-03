@@ -1,14 +1,14 @@
 import { describe, expect, it } from "bun:test";
 
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 	createEventAggregateExpression,
-	dayjs,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 import {
 	buildComputedField,

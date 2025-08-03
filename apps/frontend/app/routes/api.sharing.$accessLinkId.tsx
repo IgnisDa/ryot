@@ -2,7 +2,8 @@ import {
 	ProcessAccessLinkDocument,
 	type ProcessAccessLinkInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseParameters, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
+import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
+import { zodBoolAsString } from "@ryot/ts-utils/zod";
 import { redirect } from "react-router";
 import { safeRedirect } from "remix-utils/safe-redirect";
 import { $path } from "safe-routes";

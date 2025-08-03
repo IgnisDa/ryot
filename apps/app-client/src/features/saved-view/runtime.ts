@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { dayjs, getQueryEngineField } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import { match } from "ts-pattern";
 
 import type { EntityImage } from "@/lib/entity-image";

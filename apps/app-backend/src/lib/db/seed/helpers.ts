@@ -1,4 +1,4 @@
-import type { AppSchema } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 

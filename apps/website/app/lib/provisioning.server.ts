@@ -6,7 +6,7 @@ import {
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
 } from "@ryot/transactional/emails/purchase-complete";
-import { formatDateToNaiveDate } from "@ryot/ts-utils";
+import { formatDateToNaiveDate } from "@ryot/ts-utils/format";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 
 import {

@@ -1,5 +1,6 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
-import { fromAppSchemaObject, isAppPropertyRequired, zodRequiredName } from "@ryot/ts-utils";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils/app-schema";
+import { fromAppSchemaObject, isAppPropertyRequired } from "@ryot/ts-utils/app-schema";
+import { zodRequiredName } from "@ryot/ts-utils/zod";
 import { match } from "ts-pattern";
 import { z } from "zod";
 

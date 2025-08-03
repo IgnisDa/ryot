@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { sortBy } from "@ryot/ts-utils";
+import { sortBy } from "@ryot/ts-utils/lodash";
 
 import {
 	createAuthenticatedClient,

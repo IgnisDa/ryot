@@ -4,7 +4,7 @@ import {
 	createComputedFieldExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 import { createSmartphoneSchema, transformExpression } from "~/lib/test-fixtures";
 import type { ViewExpression } from "~/lib/views/expression";

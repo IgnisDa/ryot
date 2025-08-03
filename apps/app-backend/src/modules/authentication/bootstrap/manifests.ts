@@ -1,5 +1,5 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import { normalizeSlug } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { normalizeSlug } from "@ryot/ts-utils/slug";
 import { match } from "ts-pattern";
 
 import { exercisePropertiesJsonSchema } from "~/lib/fitness/exercise";

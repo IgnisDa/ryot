@@ -5,7 +5,7 @@ import {
 	eventJoinBuiltinColumns,
 	relationshipJoinBuiltinColumns,
 	type RuntimeRef,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 
 type CreateSavedViewBody = NonNullable<
 	paths["/saved-views"]["post"]["requestBody"]

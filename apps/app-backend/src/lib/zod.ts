@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { zodNonEmptyTrimmedString } from "@ryot/ts-utils";
+import { zodNonEmptyTrimmedString } from "@ryot/ts-utils/zod";
 
 export const nullableStringSchema = z.string().nullish();
 export const nullableNumberSchema = z.number().nullish();

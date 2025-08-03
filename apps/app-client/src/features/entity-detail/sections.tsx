@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Layers, Library } from "lucide-react-native";
 import { Image, ScrollView } from "react-native";
 import { match } from "ts-pattern";

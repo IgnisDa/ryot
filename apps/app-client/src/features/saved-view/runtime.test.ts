@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils/view-language";
 
 import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import type { EntitySavedView } from "./runtime";
