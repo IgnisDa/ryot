@@ -5,16 +5,13 @@ import {
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 } from "@ryot/ts-utils";
-import { PgDialect } from "drizzle-orm/pg-core";
 
 import { createSmartphoneSchema, transformExpression } from "~/lib/test-fixtures";
 import type { ViewExpression } from "~/lib/views/expression";
 import { buildEventJoinMap, buildRelationshipJoinMap, buildSchemaMap } from "~/lib/views/reference";
 
-import { createScalarExpressionCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
+import { createScalarTestCompiler, dialect } from "./test-support";
 
-const dialect = new PgDialect();
 const context = {
 	eventJoinMap: buildEventJoinMap([]),
 	schemaMap: buildSchemaMap([createSmartphoneSchema()]),
@@ -42,21 +39,13 @@ const contextWithRelJoin = {
 	relationshipJoinMap: buildRelationshipJoinMap([ownershipJoin]),
 };
 
-const createTestCompiler = (
-	input: Omit<Parameters<typeof createScalarExpressionCompiler>[0], "getTypeInfo">,
-) => {
-	const getTypeInfo = createExpressionTypeResolver({
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	return createScalarExpressionCompiler({ ...input, getTypeInfo });
-};
+const createTestCompiler = createScalarTestCompiler;
 
 const yearExpression = createEntityPropertyExpression("smartphones", "releaseYear");
 
 describe("createScalarExpressionCompiler", () => {
 	it("compiles nested computed fields for scalar query stages", () => {
-		const compiler = createTestCompiler({
+		const compiler = createScalarTestCompiler({
 			alias: "entities",
 			context,
 			computedFields: [
@@ -89,7 +78,7 @@ describe("createScalarExpressionCompiler", () => {
 	});
 
 	it("reuses cached computed field expressions for the same target type", () => {
-		const compiler = createTestCompiler({
+		const compiler = createScalarTestCompiler({
 			alias: "entities",
 			context,
 			computedFields: [
@@ -114,7 +103,7 @@ describe("createScalarExpressionCompiler", () => {
 	});
 
 	it("compiles a nested entity property path using chained JSON traversal operators", () => {
-		const compiler = createTestCompiler({ context, alias: "entities" });
+		const compiler = createScalarTestCompiler({ context, alias: "entities" });
 
 		const nestedRef: ViewExpression = {
 			type: "reference",
