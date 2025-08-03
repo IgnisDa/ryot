@@ -15,8 +15,8 @@ const listedEntityDefaults: ListedEntity = {
 	id: "entity_1",
 	name: "My Book",
 	externalId: null,
-	entitySchemaId: "schema_1",
 	sandboxScriptId: null,
+	entitySchemaId: "schema_1",
 	createdAt: createCreatedAt(),
 	updatedAt: createUpdatedAt(),
 	properties: { title: "My Book" },
@@ -40,53 +40,14 @@ export const createListedEntity = (
 export const createEntityDeps = (
 	overrides: Partial<EntityServiceDeps> = {},
 ): EntityServiceDeps => ({
-	createEntityAndAddToCollection: async (input) => ({
-		entity: createListedEntity({
-			name: input.name,
-			image: input.image,
-			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
-			externalId: input.externalId ?? null,
-			sandboxScriptId: input.sandboxScriptId ?? null,
-		}),
-		membership: {
-			collection: {
-				id: "rel-collection-1",
-				relType: "collection",
-				createdAt: new Date().toISOString(),
-				sourceEntityId: input.collectionId,
-				targetEntityId: "entity-new",
-				properties: input.membershipProperties ?? {},
-			},
-			memberOf: {
-				id: "rel-memberof-1",
-				relType: "member_of",
-				createdAt: new Date().toISOString(),
-				sourceEntityId: "entity-new",
-				targetEntityId: input.collectionId,
-				properties: input.membershipProperties ?? {},
-			},
-		},
-	}),
 	findEntityByExternalIdForUser: async () => undefined,
-	getCollectionById: async () => ({
-		id: "collection_1",
-		name: "My Collection",
-		createdAt: new Date(),
-		updatedAt: new Date(),
-		entitySchemaId: "collection_schema_1",
-		image: null,
-		externalId: null,
-		properties: {},
-		sandboxScriptId: null,
-	}),
 	getEntityByIdForUser: async (input) =>
 		createListedEntity({ id: input.entityId }),
 	getEntityScopeForUser: async (input) => ({
 		isBuiltin: false,
 		entityId: input.entityId,
-		entitySchemaSlug: "custom",
 		entitySchemaId: "schema_1",
+		entitySchemaSlug: "custom",
 	}),
 	getEntitySchemaScopeForUser: async (input) => ({
 		isBuiltin: false,
