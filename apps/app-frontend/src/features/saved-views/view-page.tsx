@@ -16,7 +16,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { EmptyState, ErrorState, LoadingState } from "~/components/PageStates";
 import { useResolvedImageUrls } from "~/features/entities/image";
-import { type AppEntityImage, toAppEntity, toAppEntityImage } from "~/features/entities/model";
+import {
+	type AppEntityImage,
+	isQueryEngineEntitiesResponse,
+	toAppEntity,
+	toAppEntityImage,
+} from "~/features/entities/model";
 import { TrackerIcon } from "~/features/trackers/icons";
 import { useApiClient } from "~/hooks/api";
 import { useThemeTokens } from "~/hooks/theme";
@@ -82,9 +87,16 @@ export function SavedViewPage(props: {
 		{ enabled: !!entitySavedView },
 	);
 
-	const runtimePayload = runtimeQuery.data?.data;
-	const items =
-		runtimePayload?.mode === "entities" ? runtimePayload.data.items.map(toAppEntity) : [];
+	const runtimePayload = isQueryEngineEntitiesResponse(runtimeQuery.data)
+		? runtimeQuery.data
+		: undefined;
+	const items = useMemo(
+		() =>
+			runtimePayload?.mode === "entities"
+				? runtimePayload.data.items.map(toAppEntity)
+				: [],
+		[runtimePayload],
+	);
 	const meta = runtimePayload?.mode === "entities" ? runtimePayload.data.meta : undefined;
 	const imageEntries = useMemo(() => {
 		const entries: Array<{ id: string; image: AppEntityImage }> = [];
@@ -125,7 +137,9 @@ export function SavedViewPage(props: {
 		return (
 			<ErrorState
 				title="Failed to load view"
-				onRetry={() => savedViewQuery.refetch()}
+				onRetry={() => {
+					void savedViewQuery.refetch();
+				}}
 				description="We could not load this saved view right now."
 			/>
 		);
@@ -157,7 +171,9 @@ export function SavedViewPage(props: {
 		return (
 			<ErrorState
 				title="Failed to load results"
-				onRetry={() => runtimeQuery.refetch()}
+				onRetry={() => {
+					void runtimeQuery.refetch();
+				}}
 				description="We could not render this view right now."
 			/>
 		);
@@ -225,7 +241,7 @@ export function SavedViewPage(props: {
 							</Group>
 						</Stack>
 						<Group gap="xs">
-							{entitySavedView.name === "Collections" && props.onCreateCollection ? (
+				{entitySavedView.name === "Collections" ? (
 								<Button
 									size="sm"
 									variant="light"

@@ -3,19 +3,16 @@ import { Link } from "@tanstack/react-router";
 import { Image as ImageIcon } from "lucide-react";
 import { DataTable, type DataTableColumn } from "mantine-datatable";
 
-import type { AppEntity } from "~/features/entities/model";
+import type { AppEntity, QueryEngineEntitiesResponse } from "~/features/entities/model";
 import { useThemeTokens } from "~/hooks/theme";
-import type { ApiGetResponseData, ApiPostResponseData } from "~/lib/api/types";
+import type { ApiGetResponseData } from "~/lib/api/types";
 
 import { formatRuntimeValue, getRuntimeField, isRuntimeField } from "./view-page-utils";
 
 type ViewLayout = keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 type SavedViewDisplayConfiguration =
 	ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
-type QueryEngineMeta = Extract<
-	ApiPostResponseData<"/query-engine/execute">,
-	{ mode: "entities" }
->["data"]["meta"];
+type QueryEngineMeta = QueryEngineEntitiesResponse["data"]["meta"];
 
 function EntityThumbnail(props: {
 	label?: string;
@@ -286,7 +283,7 @@ export function SavedViewResults(props: {
 						style={{ color: props.accentColor, textDecoration: "none" }}
 					>
 						<Text size="sm" fw={500} ff="var(--mantine-headings-font-family)">
-							{formatRuntimeValue(field?.value)}
+							{formatRuntimeValue(field.value)}
 						</Text>
 					</Link>
 				);
@@ -294,7 +291,7 @@ export function SavedViewResults(props: {
 
 			return (
 				<Text size="sm" c={textSecondary}>
-					{formatRuntimeValue(field?.value)}
+					{formatRuntimeValue(field.value)}
 				</Text>
 			);
 		},
