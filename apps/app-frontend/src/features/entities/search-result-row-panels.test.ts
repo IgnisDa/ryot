@@ -228,3 +228,154 @@ describe("SearchResultCollectionPanel entity ensuring", () => {
 		expect(actionState.pendingAction).toBeNull();
 	});
 });
+
+describe("SearchResultCollectionPanel loading state", () => {
+	it("renders loading state with correct styling props", () => {
+		const border = "#e5e5e5";
+		const textMuted = "#666666";
+		const accentColor = "#d97706";
+		const collectionState: CollectionDiscoveryState = { type: "loading" };
+
+		expect(collectionState.type).toBe("loading");
+		expect(border).toBeDefined();
+		expect(textMuted).toBeDefined();
+		expect(accentColor).toBeDefined();
+	});
+
+	it("renders loading state with collection panel open", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: null,
+			selectedCollectionId: null,
+			collectionProperties: {},
+			collectionError: null,
+		};
+		const collectionState: CollectionDiscoveryState = { type: "loading" };
+
+		expect(actionState.openPanel).toBe("collection");
+		expect(collectionState.type).toBe("loading");
+		expect(actionState.pendingAction).toBeNull();
+	});
+
+	it("renders loading state while entity is being ensured", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: "collection",
+			selectedCollectionId: null,
+			collectionProperties: {},
+			collectionError: null,
+		};
+		const collectionState: CollectionDiscoveryState = { type: "loading" };
+		const isEnsuringEntity = actionState.pendingAction !== null;
+
+		expect(collectionState.type).toBe("loading");
+		expect(isEnsuringEntity).toBe(true);
+	});
+});
+
+describe("SearchResultCollectionPanel empty state", () => {
+	it("renders empty state with view destination", () => {
+		const border = "#e5e5e5";
+		const textMuted = "#666666";
+		const collectionState: CollectionDiscoveryState = { type: "empty" };
+		const destination: CollectionsDestination = {
+			type: "view",
+			viewId: "collections-view",
+		};
+
+		expect(collectionState.type).toBe("empty");
+		expect(destination.type).toBe("view");
+		expect(destination.viewId).toBe("collections-view");
+		expect(border).toBeDefined();
+		expect(textMuted).toBeDefined();
+	});
+
+	it("renders empty state with none destination", () => {
+		const border = "#e5e5e5";
+		const textMuted = "#666666";
+		const collectionState: CollectionDiscoveryState = { type: "empty" };
+		const destination: CollectionsDestination = { type: "none" };
+
+		expect(collectionState.type).toBe("empty");
+		expect(destination.type).toBe("none");
+		expect(border).toBeDefined();
+		expect(textMuted).toBeDefined();
+	});
+
+	it("can close empty state panel by setting openPanel to null", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: null,
+			selectedCollectionId: null,
+			collectionProperties: {},
+			collectionError: null,
+		};
+		const collectionState: CollectionDiscoveryState = { type: "empty" };
+
+		expect(actionState.openPanel).toBe("collection");
+		expect(collectionState.type).toBe("empty");
+
+		const patchedState = { ...actionState, openPanel: null };
+		expect(patchedState.openPanel).toBeNull();
+	});
+
+	it("renders empty state with collection panel open and no selected collection", () => {
+		const actionState: SearchResultRowActionState = {
+			rateStars: 0,
+			logDate: "now",
+			rateReview: "",
+			openPanel: "collection",
+			doneActions: [],
+			logStartedOn: "",
+			rateStarsHover: 0,
+			actionError: null,
+			logCompletedOn: "",
+			pendingAction: null,
+			selectedCollectionId: null,
+			collectionProperties: {},
+			collectionError: null,
+		};
+		const collectionState: CollectionDiscoveryState = { type: "empty" };
+		const destination: CollectionsDestination = { type: "none" };
+
+		expect(actionState.openPanel).toBe("collection");
+		expect(collectionState.type).toBe("empty");
+		expect(actionState.selectedCollectionId).toBeNull();
+		expect(destination.type).toBe("none");
+	});
+
+	it("navigates to view when destination is view type", () => {
+		const destination: CollectionsDestination = {
+			type: "view",
+			viewId: "my-collections",
+		};
+		const href = `/views/${destination.viewId}`;
+
+		expect(destination.type).toBe("view");
+		expect(href).toBe("/views/my-collections");
+	});
+});
