@@ -56,6 +56,8 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::TmdbSettings
         | ApplicationCacheKey::ListennotesSettings => Duration::days(5),
 
+        ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
+
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
 
         ApplicationCacheKey::UserSession { .. } => {
