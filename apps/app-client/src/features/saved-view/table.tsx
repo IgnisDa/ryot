@@ -105,6 +105,7 @@ function SavedViewTableRow(props: {
 
 export function SavedViewTableResults(props: {
 	viewName: string;
+	totalCount: number;
 	isFetching: boolean;
 	hasNextPage: boolean;
 	onLoadMore: () => void;
@@ -126,7 +127,7 @@ export function SavedViewTableResults(props: {
 				<SavedViewHeader
 					layout={props.layout}
 					name={props.viewName}
-					count={props.rows.length}
+					count={props.totalCount}
 					onLayoutChange={props.onLayoutChange}
 					isLoadingMore={props.isFetching && props.rows.length === 0}
 				/>
