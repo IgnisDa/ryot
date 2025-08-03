@@ -31,10 +31,15 @@ pub async fn update_user(
     user_id: Option<String>,
     input: UpdateUserInput,
 ) -> Result<StringIdObject> {
-    if user_id.unwrap_or_default() != input.user_id
-        && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
-    {
-        bail!("Admin access token mismatch".to_owned());
+    if let Some(ref uid) = user_id {
+        if uid != &input.user_id
+            && admin_account_guard(uid, ss).await.is_err()
+            && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
+        {
+            bail!("Admin access token required".to_owned());
+        }
+    } else if input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token {
+        bail!("Admin access token required".to_owned());
     }
     let mut user_obj = User::find_by_id(input.user_id)
         .one(&ss.db)
