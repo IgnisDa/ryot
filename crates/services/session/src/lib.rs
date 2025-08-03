@@ -15,7 +15,7 @@ pub async fn create_session(
     access_link_id: Option<String>,
     expiry_duration: Option<Duration>,
 ) -> Result<String> {
-    let session_id = generate_session_id();
+    let session_id = generate_session_id(None);
     let cache_key = ApplicationCacheKey::UserSession(UserSessionInput {
         session_id: session_id.clone(),
     });

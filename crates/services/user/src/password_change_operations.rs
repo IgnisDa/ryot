@@ -20,7 +20,7 @@ pub async fn generate_password_change_session(
         bail!("Password change not available for OIDC users");
     }
 
-    let session_id = generate_session_id();
+    let session_id = generate_session_id(None);
     let cache_key =
         ApplicationCacheKey::UserPasswordChangeSession(UserPasswordChangeSessionInput {
             session_id: session_id.clone(),

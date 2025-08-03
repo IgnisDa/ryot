@@ -249,11 +249,7 @@ pub async fn regenerate_two_factor_backup_codes(
 }
 
 fn generate_totp_secret() -> String {
-    let mut secret_bytes = vec![0u8; TOTP_SECRET_LENGTH];
-    let mut rng = OsRng;
-    rng.try_fill_bytes(&mut secret_bytes)
-        .expect("Failed to generate random bytes");
-    BASE32.encode(&secret_bytes)
+    common_utils::generate_session_id(Some(TOTP_SECRET_LENGTH))
 }
 
 fn verify_totp_code(code: &str, secret: &str) -> bool {
