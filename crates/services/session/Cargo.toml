@@ -6,9 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
-hex = { workspace = true }
-rand = { workspace = true }
 
 cache-service = { path = "../cache" }
+common-utils = { path = "../../utils/common" }
 dependent-models = { path = "../../models/dependent" }
 supporting-service = { path = "../supporting" }

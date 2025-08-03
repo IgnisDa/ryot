@@ -3,6 +3,7 @@ use std::{convert::TryInto, fmt};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use enum_models::MediaSource;
 use env_utils::APP_VERSION;
+use rand::{RngCore, rng};
 use reqwest::header::HeaderValue;
 use sea_orm::prelude::DateTimeUtc;
 use serde::de;
@@ -147,4 +148,12 @@ where
 
 pub async fn sleep_for_n_seconds(sec: u64) {
     sleep(Duration::from_secs(sec)).await;
+}
+
+/// Generates a cryptographically secure session ID using 32 random bytes encoded as hexadecimal.
+/// Used for user sessions, password change sessions, and other secure tokens.
+pub fn generate_session_id() -> String {
+    let mut token_bytes = [0u8; 32];
+    rng().fill_bytes(&mut token_bytes);
+    hex::encode(token_bytes)
 }

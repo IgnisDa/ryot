@@ -1395,6 +1395,8 @@ dependencies = [
  "const-str",
  "enum-models",
  "env-utils",
+ "hex",
+ "rand 0.9.1",
  "reqwest",
  "sea-orm",
  "serde",
@@ -5893,9 +5895,8 @@ dependencies = [
  "anyhow",
  "cache-service",
  "chrono",
+ "common-utils",
  "dependent-models",
- "hex",
- "rand 0.9.1",
  "supporting-service",
 ]
 

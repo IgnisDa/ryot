@@ -25,6 +25,7 @@ mod authentication_operations;
 mod integration_operations;
 mod notification_operations;
 mod oidc_operations;
+mod password_change_operations;
 mod recommendation_operations;
 mod two_factor_operations;
 mod user_data_operations;
