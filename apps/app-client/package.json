@@ -24,6 +24,8 @@
 	"dependencies": {
 		"@better-auth/api-key": "1.6.9",
 		"@better-auth/expo": "1.6.9",
+		"@expo-google-fonts/inter": "0.4.2",
+		"@expo-google-fonts/spectral": "0.4.1",
 		"@gluestack-ui/core": "5.0.13-alpha.0",
 		"@gluestack-ui/utils": "5.0.6-alpha.0",
 		"@react-aria/dialog": "3.6.0",
