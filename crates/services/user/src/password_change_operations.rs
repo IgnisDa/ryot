@@ -15,6 +15,10 @@ use supporting_service::SupportingService;
 
 use crate::user_management_operations;
 
+pub fn build_password_change_url(frontend_url: &str, session_id: &str) -> String {
+    format!("{}/change-password?sessionId={}", frontend_url, session_id)
+}
+
 pub async fn generate_password_change_session(
     ss: &Arc<SupportingService>,
     user_id: String,
@@ -86,9 +90,11 @@ pub async fn create_user_invitation(
     match register_result {
         RegisterResult::Ok(user) => {
             let session_id = generate_password_change_session(ss, user.id.clone()).await?;
+            let password_change_url =
+                build_password_change_url(&ss.config.frontend.url, &session_id);
             Ok(UserInvitationResponse {
                 user_id: user.id,
-                session_id,
+                password_change_url,
             })
         }
         RegisterResult::Error(_) => bail!("Failed to create user invitation"),

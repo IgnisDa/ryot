@@ -66,7 +66,7 @@ pub enum RegisterResult {
 #[derive(Debug, SimpleObject)]
 pub struct UserResetResponse {
     pub user_id: String,
-    pub session_id: Option<String>,
+    pub password_change_url: Option<String>,
 }
 
 #[derive(Union)]
@@ -198,7 +198,7 @@ pub enum VerifyTwoFactorResult {
 #[derive(Debug, SimpleObject)]
 pub struct UserInvitationResponse {
     pub user_id: String,
-    pub session_id: String,
+    pub password_change_url: String,
 }
 
 #[derive(Debug, InputObject, Serialize, Deserialize, Clone)]

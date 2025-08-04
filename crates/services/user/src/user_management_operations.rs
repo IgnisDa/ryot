@@ -124,19 +124,23 @@ pub async fn reset_user(
         RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
         RegisterResult::Ok(result) => {
             ryot_log!(debug, "User reset with id {:?}", result.id);
-            let session_id = match original_oidc_issuer_id {
+            let password_change_url = match original_oidc_issuer_id {
                 Some(_) => None,
-                None => Some(
-                    password_change_operations::generate_password_change_session(
+                None => {
+                    let session_id = password_change_operations::generate_password_change_session(
                         ss,
                         result.id.clone(),
                     )
-                    .await?,
-                ),
+                    .await?;
+                    Some(password_change_operations::build_password_change_url(
+                        &ss.config.frontend.url,
+                        &session_id,
+                    ))
+                }
             };
             Ok(UserResetResult::Ok(UserResetResponse {
                 user_id: result.id,
-                session_id,
+                password_change_url,
             }))
         }
     }

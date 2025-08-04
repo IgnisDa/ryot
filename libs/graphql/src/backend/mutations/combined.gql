@@ -114,7 +114,7 @@ mutation ResetUser($toResetUserId: String!) {
 		__typename
 		... on UserResetResponse {
 			userId
-			sessionId
+			passwordChangeUrl
 		}
 	}
 }
@@ -311,7 +311,7 @@ mutation GeneratePasswordChangeSession {
 mutation CreateUserInvitation($username: String!) {
 	createUserInvitation(username: $username) {
 		userId
-		sessionId
+		passwordChangeUrl
 	}
 }
 

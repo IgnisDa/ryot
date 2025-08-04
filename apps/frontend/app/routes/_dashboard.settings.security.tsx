@@ -8,7 +8,6 @@ import {
 	Group,
 	Modal,
 	Paper,
-	PasswordInput,
 	PinInput,
 	SimpleGrid,
 	Stack,
@@ -20,6 +19,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CompleteTwoFactorSetupDocument,
 	DisableTwoFactorDocument,
+	GeneratePasswordChangeSessionDocument,
 	InitiateTwoFactorSetupDocument,
 	type InitiateTwoFactorSetupMutation,
 	RegenerateTwoFactorBackupCodesDocument,
@@ -80,7 +80,6 @@ const updateProfileFormSchema = z.object({
 	userId: z.string(),
 	email: z.email().optional(),
 	username: z.string().optional(),
-	password: z.string().optional(),
 });
 
 export default function Page() {
@@ -99,7 +98,35 @@ const PasswordSection = () => {
 	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
+	const navigate = useNavigate();
 	const isEditDisabled = dashboardData.isDemoInstance;
+
+	const generatePasswordChangeSessionMutation = useMutation({
+		mutationFn: async () => {
+			const { generatePasswordChangeSession } = await clientGqlService.request(
+				GeneratePasswordChangeSessionDocument,
+			);
+			return generatePasswordChangeSession;
+		},
+		onSuccess: (success) => {
+			if (success) {
+				notifications.show({
+					color: "green",
+					title: "Success",
+					message: "You will be logged out and redirected to set a new password",
+				});
+				// Logout and redirect to change password
+				setTimeout(() => navigate("/api/logout"), 1500);
+			}
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to generate password change session",
+			});
+		},
+	});
 
 	return (
 		<Stack>
@@ -119,18 +146,6 @@ const PasswordSection = () => {
 							isEditDisabled && "Username can not be changed for the demo user"
 						}
 					/>
-					<PasswordInput
-						name="password"
-						label="Password"
-						disabled={isEditDisabled || Boolean(userDetails.oidcIssuerId)}
-						description={
-							userDetails.oidcIssuerId
-								? "Not applicable since this user was created via OIDC"
-								: isEditDisabled
-									? "Password can not be changed for the demo user"
-									: undefined
-						}
-					/>
 					<Button
 						fullWidth
 						type="submit"
@@ -143,10 +158,34 @@ const PasswordSection = () => {
 							);
 						}}
 					>
-						Update
+						Update Profile
 					</Button>
 				</Stack>
 			</Form>
+			
+			<Divider />
+			
+			{userDetails.oidcIssuerId ? (
+				<Alert color="blue" title="OIDC User">
+					Password change is not available since this user was created via OIDC.
+				</Alert>
+			) : (
+				<Button
+					fullWidth
+					variant="light"
+					color="orange"
+					disabled={isEditDisabled}
+					loading={generatePasswordChangeSessionMutation.isPending}
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to change your password? You will be logged out and redirected to set a new password.",
+							() => generatePasswordChangeSessionMutation.mutate(),
+						);
+					}}
+				>
+					Change Password
+				</Button>
+			)}
 		</Stack>
 	);
 };

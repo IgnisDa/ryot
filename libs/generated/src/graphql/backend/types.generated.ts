@@ -2756,7 +2756,7 @@ export type UserGeneralWatchProviderInput = {
 
 export type UserInvitationResponse = {
   __typename?: 'UserInvitationResponse';
-  sessionId: Scalars['String']['output'];
+  passwordChangeUrl: Scalars['String']['output'];
   userId: Scalars['String']['output'];
 };
 
@@ -2968,7 +2968,7 @@ export type UserPreferencesInput = {
 
 export type UserResetResponse = {
   __typename?: 'UserResetResponse';
-  sessionId?: Maybe<Scalars['String']['output']>;
+  passwordChangeUrl?: Maybe<Scalars['String']['output']>;
   userId: Scalars['String']['output'];
 };
 
