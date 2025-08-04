@@ -47,6 +47,7 @@ import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { CopyableTextInput } from "~/components/common";
 import { applicationBaseUrl } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -343,10 +344,8 @@ const DisplayAccessLink = (props: {
 					</Group>
 				</Flex>
 				{inputOpened ? (
-					<TextInput
-						readOnly
+					<CopyableTextInput
 						value={accessLinkUrl}
-						onClick={(e) => e.currentTarget.select()}
 						description="Share this link with others to give them access to your data"
 					/>
 				) : null}
