@@ -133,7 +133,7 @@ const UserInvitationModal = (props: {
 		mutationFn: async (username: string) => {
 			const { createUserInvitation } = await clientGqlService.request(
 				CreateUserInvitationDocument,
-				{ username },
+				{ input: { username } },
 			);
 			return {
 				...createUserInvitation,

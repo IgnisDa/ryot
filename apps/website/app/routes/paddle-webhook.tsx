@@ -128,7 +128,12 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 	const auth = oidcIssuerId
 		? email
 		: await serverGqlService
-				.request(CreateUserInvitationDocument, { username: email })
+				.request(CreateUserInvitationDocument, {
+					input: {
+						username: email,
+						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+					},
+				})
 				.then(({ createUserInvitation }) => ({
 					username: email,
 					passwordChangeUrl: createUserInvitation.passwordChangeUrl,
