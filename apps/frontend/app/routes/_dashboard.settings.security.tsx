@@ -116,7 +116,6 @@ const PasswordSection = () => {
 					message:
 						"You will be logged out and redirected to set a new password",
 				});
-				// Logout and redirect to change password
 				setTimeout(() => navigate("/api/logout"), 1500);
 			}
 		},
