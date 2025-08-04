@@ -97,11 +97,11 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ usersList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, UsersListDocument, {
-			query: query.query,
-		}),
-	]);
+	const { usersList } = await serverGqlService.authenticatedRequest(
+		request,
+		UsersListDocument,
+		{ query: query.query },
+	);
 	return { usersList, query, cookieName };
 };
 
