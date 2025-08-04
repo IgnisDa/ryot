@@ -67,7 +67,14 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
 }
 
 fn should_respect_version(key: &ApplicationCacheKey) -> bool {
-    matches!(key, ApplicationCacheKey::CoreDetails)
+    match key {
+        ApplicationCacheKey::CoreDetails
+        | ApplicationCacheKey::IgdbSettings
+        | ApplicationCacheKey::TmdbSettings
+        | ApplicationCacheKey::SpotifyAccessToken
+        | ApplicationCacheKey::ListennotesSettings => true,
+        _ => false,
+    }
 }
 
 pub async fn set_keys_with_custom_expiry(
