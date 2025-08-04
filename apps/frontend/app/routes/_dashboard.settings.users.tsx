@@ -45,7 +45,7 @@ import { z } from "zod";
 import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
-import { useCoreDetails, useUserDetails } from "~/lib/shared/hooks";
+import { useUserDetails } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/query-factory";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
@@ -68,20 +68,12 @@ const showErrorNotification = (message: string) => {
 	notifications.show({ message, color: "red", title: "Error" });
 };
 
-const getPasswordChangePath = (sessionId: string) => {
-	return `/change-password?sessionId=${sessionId}`;
-};
-
-const createPasswordChangeUrl = (frontendUrl: string, sessionId: string) => {
-	return `${frontendUrl}${getPasswordChangePath(sessionId)}`;
-};
-
 const handleCurrentUserLogout = (
 	navigate: ReturnType<typeof useNavigate>,
-	sessionId?: string,
+	passwordChangeUrl?: string,
 ) => {
-	const changePasswordUrl = sessionId
-		? getPasswordChangePath(sessionId)
+	const changePasswordUrl = passwordChangeUrl
+		? new URL(passwordChangeUrl).pathname + new URL(passwordChangeUrl).search
 		: $path("/auth");
 	const logoutRoute = withQuery($path("/api/logout"), {
 		[redirectToQueryParam]: changePasswordUrl,
@@ -123,7 +115,6 @@ const UserInvitationModal = (props: {
 	onClose: () => void;
 	onSuccess: (data: UrlDisplayData) => void;
 }) => {
-	const coreDetails = useCoreDetails();
 	const revalidator = useRevalidator();
 	const [username, setUsername] = useState("");
 
@@ -144,11 +135,10 @@ const UserInvitationModal = (props: {
 				CreateUserInvitationDocument,
 				{ username },
 			);
-			const url = createPasswordChangeUrl(
-				coreDetails.frontend.url,
-				createUserInvitation.sessionId,
-			);
-			return { ...createUserInvitation, invitationUrl: url };
+			return {
+				...createUserInvitation,
+				invitationUrl: createUserInvitation.passwordChangeUrl,
+			};
 		},
 		onSuccess: (createUserInvitation) => {
 			showSuccessNotification("User invitation created successfully");
@@ -345,7 +335,6 @@ const UserActions = (props: {
 	setUrlDisplayData: (data: UrlDisplayData) => void;
 }) => {
 	const revalidator = useRevalidator();
-	const coreDetails = useCoreDetails();
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();
 
@@ -405,13 +394,9 @@ const UserActions = (props: {
 		onSuccess: (resetUser) => {
 			if (resetUser.__typename !== "UserResetResponse") return;
 			const isCurrentUser = props.user.id === userDetails.id;
-			if (resetUser.sessionId) {
-				const url = createPasswordChangeUrl(
-					coreDetails.frontend.url,
-					resetUser.sessionId,
-				);
+			if (resetUser.passwordChangeUrl) {
 				props.setUrlDisplayData({
-					url,
+					url: resetUser.passwordChangeUrl,
 					title: "Password Reset Link",
 					description: "Share this URL with the user to reset their password",
 				});
@@ -419,8 +404,8 @@ const UserActions = (props: {
 			} else {
 				showSuccessNotification("User password reset successfully");
 			}
-			if (isCurrentUser && resetUser.sessionId) {
-				handleCurrentUserLogout(navigate, resetUser.sessionId);
+			if (isCurrentUser && resetUser.passwordChangeUrl) {
+				handleCurrentUserLogout(navigate, resetUser.passwordChangeUrl);
 			}
 		},
 	});

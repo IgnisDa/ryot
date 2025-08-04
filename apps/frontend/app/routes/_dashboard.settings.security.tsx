@@ -113,7 +113,8 @@ const PasswordSection = () => {
 				notifications.show({
 					color: "green",
 					title: "Success",
-					message: "You will be logged out and redirected to set a new password",
+					message:
+						"You will be logged out and redirected to set a new password",
 				});
 				// Logout and redirect to change password
 				setTimeout(() => navigate("/api/logout"), 1500);
@@ -162,9 +163,9 @@ const PasswordSection = () => {
 					</Button>
 				</Stack>
 			</Form>
-			
+
 			<Divider />
-			
+
 			{userDetails.oidcIssuerId ? (
 				<Alert color="blue" title="OIDC User">
 					Password change is not available since this user was created via OIDC.
