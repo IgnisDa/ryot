@@ -152,9 +152,7 @@ pub async fn register_user(
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
     if let Some(ref uid) = requester_user_id {
-        if admin_account_guard(uid, ss).await.is_err() {
-            bail!("Admin access token required".to_owned());
-        }
+        admin_account_guard(uid, ss).await?;
     } else if !ss.config.users.allow_registration
         && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
     {
