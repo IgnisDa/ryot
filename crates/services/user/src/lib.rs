@@ -10,11 +10,11 @@ use dependent_models::{
 use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, SetPasswordViaSessionInput,
-    UpdateUserNotificationPlatformInput, UserInvitationResponse, UserResetResult,
-    UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse, UserTwoFactorSetupInput,
-    UserTwoFactorVerifyInput, VerifyTwoFactorResult,
+    CreateUserInvitationInput, CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput,
+    ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
+    SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
+    UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
+    UserTwoFactorSetupInput, UserTwoFactorVerifyInput, VerifyTwoFactorResult,
 };
 use openidconnect::Nonce;
 use supporting_service::SupportingService;
@@ -238,10 +238,10 @@ impl UserService {
 
     pub async fn create_user_invitation(
         &self,
-        admin_user_id: String,
-        username: String,
+        user_id: Option<String>,
+        input: CreateUserInvitationInput,
     ) -> Result<UserInvitationResponse> {
-        password_change_operations::create_user_invitation(&self.0, admin_user_id, username).await
+        password_change_operations::create_user_invitation(&self.0, user_id, input).await
     }
 
     pub async fn set_password_via_session(

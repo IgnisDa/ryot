@@ -8,11 +8,11 @@ use dependent_models::{
 };
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, SetPasswordViaSessionInput,
-    UpdateUserNotificationPlatformInput, UserInvitationResponse, UserResetResult,
-    UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse, UserTwoFactorSetupInput,
-    UserTwoFactorVerifyInput, VerifyTwoFactorResult,
+    CreateUserInvitationInput, CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput,
+    ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
+    SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
+    UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
+    UserTwoFactorSetupInput, UserTwoFactorVerifyInput, VerifyTwoFactorResult,
 };
 use traits::AuthProvider;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -377,11 +377,11 @@ impl UserMutation {
     async fn create_user_invitation(
         &self,
         gql_ctx: &Context<'_>,
-        username: String,
+        input: CreateUserInvitationInput,
     ) -> Result<UserInvitationResponse> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        let response = service.create_user_invitation(user_id, username).await?;
+        let user_id = self.user_id_from_ctx(gql_ctx).await.ok();
+        let response = service.create_user_invitation(user_id, input).await?;
         Ok(response)
     }
 

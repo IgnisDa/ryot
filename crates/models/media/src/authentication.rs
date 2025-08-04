@@ -195,6 +195,13 @@ pub enum VerifyTwoFactorResult {
     Error(VerifyTwoFactorError),
 }
 
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct CreateUserInvitationInput {
+    pub username: String,
+    /// If user details are not present in the request, this can be used to override it
+    pub admin_access_token: Option<String>,
+}
+
 #[derive(Debug, SimpleObject)]
 pub struct UserInvitationResponse {
     pub user_id: String,

@@ -392,6 +392,12 @@ export type CreateReviewCommentInput = {
   text?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateUserInvitationInput = {
+  /** If user details are not present in the request, this can be used to override it */
+  adminAccessToken?: InputMaybe<Scalars['String']['input']>;
+  username: Scalars['String']['input'];
+};
+
 export type CreateUserNotificationPlatformInput = {
   apiToken?: InputMaybe<Scalars['String']['input']>;
   authHeader?: InputMaybe<Scalars['String']['input']>;
@@ -1594,7 +1600,7 @@ export type MutationRootCreateReviewCommentArgs = {
 
 
 export type MutationRootCreateUserInvitationArgs = {
-  username: Scalars['String']['input'];
+  input: CreateUserInvitationInput;
 };
 
 

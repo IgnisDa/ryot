@@ -8,7 +8,8 @@ use dependent_models::{
     UserPasswordChangeSessionInput, UserPasswordChangeSessionValue,
 };
 use media_models::{
-    AuthUserInput, PasswordUserInput, RegisterResult, RegisterUserInput, UserInvitationResponse,
+    AuthUserInput, CreateUserInvitationInput, PasswordUserInput, RegisterResult, RegisterUserInput,
+    UserInvitationResponse,
 };
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
@@ -71,17 +72,25 @@ pub async fn set_password_via_session(
 
 pub async fn create_user_invitation(
     ss: &Arc<SupportingService>,
-    admin_user_id: String,
-    username: String,
+    user_id: Option<String>,
+    input: CreateUserInvitationInput,
 ) -> Result<UserInvitationResponse> {
-    admin_account_guard(&admin_user_id, ss).await?;
+    if let Some(admin_user_id) = user_id {
+        admin_account_guard(&admin_user_id, ss).await?;
+    } else if let Some(token) = &input.admin_access_token {
+        if token != &ss.config.server.admin_access_token {
+            bail!("Invalid admin access token");
+        }
+    } else {
+        bail!("Either user authentication or admin access token is required");
+    }
 
     let register_input = RegisterUserInput {
         lot: None,
         user_id: None,
         admin_access_token: Some(ss.config.server.admin_access_token.clone()),
         data: AuthUserInput::Password(PasswordUserInput {
-            username,
+            username: input.username,
             password: String::new(),
         }),
     };
