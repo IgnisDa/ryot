@@ -19,7 +19,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CompleteTwoFactorSetupDocument,
 	DisableTwoFactorDocument,
-	GeneratePasswordChangeSessionDocument,
+	GetPasswordChangeUrlDocument,
 	InitiateTwoFactorSetupDocument,
 	type InitiateTwoFactorSetupMutation,
 	RegenerateTwoFactorBackupCodesDocument,
@@ -45,6 +45,7 @@ import { clientGqlService } from "~/lib/shared/query-factory";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.security";
+import { redirectToQueryParam } from "~/lib/shared/constants";
 
 enum TwoFactorSetupStep {
 	Auth = "auth",
@@ -103,21 +104,26 @@ const PasswordSection = () => {
 
 	const generatePasswordChangeSessionMutation = useMutation({
 		mutationFn: async () => {
-			const { generatePasswordChangeSession } = await clientGqlService.request(
-				GeneratePasswordChangeSessionDocument,
+			const { getPasswordChangeUrl } = await clientGqlService.request(
+				GetPasswordChangeUrlDocument,
+				{ input: { userId: userDetails.id } },
 			);
-			return generatePasswordChangeSession;
+			return getPasswordChangeUrl.passwordChangeUrl;
 		},
-		onSuccess: (success) => {
-			if (success) {
-				notifications.show({
-					color: "green",
-					title: "Success",
-					message:
-						"You will be logged out and redirected to set a new password",
-				});
-				setTimeout(() => navigate("/api/logout"), 1500);
-			}
+		onSuccess: (url) => {
+			if (!url) return;
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "You will be logged out and redirected to set a new password",
+			});
+			setTimeout(
+				() =>
+					navigate(
+						withQuery($path("/api/logout"), { [redirectToQueryParam]: url }),
+					),
+				1500,
+			);
 		},
 		onError: () => {
 			notifications.show({
@@ -172,8 +178,8 @@ const PasswordSection = () => {
 			) : (
 				<Button
 					fullWidth
-					variant="light"
 					color="orange"
+					variant="light"
 					disabled={isEditDisabled}
 					loading={generatePasswordChangeSessionMutation.isPending}
 					onClick={() => {
