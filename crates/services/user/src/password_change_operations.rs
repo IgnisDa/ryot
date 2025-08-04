@@ -7,7 +7,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput,
     UserPasswordChangeSessionInput, UserPasswordChangeSessionValue,
 };
-use media_models::{CreateUserInvitationInput, UserInvitationResponse};
+use media_models::{GetPasswordChangeUrlInput, UserInvitationResponse};
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
 
@@ -65,10 +65,10 @@ pub async fn set_password_via_session(
     Ok(true)
 }
 
-pub async fn create_user_invitation(
+pub async fn get_password_change_url(
     ss: &Arc<SupportingService>,
     requester_user_id: Option<String>,
-    input: CreateUserInvitationInput,
+    input: GetPasswordChangeUrlInput,
 ) -> Result<UserInvitationResponse> {
     if let Some(admin_user_id) = requester_user_id {
         admin_account_guard(&admin_user_id, ss).await?;

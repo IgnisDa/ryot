@@ -392,12 +392,6 @@ export type CreateReviewCommentInput = {
   text?: InputMaybe<Scalars['String']['input']>;
 };
 
-export type CreateUserInvitationInput = {
-  /** If user details are not present in the request, this can be used to override it */
-  adminAccessToken?: InputMaybe<Scalars['String']['input']>;
-  userId: Scalars['String']['input'];
-};
-
 export type CreateUserNotificationPlatformInput = {
   apiToken?: InputMaybe<Scalars['String']['input']>;
   authHeader?: InputMaybe<Scalars['String']['input']>;
@@ -834,6 +828,12 @@ export type GenreListItem = {
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
   numItems?: Maybe<Scalars['Int']['output']>;
+};
+
+export type GetPasswordChangeUrlInput = {
+  /** If user details are not present in the request, this can be used to override it */
+  adminAccessToken?: InputMaybe<Scalars['String']['input']>;
+  userId: Scalars['String']['input'];
 };
 
 export type GraphqlCalendarEvent = {
@@ -1428,8 +1428,6 @@ export type MutationRoot = {
   createOrUpdateUserWorkoutTemplate: Scalars['String']['output'];
   /** Create, like or delete a comment on a review. */
   createReviewComment: Scalars['Boolean']['output'];
-  /** Create a new user invitation. The account creating the invitation must be an `Admin`. */
-  createUserInvitation: UserInvitationResponse;
   /** Create a user measurement. */
   createUserMeasurement: Scalars['DateTime']['output'];
   /** Add a notification platform for the currently logged in user. */
@@ -1489,6 +1487,8 @@ export type MutationRoot = {
   generateAuthToken: Scalars['String']['output'];
   /** Generate a password change session for the currently logged in user. */
   generatePasswordChangeSession: Scalars['Boolean']['output'];
+  /** Get a URL which can be used to set a new password for the user. */
+  getPasswordChangeUrl: UserInvitationResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
@@ -1599,11 +1599,6 @@ export type MutationRootCreateReviewCommentArgs = {
 };
 
 
-export type MutationRootCreateUserInvitationArgs = {
-  input: CreateUserInvitationInput;
-};
-
-
 export type MutationRootCreateUserMeasurementArgs = {
   input: UserMeasurementInput;
 };
@@ -1702,6 +1697,11 @@ export type MutationRootDisassociateMetadataArgs = {
 
 export type MutationRootExpireCacheKeyArgs = {
   cacheId: Scalars['UUID']['input'];
+};
+
+
+export type MutationRootGetPasswordChangeUrlArgs = {
+  input: GetPasswordChangeUrlInput;
 };
 
 

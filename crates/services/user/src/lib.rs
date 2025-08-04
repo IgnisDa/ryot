@@ -10,7 +10,7 @@ use dependent_models::{
 use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserInvitationInput, CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput,
+    CreateUserNotificationPlatformInput, GetPasswordChangeUrlInput, LoginResult, OidcTokenOutput,
     ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
     UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
@@ -240,12 +240,12 @@ impl UserService {
         Ok(true)
     }
 
-    pub async fn create_user_invitation(
+    pub async fn get_password_change_url(
         &self,
         requester_user_id: Option<String>,
-        input: CreateUserInvitationInput,
+        input: GetPasswordChangeUrlInput,
     ) -> Result<UserInvitationResponse> {
-        password_change_operations::create_user_invitation(&self.0, requester_user_id, input).await
+        password_change_operations::get_password_change_url(&self.0, requester_user_id, input).await
     }
 
     pub async fn set_password_via_session(

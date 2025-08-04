@@ -8,7 +8,7 @@ use dependent_models::{
 };
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserInvitationInput, CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput,
+    CreateUserNotificationPlatformInput, GetPasswordChangeUrlInput, LoginResult, OidcTokenOutput,
     ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
     UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
@@ -374,16 +374,16 @@ impl UserMutation {
         Ok(response)
     }
 
-    /// Create a new user invitation. The account creating the invitation must be an `Admin`.
-    async fn create_user_invitation(
+    /// Get a URL which can be used to set a new password for the user.
+    async fn get_password_change_url(
         &self,
         gql_ctx: &Context<'_>,
-        input: CreateUserInvitationInput,
+        input: GetPasswordChangeUrlInput,
     ) -> Result<UserInvitationResponse> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
         let response = service
-            .create_user_invitation(requester_user_id, input)
+            .get_password_change_url(requester_user_id, input)
             .await?;
         Ok(response)
     }
