@@ -1,5 +1,6 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
 use common_models::StringIdObject;
+use enum_models::UserLot;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +37,8 @@ pub enum AuthUserInput {
 #[derive(Debug, InputObject)]
 pub struct RegisterUserInput {
     pub data: AuthUserInput,
+    /// Specific user lot (role) to assign.
+    pub lot: Option<UserLot>,
     /// Specific user ID to create.
     #[graphql(skip)]
     pub user_id: Option<String>,

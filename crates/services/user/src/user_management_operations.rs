@@ -96,6 +96,7 @@ pub async fn reset_user(
     let original_id = user_to_reset.id.clone();
     let original_name = user_to_reset.name.clone();
     let original_oidc_issuer_id = user_to_reset.oidc_issuer_id.clone();
+    let original_lot = user_to_reset.lot;
 
     user_to_reset.delete(&ss.db).await?;
 
@@ -112,6 +113,7 @@ pub async fn reset_user(
 
     let register_input = RegisterUserInput {
         data: auth_input,
+        lot: Some(original_lot),
         user_id: Some(original_id.clone()),
         admin_access_token: Some(ss.config.server.admin_access_token.clone()),
     };
@@ -177,9 +179,12 @@ pub async fn register_user(
         AuthUserInput::Password(_) => None,
     };
     // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
-    let lot = match total_users == 0 {
-        true => UserLot::Admin,
-        false => UserLot::Normal,
+    let lot = match input.lot {
+        Some(specified_lot) => specified_lot,
+        None => match total_users == 0 {
+            true => UserLot::Admin,
+            false => UserLot::Normal,
+        },
     };
     let user_id = input
         .user_id

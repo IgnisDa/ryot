@@ -2200,6 +2200,8 @@ export type RegisterUserInput = {
   /** If registration is disabled, this can be used to override it. */
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   data: AuthUserInput;
+  /** Specific user lot (role) to assign. */
+  lot?: InputMaybe<UserLot>;
 };
 
 export type ReorderCollectionEntityInput = {

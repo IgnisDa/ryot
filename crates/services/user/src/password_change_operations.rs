@@ -73,12 +73,13 @@ pub async fn create_user_invitation(
     admin_account_guard(&admin_user_id, ss).await?;
 
     let register_input = RegisterUserInput {
+        lot: None,
+        user_id: None,
+        admin_access_token: Some(ss.config.server.admin_access_token.clone()),
         data: AuthUserInput::Password(PasswordUserInput {
             username,
             password: String::new(),
         }),
-        user_id: None,
-        admin_access_token: Some(ss.config.server.admin_access_token.clone()),
     };
 
     let register_result = user_management_operations::register_user(ss, register_input).await?;
