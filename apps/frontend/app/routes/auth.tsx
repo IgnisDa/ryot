@@ -40,6 +40,7 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { redirectToQueryParam } from "~/lib/shared/constants";
+import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
 	getCookiesForApplication,
@@ -188,18 +189,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const registerSchema = z
-	.object({
-		username: z.string(),
-		password: z
-			.string()
-			.min(8, "Password should be at least 8 characters long"),
-		confirm: z.string(),
-	})
-	.refine((data) => data.password === data.confirm, {
-		message: "Passwords do not match",
-		path: ["confirm"],
-	});
+const registerSchema = passwordConfirmationSchema.merge(
+	z.object({ username: z.string() }),
+);
 
 const loginSchema = z.object({
 	username: z.string(),

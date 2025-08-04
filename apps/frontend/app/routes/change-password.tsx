@@ -10,12 +10,12 @@ import {
 	Title,
 } from "@mantine/core";
 import { SetPasswordViaSessionDocument } from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, parseSearchQuery } from "@ryot/ts-utils";
+import { parseSearchQuery } from "@ryot/ts-utils";
 import { IconLock } from "@tabler/icons-react";
 import { Form, data, useActionData, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
-import { match } from "ts-pattern";
 import { z } from "zod";
+import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
 	redirectWithToast,
@@ -23,9 +23,7 @@ import {
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/change-password";
 
-const searchParamsSchema = z.object({
-	sessionId: z.string(),
-});
+const searchParamsSchema = z.object({ sessionId: z.string() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
@@ -39,101 +37,56 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		});
 	}
 
-	// Validate session exists by attempting to use it (this doesn't consume it)
-	try {
-		// We can't validate without consuming the session, so we'll just proceed
-		// The actual validation will happen in the action
-		return {
-			sessionId: query.sessionId,
-		};
-	} catch {
-		return redirectWithToast($path("/auth"), {
-			type: "error",
-			message: "Session not found or expired",
-		});
-	}
+	return { sessionId: query.sessionId };
 };
 
 export const meta = () => [{ title: "Set Password | Ryot" }];
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
-	const intent = getActionIntent(request);
 
-	return await match(intent)
-		.with("setPassword", async () => {
-			const submission = parseWithZod(formData, {
-				schema: setPasswordSchema,
-			});
+	const submission = parseWithZod(formData, { schema: setPasswordSchema });
 
-			if (submission.status !== "success") {
-				return data(
-					{ result: submission.reply() },
-					{
-						headers: await createToastHeaders({
-							type: "error",
-							message: "Please check the form for errors",
-						}),
-					},
-				);
-			}
+	if (submission.status !== "success") {
+		return data(
+			{ result: submission.reply() },
+			{
+				headers: await createToastHeaders({
+					type: "error",
+					message: "Please check the form for errors",
+				}),
+			},
+		);
+	}
 
-			try {
-				await serverGqlService.request(SetPasswordViaSessionDocument, {
-					input: {
-						sessionId: submission.value.sessionId,
-						password: submission.value.password,
-					},
-				});
+	await serverGqlService.request(SetPasswordViaSessionDocument, {
+		input: {
+			password: submission.value.password,
+			sessionId: submission.value.sessionId,
+		},
+	});
 
-				return redirectWithToast($path("/auth"), {
-					type: "success",
-					message:
-						"Password set successfully. You can now log in with your new password.",
-				});
-			} catch (error) {
-				const message =
-					error instanceof Error
-						? error.message
-						: "Failed to set password. The session may have expired.";
-
-				return data(
-					{ result: null },
-					{
-						headers: await createToastHeaders({
-							type: "error",
-							message,
-						}),
-					},
-				);
-			}
-		})
-		.run();
+	return redirectWithToast($path("/auth"), {
+		type: "success",
+		message:
+			"Password set successfully. You can now log in with your new password.",
+	});
 };
 
-const setPasswordSchema = z
-	.object({
-		sessionId: z.string(),
-		password: z
-			.string()
-			.min(8, "Password should be at least 8 characters long"),
-		confirm: z.string(),
-	})
-	.refine((data) => data.password === data.confirm, {
-		message: "Passwords do not match",
-		path: ["confirm"],
-	});
+const setPasswordSchema = passwordConfirmationSchema.merge(
+	z.object({ sessionId: z.string() }),
+);
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const actionData = useActionData<typeof action>();
 	const [form, fields] = useForm({
+		shouldValidate: "onBlur",
+		shouldRevalidate: "onInput",
 		lastResult: actionData?.result,
 		onValidate({ formData }) {
 			return parseWithZod(formData, { schema: setPasswordSchema });
 		},
-		shouldValidate: "onBlur",
-		shouldRevalidate: "onInput",
 	});
 
 	return (
@@ -151,7 +104,7 @@ export default function Page() {
 
 				<Form
 					method="POST"
-					action="/change-password"
+					action={"/change-password"}
 					style={{ width: "100%" }}
 					{...getFormProps(form)}
 				>
@@ -160,17 +113,17 @@ export default function Page() {
 
 					<Stack gap="md">
 						<PasswordInput
+							required
 							label="New Password"
 							placeholder="Enter your new password"
-							required
 							{...getInputProps(fields.password, { type: "password" })}
 							error={fields.password.errors?.[0]}
 						/>
 
 						<PasswordInput
+							required
 							label="Confirm Password"
 							placeholder="Confirm your new password"
-							required
 							{...getInputProps(fields.confirm, { type: "password" })}
 							error={fields.confirm.errors?.[0]}
 						/>
