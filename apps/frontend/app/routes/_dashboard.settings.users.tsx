@@ -77,7 +77,7 @@ const handleCurrentUserLogout = (
 	const logoutRoute = withQuery($path("/api/logout"), {
 		[redirectToQueryParam]: changePasswordUrl,
 	});
-	setTimeout(() => navigate(logoutRoute), 1500);
+	navigate(logoutRoute);
 };
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
