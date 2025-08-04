@@ -189,9 +189,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const registerSchema = passwordConfirmationSchema.merge(
-	z.object({ username: z.string() }),
-);
+const registerSchema = passwordConfirmationSchema.extend({
+	username: z.string(),
+});
 
 const loginSchema = z.object({
 	username: z.string(),

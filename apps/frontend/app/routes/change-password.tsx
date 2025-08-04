@@ -73,9 +73,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	});
 };
 
-const setPasswordSchema = passwordConfirmationSchema.merge(
-	z.object({ sessionId: z.string() }),
-);
+const setPasswordSchema = passwordConfirmationSchema.extend({
+	sessionId: z.string(),
+});
 
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
