@@ -117,12 +117,9 @@ const PasswordSection = () => {
 				title: "Success",
 				message: "You will be logged out and redirected to set a new password",
 			});
-			setTimeout(
-				() =>
-					navigate(
-						withQuery($path("/api/logout"), { [redirectToQueryParam]: url }),
-					),
-				1500,
+
+			navigate(
+				withQuery($path("/api/logout"), { [redirectToQueryParam]: url }),
 			);
 		},
 		onError: () => {
