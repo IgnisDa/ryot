@@ -395,11 +395,13 @@ const UserActions = (props: {
 			if (resetUser.__typename !== "UserResetResponse") return;
 			const isCurrentUser = props.user.id === userDetails.id;
 			if (resetUser.passwordChangeUrl) {
-				props.setUrlDisplayData({
-					url: resetUser.passwordChangeUrl,
-					title: "Password Reset Link",
-					description: "Share this URL with the user to reset their password",
-				});
+				if (!isCurrentUser) {
+					props.setUrlDisplayData({
+						url: resetUser.passwordChangeUrl,
+						title: "Password Reset Link",
+						description: "Share this URL with the user to reset their password",
+					});
+				}
 				showSuccessNotification("User reset successfully");
 			} else {
 				showSuccessNotification("User password reset successfully");
