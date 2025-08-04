@@ -91,8 +91,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				subject: PurchaseCompleteEmail.subject,
 				element: PurchaseCompleteEmail({
 					planType: customer.planType,
-					details: { __typename: "self_hosted", key: created.key },
 					renewOn: customer.renewOn || undefined,
+					details: { __typename: "self_hosted", key: created.key },
 				}),
 			});
 			return data({});
