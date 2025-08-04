@@ -7,14 +7,9 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput,
     UserPasswordChangeSessionInput, UserPasswordChangeSessionValue,
 };
-use media_models::{
-    AuthUserInput, CreateUserInvitationInput, PasswordUserInput, RegisterResult, RegisterUserInput,
-    UserInvitationResponse,
-};
+use media_models::{CreateUserInvitationInput, UserInvitationResponse};
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
-
-use crate::user_management_operations;
 
 pub fn build_password_change_url(frontend_url: &str, session_id: &str) -> String {
     format!("{}/change-password?sessionId={}", frontend_url, session_id)
@@ -72,10 +67,10 @@ pub async fn set_password_via_session(
 
 pub async fn create_user_invitation(
     ss: &Arc<SupportingService>,
-    user_id: Option<String>,
+    requester_user_id: Option<String>,
     input: CreateUserInvitationInput,
 ) -> Result<UserInvitationResponse> {
-    if let Some(admin_user_id) = user_id {
+    if let Some(admin_user_id) = requester_user_id {
         admin_account_guard(&admin_user_id, ss).await?;
     } else if let Some(token) = &input.admin_access_token {
         if token != &ss.config.server.admin_access_token {
@@ -85,27 +80,12 @@ pub async fn create_user_invitation(
         bail!("Either user authentication or admin access token is required");
     }
 
-    let register_input = RegisterUserInput {
-        lot: None,
-        user_id: None,
-        admin_access_token: Some(ss.config.server.admin_access_token.clone()),
-        data: AuthUserInput::Password(PasswordUserInput {
-            username: input.username,
-            password: String::new(),
-        }),
-    };
+    let user = user_by_id(&input.user_id, ss).await?;
+    let session_id = generate_password_change_session(ss, user.id.clone()).await?;
+    let password_change_url = build_password_change_url(&ss.config.frontend.url, &session_id);
 
-    let register_result = user_management_operations::register_user(ss, register_input).await?;
-    match register_result {
-        RegisterResult::Ok(user) => {
-            let session_id = generate_password_change_session(ss, user.id.clone()).await?;
-            let password_change_url =
-                build_password_change_url(&ss.config.frontend.url, &session_id);
-            Ok(UserInvitationResponse {
-                user_id: user.id,
-                password_change_url,
-            })
-        }
-        RegisterResult::Error(_) => bail!("Failed to create user invitation"),
-    }
+    Ok(UserInvitationResponse {
+        user_id: user.id,
+        password_change_url,
+    })
 }

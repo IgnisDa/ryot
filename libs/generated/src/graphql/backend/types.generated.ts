@@ -395,7 +395,7 @@ export type CreateReviewCommentInput = {
 export type CreateUserInvitationInput = {
   /** If user details are not present in the request, this can be used to override it */
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
-  username: Scalars['String']['input'];
+  userId: Scalars['String']['input'];
 };
 
 export type CreateUserNotificationPlatformInput = {
