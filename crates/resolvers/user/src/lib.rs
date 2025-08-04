@@ -183,7 +183,8 @@ impl UserMutation {
         input: RegisterUserInput,
     ) -> Result<RegisterResult> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let response = service.register_user(input).await?;
+        let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
+        let response = service.register_user(requester_user_id, input).await?;
         Ok(response)
     }
 

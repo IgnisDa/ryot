@@ -118,7 +118,7 @@ pub async fn reset_user(
         admin_access_token: Some(ss.config.server.admin_access_token.clone()),
     };
 
-    let register_result = register_user(ss, register_input).await?;
+    let register_result = register_user(ss, None, register_input).await?;
     cache_service::expire_key(ss, ExpireCacheKeyInput::ByUser(original_id)).await?;
     match register_result {
         RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
@@ -148,9 +148,14 @@ pub async fn reset_user(
 
 pub async fn register_user(
     ss: &Arc<SupportingService>,
+    requester_user_id: Option<String>,
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
-    if !ss.config.users.allow_registration
+    if let Some(ref uid) = requester_user_id {
+        if admin_account_guard(uid, ss).await.is_err() {
+            bail!("Admin access token required".to_owned());
+        }
+    } else if !ss.config.users.allow_registration
         && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
     {
         return Ok(RegisterResult::Error(RegisterError {

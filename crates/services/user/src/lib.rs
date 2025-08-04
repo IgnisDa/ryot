@@ -90,8 +90,12 @@ impl UserService {
         user_management_operations::reset_user(&self.0, admin_user_id, to_reset_user_id).await
     }
 
-    pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        user_management_operations::register_user(&self.0, input).await
+    pub async fn register_user(
+        &self,
+        requester_user_id: Option<String>,
+        input: RegisterUserInput,
+    ) -> Result<RegisterResult> {
+        user_management_operations::register_user(&self.0, requester_user_id, input).await
     }
 
     pub async fn generate_auth_token(&self, user_id: String) -> Result<String> {
