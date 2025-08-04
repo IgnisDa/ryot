@@ -24,7 +24,7 @@ import {
 	UsersListDocument,
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, parseSearchQuery, truncate } from "@ryot/ts-utils";
+import { changeCase, parseSearchQuery } from "@ryot/ts-utils";
 import {
 	IconPlus,
 	IconRotateClockwise,
@@ -263,30 +263,33 @@ export default function Page() {
 					records={loaderData.usersList}
 					columns={[
 						{
-							width: 250,
-							accessor: "name",
-							title: "User",
-							render: ({ name }) => (
+							width: 150,
+							accessor: "id",
+							title: "User ID",
+							render: ({ id, name }) => (
 								<Group wrap="nowrap">
 									<Avatar name={name} size="sm" />
-									<Text fw="bold">{name}</Text>
+
+									<Text size="sm" c="dimmed">
+										{id}
+									</Text>
 								</Group>
 							),
 						},
 						{
-							width: 200,
-							accessor: "id",
-							title: "User ID",
-							render: ({ id }) => (
-								<Text size="sm" c="dimmed">
-									{truncate(id, { length: 20 })}
+							width: 250,
+							title: "Name",
+							accessor: "name",
+							render: ({ name }) => (
+								<Text fw="bold" truncate>
+									{name}
 								</Text>
 							),
 						},
 						{
-							width: 100,
-							accessor: "lot",
+							width: 50,
 							title: "Role",
+							accessor: "lot",
 							render: ({ lot }) => (
 								<Badge size="sm" variant="light">
 									{changeCase(lot)}
@@ -294,9 +297,9 @@ export default function Page() {
 							),
 						},
 						{
-							width: 100,
-							accessor: "isDisabled",
+							width: 50,
 							title: "Status",
+							accessor: "isDisabled",
 							render: ({ isDisabled }) => (
 								<Badge
 									size="sm"
@@ -309,8 +312,8 @@ export default function Page() {
 						},
 						{
 							width: 150,
-							accessor: "actions",
 							title: "Actions",
+							accessor: "actions",
 							textAlign: "center",
 							render: (user) => (
 								<UserActions
