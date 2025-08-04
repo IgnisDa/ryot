@@ -130,7 +130,7 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 		: await serverGqlService
 				.request(CreateUserInvitationDocument, {
 					input: {
-						username: email,
+						userId: registerUser.id,
 						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 					},
 				})
