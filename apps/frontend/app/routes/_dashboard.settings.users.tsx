@@ -17,6 +17,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateUserInvitationDocument,
 	DeleteUserDocument,
+	RegisterUserDocument,
 	ResetUserDocument,
 	UpdateUserDocument,
 	UserLot,
@@ -131,10 +132,22 @@ const UserInvitationModal = (props: {
 
 	const createInvitationMutation = useMutation({
 		mutationFn: async (username: string) => {
+			const { registerUser } = await clientGqlService.request(
+				RegisterUserDocument,
+				{
+					input: { data: { password: { username, password: "" } } },
+				},
+			);
+
+			if (registerUser.__typename !== "StringIdObject") {
+				throw new Error("Failed to register user");
+			}
+
 			const { createUserInvitation } = await clientGqlService.request(
 				CreateUserInvitationDocument,
-				{ input: { username } },
+				{ input: { userId: registerUser.id } },
 			);
+
 			return {
 				...createUserInvitation,
 				invitationUrl: createUserInvitation.passwordChangeUrl,
