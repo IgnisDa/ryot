@@ -15,8 +15,8 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-	CreateUserInvitationDocument,
 	DeleteUserDocument,
+	GetPasswordChangeUrlDocument,
 	RegisterUserDocument,
 	ResetUserDocument,
 	UpdateUserDocument,
@@ -141,22 +141,19 @@ const UserInvitationModal = (props: {
 				throw new Error("Failed to register user");
 			}
 
-			const { createUserInvitation } = await clientGqlService.request(
-				CreateUserInvitationDocument,
+			const { getPasswordChangeUrl } = await clientGqlService.request(
+				GetPasswordChangeUrlDocument,
 				{ input: { userId: registerUser.id } },
 			);
 
-			return {
-				...createUserInvitation,
-				invitationUrl: createUserInvitation.passwordChangeUrl,
-			};
+			return getPasswordChangeUrl.passwordChangeUrl;
 		},
 		onSuccess: (createUserInvitation) => {
 			showSuccessNotification("User invitation created successfully");
 			revalidator.revalidate();
 			props.onSuccess({
+				url: createUserInvitation,
 				title: "User Invitation Created",
-				url: createUserInvitation.invitationUrl,
 				description: "Share this URL with the user to set their password",
 			});
 			handleClose();
@@ -180,7 +177,7 @@ const UserInvitationModal = (props: {
 					label="Username"
 					onChange={(e) => setUsername(e.currentTarget.value)}
 				/>
-				{!createInvitationMutation.data?.invitationUrl && (
+				{!createInvitationMutation.data && (
 					<Button
 						disabled={!username.trim()}
 						onClick={handleCreateInvitation}
