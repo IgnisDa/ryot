@@ -159,9 +159,9 @@ describe("Reset User functionality", () => {
 		);
 		expect(resetUser.__typename).toBe("UserResetResponse");
 		if (resetUser.__typename === "UserResetResponse") {
-			expect(resetUser.password).toBeDefined();
-			expect(typeof resetUser.password).toBe("string");
-			expect(resetUser.password?.length).toBeGreaterThan(0);
+			expect(resetUser.passwordChangeUrl).toBeDefined();
+			expect(typeof resetUser.passwordChangeUrl).toBe("string");
+			expect(resetUser.passwordChangeUrl?.length).toBeGreaterThan(0);
 		}
 		const { userDetails: afterReset } = await client.request(
 			UserDetailsDocument,
