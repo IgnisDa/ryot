@@ -4,7 +4,6 @@ import {
 	Badge,
 	Button,
 	Container,
-	CopyButton,
 	Flex,
 	Group,
 	Modal,
@@ -26,7 +25,6 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, parseSearchQuery, truncate } from "@ryot/ts-utils";
 import {
-	IconCopy,
 	IconPlus,
 	IconRotateClockwise,
 	IconTrash,
@@ -44,6 +42,7 @@ import {
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import { useCoreDetails, useUserDetails } from "~/lib/shared/hooks";
@@ -180,20 +179,10 @@ const UserInvitationModal = (props: {
 					onChange={(e) => setUsername(e.currentTarget.value)}
 				/>
 				{createInvitationMutation.data?.invitationUrl && (
-					<TextInput
-						readOnly
+					<CopyableTextInput
 						label="Invitation URL"
 						value={createInvitationMutation.data.invitationUrl}
 						description="Share this URL with the user to set their password"
-						rightSection={
-							<CopyButton value={createInvitationMutation.data.invitationUrl}>
-								{({ copy }) => (
-									<ActionIcon onClick={copy}>
-										<IconCopy size={16} />
-									</ActionIcon>
-								)}
-							</CopyButton>
-						}
 					/>
 				)}
 				{!createInvitationMutation.data?.invitationUrl && (
@@ -223,20 +212,10 @@ const UrlDisplayModal = (props: {
 			title={props.data?.title}
 		>
 			<Stack>
-				<TextInput
-					readOnly
+				<CopyableTextInput
 					label="URL"
 					value={props.data?.url}
 					description={props.data?.description}
-					rightSection={
-						<CopyButton value={props.data?.url || ""}>
-							{({ copy }) => (
-								<ActionIcon onClick={copy}>
-									<IconCopy size={16} />
-								</ActionIcon>
-							)}
-						</CopyButton>
-					}
 				/>
 				<Button onClick={props.onClose}>Close</Button>
 			</Stack>

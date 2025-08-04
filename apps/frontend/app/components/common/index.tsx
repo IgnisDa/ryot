@@ -7,6 +7,7 @@ import {
 	Box,
 	Button,
 	Center,
+	CopyButton,
 	Divider,
 	Flex,
 	Group,
@@ -39,6 +40,7 @@ import {
 	IconCancel,
 	IconChevronLeft,
 	IconChevronRight,
+	IconCopy,
 	IconPencil,
 	IconX,
 } from "@tabler/icons-react";
@@ -586,5 +588,30 @@ export const ApplicationPagination = (props: {
 				)}
 			</Group>
 		</Center>
+	);
+};
+
+export const CopyableTextInput = (props: {
+	label?: string;
+	value?: string;
+	description?: string;
+}) => {
+	return (
+		<TextInput
+			readOnly
+			label={props.label}
+			value={props.value}
+			description={props.description}
+			onClick={(e) => e.currentTarget.select()}
+			rightSection={
+				<CopyButton value={props.value || ""}>
+					{({ copy }) => (
+						<ActionIcon onClick={copy}>
+							<IconCopy size={16} />
+						</ActionIcon>
+					)}
+				</CopyButton>
+			}
+		/>
 	);
 };
