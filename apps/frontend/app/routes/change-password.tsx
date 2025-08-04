@@ -102,12 +102,7 @@ export default function Page() {
 					</Text>
 				</Stack>
 
-				<Form
-					method="POST"
-					action={"/change-password"}
-					style={{ width: "100%" }}
-					{...getFormProps(form)}
-				>
+				<Form method="POST" style={{ width: "100%" }} {...getFormProps(form)}>
 					<input type="hidden" name="sessionId" value={loaderData.sessionId} />
 					<input type="hidden" name="intent" value="setPassword" />
 
