@@ -201,8 +201,8 @@ impl UserMutation {
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await.ok();
-        let response = service.update_user(user_id, input).await?;
+        let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
+        let response = service.update_user(requester_user_id, input).await?;
         Ok(response)
     }
 
@@ -380,8 +380,10 @@ impl UserMutation {
         input: CreateUserInvitationInput,
     ) -> Result<UserInvitationResponse> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await.ok();
-        let response = service.create_user_invitation(user_id, input).await?;
+        let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
+        let response = service
+            .create_user_invitation(requester_user_id, input)
+            .await?;
         Ok(response)
     }
 

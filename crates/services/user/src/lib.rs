@@ -108,10 +108,10 @@ impl UserService {
 
     pub async fn update_user(
         &self,
-        user_id: Option<String>,
+        requester_user_id: Option<String>,
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
-        user_management_operations::update_user(&self.0, user_id, input).await
+        user_management_operations::update_user(&self.0, requester_user_id, input).await
     }
 
     pub async fn update_user_preference(
@@ -238,10 +238,10 @@ impl UserService {
 
     pub async fn create_user_invitation(
         &self,
-        user_id: Option<String>,
+        requester_user_id: Option<String>,
         input: CreateUserInvitationInput,
     ) -> Result<UserInvitationResponse> {
-        password_change_operations::create_user_invitation(&self.0, user_id, input).await
+        password_change_operations::create_user_invitation(&self.0, requester_user_id, input).await
     }
 
     pub async fn set_password_via_session(

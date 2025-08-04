@@ -28,10 +28,10 @@ use crate::{password_change_operations, user_data_operations};
 
 pub async fn update_user(
     ss: &Arc<SupportingService>,
-    user_id: Option<String>,
+    requester_user_id: Option<String>,
     input: UpdateUserInput,
 ) -> Result<StringIdObject> {
-    if let Some(ref uid) = user_id {
+    if let Some(ref uid) = requester_user_id {
         if uid != &input.user_id
             && admin_account_guard(uid, ss).await.is_err()
             && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
