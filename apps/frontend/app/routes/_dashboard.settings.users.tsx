@@ -35,11 +35,18 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
 import { useState } from "react";
-import { redirect, useLoaderData, useRevalidator } from "react-router";
+import {
+	redirect,
+	useLoaderData,
+	useNavigate,
+	useRevalidator,
+} from "react-router";
 import { $path } from "safe-routes";
+import { withQuery } from "ufo";
 import { z } from "zod";
 import { DebouncedSearchInput } from "~/components/common/filters";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { redirectToQueryParam } from "~/lib/shared/constants";
+import { useCoreDetails, useUserDetails } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/query-factory";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
@@ -62,8 +69,25 @@ const showErrorNotification = (message: string) => {
 	notifications.show({ message, color: "red", title: "Error" });
 };
 
+const getPasswordChangePath = (sessionId: string) => {
+	return `/change-password?sessionId=${sessionId}`;
+};
+
 const createPasswordChangeUrl = (frontendUrl: string, sessionId: string) => {
-	return `${frontendUrl}/change-password?sessionId=${sessionId}`;
+	return `${frontendUrl}${getPasswordChangePath(sessionId)}`;
+};
+
+const handleCurrentUserLogout = (
+	navigate: ReturnType<typeof useNavigate>,
+	sessionId?: string,
+) => {
+	const changePasswordUrl = sessionId
+		? getPasswordChangePath(sessionId)
+		: $path("/auth");
+	const logoutRoute = withQuery($path("/api/logout"), {
+		[redirectToQueryParam]: changePasswordUrl,
+	});
+	setTimeout(() => navigate(logoutRoute), 1500);
 };
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
@@ -345,6 +369,8 @@ const UserActions = (props: {
 }) => {
 	const revalidator = useRevalidator();
 	const coreDetails = useCoreDetails();
+	const userDetails = useUserDetails();
+	const navigate = useNavigate();
 
 	const toggleUserStatusMutation = useMutation({
 		mutationFn: async (input: {
@@ -355,11 +381,15 @@ const UserActions = (props: {
 				UpdateUserDocument,
 				{ input },
 			);
-			return updateUser;
+			return { updateUser, input };
 		},
-		onSuccess: () => {
+		onSuccess: ({ input }) => {
+			const isCurrentUser = input.userId === userDetails.id;
 			showSuccessNotification("User status updated successfully");
 			revalidator.revalidate();
+			if (isCurrentUser && input.isDisabled) {
+				handleCurrentUserLogout(navigate);
+			}
 		},
 		onError: () => showErrorNotification("Failed to update user status"),
 	});
@@ -388,6 +418,7 @@ const UserActions = (props: {
 	});
 
 	const resetUserMutation = useMutation({
+		onError: () => showErrorNotification("Failed to reset user"),
 		mutationFn: async (toResetUserId: string) => {
 			const { resetUser } = await clientGqlService.request(ResetUserDocument, {
 				toResetUserId,
@@ -396,6 +427,7 @@ const UserActions = (props: {
 		},
 		onSuccess: (resetUser) => {
 			if (resetUser.__typename !== "UserResetResponse") return;
+			const isCurrentUser = props.user.id === userDetails.id;
 			if (resetUser.sessionId) {
 				const url = createPasswordChangeUrl(
 					coreDetails.frontend.url,
@@ -410,8 +442,10 @@ const UserActions = (props: {
 			} else {
 				showSuccessNotification("User password reset successfully");
 			}
+			if (isCurrentUser && resetUser.sessionId) {
+				handleCurrentUserLogout(navigate, resetUser.sessionId);
+			}
 		},
-		onError: () => showErrorNotification("Failed to reset user"),
 	});
 
 	return (
@@ -424,13 +458,17 @@ const UserActions = (props: {
 					onClick={() => {
 						const action = props.user.isDisabled ? "enable" : "disable";
 						const newStatus = !props.user.isDisabled;
-						openConfirmationModal(
-							`Are you sure you want to ${action} this user? ${newStatus ? "The user will be unable to log in." : "The user will be able to log in again."}`,
-							() =>
-								toggleUserStatusMutation.mutate({
-									userId: props.user.id,
-									isDisabled: newStatus,
-								}),
+						const isCurrentUser = props.user.id === userDetails.id;
+						const confirmationMessage =
+							isCurrentUser && newStatus
+								? `Are you sure you want to ${action} your own account? You will be logged out immediately and unable to log in until an admin re-enables your account.`
+								: `Are you sure you want to ${action} this user? ${newStatus ? "The user will be unable to log in." : "The user will be able to log in again."}`;
+
+						openConfirmationModal(confirmationMessage, () =>
+							toggleUserStatusMutation.mutate({
+								userId: props.user.id,
+								isDisabled: newStatus,
+							}),
 						);
 					}}
 				>
@@ -441,9 +479,13 @@ const UserActions = (props: {
 					variant="subtle"
 					loading={resetUserMutation.isPending}
 					onClick={() => {
-						openConfirmationModal(
-							"Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.",
-							() => resetUserMutation.mutate(props.user.id),
+						const isCurrentUser = props.user.id === userDetails.id;
+						const confirmationMessage = isCurrentUser
+							? "Are you sure you want to reset your own account? This action will permanently delete all your data including progress, collections, and preferences. You will be logged out and redirected to set a new password."
+							: "Are you sure you want to reset this user? This action will permanently delete all user data including progress, collections, and preferences. This cannot be undone.";
+
+						openConfirmationModal(confirmationMessage, () =>
+							resetUserMutation.mutate(props.user.id),
 						);
 					}}
 				>
