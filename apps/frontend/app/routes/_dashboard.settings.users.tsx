@@ -73,9 +73,7 @@ const handleCurrentUserLogout = (
 	navigate: ReturnType<typeof useNavigate>,
 	passwordChangeUrl?: string,
 ) => {
-	const changePasswordUrl = passwordChangeUrl
-		? new URL(passwordChangeUrl).pathname + new URL(passwordChangeUrl).search
-		: $path("/auth");
+	const changePasswordUrl = passwordChangeUrl || $path("/auth");
 	const logoutRoute = withQuery($path("/api/logout"), {
 		[redirectToQueryParam]: changePasswordUrl,
 	});
