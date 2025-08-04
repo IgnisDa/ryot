@@ -291,13 +291,17 @@ export default function Page() {
 							title: "Role",
 							accessor: "lot",
 							render: ({ lot }) => (
-								<Badge size="sm" variant="light">
+								<Badge
+									size="sm"
+									variant="light"
+									color={lot === UserLot.Admin ? "red" : "blue"}
+								>
 									{changeCase(lot)}
 								</Badge>
 							),
 						},
 						{
-							width: 50,
+							width: 60,
 							title: "Status",
 							accessor: "isDisabled",
 							render: ({ isDisabled }) => (
