@@ -34,6 +34,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { CopyableTextInput } from "~/components/common";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -105,9 +106,8 @@ const PasswordSection = () => {
 			<Form method="POST" action={withQuery(".", { intent: "updateProfile" })}>
 				<input type="hidden" name="userId" defaultValue={userDetails.id} />
 				<Stack>
-					<TextInput
-						readOnly
-						defaultValue={userDetails.id}
+					<CopyableTextInput
+						value={userDetails.id}
 						description="Database generated user ID"
 					/>
 					<TextInput
