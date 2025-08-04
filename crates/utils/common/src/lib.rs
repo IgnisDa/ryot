@@ -18,7 +18,6 @@ pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
 pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
-pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
 pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub const APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");

@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 chrono = { workspace = true }
-compile-time = { workspace = true }
 const-str = { workspace = true }
 data-encoding = { workspace = true }
 rand = { workspace = true }
