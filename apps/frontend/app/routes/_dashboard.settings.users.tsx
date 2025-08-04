@@ -160,6 +160,7 @@ const UserInvitationModal = (props: {
 				description: "Share this URL with the user to set their password",
 			});
 			handleClose();
+			createInvitationMutation.reset();
 		},
 		onError: () => showErrorNotification("Failed to create user invitation"),
 	});
@@ -179,12 +180,6 @@ const UserInvitationModal = (props: {
 					label="Username"
 					onChange={(e) => setUsername(e.currentTarget.value)}
 				/>
-				{createInvitationMutation.data?.invitationUrl && (
-					<CopyableTextInput
-						value={createInvitationMutation.data.invitationUrl}
-						description="Share this URL with the user to set their password"
-					/>
-				)}
 				{!createInvitationMutation.data?.invitationUrl && (
 					<Button
 						disabled={!username.trim()}
