@@ -366,14 +366,6 @@ impl UserMutation {
         Ok(response)
     }
 
-    /// Generate a password change session for the currently logged in user.
-    async fn generate_password_change_session(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        let response = service.generate_password_change_session(user_id).await?;
-        Ok(response)
-    }
-
     /// Get a URL which can be used to set a new password for the user.
     async fn get_password_change_url(
         &self,

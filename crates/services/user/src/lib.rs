@@ -235,11 +235,6 @@ impl UserService {
         two_factor_operations::regenerate_two_factor_backup_codes(&self.0, user_id).await
     }
 
-    pub async fn generate_password_change_session(&self, user_id: String) -> Result<bool> {
-        password_change_operations::generate_password_change_session(&self.0, user_id).await?;
-        Ok(true)
-    }
-
     pub async fn get_password_change_url(
         &self,
         requester_user_id: Option<String>,
