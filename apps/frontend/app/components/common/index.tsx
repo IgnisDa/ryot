@@ -38,13 +38,14 @@ import { changeCase, snakeCase } from "@ryot/ts-utils";
 import {
 	IconArrowsShuffle,
 	IconCancel,
+	IconCheck,
 	IconChevronLeft,
 	IconChevronRight,
 	IconCopy,
 	IconPencil,
 	IconX,
 } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Form, Link } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "safe-routes";
@@ -592,23 +593,29 @@ export const ApplicationPagination = (props: {
 };
 
 export const CopyableTextInput = (props: {
-	label?: string;
 	value?: string;
 	description?: string;
+	containerStyle?: CSSProperties;
 }) => {
 	return (
 		<TextInput
 			readOnly
-			label={props.label}
 			value={props.value}
+			style={props.containerStyle}
 			description={props.description}
 			onClick={(e) => e.currentTarget.select()}
 			rightSection={
 				<CopyButton value={props.value || ""}>
-					{({ copy }) => (
-						<ActionIcon onClick={copy}>
-							<IconCopy size={16} />
-						</ActionIcon>
+					{({ copied, copy }) => (
+						<Tooltip
+							withArrow
+							position="left"
+							label={copied ? "Copied" : "Copy"}
+						>
+							<ActionIcon onClick={copy} color={copied ? "teal" : "gray"}>
+								{copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+							</ActionIcon>
+						</Tooltip>
 					)}
 				</CopyButton>
 			}

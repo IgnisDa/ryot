@@ -180,7 +180,6 @@ const UserInvitationModal = (props: {
 				/>
 				{createInvitationMutation.data?.invitationUrl && (
 					<CopyableTextInput
-						label="Invitation URL"
 						value={createInvitationMutation.data.invitationUrl}
 						description="Share this URL with the user to set their password"
 					/>
@@ -213,7 +212,6 @@ const UrlDisplayModal = (props: {
 		>
 			<Stack>
 				<CopyableTextInput
-					label="URL"
 					value={props.data?.url}
 					description={props.data?.description}
 				/>

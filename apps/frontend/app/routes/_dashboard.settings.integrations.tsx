@@ -8,7 +8,6 @@ import {
 	Checkbox,
 	Collapse,
 	Container,
-	CopyButton,
 	Drawer,
 	Flex,
 	Group,
@@ -45,8 +44,6 @@ import {
 	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import {
-	IconCheck,
-	IconCopy,
 	IconEye,
 	IconEyeClosed,
 	IconPencil,
@@ -57,6 +54,7 @@ import { Form, data, useActionData, useLoaderData } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { CopyableTextInput } from "~/components/common";
 import {
 	PRO_REQUIRED_MESSAGE,
 	applicationBaseUrl,
@@ -197,31 +195,7 @@ export default function Page() {
 				</Box>
 				{actionData?.generateAuthToken ? (
 					<Alert title="This token will be shown only once" color="yellow">
-						<Flex align="center">
-							<CopyButton value={actionData.generateAuthToken}>
-								{({ copied, copy }) => (
-									<Tooltip
-										label={copied ? "Copied" : "Copy"}
-										withArrow
-										position="right"
-									>
-										<ActionIcon color={copied ? "teal" : "gray"} onClick={copy}>
-											{copied ? (
-												<IconCheck size={16} />
-											) : (
-												<IconCopy size={16} />
-											)}
-										</ActionIcon>
-									</Tooltip>
-								)}
-							</CopyButton>
-							<TextInput
-								value={actionData.generateAuthToken}
-								readOnly
-								style={{ flex: 1 }}
-								onClick={(e) => e.currentTarget.select()}
-							/>
-						</Flex>
+						<CopyableTextInput value={actionData.generateAuthToken} />
 					</Alert>
 				) : null}
 			</Stack>
@@ -369,11 +343,7 @@ const DisplayIntegration = (props: {
 						</Group>
 					</Flex>
 					{integrationUrlOpened ? (
-						<TextInput
-							value={integrationUrl}
-							readOnly
-							onClick={(e) => e.currentTarget.select()}
-						/>
+						<CopyableTextInput value={integrationUrl} />
 					) : null}
 				</Stack>
 			</Paper>
