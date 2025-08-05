@@ -70,7 +70,7 @@ impl MediaProvider for ITunesService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
-            .get(format!("{}/lookup", URL))
+            .get(format!("{URL}/lookup"))
             .query(&serde_json::json!({
                 "id": identifier,
                 "media": "podcast",
@@ -105,7 +105,7 @@ impl MediaProvider for ITunesService {
         let details = get_search_response(ht);
         let rsp = self
             .client
-            .get(format!("{}/lookup", URL))
+            .get(format!("{URL}/lookup"))
             .query(&serde_json::json!({
                 "id": identifier,
                 "media": "podcast",
@@ -175,7 +175,7 @@ impl MediaProvider for ITunesService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .get(format!("{}/search", URL))
+            .get(format!("{URL}/search"))
             .query(&serde_json::json!({
                 "term": query,
                 "media": "podcast",

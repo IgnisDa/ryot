@@ -258,13 +258,13 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     headers.insert("Access-Token", input.api_key.parse().unwrap());
-    let url = format!("{}/api", api_url);
+    let url = format!("{api_url}/api");
     let client = ClientBuilder::new()
         .default_headers(headers)
         .build()
         .unwrap();
 
-    let rsp = client.get(format!("{}/user", url)).send().await.unwrap();
+    let rsp = client.get(format!("{url}/user")).send().await.unwrap();
     let data = rsp.json::<IdObject>().await.unwrap();
 
     let user_id: i32 = data.id;
@@ -273,7 +273,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     let mut completed = vec![];
 
     let rsp = client
-        .get(format!("{}/lists", url))
+        .get(format!("{url}/lists"))
         .query(&serde_json::json!({ "userId": user_id }))
         .send()
         .await
@@ -293,7 +293,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
 
     for list in lists {
         let rsp = client
-            .get(format!("{}/list/items", url))
+            .get(format!("{url}/list/items"))
             .query(&serde_json::json!({ "listId": list.id }))
             .send()
             .await
@@ -322,7 +322,7 @@ pub async fn import(input: DeployUrlAndKeyImportInput) -> Result<ImportResult> {
     }
 
     // all items returned here are seen at least once
-    let rsp = client.get(format!("{}/items", url)).send().await.unwrap();
+    let rsp = client.get(format!("{url}/items")).send().await.unwrap();
     let data: Vec<Item> = rsp.json().await.unwrap();
 
     let data_len = data.len();

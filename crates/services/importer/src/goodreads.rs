@@ -128,10 +128,7 @@ async fn process_book_record(
             lot: Some(lot),
             step: ImportFailStep::InputTransformation,
             identifier: record.title,
-            error: Some(format!(
-                "Could not convert ISBN: {} to Google Books ID",
-                isbn,
-            )),
+            error: Some(format!("Could not convert ISBN: {isbn} to Google Books ID",)),
         });
     };
 

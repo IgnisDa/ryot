@@ -37,7 +37,7 @@ impl MediaProvider for GiantBombService {
 
         ryot_log!(debug, "Searching GiantBomb for: {}", query);
 
-        let url = format!("{}/search/", BASE_URL);
+        let url = format!("{BASE_URL}/search/");
         let response = self
             .client
             .get(&url)
@@ -73,7 +73,7 @@ impl MediaProvider for GiantBombService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         ryot_log!(debug, "Fetching GiantBomb game details for: {}", identifier);
 
-        let url = format!("{}/game/{}/", BASE_URL, identifier);
+        let url = format!("{BASE_URL}/game/{identifier}/");
         let response = self
             .client
             .get(&url)
@@ -220,7 +220,7 @@ impl MediaProvider for GiantBombService {
 
         ryot_log!(debug, "Searching GiantBomb {} for: {}", search_type, query);
 
-        let url = format!("{}/search/", BASE_URL);
+        let url = format!("{BASE_URL}/search/");
         let response = self
             .client
             .get(&url)
@@ -283,7 +283,7 @@ impl MediaProvider for GiantBombService {
 
         ryot_log!(debug, "Fetching {} details for: {}", endpoint, identifier);
 
-        let url = format!("{}/{}/{}/", BASE_URL, endpoint, identifier);
+        let url = format!("{BASE_URL}/{endpoint}/{identifier}/");
         let response = self
             .client
             .get(&url)
@@ -398,7 +398,7 @@ impl MediaProvider for GiantBombService {
 
         ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);
 
-        let url = format!("{}/search/", BASE_URL);
+        let url = format!("{BASE_URL}/search/");
         let response = self
             .client
             .get(&url)
@@ -437,7 +437,7 @@ impl MediaProvider for GiantBombService {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         ryot_log!(debug, "Fetching franchise details for: {}", identifier);
 
-        let url = format!("{}/franchise/{}/", BASE_URL, identifier);
+        let url = format!("{BASE_URL}/franchise/{identifier}/");
         let response = self
             .client
             .get(&url)

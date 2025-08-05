@@ -150,7 +150,7 @@ impl AudibleService {
             "es" => "es",
             _ => unreachable!(),
         };
-        format!("https://api.audible.{}/1.0/catalog/products", suffix)
+        format!("https://api.audible.{suffix}/1.0/catalog/products")
     }
 
     pub async fn new(config: &config_definition::AudibleConfig) -> Result<Self> {
@@ -177,7 +177,7 @@ impl MediaProvider for AudibleService {
         let req_internal_page = internal_page - 1;
         let client = Client::new();
         let data: Vec<AudibleAuthor> = client
-            .get(format!("{}/authors", AUDNEX_URL))
+            .get(format!("{AUDNEX_URL}/authors"))
             .query(&json!({ "region": self.locale, "name": query }))
             .send()
             .await
@@ -214,7 +214,7 @@ impl MediaProvider for AudibleService {
     ) -> Result<PersonDetails> {
         let client = Client::new();
         let data: AudnexResponse = client
-            .get(format!("{}/authors/{}", AUDNEX_URL, identity))
+            .get(format!("{AUDNEX_URL}/authors/{identity}"))
             .query(&json!({ "region": self.locale }))
             .send()
             .await
@@ -232,10 +232,7 @@ impl MediaProvider for AudibleService {
                 remote_images: Vec::from_iter(data.image),
                 ..Default::default()
             },
-            source_url: Some(format!(
-                "https://www.audible.com/author/{}/{}",
-                name, identity
-            )),
+            source_url: Some(format!("https://www.audible.com/author/{name}/{identity}")),
             ..Default::default()
         })
     }
@@ -290,8 +287,7 @@ impl MediaProvider for AudibleService {
                 identifier: identifier.to_owned(),
                 parts: collection_contents.len().try_into().unwrap(),
                 source_url: Some(format!(
-                    "https://www.audible.com/series/{}/{}",
-                    identifier, title
+                    "https://www.audible.com/series/{identifier}/{title}"
                 )),
                 ..Default::default()
             },

@@ -24,7 +24,7 @@ use supporting_service::SupportingService;
 fn get_http_client(access_token: &String) -> Client {
     get_base_http_client(Some(vec![(
         AUTHORIZATION,
-        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+        HeaderValue::from_str(&format!("Bearer {access_token}")).unwrap(),
     )]))
 }
 
@@ -36,11 +36,11 @@ pub async fn yank_progress(
     google_books_service: &GoogleBooksService,
     open_library_service: &OpenlibraryService,
 ) -> Result<ImportResult> {
-    let url = format!("{}/api", base_url);
+    let url = format!("{base_url}/api");
     let client = get_http_client(&access_token);
 
     let resp = client
-        .get(format!("{}/me/items-in-progress", url))
+        .get(format!("{url}/me/items-in-progress"))
         .send()
         .await
         .map_err(|e| anyhow!(e))?
@@ -120,7 +120,7 @@ pub async fn yank_progress(
             continue;
         };
         match client
-            .get(format!("{}/me/progress/{}", url, progress_id))
+            .get(format!("{url}/me/progress/{progress_id}"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?

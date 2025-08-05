@@ -202,12 +202,12 @@ async fn sse_listener(
     komga_username: String,
     komga_password: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let url = format!("{}/sse/v1", base_url);
+    let url = format!("{base_url}/sse/v1");
     let client = get_base_http_client(None);
 
     loop {
         let response = client
-            .get(format!("{}/events", url))
+            .get(format!("{url}/events"))
             .basic_auth(komga_username.to_string(), Some(komga_password.to_string()))
             .send()
             .await
@@ -265,7 +265,7 @@ async fn fetch_api<T: DeserializeOwned>(
     api_id: &str,
 ) -> Result<T> {
     client
-        .get(format!("{}/{}", api_endpoint, api_id))
+        .get(format!("{api_endpoint}/{api_id}"))
         .basic_auth(username, Some(password))
         .send()
         .await?
@@ -327,7 +327,7 @@ async fn process_events(
     db: &DatabaseConnection,
     data: komga_events::Data,
 ) -> Result<ProcessEventReturn> {
-    let url = format!("{}/api/v1", base_url);
+    let url = format!("{base_url}/api/v1");
     let client = get_base_http_client(None);
 
     let book: komga_book::Item = fetch_api(
@@ -480,7 +480,7 @@ pub async fn sync_to_owned_collection(
     db: &DatabaseConnection,
 ) -> Result<ImportResult> {
     let mut result = ImportResult::default();
-    let url = &format!("{}/api/v1", base_url);
+    let url = &format!("{base_url}/api/v1");
     let client = get_base_http_client(None);
 
     let series: komga_series::Response = client

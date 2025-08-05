@@ -48,7 +48,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/search/movie", URL))
+            .get(format!("{URL}/search/movie"))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -103,7 +103,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/movie/{}/credits", URL, identifier))
+            .get(format!("{URL}/movie/{identifier}/credits"))
             .query(&json!({
                 "language": self.base.language,
             }))
@@ -253,7 +253,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/search/collection", URL))
+            .get(format!("{URL}/search/collection"))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -331,8 +331,7 @@ impl MediaProvider for TmdbMovieService {
                 identifier: identifier.to_owned(),
                 parts: parts.len().try_into().unwrap(),
                 source_url: Some(format!(
-                    "https://www.themoviedb.org/collections/{}-{}",
-                    identifier, title
+                    "https://www.themoviedb.org/collections/{identifier}-{title}"
                 )),
                 assets: EntityAssets {
                     remote_images: images,

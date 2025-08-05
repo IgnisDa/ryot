@@ -98,8 +98,7 @@ impl MigrationTrait for Migration {
 
         let db = manager.get_connection();
         db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{}" ON application_cache USING gin (sanitized_key gin_trgm_ops);"#,
-            APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX
+            r#"CREATE INDEX "{APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX}" ON application_cache USING gin (sanitized_key gin_trgm_ops);"#
         ))
         .await?;
 

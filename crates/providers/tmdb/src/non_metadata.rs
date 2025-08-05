@@ -50,7 +50,7 @@ impl MediaProvider for NonMediaTmdbService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/search/{}", URL, person_type))
+            .get(format!("{URL}/search/{person_type}"))
             .query(&json!({
                 "page": page,
                 "language": language,
@@ -96,7 +96,7 @@ impl MediaProvider for NonMediaTmdbService {
         let details: TmdbNonMediaEntity = self
             .base
             .client
-            .get(format!("{}/{}/{}", URL, person_type, identifier))
+            .get(format!("{URL}/{person_type}/{identifier}"))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
@@ -115,10 +115,7 @@ impl MediaProvider for NonMediaTmdbService {
                     let resp = self
                         .base
                         .client
-                        .get(format!(
-                            "{}/{}/{}/combined_credits",
-                            URL, person_type, identifier
-                        ))
+                        .get(format!("{URL}/{person_type}/{identifier}/combined_credits"))
                         .query(&json!({ "language": self.base.language }))
                         .send()
                         .await
@@ -185,8 +182,7 @@ impl MediaProvider for NonMediaTmdbService {
             place: details.origin_country.or(details.place_of_birth),
             description: description.and_then(|s| if s.as_str() == "" { None } else { Some(s) }),
             source_url: Some(format!(
-                "https://www.themoviedb.org/person/{}-{}",
-                identifier, name
+                "https://www.themoviedb.org/person/{identifier}-{name}"
             )),
             gender: details.gender.and_then(|g| match g {
                 1 => Some("Female".to_owned()),
@@ -213,7 +209,7 @@ impl NonMediaTmdbService {
         let details: TmdbFindByExternalSourceResponse = self
             .base
             .client
-            .get(format!("{}/find/{}", URL, external_id))
+            .get(format!("{URL}/find/{external_id}"))
             .query(&json!({ "language": self.base.language, "external_source": external_source }))
             .send()
             .await

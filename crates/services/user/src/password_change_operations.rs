@@ -12,7 +12,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
 
 pub fn build_password_change_url(frontend_url: &str, session_id: &str) -> String {
-    format!("{}/change-password?sessionId={}", frontend_url, session_id)
+    format!("{frontend_url}/change-password?sessionId={session_id}")
 }
 
 pub async fn generate_password_change_session(

@@ -36,7 +36,7 @@ impl OpenlibraryService {
 
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
         self.client
-            .get(format!("{}/isbn/{}.json", URL, isbn))
+            .get(format!("{URL}/isbn/{isbn}.json"))
             .send()
             .await
             .ok()?

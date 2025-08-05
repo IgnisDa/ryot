@@ -112,7 +112,7 @@ pub fn combine_description(deck: Option<String>, description: Option<String>) ->
             } else if desc.trim().is_empty() {
                 Some(deck)
             } else {
-                Some(format!("{}\n\n{}", deck, desc))
+                Some(format!("{deck}\n\n{desc}"))
             }
         }
         (Some(deck), None) => Some(deck),

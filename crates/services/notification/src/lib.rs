@@ -19,7 +19,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
     match specifics {
         NotificationPlatformSpecifics::Apprise { url, key } => {
             client
-                .post(format!("{}/notify/{}", url, key))
+                .post(format!("{url}/notify/{key}"))
                 .header(CONTENT_TYPE, APPLICATION_JSON_HEADER.clone())
                 .json(&serde_json::json!({
                     "body": msg,
@@ -47,7 +47,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
             priority,
         } => {
             client
-                .post(format!("{}/message", url))
+                .post(format!("{url}/message"))
                 .header("X-Gotify-Key", HeaderValue::from_str(&token).unwrap())
                 .json(&serde_json::json!({
                     "message": msg,
@@ -86,7 +86,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
             if let Some(token) = auth_header {
                 request = request.header(
                     AUTHORIZATION,
-                    HeaderValue::from_str(&format!("Bearer {}", token)).unwrap(),
+                    HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
                 );
             }
             request
@@ -135,8 +135,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
         NotificationPlatformSpecifics::Telegram { bot_token, chat_id } => {
             client
                 .post(format!(
-                    "https://api.telegram.org/bot{}/sendMessage",
-                    bot_token
+                    "https://api.telegram.org/bot{bot_token}/sendMessage"
                 ))
                 .json(&serde_json::json!({
                     "chat_id": chat_id,

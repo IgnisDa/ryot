@@ -64,7 +64,7 @@ impl TmdbService {
     ) -> Result<()> {
         let rsp = self
             .client
-            .get(format!("{}/{}/{}/images", URL, media_type, identifier))
+            .get(format!("{URL}/{media_type}/{identifier}/images"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -104,7 +104,7 @@ impl TmdbService {
         };
 
         self.fetch_paginated_data(
-            format!("{}/{}/{}/recommendations", URL, media_type, identifier),
+            format!("{URL}/{media_type}/{identifier}/recommendations"),
             json!({ "page": 1 }),
             None,
             |entry| async move {
@@ -128,10 +128,7 @@ impl TmdbService {
     ) -> Result<Vec<WatchProvider>> {
         let watch_providers_with_langs: TmdbWatchProviderResponse = self
             .client
-            .get(format!(
-                "{}/{}/{}/watch/providers",
-                URL, media_type, identifier
-            ))
+            .get(format!("{URL}/{media_type}/{identifier}/watch/providers"))
             .query(&json!({ "language": self.language }))
             .send()
             .await
@@ -191,10 +188,7 @@ impl TmdbService {
     ) -> Result<MetadataExternalIdentifiers> {
         let rsp = self
             .client
-            .get(format!(
-                "{}/{}/{}/external_ids",
-                URL, media_type, identifier
-            ))
+            .get(format!("{URL}/{media_type}/{identifier}/external_ids"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -287,7 +281,7 @@ impl TmdbService {
         };
 
         self.fetch_paginated_data(
-            format!("{}/trending/{}/day", URL, media_type),
+            format!("{URL}/trending/{media_type}/day"),
             json!({
                 "page": 1,
                 "language": self.language,
@@ -311,7 +305,7 @@ impl TmdbService {
         ryot_log!(debug, "tmdb multi_search: query={}", query);
         let response: TmdbListResponse = self
             .client
-            .get(format!("{}/search/multi", URL))
+            .get(format!("{URL}/search/multi"))
             .query(&json!({
                 "page": 1,
                 "query": query,
@@ -353,10 +347,8 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
         ApplicationCacheKey::TmdbSettings,
         ApplicationCacheValue::TmdbSettings,
         || async {
-            let config_future = client.get(format!("{}/configuration", URL)).send();
-            let languages_future = client
-                .get(format!("{}/configuration/languages", URL))
-                .send();
+            let config_future = client.get(format!("{URL}/configuration")).send();
+            let languages_future = client.get(format!("{URL}/configuration/languages")).send();
 
             let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
             let data_1: TmdbConfiguration = config_resp.json().await?;

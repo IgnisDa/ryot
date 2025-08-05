@@ -167,7 +167,7 @@ impl MediaProvider for MangaUpdatesService {
         let page = page.unwrap_or(1);
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
-            .post(format!("{}/authors/search", URL))
+            .post(format!("{URL}/authors/search"))
             .json(&serde_json::json!({
                 "page": page,
                 "search": query,
@@ -204,7 +204,7 @@ impl MediaProvider for MangaUpdatesService {
     ) -> Result<PersonDetails> {
         let data: ItemAuthor = self
             .client
-            .get(format!("{}/authors/{}", URL, identity))
+            .get(format!("{URL}/authors/{identity}"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -213,7 +213,7 @@ impl MediaProvider for MangaUpdatesService {
             .map_err(|e| anyhow!(e))?;
         let related_data: ItemPersonRelatedSeries = self
             .client
-            .post(format!("{}/authors/{}/series", URL, identity))
+            .post(format!("{URL}/authors/{identity}/series"))
             .json(&serde_json::json!({ "orderby": "year" }))
             .send()
             .await
@@ -262,7 +262,7 @@ impl MediaProvider for MangaUpdatesService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let data: MetadataItemRecord = self
             .client
-            .get(format!("{}/series/{}", URL, identifier))
+            .get(format!("{URL}/series/{identifier}"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?
@@ -298,7 +298,7 @@ impl MediaProvider for MangaUpdatesService {
         {
             if let Ok(data) = self
                 .client
-                .get(format!("{}/series/{}", URL, series_id))
+                .get(format!("{URL}/series/{series_id}"))
                 .send()
                 .await
                 .map_err(|e| anyhow!(e))?
@@ -364,7 +364,7 @@ impl MediaProvider for MangaUpdatesService {
         let page = page.unwrap_or(1);
         let search: MetadataSearchResponse<MetadataItemResponse> = self
             .client
-            .post(format!("{}/series/search", URL))
+            .post(format!("{URL}/series/search"))
             .json(&serde_json::json!({
                 "search": query,
                 "perpage": PAGE_SIZE,

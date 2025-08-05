@@ -445,11 +445,10 @@ async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<()> {
                 SELECT id,
                        ROW_NUMBER() OVER (ORDER BY rank ASC) as new_rank
                 FROM collection_to_entity
-                WHERE collection_id = '{}'
+                WHERE collection_id = '{collection_id}'
             ) ranked_data
             WHERE collection_to_entity.id = ranked_data.id
-        "#,
-            collection_id
+        "#
         );
 
         let result = ss

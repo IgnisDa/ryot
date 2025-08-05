@@ -82,7 +82,7 @@ impl MediaProvider for VndbService {
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let data = self
             .client
-            .post(format!("{}/producer", URL))
+            .post(format!("{URL}/producer"))
             .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "count": true,
@@ -123,7 +123,7 @@ impl MediaProvider for VndbService {
     ) -> Result<PersonDetails> {
         let rsp = self
             .client
-            .post(format!("{}/producer", URL))
+            .post(format!("{URL}/producer"))
             .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
@@ -146,7 +146,7 @@ impl MediaProvider for VndbService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
-            .post(format!("{}/vn", URL))
+            .post(format!("{URL}/vn"))
             .json(&serde_json::json!({
                 "filters": format!(r#"["id", "=", "{}"]"#, identifier),
                 "count": true,
@@ -171,7 +171,7 @@ impl MediaProvider for VndbService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .post(format!("{}/vn", URL))
+            .post(format!("{URL}/vn"))
             .json(&serde_json::json!({
                 "filters": format!(r#"["search", "=", "{}"]"#, query),
                 "fields": METADATA_FIELDS_SMALL,
@@ -254,7 +254,7 @@ impl VndbService {
                 2 => "Cancelled".to_owned(),
                 _ => unreachable!(),
             }),
-            source_url: Some(format!("https://vndb.org/{}", identifier)),
+            source_url: Some(format!("https://vndb.org/{identifier}")),
             title: item.title.unwrap(),
             description: item.description,
             people: people.into_iter().unique().collect(),

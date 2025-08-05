@@ -135,7 +135,7 @@ async fn search(
         paging: SearchPaging,
     }
     let search: SearchResponse = client
-        .get(format!("{}/{}", URL, media_type))
+        .get(format!("{URL}/{media_type}"))
         .query(&json!({ "q": query, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
         .send()
         .await
@@ -188,7 +188,7 @@ struct ItemData {
 
 async fn details(client: &Client, media_type: &str, id: &str) -> Result<MetadataDetails> {
     let details: ItemNode = client
-        .get(format!("{}/{}/{}", URL, media_type, id))
+        .get(format!("{URL}/{media_type}/{id}"))
         .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
         .send()
         .await
@@ -261,8 +261,7 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         provider_rating: details.mean,
         identifier: identifier.clone(),
         source_url: Some(format!(
-            "https://myanimelist.net/{}/{}/{}",
-            media_type, identifier, title
+            "https://myanimelist.net/{media_type}/{identifier}/{title}"
         )),
         production_status: details.status.map(|s| s.to_case(Case::Title)),
         publish_date: details

@@ -123,7 +123,7 @@ async fn import_exercises(
                 None => {
                     failed.push(ImportFailedItem {
                         step: ImportFailStep::InputTransformation,
-                        identifier: format!("Exercise: {}", exercise_name),
+                        identifier: format!("Exercise: {exercise_name}"),
                         error: Some(format!(
                             "Could not determine exercise lot from {} sets",
                             exercises.len()

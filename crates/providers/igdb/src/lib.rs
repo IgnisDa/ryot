@@ -197,7 +197,7 @@ offset: {offset};
             offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
-            .post(format!("{}/collections", URL))
+            .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
             .await
@@ -228,14 +228,12 @@ offset: {offset};
         let client = self.get_client_config().await?;
         let req_body = format!(
             r"
-{fields}
-where id = {id};
-            ",
-            fields = COLLECTION_FIELDS,
-            id = identifier
+{COLLECTION_FIELDS}
+where id = {identifier};
+            "
         );
         let details: IgdbItemResponse = client
-            .post(format!("{}/collections", URL))
+            .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
             .await
@@ -272,7 +270,7 @@ where id = {id};
                 source: MediaSource::Igdb,
                 identifier: details.id.to_string(),
                 parts: items.len().try_into().unwrap(),
-                source_url: Some(format!("https://www.igdb.com/collection/{}", title)),
+                source_url: Some(format!("https://www.igdb.com/collection/{title}")),
                 ..Default::default()
             },
             items,
@@ -300,7 +298,7 @@ offset: {offset};
             offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
-            .post(format!("{}/companies", URL))
+            .post(format!("{URL}/companies"))
             .body(req_body)
             .send()
             .await
@@ -335,14 +333,12 @@ offset: {offset};
         let client = self.get_client_config().await?;
         let req_body = format!(
             r#"
-{fields}
-where id = {id};
-            "#,
-            fields = INVOLVED_COMPANY_FIELDS,
-            id = identity
+{INVOLVED_COMPANY_FIELDS}
+where id = {identity};
+            "#
         );
         let rsp = client
-            .post(format!("{}/involved_companies", URL))
+            .post(format!("{URL}/involved_companies"))
             .body(req_body)
             .send()
             .await
@@ -394,7 +390,7 @@ where id = {id};
             source: MediaSource::Igdb,
             description: detail.description,
             identifier: detail.id.to_string(),
-            source_url: Some(format!("https://www.igdb.com/companies/{}", name)),
+            source_url: Some(format!("https://www.igdb.com/companies/{name}")),
             assets: EntityAssets {
                 remote_images: Vec::from_iter(
                     detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
@@ -416,14 +412,10 @@ where id = {id};
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client_config().await?;
-        let req_body = format!(
-            r#"{field} where id = {id};"#,
-            field = GAME_FIELDS,
-            id = identifier
-        );
+        let req_body = format!(r#"{GAME_FIELDS} where id = {identifier};"#);
         ryot_log!(debug, "Body = {}", req_body);
         let rsp = client
-            .post(format!("{}/games", URL))
+            .post(format!("{URL}/games"))
             .body(req_body)
             .send()
             .await
@@ -466,12 +458,10 @@ where id = {id};
         } else {
             "where version_parent = null;"
         };
-        let count_req_body = format!(
-            r#"fields id; {} search "{query}"; limit: 500;"#,
-            version_parent_filter
-        );
+        let count_req_body =
+            format!(r#"fields id; {version_parent_filter} search "{query}"; limit: 500;"#);
         let rsp = client
-            .post(format!("{}/games", URL))
+            .post(format!("{URL}/games"))
             .body(count_req_body)
             .send()
             .await
@@ -498,7 +488,7 @@ offset: {offset};
             offset = (page - 1) * PAGE_SIZE
         );
         let rsp = client
-            .post(format!("{}/games", URL))
+            .post(format!("{URL}/games"))
             .body(req_body)
             .send()
             .await
@@ -629,7 +619,7 @@ impl IgdbService {
             people,
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
-            source_url: Some(format!("https://www.igdb.com/games/{}", title)),
+            source_url: Some(format!("https://www.igdb.com/games/{title}")),
             assets: EntityAssets {
                 remote_videos,
                 remote_images: images,

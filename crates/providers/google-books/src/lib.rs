@@ -78,7 +78,7 @@ impl MediaProvider for GoogleBooksService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
-            .get(format!("{}/{}", URL, identifier))
+            .get(format!("{URL}/{identifier}"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -102,7 +102,7 @@ impl MediaProvider for GoogleBooksService {
             .query(&serde_json::json!({
                 "q": match source_specifics.as_ref().and_then(|s| s.google_books_pass_raw_query).unwrap_or(false) {
                     true => query.to_owned(),
-                    false => format!("intitle:{}", query)
+                    false => format!("intitle:{query}")
                 },
                 "maxResults": PAGE_SIZE,
                 "printType": "books",

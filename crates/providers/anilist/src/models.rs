@@ -615,10 +615,7 @@ pub async fn media_details(
         description: media.description,
         genres: genres.into_iter().unique().collect(),
         production_status: media_status_string(media.status),
-        source_url: Some(format!(
-            "https://anilist.co/{}/{}/{}",
-            lot, identifier, title
-        )),
+        source_url: Some(format!("https://anilist.co/{lot}/{identifier}/{title}")),
         ..Default::default()
     })
 }
