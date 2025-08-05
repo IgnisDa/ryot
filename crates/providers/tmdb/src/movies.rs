@@ -84,7 +84,7 @@ impl MediaProvider for TmdbMovieService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/movie/{}", URL, &identifier))
+            .get(format!("{URL}/movie/{identifier}"))
             .query(&json!({
                 "language": self.base.language,
                 "append_to_response": "videos",
@@ -291,7 +291,7 @@ impl MediaProvider for TmdbMovieService {
         let data: TmdbCollection = self
             .base
             .client
-            .get(format!("{}/collection/{}", URL, &identifier))
+            .get(format!("{URL}/collection/{identifier}"))
             .query(&json!({ "language": self.base.language }))
             .send()
             .await
