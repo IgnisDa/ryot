@@ -836,6 +836,12 @@ export type GetPasswordChangeSessionInput = {
   userId: Scalars['String']['input'];
 };
 
+export type GetPasswordChangeSessionResponse = {
+  __typename?: 'GetPasswordChangeSessionResponse';
+  passwordChangeUrl: Scalars['String']['output'];
+  userId: Scalars['String']['output'];
+};
+
 export type GraphqlCalendarEvent = {
   __typename?: 'GraphqlCalendarEvent';
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
@@ -1486,7 +1492,7 @@ export type MutationRoot = {
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
   /** Get a URL which can be used to set a new password for the user. */
-  getPasswordChangeSession: UserInvitationResponse;
+  getPasswordChangeSession: GetPasswordChangeSessionResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
@@ -2756,12 +2762,6 @@ export type UserGeneralWatchProvider = {
 export type UserGeneralWatchProviderInput = {
   lot: MediaLot;
   values: Array<Scalars['String']['input']>;
-};
-
-export type UserInvitationResponse = {
-  __typename?: 'UserInvitationResponse';
-  passwordChangeUrl: Scalars['String']['output'];
-  userId: Scalars['String']['output'];
 };
 
 export enum UserLot {

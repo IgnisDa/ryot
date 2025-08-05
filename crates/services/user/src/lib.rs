@@ -13,7 +13,7 @@ use media_models::{
     CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput, LoginResult,
     OidcTokenOutput, ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult,
     RegisterUserInput, SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput,
-    UserInvitationResponse, UserResetResult, UserTwoFactorBackupCodesResponse,
+    GetPasswordChangeSessionResponse, UserResetResult, UserTwoFactorBackupCodesResponse,
     UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
     VerifyTwoFactorResult,
 };
@@ -240,7 +240,7 @@ impl UserService {
         &self,
         requester_user_id: Option<String>,
         input: GetPasswordChangeSessionInput,
-    ) -> Result<UserInvitationResponse> {
+    ) -> Result<GetPasswordChangeSessionResponse> {
         password_change_operations::get_password_change_session(&self.0, requester_user_id, input)
             .await
     }

@@ -8,11 +8,12 @@ use dependent_models::{
 };
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput, LoginResult, OidcTokenOutput,
-    ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
-    UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
-    UserTwoFactorSetupInput, UserTwoFactorVerifyInput, VerifyTwoFactorResult,
+    CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput,
+    GetPasswordChangeSessionResponse, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
+    ProcessAccessLinkResult, RegisterResult, RegisterUserInput, SetPasswordViaSessionInput,
+    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
 use traits::AuthProvider;
 use user_models::{UpdateUserInput, UserPreferences};
@@ -371,7 +372,7 @@ impl UserMutation {
         &self,
         gql_ctx: &Context<'_>,
         input: GetPasswordChangeSessionInput,
-    ) -> Result<UserInvitationResponse> {
+    ) -> Result<GetPasswordChangeSessionResponse> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
         let response = service

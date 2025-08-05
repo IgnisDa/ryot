@@ -203,7 +203,7 @@ pub struct GetPasswordChangeSessionInput {
 }
 
 #[derive(Debug, SimpleObject)]
-pub struct UserInvitationResponse {
+pub struct GetPasswordChangeSessionResponse {
     pub user_id: String,
     pub password_change_url: String,
 }

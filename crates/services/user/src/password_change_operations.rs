@@ -7,7 +7,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput,
     UserPasswordChangeSessionInput, UserPasswordChangeSessionValue,
 };
-use media_models::{GetPasswordChangeSessionInput, UserInvitationResponse};
+use media_models::{GetPasswordChangeSessionInput, GetPasswordChangeSessionResponse};
 use sea_orm::{ActiveModelTrait, ActiveValue, IntoActiveModel};
 use supporting_service::SupportingService;
 
@@ -69,7 +69,7 @@ pub async fn get_password_change_session(
     ss: &Arc<SupportingService>,
     requester_user_id: Option<String>,
     input: GetPasswordChangeSessionInput,
-) -> Result<UserInvitationResponse> {
+) -> Result<GetPasswordChangeSessionResponse> {
     if let Some(admin_user_id) = requester_user_id {
         admin_account_guard(&admin_user_id, ss).await?;
     } else if let Some(token) = &input.admin_access_token {
@@ -84,7 +84,7 @@ pub async fn get_password_change_session(
     let session_id = generate_password_change_session(ss, user.id.clone()).await?;
     let password_change_url = build_password_change_url(&ss.config.frontend.url, &session_id);
 
-    Ok(UserInvitationResponse {
+    Ok(GetPasswordChangeSessionResponse {
         user_id: user.id,
         password_change_url,
     })
