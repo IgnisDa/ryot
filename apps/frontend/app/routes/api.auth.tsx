@@ -60,7 +60,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		return redirect($path("/"), { headers });
 	}
 	if (loginUser.__typename === "StringIdObject") {
-		return redirect(withQuery("/two-factor", { userId: loginUser.id }));
+		return redirect(withQuery($path("/two-factor"), { userId: loginUser.id }));
 	}
 	console.error("Login failed:", loginUser);
 	return data({ input });
