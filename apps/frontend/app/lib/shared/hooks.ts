@@ -229,6 +229,11 @@ export const useApplicationEvents = () => {
 	const completeOnboardingTour = () => {
 		sendEvent("Complete Onboarding Tour", {});
 	};
+	const createOrUpdateIntegration = (provider: string, isUpdate: boolean) => {
+		sendEvent(isUpdate ? "Update Integration" : "Create Integration", {
+			provider,
+		});
+	};
 
 	return {
 		postReview,
@@ -239,6 +244,7 @@ export const useApplicationEvents = () => {
 		createMeasurement,
 		startOnboardingTour,
 		completeOnboardingTour,
+		createOrUpdateIntegration,
 	};
 };
 

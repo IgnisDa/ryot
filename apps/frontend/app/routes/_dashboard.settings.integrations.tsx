@@ -61,6 +61,7 @@ import {
 } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
+	useApplicationEvents,
 	useConfirmSubmit,
 	useCoreDetails,
 	useDashboardLayoutData,
@@ -801,6 +802,7 @@ const CreateOrUpdateModal = (props: {
 	integrationData: Integration | null | undefined;
 }) => {
 	const coreDetails = useCoreDetails();
+	const events = useApplicationEvents();
 	const [provider, setProvider] = useState<IntegrationProvider | undefined>(
 		props.integrationData?.provider,
 	);
@@ -821,7 +823,12 @@ const CreateOrUpdateModal = (props: {
 			<Form
 				replace
 				method="POST"
-				onSubmit={() => props.close()}
+				onSubmit={() => {
+					if (provider) {
+						events.createOrUpdateIntegration(provider, isUpdating);
+					}
+					props.close();
+				}}
 				action={withQuery(".", { intent: "createOrUpdate" })}
 			>
 				{props.integrationData && (
