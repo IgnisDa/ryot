@@ -16,7 +16,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
 	DeleteUserDocument,
-	GetPasswordChangeUrlDocument,
+	GetPasswordChangeSessionDocument,
 	RegisterUserDocument,
 	ResetUserDocument,
 	UpdateUserDocument,
@@ -141,12 +141,12 @@ const UserInvitationModal = (props: {
 				throw new Error("Failed to register user");
 			}
 
-			const { getPasswordChangeUrl } = await clientGqlService.request(
-				GetPasswordChangeUrlDocument,
+			const { getPasswordChangeSession } = await clientGqlService.request(
+				GetPasswordChangeSessionDocument,
 				{ input: { userId: registerUser.id } },
 			);
 
-			return getPasswordChangeUrl.passwordChangeUrl;
+			return getPasswordChangeSession.passwordChangeUrl;
 		},
 		onSuccess: (createUserInvitation) => {
 			showSuccessNotification("User invitation created successfully");

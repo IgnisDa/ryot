@@ -19,7 +19,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CompleteTwoFactorSetupDocument,
 	DisableTwoFactorDocument,
-	GetPasswordChangeUrlDocument,
+	GetPasswordChangeSessionDocument,
 	InitiateTwoFactorSetupDocument,
 	type InitiateTwoFactorSetupMutation,
 	RegenerateTwoFactorBackupCodesDocument,
@@ -104,11 +104,11 @@ const PasswordSection = () => {
 
 	const generatePasswordChangeSessionMutation = useMutation({
 		mutationFn: async () => {
-			const { getPasswordChangeUrl } = await clientGqlService.request(
-				GetPasswordChangeUrlDocument,
+			const { getPasswordChangeSession } = await clientGqlService.request(
+				GetPasswordChangeSessionDocument,
 				{ input: { userId: userDetails.id } },
 			);
-			return getPasswordChangeUrl.passwordChangeUrl;
+			return getPasswordChangeSession.passwordChangeUrl;
 		},
 		onSuccess: (url) => {
 			if (!url) return;
