@@ -118,11 +118,11 @@ pub enum ApplicationCacheKey {
 }
 
 pub type IgdbSettings = String;
+pub type SpotifyAccessToken = String;
 pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
-pub type SpotifyAccessToken = String;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
