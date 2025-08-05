@@ -1,8 +1,10 @@
 use std::{convert::TryInto, fmt};
 
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use data_encoding::BASE32;
 use enum_models::MediaSource;
 use env_utils::APP_VERSION;
+use rand::{RngCore, rng};
 use reqwest::header::HeaderValue;
 use sea_orm::prelude::DateTimeUtc;
 use serde::de;
@@ -16,7 +18,6 @@ pub const FRONTEND_OAUTH_ENDPOINT: &str = "/api/auth";
 pub const AUTHOR_EMAIL: &str = "ignisda2001@gmail.com";
 pub const BULK_APPLICATION_UPDATE_CHUNK_SIZE: usize = 5;
 pub const MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE: usize = 5;
-pub const COMPILATION_TIMESTAMP: i64 = compile_time::unix!();
 pub const BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE: usize = 2000;
 pub const SHOW_SPECIAL_SEASON_NAMES: [&str; 2] = ["Specials", "Extras"];
 pub const APPLICATION_JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
@@ -147,4 +148,11 @@ where
 
 pub async fn sleep_for_n_seconds(sec: u64) {
     sleep(Duration::from_secs(sec)).await;
+}
+
+pub fn generate_session_id(byte_length: Option<usize>) -> String {
+    let length = byte_length.unwrap_or(32);
+    let mut token_bytes = vec![0u8; length];
+    rng().fill_bytes(&mut token_bytes);
+    BASE32.encode(&token_bytes)
 }

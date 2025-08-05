@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Duration;
+use common_utils::generate_session_id;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ExpireCacheKeyInput, UserSessionInput,
     UserSessionValue,
 };
-use rand::{RngCore, rng};
 use supporting_service::SupportingService;
 
 pub async fn create_session(
@@ -15,9 +15,7 @@ pub async fn create_session(
     access_link_id: Option<String>,
     expiry_duration: Option<Duration>,
 ) -> Result<String> {
-    let mut token_bytes = [0u8; 32];
-    rng().fill_bytes(&mut token_bytes);
-    let session_id = hex::encode(token_bytes);
+    let session_id = generate_session_id(None);
     let cache_key = ApplicationCacheKey::UserSession(UserSessionInput {
         session_id: session_id.clone(),
     });

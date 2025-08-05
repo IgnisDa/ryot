@@ -24,24 +24,59 @@ import { match } from "ts-pattern";
 import { z } from "zod";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
+	combineHeaders,
 	createToastHeaders,
 	getCookiesForApplication,
 	serverGqlService,
+	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/two-factor";
 
 const searchParamsSchema = z.object({
-	userId: z.string(),
 	[redirectToQueryParam]: z.string().optional(),
 });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
+
+export const loader = async ({ request }: Route.LoaderArgs) => {
+	const session = await twoFactorSessionStorage.getSession(
+		request.headers.get("cookie"),
+	);
+	const userId = session.get("userId") as string | undefined;
+
+	if (!userId) {
+		throw redirect($path("/auth"), {
+			headers: await createToastHeaders({
+				type: "error",
+				message:
+					"Two-factor authentication session expired. Please login again.",
+			}),
+		});
+	}
+
+	return { userId };
+};
 
 export const meta = () => [{ title: "Two-Factor Authentication | Ryot" }];
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.formData();
 	const query = parseSearchQuery(request, searchParamsSchema);
+	const session = await twoFactorSessionStorage.getSession(
+		request.headers.get("cookie"),
+	);
+	const userId = session.get("userId") as string | undefined;
+
+	if (!userId) {
+		return redirect($path("/auth"), {
+			headers: await createToastHeaders({
+				type: "error",
+				message:
+					"Two-factor authentication session expired. Please login again.",
+			}),
+		});
+	}
+
 	const submission = parseWithZod(formData, {
 		schema: verifyTwoFactorSchema,
 	});
@@ -59,7 +94,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		VerifyTwoFactorDocument,
 		{
 			input: {
-				userId: query.userId,
+				userId,
 				code: submission.value.code,
 				method: submission.value.method,
 			},
@@ -67,10 +102,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	);
 
 	if (verifyTwoFactor.__typename === "ApiKeyResponse") {
-		const headers = await getCookiesForApplication(verifyTwoFactor.apiKey);
+		const destroySessionCookie =
+			await twoFactorSessionStorage.destroySession(session);
+		const authHeaders = await getCookiesForApplication(verifyTwoFactor.apiKey);
 		const redirectTo = query[redirectToQueryParam];
 		return redirect(redirectTo ? safeRedirect(redirectTo) : $path("/"), {
-			headers,
+			headers: combineHeaders(authHeaders, {
+				"set-cookie": destroySessionCookie,
+			}),
 		});
 	}
 

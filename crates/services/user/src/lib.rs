@@ -10,9 +10,10 @@ use dependent_models::{
 use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, LoginResult, OidcTokenOutput, ProcessAccessLinkInput,
-    ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    UpdateUserNotificationPlatformInput, UserResetResult, UserTwoFactorBackupCodesResponse,
+    CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput, LoginResult,
+    OidcTokenOutput, ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult,
+    RegisterUserInput, SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput,
+    GetPasswordChangeSessionResponse, UserResetResult, UserTwoFactorBackupCodesResponse,
     UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
     VerifyTwoFactorResult,
 };
@@ -25,6 +26,7 @@ mod authentication_operations;
 mod integration_operations;
 mod notification_operations;
 mod oidc_operations;
+mod password_change_operations;
 mod recommendation_operations;
 mod two_factor_operations;
 mod user_data_operations;
@@ -89,8 +91,12 @@ impl UserService {
         user_management_operations::reset_user(&self.0, admin_user_id, to_reset_user_id).await
     }
 
-    pub async fn register_user(&self, input: RegisterUserInput) -> Result<RegisterResult> {
-        user_management_operations::register_user(&self.0, input).await
+    pub async fn register_user(
+        &self,
+        requester_user_id: Option<String>,
+        input: RegisterUserInput,
+    ) -> Result<RegisterResult> {
+        user_management_operations::register_user(&self.0, requester_user_id, input).await
     }
 
     pub async fn generate_auth_token(&self, user_id: String) -> Result<String> {
@@ -107,10 +113,10 @@ impl UserService {
 
     pub async fn update_user(
         &self,
-        user_id: Option<String>,
+        requester_user_id: Option<String>,
         input: UpdateUserInput,
     ) -> Result<StringIdObject> {
-        user_management_operations::update_user(&self.0, user_id, input).await
+        user_management_operations::update_user(&self.0, requester_user_id, input).await
     }
 
     pub async fn update_user_preference(
@@ -228,5 +234,26 @@ impl UserService {
         user_id: String,
     ) -> Result<UserTwoFactorBackupCodesResponse> {
         two_factor_operations::regenerate_two_factor_backup_codes(&self.0, user_id).await
+    }
+
+    pub async fn get_password_change_session(
+        &self,
+        requester_user_id: Option<String>,
+        input: GetPasswordChangeSessionInput,
+    ) -> Result<GetPasswordChangeSessionResponse> {
+        password_change_operations::get_password_change_session(&self.0, requester_user_id, input)
+            .await
+    }
+
+    pub async fn set_password_via_session(
+        &self,
+        input: SetPasswordViaSessionInput,
+    ) -> Result<bool> {
+        password_change_operations::set_password_via_session(
+            &self.0,
+            input.session_id,
+            input.password,
+        )
+        .await
     }
 }

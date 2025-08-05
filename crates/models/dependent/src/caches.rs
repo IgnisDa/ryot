@@ -57,6 +57,18 @@ pub struct UserSessionValue {
 }
 
 #[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserPasswordChangeSessionInput {
+    pub session_id: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UserPasswordChangeSessionValue {
+    pub user_id: String,
+}
+
+#[skip_serializing_none]
 #[derive(
     Eq,
     Hash,
@@ -89,6 +101,7 @@ pub enum ApplicationCacheKey {
     UserMetadataRecommendationsSet(UserLevelCacheKey<()>),
     MetadataSearch(UserLevelCacheKey<MetadataSearchInput>),
     UserPeopleList(UserLevelCacheKey<UserPeopleListInput>),
+    UserPasswordChangeSession(UserPasswordChangeSessionInput),
     UserMetadataList(UserLevelCacheKey<UserMetadataListInput>),
     UserExercisesList(UserLevelCacheKey<UserExercisesListInput>),
     CollectionRecommendations(CollectionRecommendationsCachedInput),
@@ -105,11 +118,11 @@ pub enum ApplicationCacheKey {
 }
 
 pub type IgdbSettings = String;
+pub type SpotifyAccessToken = String;
 pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
-pub type SpotifyAccessToken = String;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -139,6 +152,7 @@ pub enum ApplicationCacheValue {
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
+    UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),
     UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),

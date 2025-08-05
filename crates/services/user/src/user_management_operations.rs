@@ -24,17 +24,22 @@ use supporting_service::SupportingService;
 use user_models::UpdateUserInput;
 use user_models::UserPreferences;
 
-use crate::user_data_operations;
+use crate::{password_change_operations, user_data_operations};
 
 pub async fn update_user(
     ss: &Arc<SupportingService>,
-    user_id: Option<String>,
+    requester_user_id: Option<String>,
     input: UpdateUserInput,
 ) -> Result<StringIdObject> {
-    if user_id.unwrap_or_default() != input.user_id
-        && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
-    {
-        bail!("Admin access token mismatch".to_owned());
+    if let Some(ref uid) = requester_user_id {
+        if uid != &input.user_id
+            && admin_account_guard(uid, ss).await.is_err()
+            && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
+        {
+            bail!("Admin access token required".to_owned());
+        }
+    } else if input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token {
+        bail!("Admin access token required".to_owned());
     }
     let mut user_obj = User::find_by_id(input.user_id)
         .one(&ss.db)
@@ -43,9 +48,6 @@ pub async fn update_user(
         .into_active_model();
     if let Some(n) = input.username {
         user_obj.name = ActiveValue::Set(n);
-    }
-    if let Some(p) = input.password {
-        user_obj.password = ActiveValue::Set(Some(p));
     }
     if let Some(l) = input.lot {
         user_obj.lot = ActiveValue::Set(l);
@@ -94,40 +96,51 @@ pub async fn reset_user(
     let original_id = user_to_reset.id.clone();
     let original_name = user_to_reset.name.clone();
     let original_oidc_issuer_id = user_to_reset.oidc_issuer_id.clone();
+    let original_lot = user_to_reset.lot;
 
     user_to_reset.delete(&ss.db).await?;
 
-    let new_password = match original_oidc_issuer_id {
-        Some(_) => None,
-        None => Some(nanoid!(12)),
-    };
-
     let auth_input = match original_oidc_issuer_id {
-        Some(issuer_id) => AuthUserInput::Oidc(OidcUserInput {
-            issuer_id,
+        Some(ref issuer_id) => AuthUserInput::Oidc(OidcUserInput {
             email: original_name,
+            issuer_id: issuer_id.clone(),
         }),
         None => AuthUserInput::Password(PasswordUserInput {
             username: original_name,
-            password: new_password.clone().unwrap_or_default(),
+            password: String::new(),
         }),
     };
 
     let register_input = RegisterUserInput {
         data: auth_input,
+        lot: Some(original_lot),
         user_id: Some(original_id.clone()),
         admin_access_token: Some(ss.config.server.admin_access_token.clone()),
     };
 
-    let register_result = register_user(ss, register_input).await?;
+    let register_result = register_user(ss, None, register_input).await?;
     cache_service::expire_key(ss, ExpireCacheKeyInput::ByUser(original_id)).await?;
     match register_result {
         RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
         RegisterResult::Ok(result) => {
             ryot_log!(debug, "User reset with id {:?}", result.id);
+            let password_change_url = match original_oidc_issuer_id {
+                Some(_) => None,
+                None => {
+                    let session_id = password_change_operations::generate_password_change_session(
+                        ss,
+                        result.id.clone(),
+                    )
+                    .await?;
+                    Some(password_change_operations::build_password_change_url(
+                        &ss.config.frontend.url,
+                        &session_id,
+                    ))
+                }
+            };
             Ok(UserResetResult::Ok(UserResetResponse {
-                id: result.id,
-                password: new_password,
+                user_id: result.id,
+                password_change_url,
             }))
         }
     }
@@ -135,9 +148,12 @@ pub async fn reset_user(
 
 pub async fn register_user(
     ss: &Arc<SupportingService>,
+    requester_user_id: Option<String>,
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
-    if !ss.config.users.allow_registration
+    if let Some(ref uid) = requester_user_id {
+        admin_account_guard(uid, ss).await?;
+    } else if !ss.config.users.allow_registration
         && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
     {
         return Ok(RegisterResult::Error(RegisterError {
@@ -170,9 +186,12 @@ pub async fn register_user(
         AuthUserInput::Password(_) => None,
     };
     // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
-    let lot = match total_users == 0 {
-        true => UserLot::Admin,
-        false => UserLot::Normal,
+    let lot = match input.lot {
+        Some(specified_lot) => specified_lot,
+        None => match total_users == 0 {
+            true => UserLot::Admin,
+            false => UserLot::Normal,
+        },
     };
     let user_id = input
         .user_id

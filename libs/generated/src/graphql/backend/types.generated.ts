@@ -830,6 +830,18 @@ export type GenreListItem = {
   numItems?: Maybe<Scalars['Int']['output']>;
 };
 
+export type GetPasswordChangeSessionInput = {
+  /** If user details are not present in the request, this can be used to override it */
+  adminAccessToken?: InputMaybe<Scalars['String']['input']>;
+  userId: Scalars['String']['input'];
+};
+
+export type GetPasswordChangeSessionResponse = {
+  __typename?: 'GetPasswordChangeSessionResponse';
+  passwordChangeUrl: Scalars['String']['output'];
+  userId: Scalars['String']['output'];
+};
+
 export type GraphqlCalendarEvent = {
   __typename?: 'GraphqlCalendarEvent';
   animeExtraInformation?: Maybe<SeenAnimeExtraInformation>;
@@ -1479,6 +1491,8 @@ export type MutationRoot = {
   expireCacheKey: Scalars['Boolean']['output'];
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
+  /** Get a URL which can be used to set a new password for the user. */
+  getPasswordChangeSession: GetPasswordChangeSessionResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
@@ -1514,6 +1528,8 @@ export type MutationRoot = {
   resetUser: UserResetResult;
   /** Revoke an access link. */
   revokeAccessLink: Scalars['Boolean']['output'];
+  /** Set password using a valid session ID (non-authenticated route). */
+  setPasswordViaSession: Scalars['Boolean']['output'];
   /** Test all notification platforms for the currently logged in user. */
   testUserNotificationPlatforms: Scalars['Boolean']['output'];
   /** Update a custom exercise. */
@@ -1688,6 +1704,11 @@ export type MutationRootExpireCacheKeyArgs = {
 };
 
 
+export type MutationRootGetPasswordChangeSessionArgs = {
+  input: GetPasswordChangeSessionInput;
+};
+
+
 export type MutationRootLoginUserArgs = {
   input: AuthUserInput;
 };
@@ -1737,6 +1758,11 @@ export type MutationRootResetUserArgs = {
 
 export type MutationRootRevokeAccessLinkArgs = {
   accessLinkId: Scalars['String']['input'];
+};
+
+
+export type MutationRootSetPasswordViaSessionArgs = {
+  input: SetPasswordViaSessionInput;
 };
 
 
@@ -2239,6 +2265,8 @@ export type RegisterUserInput = {
   /** If registration is disabled, this can be used to override it. */
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   data: AuthUserInput;
+  /** Specific user lot (role) to assign. */
+  lot?: InputMaybe<UserLot>;
 };
 
 export type ReorderCollectionEntityInput = {
@@ -2344,6 +2372,11 @@ export enum SetLot {
   Normal = 'NORMAL',
   WarmUp = 'WARM_UP'
 }
+
+export type SetPasswordViaSessionInput = {
+  password: Scalars['String']['input'];
+  sessionId: Scalars['String']['input'];
+};
 
 export type SetRestTimersSettings = {
   __typename?: 'SetRestTimersSettings';
@@ -2478,7 +2511,6 @@ export type UpdateUserInput = {
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   lot?: InputMaybe<UserLot>;
-  password?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['String']['input'];
   username?: InputMaybe<Scalars['String']['input']>;
 };
@@ -2940,8 +2972,8 @@ export type UserPreferencesInput = {
 
 export type UserResetResponse = {
   __typename?: 'UserResetResponse';
-  id: Scalars['String']['output'];
-  password?: Maybe<Scalars['String']['output']>;
+  passwordChangeUrl?: Maybe<Scalars['String']['output']>;
+  userId: Scalars['String']['output'];
 };
 
 export type UserResetResult = RegisterError | UserResetResponse;

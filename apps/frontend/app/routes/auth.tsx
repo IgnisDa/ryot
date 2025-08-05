@@ -40,12 +40,14 @@ import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { redirectToQueryParam } from "~/lib/shared/constants";
+import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
 	getCookiesForApplication,
 	getCoreDetails,
 	redirectWithToast,
 	serverGqlService,
+	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/auth";
 
@@ -155,11 +157,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 			if (loginUser.__typename === "StringIdObject") {
 				const redirectTo = submission[redirectToQueryParam];
+				const session = await twoFactorSessionStorage.getSession();
+				session.set("userId", loginUser.id);
+				const twoFactorCookie =
+					await twoFactorSessionStorage.commitSession(session);
 				return redirect(
-					withQuery($path("/two-factor"), {
-						userId: loginUser.id,
-						...(redirectTo ? { [redirectToQueryParam]: redirectTo } : {}),
-					}),
+					redirectTo
+						? withQuery($path("/two-factor"), {
+								[redirectToQueryParam]: redirectTo,
+							})
+						: $path("/two-factor"),
+					{ headers: new Headers({ "set-cookie": twoFactorCookie }) },
 				);
 			}
 			const message = match(loginUser.error)
@@ -188,18 +196,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const registerSchema = z
-	.object({
-		username: z.string(),
-		password: z
-			.string()
-			.min(8, "Password should be at least 8 characters long"),
-		confirm: z.string(),
-	})
-	.refine((data) => data.password === data.confirm, {
-		message: "Passwords do not match",
-		path: ["confirm"],
-	});
+const registerSchema = passwordConfirmationSchema.extend({
+	username: z.string(),
+});
 
 const loginSchema = z.object({
 	username: z.string(),

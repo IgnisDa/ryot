@@ -7012,7 +7012,6 @@ __metadata:
     js-cookie: "npm:3.0.5"
     lodash: "npm:4.17.21"
     mantine-datatable: "npm:8.2.0"
-    nanoid: "npm:5.1.5"
     postcss: "npm:8.5.6"
     postcss-preset-mantine: "npm:1.18.0"
     postcss-simple-vars: "npm:7.0.1"
@@ -7140,7 +7139,6 @@ __metadata:
     isbot: "npm:5.1.29"
     lodash: "npm:4.17.21"
     lucide-react: "npm:0.536.0"
-    nanoid: "npm:5.1.5"
     next-themes: "npm:0.4.6"
     nodemailer: "npm:7.0.5"
     openid-client: "npm:6.6.2"
@@ -15653,15 +15651,6 @@ __metadata:
   version: 0.2.1
   resolution: "nano-spawn@npm:0.2.1"
   checksum: 10/8cd450e5a6626e4296cdde2d02f5bd1de4b188868abdd433ed18f7ce27689af3afa1c9560078bc49149ee5998c31ef8e0a62acf8a3d308611544404b4d6b2e84
-  languageName: node
-  linkType: hard
-
-"nanoid@npm:5.1.5":
-  version: 5.1.5
-  resolution: "nanoid@npm:5.1.5"
-  bin:
-    nanoid: bin/nanoid.js
-  checksum: 10/6de2d006b51c983be385ef7ee285f7f2a57bd96f8c0ca881c4111461644bd81fafc2544f8e07cb834ca0f3e0f3f676c1fe78052183f008b0809efe6e273119f5
   languageName: node
   linkType: hard
 

@@ -8,7 +8,6 @@ import {
 	Group,
 	Modal,
 	Paper,
-	PasswordInput,
 	PinInput,
 	SimpleGrid,
 	Stack,
@@ -20,6 +19,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	CompleteTwoFactorSetupDocument,
 	DisableTwoFactorDocument,
+	GetPasswordChangeSessionDocument,
 	InitiateTwoFactorSetupDocument,
 	type InitiateTwoFactorSetupMutation,
 	RegenerateTwoFactorBackupCodesDocument,
@@ -34,6 +34,8 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+import { CopyableTextInput } from "~/components/common";
+import { redirectToQueryParam } from "~/lib/shared/constants";
 import {
 	useConfirmSubmit,
 	useCoreDetails,
@@ -79,7 +81,6 @@ const updateProfileFormSchema = z.object({
 	userId: z.string(),
 	email: z.email().optional(),
 	username: z.string().optional(),
-	password: z.string().optional(),
 });
 
 export default function Page() {
@@ -98,16 +99,45 @@ const PasswordSection = () => {
 	const submit = useConfirmSubmit();
 	const userDetails = useUserDetails();
 	const dashboardData = useDashboardLayoutData();
+	const navigate = useNavigate();
 	const isEditDisabled = dashboardData.isDemoInstance;
+
+	const generatePasswordChangeSessionMutation = useMutation({
+		mutationFn: async () => {
+			const { getPasswordChangeSession } = await clientGqlService.request(
+				GetPasswordChangeSessionDocument,
+				{ input: { userId: userDetails.id } },
+			);
+			return getPasswordChangeSession.passwordChangeUrl;
+		},
+		onSuccess: (url) => {
+			if (!url) return;
+			notifications.show({
+				color: "green",
+				title: "Success",
+				message: "You will be logged out and redirected to set a new password",
+			});
+
+			navigate(
+				withQuery($path("/api/logout"), { [redirectToQueryParam]: url }),
+			);
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				title: "Error",
+				message: "Failed to generate password change session",
+			});
+		},
+	});
 
 	return (
 		<Stack>
 			<Form method="POST" action={withQuery(".", { intent: "updateProfile" })}>
 				<input type="hidden" name="userId" defaultValue={userDetails.id} />
 				<Stack>
-					<TextInput
-						readOnly
-						defaultValue={userDetails.id}
+					<CopyableTextInput
+						value={userDetails.id}
 						description="Database generated user ID"
 					/>
 					<TextInput
@@ -117,18 +147,6 @@ const PasswordSection = () => {
 						defaultValue={userDetails.name}
 						description={
 							isEditDisabled && "Username can not be changed for the demo user"
-						}
-					/>
-					<PasswordInput
-						name="password"
-						label="Password"
-						disabled={isEditDisabled || Boolean(userDetails.oidcIssuerId)}
-						description={
-							userDetails.oidcIssuerId
-								? "Not applicable since this user was created via OIDC"
-								: isEditDisabled
-									? "Password can not be changed for the demo user"
-									: undefined
 						}
 					/>
 					<Button
@@ -143,10 +161,34 @@ const PasswordSection = () => {
 							);
 						}}
 					>
-						Update
+						Update Profile
 					</Button>
 				</Stack>
 			</Form>
+
+			<Divider />
+
+			{userDetails.oidcIssuerId ? (
+				<Alert color="blue" title="OIDC User">
+					Password change is not available since this user was created via OIDC.
+				</Alert>
+			) : (
+				<Button
+					fullWidth
+					color="orange"
+					variant="light"
+					disabled={isEditDisabled}
+					loading={generatePasswordChangeSessionMutation.isPending}
+					onClick={() => {
+						openConfirmationModal(
+							"Are you sure you want to change your password? You will be logged out and redirected to set a new password.",
+							() => generatePasswordChangeSessionMutation.mutate(),
+						);
+					}}
+				>
+					Change Password
+				</Button>
+			)}
 		</Stack>
 	);
 };

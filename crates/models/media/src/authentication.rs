@@ -1,5 +1,6 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject, Union};
 use common_models::StringIdObject;
+use enum_models::UserLot;
 use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +37,8 @@ pub enum AuthUserInput {
 #[derive(Debug, InputObject)]
 pub struct RegisterUserInput {
     pub data: AuthUserInput,
+    /// Specific user lot (role) to assign.
+    pub lot: Option<UserLot>,
     /// Specific user ID to create.
     #[graphql(skip)]
     pub user_id: Option<String>,
@@ -62,8 +65,8 @@ pub enum RegisterResult {
 
 #[derive(Debug, SimpleObject)]
 pub struct UserResetResponse {
-    pub id: String,
-    pub password: Option<String>,
+    pub user_id: String,
+    pub password_change_url: Option<String>,
 }
 
 #[derive(Union)]
@@ -190,4 +193,24 @@ pub struct VerifyTwoFactorError {
 pub enum VerifyTwoFactorResult {
     Ok(ApiKeyResponse),
     Error(VerifyTwoFactorError),
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct GetPasswordChangeSessionInput {
+    pub user_id: String,
+    /// If user details are not present in the request, this can be used to override it
+    pub admin_access_token: Option<String>,
+}
+
+#[derive(Debug, SimpleObject)]
+pub struct GetPasswordChangeSessionResponse {
+    pub user_id: String,
+    pub password_change_url: String,
+}
+
+#[derive(Debug, InputObject, Serialize, Deserialize, Clone)]
+pub struct SetPasswordViaSessionInput {
+    #[graphql(secret)]
+    pub password: String,
+    pub session_id: String,
 }

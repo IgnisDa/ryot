@@ -4,6 +4,7 @@ import {
 	type TransactionNotification,
 } from "@paddle/paddle-node-sdk";
 import {
+	CreateUserInvitationDocument,
 	RegisterUserDocument,
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -13,7 +14,6 @@ import PurchaseCompleteEmail, {
 import { formatDateToNaiveDate } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import {
@@ -109,7 +109,6 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 		};
 	}
 
-	const password = nanoid(10);
 	const { registerUser } = await serverGqlService.request(
 		RegisterUserDocument,
 		{
@@ -117,7 +116,7 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 				adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 				data: oidcIssuerId
 					? { oidc: { email: email, issuerId: oidcIssuerId } }
-					: { password: { username: email, password: password } },
+					: { password: { username: email, password: "" } },
 			},
 		},
 	);
@@ -125,13 +124,25 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 		console.error(registerUser);
 		throw new Error("Failed to register user");
 	}
+
+	const auth = oidcIssuerId
+		? email
+		: await serverGqlService
+				.request(CreateUserInvitationDocument, {
+					input: {
+						userId: registerUser.id,
+						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
+					},
+				})
+				.then(({ createUserInvitation }) => ({
+					username: email,
+					passwordChangeUrl: createUserInvitation.passwordChangeUrl,
+				}));
+
 	return {
-		ryotUserId: registerUser.id,
 		unkeyKeyId: null,
-		details: {
-			__typename: "cloud",
-			auth: oidcIssuerId ? email : { username: email, password },
-		},
+		ryotUserId: registerUser.id,
+		details: { auth, __typename: "cloud" },
 	};
 }
 

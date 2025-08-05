@@ -4,10 +4,10 @@ use anyhow::Result;
 use apalis::prelude::{MemoryStorage, MessageQueue};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::bon;
-use chrono::{NaiveDate, TimeZone, Utc};
-use common_utils::{COMPILATION_TIMESTAMP, convert_naive_to_utc, ryot_log};
+use chrono::{NaiveDate, Utc};
+use common_utils::{convert_naive_to_utc, ryot_log};
 use env_utils::UNKEY_API_ID;
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, prelude::DateTimeUtc};
 use serde::{Deserialize, Serialize};
 use unkey::{Client, models::VerifyKeyRequest};
 
@@ -15,6 +15,7 @@ pub struct SupportingService {
     pub is_oidc_enabled: bool,
     pub db: DatabaseConnection,
     pub timezone: chrono_tz::Tz,
+    pub server_start_time: DateTimeUtc,
     pub config: Arc<config_definition::AppConfig>,
 
     lp_application_job: MemoryStorage<LpApplicationJob>,
@@ -39,6 +40,7 @@ impl SupportingService {
             timezone,
             db: db.clone(),
             is_oidc_enabled,
+            server_start_time: Utc::now(),
             lp_application_job: lp_application_job.clone(),
             mp_application_job: mp_application_job.clone(),
             hp_application_job: hp_application_job.clone(),
@@ -66,7 +68,6 @@ impl SupportingService {
             return false;
         }
         ryot_log!(debug, "Verifying pro key for API ID: {:#?}", UNKEY_API_ID);
-        let compile_timestamp = Utc.timestamp_opt(COMPILATION_TIMESTAMP, 0).unwrap();
         #[derive(Debug, Serialize, Clone, Deserialize)]
         struct Meta {
             expiry: Option<NaiveDate>,
@@ -92,7 +93,7 @@ impl SupportingService {
         ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
         if let Some(meta) = key_meta {
             if let Some(expiry) = meta.expiry {
-                if compile_timestamp > convert_naive_to_utc(expiry) {
+                if self.server_start_time > convert_naive_to_utc(expiry) {
                     ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
                     return false;
                 }
