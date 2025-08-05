@@ -10,11 +10,12 @@ use dependent_models::{
 use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, GetPasswordChangeUrlInput, LoginResult, OidcTokenOutput,
-    ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
-    SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
-    UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
-    UserTwoFactorSetupInput, UserTwoFactorVerifyInput, VerifyTwoFactorResult,
+    CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput, LoginResult,
+    OidcTokenOutput, ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult,
+    RegisterUserInput, SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput,
+    UserInvitationResponse, UserResetResult, UserTwoFactorBackupCodesResponse,
+    UserTwoFactorInitiateResponse, UserTwoFactorSetupInput, UserTwoFactorVerifyInput,
+    VerifyTwoFactorResult,
 };
 use openidconnect::Nonce;
 use supporting_service::SupportingService;
@@ -235,12 +236,13 @@ impl UserService {
         two_factor_operations::regenerate_two_factor_backup_codes(&self.0, user_id).await
     }
 
-    pub async fn get_password_change_url(
+    pub async fn get_password_change_session(
         &self,
         requester_user_id: Option<String>,
-        input: GetPasswordChangeUrlInput,
+        input: GetPasswordChangeSessionInput,
     ) -> Result<UserInvitationResponse> {
-        password_change_operations::get_password_change_url(&self.0, requester_user_id, input).await
+        password_change_operations::get_password_change_session(&self.0, requester_user_id, input)
+            .await
     }
 
     pub async fn set_password_via_session(

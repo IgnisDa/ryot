@@ -8,7 +8,7 @@ use dependent_models::{
 };
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
-    CreateUserNotificationPlatformInput, GetPasswordChangeUrlInput, LoginResult, OidcTokenOutput,
+    CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput, LoginResult, OidcTokenOutput,
     ProcessAccessLinkInput, ProcessAccessLinkResult, RegisterResult, RegisterUserInput,
     SetPasswordViaSessionInput, UpdateUserNotificationPlatformInput, UserInvitationResponse,
     UserResetResult, UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse,
@@ -367,15 +367,15 @@ impl UserMutation {
     }
 
     /// Get a URL which can be used to set a new password for the user.
-    async fn get_password_change_url(
+    async fn get_password_change_session(
         &self,
         gql_ctx: &Context<'_>,
-        input: GetPasswordChangeUrlInput,
+        input: GetPasswordChangeSessionInput,
     ) -> Result<UserInvitationResponse> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
         let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
         let response = service
-            .get_password_change_url(requester_user_id, input)
+            .get_password_change_session(requester_user_id, input)
             .await?;
         Ok(response)
     }

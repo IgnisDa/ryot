@@ -830,7 +830,7 @@ export type GenreListItem = {
   numItems?: Maybe<Scalars['Int']['output']>;
 };
 
-export type GetPasswordChangeUrlInput = {
+export type GetPasswordChangeSessionInput = {
   /** If user details are not present in the request, this can be used to override it */
   adminAccessToken?: InputMaybe<Scalars['String']['input']>;
   userId: Scalars['String']['input'];
@@ -1486,7 +1486,7 @@ export type MutationRoot = {
   /** Generate an auth token without any expiry. */
   generateAuthToken: Scalars['String']['output'];
   /** Get a URL which can be used to set a new password for the user. */
-  getPasswordChangeUrl: UserInvitationResponse;
+  getPasswordChangeSession: UserInvitationResponse;
   /** Initiate two-factor authentication setup by generating a TOTP secret. */
   initiateTwoFactorSetup: UserTwoFactorInitiateResponse;
   /** Login a user using their username and password and return an auth token. */
@@ -1698,8 +1698,8 @@ export type MutationRootExpireCacheKeyArgs = {
 };
 
 
-export type MutationRootGetPasswordChangeUrlArgs = {
-  input: GetPasswordChangeUrlInput;
+export type MutationRootGetPasswordChangeSessionArgs = {
+  input: GetPasswordChangeSessionInput;
 };
 
 

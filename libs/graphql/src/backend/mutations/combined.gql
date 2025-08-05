@@ -304,8 +304,8 @@ mutation RegenerateTwoFactorBackupCodes {
 	}
 }
 
-mutation GetPasswordChangeUrl($input: GetPasswordChangeUrlInput!) {
-	getPasswordChangeUrl(input: $input) {
+mutation GetPasswordChangeSession($input: GetPasswordChangeSessionInput!) {
+	getPasswordChangeSession(input: $input) {
 		userId
 		passwordChangeUrl
 	}
