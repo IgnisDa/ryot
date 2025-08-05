@@ -65,7 +65,7 @@ pub async fn is_metadata_finished_by_user(
                 .map(|e| format!("{}", e.number))
                 .collect_vec()
         } else if let Some(e) = metadata.anime_specifics.and_then(|a| a.episodes) {
-            (1..e + 1).map(|e| format!("{}", e)).collect_vec()
+            (1..e + 1).map(|e| format!("{e}")).collect_vec()
         } else if let Some(c) = metadata.manga_specifics.and_then(|m| m.chapters) {
             let one = Decimal::one();
             (0..c.to_u32().unwrap_or(0))
@@ -89,9 +89,9 @@ pub async fn is_metadata_finished_by_user(
                 } else if let Some(p) = h.podcast_extra_information {
                     format!("{}", p.episode)
                 } else if let Some(a) = h.anime_extra_information.and_then(|a| a.episode) {
-                    format!("{}", a)
+                    format!("{a}")
                 } else if let Some(m) = h.manga_extra_information.and_then(|m| m.chapter) {
-                    format!("{}", m)
+                    format!("{m}")
                 } else {
                     String::new()
                 }

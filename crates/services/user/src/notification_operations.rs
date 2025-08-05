@@ -112,28 +112,28 @@ pub async fn create_user_notification_platform(
     };
     let description = match &specifics {
         NotificationPlatformSpecifics::Apprise { url, key } => {
-            format!("URL: {}, Key: {}", url, key)
+            format!("URL: {url}, Key: {key}")
         }
         NotificationPlatformSpecifics::Discord { url } => {
-            format!("Webhook: {}", url)
+            format!("Webhook: {url}")
         }
         NotificationPlatformSpecifics::Gotify { url, token, .. } => {
-            format!("URL: {}, Token: {}", url, token)
+            format!("URL: {url}, Token: {token}")
         }
         NotificationPlatformSpecifics::Ntfy { url, topic, .. } => {
-            format!("URL: {:?}, Topic: {}", url, topic)
+            format!("URL: {url:?}, Topic: {topic}")
         }
         NotificationPlatformSpecifics::PushBullet { api_token } => {
-            format!("API Token: {}", api_token)
+            format!("API Token: {api_token}")
         }
         NotificationPlatformSpecifics::PushOver { key, app_key } => {
-            format!("Key: {}, App Key: {:?}", key, app_key)
+            format!("Key: {key}, App Key: {app_key:?}")
         }
         NotificationPlatformSpecifics::PushSafer { key } => {
-            format!("Key: {}", key)
+            format!("Key: {key}")
         }
         NotificationPlatformSpecifics::Telegram { chat_id, .. } => {
-            format!("Chat ID: {}", chat_id)
+            format!("Chat ID: {chat_id}")
         }
     };
     let notification = notification_platform::ActiveModel {

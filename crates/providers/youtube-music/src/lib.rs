@@ -79,7 +79,7 @@ impl MediaProvider for YoutubeMusicService {
             title: details.track.name,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
-            source_url: Some(format!("https://music.youtube.com/watch?v={}", identifier)),
+            source_url: Some(format!("https://music.youtube.com/watch?v={identifier}")),
             music_specifics: Some(MusicSpecifics {
                 by_various_artists: Some(details.track.by_va),
                 duration: details.track.duration.map(|d| d.try_into().unwrap()),
@@ -170,7 +170,7 @@ impl MediaProvider for YoutubeMusicService {
                 description: album.description.map(|d| d.to_html()),
                 source_url: album
                     .playlist_id
-                    .map(|id| format!("https://music.youtube.com/playlist?list={}", id)),
+                    .map(|id| format!("https://music.youtube.com/playlist?list={id}")),
                 assets: EntityAssets {
                     remote_images: self
                         .largest_image(&album.cover)
@@ -280,7 +280,7 @@ impl MediaProvider for YoutubeMusicService {
             description: data.description,
             identifier: identifier.clone(),
             source: MediaSource::YoutubeMusic,
-            source_url: Some(format!("https://music.youtube.com/channel/{}", identifier)),
+            source_url: Some(format!("https://music.youtube.com/channel/{identifier}")),
             assets: EntityAssets {
                 remote_images: self
                     .largest_image(&data.header_image)

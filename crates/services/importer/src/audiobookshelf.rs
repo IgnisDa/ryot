@@ -54,7 +54,7 @@ pub async fn import(
     };
 
     let libraries_resp = client
-        .get(format!("{}/libraries", url))
+        .get(format!("{url}/libraries"))
         .send()
         .await
         .map_err(|e| anyhow!(e))?
@@ -245,7 +245,7 @@ async fn get_item_details(
         query["episode"] = json!(episode);
     }
     let item = client
-        .get(format!("{}/items/{}", url, id))
+        .get(format!("{url}/items/{id}"))
         .query(&query)
         .send()
         .await

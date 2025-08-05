@@ -37,7 +37,7 @@ impl MediaProvider for OpenlibraryService {
         let page = page.unwrap_or(1);
         let rsp = self
             .client
-            .get(format!("{}/search/authors.json", URL))
+            .get(format!("{URL}/search/authors.json"))
             .query(&json!({
                 "q": query.to_owned(),
                 "offset": (page - 1) * PAGE_SIZE,
@@ -74,7 +74,7 @@ impl MediaProvider for OpenlibraryService {
     ) -> Result<PersonDetails> {
         let rsp = self
             .client
-            .get(format!("{}/authors/{}.json", URL, identifier))
+            .get(format!("{URL}/authors/{identifier}.json"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -119,7 +119,7 @@ impl MediaProvider for OpenlibraryService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let rsp = self
             .client
-            .get(format!("{}/works/{}.json", URL, identifier))
+            .get(format!("{URL}/works/{identifier}.json"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -128,7 +128,7 @@ impl MediaProvider for OpenlibraryService {
 
         let rsp = self
             .client
-            .get(format!("{}/works/{}/editions.json", URL, identifier))
+            .get(format!("{URL}/works/{identifier}/editions.json"))
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
@@ -246,7 +246,7 @@ impl MediaProvider for OpenlibraryService {
         .join(",");
         let rsp = self
             .client
-            .get(format!("{}/search.json", URL))
+            .get(format!("{URL}/search.json"))
             .query(&json!({
                 "q": query.to_owned(),
                 "fields": fields,
@@ -280,8 +280,8 @@ impl MediaProvider for OpenlibraryService {
         let next_page = (search.num_found - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             details: SearchDetails {
-                total: data.total,
                 next_page,
+                total: data.total,
             },
             items: data
                 .items

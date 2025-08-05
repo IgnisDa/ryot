@@ -301,7 +301,7 @@ pub fn get_focused_workout_summary_with_exercises(
 }
 
 pub fn generate_exercise_id(name: &str, lot: ExerciseLot, user_id: &str) -> String {
-    format!("{}_{}_{}", name, lot, user_id)
+    format!("{name}_{lot}_{user_id}")
 }
 
 pub async fn create_custom_exercise(

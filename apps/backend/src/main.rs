@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     match env::var(LOGGING_ENV_VAR).ok() {
         Some(v) => {
             if !v.contains("sea_orm") {
-                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{},sea_orm=info", v)) };
+                unsafe { env::set_var(LOGGING_ENV_VAR, format!("{v},sea_orm=info")) };
             }
         }
         None => unsafe { env::set_var(LOGGING_ENV_VAR, "ryot=info,sea_orm=info") },
@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!("0 0 {} * * *", infrequent_cron_jobs_hours_format))
+                    Schedule::from_str(&format!("0 0 {infrequent_cron_jobs_hours_format} * * *"))
                         .unwrap(),
                     tz,
                 ))
@@ -163,11 +163,8 @@ async fn main() -> Result<()> {
                 .catch_panic()
                 .data(app_services.clone())
                 .backend(CronStream::new_with_timezone(
-                    Schedule::from_str(&format!(
-                        "0 */{} * * * *",
-                        frequent_cron_jobs_every_minutes
-                    ))
-                    .unwrap(),
+                    Schedule::from_str(&format!("0 */{frequent_cron_jobs_every_minutes} * * * *"))
+                        .unwrap(),
                     tz,
                 ))
                 .build_fn(run_frequent_cron_jobs),

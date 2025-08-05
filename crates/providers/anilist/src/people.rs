@@ -113,8 +113,8 @@ impl MediaProvider for NonMediaAnilistService {
             (items, total, next_page)
         };
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
             items,
+            details: SearchDetails { total, next_page },
         })
     }
 

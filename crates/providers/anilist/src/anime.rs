@@ -51,8 +51,8 @@ impl MediaProvider for AnilistAnimeService {
         )
         .await?;
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
             items,
+            details: SearchDetails { total, next_page },
         })
     }
 }

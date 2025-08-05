@@ -18,7 +18,7 @@ pub async fn sync_to_owned_collection(base_url: String, token: String) -> Result
         (ACCEPT, HeaderValue::from_static("application/json")),
     ]));
     let libraries = client
-        .get(format!("{}/library/sections", base_url))
+        .get(format!("{base_url}/library/sections"))
         .send()
         .await?
         .json::<plex_models::PlexMediaResponse<plex_models::PlexLibrary>>()

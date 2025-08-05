@@ -67,14 +67,14 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
 }
 
 fn should_respect_version(key: &ApplicationCacheKey) -> bool {
-    match key {
+    matches!(
+        key,
         ApplicationCacheKey::CoreDetails
-        | ApplicationCacheKey::IgdbSettings
-        | ApplicationCacheKey::TmdbSettings
-        | ApplicationCacheKey::SpotifyAccessToken
-        | ApplicationCacheKey::ListennotesSettings => true,
-        _ => false,
-    }
+            | ApplicationCacheKey::IgdbSettings
+            | ApplicationCacheKey::TmdbSettings
+            | ApplicationCacheKey::SpotifyAccessToken
+            | ApplicationCacheKey::ListennotesSettings
+    )
 }
 
 pub async fn set_keys_with_custom_expiry(
@@ -96,10 +96,10 @@ pub async fn set_keys_with_custom_expiry(
             .and_then(|obj| obj.values().next())
             .and_then(|variant_obj| variant_obj.get("user_id"))
             .and_then(|id| id.as_str())
-            .map(|s| format!("-{}", s))
+            .map(|s| format!("-{s}"))
             .unwrap_or_default();
 
-        let sanitized_key = format!("{}{}", key, user_id);
+        let sanitized_key = format!("{key}{user_id}");
 
         let expires_at = match custom_expiry {
             Some(duration) => now + duration,
@@ -239,12 +239,12 @@ pub async fn expire_key(ss: &Arc<SupportingService>, by: ExpireCacheKeyInput) ->
                 application_cache::Column::Key.eq(serde_json::to_string(&key).unwrap())
             }
             ExpireCacheKeyInput::ByUser(user_id) => {
-                application_cache::Column::SanitizedKey.like(format!("%-{}", user_id))
+                application_cache::Column::SanitizedKey.like(format!("%-{user_id}"))
             }
             ExpireCacheKeyInput::BySanitizedKey { key, user_id } => {
                 let sanitized_key = match (key, user_id) {
                     (key, None) => key.to_string(),
-                    (key, Some(user_id)) => format!("{}-{}", key, user_id),
+                    (key, Some(user_id)) => format!("{key}-{user_id}"),
                 };
                 application_cache::Column::SanitizedKey.eq(sanitized_key)
             }

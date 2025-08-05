@@ -24,7 +24,7 @@ pub async fn import(input: DeployJellyfinImportInput) -> Result<ImportResult> {
 
     let query = json!({ "recursive": true, "IsPlayed": true, "fields": "ProviderIds" });
     let library_data = client
-        .get(format!("{}/Users/{}/Items", base_url, user_id))
+        .get(format!("{base_url}/Users/{user_id}/Items"))
         .query(&query)
         .send()
         .await
@@ -116,7 +116,7 @@ async fn process_item(
                     Some(cached_id) => cached_id,
                     None => {
                         let details = client
-                            .get(format!("{}/Items/{}", base_url, series_id))
+                            .get(format!("{base_url}/Items/{series_id}"))
                             .send()
                             .await
                             .map_err(|e| ImportFailedItem {
@@ -158,7 +158,7 @@ async fn process_item(
             return Err(ImportFailedItem {
                 identifier: item.name,
                 step: ImportFailStep::ItemDetailsFromSource,
-                error: Some(format!("Unknown media type: {:?}", typ)),
+                error: Some(format!("Unknown media type: {typ:?}")),
                 ..Default::default()
             });
         }

@@ -230,7 +230,7 @@ pub async fn update_metadata(
             if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
                 if p1 != p2 {
                     notifications.push((
-                        format!("Status changed from {:#?} to {:#?}", p1, p2),
+                        format!("Status changed from {p1:#?} to {p2:#?}"),
                         UserNotificationContent::MetadataStatusChanged,
                     ));
                 }
@@ -238,7 +238,7 @@ pub async fn update_metadata(
             if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
                 if p1 != p2 {
                     notifications.push((
-                        format!("Publish year from {:#?} to {:#?}", p1, p2),
+                        format!("Publish year from {p1:#?} to {p2:#?}"),
                         UserNotificationContent::MetadataReleaseDateChanged,
                     ));
                 }
@@ -320,7 +320,7 @@ pub async fn update_metadata(
                 if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
                     if e1 != e2 {
                         notifications.push((
-                            format!("Number of episodes changed from {:#?} to {:#?}", e1, e2),
+                            format!("Number of episodes changed from {e1:#?} to {e2:#?}"),
                             UserNotificationContent::MetadataChaptersOrEpisodesChanged,
                         ));
                     }
@@ -330,7 +330,7 @@ pub async fn update_metadata(
                 if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
                     if c1 != c2 {
                         notifications.push((
-                            format!("Number of chapters changed from {:#?} to {:#?}", c1, c2),
+                            format!("Number of chapters changed from {c1:#?} to {c2:#?}"),
                             UserNotificationContent::MetadataChaptersOrEpisodesChanged,
                         ));
                     }

@@ -234,7 +234,7 @@ pub async fn get_all_exercises_from_dataset(
                     .attributes
                     .images
                     .into_iter()
-                    .map(|i| format!("{}/{}", IMAGES_PREFIX_URL, i))
+                    .map(|i| format!("{IMAGES_PREFIX_URL}/{i}"))
                     .collect(),
                 ..e.attributes
             },

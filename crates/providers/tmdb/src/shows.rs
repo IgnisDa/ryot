@@ -269,7 +269,7 @@ impl MediaProvider for TmdbShowService {
         let rsp = self
             .base
             .client
-            .get(format!("{}/search/tv", URL))
+            .get(format!("{URL}/search/tv"))
             .query(&json!({
                 "query": query.to_owned(),
                 "page": page,
@@ -292,11 +292,11 @@ impl MediaProvider for TmdbShowService {
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
-            details: SearchDetails {
-                total: search.total_results,
-                next_page,
-            },
             items: resp.to_vec(),
+            details: SearchDetails {
+                next_page,
+                total: search.total_results,
+            },
         })
     }
 
@@ -312,18 +312,14 @@ pub async fn fetch_season_with_credits(
 ) -> Result<TmdbSeason> {
     let season_data_future = base
         .client
-        .get(format!(
-            "{}/tv/{}/season/{}",
-            URL, identifier, season_number
-        ))
+        .get(format!("{URL}/tv/{identifier}/season/{season_number}"))
         .query(&json!({ "language": base.language }))
         .send();
 
     let season_credits_future = base
         .client
         .get(format!(
-            "{}/tv/{}/season/{}/credits",
-            URL, identifier, season_number
+            "{URL}/tv/{identifier}/season/{season_number}/credits"
         ))
         .query(&json!({ "language": base.language }))
         .send();

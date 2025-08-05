@@ -68,7 +68,7 @@ pub mod jellyfin {
         let mut emby_header_value =
             r#"MediaBrowser , Client="other", Device="script", DeviceId="script", Version="0.0.0""#
                 .to_string();
-        let uri = format!("{}/Users/AuthenticateByName", base_url);
+        let uri = format!("{base_url}/Users/AuthenticateByName");
         let client = Client::new();
         let authenticate_request = client
             .post(uri)

@@ -122,7 +122,7 @@ async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<Spo
 
     loop {
         let response = client
-            .get(format!("{}/artists/{}/albums", SPOTIFY_API_URL, artist_id))
+            .get(format!("{SPOTIFY_API_URL}/artists/{artist_id}/albums"))
             .query(&[
                 ("include_groups", "album,single"),
                 ("limit", &limit.to_string()),
@@ -151,10 +151,7 @@ async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<Spo
 
 async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec<SpotifyTrack>> {
     let response = client
-        .get(format!(
-            "{}/artists/{}/top-tracks",
-            SPOTIFY_API_URL, artist_id
-        ))
+        .get(format!("{SPOTIFY_API_URL}/artists/{artist_id}/top-tracks"))
         .query(&[("market", "US")])
         .send()
         .await?;
@@ -180,7 +177,7 @@ async fn get_spotify_access_token(
 
             let response = Client::new()
                 .post(SPOTIFY_TOKEN_URL)
-                .header("Authorization", format!("Basic {}", encoded_credentials))
+                .header("Authorization", format!("Basic {encoded_credentials}"))
                 .form(&[("grant_type", "client_credentials")])
                 .send()
                 .await?;
@@ -217,7 +214,7 @@ impl SpotifyService {
         let access_token = get_spotify_access_token(config, &ss).await?;
         let client = get_base_http_client(Some(vec![(
             AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", access_token))?,
+            HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
 
         Ok(Self { client })
@@ -237,7 +234,7 @@ impl SpotifyService {
 
         let response = self
             .client
-            .get(format!("{}/search", SPOTIFY_API_URL))
+            .get(format!("{SPOTIFY_API_URL}/search"))
             .query(&json!({
                 "q": query,
                 "type": search_type,
@@ -257,7 +254,7 @@ impl MediaProvider for SpotifyService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let track_response = self
             .client
-            .get(format!("{}/tracks/{}", SPOTIFY_API_URL, identifier))
+            .get(format!("{SPOTIFY_API_URL}/tracks/{identifier}"))
             .send()
             .await?;
 
@@ -377,7 +374,7 @@ impl MediaProvider for SpotifyService {
     ) -> Result<(MetadataGroupWithoutId, Vec<PartialMetadataWithoutId>)> {
         let response = self
             .client
-            .get(format!("{}/albums/{}", SPOTIFY_API_URL, identifier))
+            .get(format!("{SPOTIFY_API_URL}/albums/{identifier}"))
             .send()
             .await?;
 
@@ -465,7 +462,7 @@ impl MediaProvider for SpotifyService {
             async {
                 let response = self
                     .client
-                    .get(format!("{}/artists/{}", SPOTIFY_API_URL, identifier))
+                    .get(format!("{SPOTIFY_API_URL}/artists/{identifier}"))
                     .send()
                     .await?;
                 let artist: SpotifyArtist = response.json().await?;

@@ -37,7 +37,7 @@ pub async fn user_exports(ss: &Arc<SupportingService>, user_id: String) -> Resul
     }
     let mut resp = vec![];
     let objects =
-        file_storage_service::list_objects_at_prefix(ss, format!("exports/{}", user_id)).await?;
+        file_storage_service::list_objects_at_prefix(ss, format!("exports/{user_id}")).await?;
     for (size, key) in objects {
         let url = file_storage_service::get_presigned_url(ss, key.clone()).await?;
         let metadata = file_storage_service::get_object_metadata(ss, key.clone()).await?;
@@ -98,7 +98,7 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
             .to_str()
             .unwrap()
             .to_string(),
-        format!("exports/{}", user_id),
+        format!("exports/{user_id}"),
         false,
         Some(HashMap::from([
             ("started_at".to_string(), started_at.to_rfc2822()),

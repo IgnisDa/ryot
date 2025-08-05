@@ -100,8 +100,7 @@ pub async fn import(
                 step: ImportFailStep::InputTransformation,
                 identifier: record.title,
                 error: Some(format!(
-                    "Could not convert ISBN: {} to any metadata provider",
-                    isbn
+                    "Could not convert ISBN: {isbn} to any metadata provider"
                 )),
             });
             continue;
