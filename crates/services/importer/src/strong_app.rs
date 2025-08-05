@@ -24,8 +24,6 @@ use crate::utils;
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "PascalCase")]
 struct Entry {
-    #[serde(alias = "Workout #")]
-    workout_number: String,
     date: String,
     #[serde(alias = "Workout Name")]
     workout_name: String,
@@ -67,7 +65,6 @@ async fn import_exercises(
     completed: &mut Vec<ImportCompletedItem>,
 ) -> Result<()> {
     let file_string = fs::read_to_string(&csv_path)?;
-    // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
     let data = file_string.clone();
     let first_line = data.lines().next().unwrap();
     let delimiter = if first_line.contains(';') {
@@ -88,15 +85,17 @@ async fn import_exercises(
 
     let mut workouts_to_entries = IndexMap::new();
     for entry in entries_reader.clone() {
-        workouts_to_entries
-            .entry(entry.workout_number.clone())
-            .or_insert(vec![])
-            .push(entry);
+        if entry.set_order != "Rest Timer" && entry.set_order != "Note" {
+            workouts_to_entries
+                .entry(entry.date.clone())
+                .or_insert(vec![])
+                .push(entry);
+        }
     }
 
     let mut exercises_to_workouts = IndexMap::new();
 
-    for (workout_number, entries) in workouts_to_entries {
+    for (workout_date, entries) in workouts_to_entries {
         let mut exercises = IndexMap::new();
         for entry in entries {
             exercises
@@ -104,36 +103,41 @@ async fn import_exercises(
                 .or_insert(vec![])
                 .push(entry);
         }
-        exercises_to_workouts.insert(workout_number, exercises);
+        exercises_to_workouts.insert(workout_date, exercises);
     }
 
-    for (_workout_number, workout) in exercises_to_workouts {
+    for (_workout_date, workout) in exercises_to_workouts {
         let first_exercise = workout.first().unwrap().1.first().unwrap();
         let ndt = NaiveDateTime::parse_from_str(&first_exercise.date, "%Y-%m-%d %H:%M:%S")
             .expect("Failed to parse input string");
         let ndt = utils::get_date_time_with_offset(ndt, &ss.timezone);
-        let workout_duration =
-            Duration::try_seconds(first_exercise.workout_duration.parse().unwrap()).unwrap();
+        let workout_duration_seconds = parse_workout_duration(&first_exercise.workout_duration)?;
+        let workout_duration = Duration::try_seconds(workout_duration_seconds).unwrap();
         let mut collected_exercises = vec![];
         for (exercise_name, exercises) in workout.clone() {
             let mut collected_sets = vec![];
             let mut notes = vec![];
-            let valid_ex = exercises.iter().find(|e| e.set_order != "Note").unwrap();
-            let exercise_lot = if valid_ex.seconds.is_some() && valid_ex.distance.is_some() {
+            let Some(valid_ex) = exercises
+                .iter()
+                .find(|e| e.set_order != "Note" && e.set_order != "Rest Timer")
+            else {
+                continue;
+            };
+            let exercise_lot = if has_meaningful_value(&valid_ex.seconds)
+                && has_meaningful_value(&valid_ex.distance)
+            {
                 ExerciseLot::DistanceAndDuration
-            } else if valid_ex.seconds.is_some() {
+            } else if has_meaningful_value(&valid_ex.seconds) {
                 ExerciseLot::Duration
-            } else if valid_ex.reps.is_some() && valid_ex.weight.is_some() {
+            } else if has_meaningful_value(&valid_ex.reps) && has_meaningful_value(&valid_ex.weight)
+            {
                 ExerciseLot::RepsAndWeight
-            } else if valid_ex.reps.is_some() {
+            } else if has_meaningful_value(&valid_ex.reps) {
                 ExerciseLot::Reps
             } else {
                 failed.push(ImportFailedItem {
                     step: ImportFailStep::InputTransformation,
-                    identifier: format!(
-                        "Workout #{}, Set #{}",
-                        valid_ex.workout_number, valid_ex.set_order
-                    ),
+                    identifier: format!("Exercise: {}, Set: {}", exercise_name, valid_ex.set_order),
                     error: Some(format!(
                         "Could not determine exercise lot: {}",
                         serde_json::to_string(&valid_ex).unwrap()
@@ -197,4 +201,52 @@ async fn import_exercises(
             .map(ImportCompletedItem::Exercise),
     );
     Ok(())
+}
+
+fn has_meaningful_value(value: &Option<Decimal>) -> bool {
+    value.map_or(false, |v| v > dec!(0))
+}
+
+fn parse_workout_duration(duration_str: &str) -> Result<i64> {
+    if duration_str.chars().all(|c| c.is_ascii_digit()) {
+        Ok(duration_str.parse()?)
+    } else {
+        let mut total_seconds = 0i64;
+        let duration_str = duration_str.to_lowercase();
+
+        if let Some(h_pos) = duration_str.find('h') {
+            let hours: i64 = duration_str[..h_pos].parse()?;
+            total_seconds += hours * 3600;
+        }
+
+        if let Some(m_pos) = duration_str.find('m') {
+            let start = if duration_str.contains('h') {
+                duration_str.find('h').unwrap() + 1
+            } else {
+                0
+            };
+            let minutes_str = duration_str[start..m_pos].trim();
+            if !minutes_str.is_empty() {
+                let minutes: i64 = minutes_str.parse()?;
+                total_seconds += minutes * 60;
+            }
+        }
+
+        if let Some(s_pos) = duration_str.find('s') {
+            let start = if duration_str.contains('m') {
+                duration_str.find('m').unwrap() + 1
+            } else if duration_str.contains('h') {
+                duration_str.find('h').unwrap() + 1
+            } else {
+                0
+            };
+            let seconds_str = duration_str[start..s_pos].trim();
+            if !seconds_str.is_empty() {
+                let seconds: i64 = seconds_str.parse()?;
+                total_seconds += seconds;
+            }
+        }
+
+        Ok(total_seconds)
+    }
 }
