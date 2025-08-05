@@ -47,6 +47,7 @@ import {
 	getCoreDetails,
 	redirectWithToast,
 	serverGqlService,
+	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/auth";
 
@@ -156,11 +157,17 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 			if (loginUser.__typename === "StringIdObject") {
 				const redirectTo = submission[redirectToQueryParam];
+				const session = await twoFactorSessionStorage.getSession();
+				session.set("userId", loginUser.id);
+				const twoFactorCookie =
+					await twoFactorSessionStorage.commitSession(session);
 				return redirect(
-					withQuery($path("/two-factor"), {
-						userId: loginUser.id,
-						...(redirectTo ? { [redirectToQueryParam]: redirectTo } : {}),
-					}),
+					redirectTo
+						? withQuery($path("/two-factor"), {
+								[redirectToQueryParam]: redirectTo,
+							})
+						: $path("/two-factor"),
+					{ headers: new Headers({ "set-cookie": twoFactorCookie }) },
 				);
 			}
 			const message = match(loginUser.error)
