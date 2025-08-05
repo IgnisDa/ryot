@@ -190,7 +190,7 @@ async fn import_exercises(
 }
 
 fn has_meaningful_value(value: &Option<Decimal>) -> bool {
-    value.map_or(false, |v| v > dec!(0))
+    value.is_some_and(|v| v > dec!(0))
 }
 
 fn determine_exercise_lot(exercises: &[Entry]) -> Option<ExerciseLot> {
