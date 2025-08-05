@@ -8,13 +8,13 @@ import {
 import { parseSearchQuery } from "@ryot/ts-utils";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
-import { withQuery } from "ufo";
 import { z } from "zod";
 import {
 	getCookiesForApplication,
 	getCoreDetails,
 	redirectWithToast,
 	serverGqlService,
+	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/api.auth";
 
@@ -60,7 +60,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		return redirect($path("/"), { headers });
 	}
 	if (loginUser.__typename === "StringIdObject") {
-		return redirect(withQuery($path("/two-factor"), { userId: loginUser.id }));
+		const session = await twoFactorSessionStorage.getSession();
+		session.set("userId", loginUser.id);
+		const twoFactorCookie =
+			await twoFactorSessionStorage.commitSession(session);
+		return redirect($path("/two-factor"), {
+			headers: new Headers({ "set-cookie": twoFactorCookie }),
+		});
 	}
 	console.error("Login failed:", loginUser);
 	return data({ input });
