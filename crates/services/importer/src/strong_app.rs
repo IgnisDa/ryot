@@ -66,6 +66,7 @@ async fn import_exercises(
 ) -> Result<()> {
     let file_string = fs::read_to_string(&csv_path)?;
     let first_line = file_string.lines().next().unwrap();
+    // DEV: Delimiter is `;` on android and `,` on iOS, so we determine it by reading the first line
     let delimiter = if first_line.contains(';') {
         b';'
     } else if first_line.contains(',') {
