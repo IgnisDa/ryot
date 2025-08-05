@@ -117,30 +117,40 @@ async fn import_exercises(
         for (exercise_name, exercises) in workout.clone() {
             let mut collected_sets = vec![];
             let mut notes = vec![];
-            let Some(valid_ex) = exercises
+
+            let valid_sets: Vec<_> = exercises
                 .iter()
-                .find(|e| e.set_order != "Note" && e.set_order != "Rest Timer")
-            else {
+                .filter(|e| e.set_order != "Note" && e.set_order != "Rest Timer")
+                .collect();
+
+            if valid_sets.is_empty() {
                 continue;
-            };
-            let exercise_lot = if has_meaningful_value(&valid_ex.seconds)
-                && has_meaningful_value(&valid_ex.distance)
-            {
+            }
+
+            let has_distance_and_duration = valid_sets
+                .iter()
+                .any(|e| has_meaningful_value(&e.seconds) && has_meaningful_value(&e.distance));
+            let has_duration_only = valid_sets.iter().any(|e| has_meaningful_value(&e.seconds));
+            let has_reps_and_weight = valid_sets
+                .iter()
+                .any(|e| has_meaningful_value(&e.reps) && has_meaningful_value(&e.weight));
+            let has_reps_only = valid_sets.iter().any(|e| has_meaningful_value(&e.reps));
+
+            let exercise_lot = if has_distance_and_duration {
                 ExerciseLot::DistanceAndDuration
-            } else if has_meaningful_value(&valid_ex.seconds) {
+            } else if has_duration_only {
                 ExerciseLot::Duration
-            } else if has_meaningful_value(&valid_ex.reps) && has_meaningful_value(&valid_ex.weight)
-            {
+            } else if has_reps_and_weight {
                 ExerciseLot::RepsAndWeight
-            } else if has_meaningful_value(&valid_ex.reps) {
+            } else if has_reps_only {
                 ExerciseLot::Reps
             } else {
                 failed.push(ImportFailedItem {
                     step: ImportFailStep::InputTransformation,
-                    identifier: format!("Exercise: {}, Set: {}", exercise_name, valid_ex.set_order),
+                    identifier: format!("Exercise: {}", exercise_name),
                     error: Some(format!(
-                        "Could not determine exercise lot: {}",
-                        serde_json::to_string(&valid_ex).unwrap()
+                        "Could not determine exercise lot from {} sets",
+                        valid_sets.len()
                     )),
                     ..Default::default()
                 });
