@@ -135,11 +135,11 @@ impl MediaProvider for GoogleBooksService {
             .collect();
         let next_page = (search.total_items - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
-            details: SearchDetails {
-                total: search.total_items,
-                next_page,
-            },
             items: resp,
+            details: SearchDetails {
+                next_page,
+                total: search.total_items,
+            },
         })
     }
 }

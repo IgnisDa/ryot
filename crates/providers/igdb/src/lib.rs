@@ -213,11 +213,11 @@ offset: {offset};
             })
             .collect_vec();
         Ok(SearchResults {
+            items: resp.clone(),
             details: SearchDetails {
                 total: resp.len().try_into().unwrap(),
                 next_page: Some(page.unwrap_or(1) + 1),
             },
-            items: resp,
         })
     }
 
@@ -317,11 +317,11 @@ offset: {offset};
             })
             .collect_vec();
         Ok(SearchResults {
+            items: resp.clone(),
             details: SearchDetails {
                 total: resp.len().try_into().unwrap(),
                 next_page: Some(page.unwrap_or(1) + 1),
             },
-            items: resp,
         })
     }
 
@@ -510,11 +510,11 @@ offset: {offset};
             .collect_vec();
 
         Ok(SearchResults {
+            items: resp,
             details: SearchDetails {
                 total,
                 next_page: Some(page + 1),
             },
-            items: resp,
         })
     }
 }

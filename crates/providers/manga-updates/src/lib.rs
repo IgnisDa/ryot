@@ -388,11 +388,11 @@ impl MediaProvider for MangaUpdatesService {
             .collect();
         let next_page = (search.total_hits - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
-            details: SearchDetails {
-                total: search.total_hits,
-                next_page,
-            },
             items,
+            details: SearchDetails {
+                next_page,
+                total: search.total_hits,
+            },
         })
     }
 }

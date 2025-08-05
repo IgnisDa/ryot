@@ -390,11 +390,11 @@ impl MediaProvider for AudibleService {
             .collect_vec();
         let next_page = (search.total_results - ((page) * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
+            items: resp,
             details: SearchDetails {
                 next_page,
                 total: search.total_results,
             },
-            items: resp,
         })
     }
 }

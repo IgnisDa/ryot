@@ -164,8 +164,8 @@ impl MediaProvider for ListennotesService {
             })
             .collect_vec();
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
             items: resp,
+            details: SearchDetails { total, next_page },
         })
     }
 }

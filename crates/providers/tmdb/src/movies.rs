@@ -72,11 +72,11 @@ impl MediaProvider for TmdbMovieService {
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
+            items: resp.to_vec(),
             details: SearchDetails {
                 next_page,
                 total: search.total_results,
             },
-            items: resp.to_vec(),
         })
     }
 
@@ -276,11 +276,11 @@ impl MediaProvider for TmdbMovieService {
             .collect_vec();
         let next_page = (page < search.total_pages).then(|| page + 1);
         Ok(SearchResults {
-            details: SearchDetails {
-                total: search.total_results,
-                next_page,
-            },
             items: resp,
+            details: SearchDetails {
+                next_page,
+                total: search.total_results,
+            },
         })
     }
 

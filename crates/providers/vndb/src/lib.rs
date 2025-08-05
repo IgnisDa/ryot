@@ -108,11 +108,11 @@ impl MediaProvider for VndbService {
             .collect();
         let next_page = data.more.then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
-            details: SearchDetails {
-                total: data.count,
-                next_page,
-            },
             items: resp,
+            details: SearchDetails {
+                next_page,
+                total: data.count,
+            },
         })
     }
 
@@ -206,11 +206,11 @@ impl MediaProvider for VndbService {
             .collect();
         let next_page = search.more.then(|| page + 1);
         Ok(SearchResults {
-            details: SearchDetails {
-                total: search.count,
-                next_page,
-            },
             items: resp,
+            details: SearchDetails {
+                next_page,
+                total: search.count,
+            },
         })
     }
 }

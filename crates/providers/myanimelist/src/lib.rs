@@ -68,8 +68,8 @@ impl MediaProvider for MalAnimeService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(&self.base.client, "anime", query, page).await?;
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
             items,
+            details: SearchDetails { total, next_page },
         })
     }
 }
@@ -104,8 +104,8 @@ impl MediaProvider for MalMangaService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total, next_page) = search(&self.base.client, "manga", query, page).await?;
         Ok(SearchResults {
-            details: SearchDetails { total, next_page },
             items,
+            details: SearchDetails { total, next_page },
         })
     }
 }
