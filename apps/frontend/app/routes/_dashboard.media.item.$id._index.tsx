@@ -347,6 +347,8 @@ export default function Page() {
 			`Track #${loaderData.metadataDetails.musicSpecifics.trackNumber}`,
 		loaderData.metadataDetails.musicSpecifics?.discNumber &&
 			`Disc #${loaderData.metadataDetails.musicSpecifics.discNumber}`,
+		loaderData.metadataDetails.videoGameSpecifics?.platforms &&
+			`Platforms: ${loaderData.metadataDetails.videoGameSpecifics.platforms.join(", ")}`,
 	].filter(Boolean);
 
 	const PutOnHoldMenuItem = () => {
