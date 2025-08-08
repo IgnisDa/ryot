@@ -347,8 +347,6 @@ export default function Page() {
 			`Track #${loaderData.metadataDetails.musicSpecifics.trackNumber}`,
 		loaderData.metadataDetails.musicSpecifics?.discNumber &&
 			`Disc #${loaderData.metadataDetails.musicSpecifics.discNumber}`,
-		loaderData.metadataDetails.videoGameSpecifics?.platforms &&
-			`Platforms: ${loaderData.metadataDetails.videoGameSpecifics.platforms.join(", ")}`,
 	].filter(Boolean);
 
 	const PutOnHoldMenuItem = () => {
@@ -651,6 +649,14 @@ export default function Page() {
 													})
 											: null}
 									</SimpleGrid>
+									{loaderData.metadataDetails.videoGameSpecifics?.platforms && (
+										<Text c="dimmed">
+											Platforms:{" "}
+											{loaderData.metadataDetails.videoGameSpecifics.platforms.join(
+												", ",
+											)}
+										</Text>
+									)}
 									{loaderData.metadataDetails.description ? (
 										<ScrollArea maw="600">
 											<div
