@@ -67,8 +67,8 @@ pub async fn handle_review_posted_event(
             &user_id,
             ss,
             UserNotificationContent::ReviewPosted {
-                entity_id: event.obj_id.clone(),
                 entity_lot: event.entity_lot,
+                entity_id: event.obj_id.clone(),
                 entity_title: event.obj_title.clone(),
                 triggered_by_username: event.username.clone(),
             },
