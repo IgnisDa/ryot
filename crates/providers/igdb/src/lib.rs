@@ -647,8 +647,8 @@ impl IgdbService {
                         .unwrap_or_default()
                         .into_iter()
                         .map(|rd| VideoGameSpecificsPlatformRelease {
-                            release_date: rd.date,
                             name: rd.platform.name,
+                            release_date: Some(rd.date),
                         })
                         .collect(),
                 ),

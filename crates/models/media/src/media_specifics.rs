@@ -197,7 +197,7 @@ pub struct ShowEpisode {
 #[graphql(input_name = "VideoGameSpecificsPlatformInput")]
 pub struct VideoGameSpecificsPlatformRelease {
     pub name: String,
-    pub release_date: DateTimeUtc,
+    pub release_date: Option<DateTimeUtc>,
 }
 
 #[skip_serializing_none]

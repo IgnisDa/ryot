@@ -3175,13 +3175,13 @@ export type VideoGameSpecificsInput = {
 
 export type VideoGameSpecificsPlatformInput = {
   name: Scalars['String']['input'];
-  releaseDate: Scalars['DateTime']['input'];
+  releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type VideoGameSpecificsPlatformRelease = {
   __typename?: 'VideoGameSpecificsPlatformRelease';
   name: Scalars['String']['output'];
-  releaseDate: Scalars['DateTime']['output'];
+  releaseDate?: Maybe<Scalars['DateTime']['output']>;
 };
 
 export enum Visibility {
