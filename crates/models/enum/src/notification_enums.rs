@@ -110,8 +110,21 @@ pub enum UserNotificationContent {
         person_name: String,
         metadata_group_title: String,
     },
-    MetadataNumberOfSeasonsChanged,
-    MetadataChaptersOrEpisodesChanged,
-    NotificationFromReminderCollection,
-    IntegrationDisabledDueToTooManyErrors,
+    MetadataNumberOfSeasonsChanged {
+        old_seasons: usize,
+        new_seasons: usize,
+        entity_title: String,
+    },
+    MetadataChaptersOrEpisodesChanged {
+        old_count: usize,
+        new_count: usize,
+        entity_title: String,
+        content_type: String,
+    },
+    NotificationFromReminderCollection {
+        reminder_text: String,
+    },
+    IntegrationDisabledDueToTooManyErrors {
+        provider_name: String,
+    },
 }

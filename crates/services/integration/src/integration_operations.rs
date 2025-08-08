@@ -52,13 +52,9 @@ pub async fn set_trigger_result(
         send_notification_for_user(
             &integration.user_id,
             ss,
-            &(
-                format!(
-                    "Integration {} has been disabled due to too many errors",
-                    integration.provider,
-                ),
-                UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
-            ),
+            UserNotificationContent::IntegrationDisabledDueToTooManyErrors {
+                provider_name: integration.provider.to_string(),
+            },
         )
         .await
         .trace_ok();

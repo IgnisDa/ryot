@@ -197,7 +197,32 @@ async fn get_notification_message(
             "{} has been associated with {} as {}",
             person_name, metadata_group_title, role
         )),
-        _ => todo!(),
+        UserNotificationContent::MetadataNumberOfSeasonsChanged {
+            entity_title,
+            old_seasons,
+            new_seasons,
+        } => Ok(format!(
+            "Number of seasons changed from {} to {} for {}",
+            old_seasons, new_seasons, entity_title
+        )),
+        UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+            entity_title,
+            old_count,
+            new_count,
+            content_type,
+        } => Ok(format!(
+            "Number of {} changed from {} to {} for {}",
+            content_type, old_count, new_count, entity_title
+        )),
+        UserNotificationContent::NotificationFromReminderCollection { reminder_text } => {
+            Ok(reminder_text)
+        }
+        UserNotificationContent::IntegrationDisabledDueToTooManyErrors { provider_name } => {
+            Ok(format!(
+                "Integration {} has been disabled due to too many errors",
+                provider_name
+            ))
+        }
     }
 }
 

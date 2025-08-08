@@ -458,10 +458,9 @@ pub async fn queue_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> 
                     send_notification_for_user(
                         &user.user_id,
                         ss,
-                        &(
-                            reminder.text.clone(),
-                            UserNotificationContent::NotificationFromReminderCollection,
-                        ),
+                        UserNotificationContent::NotificationFromReminderCollection {
+                            reminder_text: reminder.text.clone(),
+                        },
                     )
                     .await?;
                     remove_entities_from_collection(

@@ -249,14 +249,11 @@ pub async fn update_metadata(
             }
             if let (Some(s1), Some(s2)) = (&meta.show_specifics, &details.show_specifics) {
                 if s1.seasons.len() != s2.seasons.len() {
-                    notifications.push((
-                        format!(
-                            "Number of seasons changed from {:#?} to {:#?}",
-                            s1.seasons.len(),
-                            s2.seasons.len()
-                        ),
-                        UserNotificationContent::MetadataNumberOfSeasonsChanged,
-                    ));
+                    notifications.push(UserNotificationContent::MetadataNumberOfSeasonsChanged {
+                        old_seasons: s1.seasons.len(),
+                        new_seasons: s2.seasons.len(),
+                        entity_title: meta.title.clone(),
+                    });
                 } else {
                     for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
                         if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
@@ -318,20 +315,28 @@ pub async fn update_metadata(
             if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics) {
                 if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
                     if e1 != e2 {
-                        notifications.push((
-                            format!("Number of episodes changed from {e1:#?} to {e2:#?}"),
-                            UserNotificationContent::MetadataChaptersOrEpisodesChanged,
-                        ));
+                        notifications.push(
+                            UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+                                old_count: e1 as usize,
+                                new_count: e2 as usize,
+                                entity_title: meta.title.clone(),
+                                content_type: "episodes".to_string(),
+                            },
+                        );
                     }
                 }
             };
             if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics) {
                 if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
                     if c1 != c2 {
-                        notifications.push((
-                            format!("Number of chapters changed from {c1:#?} to {c2:#?}"),
-                            UserNotificationContent::MetadataChaptersOrEpisodesChanged,
-                        ));
+                        notifications.push(
+                            UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+                                entity_title: meta.title.clone(),
+                                content_type: "chapters".to_string(),
+                                old_count: c1.to_usize().unwrap_or(0),
+                                new_count: c2.to_usize().unwrap_or(0),
+                            },
+                        );
                     }
                 }
             };
