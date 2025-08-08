@@ -137,9 +137,9 @@ struct IgdbImage {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbReleaseDate {
-    #[serde_as(as = "TimestampSeconds<i64, Flexible>")]
-    date: DateTimeUtc,
     platform: NamedObject,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    date: Option<DateTimeUtc>,
 }
 
 #[serde_as]
@@ -619,6 +619,15 @@ impl IgdbService {
             .collect_vec();
 
         let title = item.name.unwrap();
+        let platform_releases = item
+            .release_dates
+            .unwrap_or_default()
+            .into_iter()
+            .map(|rd| VideoGameSpecificsPlatformRelease {
+                release_date: rd.date,
+                name: rd.platform.name,
+            })
+            .collect_vec();
         MetadataDetails {
             title: title.clone(),
             lot: MediaLot::VideoGame,
@@ -642,16 +651,10 @@ impl IgdbService {
                 .unique()
                 .collect(),
             video_game_specifics: Some(VideoGameSpecifics {
-                platform_releases: Some(
-                    item.release_dates
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|rd| VideoGameSpecificsPlatformRelease {
-                            name: rd.platform.name,
-                            release_date: Some(rd.date),
-                        })
-                        .collect(),
-                ),
+                platform_releases: match platform_releases.is_empty() {
+                    true => None,
+                    false => Some(platform_releases),
+                },
                 ..Default::default()
             }),
             suggestions: item
