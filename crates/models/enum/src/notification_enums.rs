@@ -59,7 +59,10 @@ pub enum UserNotificationContent {
         podcast_extra: Option<i32>,
         show_extra: Option<(i32, i32)>,
     },
-    NewWorkoutCreated,
+    NewWorkoutCreated {
+        workout_id: String,
+        workout_name: String,
+    },
     OutdatedSeenEntries,
     MetadataStatusChanged,
     MetadataEpisodeReleased,

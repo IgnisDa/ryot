@@ -668,10 +668,10 @@ pub async fn create_or_update_user_workout(
                 send_notification_for_user(
                     user_id,
                     ss,
-                    &(
-                        format!("New workout created - {}", data.name),
-                        UserNotificationContent::NewWorkoutCreated,
-                    ),
+                    UserNotificationContent::NewWorkoutCreated {
+                        workout_id: data.id.to_string(),
+                        workout_name: data.name.clone(),
+                    },
                 )
                 .await?
             }

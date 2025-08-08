@@ -89,6 +89,13 @@ async fn get_notification_message(
                 format!("{} ({}) has been released today.", entity_title, url)
             })
         }
+        UserNotificationContent::NewWorkoutCreated {
+            workout_id,
+            workout_name,
+        } => {
+            let url = get_entity_details_frontend_url(workout_id, EntityLot::Workout, None, ss);
+            Ok(format!("New workout created - {} ({})", workout_name, url))
+        }
         _ => todo!(),
     }
 }
