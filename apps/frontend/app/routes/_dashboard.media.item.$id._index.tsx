@@ -656,7 +656,12 @@ export default function Page() {
 											data={{
 												head: ["Platform", "Release Date"],
 												body: loaderData.metadataDetails.videoGameSpecifics.platformReleases.map(
-													(p) => [p.name, p.releaseDate || "Unknown"],
+													(p) => [
+														p.name,
+														p.releaseDate
+															? dayjsLib(p.releaseDate).format("LL")
+															: "Unknown",
+													],
 												),
 											}}
 										/>
