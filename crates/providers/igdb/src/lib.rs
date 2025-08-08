@@ -54,6 +54,8 @@ fields
     similar_games.cover.*,
     platforms.name,
     collection.id,
+    release_dates.date,
+    release_dates.platform.name,
     videos.*,
     genres.*;
 where version_parent = null;
@@ -134,26 +136,35 @@ struct IgdbImage {
 }
 
 #[serde_as]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbReleaseDate {
+    #[serde_as(as = "TimestampSeconds<i64, Flexible>")]
+    date: DateTimeUtc,
+    platform: NamedObject,
+}
+
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbItemResponse {
     id: i32,
     name: Option<String>,
     rating: Option<Decimal>,
-    games: Option<Vec<IgdbItemResponse>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
-    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
-    first_release_date: Option<DateTimeUtc>,
-    involved_companies: Option<Vec<IgdbInvolvedCompany>>,
-    videos: Option<Vec<IgdbVideo>>,
-    artworks: Option<Vec<IgdbImage>>,
-    genres: Option<Vec<NamedObject>>,
-    platforms: Option<Vec<NamedObject>>,
-    similar_games: Option<Vec<IgdbItemResponse>>,
     version_parent: Option<i32>,
     collection: Option<IdObject>,
+    videos: Option<Vec<IgdbVideo>>,
+    genres: Option<Vec<NamedObject>>,
+    artworks: Option<Vec<IgdbImage>>,
+    platforms: Option<Vec<NamedObject>>,
+    games: Option<Vec<IgdbItemResponse>>,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    first_release_date: Option<DateTimeUtc>,
     #[serde(flatten)]
     rest_data: Option<HashMap<String, Value>>,
+    release_dates: Option<Vec<IgdbReleaseDate>>,
+    similar_games: Option<Vec<IgdbItemResponse>>,
+    involved_companies: Option<Vec<IgdbInvolvedCompany>>,
 }
 
 #[derive(Clone)]
