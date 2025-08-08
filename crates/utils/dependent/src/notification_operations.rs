@@ -106,6 +106,14 @@ async fn get_notification_message(
             "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
             entity_title, entity_lot, seen_state, days_threshold, last_updated_on
         )),
+        UserNotificationContent::MetadataStatusChanged {
+            old_status,
+            new_status,
+            entity_title,
+        } => Ok(format!(
+            "Status of {} changed from {} to {}",
+            entity_title, old_status, new_status
+        )),
         _ => todo!(),
     }
 }

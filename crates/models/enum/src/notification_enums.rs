@@ -70,7 +70,11 @@ pub enum UserNotificationContent {
         days_threshold: i64,
         last_updated_on: Date,
     },
-    MetadataStatusChanged,
+    MetadataStatusChanged {
+        entity_title: String,
+        old_status: String,
+        new_status: String,
+    },
     MetadataEpisodeReleased,
     PersonMetadataAssociated,
     MetadataReleaseDateChanged,

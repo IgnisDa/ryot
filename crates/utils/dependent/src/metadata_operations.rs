@@ -231,7 +231,11 @@ pub async fn update_metadata(
                 if p1 != p2 {
                     notifications.push((
                         format!("Status changed from {p1:#?} to {p2:#?}"),
-                        UserNotificationContent::MetadataStatusChanged,
+                        UserNotificationContent::MetadataStatusChanged {
+                            entity_title: meta.title.clone(),
+                            old_status: format!("{p1:#?}"),
+                            new_status: format!("{p2:#?}"),
+                        },
                     ));
                 }
             }
