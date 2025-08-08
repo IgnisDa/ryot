@@ -373,6 +373,8 @@ export default function Page() {
 		);
 	};
 
+	const platformReleases =
+		loaderData.metadataDetails.videoGameSpecifics?.platformReleases;
 	return (
 		<>
 			<DisplayShowSeasonEpisodesModal
@@ -650,19 +652,16 @@ export default function Page() {
 													})
 											: null}
 									</SimpleGrid>
-									{loaderData.metadataDetails.videoGameSpecifics
-										?.platformReleases ? (
+									{platformReleases && (platformReleases?.length || 0) > 0 ? (
 										<Table
 											data={{
 												head: ["Platform", "Release Date"],
-												body: loaderData.metadataDetails.videoGameSpecifics.platformReleases.map(
-													(p) => [
-														p.name,
-														p.releaseDate
-															? dayjsLib(p.releaseDate).format("LL")
-															: "Unknown",
-													],
-												),
+												body: platformReleases.map((p) => [
+													p.name,
+													p.releaseDate
+														? dayjsLib(p.releaseDate).format("LL")
+														: "Unknown",
+												]),
 											}}
 										/>
 									) : null}
