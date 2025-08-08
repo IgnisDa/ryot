@@ -67,6 +67,28 @@ async fn get_notification_message(
                 entity_title, entity_lot, url, triggered_by_username
             ))
         }
+        UserNotificationContent::MetadataPublished {
+            entity_id,
+            entity_lot,
+            show_extra,
+            entity_title,
+            podcast_extra,
+        } => {
+            let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
+            Ok(if let Some((season, episode)) = show_extra {
+                format!(
+                    "S{}E{} of {} ({}) has been released today.",
+                    season, episode, entity_title, url
+                )
+            } else if let Some(episode) = podcast_extra {
+                format!(
+                    "E{} of {} ({}) has been released today.",
+                    episode, entity_title, url
+                )
+            } else {
+                format!("{} ({}) has been released today.", entity_title, url)
+            })
+        }
         _ => todo!(),
     }
 }
