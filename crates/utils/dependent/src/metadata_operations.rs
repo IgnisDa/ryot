@@ -238,10 +238,13 @@ pub async fn update_metadata(
             }
             if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
                 if p1 != p2 {
-                    notifications.push((
-                        format!("Publish year from {p1:#?} to {p2:#?}"),
-                        UserNotificationContent::MetadataReleaseDateChanged,
-                    ));
+                    notifications.push(UserNotificationContent::MetadataReleaseDateChanged {
+                        season_number: None,
+                        episode_number: None,
+                        old_date: format!("{p1:#?}"),
+                        new_date: format!("{p2:#?}"),
+                        entity_title: meta.title.clone(),
+                    });
                 }
             }
             if let (Some(s1), Some(s2)) = (&meta.show_specifics, &details.show_specifics) {
@@ -273,40 +276,38 @@ pub async fn update_metadata(
                                 zip(s1.episodes.iter(), s2.episodes.iter())
                             {
                                 if before_episode.name != after_episode.name {
-                                    notifications.push((
-                                        format!(
-                                            "Episode name changed from {:#?} to {:#?} (S{}E{})",
-                                            before_episode.name,
-                                            after_episode.name,
-                                            s1.season_number,
-                                            before_episode.episode_number
-                                        ),
-                                        UserNotificationContent::MetadataEpisodeNameChanged,
-                                    ));
+                                    notifications.push(
+                                        UserNotificationContent::MetadataEpisodeNameChanged {
+                                            entity_title: meta.title.clone(),
+                                            season_number: Some(s1.season_number),
+                                            episode_number: before_episode.episode_number,
+                                            new_name: format!("{:#?}", after_episode.name),
+                                            old_name: format!("{:#?}", before_episode.name),
+                                        },
+                                    );
                                 }
                                 if before_episode.poster_images != after_episode.poster_images {
-                                    notifications.push((
-                                        format!(
-                                            "Episode image changed for S{}E{}",
-                                            s1.season_number, before_episode.episode_number
-                                        ),
-                                        UserNotificationContent::MetadataEpisodeImagesChanged,
-                                    ));
+                                    notifications.push(
+                                        UserNotificationContent::MetadataEpisodeImagesChanged {
+                                            entity_title: meta.title.clone(),
+                                            season_number: Some(s1.season_number),
+                                            episode_number: before_episode.episode_number,
+                                        },
+                                    );
                                 }
                                 if let (Some(pd1), Some(pd2)) =
                                     (before_episode.publish_date, after_episode.publish_date)
                                 {
                                     if pd1 != pd2 {
-                                        notifications.push((
-                                            format!(
-                                                "Episode release date changed from {:?} to {:?} (S{}E{})",
-                                                pd1,
-                                                pd2,
-                                                s1.season_number,
-                                                before_episode.episode_number
-                                            ),
-                                            UserNotificationContent::MetadataReleaseDateChanged,
-                                        ));
+                                        notifications.push(
+                                            UserNotificationContent::MetadataReleaseDateChanged {
+                                                old_date: format!("{:?}", pd1),
+                                                new_date: format!("{:?}", pd2),
+                                                entity_title: meta.title.clone(),
+                                                season_number: Some(s1.season_number),
+                                                episode_number: Some(before_episode.episode_number),
+                                            },
+                                        );
                                     }
                                 }
                             }
@@ -347,21 +348,24 @@ pub async fn update_metadata(
                         zip(p1.episodes.iter(), p2.episodes.iter())
                     {
                         if before_episode.title != after_episode.title {
-                            notifications.push((
-                                format!(
-                                    "Episode name changed from {:#?} to {:#?} (EP{})",
-                                    before_episode.title,
-                                    after_episode.title,
-                                    before_episode.number
-                                ),
-                                UserNotificationContent::MetadataEpisodeNameChanged,
-                            ));
+                            notifications.push(
+                                UserNotificationContent::MetadataEpisodeNameChanged {
+                                    season_number: None,
+                                    entity_title: meta.title.clone(),
+                                    episode_number: before_episode.number,
+                                    old_name: format!("{:#?}", before_episode.title),
+                                    new_name: format!("{:#?}", after_episode.title),
+                                },
+                            );
                         }
                         if before_episode.thumbnail != after_episode.thumbnail {
-                            notifications.push((
-                                format!("Episode image changed for EP{}", before_episode.number),
-                                UserNotificationContent::MetadataEpisodeImagesChanged,
-                            ));
+                            notifications.push(
+                                UserNotificationContent::MetadataEpisodeImagesChanged {
+                                    season_number: None,
+                                    entity_title: meta.title.clone(),
+                                    episode_number: before_episode.number,
+                                },
+                            );
                         }
                     }
                 }
@@ -587,13 +591,11 @@ pub async fn update_person(
             .metadata_groups_associated
             .contains(&search_for)
         {
-            notifications.push((
-                format!(
-                    "{} has been associated with {} as {}",
-                    person.name, data.metadata_group.title, data.role
-                ),
-                UserNotificationContent::PersonMetadataGroupAssociated,
-            ));
+            notifications.push(UserNotificationContent::PersonMetadataGroupAssociated {
+                person_name: person.name.clone(),
+                metadata_group_title: data.metadata_group.title.clone(),
+                role: data.role.clone(),
+            });
             current_state_changes
                 .metadata_groups_associated
                 .insert(search_for);

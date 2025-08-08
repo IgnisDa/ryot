@@ -138,6 +138,65 @@ async fn get_notification_message(
             "{} has been associated with {} as {}",
             person_name, metadata_title, role
         )),
+        UserNotificationContent::MetadataReleaseDateChanged {
+            entity_title,
+            old_date,
+            new_date,
+            season_number,
+            episode_number,
+        } => Ok(
+            if let (Some(season), Some(episode)) = (season_number, episode_number) {
+                format!(
+                    "Episode release date changed from {} to {} (S{}E{}) for {}",
+                    old_date, new_date, season, episode, entity_title
+                )
+            } else {
+                format!(
+                    "Publish year changed from {} to {} for {}",
+                    old_date, new_date, entity_title
+                )
+            },
+        ),
+        UserNotificationContent::MetadataEpisodeNameChanged {
+            entity_title,
+            old_name,
+            new_name,
+            season_number,
+            episode_number,
+        } => Ok(if let Some(season) = season_number {
+            format!(
+                "Episode name changed from {} to {} (S{}E{}) for {}",
+                old_name, new_name, season, episode_number, entity_title
+            )
+        } else {
+            format!(
+                "Episode name changed from {} to {} (EP{}) for {}",
+                old_name, new_name, episode_number, entity_title
+            )
+        }),
+        UserNotificationContent::MetadataEpisodeImagesChanged {
+            entity_title,
+            season_number,
+            episode_number,
+        } => Ok(if let Some(season) = season_number {
+            format!(
+                "Episode image changed for S{}E{} in {}",
+                season, episode_number, entity_title
+            )
+        } else {
+            format!(
+                "Episode image changed for EP{} in {}",
+                episode_number, entity_title
+            )
+        }),
+        UserNotificationContent::PersonMetadataGroupAssociated {
+            role,
+            person_name,
+            metadata_group_title,
+        } => Ok(format!(
+            "{} has been associated with {} as {}",
+            person_name, metadata_group_title, role
+        )),
         _ => todo!(),
     }
 }
