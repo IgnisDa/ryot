@@ -130,6 +130,14 @@ async fn get_notification_message(
                 old_episode_count, new_episode_count, entity_title
             )
         }),
+        UserNotificationContent::PersonMetadataAssociated {
+            role,
+            person_name,
+            metadata_title,
+        } => Ok(format!(
+            "{} has been associated with {} as {}",
+            person_name, metadata_title, role
+        )),
         _ => todo!(),
     }
 }

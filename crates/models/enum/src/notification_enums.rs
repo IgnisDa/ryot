@@ -81,7 +81,11 @@ pub enum UserNotificationContent {
         new_episode_count: usize,
         season_number: Option<i32>,
     },
-    PersonMetadataAssociated,
+    PersonMetadataAssociated {
+        role: String,
+        person_name: String,
+        metadata_title: String,
+    },
     MetadataReleaseDateChanged,
     MetadataEpisodeNameChanged,
     MetadataEpisodeImagesChanged,

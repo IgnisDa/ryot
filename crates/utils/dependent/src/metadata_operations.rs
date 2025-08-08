@@ -530,13 +530,11 @@ pub async fn update_person(
             .metadata_associated
             .contains(&search_for)
         {
-            notifications.push((
-                format!(
-                    "{} has been associated with {} as {}",
-                    person.name, title, data.role
-                ),
-                UserNotificationContent::PersonMetadataAssociated,
-            ));
+            notifications.push(UserNotificationContent::PersonMetadataAssociated {
+                metadata_title: title,
+                role: data.role.clone(),
+                person_name: person.name.clone(),
+            });
             current_state_changes.metadata_associated.insert(search_for);
         }
     }
