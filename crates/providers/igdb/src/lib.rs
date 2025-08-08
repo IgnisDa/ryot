@@ -627,16 +627,17 @@ impl IgdbService {
                 release_date: rd.date,
                 name: rd.platform.name,
             })
+            .sorted_by_key(|rd| rd.name.clone())
             .collect_vec();
         MetadataDetails {
+            people,
             title: title.clone(),
             lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
             description: item.summary,
             identifier: item.id.to_string(),
-            people,
-            publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
+            publish_date: item.first_release_date.map(|d| d.date_naive()),
             source_url: Some(format!("https://www.igdb.com/games/{title}")),
             assets: EntityAssets {
                 remote_videos,
