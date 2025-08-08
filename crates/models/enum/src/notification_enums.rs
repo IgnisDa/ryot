@@ -46,59 +46,25 @@ pub enum NotificationPlatformLot {
     )
 )]
 pub enum UserNotificationContent {
-    ReviewPosted {
-        entity_id: String,
-        entity_title: String,
-        entity_lot: EntityLot,
-        triggered_by_username: String,
+    NotificationFromReminderCollection {
+        reminder_text: String,
     },
-    MetadataPublished {
-        entity_id: String,
-        entity_title: String,
-        entity_lot: EntityLot,
-        podcast_extra: Option<i32>,
-        show_extra: Option<(i32, i32)>,
+    IntegrationDisabledDueToTooManyErrors {
+        provider_name: String,
     },
     NewWorkoutCreated {
         workout_id: String,
         workout_name: String,
-    },
-    OutdatedSeenEntries {
-        seen_state: String,
-        days_threshold: i64,
-        entity_title: String,
-        entity_lot: EntityLot,
-        last_updated_on: Date,
     },
     MetadataStatusChanged {
         old_status: String,
         new_status: String,
         entity_title: String,
     },
-    MetadataEpisodeReleased {
-        entity_title: String,
-        old_episode_count: usize,
-        new_episode_count: usize,
-        season_number: Option<i32>,
-    },
     PersonMetadataAssociated {
         role: String,
         person_name: String,
         metadata_title: String,
-    },
-    MetadataReleaseDateChanged {
-        old_date: String,
-        new_date: String,
-        entity_title: String,
-        season_number: Option<i32>,
-        episode_number: Option<i32>,
-    },
-    MetadataEpisodeNameChanged {
-        old_name: String,
-        new_name: String,
-        episode_number: i32,
-        entity_title: String,
-        season_number: Option<i32>,
     },
     MetadataEpisodeImagesChanged {
         episode_number: i32,
@@ -115,16 +81,50 @@ pub enum UserNotificationContent {
         new_seasons: usize,
         entity_title: String,
     },
+    MetadataEpisodeReleased {
+        entity_title: String,
+        old_episode_count: usize,
+        new_episode_count: usize,
+        season_number: Option<i32>,
+    },
     MetadataChaptersOrEpisodesChanged {
         old_count: usize,
         new_count: usize,
         entity_title: String,
         content_type: String,
     },
-    NotificationFromReminderCollection {
-        reminder_text: String,
+    ReviewPosted {
+        entity_id: String,
+        entity_title: String,
+        entity_lot: EntityLot,
+        triggered_by_username: String,
     },
-    IntegrationDisabledDueToTooManyErrors {
-        provider_name: String,
+    MetadataPublished {
+        entity_id: String,
+        entity_title: String,
+        entity_lot: EntityLot,
+        podcast_extra: Option<i32>,
+        show_extra: Option<(i32, i32)>,
+    },
+    OutdatedSeenEntries {
+        seen_state: String,
+        days_threshold: i64,
+        entity_title: String,
+        entity_lot: EntityLot,
+        last_updated_on: Date,
+    },
+    MetadataReleaseDateChanged {
+        old_date: String,
+        new_date: String,
+        entity_title: String,
+        season_number: Option<i32>,
+        episode_number: Option<i32>,
+    },
+    MetadataEpisodeNameChanged {
+        old_name: String,
+        new_name: String,
+        episode_number: i32,
+        entity_title: String,
+        season_number: Option<i32>,
     },
 }
