@@ -14,6 +14,9 @@ use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use sea_query::Expr;
 use supporting_service::SupportingService;
 
+const IN_PROGRESS_OUTDATED_THRESHOLD_DAYS: i64 = 7;
+const ON_A_HOLD_OUTDATED_THRESHOLD_DAYS: i64 = 14;
+
 pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     let result = ImportReport::update_many()
         .col_expr(import_report::Column::WasSuccess, Expr::value(false))
@@ -33,8 +36,8 @@ pub async fn queue_notifications_for_outdated_seen_entries(
     }
     for state in [SeenState::InProgress, SeenState::OnAHold] {
         let days = match state {
-            SeenState::InProgress => 7,
-            SeenState::OnAHold => 14,
+            SeenState::InProgress => IN_PROGRESS_OUTDATED_THRESHOLD_DAYS,
+            SeenState::OnAHold => ON_A_HOLD_OUTDATED_THRESHOLD_DAYS,
             _ => unreachable!(),
         };
         let threshold = Utc::now() - Duration::days(days);
