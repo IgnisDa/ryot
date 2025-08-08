@@ -1769,7 +1769,7 @@ export type MutationRootVerifyTwoFactorArgs = {
 };
 
 export type NotificationPlatform = {
-  configuredEvents: Array<UserNotificationContent>;
+  configuredEvents: Array<UserNotificationContentDiscriminants>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
@@ -2445,7 +2445,7 @@ export type UpdateUserInput = {
 };
 
 export type UpdateUserNotificationPlatformInput = {
-  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
+  configuredEvents?: InputMaybe<Array<UserNotificationContentDiscriminants>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
@@ -2817,7 +2817,8 @@ export type UserMetadataListInput = {
   sort?: InputMaybe<MediaSortInput>;
 };
 
-export enum UserNotificationContent {
+/** Auto-generated discriminant enum variants */
+export enum UserNotificationContentDiscriminants {
   IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
@@ -3715,7 +3716,7 @@ export type UserIntegrationsQuery = { userIntegrations: Array<{ id: string, lot:
 export type UserNotificationPlatformsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UserNotificationPlatformsQuery = { userNotificationPlatforms: Array<{ id: string, lot: NotificationPlatformLot, createdOn: string, isDisabled?: boolean | null, description: string, configuredEvents: Array<UserNotificationContent> }> };
+export type UserNotificationPlatformsQuery = { userNotificationPlatforms: Array<{ id: string, lot: NotificationPlatformLot, createdOn: string, isDisabled?: boolean | null, description: string, configuredEvents: Array<UserNotificationContentDiscriminants> }> };
 
 export type UsersListQueryVariables = Exact<{
   query?: InputMaybe<Scalars['String']['input']>;
