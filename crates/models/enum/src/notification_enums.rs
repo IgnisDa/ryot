@@ -1,5 +1,5 @@
 use async_graphql::Enum;
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, prelude::Date};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
@@ -63,7 +63,13 @@ pub enum UserNotificationContent {
         workout_id: String,
         workout_name: String,
     },
-    OutdatedSeenEntries,
+    OutdatedSeenEntries {
+        entity_title: String,
+        entity_lot: EntityLot,
+        seen_state: String,
+        days_threshold: i64,
+        last_updated_on: Date,
+    },
     MetadataStatusChanged,
     MetadataEpisodeReleased,
     PersonMetadataAssociated,

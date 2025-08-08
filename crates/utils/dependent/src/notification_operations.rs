@@ -96,6 +96,16 @@ async fn get_notification_message(
             let url = get_entity_details_frontend_url(workout_id, EntityLot::Workout, None, ss);
             Ok(format!("New workout created - {} ({})", workout_name, url))
         }
+        UserNotificationContent::OutdatedSeenEntries {
+            entity_lot,
+            seen_state,
+            entity_title,
+            days_threshold,
+            last_updated_on,
+        } => Ok(format!(
+            "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
+            entity_title, entity_lot, seen_state, days_threshold, last_updated_on
+        )),
         _ => todo!(),
     }
 }

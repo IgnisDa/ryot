@@ -55,17 +55,13 @@ pub async fn queue_notifications_for_outdated_seen_entries(
             send_notification_for_user(
                 &seen_item.user_id,
                 ss,
-                &(
-                    format!(
-                        "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
-                        metadata.title,
-                        metadata.lot,
-                        state,
-                        days,
-                        seen_item.last_updated_on.date_naive()
-                    ),
-                    UserNotificationContent::OutdatedSeenEntries,
-                ),
+                UserNotificationContent::OutdatedSeenEntries {
+                    seen_state: state,
+                    days_threshold: days,
+                    entity_title: metadata.title,
+                    entity_lot: EntityLot::Metadata,
+                    last_updated_on: seen_item.last_updated_on.date_naive(),
+                },
             )
             .await?;
         }
