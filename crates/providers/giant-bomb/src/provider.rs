@@ -178,7 +178,7 @@ impl MediaProvider for GiantBombService {
             }
         }
 
-        let images = get_prioritized_images(game.image);
+        let remote_images = get_prioritized_images(game.image);
 
         let description = combine_description(game.deck, game.description);
 
@@ -194,14 +194,18 @@ impl MediaProvider for GiantBombService {
             source: MediaSource::GiantBomb,
             source_url: game.site_detail_url,
             publish_year: extract_year_from_date(game.original_release_date),
-            video_game_specifics: Some(VideoGameSpecifics {
-                platform_releases: Some(platforms),
-                ..Default::default()
-            }),
             assets: EntityAssets {
-                remote_images: images,
+                remote_images,
                 ..Default::default()
             },
+            video_game_specifics: Some(VideoGameSpecifics {
+                platform_releases: if platforms.is_empty() {
+                    None
+                } else {
+                    Some(platforms)
+                },
+                ..Default::default()
+            }),
             ..Default::default()
         })
     }
