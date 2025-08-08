@@ -62,25 +62,24 @@ pub async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<(
     );
 
     for (collection_id, item_count) in fragmented_collections {
-        let rebalance_query = format!(
-            r#"
+        let rebalance_query = r#"
             UPDATE collection_to_entity
             SET rank = ranked_data.new_rank
             FROM (
                 SELECT id,
                        ROW_NUMBER() OVER (ORDER BY rank ASC) as new_rank
                 FROM collection_to_entity
-                WHERE collection_id = '{collection_id}'
+                WHERE collection_id = $1
             ) ranked_data
             WHERE collection_to_entity.id = ranked_data.id
-        "#
-        );
+        "#;
 
         let result = ss
             .db
-            .execute(Statement::from_string(
+            .execute(Statement::from_sql_and_values(
                 ss.db.get_database_backend(),
                 rebalance_query,
+                [collection_id.clone().into()],
             ))
             .await?;
 
