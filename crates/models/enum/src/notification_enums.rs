@@ -2,7 +2,9 @@ use async_graphql::Enum;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
-use strum::Display;
+use strum::{Display, EnumDiscriminants};
+
+use crate::EntityLot;
 
 #[derive(
     Eq,
@@ -34,26 +36,22 @@ pub enum NotificationPlatformLot {
     PushBullet,
 }
 
-#[derive(
-    Eq,
-    Enum,
-    Copy,
-    Clone,
-    Debug,
-    Display,
-    EnumIter,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    DeriveActiveEnum,
-)]
-#[sea_orm(
-    rs_type = "String",
-    rename_all = "snake_case",
-    db_type = "String(StringLen::None)"
+#[derive(Debug, Clone, Display, PartialEq, Serialize, Deserialize, EnumDiscriminants)]
+#[strum_discriminants(
+    derive(Enum, EnumIter, Serialize, Deserialize, DeriveActiveEnum),
+    sea_orm(
+        rs_type = "String",
+        rename_all = "snake_case",
+        db_type = "String(StringLen::None)"
+    )
 )]
 pub enum UserNotificationContent {
-    ReviewPosted,
+    ReviewPosted {
+        entity_id: String,
+        entity_title: String,
+        entity_lot: EntityLot,
+        triggered_by_username: String,
+    },
     MetadataPublished,
     NewWorkoutCreated,
     OutdatedSeenEntries,

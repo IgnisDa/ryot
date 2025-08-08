@@ -248,5 +248,5 @@ pub struct GroupedCalendarEvent {
 
 #[derive(Debug, Default)]
 pub struct UpdateMediaEntityResult {
-    pub notifications: Vec<(String, UserNotificationContent)>,
+    pub notifications: Vec<UserNotificationContent>,
 }

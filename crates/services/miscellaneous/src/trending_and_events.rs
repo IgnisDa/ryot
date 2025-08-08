@@ -57,29 +57,6 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
     Ok(actually_in_db)
 }
 
-pub fn get_entity_details_frontend_url(
-    id: String,
-    entity_lot: EntityLot,
-    default_tab: Option<&str>,
-    ss: &Arc<SupportingService>,
-) -> String {
-    let mut url = match entity_lot {
-        EntityLot::Metadata => format!("media/item/{id}"),
-        EntityLot::Collection => format!("collections/{id}"),
-        EntityLot::Person => format!("media/people/item/{id}"),
-        EntityLot::Workout => format!("fitness/workouts/{id}"),
-        EntityLot::Exercise => format!("fitness/exercises/{id}"),
-        EntityLot::MetadataGroup => format!("media/groups/item/{id}"),
-        EntityLot::WorkoutTemplate => format!("fitness/templates/{id}"),
-        EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
-    };
-    url = format!("{}/{}", ss.config.frontend.url, url);
-    if let Some(tab) = default_tab {
-        url += format!("?defaultTab={tab}").as_str()
-    }
-    url
-}
-
 pub async fn handle_review_posted_event(
     ss: &Arc<SupportingService>,
     event: ReviewPostedEvent,

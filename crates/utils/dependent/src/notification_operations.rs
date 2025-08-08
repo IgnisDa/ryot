@@ -17,7 +17,7 @@ use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
 
-use crate::metadata_operations;
+use crate::{get_entity_details_frontend_url, metadata_operations};
 
 pub async fn get_users_and_cte_monitoring_entity(
     entity_id: &String,
@@ -50,10 +50,31 @@ pub async fn get_users_monitoring_entity(
     )
 }
 
+async fn get_notification_message(
+    change: UserNotificationContent,
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    match change {
+        UserNotificationContent::ReviewPosted {
+            entity_id,
+            entity_title,
+            entity_lot,
+            triggered_by_username,
+        } => {
+            let url = get_entity_details_frontend_url(entity_id, entity_lot, Some("reviews"), ss);
+            Ok(format!(
+                "New review posted for {} ({}, {}) by {}.",
+                entity_title, entity_lot, url, triggered_by_username
+            ))
+        }
+        _ => todo!(),
+    }
+}
+
 pub async fn send_notification_for_user(
     user_id: &String,
     ss: &Arc<SupportingService>,
-    (msg, change): &(String, UserNotificationContent),
+    notification: UserNotificationContent,
 ) -> Result<()> {
     let notification_platforms = NotificationPlatform::find()
         .filter(notification_platform::Column::UserId.eq(user_id))
@@ -65,7 +86,8 @@ pub async fn send_notification_for_user(
         .all(&ss.db)
         .await?;
     for platform in notification_platforms {
-        if !platform.configured_events.contains(change) {
+        let not = notification.clone().into();
+        if !platform.configured_events.contains(&not) {
             ryot_log!(
                 debug,
                 "Skipping sending notification to user: {} for platform: {} since it is not configured for this event",
@@ -74,7 +96,8 @@ pub async fn send_notification_for_user(
             );
             continue;
         }
-        if let Err(err) = send_notification(platform.platform_specifics, msg).await {
+        let msg = get_notification_message(notification.clone(), ss).await?;
+        if let Err(err) = send_notification(platform.platform_specifics, &msg).await {
             ryot_log!(trace, "Error sending notification: {:?}", err);
         }
     }
