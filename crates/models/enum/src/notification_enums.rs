@@ -75,7 +75,12 @@ pub enum UserNotificationContent {
         old_status: String,
         new_status: String,
     },
-    MetadataEpisodeReleased,
+    MetadataEpisodeReleased {
+        entity_title: String,
+        old_episode_count: usize,
+        new_episode_count: usize,
+        season_number: Option<i32>,
+    },
     PersonMetadataAssociated,
     MetadataReleaseDateChanged,
     MetadataEpisodeNameChanged,

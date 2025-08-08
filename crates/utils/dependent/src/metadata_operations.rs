@@ -229,14 +229,11 @@ pub async fn update_metadata(
 
             if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
                 if p1 != p2 {
-                    notifications.push((
-                        format!("Status changed from {p1:#?} to {p2:#?}"),
-                        UserNotificationContent::MetadataStatusChanged {
-                            entity_title: meta.title.clone(),
-                            old_status: format!("{p1:#?}"),
-                            new_status: format!("{p2:#?}"),
-                        },
-                    ));
+                    notifications.push(UserNotificationContent::MetadataStatusChanged {
+                        entity_title: meta.title.clone(),
+                        old_status: format!("{p1:#?}"),
+                        new_status: format!("{p2:#?}"),
+                    });
                 }
             }
             if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
@@ -265,15 +262,12 @@ pub async fn update_metadata(
                             continue;
                         }
                         if s1.episodes.len() != s2.episodes.len() {
-                            notifications.push((
-                                format!(
-                                    "Number of episodes changed from {:#?} to {:#?} (Season {})",
-                                    s1.episodes.len(),
-                                    s2.episodes.len(),
-                                    s1.season_number
-                                ),
-                                UserNotificationContent::MetadataEpisodeReleased,
-                            ));
+                            notifications.push(UserNotificationContent::MetadataEpisodeReleased {
+                                entity_title: meta.title.clone(),
+                                old_episode_count: s1.episodes.len(),
+                                new_episode_count: s2.episodes.len(),
+                                season_number: Some(s1.season_number),
+                            });
                         } else {
                             for (before_episode, after_episode) in
                                 zip(s1.episodes.iter(), s2.episodes.iter())
@@ -342,14 +336,12 @@ pub async fn update_metadata(
             };
             if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &details.podcast_specifics) {
                 if p1.episodes.len() != p2.episodes.len() {
-                    notifications.push((
-                        format!(
-                            "Number of episodes changed from {:#?} to {:#?}",
-                            p1.episodes.len(),
-                            p2.episodes.len()
-                        ),
-                        UserNotificationContent::MetadataEpisodeReleased,
-                    ));
+                    notifications.push(UserNotificationContent::MetadataEpisodeReleased {
+                        season_number: None,
+                        entity_title: meta.title.clone(),
+                        old_episode_count: p1.episodes.len(),
+                        new_episode_count: p2.episodes.len(),
+                    });
                 } else {
                     for (before_episode, after_episode) in
                         zip(p1.episodes.iter(), p2.episodes.iter())
@@ -374,11 +366,6 @@ pub async fn update_metadata(
                     }
                 }
             };
-
-            let notifications = notifications
-                .into_iter()
-                .map(|n| (format!("{} for {:?}.", n.0, meta.title), n.1))
-                .collect_vec();
 
             let free_creators = (!details.creators.is_empty())
                 .then_some(())

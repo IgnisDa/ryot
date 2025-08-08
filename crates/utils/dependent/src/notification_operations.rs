@@ -114,6 +114,22 @@ async fn get_notification_message(
             "Status of {} changed from {} to {}",
             entity_title, old_status, new_status
         )),
+        UserNotificationContent::MetadataEpisodeReleased {
+            entity_title,
+            old_episode_count,
+            new_episode_count,
+            season_number,
+        } => Ok(if let Some(season) = season_number {
+            format!(
+                "Number of episodes changed from {} to {} (Season {}) for {}",
+                old_episode_count, new_episode_count, season, entity_title
+            )
+        } else {
+            format!(
+                "Number of episodes changed from {} to {} for {}",
+                old_episode_count, new_episode_count, entity_title
+            )
+        }),
         _ => todo!(),
     }
 }
