@@ -7,7 +7,7 @@ use dependent_utils::{
     commit_metadata, get_metadata_provider, get_users_monitoring_entity, send_notification_for_user,
 };
 use enum_meta::Meta;
-use enum_models::{EntityLot, MediaLot, UserNotificationContent};
+use enum_models::{MediaLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::ReviewPostedEvent;
 use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter, QueryOrder, QuerySelect};
@@ -63,22 +63,15 @@ pub async fn handle_review_posted_event(
 ) -> Result<()> {
     let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, &ss.db).await?;
     for user_id in monitored_by {
-        let url = get_entity_details_frontend_url(
-            event.obj_id.clone(),
-            event.entity_lot,
-            Some("reviews"),
-            ss,
-        );
         send_notification_for_user(
             &user_id,
             ss,
-            &(
-                format!(
-                    "New review posted for {} ({}, {}) by {}.",
-                    event.obj_title, event.entity_lot, url, event.username
-                ),
-                UserNotificationContent::ReviewPosted,
-            ),
+            UserNotificationContent::ReviewPosted {
+                entity_id: event.obj_id.clone(),
+                entity_lot: event.entity_lot,
+                entity_title: event.obj_title.clone(),
+                triggered_by_username: event.username.clone(),
+            },
         )
         .await?;
     }

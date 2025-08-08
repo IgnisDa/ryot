@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 
-use crate::{core_operations::get_db_stmt, trending_and_events::get_entity_details_frontend_url};
+use crate::core_operations::get_db_stmt;
 
 pub async fn user_calendar_events(
     user_id: String,

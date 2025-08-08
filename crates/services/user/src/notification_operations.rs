@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
 use database_models::{notification_platform, prelude::NotificationPlatform};
-use enum_models::{NotificationPlatformLot, UserNotificationContent};
+use enum_models::{
+    NotificationPlatformLot, UserNotificationContentDiscriminants,
+};
 use media_models::{CreateUserNotificationPlatformInput, UpdateUserNotificationPlatformInput};
 use notification_service::send_notification;
 use sea_orm::{
@@ -141,7 +143,7 @@ pub async fn create_user_notification_platform(
         user_id: ActiveValue::Set(user_id),
         description: ActiveValue::Set(description),
         platform_specifics: ActiveValue::Set(specifics),
-        configured_events: ActiveValue::Set(UserNotificationContent::iter().collect()),
+        configured_events: ActiveValue::Set(UserNotificationContentDiscriminants::iter().collect()),
         ..Default::default()
     };
     let new_notification_id = notification.insert(&ss.db).await?.id;

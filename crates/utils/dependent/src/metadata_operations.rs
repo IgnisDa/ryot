@@ -26,6 +26,7 @@ use media_models::{
     UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use nanoid::nanoid;
+use rust_decimal::prelude::ToPrimitive;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,

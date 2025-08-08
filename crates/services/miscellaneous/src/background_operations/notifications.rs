@@ -9,7 +9,7 @@ use database_models::{
     seen,
 };
 use dependent_utils::{is_server_key_validated, send_notification_for_user};
-use enum_models::{SeenState, UserNotificationContent};
+use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use sea_query::Expr;
 use supporting_service::SupportingService;

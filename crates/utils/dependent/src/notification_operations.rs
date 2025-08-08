@@ -288,7 +288,7 @@ pub async fn update_metadata_and_notify_users(
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
-                send_notification_for_user(user_id, ss, notification)
+                send_notification_for_user(user_id, ss, notification.clone())
                     .await
                     .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
@@ -310,7 +310,7 @@ pub async fn update_person_and_notify_users(
             get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &ss.db).await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
-                send_notification_for_user(user_id, ss, notification)
+                send_notification_for_user(user_id, ss, notification.clone())
                     .await
                     .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
@@ -336,7 +336,7 @@ pub async fn update_metadata_group_and_notify_users(
         .await?;
         for notification in result.notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
-                send_notification_for_user(user_id, ss, notification)
+                send_notification_for_user(user_id, ss, notification.clone())
                     .await
                     .trace_ok();
                 refresh_collection_to_entity_association(cte_id, &ss.db)
