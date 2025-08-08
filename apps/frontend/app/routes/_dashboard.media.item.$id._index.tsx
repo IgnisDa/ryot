@@ -12,6 +12,7 @@ import {
 	ScrollArea,
 	SimpleGrid,
 	Stack,
+	Table,
 	Tabs,
 	Text,
 } from "@mantine/core";
@@ -649,14 +650,17 @@ export default function Page() {
 													})
 											: null}
 									</SimpleGrid>
-									{loaderData.metadataDetails.videoGameSpecifics?.platforms && (
-										<Text c="dimmed">
-											Platforms:{" "}
-											{loaderData.metadataDetails.videoGameSpecifics.platforms.join(
-												", ",
-											)}
-										</Text>
-									)}
+									{loaderData.metadataDetails.videoGameSpecifics
+										?.platformReleases ? (
+										<Table
+											data={{
+												head: ["Platform", "Release Date"],
+												body: loaderData.metadataDetails.videoGameSpecifics.platformReleases.map(
+													(p) => [p.name, p.releaseDate || "Unknown"],
+												),
+											}}
+										/>
+									) : null}
 									{loaderData.metadataDetails.description ? (
 										<ScrollArea maw="600">
 											<div
