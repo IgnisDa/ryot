@@ -638,6 +638,7 @@ impl IgdbService {
                     .unwrap_or_default()
                     .into_iter()
                     .map(|p| p.name)
+                    .sorted()
                     .collect(),
             }),
             suggestions: item
