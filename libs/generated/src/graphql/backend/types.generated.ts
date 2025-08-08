@@ -3166,11 +3166,22 @@ export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
 
 export type VideoGameSpecifics = {
   __typename?: 'VideoGameSpecifics';
-  platforms: Array<Scalars['String']['output']>;
+  platformReleases?: Maybe<Array<VideoGameSpecificsPlatformRelease>>;
 };
 
 export type VideoGameSpecificsInput = {
-  platforms: Array<Scalars['String']['input']>;
+  platformReleases?: InputMaybe<Array<VideoGameSpecificsPlatformInput>>;
+};
+
+export type VideoGameSpecificsPlatformInput = {
+  name: Scalars['String']['input'];
+  releaseDate: Scalars['DateTime']['input'];
+};
+
+export type VideoGameSpecificsPlatformRelease = {
+  __typename?: 'VideoGameSpecificsPlatformRelease';
+  name: Scalars['String']['output'];
+  releaseDate: Scalars['DateTime']['output'];
 };
 
 export enum Visibility {

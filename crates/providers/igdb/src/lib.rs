@@ -18,7 +18,7 @@ use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics,
+    VideoGameSpecifics, VideoGameSpecificsPlatformRelease,
 };
 use reqwest::{
     Client,
@@ -52,7 +52,6 @@ fields
     similar_games.id,
     similar_games.name,
     similar_games.cover.*,
-    platforms.name,
     collection.id,
     release_dates.date,
     release_dates.platform.name,
@@ -156,7 +155,6 @@ struct IgdbItemResponse {
     videos: Option<Vec<IgdbVideo>>,
     genres: Option<Vec<NamedObject>>,
     artworks: Option<Vec<IgdbImage>>,
-    platforms: Option<Vec<NamedObject>>,
     games: Option<Vec<IgdbItemResponse>>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTimeUtc>,
@@ -644,13 +642,17 @@ impl IgdbService {
                 .unique()
                 .collect(),
             video_game_specifics: Some(VideoGameSpecifics {
-                platforms: item
-                    .platforms
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|p| p.name)
-                    .sorted()
-                    .collect(),
+                platform_releases: Some(
+                    item.release_dates
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|rd| VideoGameSpecificsPlatformRelease {
+                            release_date: rd.date,
+                            name: rd.platform.name,
+                        })
+                        .collect(),
+                ),
+                ..Default::default()
             }),
             suggestions: item
                 .similar_games
