@@ -1,1 +1,1 @@
-export { getBuiltinRelationshipSchemaBySlug } from "./repository";
+export { getBuiltinRelationshipSchemaBySlug, getRelationshipSchemaById } from "./repository";

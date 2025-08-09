@@ -452,6 +452,7 @@ export const createPropertySchemaObjectSchema = (message?: string) =>
 	z
 		.strictObject({
 			rules: z.array(appSchemaRuleSchema).optional(),
+			unknownKeys: unknownKeysPolicySchema.optional(),
 			fields: message ? createNonEmptyFieldsSchema(message) : fieldsSchema,
 		})
 		.superRefine(validateRulePaths);

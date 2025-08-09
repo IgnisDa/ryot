@@ -155,6 +155,7 @@ export type AppSchemaRule = AppSchemaValidationRule;
 export type AppSchema = {
 	fields: AppSchemaFields;
 	rules?: AppSchemaRule[];
+	unknownKeys?: AppSchemaUnknownKeysPolicy;
 };
 
 type AppSchemaObjectOptions = {
@@ -683,7 +684,7 @@ export const fromAppSchemaObject = (
 		shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
 	}
 
-	const schema = withUnknownKeysPolicy(shape, options?.unknownKeys);
+	const schema = withUnknownKeysPolicy(shape, options?.unknownKeys ?? appSchema.unknownKeys);
 
 	return withAppSchemaRules(schema, appSchema);
 };

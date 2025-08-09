@@ -3,16 +3,24 @@ import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
-import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+import {
+	formatValidationIssues,
+	parseAppSchemaProperties,
+	parseAppSchemaPropertiesSafe,
+} from "~/lib/app/schema-validation";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { ImageSchema, type ImageSchemaType } from "~/lib/zod";
+import { getRelationshipSchemaById } from "~/modules/relationship-schemas";
 
 import {
+	buildEntityRelationshipProperties,
 	createEntityForUser,
 	findEntityByExternalIdForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
 	getEntityScopeForUser,
+	insertRelationship,
+	upsertEntityRelationship,
 } from "./repository";
 import type { CreateEntityBody, ListedEntity } from "./schemas";
 
@@ -252,4 +260,106 @@ export const createEntity = async (
 
 		throw error;
 	}
+};
+
+const relationshipSchemaNotFoundError = "Relationship schema not found";
+
+export type WriteRelationshipDeps = {
+	insertRelationship: typeof insertRelationship;
+	getRelationshipSchemaById: typeof getRelationshipSchemaById;
+};
+
+const writeRelationshipDeps: WriteRelationshipDeps = {
+	insertRelationship,
+	getRelationshipSchemaById,
+};
+
+export const writeRelationship = async (
+	input: {
+		userId: string;
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+		properties: Record<string, unknown>;
+	},
+	deps: WriteRelationshipDeps = writeRelationshipDeps,
+): Promise<ServiceResult<void, "not_found" | "validation">> => {
+	const relSchema = await deps.getRelationshipSchemaById(input.relationshipSchemaId, input.userId);
+	if (!relSchema) {
+		return serviceError("not_found", relationshipSchemaNotFoundError);
+	}
+
+	const result = parseAppSchemaPropertiesSafe({
+		properties: input.properties,
+		propertiesSchema: relSchema.propertiesSchema,
+	});
+	if (!result.success) {
+		return serviceError(
+			"validation",
+			`Relationship properties validation failed: ${formatValidationIssues(result.issues)}`,
+		);
+	}
+
+	await deps.insertRelationship({
+		userId: input.userId,
+		properties: result.data,
+		sourceEntityId: input.sourceEntityId,
+		targetEntityId: input.targetEntityId,
+		relationshipSchemaId: input.relationshipSchemaId,
+	});
+
+	return serviceData(undefined);
+};
+
+export type WriteEntityRelationshipDeps = {
+	upsertEntityRelationship: typeof upsertEntityRelationship;
+	getRelationshipSchemaById: typeof getRelationshipSchemaById;
+};
+
+const writeEntityRelationshipDeps: WriteEntityRelationshipDeps = {
+	getRelationshipSchemaById,
+	upsertEntityRelationship,
+};
+
+export const writeEntityRelationship = async (
+	input: {
+		role: string;
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+		extraProperties: Record<string, unknown>;
+	},
+	deps: WriteEntityRelationshipDeps = writeEntityRelationshipDeps,
+): Promise<ServiceResult<void, "not_found" | "validation">> => {
+	const relSchema = await deps.getRelationshipSchemaById(input.relationshipSchemaId, null);
+	if (!relSchema) {
+		return serviceError("not_found", relationshipSchemaNotFoundError);
+	}
+
+	const propertiesToValidate = buildEntityRelationshipProperties(
+		undefined,
+		input.role,
+		input.extraProperties,
+	);
+	const result = parseAppSchemaPropertiesSafe({
+		properties: propertiesToValidate,
+		propertiesSchema: relSchema.propertiesSchema,
+	});
+	if (!result.success) {
+		return serviceError(
+			"validation",
+			`Relationship properties validation failed: ${formatValidationIssues(result.issues)}`,
+		);
+	}
+
+	const { roles: _roles, ...validatedExtraProperties } = result.data;
+	await deps.upsertEntityRelationship({
+		role: input.role,
+		sourceEntityId: input.sourceEntityId,
+		targetEntityId: input.targetEntityId,
+		extraProperties: validatedExtraProperties,
+		relationshipSchemaId: input.relationshipSchemaId,
+	});
+
+	return serviceData(undefined);
 };

@@ -173,6 +173,71 @@ const resolveEventCreateInputResult = (
 	},
 ) => wrapServiceValidator(() => resolveEventCreateInput(input), "Event payload is invalid");
 
+export const validateEventCreateInputForUser = async (
+	input: { body: CreateEventBody; userId: string },
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<EventServiceResult<void>> => {
+	const entityIdResult = resolveEventEntityIdResult(input.body.entityId);
+	if ("error" in entityIdResult) {
+		return entityIdResult;
+	}
+
+	const eventSchemaIdResult = resolveEventSchemaIdResult(input.body.eventSchemaId);
+	if ("error" in eventSchemaIdResult) {
+		return eventSchemaIdResult;
+	}
+
+	let sessionEntityId: string | undefined;
+	if (input.body.sessionEntityId) {
+		const sessionEntityIdResult = await resolveReadableSessionEntityId(
+			{ userId: input.userId, sessionEntityId: input.body.sessionEntityId },
+			deps,
+		);
+		if ("error" in sessionEntityIdResult) {
+			return sessionEntityIdResult;
+		}
+
+		sessionEntityId = sessionEntityIdResult.data;
+	}
+
+	const eventScope = await deps.getEventCreateScopeForUser({
+		userId: input.userId,
+		entityId: entityIdResult.data,
+		eventSchemaId: eventSchemaIdResult.data,
+	});
+
+	if (!eventScope) {
+		return serviceError("not_found", entityNotFoundError);
+	}
+
+	if (
+		!eventScope.eventSchemaId ||
+		!eventScope.eventSchemaName ||
+		!eventScope.eventSchemaSlug ||
+		!eventScope.propertiesSchema ||
+		!eventScope.eventSchemaEntitySchemaId
+	) {
+		return serviceError("not_found", eventSchemaNotFoundError);
+	}
+
+	if (eventScope.eventSchemaEntitySchemaId !== eventScope.entitySchemaId) {
+		return serviceError("validation", eventSchemaMismatchError);
+	}
+
+	const eventInput = resolveEventCreateInputResult({
+		sessionEntityId,
+		entityId: input.body.entityId,
+		properties: input.body.properties,
+		eventSchemaId: input.body.eventSchemaId,
+		propertiesSchema: eventScope.propertiesSchema,
+	});
+	if ("error" in eventInput) {
+		return eventInput;
+	}
+
+	return serviceData(undefined);
+};
+
 export const listEntityEvents = async (
 	input: {
 		userId: string;
@@ -210,8 +275,8 @@ export const listEntityEvents = async (
 
 			const events = await deps.listEventsByEntityForUser({
 				userId: input.userId,
-				eventSchemaSlug: input.eventSchemaSlug,
 				entityId: entityIdResult.data,
+				eventSchemaSlug: input.eventSchemaSlug,
 				sessionEntityId: sessionEntityIdResult.data,
 			});
 

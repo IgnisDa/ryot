@@ -67,8 +67,7 @@ describe("Events bulk POST", () => {
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
 		});
-		expect(rejectedResult.response.status).toBe(200);
-		expect(rejectedResult.data?.data.count).toBe(1);
+		expect(rejectedResult.response.status).toBe(400);
 
 		const acceptedResult = await apiClient.POST("/events", {
 			headers: { Cookie: cookies },
