@@ -1,11 +1,11 @@
-# Migration Agent Notes
+# Legacy Bootstrap Agent Notes
 
 The purpose of this module is to migrate legacy V1 Rust data (apps/backend) into the V2
 TypeScript backend (apps/app-backend) during startup.
 
 ## Boundaries
 
-- Keep all migration-specific logic inside this module.
+- Keep all legacy bootstrap-specific logic inside this module.
 - `index.ts` must stay small and only re-export the startup entrypoints.
 - Run the legacy table rename before Drizzle migrations.
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
