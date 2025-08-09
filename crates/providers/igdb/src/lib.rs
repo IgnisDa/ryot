@@ -118,11 +118,11 @@ struct IgdbWebsite {
 struct IgdbCompany {
     id: i32,
     name: String,
+    country: Option<i32>,
     logo: Option<IgdbImage>,
+    description: Option<String>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     start_date: Option<DateTimeUtc>,
-    country: Option<i32>,
-    description: Option<String>,
     websites: Option<Vec<IgdbWebsite>>,
     developed: Option<Vec<IgdbItemResponse>>,
     published: Option<Vec<IgdbItemResponse>>,
@@ -136,11 +136,11 @@ struct IgdbVideo {
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbInvolvedCompany {
     id: i32,
-    company: IgdbCompany,
+    porting: bool,
     developer: bool,
     publisher: bool,
-    porting: bool,
     supporting: bool,
+    company: IgdbCompany,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
