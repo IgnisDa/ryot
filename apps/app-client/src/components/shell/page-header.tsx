@@ -2,7 +2,6 @@ import { Menu } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { ScrollView, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BreadcrumbChip } from "@/components/shell/breadcrumb-chip";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
@@ -28,10 +27,8 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 					paddingTop: insets.top + 16,
 				}}
 			>
-				<Box className="flex-row items-center">
-					<BreadcrumbChip />
-					<Box className="flex-1" />
-					{!isTablet && (
+				{!isTablet && (
+					<Box className="flex-row justify-end">
 						<Pressable
 							className="p-1 -mr-1"
 							accessibilityRole="button"
@@ -40,8 +37,8 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 						>
 							<Menu size={20} color="#78716c" strokeWidth={1.5} />
 						</Pressable>
-					)}
-				</Box>
+					</Box>
+				)}
 				<Text className="text-[10px] mt-[14] tracking-[2px] text-muted-foreground font-sans uppercase">
 					{eyebrow}
 				</Text>
