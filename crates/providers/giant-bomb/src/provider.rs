@@ -11,7 +11,7 @@ use enum_models::{MediaLot, MediaSource};
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics,
+    VideoGameSpecifics, VideoGameSpecificsPlatformRelease,
 };
 use traits::MediaProvider;
 
@@ -171,11 +171,14 @@ impl MediaProvider for GiantBombService {
         let mut platforms = Vec::new();
         if let Some(game_platforms) = game.platforms {
             for platform in game_platforms {
-                platforms.push(platform.name.unwrap());
+                platforms.push(VideoGameSpecificsPlatformRelease {
+                    name: platform.name.unwrap(),
+                    ..Default::default()
+                });
             }
         }
 
-        let images = get_prioritized_images(game.image);
+        let remote_images = get_prioritized_images(game.image);
 
         let description = combine_description(game.deck, game.description);
 
@@ -190,12 +193,19 @@ impl MediaProvider for GiantBombService {
             identifier: game.guid.unwrap(),
             source: MediaSource::GiantBomb,
             source_url: game.site_detail_url,
-            video_game_specifics: Some(VideoGameSpecifics { platforms }),
             publish_year: extract_year_from_date(game.original_release_date),
             assets: EntityAssets {
-                remote_images: images,
+                remote_images,
                 ..Default::default()
             },
+            video_game_specifics: Some(VideoGameSpecifics {
+                platform_releases: if platforms.is_empty() {
+                    None
+                } else {
+                    Some(platforms)
+                },
+                ..Default::default()
+            }),
             ..Default::default()
         })
     }

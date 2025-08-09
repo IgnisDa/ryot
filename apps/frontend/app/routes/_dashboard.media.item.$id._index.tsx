@@ -86,6 +86,7 @@ import { HistoryItem } from "~/components/routes/media-item/displays/history-ite
 import { MetadataCreator } from "~/components/routes/media-item/displays/metadata-creator";
 import { DisplayPodcastEpisode } from "~/components/routes/media-item/displays/podcast-episode";
 import { DisplayShowSeason } from "~/components/routes/media-item/displays/show-season";
+import { VideoGameSpecificsDisplay } from "~/components/routes/media-item/displays/video-game-specifics";
 import { VideoIframe } from "~/components/routes/media-item/displays/video-iframe";
 import { MergeMetadataModal } from "~/components/routes/media-item/modals/merge-metadata-modal";
 import { DisplayShowSeasonEpisodesModal } from "~/components/routes/media-item/modals/show-season-episodes-modal";
@@ -649,6 +650,9 @@ export default function Page() {
 													})
 											: null}
 									</SimpleGrid>
+									<VideoGameSpecificsDisplay
+										specifics={loaderData.metadataDetails.videoGameSpecifics}
+									/>
 									{loaderData.metadataDetails.description ? (
 										<ScrollArea maw="600">
 											<div

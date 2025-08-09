@@ -31,7 +31,6 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 				<DisplayShowSeasonEpisodes
 					metadataDetails={props.metadataDetails}
 					openedShowSeason={props.openedShowSeason}
-					setOpenedShowSeason={props.setOpenedShowSeason}
 					userMetadataDetails={props.userMetadataDetails}
 				/>
 			) : null}
@@ -43,7 +42,6 @@ const DisplayShowSeasonEpisodes = (props: {
 	openedShowSeason: number;
 	metadataDetails: MetadataDetails;
 	userMetadataDetails: UserMetadataDetails;
-	setOpenedShowSeason: (v: number | undefined) => void;
 }) => {
 	const season =
 		props.metadataDetails.showSpecifics?.seasons[props.openedShowSeason];
@@ -63,7 +61,6 @@ const DisplayShowSeasonEpisodes = (props: {
 							seasonIdx={props.openedShowSeason}
 							metadataDetails={props.metadataDetails}
 							episodeProgress={seasonProgress?.episodes[episodeIdx]}
-							beforeOpenModal={() => props.setOpenedShowSeason(undefined)}
 						/>
 					)}
 				/>

@@ -34,20 +34,20 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-mod background_operations;
-mod calendar_operations;
-mod core_operations;
-mod custom_metadata;
-mod entity_details;
-mod list_operations;
-mod lookup_operations;
-mod metadata_operations;
-mod progress_operations;
-mod review_operations;
-mod search_operations;
-mod trending_and_events;
-mod user_details;
-mod user_management;
+pub mod background_operations;
+pub mod calendar_operations;
+pub mod core_operations;
+pub mod custom_metadata;
+pub mod entity_details;
+pub mod list_operations;
+pub mod lookup_operations;
+pub mod metadata_operations;
+pub mod progress_operations;
+pub mod review_operations;
+pub mod search_operations;
+pub mod trending_and_events;
+pub mod user_details;
+pub mod user_management;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 

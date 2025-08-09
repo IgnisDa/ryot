@@ -1812,7 +1812,7 @@ export type MutationRootVerifyTwoFactorArgs = {
 
 export type NotificationPlatform = {
   __typename?: 'NotificationPlatform';
-  configuredEvents: Array<UserNotificationContent>;
+  configuredEvents: Array<UserNotificationContentDiscriminants>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
@@ -2516,7 +2516,7 @@ export type UpdateUserInput = {
 };
 
 export type UpdateUserNotificationPlatformInput = {
-  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
+  configuredEvents?: InputMaybe<Array<UserNotificationContentDiscriminants>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
@@ -2913,7 +2913,8 @@ export type UserMetadataListInput = {
   sort?: InputMaybe<MediaSortInput>;
 };
 
-export enum UserNotificationContent {
+/** Auto-generated discriminant enum variants */
+export enum UserNotificationContentDiscriminants {
   IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
@@ -3165,11 +3166,37 @@ export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
 
 export type VideoGameSpecifics = {
   __typename?: 'VideoGameSpecifics';
-  platforms: Array<Scalars['String']['output']>;
+  platformReleases?: Maybe<Array<VideoGameSpecificsPlatformRelease>>;
+  timeToBeat?: Maybe<VideoGameSpecificsTimeToBeat>;
 };
 
 export type VideoGameSpecificsInput = {
-  platforms: Array<Scalars['String']['input']>;
+  platformReleases?: InputMaybe<Array<VideoGameSpecificsPlatformReleaseInput>>;
+  timeToBeat?: InputMaybe<VideoGameSpecificsTimeToBeatInput>;
+};
+
+export type VideoGameSpecificsPlatformRelease = {
+  __typename?: 'VideoGameSpecificsPlatformRelease';
+  name: Scalars['String']['output'];
+  releaseDate?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type VideoGameSpecificsPlatformReleaseInput = {
+  name: Scalars['String']['input'];
+  releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
+};
+
+export type VideoGameSpecificsTimeToBeat = {
+  __typename?: 'VideoGameSpecificsTimeToBeat';
+  completely?: Maybe<Scalars['Int']['output']>;
+  hastily?: Maybe<Scalars['Int']['output']>;
+  normally?: Maybe<Scalars['Int']['output']>;
+};
+
+export type VideoGameSpecificsTimeToBeatInput = {
+  completely?: InputMaybe<Scalars['Int']['input']>;
+  hastily?: InputMaybe<Scalars['Int']['input']>;
+  normally?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export enum Visibility {

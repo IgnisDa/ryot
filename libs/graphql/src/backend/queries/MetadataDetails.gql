@@ -98,7 +98,15 @@ query MetadataDetails($metadataId: String!, $ensureUpdated: Boolean) {
 			length
 		}
 		videoGameSpecifics {
-			platforms
+			platformReleases {
+				name
+				releaseDate
+			}
+			timeToBeat {
+				hastily
+				normally
+				completely
+			}
 		}
 		musicSpecifics {
 			duration

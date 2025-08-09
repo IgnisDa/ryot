@@ -1,6 +1,7 @@
 use async_graphql::{InputObject, SimpleObject, Union};
 use enum_models::{
-    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot, UserNotificationContent,
+    IntegrationProvider, MediaLot, MediaSource, NotificationPlatformLot,
+    UserNotificationContentDiscriminants,
 };
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -137,5 +138,5 @@ pub struct CreateUserNotificationPlatformInput {
 pub struct UpdateUserNotificationPlatformInput {
     pub notification_id: String,
     pub is_disabled: Option<bool>,
-    pub configured_events: Option<Vec<UserNotificationContent>>,
+    pub configured_events: Option<Vec<UserNotificationContentDiscriminants>>,
 }

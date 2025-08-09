@@ -1,18 +1,16 @@
 use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
-use database_models::{metadata, prelude::Metadata, user};
-use database_utils::get_enabled_users_query;
+use database_models::{metadata, prelude::Metadata};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TrendingMetadataIdsResponse};
 use dependent_utils::{
     commit_metadata, get_metadata_provider, get_users_monitoring_entity, send_notification_for_user,
 };
 use enum_meta::Meta;
-use enum_models::{EntityLot, MediaLot, UserNotificationContent};
+use enum_models::{MediaLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::ReviewPostedEvent;
 use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter, QueryOrder, QuerySelect};
-use sea_query::Expr;
 use supporting_service::SupportingService;
 
 pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMetadataIdsResponse> {
@@ -59,62 +57,21 @@ pub async fn trending_metadata(ss: &Arc<SupportingService>) -> Result<TrendingMe
     Ok(actually_in_db)
 }
 
-pub fn get_entity_details_frontend_url(
-    id: String,
-    entity_lot: EntityLot,
-    default_tab: Option<&str>,
-    ss: &Arc<SupportingService>,
-) -> String {
-    let mut url = match entity_lot {
-        EntityLot::Metadata => format!("media/item/{id}"),
-        EntityLot::Collection => format!("collections/{id}"),
-        EntityLot::Person => format!("media/people/item/{id}"),
-        EntityLot::Workout => format!("fitness/workouts/{id}"),
-        EntityLot::Exercise => format!("fitness/exercises/{id}"),
-        EntityLot::MetadataGroup => format!("media/groups/item/{id}"),
-        EntityLot::WorkoutTemplate => format!("fitness/templates/{id}"),
-        EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
-    };
-    url = format!("{}/{}", ss.config.frontend.url, url);
-    if let Some(tab) = default_tab {
-        url += format!("?defaultTab={tab}").as_str()
-    }
-    url
-}
-
 pub async fn handle_review_posted_event(
     ss: &Arc<SupportingService>,
     event: ReviewPostedEvent,
 ) -> Result<()> {
     let monitored_by = get_users_monitoring_entity(&event.obj_id, event.entity_lot, &ss.db).await?;
-    let users = get_enabled_users_query()
-        .select_only()
-        .column(user::Column::Id)
-        .filter(user::Column::Id.is_in(monitored_by))
-        .filter(Expr::cust(format!(
-            "(preferences -> 'notifications' -> 'to_send' ? '{}') = true",
-            UserNotificationContent::ReviewPosted
-        )))
-        .into_tuple::<String>()
-        .all(&ss.db)
-        .await?;
-    for user_id in users {
-        let url = get_entity_details_frontend_url(
-            event.obj_id.clone(),
-            event.entity_lot,
-            Some("reviews"),
-            ss,
-        );
+    for user_id in monitored_by {
         send_notification_for_user(
             &user_id,
             ss,
-            &(
-                format!(
-                    "New review posted for {} ({}, {}) by {}.",
-                    event.obj_title, event.entity_lot, url, event.username
-                ),
-                UserNotificationContent::ReviewPosted,
-            ),
+            UserNotificationContent::ReviewPosted {
+                entity_lot: event.entity_lot,
+                entity_id: event.obj_id.clone(),
+                entity_title: event.obj_title.clone(),
+                triggered_by_username: event.username.clone(),
+            },
         )
         .await?;
     }

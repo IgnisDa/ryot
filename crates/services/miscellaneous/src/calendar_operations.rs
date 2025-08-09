@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 
-use crate::{core_operations::get_db_stmt, trending_and_events::get_entity_details_frontend_url};
+use crate::core_operations::get_db_stmt;
 
 pub async fn user_calendar_events(
     user_id: String,
@@ -260,32 +260,27 @@ pub async fn queue_notifications_for_released_media(ss: &Arc<SupportingService>)
         .into_iter()
         .map(|(cal_event, meta)| {
             let meta = meta.unwrap();
-            let url =
-                get_entity_details_frontend_url(meta.id.to_string(), EntityLot::Metadata, None, ss);
-            let notification = if let Some(show) = cal_event.metadata_show_extra_information {
-                format!(
-                    "S{}E{} of {} ({}) has been released today.",
-                    show.season, show.episode, meta.title, url
-                )
-            } else if let Some(podcast) = cal_event.metadata_podcast_extra_information {
-                format!(
-                    "E{} of {} ({}) has been released today.",
-                    podcast.episode, meta.title, url
-                )
-            } else {
-                format!("{} ({}) has been released today.", meta.title, url)
+            let show_extra = cal_event
+                .metadata_show_extra_information
+                .map(|show| (show.season, show.episode));
+            let podcast_extra = cal_event
+                .metadata_podcast_extra_information
+                .map(|podcast| podcast.episode);
+            let notification = UserNotificationContent::MetadataPublished {
+                show_extra,
+                podcast_extra,
+                entity_title: meta.title,
+                entity_id: meta.id.to_string(),
+                entity_lot: EntityLot::Metadata,
             };
-            (
-                meta.id.to_string(),
-                (notification, UserNotificationContent::MetadataPublished),
-            )
+            (meta.id.to_string(), notification)
         })
         .collect_vec();
     for (metadata_id, notification) in notifications.into_iter() {
         let users_to_notify =
             get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &ss.db).await?;
         for user in users_to_notify {
-            send_notification_for_user(&user, ss, &notification).await?;
+            send_notification_for_user(&user, ss, notification.clone()).await?;
         }
     }
     Ok(())
@@ -463,10 +458,9 @@ pub async fn queue_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> 
                     send_notification_for_user(
                         &user.user_id,
                         ss,
-                        &(
-                            reminder.text.clone(),
-                            UserNotificationContent::NotificationFromReminderCollection,
-                        ),
+                        UserNotificationContent::NotificationFromReminderCollection {
+                            reminder_text: reminder.text.clone(),
+                        },
                     )
                     .await?;
                     remove_entities_from_collection(
