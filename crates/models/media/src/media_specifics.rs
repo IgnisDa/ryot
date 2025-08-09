@@ -194,7 +194,7 @@ pub struct ShowEpisode {
     SimpleObject,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "VideoGameSpecificsPlatformInput")]
+#[graphql(input_name = "VideoGameSpecificsPlatformReleaseInput")]
 pub struct VideoGameSpecificsPlatformRelease {
     pub name: String,
     pub release_date: Option<DateTimeUtc>,

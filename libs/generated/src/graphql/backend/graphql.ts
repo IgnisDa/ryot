@@ -3057,17 +3057,17 @@ export type VideoGameSpecifics = {
 };
 
 export type VideoGameSpecificsInput = {
-  platformReleases?: InputMaybe<Array<VideoGameSpecificsPlatformInput>>;
-};
-
-export type VideoGameSpecificsPlatformInput = {
-  name: Scalars['String']['input'];
-  releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
+  platformReleases?: InputMaybe<Array<VideoGameSpecificsPlatformReleaseInput>>;
 };
 
 export type VideoGameSpecificsPlatformRelease = {
   name: Scalars['String']['output'];
   releaseDate?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type VideoGameSpecificsPlatformReleaseInput = {
+  name: Scalars['String']['input'];
+  releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export enum Visibility {
