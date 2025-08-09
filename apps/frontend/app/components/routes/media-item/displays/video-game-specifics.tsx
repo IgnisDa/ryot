@@ -21,36 +21,22 @@ export function VideoGameSpecificsDisplay(props: {
 						Time to beat
 					</Title>
 					<SimpleGrid cols={3}>
-						{timeToBeat.hastily ? (
-							<Paper p="xs" withBorder radius="md" ta="center">
-								<Text fw={700} size="lg">
-									{Math.round(timeToBeat.hastily / 3600)} H
-								</Text>
-								<Text c="dimmed" size="xs">
-									Hastily
-								</Text>
-							</Paper>
-						) : null}
-						{timeToBeat.normally ? (
-							<Paper p="xs" radius="md" withBorder ta="center">
-								<Text fw={700} size="lg">
-									{Math.round(timeToBeat.normally / 3600)} H
-								</Text>
-								<Text c="dimmed" size="xs">
-									Normally
-								</Text>
-							</Paper>
-						) : null}
-						{timeToBeat.completely ? (
-							<Paper p="xs" radius="md" withBorder ta="center">
-								<Text fw={700} size="lg">
-									{Math.round(timeToBeat.completely / 3600)} H
-								</Text>
-								<Text c="dimmed" size="xs">
-									Completely
-								</Text>
-							</Paper>
-						) : null}
+						{[
+							{ value: timeToBeat.hastily, label: "Hastily" },
+							{ value: timeToBeat.normally, label: "Normally" },
+							{ value: timeToBeat.completely, label: "Completely" },
+						].map(({ value, label }) =>
+							value ? (
+								<Paper key={label} p="xs" withBorder radius="md" ta="center">
+									<Text fw="bold" size="lg">
+										{dayjsLib.duration(value, "seconds").format("H[H] m[M]")}
+									</Text>
+									<Text c="dimmed" size="xs">
+										{label}
+									</Text>
+								</Paper>
+							) : null,
+						)}
 					</SimpleGrid>
 				</Stack>
 			) : null}
