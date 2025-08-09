@@ -302,7 +302,6 @@ describe("POST /collections", () => {
 		it("adds a collection entity to another collection", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			// Create two collections
 			const parentCollection = await createCollection(client, cookies, {
 				name: "Parent Collection",
 				description: "The parent collection",
@@ -313,7 +312,6 @@ describe("POST /collections", () => {
 				description: "The child collection to be added",
 			});
 
-			// Add child collection to parent collection
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
@@ -332,7 +330,6 @@ describe("POST /collections", () => {
 		it("returns validation error when trying to add a collection to itself", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			// Create a collection
 			const collection = await createCollection(client, cookies, {
 				name: "Self-Referencing Collection",
 				description: "Should not be able to add to itself",
@@ -351,16 +348,13 @@ describe("POST /collections", () => {
 		it("adds an entity to a collection", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			// Create a collection
 			const collection = await createCollection(client, cookies, {
 				name: "Test Collection",
 				description: "For testing add to collection",
 			});
 
-			// Create a tracker, schema, and entity
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			// Add entity to collection
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: { entityId, collectionId: collection.id },
@@ -410,7 +404,6 @@ describe("POST /collections", () => {
 		it("adds an entity with custom properties", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			// Create a collection with membershipPropertiesSchema
 			const collection = await createCollection(client, cookies, {
 				name: "Movies with metadata",
 				description: "Movies with recommendation info",
@@ -426,10 +419,8 @@ describe("POST /collections", () => {
 				},
 			});
 
-			// Create a tracker, schema, and entity
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			// Add entity to collection with custom properties
 			const { data, response } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
@@ -495,10 +486,8 @@ describe("POST /collections", () => {
 		it("returns 404 when collection does not exist", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			// Create a tracker and entity
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			// Try to add to non-existent collection
 			const { response, error } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
@@ -514,13 +503,11 @@ describe("POST /collections", () => {
 		it("returns 404 when entity does not exist", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			// Create a collection
 			const collection = await createCollection(client, cookies, {
 				name: "Test Collection",
 				description: "For testing add to collection",
 			});
 
-			// Try to add non-existent entity
 			const { response, error } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
 				body: {
@@ -534,20 +521,16 @@ describe("POST /collections", () => {
 		});
 
 		it("returns 404 when trying to add to another user's collection", async () => {
-			// Create two different users
 			const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
 			const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 
-			// User A creates a collection
 			const collection = await createCollection(clientA, cookiesA, {
 				name: "User A's Private Collection",
 				description: "Should not be accessible by User B",
 			});
 
-			// User B creates a tracker, schema, and entity
 			const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
-			// User B tries to add their entity to User A's collection
 			const { response, error } = await clientB.POST("/collections/memberships", {
 				headers: { Cookie: cookiesB },
 				body: { entityId, collectionId: collection.id },
@@ -574,16 +557,13 @@ describe("POST /collections", () => {
 	it("removes an entity from a collection and deletes the membership", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		// Create a collection
 		const collection = await createCollection(client, cookies, {
 			name: "Test Collection for Removal",
 			description: "For testing remove from collection",
 		});
 
-		// Create a tracker, schema, and entity
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		// Add entity to collection first
 		const { data: addData, response: addResponse } = await client.POST("/collections/memberships", {
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
@@ -592,7 +572,6 @@ describe("POST /collections", () => {
 		expect(addResponse.status).toBe(200);
 		expect(addData?.data.memberOf.relationshipSchemaId).toBeDefined();
 
-		// Now remove the entity from the collection
 		const { data: removeData, response: removeResponse } = await client.DELETE(
 			"/collections/memberships",
 			{
@@ -610,16 +589,13 @@ describe("POST /collections", () => {
 	it("returns 404 when removing entity not in collection", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		// Create a collection
 		const collection = await createCollection(client, cookies, {
 			name: "Test Collection",
 			description: "For testing remove from collection",
 		});
 
-		// Create a tracker and entity
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		// Try to remove entity that was never added to collection
 		const { response, error } = await client.DELETE("/collections/memberships", {
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
@@ -632,10 +608,8 @@ describe("POST /collections", () => {
 	it("returns 404 when collection does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		// Create an entity
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		// Try to remove from non-existent collection
 		const { response, error } = await client.DELETE("/collections/memberships", {
 			headers: { Cookie: cookies },
 			body: {
@@ -649,20 +623,16 @@ describe("POST /collections", () => {
 	});
 
 	it("returns 404 when trying to remove from another user's collection", async () => {
-		// Create two different users
 		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
 		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 
-		// User A creates a collection
 		const collection = await createCollection(clientA, cookiesA, {
 			name: "User A's Private Collection",
 			description: "Should not be accessible by User B",
 		});
 
-		// User B creates a tracker, schema, and entity
 		const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
-		// User B tries to remove their entity from User A's collection
 		const { response, error } = await clientB.DELETE("/collections/memberships", {
 			headers: { Cookie: cookiesB },
 			body: { entityId, collectionId: collection.id },

@@ -481,7 +481,6 @@ export const inferViewExpressionType = <
 			}
 		}
 
-		// Generic fallback: properties without a known schema slug return string
 		return createPropertyTypeInfo("string", {
 			type: "string",
 			label: "Event Property",
