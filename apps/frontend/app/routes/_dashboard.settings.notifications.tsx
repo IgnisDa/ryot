@@ -376,7 +376,7 @@ const DisplayNotification = (props: {
 												)
 												.with(
 													UserNotificationContentDiscriminants.MetadataEpisodeImagesChanged,
-													() => "Images for an episode changes",
+													() => "Images for an episode change",
 												)
 												.with(
 													UserNotificationContentDiscriminants.MetadataEpisodeReleased,
