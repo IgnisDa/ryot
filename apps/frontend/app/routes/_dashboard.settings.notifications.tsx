@@ -380,7 +380,7 @@ const DisplayNotification = (props: {
 												)
 												.with(
 													UserNotificationContentDiscriminants.MetadataEpisodeReleased,
-													() => "Number of episodes changes",
+													() => "An episode is released",
 												)
 												.with(
 													UserNotificationContentDiscriminants.MetadataPublished,
