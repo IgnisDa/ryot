@@ -24,4 +24,6 @@ export const podcastPropertiesSchema = mediaWithUnlinkedCreatorsPropertiesSchema
 
 export const podcastPropertiesJsonSchema = toAppSchemaProperties(podcastPropertiesSchema);
 
+export type PodcastEpisode = z.infer<typeof podcastEpisodeSchema>;
+
 export type PodcastProperties = z.infer<typeof podcastPropertiesSchema>;
