@@ -1,6 +1,6 @@
 import { match } from "ts-pattern";
 
-import { QueryEngineNotFoundError } from "~/lib/views/errors";
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
 import { nullViewExpression } from "~/lib/views/expression";
 import {
 	type QueryEngineEventJoinLike,
@@ -72,13 +72,13 @@ export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareCon
 			mode: r.mode,
 			scope: r.scope,
 			eventJoins: r.eventJoins,
-			eventSchemas: r.eventSchemas ?? [],
+			eventSchemas: r.eventSchemas,
 			relationshipJoins: [] as LatestRelationshipJoinDefinition[],
 		}))
 		.with({ mode: "timeSeries" }, (r) => ({
 			mode: r.mode,
 			scope: r.scope,
-			eventSchemas: r.eventSchemas ?? [],
+			eventSchemas: r.eventSchemas,
 			eventJoins: [] as EventJoinDefinition[],
 			relationshipJoins: [] as LatestRelationshipJoinDefinition[],
 		}))
@@ -187,6 +187,10 @@ const prepareContext = async (input: {
 
 	const isEventMode = query.mode === "events" || query.mode === "timeSeries";
 	const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
+
+	if (isEventMode && query.eventSchemas.length === 0) {
+		throw new QueryEngineValidationError("At least one event schema slug is required");
+	}
 
 	const [eventJoins, relationshipJoins, eventSchemaSlugs] = await Promise.all([
 		loadVisibleEventJoins({

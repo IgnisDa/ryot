@@ -67,6 +67,33 @@ describe("queryEngineRequestSchema", () => {
 		expect(result.success).toBe(false);
 	});
 
+	it("requires eventSchemas in events and timeSeries modes", () => {
+		expect(
+			queryEngineRequestSchema.safeParse({
+				fields: [],
+				filter: null,
+				eventJoins: [],
+				scope: ["books"],
+				mode: "events",
+				computedFields: [],
+				pagination: { page: 1, limit: 20 },
+				sort: { expression: { type: "literal", value: null }, direction: "asc" },
+			}),
+		).toMatchObject({ success: false });
+
+		expect(
+			queryEngineRequestSchema.safeParse({
+				filter: null,
+				bucket: "day",
+				scope: ["books"],
+				computedFields: [],
+				mode: "timeSeries",
+				metric: { type: "count" },
+				dateRange: { endAt: "2026-01-02T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+			}),
+		).toMatchObject({ success: false });
+	});
+
 	it("rejects time-series dateRange datetimes beyond millisecond precision", () => {
 		const result = queryEngineRequestSchema.safeParse({
 			filter: null,
