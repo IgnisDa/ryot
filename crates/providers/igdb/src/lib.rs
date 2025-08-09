@@ -8,12 +8,13 @@ use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject,
     MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::{PAGE_SIZE, ryot_log};
+use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
+use futures::try_join;
 use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
@@ -93,6 +94,19 @@ fields
     games.cover.*,
     games.version_parent;
 ";
+static TIME_TO_BEAT_FIELDS: &str = "
+fields
+    normally,
+    hastily,
+    completely;
+";
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbTimeToBeat {
+    hastily: Option<i32>,
+    normally: Option<i32>,
+    completely: Option<i32>,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbWebsite {
@@ -422,16 +436,23 @@ where id = {identity};
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client_config().await?;
         let req_body = format!(r#"{GAME_FIELDS} where id = {identifier};"#);
-        ryot_log!(debug, "Body = {}", req_body);
-        let rsp = client
-            .post(format!("{URL}/games"))
-            .body(req_body)
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        ryot_log!(debug, "Response = {:?}", rsp);
-        let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let ttb_req_body = format!(r#"{TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
+
+        let (details_rsp, ttb_rsp) = try_join!(
+            client.post(format!("{URL}/games")).body(req_body).send(),
+            client
+                .post(format!("{URL}/game_time_to_beats"))
+                .body(ttb_req_body)
+                .send()
+        )?;
+
+        let (mut details, ttb_details) = try_join!(
+            details_rsp.json::<Vec<IgdbItemResponse>>(),
+            ttb_rsp.json::<Vec<IgdbTimeToBeat>>()
+        )?;
+
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
+
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![CommitMetadataGroupInput {
                 name: "Loading...".to_string(),
