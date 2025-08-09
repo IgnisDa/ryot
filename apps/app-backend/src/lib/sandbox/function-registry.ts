@@ -1,5 +1,5 @@
+import { executeQuery } from "./host-functions/execute-query";
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
-import { getEntitySchemas } from "./host-functions/get-entity-schemas";
 import { httpCall } from "./host-functions/http-call";
 import type { HostFunction, HostFunctionFactory } from "./types";
 
@@ -13,6 +13,6 @@ const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 
 export const hostFunctionRegistry = {
 	httpCall: createHostFunctionFactory(httpCall),
-	getEntitySchemas: createHostFunctionFactory(getEntitySchemas),
+	executeQuery: createHostFunctionFactory(executeQuery),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
 } satisfies Record<string, HostFunctionFactory>;
