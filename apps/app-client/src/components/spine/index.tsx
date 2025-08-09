@@ -1,13 +1,8 @@
 import { usePathname } from "expo-router";
-import { useAtomValue } from "jotai";
 import type { ReactNode } from "react";
 import { useWindowDimensions } from "react-native";
 import { Box } from "@/components/ui/box";
-import {
-	navSheetOpenAtom,
-	searchOpenAtom,
-	trackersAtom,
-} from "@/lib/navigation";
+import { useNavSheetOpen, useSearchOpen, useTrackers } from "@/lib/navigation";
 import { SpineRail } from "./rail";
 import { SearchOverlay } from "./search-overlay";
 import { SpineSubFlyout } from "./sub-flyout";
@@ -19,9 +14,9 @@ type Props = { children: ReactNode };
 
 export function SpineNavigation({ children }: Props) {
 	const { width: screenWidth } = useWindowDimensions();
-	const trackers = useAtomValue(trackersAtom);
-	const searchOpen = useAtomValue(searchOpenAtom);
-	const navSheetOpen = useAtomValue(navSheetOpenAtom);
+	const trackers = useTrackers();
+	const searchOpen = useSearchOpen();
+	const navSheetOpen = useNavSheetOpen();
 	const pathname = usePathname();
 	const segments = pathname.split("/").filter(Boolean);
 	const trackerId = segments[0] || "home";

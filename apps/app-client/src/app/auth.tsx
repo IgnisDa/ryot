@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { router } from "expo-router";
-import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { z } from "zod";
@@ -9,8 +8,12 @@ import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { createApiClient } from "@/lib/api";
-import { CLOUD_URL, serverUrlAtom } from "@/lib/atoms";
-import { authClientAtom } from "@/lib/auth";
+import {
+	CLOUD_URL,
+	useAuthClient,
+	useServerUrl,
+	useSetServerUrl,
+} from "@/lib/atoms";
 import { useAppForm } from "@/lib/forms";
 
 type AuthMode = "login" | "signup";
@@ -50,9 +53,9 @@ function getNameFromEmail(email: string) {
 }
 
 export default function Auth() {
-	const serverUrl = useAtomValue(serverUrlAtom);
-	const setServerUrl = useSetAtom(serverUrlAtom);
-	const authClient = useAtomValue(authClientAtom);
+	const serverUrl = useServerUrl();
+	const setServerUrl = useSetServerUrl();
+	const authClient = useAuthClient();
 	const [mode, setMode] = useState<AuthMode>("login");
 
 	const modeContent = modes[mode];
