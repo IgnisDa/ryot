@@ -28,7 +28,7 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 		isCompilation: false,
 		description:
 			"Told in Kvothe's own voice, this is the tale of the magically gifted young man who grows to be the most notorious wizard his world has ever seen. From his childhood in a troupe of traveling players, to years spent as a near-feral orphan in a crime-ridden city, to his daringly brazen theft at the University, this first-person narrative is a richly detailed portrait of a boy called Kvothe—now turned legend. Told in Kvothe's own voice, this is the tale of the magically gifted young man who grows to be the most notorious wizard his world has ever seen. From his childhood in a troupe of traveling players, to years spent as a near-feral orphan in a crime-ridden city, to his daringly brazen theft at the University, this first-person narrative is a richly detailed portrait of a boy called Kvothe—now turned legend. Told in Kvothe's own voice, this is the tale of the magically gifted young man who grows to be the most notorious wizard his world has ever seen. From his childhood in a troupe of traveling players, to years spent as a near-feral orphan in a crime-ridden city, to his daringly brazen theft at the University, this first-person narrative is a richly detailed portrait of a boy called Kvothe—now turned legend.",
-		freeCreators: [
+		unlinkedCreators: [
 			{
 				name: "Patrick Rothfuss",
 				role: "Author",
@@ -52,7 +52,7 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 		runtime: 167,
 		description:
 			"Paul Atreides unites with Chani and the Fremen while on a warpath of revenge against the conspirators who destroyed his family. Facing a choice between the love of his life and the fate of the known universe, he endeavors to prevent a terrible future only he can foresee.",
-		freeCreators: [
+		unlinkedCreators: [
 			{
 				name: "Denis Villeneuve",
 				role: "Director",
@@ -192,7 +192,7 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 				})),
 			},
 		],
-		freeCreators: [
+		unlinkedCreators: [
 			{
 				name: "Vince Gilligan",
 				role: "Creator",
@@ -362,7 +362,7 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 		runtime: 491,
 		description:
 			"No matter your goals, Atomic Habits offers a proven framework for improving—every day. James Clear, one of the world's leading experts on habit formation, reveals practical strategies that will teach you exactly how to form good habits, break bad ones, and master the tiny behaviors that lead to remarkable results.",
-		freeCreators: [
+		unlinkedCreators: [
 			{
 				name: "James Clear",
 				role: "Author",
@@ -437,7 +437,7 @@ export const FAKE_ENTITY_DATA: Partial<Record<string, EntityDetail>> = {
 				overview: null,
 			},
 		],
-		freeCreators: [
+		unlinkedCreators: [
 			{
 				name: "Lex Fridman",
 				role: "Host",

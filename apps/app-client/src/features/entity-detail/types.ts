@@ -1,6 +1,6 @@
 import type { EntityImage } from "@/lib/entity-image";
 
-export type FreeCreator = { name: string; role: string; image?: string };
+export type UnlinkedCreator = { name: string; role: string; image?: string };
 
 type CommonBase = {
 	id: string;
@@ -19,14 +19,14 @@ type CommonBase = {
 export type BookDetail = CommonBase & {
 	pages: number | null;
 	entitySchemaSlug: "book";
-	freeCreators: FreeCreator[];
+	unlinkedCreators: UnlinkedCreator[];
 	isCompilation: boolean | null;
 };
 
 export type MovieDetail = CommonBase & {
 	runtime: number | null;
 	entitySchemaSlug: "movie";
-	freeCreators: FreeCreator[];
+	unlinkedCreators: UnlinkedCreator[];
 };
 
 export type ShowEpisode = {
@@ -48,7 +48,7 @@ export type ShowSeason = {
 export type ShowDetail = CommonBase & {
 	entitySchemaSlug: "show";
 	showSeasons: ShowSeason[];
-	freeCreators: FreeCreator[];
+	unlinkedCreators: UnlinkedCreator[];
 };
 
 export type AnimeDetail = CommonBase & {
@@ -70,7 +70,7 @@ export type ComicBookDetail = CommonBase & {
 
 export type AudiobookDetail = CommonBase & {
 	runtime: number | null;
-	freeCreators: FreeCreator[];
+	unlinkedCreators: UnlinkedCreator[];
 	entitySchemaSlug: "audiobook";
 };
 
@@ -85,7 +85,7 @@ export type PodcastEpisode = {
 
 export type PodcastDetail = CommonBase & {
 	episodes: PodcastEpisode[];
-	freeCreators: FreeCreator[];
+	unlinkedCreators: UnlinkedCreator[];
 	entitySchemaSlug: "podcast";
 	totalEpisodes: number | null;
 };

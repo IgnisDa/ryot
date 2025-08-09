@@ -1,9 +1,9 @@
 import { toAppSchemaProperties } from "@ryot/ts-utils";
 
 import { imagesSchema, nullableBooleanSchema, nullableIntSchema } from "../zod";
-import { mediaWithFreeCreatorsPropertiesSchema } from "./common";
+import { mediaWithUnlinkedCreatorsPropertiesSchema } from "./common";
 
-export const bookPropertiesSchema = mediaWithFreeCreatorsPropertiesSchema.extend({
+export const bookPropertiesSchema = mediaWithUnlinkedCreatorsPropertiesSchema.extend({
 	images: imagesSchema.describe("Cover and related images for this book"),
 	pages: nullableIntSchema.describe("Total number of pages in this edition"),
 	isCompilation: nullableBooleanSchema.describe(
