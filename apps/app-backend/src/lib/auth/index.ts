@@ -20,15 +20,11 @@ export const auth = betterAuth({
 	secondaryStorage: redisStorage({ client: redis }),
 	database: drizzleAdapter(db, { provider: "pg", schema }),
 	trustedOrigins: [config.frontendUrl, ...config.server.corsOrigins],
+	user: { additionalFields: { preferences: { type: "json", required: true, defaultValue: null } } },
 	emailAndPassword: {
 		enabled: true,
 		autoSignIn: false,
 		disableSignUp: !config.users.allowRegistration,
-	},
-	user: {
-		additionalFields: {
-			preferences: { type: "json", required: true, defaultValue: null },
-		},
 	},
 	plugins: [
 		apiKey({
