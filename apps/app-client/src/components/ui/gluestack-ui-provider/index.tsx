@@ -6,14 +6,12 @@ import { Appearance, View, type ViewProps } from "react-native";
 
 export type ModeType = "light" | "dark" | "system";
 
-export function GluestackUIProvider({
-	mode = "system",
-	...props
-}: {
+export function GluestackUIProvider(props: {
 	mode?: ModeType;
 	children?: React.ReactNode;
 	style?: ViewProps["style"];
 }) {
+	const { mode = "system", ...rest } = props;
 	useEffect(() => {
 		if (mode !== "system") {
 			Appearance.setColorScheme(mode);
@@ -21,9 +19,9 @@ export function GluestackUIProvider({
 	}, [mode]);
 
 	return (
-		<View style={[{ flex: 1, height: "100%", width: "100%" }, props.style]}>
+		<View style={[{ flex: 1, height: "100%", width: "100%" }, rest.style]}>
 			<OverlayProvider>
-				<ToastProvider>{props.children}</ToastProvider>
+				<ToastProvider>{rest.children}</ToastProvider>
 			</OverlayProvider>
 		</View>
 	);

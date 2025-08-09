@@ -124,27 +124,27 @@ const buttonGroupStyle = tva({
 });
 type IButtonProps = Omit<React.ComponentPropsWithoutRef<typeof UIButton>, "context"> &
 	VariantProps<typeof buttonStyle> & { className?: string };
-const Button = React.forwardRef<React.ComponentRef<typeof UIButton>, IButtonProps>(
-	({ className, variant = "default", size = "default", ...props }, ref) => {
-		return (
-			<UIButton
-				ref={ref}
-				{...props}
-				className={buttonStyle({ variant, size, class: className })}
-				context={{ variant, size }}
-			/>
-		);
-	},
-);
+const Button = React.forwardRef<React.ComponentRef<typeof UIButton>, IButtonProps>((props, ref) => {
+	const { className, variant = "default", size = "default", ...rest } = props;
+	return (
+		<UIButton
+			ref={ref}
+			{...rest}
+			className={buttonStyle({ variant, size, class: className })}
+			context={{ variant, size }}
+		/>
+	);
+});
 type IButtonTextProps = React.ComponentPropsWithoutRef<typeof UIButton.Text> &
 	VariantProps<typeof buttonTextStyle> & { className?: string };
 const ButtonText = React.forwardRef<React.ComponentRef<typeof UIButton.Text>, IButtonTextProps>(
-	({ className, size, ...props }, ref) => {
+	(props, ref) => {
+		const { className, size, ...rest } = props;
 		const { size: parentSize, variant: parentVariant } = useStyleContext(SCOPE);
 		return (
 			<UIButton.Text
 				ref={ref}
-				{...props}
+				{...rest}
 				className={buttonTextStyle({
 					size,
 					class: className,
@@ -157,12 +157,13 @@ const ButtonText = React.forwardRef<React.ComponentRef<typeof UIButton.Text>, IB
 const ButtonSpinner = React.forwardRef<
 	React.ComponentRef<typeof UIButton.Spinner>,
 	React.ComponentPropsWithoutRef<typeof UIButton.Spinner>
->(({ className, ...props }, ref) => {
+>(function ButtonSpinner(props, ref) {
+	const { className, ...rest } = props;
 	const { size: parentSize } = useStyleContext(SCOPE);
 	return (
 		<UIButton.Spinner
 			ref={ref}
-			{...props}
+			{...rest}
 			className={buttonSpinnerStyle({
 				class: className,
 				parentVariants: { size: parentSize },
@@ -178,26 +179,27 @@ type IButtonIcon = React.ComponentPropsWithoutRef<typeof UIButton.Icon> &
 		className?: string | undefined;
 	};
 const ButtonIcon = React.forwardRef<React.ComponentRef<typeof UIButton.Icon>, IButtonIcon>(
-	({ className, size, ...props }, ref) => {
+	(props, ref) => {
+		const { className, size, ...rest } = props;
 		const { size: parentSize, variant: parentVariant } = useStyleContext(SCOPE);
 		if (typeof size === "number") {
 			return (
 				<UIButton.Icon
 					ref={ref}
-					{...props}
+					{...rest}
 					size={size}
 					className={buttonIconStyle({ class: className })}
 				/>
 			);
 		}
-		if ((props.height !== undefined || props.width !== undefined) && size === undefined) {
+		if ((rest.height !== undefined || rest.width !== undefined) && size === undefined) {
 			return (
-				<UIButton.Icon ref={ref} {...props} className={buttonIconStyle({ class: className })} />
+				<UIButton.Icon ref={ref} {...rest} className={buttonIconStyle({ class: className })} />
 			);
 		}
 		return (
 			<UIButton.Icon
-				{...props}
+				{...rest}
 				ref={ref}
 				className={buttonIconStyle({
 					size,
@@ -211,7 +213,14 @@ const ButtonIcon = React.forwardRef<React.ComponentRef<typeof UIButton.Icon>, IB
 type IButtonGroupProps = React.ComponentPropsWithoutRef<typeof UIButton.Group> &
 	VariantProps<typeof buttonGroupStyle>;
 const ButtonGroup = React.forwardRef<React.ComponentRef<typeof UIButton.Group>, IButtonGroupProps>(
-	({ className, space = "md", isAttached = false, flexDirection = "column", ...props }, ref) => {
+	(props, ref) => {
+		const {
+			className,
+			space = "md",
+			isAttached = false,
+			flexDirection = "column",
+			...rest
+		} = props;
 		return (
 			<UIButton.Group
 				className={buttonGroupStyle({
@@ -220,7 +229,7 @@ const ButtonGroup = React.forwardRef<React.ComponentRef<typeof UIButton.Group>, 
 					flexDirection,
 					class: className,
 				})}
-				{...props}
+				{...rest}
 				ref={ref}
 			/>
 		);
