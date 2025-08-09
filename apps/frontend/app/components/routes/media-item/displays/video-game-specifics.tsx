@@ -8,14 +8,16 @@ export function VideoGameSpecificsDisplay(props: {
 	const platformReleases = props.specifics?.platformReleases;
 	const timeToBeat = props.specifics?.timeToBeat;
 
-	if (!platformReleases?.length && !timeToBeat) {
-		return null;
-	}
+	const hasTimeToBeatData =
+		timeToBeat &&
+		(timeToBeat.hastily || timeToBeat.normally || timeToBeat.completely);
+	const hasPlatformReleases = platformReleases && platformReleases.length > 0;
+
+	if (!hasPlatformReleases && !hasTimeToBeatData) return null;
 
 	return (
 		<Stack gap="md">
-			{timeToBeat &&
-			(timeToBeat.hastily || timeToBeat.normally || timeToBeat.completely) ? (
+			{hasTimeToBeatData ? (
 				<Stack gap="sm">
 					<Title order={4} ta="center">
 						Time to beat
@@ -40,7 +42,7 @@ export function VideoGameSpecificsDisplay(props: {
 					</SimpleGrid>
 				</Stack>
 			) : null}
-			{platformReleases && platformReleases.length > 0 ? (
+			{hasPlatformReleases ? (
 				<Table
 					data={{
 						head: ["Platform", "Release Date"],
