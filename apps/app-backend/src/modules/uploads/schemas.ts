@@ -10,6 +10,19 @@ export const getPresignedUploadUrlQuery = z.object({
 	key: nonEmptyTrimmedStringSchema,
 });
 
+export const getPresignedDownloadUrlBody = z.object({
+	keys: z.array(nonEmptyTrimmedStringSchema).min(1),
+});
+
+export const presignedDownloadUrlSchema = z.object({
+	downloadUrl: z.url(),
+	key: nonEmptyTrimmedStringSchema,
+});
+
+export const getPresignedDownloadUrlResponseSchema = dataSchema(
+	z.array(presignedDownloadUrlSchema),
+);
+
 export const presignedUploadUrlSchema = z.object({
 	uploadUrl: z.url(),
 	key: nonEmptyTrimmedStringSchema,
@@ -22,6 +35,6 @@ export const getPresignedUploadUrlResponseSchema = dataSchema(
 export type GetPresignedUploadUrlBody = z.infer<
 	typeof getPresignedUploadUrlBody
 >;
-export type GetPresignedUploadUrlQuery = z.infer<
-	typeof getPresignedUploadUrlQuery
+export type GetPresignedDownloadUrlBody = z.infer<
+	typeof getPresignedDownloadUrlBody
 >;

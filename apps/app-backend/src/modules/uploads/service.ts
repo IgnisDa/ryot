@@ -2,8 +2,8 @@ import { resolveRequiredString } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
 import { s3, s3BucketName } from "~/lib/s3";
 import type {
+	GetPresignedDownloadUrlBody,
 	GetPresignedUploadUrlBody,
-	GetPresignedUploadUrlQuery,
 } from "./schemas";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
 
@@ -90,13 +90,17 @@ export const createPresignedUpload = async (
 	return { key, uploadUrl };
 };
 
-export const createPresignedDownload = async (
-	input: GetPresignedUploadUrlQuery,
+export const createPresignedDownloads = async (
+	input: GetPresignedDownloadUrlBody,
 	deps: CreatePresignedDownloadDeps = {},
 ) => {
-	const key = resolveRequiredString(input.key, "Upload key");
 	const signDownloadUrlFn = deps.signDownloadUrl ?? signDownloadUrl;
-	const uploadUrl = await signDownloadUrlFn(key);
 
-	return { key, uploadUrl };
+	return Promise.all(
+		input.keys.map(async (key) => {
+			const resolvedKey = resolveRequiredString(key, "Upload key");
+			const downloadUrl = await signDownloadUrlFn(resolvedKey);
+			return { key: resolvedKey, downloadUrl };
+		}),
+	);
 };
