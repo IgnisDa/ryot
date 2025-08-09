@@ -81,3 +81,38 @@ export async function waitForSeededExerciseId(client: Client, cookies: string) {
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
 }
+
+export async function waitForSeededExerciseIds(client: Client, cookies: string, count: number) {
+	return pollUntil(
+		"seeded exercise ids to be queryable",
+		async () => {
+			const result = await executeQueryEngine(
+				client,
+				cookies,
+				buildTableRequest({
+					scope: ["exercise"],
+					pagination: { page: 1, limit: count },
+					displayConfiguration: buildTableDisplayConfiguration([
+						{ label: "Id", property: [entityField("exercise", "id")] },
+					]),
+				}),
+			);
+
+			if (result.response.status !== 200) {
+				return null;
+			}
+
+			const ids = result.data.data.items.flatMap((item) => {
+				const field = item.column_0;
+				if (field?.kind !== "text" || typeof field.value !== "string") {
+					return [];
+				}
+
+				return [field.value];
+			});
+
+			return ids.length >= count ? ids.slice(0, count) : null;
+		},
+		{ intervalMs: 1000, timeoutMs: 60000 },
+	);
+}
