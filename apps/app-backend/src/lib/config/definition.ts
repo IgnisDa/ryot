@@ -30,11 +30,30 @@ export const systemConfigDef = group("Core system configuration", {
 			sensitive: true,
 			description: "Secret token required for admin API operations",
 		}),
+		oidc: group("OIDC provider", {
+			clientId: field("SERVER_OIDC_CLIENT_ID", {
+				optional: true,
+				description: "Client ID for the OIDC provider",
+			}),
+			issuerUrl: field("SERVER_OIDC_ISSUER_URL", {
+				optional: true,
+				description: "Issuer/discovery URL for the OIDC provider",
+			}),
+			clientSecret: field("SERVER_OIDC_CLIENT_SECRET", {
+				optional: true,
+				sensitive: true,
+				description: "Client secret for the OIDC provider",
+			}),
+		}),
 	}),
 	users: group("User account settings", {
 		allowRegistration: field("USERS_ALLOW_REGISTRATION", {
 			default: "true",
 			description: "Allow new users to self-register on this instance",
+		}),
+		disableLocalAuth: field("USERS_DISABLE_LOCAL_AUTH", {
+			optional: true,
+			description: "Disable email/password authentication, forcing OAuth-only login",
 		}),
 	}),
 	fileStorage: group("S3-compatible file storage", {
@@ -59,6 +78,12 @@ export const systemConfigDef = group("Core system configuration", {
 			optional: true,
 			sensitive: true,
 			description: "Secret access key credential for storage authentication",
+		}),
+	}),
+	frontend: group("Frontend display settings", {
+		oidcButtonLabel: field("FRONTEND_OIDC_BUTTON_LABEL", {
+			optional: true,
+			description: "Label shown on the OIDC sign-in button in the client",
 		}),
 	}),
 });

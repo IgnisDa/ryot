@@ -21,7 +21,7 @@ The backend powers a self-hosted personal tracking product. Favor explicit valid
 ### Routes And OpenAPI
 
 - Routes should be thin: parse input, check access, call service/repo, return response.
-- Define routes with `createAuthRoute` (`src/lib/openapi.ts`).
+- Define routes with `createAuthRoute` (`src/lib/auth`).
 - Response helpers (`createSuccessResult`, `createServiceErrorResult`, `createStandardResponses`, etc.) live in `src/lib/openapi.ts`. Use them — do not construct ad hoc JSON error responses.
 
 ### Error Handling
