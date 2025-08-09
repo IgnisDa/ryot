@@ -12,10 +12,8 @@ import {
 	ScrollArea,
 	SimpleGrid,
 	Stack,
-	Table,
 	Tabs,
 	Text,
-	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -88,6 +86,7 @@ import { HistoryItem } from "~/components/routes/media-item/displays/history-ite
 import { MetadataCreator } from "~/components/routes/media-item/displays/metadata-creator";
 import { DisplayPodcastEpisode } from "~/components/routes/media-item/displays/podcast-episode";
 import { DisplayShowSeason } from "~/components/routes/media-item/displays/show-season";
+import { VideoGameSpecificsDisplay } from "~/components/routes/media-item/displays/video-game-specifics";
 import { VideoIframe } from "~/components/routes/media-item/displays/video-iframe";
 import { MergeMetadataModal } from "~/components/routes/media-item/modals/merge-metadata-modal";
 import { DisplayShowSeasonEpisodesModal } from "~/components/routes/media-item/modals/show-season-episodes-modal";
@@ -374,10 +373,6 @@ export default function Page() {
 		);
 	};
 
-	const platformReleases =
-		loaderData.metadataDetails.videoGameSpecifics?.platformReleases;
-	const timeToBeat = loaderData.metadataDetails.videoGameSpecifics?.timeToBeat;
-
 	return (
 		<>
 			<DisplayShowSeasonEpisodesModal
@@ -655,61 +650,9 @@ export default function Page() {
 													})
 											: null}
 									</SimpleGrid>
-									{timeToBeat &&
-									(timeToBeat.hastily ||
-										timeToBeat.normally ||
-										timeToBeat.completely) ? (
-										<Stack gap="sm">
-											<Title order={4} ta="center">
-												Time to beat
-											</Title>
-											<SimpleGrid cols={3}>
-												{timeToBeat.hastily ? (
-													<Paper p="xs" withBorder radius="md" ta="center">
-														<Text fw={700} size="lg">
-															{Math.round(timeToBeat.hastily / 3600)} H
-														</Text>
-														<Text c="dimmed" size="xs">
-															Hastily
-														</Text>
-													</Paper>
-												) : null}
-												{timeToBeat.normally ? (
-													<Paper p="xs" radius="md" withBorder ta="center">
-														<Text fw={700} size="lg">
-															{Math.round(timeToBeat.normally / 3600)} H
-														</Text>
-														<Text c="dimmed" size="xs">
-															Normally
-														</Text>
-													</Paper>
-												) : null}
-												{timeToBeat.completely ? (
-													<Paper p="xs" radius="md" withBorder ta="center">
-														<Text fw={700} size="lg">
-															{Math.round(timeToBeat.completely / 3600)} H
-														</Text>
-														<Text c="dimmed" size="xs">
-															Completely
-														</Text>
-													</Paper>
-												) : null}
-											</SimpleGrid>
-										</Stack>
-									) : null}
-									{platformReleases && (platformReleases?.length || 0) > 0 ? (
-										<Table
-											data={{
-												head: ["Platform", "Release Date"],
-												body: platformReleases.map((p) => [
-													p.name,
-													p.releaseDate
-														? dayjsLib(p.releaseDate).format("LL")
-														: "Unknown",
-												]),
-											}}
-										/>
-									) : null}
+									<VideoGameSpecificsDisplay
+										specifics={loaderData.metadataDetails.videoGameSpecifics}
+									/>
 									{loaderData.metadataDetails.description ? (
 										<ScrollArea maw="600">
 											<div
