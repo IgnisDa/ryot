@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import { buildQueryContext, type PreparedQueryContext } from "./context";
-import { buildResolvedFieldsExpression } from "./display-builder";
+import { buildResolvedFieldsExpression } from "./display-sql-builder";
 import { buildLatestEventJoinCte } from "./event-join-ctes";
 import {
 	createQueryCompiler,

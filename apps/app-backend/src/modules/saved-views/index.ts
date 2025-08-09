@@ -1,4 +1,8 @@
-export { createDefaultDisplayConfiguration, createDefaultQueryDefinition } from "./constants";
+export {
+	buildBuiltinSavedViewName,
+	createDefaultDisplayConfiguration,
+	createDefaultQueryDefinition,
+} from "./constants";
 export { getSavedViewBySlugForUser } from "./repository";
 export { createSavedViewsForUser } from "./repository";
 export type {
@@ -27,13 +31,3 @@ export {
 	sortDefinitionSchema,
 	timeSeriesMetricSchema,
 } from "./schemas";
-export type { SavedViewServiceDeps, SavedViewServiceResult } from "./service";
-export {
-	buildBuiltinSavedViewName,
-	cloneSavedView,
-	createSavedView,
-	deleteSavedView,
-	reorderSavedViews,
-	resolveSavedViewName,
-	updateSavedView,
-} from "./service";
