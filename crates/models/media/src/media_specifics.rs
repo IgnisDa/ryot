@@ -194,6 +194,27 @@ pub struct ShowEpisode {
     SimpleObject,
     FromJsonQueryResult,
 )]
+#[graphql(input_name = "VideoGameSpecificsTimeToBeatInput")]
+pub struct VideoGameSpecificsTimeToBeat {
+    pub hastily: Option<i32>,
+    pub normally: Option<i32>,
+    pub completely: Option<i32>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
 #[graphql(input_name = "VideoGameSpecificsPlatformReleaseInput")]
 pub struct VideoGameSpecificsPlatformRelease {
     pub name: String,
@@ -215,6 +236,7 @@ pub struct VideoGameSpecificsPlatformRelease {
 )]
 #[graphql(input_name = "VideoGameSpecificsInput")]
 pub struct VideoGameSpecifics {
+    pub time_to_beat: Option<VideoGameSpecificsTimeToBeat>,
     pub platform_releases: Option<Vec<VideoGameSpecificsPlatformRelease>>,
 }
 

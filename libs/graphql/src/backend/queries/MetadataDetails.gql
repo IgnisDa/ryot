@@ -102,6 +102,11 @@ query MetadataDetails($metadataId: String!, $ensureUpdated: Boolean) {
 				name
 				releaseDate
 			}
+			timeToBeat {
+				hastily
+				normally
+				completely
+			}
 		}
 		musicSpecifics {
 			duration

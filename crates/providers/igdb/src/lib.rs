@@ -19,7 +19,7 @@ use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics, VideoGameSpecificsPlatformRelease,
+    VideoGameSpecifics, VideoGameSpecificsPlatformRelease, VideoGameSpecificsTimeToBeat,
 };
 use reqwest::{
     Client,
@@ -100,13 +100,6 @@ fields
     hastily,
     completely;
 ";
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct IgdbTimeToBeat {
-    hastily: Option<i32>,
-    normally: Option<i32>,
-    completely: Option<i32>,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbWebsite {
@@ -448,7 +441,7 @@ where id = {identity};
 
         let (mut details, ttb_details) = try_join!(
             details_rsp.json::<Vec<IgdbItemResponse>>(),
-            ttb_rsp.json::<Vec<IgdbTimeToBeat>>()
+            ttb_rsp.json::<Vec<VideoGameSpecificsTimeToBeat>>()
         )?;
 
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
@@ -465,7 +458,8 @@ where id = {identity};
             }],
             None => vec![],
         };
-        let mut game_details = self.igdb_response_to_search_response(detail);
+        let mut game_details =
+            self.igdb_response_to_search_response(detail, ttb_details.first().cloned());
         game_details.groups = groups;
         Ok(game_details)
     }
@@ -529,7 +523,7 @@ offset: {offset};
         let resp = search
             .into_iter()
             .map(|r| {
-                let a = self.igdb_response_to_search_response(r);
+                let a = self.igdb_response_to_search_response(r, None);
                 MetadataSearchItem {
                     title: a.title,
                     identifier: a.identifier,
@@ -593,7 +587,11 @@ impl IgdbService {
         ])))
     }
 
-    fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MetadataDetails {
+    fn igdb_response_to_search_response(
+        &self,
+        item: IgdbItemResponse,
+        time_to_beat: Option<VideoGameSpecificsTimeToBeat>,
+    ) -> MetadataDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| self.get_cover_image_url(a.image_id)));
         let additional_images = item
             .artworks
@@ -673,11 +671,11 @@ impl IgdbService {
                 .unique()
                 .collect(),
             video_game_specifics: Some(VideoGameSpecifics {
+                time_to_beat,
                 platform_releases: match platform_releases.is_empty() {
                     true => None,
                     false => Some(platform_releases),
                 },
-                ..Default::default()
             }),
             suggestions: item
                 .similar_games
