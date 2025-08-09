@@ -115,6 +115,55 @@ function collectGenres(genresArray) {
 	return genres;
 }
 
+function collectCompanies(networks, productionCompanies) {
+	const companies = [];
+	const seen = new Set();
+
+	const addCompany = (company, role) => {
+		const id =
+			typeof company?.id === "number" && Number.isFinite(company.id)
+				? Math.trunc(company.id)
+				: null;
+		if (id === null) {
+			return;
+		}
+		const key = `${id}:${role}`;
+		if (seen.has(key)) {
+			return;
+		}
+		seen.add(key);
+
+		const name =
+			typeof company?.name === "string" && company.name.trim()
+				? company.name.trim()
+				: null;
+		if (!name) {
+			return;
+		}
+
+		companies.push({
+			name,
+			role,
+			externalId: String(id),
+			scriptSlug: "company.tmdb",
+		});
+	};
+
+	if (Array.isArray(networks)) {
+		for (const network of networks) {
+			addCompany(network, "Network");
+		}
+	}
+
+	if (Array.isArray(productionCompanies)) {
+		for (const company of productionCompanies) {
+			addCompany(company, "Production Company");
+		}
+	}
+
+	return companies;
+}
+
 function collectPeople(cast, crew, createdBy) {
 	const people = [];
 	const unlinkedCreators = [];
@@ -470,14 +519,18 @@ driver("details", async function (context) {
 			images,
 			showSeasons,
 			providerRating,
-			isNsfw: showData?.adult === true ? true : null,
 			genres: collectGenres(showData?.genres),
+			isNsfw: showData?.adult === true ? true : null,
 			sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
 			publishYear: parsePublishYear(showData?.first_air_date, dayjs),
 			...collectPeople(
 				creditsData?.cast,
 				creditsData?.crew,
 				showData?.created_by,
+			),
+			companies: collectCompanies(
+				showData?.networks,
+				showData?.production_companies,
 			),
 			description:
 				typeof showData?.overview === "string" && showData.overview.trim()

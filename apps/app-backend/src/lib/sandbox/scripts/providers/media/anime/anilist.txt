@@ -362,6 +362,7 @@ query MediaDetailsQuery($id: Int!) {
     nextAiringEpisode { episode airingAt }
     title { english romaji native userPreferred }
     airingSchedule { nodes { episode airingAt } }
+    studios { nodes { id name } }
   }
 }
 `;
@@ -424,10 +425,43 @@ query MediaDetailsQuery($id: Int!) {
     typeof media?.description === "string" ? media.description : null;
   const description = await cleanHtmlDescription(rawDescription);
 
+  const studioNodes =
+    media.studios?.nodes && Array.isArray(media.studios.nodes)
+      ? media.studios.nodes
+      : [];
+  const companies = studioNodes
+    .map((studio) => {
+      if (!studio || typeof studio !== "object") {
+        return null;
+      }
+      const studioId =
+        typeof studio.id === "number" && Number.isFinite(studio.id)
+          ? Math.trunc(studio.id)
+          : null;
+      if (studioId === null) {
+        return null;
+      }
+      const studioName =
+        typeof studio.name === "string" && studio.name.trim()
+          ? studio.name.trim()
+          : null;
+      if (!studioName) {
+        return null;
+      }
+      return {
+        name: studioName,
+        role: "Animation Studio",
+        externalId: String(studioId),
+        scriptSlug: "company.anilist",
+      };
+    })
+    .filter((s) => s !== null);
+
   return {
     name: title,
     properties: {
       episodes,
+      companies,
       productionStatus: productionStatus,
       publishYear: parsePublishYear(media.startDate),
       genres: collectGenres(media.genres, media.tags),
