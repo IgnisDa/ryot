@@ -1,15 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import {
-	createEntityPropertyExpression,
-	createEntitySchemaExpression,
-} from "@ryot/ts-utils";
+
+import { createEntityPropertyExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
-import {
-	createSmartphoneSchema,
-	createTabletSchema,
-	literalExpression,
-} from "~/lib/test-fixtures";
+
+import { createSmartphoneSchema, createTabletSchema, literalExpression } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+
 import type { QueryEngineContext } from "./schemas";
 import { buildSortExpression } from "./sort-builder";
 

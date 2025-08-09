@@ -21,6 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
+
 import { ThreePointSmileyRating, Verb } from "../types";
 import { clientGqlService } from "./react-query";
 
@@ -35,12 +36,7 @@ export const getLot = (lot: unknown) => {
 		.with("movies", "movie", () => MediaLot.Movie)
 		.with("podcast", "podcasts", () => MediaLot.Podcast)
 		.with("tv", "show", "shows", () => MediaLot.Show)
-		.with(
-			"visual_novel",
-			"visualnovel",
-			"visual novel",
-			() => MediaLot.VisualNovel,
-		)
+		.with("visual_novel", "visualnovel", "visual novel", () => MediaLot.VisualNovel)
 		.with(
 			"games",
 			"videogames",
@@ -75,13 +71,7 @@ export const getVerb = (verb: Verb, lot: MediaLot) =>
 		.with(Verb.Read, () => {
 			return match(lot)
 				.with(MediaLot.Book, MediaLot.Manga, MediaLot.ComicBook, () => "read")
-				.with(
-					MediaLot.Movie,
-					MediaLot.Show,
-					MediaLot.Anime,
-					MediaLot.VisualNovel,
-					() => "watch",
-				)
+				.with(MediaLot.Movie, MediaLot.Show, MediaLot.Anime, MediaLot.VisualNovel, () => "watch")
 				.with(
 					MediaLot.AudioBook,
 					MediaLot.Music,
@@ -137,24 +127,18 @@ export const convertRatingToUserScale = (
 		.with(UserReviewScale.OutOfFive, () => value / 20)
 		.with(UserReviewScale.ThreePointSmiley, () => value)
 		.exhaustive();
-	return scale === UserReviewScale.OutOfHundred ||
-		scale === UserReviewScale.ThreePointSmiley
+	return scale === UserReviewScale.OutOfHundred || scale === UserReviewScale.ThreePointSmiley
 		? scaled
 		: Math.round(scaled * 10) / 10;
 };
 
-export const formatRatingForDisplay = (
-	rating: number,
-	scale: UserReviewScale,
-) =>
+export const formatRatingForDisplay = (rating: number, scale: UserReviewScale) =>
 	match(scale)
 		.with(UserReviewScale.OutOfTen, () => rating.toFixed(1))
 		.with(UserReviewScale.OutOfFive, () => rating.toFixed(1))
 		.with(UserReviewScale.ThreePointSmiley, () => rating.toFixed(2))
 		.with(UserReviewScale.OutOfHundred, () =>
-			Number.isInteger(rating)
-				? Math.round(rating).toString()
-				: rating.toFixed(1),
+			Number.isInteger(rating) ? Math.round(rating).toString() : rating.toFixed(1),
 		)
 		.exhaustive();
 

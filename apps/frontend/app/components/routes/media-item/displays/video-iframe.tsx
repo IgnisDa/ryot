@@ -4,10 +4,7 @@ import { EntityRemoteVideoSource } from "@ryot/generated/graphql/backend/graphql
 import { useState } from "react";
 import { match } from "ts-pattern";
 
-export const VideoIframe = (props: {
-	videoId: string;
-	videoSource: EntityRemoteVideoSource;
-}) => {
+export const VideoIframe = (props: { videoId: string; videoSource: EntityRemoteVideoSource }) => {
 	const { ref, inViewport } = useInViewport();
 	const [isMounted, setIsMounted] = useState(false);
 
@@ -25,10 +22,7 @@ export const VideoIframe = (props: {
 					title="Video player"
 					src={
 						match(props.videoSource)
-							.with(
-								EntityRemoteVideoSource.Youtube,
-								() => "https://www.youtube.com/embed/",
-							)
+							.with(EntityRemoteVideoSource.Youtube, () => "https://www.youtube.com/embed/")
 							.with(
 								EntityRemoteVideoSource.Dailymotion,
 								() => "https://www.dailymotion.com/embed/video/",

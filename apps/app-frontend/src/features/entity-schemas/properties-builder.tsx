@@ -6,9 +6,7 @@ type EntitySchemaPropertiesBuilderProps = {
 	isLoading: boolean;
 };
 
-export function EntitySchemaPropertiesBuilder(
-	props: EntitySchemaPropertiesBuilderProps,
-) {
+export function EntitySchemaPropertiesBuilder(props: EntitySchemaPropertiesBuilderProps) {
 	return (
 		<PropertySchemasBuilder
 			form={props.form}

@@ -1,10 +1,8 @@
 import { describe, expect, it } from "bun:test";
+
 import { PgDialect } from "drizzle-orm/pg-core";
-import {
-	buildEventFirstCte,
-	buildJoinedCte,
-	buildLatestEventJoinCte,
-} from "./query-ctes";
+
+import { buildEventFirstCte, buildJoinedCte, buildLatestEventJoinCte } from "./query-ctes";
 
 const dialect = new PgDialect();
 
@@ -172,9 +170,7 @@ describe("buildJoinedCte", () => {
 			key: "watch",
 			eventSchemaSlug: "watch",
 			eventSchemas: [{ ...baseEventSchema, slug: "watch", id: "es_watch" }],
-			eventSchemaMap: new Map([
-				["watch", { ...baseEventSchema, slug: "watch", id: "es_watch" }],
-			]),
+			eventSchemaMap: new Map([["watch", { ...baseEventSchema, slug: "watch", id: "es_watch" }]]),
 		};
 		const cte = buildJoinedCte({
 			baseCte: "base_events",

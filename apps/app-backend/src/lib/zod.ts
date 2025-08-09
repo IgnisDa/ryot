@@ -29,9 +29,7 @@ export const optionalIconAndAccentColorFields = {
 	accentColor: nonEmptyTrimmedStringSchema.optional(),
 } satisfies z.ZodRawShape;
 
-export const createIdParamsSchema = <TParamName extends string>(
-	paramName: TParamName,
-) =>
+export const createIdParamsSchema = <TParamName extends string>(paramName: TParamName) =>
 	z.object({
 		[paramName]: nonEmptyTrimmedStringSchema,
 	} as Record<TParamName, typeof nonEmptyTrimmedStringSchema>);
@@ -57,9 +55,7 @@ export const createUniqueNonEmptyTrimmedStringArraySchema = (input: {
 			});
 		});
 
-export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(
-	shape: TShape,
-) =>
+export const createNameWithOptionalSlugSchema = <TShape extends z.ZodRawShape>(shape: TShape) =>
 	z.object({
 		name: nonEmptyTrimmedStringSchema,
 		slug: nonEmptyTrimmedStringSchema.optional(),
@@ -83,10 +79,7 @@ const remoteImageUrlSchema = z
 		}
 	});
 
-const s3ImageKeySchema = z
-	.string()
-	.trim()
-	.min(1, "Entity image s3 key is required");
+const s3ImageKeySchema = z.string().trim().min(1, "Entity image s3 key is required");
 
 export const remoteImageSchema = z.strictObject({
 	url: remoteImageUrlSchema,
@@ -98,10 +91,7 @@ export const s3ImageSchema = z.strictObject({
 	kind: z.literal("s3"),
 });
 
-export const ImageSchema = z.discriminatedUnion("kind", [
-	s3ImageSchema,
-	remoteImageSchema,
-]);
+export const ImageSchema = z.discriminatedUnion("kind", [s3ImageSchema, remoteImageSchema]);
 
 export type ImageSchemaType = z.infer<typeof ImageSchema>;
 

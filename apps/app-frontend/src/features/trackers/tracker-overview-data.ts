@@ -1,10 +1,8 @@
 import { dayjs } from "@ryot/ts-utils";
 import { useQueries } from "@tanstack/react-query";
+
 import type { AppEntity } from "~/features/entities/model";
-import {
-	createEntityRuntimeRequest,
-	toAppEntity,
-} from "~/features/entities/model";
+import { createEntityRuntimeRequest, toAppEntity } from "~/features/entities/model";
 import type { AppEntitySchema } from "~/features/entity-schemas/model";
 import type { AppEventSchema } from "~/features/event-schemas/model";
 import { sortEventSchemas } from "~/features/event-schemas/model";
@@ -17,6 +15,7 @@ import {
 	isEntitySavedView,
 } from "~/features/saved-views/model";
 import { useApiClient } from "~/hooks/api";
+
 import type { AppTracker } from "./model";
 
 interface TrackerOverviewActivity {
@@ -58,8 +57,7 @@ export interface TrackerOverviewData {
 
 function sortEntitiesByRecent(entities: AppEntity[]) {
 	return [...entities].sort((a, b) => {
-		const updatedAtDiff =
-			dayjs(b.updatedAt).valueOf() - dayjs(a.updatedAt).valueOf();
+		const updatedAtDiff = dayjs(b.updatedAt).valueOf() - dayjs(a.updatedAt).valueOf();
 		if (updatedAtDiff !== 0) {
 			return updatedAtDiff;
 		}
@@ -140,9 +138,7 @@ export function useTrackerOverviewData(input: {
 
 	const allEntities = entitiesWithSchema.map((item) => item.entity);
 	const entityById = new Map(allEntities.map((entity) => [entity.id, entity]));
-	const schemaById = new Map(
-		input.entitySchemas.map((schema) => [schema.id, schema]),
-	);
+	const schemaById = new Map(input.entitySchemas.map((schema) => [schema.id, schema]));
 	const recentEntities = sortEntitiesByRecent(allEntities).slice(0, 3);
 
 	const allEntityEventQueries = useQueries({
@@ -172,9 +168,7 @@ export function useTrackerOverviewData(input: {
 
 		eventSchemasBySchemaId.set(
 			schema.id,
-			sortEventSchemas(
-				(query.data?.data as AppEventSchema[] | undefined) ?? [],
-			),
+			sortEventSchemas((query.data?.data as AppEventSchema[] | undefined) ?? []),
 		);
 	});
 
@@ -200,8 +194,7 @@ export function useTrackerOverviewData(input: {
 
 	const recentEntityCards = recentEntities
 		.map((entity) => {
-			const schema =
-				schemaById.get(entity.entitySchemaId ?? "") ?? input.entitySchemas[0];
+			const schema = schemaById.get(entity.entitySchemaId ?? "") ?? input.entitySchemas[0];
 			return schema
 				? { entity, latestEvent: eventsByEntityId.get(entity.id)?.[0], schema }
 				: undefined;
@@ -214,8 +207,7 @@ export function useTrackerOverviewData(input: {
 			.map((item) => item.entity);
 		const savedView = trackerSavedViews.find(
 			(view): view is AppEntitySavedView =>
-				isEntitySavedView(view) &&
-				view.queryDefinition.scope.includes(schema.slug),
+				isEntitySavedView(view) && view.queryDefinition.scope.includes(schema.slug),
 		);
 
 		return {
@@ -243,8 +235,7 @@ export function useTrackerOverviewData(input: {
 		recentEntities: recentEntityCards,
 		recentActivities: recentActivity,
 		lastActivityAt: recentActivity[0]?.date,
-		primaryEventSchemas:
-			eventSchemasBySchemaId.get(primaryEntitySchema?.id ?? "") ?? [],
+		primaryEventSchemas: eventSchemasBySchemaId.get(primaryEntitySchema?.id ?? "") ?? [],
 		totalEventSchemas: Array.from(eventSchemasBySchemaId.values()).reduce(
 			(total, eventSchemas) => total + eventSchemas.length,
 			0,

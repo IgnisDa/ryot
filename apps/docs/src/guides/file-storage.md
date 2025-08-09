@@ -26,13 +26,13 @@ cost-effective solution for production use.
 - Note your **Account ID** from the R2 dashboard (found in the right sidebar).
 - On your Ryot instance, set the following environment variables:
 
-    ```sh
-    FILE_STORAGE_S3_BUCKET_NAME=ryot-storage
-    FILE_STORAGE_S3_ACCESS_KEY_ID=your-access-key-id
-    FILE_STORAGE_S3_SECRET_ACCESS_KEY=your-secret-access-key
-    FILE_STORAGE_S3_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-    FILE_STORAGE_S3_REGION=auto # optional: some clients require a region; use "auto" for R2
-    ```
+  ```sh
+  FILE_STORAGE_S3_BUCKET_NAME=ryot-storage
+  FILE_STORAGE_S3_ACCESS_KEY_ID=your-access-key-id
+  FILE_STORAGE_S3_SECRET_ACCESS_KEY=your-secret-access-key
+  FILE_STORAGE_S3_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+  FILE_STORAGE_S3_REGION=auto # optional: some clients require a region; use "auto" for R2
+  ```
 
   Replace `<ACCOUNT_ID>` with your Cloudflare account ID. Use the actual values for your
   bucket name and API credentials.
@@ -47,19 +47,12 @@ CORS settings for your R2 bucket:
 - Scroll to the **CORS Policy** section and click **Edit**.
 - Add the following configuration (adjust the origins to match your Ryot instance URLs):
 
-    ```json
-    [
-      {
-        "AllowedOrigins": [
-          "https://app.ryot.io",
-          "https://pro.ryot.io"
-        ],
-        "AllowedMethods": [
-          "PUT"
-        ],
-        "AllowedHeaders": [
-          "content-type"
-        ]
-      }
-    ]
-    ```
+  ```json
+  [
+  	{
+  		"AllowedOrigins": ["https://app.ryot.io", "https://pro.ryot.io"],
+  		"AllowedMethods": ["PUT"],
+  		"AllowedHeaders": ["content-type"]
+  	}
+  ]
+  ```

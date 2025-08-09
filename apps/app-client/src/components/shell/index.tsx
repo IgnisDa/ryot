@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect } from "react";
 import { useWindowDimensions } from "react-native";
+
 import { Box } from "@/components/ui/box";
 import {
 	useActiveNav,
@@ -8,6 +9,7 @@ import {
 	useSetSubFlyoutOpen,
 	useSubFlyoutOpen,
 } from "@/lib/navigation";
+
 import { ShellRail } from "./rail";
 import { ShellSubFlyout } from "./sub-flyout";
 import { TrackerSheet } from "./tracker-sheet";

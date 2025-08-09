@@ -3,12 +3,10 @@ import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { produce } from "immer";
 import { type RefObject, useEffect, useRef } from "react";
 import { useOnClickOutside } from "usehooks-ts";
+
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useForceUpdateEverySecond } from "~/lib/shared/hooks";
-import {
-	type CurrentWorkoutTimer,
-	useCurrentWorkout,
-} from "~/lib/state/fitness";
+import { type CurrentWorkoutTimer, useCurrentWorkout } from "~/lib/state/fitness";
 
 export const EditSetRestTimer = (props: {
 	setIdx: number;
@@ -35,10 +33,7 @@ export const EditSetRestTimer = (props: {
 		editRestTimerRef.current?.select();
 	}, [editRestTimerRef]);
 
-	useOnClickOutside(
-		editRestTimerRef as RefObject<HTMLDivElement>,
-		props.onClickOutside,
-	);
+	useOnClickOutside(editRestTimerRef as RefObject<HTMLDivElement>, props.onClickOutside);
 
 	if (!currentWorkout) return null;
 

@@ -1,5 +1,6 @@
 import { z } from "@hono/zod-openapi";
 import { toAppSchemaProperties } from "@ryot/ts-utils";
+
 import { imagesSchema, nullableIntSchema } from "../zod";
 import { mediaPropertiesSchema } from "./common";
 
@@ -19,6 +20,4 @@ export const animePropertiesSchema = mediaPropertiesSchema.extend({
 		.describe("Upcoming episode airing schedule"),
 });
 
-export const animePropertiesJsonSchema = toAppSchemaProperties(
-	animePropertiesSchema,
-);
+export const animePropertiesJsonSchema = toAppSchemaProperties(animePropertiesSchema);

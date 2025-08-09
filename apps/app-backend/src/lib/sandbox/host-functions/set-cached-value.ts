@@ -14,9 +14,7 @@ export const setCachedValue: HostFunction<CachedValueContext> = async (
 	expiry,
 ): Promise<CachedValueResult> => {
 	if (typeof context.scriptId !== "string" || !context.scriptId.trim()) {
-		return apiFailure(
-			"setCachedValue requires a non-empty scriptId in context",
-		);
+		return apiFailure("setCachedValue requires a non-empty scriptId in context");
 	}
 
 	if (typeof key !== "string" || !key.trim()) {
@@ -24,9 +22,7 @@ export const setCachedValue: HostFunction<CachedValueContext> = async (
 	}
 
 	if (typeof expiry !== "number" || !Number.isInteger(expiry) || expiry <= 0) {
-		return apiFailure(
-			"setCachedValue expects a positive integer expiry in seconds",
-		);
+		return apiFailure("setCachedValue expects a positive integer expiry in seconds");
 	}
 
 	let serialized: string;
@@ -41,15 +37,9 @@ export const setCachedValue: HostFunction<CachedValueContext> = async (
 	}
 
 	try {
-		await redis.setex(
-			`sandbox:cache:${context.scriptId}:${key.trim()}`,
-			expiry,
-			serialized,
-		);
+		await redis.setex(`sandbox:cache:${context.scriptId}:${key.trim()}`, expiry, serialized);
 		return apiSuccess(null);
 	} catch (error) {
-		return apiFailure(
-			error instanceof Error ? error.message : "setCachedValue failed",
-		);
+		return apiFailure(error instanceof Error ? error.message : "setCachedValue failed");
 	}
 };

@@ -2,6 +2,7 @@ import { Button, Group, NumberInput, Stack } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { useState } from "react";
+
 import {
 	getOptionalInteger,
 	getOptionalNumber,
@@ -38,9 +39,7 @@ interface ContinueLoggingModalContentProps {
 	initialPercent: number | null;
 }
 
-export function ContinueLoggingModalContent(
-	props: ContinueLoggingModalContentProps,
-) {
+export function ContinueLoggingModalContent(props: ContinueLoggingModalContentProps) {
 	const apiClient = useApiClient();
 	const entityQuery = useEntityQuery(props.entityId, true);
 	const [progressPercent, setProgressPercent] = useState<number | string>(
@@ -50,14 +49,9 @@ export function ContinueLoggingModalContent(
 		defaultSearchResultRowActionState,
 	);
 	const createEvents = apiClient.useMutation("post", "/events");
-	const eventSchemasQuery = useEventSchemasQuery(
-		props.entitySchemaId,
-		!!props.entitySchemaId,
-	);
+	const eventSchemasQuery = useEventSchemasQuery(props.entitySchemaId, !!props.entitySchemaId);
 	const episodicFieldProps = getEpisodicFieldProps(
-		isEpisodicMediaEntitySchemaSlug(props.entitySchemaSlug)
-			? props.entitySchemaSlug
-			: null,
+		isEpisodicMediaEntitySchemaSlug(props.entitySchemaSlug) ? props.entitySchemaSlug : null,
 		actionState,
 		entityQuery.entity?.properties as Record<string, unknown> | undefined,
 	);
@@ -75,24 +69,12 @@ export function ContinueLoggingModalContent(
 			const payload = createProgressEventPayload({
 				entityId: props.entityId,
 				progressPercent: progressPercent as number,
-				showSeason:
-					actionState.showSeason === "" ? undefined : actionState.showSeason,
-				showEpisode:
-					actionState.showEpisode === "" ? undefined : actionState.showEpisode,
-				animeEpisode:
-					actionState.animeEpisode === ""
-						? undefined
-						: actionState.animeEpisode,
-				mangaChapter:
-					actionState.mangaChapter === ""
-						? undefined
-						: actionState.mangaChapter,
-				mangaVolume:
-					actionState.mangaVolume === "" ? undefined : actionState.mangaVolume,
-				podcastEpisode:
-					actionState.podcastEpisode === ""
-						? undefined
-						: actionState.podcastEpisode,
+				showSeason: actionState.showSeason === "" ? undefined : actionState.showSeason,
+				showEpisode: actionState.showEpisode === "" ? undefined : actionState.showEpisode,
+				animeEpisode: actionState.animeEpisode === "" ? undefined : actionState.animeEpisode,
+				mangaChapter: actionState.mangaChapter === "" ? undefined : actionState.mangaChapter,
+				mangaVolume: actionState.mangaVolume === "" ? undefined : actionState.mangaVolume,
+				podcastEpisode: actionState.podcastEpisode === "" ? undefined : actionState.podcastEpisode,
 				eventSchemas: eventSchemasQuery.eventSchemas,
 			});
 			await createEvents.mutateAsync({ body: payload });
@@ -119,9 +101,7 @@ export function ContinueLoggingModalContent(
 					<EpisodicProgressFields
 						textMuted="dimmed"
 						actionState={actionState}
-						onPatchActionState={(patch) =>
-							setActionState((current) => ({ ...current, ...patch }))
-						}
+						onPatchActionState={(patch) => setActionState((current) => ({ ...current, ...patch }))}
 						{...episodicFieldProps}
 					/>
 				)
@@ -150,11 +130,7 @@ export function ContinueLoggingModalContent(
 				>
 					Save
 				</Button>
-				<Button
-					variant="subtle"
-					size="compact-xs"
-					onClick={() => modals.close(props.modalId)}
-				>
+				<Button variant="subtle" size="compact-xs" onClick={() => modals.close(props.modalId)}>
 					Cancel
 				</Button>
 			</Group>
@@ -178,13 +154,11 @@ export function StartLoggingModalContent(props: StartLoggingModalContentProps) {
 	const [logDate, setLogDate] = useState<MediaSearchLogDateOption>("now");
 	const [logStartedOn, setLogStartedOn] = useState("");
 	const [logCompletedOn, setLogCompletedOn] = useState("");
-	const [episodicState, setEpisodicState] =
-		useState<SearchResultRowActionState>(defaultSearchResultRowActionState);
-	const createEvents = apiClient.useMutation("post", "/events");
-	const eventSchemasQuery = useEventSchemasQuery(
-		props.entitySchemaId,
-		!!props.entitySchemaId,
+	const [episodicState, setEpisodicState] = useState<SearchResultRowActionState>(
+		defaultSearchResultRowActionState,
 	);
+	const createEvents = apiClient.useMutation("post", "/events");
+	const eventSchemasQuery = useEventSchemasQuery(props.entitySchemaId, !!props.entitySchemaId);
 
 	const actionState: SearchResultRowActionState = {
 		...defaultSearchResultRowActionState,
@@ -195,9 +169,7 @@ export function StartLoggingModalContent(props: StartLoggingModalContentProps) {
 		openPanel: "log",
 	};
 
-	const handlePatchActionState = (
-		patch: Partial<SearchResultRowActionState>,
-	) => {
+	const handlePatchActionState = (patch: Partial<SearchResultRowActionState>) => {
 		if (patch.logDate !== undefined) {
 			setLogDate(patch.logDate);
 		}
@@ -222,24 +194,12 @@ export function StartLoggingModalContent(props: StartLoggingModalContentProps) {
 				completedOn: logCompletedOn,
 				entitySchemaSlug: props.entitySchemaSlug,
 				eventSchemas: eventSchemasQuery.eventSchemas,
-				showSeason:
-					actionState.showSeason === "" ? undefined : actionState.showSeason,
-				showEpisode:
-					actionState.showEpisode === "" ? undefined : actionState.showEpisode,
-				animeEpisode:
-					actionState.animeEpisode === ""
-						? undefined
-						: actionState.animeEpisode,
-				mangaChapter:
-					actionState.mangaChapter === ""
-						? undefined
-						: actionState.mangaChapter,
-				mangaVolume:
-					actionState.mangaVolume === "" ? undefined : actionState.mangaVolume,
-				podcastEpisode:
-					actionState.podcastEpisode === ""
-						? undefined
-						: actionState.podcastEpisode,
+				showSeason: actionState.showSeason === "" ? undefined : actionState.showSeason,
+				showEpisode: actionState.showEpisode === "" ? undefined : actionState.showEpisode,
+				animeEpisode: actionState.animeEpisode === "" ? undefined : actionState.animeEpisode,
+				mangaChapter: actionState.mangaChapter === "" ? undefined : actionState.mangaChapter,
+				mangaVolume: actionState.mangaVolume === "" ? undefined : actionState.mangaVolume,
+				podcastEpisode: actionState.podcastEpisode === "" ? undefined : actionState.podcastEpisode,
 			});
 			await createEvents.mutateAsync({ body: payload });
 			modals.close(props.modalId);
@@ -263,12 +223,8 @@ export function StartLoggingModalContent(props: StartLoggingModalContentProps) {
 			entitySchemaSlug={props.entitySchemaSlug}
 			onPatchActionState={handlePatchActionState}
 			isLoadingEntityProperties={entityQuery.isLoading}
-			entityProperties={
-				entityQuery.entity?.properties as Record<string, unknown> | undefined
-			}
-			propertyLoadError={
-				entityQuery.isError ? "Could not load episode details." : null
-			}
+			entityProperties={entityQuery.entity?.properties as Record<string, unknown> | undefined}
+			propertyLoadError={entityQuery.isError ? "Could not load episode details." : null}
 		/>
 	);
 }
@@ -306,10 +262,7 @@ function getEpisodicFieldProps(
 	};
 }
 
-function hasRequiredSelection(
-	entitySchemaSlug: string,
-	actionState: SearchResultRowActionState,
-) {
+function hasRequiredSelection(entitySchemaSlug: string, actionState: SearchResultRowActionState) {
 	if (entitySchemaSlug === "show") {
 		return actionState.showSeason !== "" && actionState.showEpisode !== "";
 	}

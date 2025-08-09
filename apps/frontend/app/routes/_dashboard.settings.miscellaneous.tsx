@@ -35,6 +35,7 @@ import { data, Form, useNavigate } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
 import {
 	useConfirmSubmit,
 	useDashboardLayoutData,
@@ -48,6 +49,7 @@ import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal, triggerDownload } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/_dashboard.settings.miscellaneous";
 
 export const meta = () => {
@@ -57,11 +59,7 @@ export const meta = () => {
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.clone().formData();
 	const submission = processSubmission(formData, jobSchema);
-	await serverGqlService.authenticatedRequest(
-		request,
-		DeployBackgroundJobDocument,
-		submission,
-	);
+	await serverGqlService.authenticatedRequest(request, DeployBackgroundJobDocument, submission);
 	return data({} as const, {
 		headers: await createToastHeaders({
 			type: "success",
@@ -251,13 +249,10 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 					onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
 						const form = e.currentTarget.form;
 						e.preventDefault();
-						openConfirmationModal(
-							"Are you sure you want to perform this task?",
-							async () => {
-								submit(form);
-								await invalidateUserDetails();
-							},
-						);
+						openConfirmationModal("Are you sure you want to perform this task?", async () => {
+							submit(form);
+							await invalidateUserDetails();
+						});
 					},
 				}}
 			/>

@@ -2,6 +2,7 @@ import { initializePaddle } from "@paddle/paddle-js";
 import { QueryClient, useQuery } from "@tanstack/react-query";
 import { $path } from "safe-routes";
 import { withFragment } from "ufo";
+
 import type { TPrices } from "./config.server";
 
 export const contactEmail = "ignisda2001@gmail.com";

@@ -1,21 +1,15 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { resolveRequiredString } from "@ryot/ts-utils";
-import {
-	parseAppSchemaPropertiesSafe,
-	type ValidationIssue,
-} from "~/lib/app/schema-validation";
-import {
-	type ServiceResult,
-	serviceData,
-	serviceError,
-	wrapServiceValidator,
-} from "~/lib/result";
+
+import { parseAppSchemaPropertiesSafe, type ValidationIssue } from "~/lib/app/schema-validation";
+import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import {
 	getUserLibraryEntityId,
 	upsertInLibraryIfGlobal,
 	upsertInLibraryRelationship,
 } from "~/modules/entities";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas/service";
+
 import {
 	addEntityToCollection,
 	createCollectionForUser,
@@ -34,12 +28,10 @@ import type {
 } from "./schemas";
 
 const collectionSchemaNotFoundError = "Collection entity schema not found";
-const invalidMembershipSchemaError =
-	"membershipPropertiesSchema must be a valid AppSchema";
+const invalidMembershipSchemaError = "membershipPropertiesSchema must be a valid AppSchema";
 const collectionNotFoundError = "Collection not found";
 const entityNotFoundError = "Entity not found";
-const invalidMembershipPropertiesError =
-	"Membership properties validation failed";
+const invalidMembershipPropertiesError = "Membership properties validation failed";
 const circularReferenceError = "Cannot add a collection to itself";
 
 const formatValidationIssues = (issues: ValidationIssue[]) =>
@@ -72,10 +64,7 @@ export type RemoveFromCollectionServiceDeps = {
 	removeEntityFromCollection: typeof removeEntityFromCollection;
 };
 
-export type CollectionServiceResult<T> = ServiceResult<
-	T,
-	"not_found" | "validation"
->;
+export type CollectionServiceResult<T> = ServiceResult<T, "not_found" | "validation">;
 
 const collectionServiceDeps: CollectionServiceDeps = {
 	createCollectionForUser,
@@ -86,10 +75,7 @@ export const resolveCollectionName = (name: string) =>
 	resolveRequiredString(name, "Collection name");
 
 const resolveCollectionNameResult = (name: string) =>
-	wrapServiceValidator(
-		() => resolveCollectionName(name),
-		"Collection name is invalid",
-	);
+	wrapServiceValidator(() => resolveCollectionName(name), "Collection name is invalid");
 
 export const createCollection = async (
 	input: { body: CreateCollectionBody; userId: string },
@@ -123,8 +109,7 @@ export const createCollection = async (
 		properties.description = input.body.description;
 	}
 	if (input.body.membershipPropertiesSchema !== undefined) {
-		properties.membershipPropertiesSchema =
-			input.body.membershipPropertiesSchema;
+		properties.membershipPropertiesSchema = input.body.membershipPropertiesSchema;
 	}
 
 	const createdCollection = await deps.createCollectionForUser({
@@ -155,10 +140,7 @@ export const addToCollection = async (
 	}
 
 	// Verify the collection exists and belongs to the user
-	const collection = await deps.getCollectionById(
-		input.body.collectionId,
-		input.userId,
-	);
+	const collection = await deps.getCollectionById(input.body.collectionId, input.userId);
 	if (!collection) {
 		return serviceError("not_found", collectionNotFoundError);
 	}
@@ -220,10 +202,7 @@ export const removeFromCollection = async (
 	deps: RemoveFromCollectionServiceDeps = removeFromCollectionServiceDeps,
 ): Promise<CollectionServiceResult<RemoveFromCollectionData>> => {
 	// Verify the collection exists and belongs to the user
-	const collection = await deps.getCollectionById(
-		input.body.collectionId,
-		input.userId,
-	);
+	const collection = await deps.getCollectionById(input.body.collectionId, input.userId);
 	if (!collection) {
 		return serviceError("not_found", collectionNotFoundError);
 	}

@@ -22,28 +22,28 @@ Entity-level field: `entity.name` stores the workout name (e.g. "Push Day").
 
 Properties AppSchema (`src/lib/fitness/workout.ts`):
 
-| Field | AppSchema type | Required |
-|---|---|---|
-| `startedAt` | `datetime` | yes |
-| `endedAt` | `datetime` | no |
-| `comment` | `string` | no |
-| `caloriesBurnt` | `integer` | no |
+| Field           | AppSchema type | Required |
+| --------------- | -------------- | -------- |
+| `startedAt`     | `datetime`     | yes      |
+| `endedAt`       | `datetime`     | no       |
+| `comment`       | `string`       | no       |
+| `caloriesBurnt` | `integer`      | no       |
 
 ### `workout-set` event schema (new, on `exercise` entity schema)
 
 Properties AppSchema (`src/lib/fitness/workout.ts`):
 
-| Field | AppSchema type | Required | Notes |
-|---|---|---|---|
-| `setLot` | `string` enum | yes | `normal` \| `warm_up` \| `drop` \| `failure` |
-| `exerciseOrder` | `integer` | yes | 0-indexed position of exercise in the workout |
-| `setOrder` | `integer` | yes | 0-indexed position of set within its exercise |
-| `reps` | `number` | no | |
-| `weight` | `number` | no | kg |
-| `duration` | `number` | no | seconds |
-| `distance` | `number` | no | km |
-| `rpe` | `integer` | no | 0–10 |
-| `note` | `string` | no | |
+| Field           | AppSchema type | Required | Notes                                         |
+| --------------- | -------------- | -------- | --------------------------------------------- |
+| `setLot`        | `string` enum  | yes      | `normal` \| `warm_up` \| `drop` \| `failure`  |
+| `exerciseOrder` | `integer`      | yes      | 0-indexed position of exercise in the workout |
+| `setOrder`      | `integer`      | yes      | 0-indexed position of set within its exercise |
+| `reps`          | `number`       | no       |                                               |
+| `weight`        | `number`       | no       | kg                                            |
+| `duration`      | `number`       | no       | seconds                                       |
+| `distance`      | `number`       | no       | km                                            |
+| `rpe`           | `integer`      | no       | 0–10                                          |
+| `note`          | `string`       | no       |                                               |
 
 `exerciseOrder` + `setOrder` allow deterministic workout reconstruction without
 relying on `createdAt` ordering (important for imports and offline-first
@@ -51,13 +51,13 @@ clients).
 
 ### Entity ownership
 
-| Record | `userId` |
-|---|---|
-| `exercise` entity | `NULL` (global, seeded) |
-| `workout` entity | `user.id` (always private) |
-| `workout-set` event | `user.id` |
-| `workout-set` event `.entityId` | → global exercise entity |
-| `workout-set` event `.sessionEntityId` | → user's workout entity |
+| Record                                 | `userId`                   |
+| -------------------------------------- | -------------------------- |
+| `exercise` entity                      | `NULL` (global, seeded)    |
+| `workout` entity                       | `user.id` (always private) |
+| `workout-set` event                    | `user.id`                  |
+| `workout-set` event `.entityId`        | → global exercise entity   |
+| `workout-set` event `.sessionEntityId` | → user's workout entity    |
 
 ---
 
@@ -154,11 +154,11 @@ Add a `workout` case to `createEntityCardConfig`:
 
 ```typescript
 if (slug === "workout") {
-    return {
-        calloutProperty: null,
-        primarySubtitleProperty: createEntityPropertyExpression(slug, "startedAt"),
-        secondarySubtitleProperty: createEntityPropertyExpression(slug, "endedAt"),
-    };
+	return {
+		calloutProperty: null,
+		primarySubtitleProperty: createEntityPropertyExpression(slug, "startedAt"),
+		secondarySubtitleProperty: createEntityPropertyExpression(slug, "endedAt"),
+	};
 }
 ```
 
@@ -185,15 +185,14 @@ of `entityId` or `sessionEntityId` via `.refine()`:**
 
 ```typescript
 export const listEventsQuery = z
-    .object({
-        entityId: nonEmptyTrimmedStringSchema.optional(),
-        sessionEntityId: nonEmptyTrimmedStringSchema.optional(),
-        eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
-    })
-    .refine(
-        (q) => q.entityId !== undefined || q.sessionEntityId !== undefined,
-        { message: "Either entityId or sessionEntityId is required" },
-    );
+	.object({
+		entityId: nonEmptyTrimmedStringSchema.optional(),
+		sessionEntityId: nonEmptyTrimmedStringSchema.optional(),
+		eventSchemaSlug: nonEmptyTrimmedStringSchema.optional(),
+	})
+	.refine((q) => q.entityId !== undefined || q.sessionEntityId !== undefined, {
+		message: "Either entityId or sessionEntityId is required",
+	});
 ```
 
 ### 8. `apps/app-backend/src/modules/events/repository.ts`
@@ -252,20 +251,20 @@ absent or inaccessible to the user. Pass `sessionEntityId` through to
 
 Add the following cases to the existing `describe("createEvent")` block:
 
-| Test | Assertion |
-|---|---|
-| creates a workout-set event and passes `sessionEntityId` to the repository | captured `sessionEntityId` in `createEventForUser` equals input value |
-| creates an event with no `sessionEntityId` and does not set it in the repository | `createEventForUser` called with `sessionEntityId: undefined` |
-| returns `not_found` when `sessionEntityId` refers to a non-existent entity | `{ error: "not_found", message: "Session entity not found" }` |
-| returns `not_found` when `sessionEntityId` refers to an entity not accessible to the user | `{ error: "not_found", message: "Session entity not found" }` |
+| Test                                                                                      | Assertion                                                             |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| creates a workout-set event and passes `sessionEntityId` to the repository                | captured `sessionEntityId` in `createEventForUser` equals input value |
+| creates an event with no `sessionEntityId` and does not set it in the repository          | `createEventForUser` called with `sessionEntityId: undefined`         |
+| returns `not_found` when `sessionEntityId` refers to a non-existent entity                | `{ error: "not_found", message: "Session entity not found" }`         |
+| returns `not_found` when `sessionEntityId` refers to an entity not accessible to the user | `{ error: "not_found", message: "Session entity not found" }`         |
 
 Add a new `describe("listEntityEvents")` block (currently untested beyond
 `not_found`):
 
-| Test | Assertion |
-|---|---|
-| returns events when filtering by `sessionEntityId` | `serviceData([...])` returned |
-| returns `not_found` when `sessionEntityId` refers to a non-existent session entity | `{ error: "not_found" }` |
+| Test                                                                               | Assertion                     |
+| ---------------------------------------------------------------------------------- | ----------------------------- |
+| returns events when filtering by `sessionEntityId`                                 | `serviceData([...])` returned |
+| returns `not_found` when `sessionEntityId` refers to a non-existent session entity | `{ error: "not_found" }`      |
 
 ### New test fixtures: `apps/app-backend/src/lib/test-fixtures/`
 
@@ -273,6 +272,7 @@ Add a new `describe("listEntityEvents")` block (currently untested beyond
 the AppSchema for `workout-set` event properties.
 
 **`events.ts`** — add:
+
 - `createBuiltinWorkoutSetEventDeps()` — dep preset where the entity is a
   global exercise entity and the event schema is `workout-set`
 - Update `createEventDeps` to include a default no-op for the new
@@ -282,16 +282,21 @@ the AppSchema for `workout-set` event properties.
 ### New E2E fixture: `tests/src/fixtures/workouts.ts`
 
 ```typescript
-export async function createWorkoutEntityFixture(client, cookies)
+export async function createWorkoutEntityFixture(client, cookies);
 // Finds the fitness tracker, resolves the "workout" entity schema ID,
 // creates a workout entity via POST /entities, returns { workoutId, workoutSchemaId }
 
-export async function findWorkoutSetEventSchema(client, cookies)
+export async function findWorkoutSetEventSchema(client, cookies);
 // Finds the exercise entity schema, lists its event schemas, returns the
 // "workout-set" schema object
 
 export async function waitForSessionEventCount(
-    client, cookies, sessionEntityId, expectedCount, options?)
+	client,
+	cookies,
+	sessionEntityId,
+	expectedCount,
+	options?,
+);
 // Polls GET /events?sessionEntityId=... until >= expectedCount events are present
 ```
 
@@ -303,30 +308,30 @@ Export all three from `tests/src/fixtures/index.ts`.
 describe("Workouts E2E")
 ```
 
-| Test | What it exercises |
-|---|---|
-| links the built-in workout schema to the fitness tracker | bootstrap manifest, tracker–schema link |
-| workout schema has correct properties schema fields | `startedAt`, `endedAt`, `comment`, `caloriesBurnt` present in `propertiesSchema.fields` |
-| creates the built-in workout-set event schema on exercise | bootstrap manifest, event schema seeded on exercise entity schema |
-| workout-set event schema has correct property fields | `setLot`, `exerciseOrder`, `setOrder`, `reps`, `weight` present |
+| Test                                                                       | What it exercises                                                                         |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| links the built-in workout schema to the fitness tracker                   | bootstrap manifest, tracker–schema link                                                   |
+| workout schema has correct properties schema fields                        | `startedAt`, `endedAt`, `comment`, `caloriesBurnt` present in `propertiesSchema.fields`   |
+| creates the built-in workout-set event schema on exercise                  | bootstrap manifest, event schema seeded on exercise entity schema                         |
+| workout-set event schema has correct property fields                       | `setLot`, `exerciseOrder`, `setOrder`, `reps`, `weight` present                           |
 | creates the built-in All Workouts saved view with workout display defaults | `queryDefinition.scope = ["workout"]`, display config has `startedAt` as primary subtitle |
-| creates a workout entity via the entity endpoint | POST /entities with workout schema ID → 200, entity returned with `properties.startedAt` |
-| logs a workout set linked to a workout via sessionEntityId | POST /events with `sessionEntityId` + `entityId` (exercise) → set persists |
-| listing events by sessionEntityId returns only sets for that workout | log 2 sets on W1, 1 set on W2; GET /events?sessionEntityId=W1 returns exactly 2 |
-| listing events by entityId spans all workouts for that exercise | log sets from same exercise in 2 workouts; GET /events?entityId=exerciseId returns all |
-| GET /events with neither entityId nor sessionEntityId returns 422 | missing both filter params → HTTP 422 |
-| sets from one workout do not appear when querying another workout | GET /events?sessionEntityId=W2 does not include W1's sets |
+| creates a workout entity via the entity endpoint                           | POST /entities with workout schema ID → 200, entity returned with `properties.startedAt`  |
+| logs a workout set linked to a workout via sessionEntityId                 | POST /events with `sessionEntityId` + `entityId` (exercise) → set persists                |
+| listing events by sessionEntityId returns only sets for that workout       | log 2 sets on W1, 1 set on W2; GET /events?sessionEntityId=W1 returns exactly 2           |
+| listing events by entityId spans all workouts for that exercise            | log sets from same exercise in 2 workouts; GET /events?entityId=exerciseId returns all    |
+| GET /events with neither entityId nor sessionEntityId returns 422          | missing both filter params → HTTP 422                                                     |
+| sets from one workout do not appear when querying another workout          | GET /events?sessionEntityId=W2 does not include W1's sets                                 |
 
 ---
 
 ## What is intentionally deferred
 
-| V1 feature | Reason for deferral |
-|---|---|
+| V1 feature                                      | Reason for deferral                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
 | Personal bests (`one_rm`, max weight, max reps) | Derivable from event queries; can be added as a script or background job later |
-| Exercise history in `user_to_entity` | Derivable: `GET /events?entityId={exercise}&eventSchemaSlug=workout-set` |
-| Workout templates | UX feature; no distinct data-model requirement |
-| Superset grouping | Add `supersetGroup` field to `workout-set` properties schema when needed |
-| Calories-burnt auto-calculation | Left as an optional user-supplied property |
-| `repeated_from` (copy another workout) | Application-layer operation; no schema change needed |
-| Exercise-level notes per workout | Can be added as `exerciseNote` field to `workout-set` properties schema later |
+| Exercise history in `user_to_entity`            | Derivable: `GET /events?entityId={exercise}&eventSchemaSlug=workout-set`       |
+| Workout templates                               | UX feature; no distinct data-model requirement                                 |
+| Superset grouping                               | Add `supersetGroup` field to `workout-set` properties schema when needed       |
+| Calories-burnt auto-calculation                 | Left as an optional user-supplied property                                     |
+| `repeated_from` (copy another workout)          | Application-layer operation; no schema change needed                           |
+| Exercise-level notes per workout                | Can be added as `exerciseNote` field to `workout-set` properties schema later  |

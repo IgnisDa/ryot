@@ -56,17 +56,17 @@ Entity schema columns get their own `entitySchemaRuntimeColumns` record (separat
 
 ### Column display/filter/sort matrix
 
-| Column | Display | Filter | Sort | Type |
-|--------|---------|--------|------|------|
-| `id` | yes | yes | yes | string |
-| `slug` | yes | yes | yes | string |
-| `name` | yes | yes | yes | string |
-| `icon` | yes | no | no | string |
-| `accentColor` | yes | no | no | string |
-| `isBuiltin` | yes | yes | yes | boolean |
-| `userId` | yes | yes | yes | string |
-| `createdAt` | yes | yes | yes | datetime |
-| `updatedAt` | yes | yes | yes | datetime |
+| Column        | Display | Filter | Sort | Type     |
+| ------------- | ------- | ------ | ---- | -------- |
+| `id`          | yes     | yes    | yes  | string   |
+| `slug`        | yes     | yes    | yes  | string   |
+| `name`        | yes     | yes    | yes  | string   |
+| `icon`        | yes     | no     | no   | string   |
+| `accentColor` | yes     | no     | no   | string   |
+| `isBuiltin`   | yes     | yes    | yes  | boolean  |
+| `userId`      | yes     | yes    | yes  | string   |
+| `createdAt`   | yes     | yes    | yes  | datetime |
+| `updatedAt`   | yes     | yes    | yes  | datetime |
 
 ### Expression compiler integration
 
@@ -130,10 +130,10 @@ When implementing, follow the existing patterns in the expression compiler close
 
 ### Task List
 
-| #   | Task                                                                                       | Type | Status |
-| --- | ------------------------------------------------------------------------------------------ | ---- | ------ |
-| 01  | [Shared Types and RuntimeRef Definition](./01-shared-types-runtimeref-definition.md)       | AFK  | done  |
-| 02  | [Validation and Type Inference](./02-validation-type-inference.md)                         | AFK  | done  |
+| #   | Task                                                                                                | Type | Status |
+| --- | --------------------------------------------------------------------------------------------------- | ---- | ------ |
+| 01  | [Shared Types and RuntimeRef Definition](./01-shared-types-runtimeref-definition.md)                | AFK  | done   |
+| 02  | [Validation and Type Inference](./02-validation-type-inference.md)                                  | AFK  | done   |
 | 03  | [Expression Compiler, Query Builder, and Response Shape](./03-expression-compiler-query-builder.md) | AFK  | done   |
-| 04  | [Frontend: Read Entity Schema Info from Fields](./04-frontend-entity-schema-fields.md)     | AFK  | done   |
-| 05  | [Codebase Cleanup](./05-codebase-cleanup.md)                                               | AFK  | done   |
+| 04  | [Frontend: Read Entity Schema Info from Fields](./04-frontend-entity-schema-fields.md)              | AFK  | done   |
+| 05  | [Codebase Cleanup](./05-codebase-cleanup.md)                                                        | AFK  | done   |

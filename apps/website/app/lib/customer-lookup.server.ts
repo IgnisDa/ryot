@@ -1,4 +1,5 @@
 import { eq, type InferSelectModel } from "drizzle-orm";
+
 import { customers } from "~/drizzle/schema.server";
 import { getDb, paddleCustomDataSchema } from "~/lib/config.server";
 
@@ -43,8 +44,7 @@ export async function findCustomerWithFallback(
 		if (customer) return customer;
 	}
 
-	if (fallbackId && fallbackLookup)
-		return (await fallbackLookup(fallbackId)) ?? null;
+	if (fallbackId && fallbackLookup) return (await fallbackLookup(fallbackId)) ?? null;
 
 	return null;
 }

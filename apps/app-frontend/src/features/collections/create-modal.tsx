@@ -1,8 +1,10 @@
 import { Button, Group, Modal, Stack } from "@mantine/core";
+
 import { FormError } from "~/components/PageStates";
 import type { PropertySchemaRow } from "~/features/property-schemas/form";
 import { PropertySchemasBuilder } from "~/features/property-schemas/properties-builder";
 import { createFormSubmitHandler, useAppForm } from "~/hooks/forms";
+
 import {
 	type CreateCollectionPayload,
 	createCollectionFormSchema,

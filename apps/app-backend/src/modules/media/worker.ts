@@ -2,6 +2,7 @@ import { z } from "@hono/zod-openapi";
 import { type AppSchema, normalizeSlug } from "@ryot/ts-utils";
 import { type Job, WaitingChildrenError, Worker } from "bullmq";
 import { and, eq, isNull } from "drizzle-orm";
+
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { db } from "~/lib/db";
 import { entity, entitySchema } from "~/lib/db/schema";
@@ -26,10 +27,8 @@ import {
 } from "~/modules/entities/repository";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas/repository";
 import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
-import {
-	getBuiltinSandboxScriptBySlug,
-	getSandboxScriptForUser,
-} from "~/modules/sandbox";
+import { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "~/modules/sandbox";
+
 import {
 	mediaImportJobData,
 	mediaImportJobName,
@@ -197,11 +196,8 @@ const processPersonStubs = async (input: {
 		return;
 	}
 
-	const personToMediaSlug = normalizeSlug(
-		`person to ${mediaEntityRow.entitySchemaSlug}`,
-	);
-	const mediaRelSchema =
-		await getBuiltinRelationshipSchemaBySlug(personToMediaSlug);
+	const personToMediaSlug = normalizeSlug(`person to ${mediaEntityRow.entitySchemaSlug}`);
+	const mediaRelSchema = await getBuiltinRelationshipSchemaBySlug(personToMediaSlug);
 
 	if (!mediaRelSchema) {
 		throw new Error(
@@ -287,10 +283,7 @@ export const processMediaImportJob = async (
 		deps,
 	);
 	if (existingEntity) {
-		await upsertMediaEntityInLibrary(
-			{ userId, mediaEntityId: existingEntity.id },
-			deps,
-		);
+		await upsertMediaEntityInLibrary({ userId, mediaEntityId: existingEntity.id }, deps);
 		return existingEntity;
 	}
 
@@ -340,9 +333,7 @@ export const processMediaImportJob = async (
 	if (!scope) {
 		throw new Error("Entity schema not found");
 	}
-	const schemaFieldKeys = Object.keys(
-		(scope.propertiesSchema as AppSchema).fields,
-	);
+	const schemaFieldKeys = Object.keys((scope.propertiesSchema as AppSchema).fields);
 	const properties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
 		if (details.properties[key] !== undefined) {
@@ -379,10 +370,7 @@ export const processMediaImportJob = async (
 		populatedAt: isNew ? new Date() : mediaEntity.populatedAt,
 	});
 
-	await upsertMediaEntityInLibrary(
-		{ userId, mediaEntityId: mediaEntity.id },
-		deps,
-	);
+	await upsertMediaEntityInLibrary({ userId, mediaEntityId: mediaEntity.id }, deps);
 
 	await processPersonStubs({
 		userId,
@@ -460,17 +448,13 @@ export const processPersonPopulateJob = async (
 		throw new Error(sandboxResult.error);
 	}
 
-	const detailsParsed = personDetailsResultSchema.safeParse(
-		sandboxResult.value,
-	);
+	const detailsParsed = personDetailsResultSchema.safeParse(sandboxResult.value);
 	if (!detailsParsed.success) {
 		throw new Error("Person details script returned an unexpected shape");
 	}
 
 	const details = detailsParsed.data;
-	const schemaFieldKeys = Object.keys(
-		(personSchema.propertiesSchema as AppSchema).fields,
-	);
+	const schemaFieldKeys = Object.keys((personSchema.propertiesSchema as AppSchema).fields);
 	const filteredProperties: Record<string, unknown> = {};
 	for (const key of schemaFieldKeys) {
 		if (details.properties[key] !== undefined) {
@@ -478,9 +462,7 @@ export const processPersonPopulateJob = async (
 		}
 	}
 
-	const validatedProperties = personPropertiesSchema
-		.partial()
-		.safeParse(filteredProperties);
+	const validatedProperties = personPropertiesSchema.partial().safeParse(filteredProperties);
 	if (!validatedProperties.success) {
 		throw new Error("Person details properties are invalid");
 	}

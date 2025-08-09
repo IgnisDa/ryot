@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+
 import { TTLCache } from "@isaacs/ttlcache";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
@@ -31,14 +32,11 @@ export const revokeOtpCode = (email: string) => otpCodesCache.delete(email);
 
 const cancellationCache = new TTLCache<string, boolean>({ ttl: commonTtl });
 
-export const setCancellation = (customerId: string) =>
-	cancellationCache.set(customerId, true);
+export const setCancellation = (customerId: string) => cancellationCache.set(customerId, true);
 
-export const getCancellation = (customerId: string) =>
-	cancellationCache.get(customerId);
+export const getCancellation = (customerId: string) => cancellationCache.get(customerId);
 
-export const revokeCancellation = (customerId: string) =>
-	cancellationCache.delete(customerId);
+export const revokeCancellation = (customerId: string) => cancellationCache.delete(customerId);
 
 const purchaseInProgressCache = new TTLCache<string, boolean>({
 	ttl: commonTtl,

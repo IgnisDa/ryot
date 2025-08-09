@@ -1,6 +1,7 @@
 import { Box, Flex } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+
 import { MobileSidebarBurger, Sidebar } from "~/components/sidebar/Sidebar";
 import { TrackerModal } from "~/features/trackers/components/tracker-modal";
 import TrackerSidebarProvider from "~/features/trackers/sidebar-context";
@@ -26,8 +27,7 @@ export const Route = createFileRoute("/_protected")({
 function RouteComponent() {
 	const isMobile = useIsMobileScreen();
 	const { surface, border } = useThemeTokens();
-	const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
-		useDisclosure(false);
+	const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
 
 	return (
 		<TrackerSidebarProvider>

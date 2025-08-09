@@ -28,23 +28,16 @@ import { useLoaderData, useNavigate } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { z } from "zod";
-import {
-	CustomEntityImageInput,
-	ExistingImageList,
-} from "~/components/common/custom-entities";
+
+import { CustomEntityImageInput, ExistingImageList } from "~/components/common/custom-entities";
 import { useSavedForm } from "~/lib/hooks/use-saved-form";
 import { useCoreDetails, useExerciseDetails } from "~/lib/shared/hooks";
 import { buildImageAssets, mergeImages } from "~/lib/shared/image-utils";
 import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
-import {
-	showEntityError,
-	showEntitySuccess,
-} from "~/lib/shared/notification-utils";
+import { showEntityError, showEntitySuccess } from "~/lib/shared/notification-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
-import {
-	clientSideFileUpload,
-	convertEnumToSelectData,
-} from "~/lib/shared/ui-utils";
+import { clientSideFileUpload, convertEnumToSelectData } from "~/lib/shared/ui-utils";
+
 import type { Route } from "./+types/_dashboard.fitness.exercises.update.$action";
 
 const searchParamsSchema = z.object({
@@ -58,10 +51,7 @@ enum Action {
 }
 
 export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(Action) }),
-	);
+	const { action } = parseParameters(params, z.object({ action: z.enum(Action) }));
 	const query = parseSearchQuery(request, searchParamsSchema);
 	return { action, id: query.id, duplicateId: query.duplicateId };
 };
@@ -164,15 +154,9 @@ export default function Page() {
 			level: form.values.level as ExerciseLevel,
 			muscles: (form.values.muscles || []) as ExerciseMuscle[],
 			assets: buildImageAssets(s3Images),
-			force: form.values.force
-				? (form.values.force as ExerciseForce)
-				: undefined,
-			mechanic: form.values.mechanic
-				? (form.values.mechanic as ExerciseMechanic)
-				: undefined,
-			equipment: form.values.equipment
-				? (form.values.equipment as ExerciseEquipment)
-				: undefined,
+			force: form.values.force ? (form.values.force as ExerciseForce) : undefined,
+			mechanic: form.values.mechanic ? (form.values.mechanic as ExerciseMechanic) : undefined,
+			equipment: form.values.equipment ? (form.values.equipment as ExerciseEquipment) : undefined,
 			instructions: form.values.instructions
 				.split("\n")
 				.map((s) => s.trim())
@@ -205,10 +189,7 @@ export default function Page() {
 			const destination = memoizedInput.shouldDelete
 				? $path("/fitness/exercises/list")
 				: getExerciseDetailsPath(id);
-			showEntitySuccess(
-				"Exercise",
-				memoizedInput.shouldDelete ? "deleted" : "updated",
-			);
+			showEntitySuccess("Exercise", memoizedInput.shouldDelete ? "deleted" : "updated");
 			form.clearSavedState();
 			navigate(destination);
 		},
@@ -225,12 +206,7 @@ export default function Page() {
 			<form onSubmit={handleSubmit} encType="multipart/form-data">
 				<Stack>
 					<Title>{title} Exercise</Title>
-					<TextInput
-						required
-						autoFocus
-						label="Name"
-						{...form.getInputProps("name")}
-					/>
+					<TextInput required autoFocus label="Name" {...form.getInputProps("name")} />
 					<Select
 						required
 						label="Type"
@@ -284,9 +260,7 @@ export default function Page() {
 							onRemove={(key) => {
 								form.setFieldValue(
 									"existingImages",
-									form.values.existingImages.filter(
-										(imageKey) => imageKey !== key,
-									),
+									form.values.existingImages.filter((imageKey) => imageKey !== key),
 								);
 							}}
 						/>
@@ -316,10 +290,7 @@ export default function Page() {
 								Delete
 							</Button>
 						) : null}
-						<Button
-							type="submit"
-							loading={createMutation.isPending || updateMutation.isPending}
-						>
+						<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
 							{title}
 						</Button>
 					</Group>

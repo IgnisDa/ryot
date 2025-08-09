@@ -1,27 +1,20 @@
 import { dayjs } from "@ryot/ts-utils";
+
 import type { AuthClient } from "~/lib/auth";
 
-type SidebarApiKeyListResponse = Awaited<
-	ReturnType<AuthClient["apiKey"]["list"]>
->;
-type SidebarApiKeyCreateResponse = Awaited<
-	ReturnType<AuthClient["apiKey"]["create"]>
->;
+type SidebarApiKeyListResponse = Awaited<ReturnType<AuthClient["apiKey"]["list"]>>;
+type SidebarApiKeyCreateResponse = Awaited<ReturnType<AuthClient["apiKey"]["create"]>>;
 
 export type SidebarApiKey = SidebarApiKeyList["apiKeys"][number];
 export type SidebarApiKeyList = NonNullable<SidebarApiKeyListResponse["data"]>;
-export type SidebarCreatedApiKey = NonNullable<
-	SidebarApiKeyCreateResponse["data"]
->;
+export type SidebarCreatedApiKey = NonNullable<SidebarApiKeyCreateResponse["data"]>;
 
 export function getSidebarApiKeyDisplayName(key: Pick<SidebarApiKey, "name">) {
 	const name = key.name?.trim();
 	return name ? name : "Untitled key";
 }
 
-export function getSidebarApiKeyHint(
-	key: Pick<SidebarApiKey, "id" | "start" | "prefix">,
-) {
+export function getSidebarApiKeyHint(key: Pick<SidebarApiKey, "id" | "start" | "prefix">) {
 	const start = key.start?.trim();
 	if (start) {
 		return start;
@@ -36,10 +29,7 @@ export function getSidebarApiKeyHint(
 }
 
 export function getSidebarApiKeyDetails(
-	key: Pick<
-		SidebarApiKey,
-		"createdAt" | "lastRequest" | "id" | "start" | "prefix"
-	>,
+	key: Pick<SidebarApiKey, "createdAt" | "lastRequest" | "id" | "start" | "prefix">,
 ) {
 	return [
 		{ label: null, value: getSidebarApiKeyHint(key) },
@@ -51,10 +41,7 @@ export function getSidebarApiKeyDetails(
 	];
 }
 
-export function formatSidebarApiKeyDate(
-	value?: Date | string | null,
-	fallback = "--",
-) {
+export function formatSidebarApiKeyDate(value?: Date | string | null, fallback = "--") {
 	if (!value) {
 		return fallback;
 	}

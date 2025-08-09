@@ -4,11 +4,7 @@ import {
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
 import { createRequiredTitlePropertiesSchema } from "~/lib/test-fixtures/property-schemas";
-import type {
-	CreateEntityBody,
-	EntityServiceDeps,
-	ListedEntity,
-} from "~/modules/entities";
+import type { CreateEntityBody, EntityServiceDeps, ListedEntity } from "~/modules/entities";
 
 const listedEntityDefaults: ListedEntity = {
 	image: null,
@@ -30,20 +26,17 @@ const entityBodyDefaults: CreateEntityBody = {
 	properties: { title: "My Book" },
 };
 
-export const createEntityBody = (
-	overrides: Partial<CreateEntityBody> = {},
-): CreateEntityBody => withOverrides(entityBodyDefaults, overrides);
+export const createEntityBody = (overrides: Partial<CreateEntityBody> = {}): CreateEntityBody =>
+	withOverrides(entityBodyDefaults, overrides);
 
-export const createListedEntity = (
-	overrides: Partial<ListedEntity> = {},
-): ListedEntity => withOverrides(listedEntityDefaults, overrides);
+export const createListedEntity = (overrides: Partial<ListedEntity> = {}): ListedEntity =>
+	withOverrides(listedEntityDefaults, overrides);
 
 export const createEntityDeps = (
 	overrides: Partial<EntityServiceDeps> = {},
 ): EntityServiceDeps => ({
 	findEntityByExternalIdForUser: async () => undefined,
-	getEntityByIdForUser: async (input) =>
-		createListedEntity({ id: input.entityId }),
+	getEntityByIdForUser: async (input) => createListedEntity({ id: input.entityId }),
 	getEntityScopeForUser: async (input) => ({
 		isBuiltin: false,
 		entityId: input.entityId,

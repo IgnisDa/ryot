@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createComputedFieldExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
 } from "@ryot/ts-utils";
 import { PgDialect } from "drizzle-orm/pg-core";
+
 import {
 	comparisonPredicate,
 	createSmartphoneSchema,
@@ -12,6 +14,7 @@ import {
 	literalExpression,
 } from "~/lib/test-fixtures";
 import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+
 import { buildResolvedFieldsExpression } from "./display-builder";
 import { createScalarExpressionCompiler } from "./expression-compiler";
 import { createExpressionTypeResolver } from "./expression-type-resolver";
@@ -76,10 +79,7 @@ describe("query SQL integration", () => {
 				computedFields,
 				compiler: sortCompiler,
 				alias: ENTITY_CTE_ALIASES.filtered,
-				expression: createEntityPropertyExpression(
-					"smartphones",
-					"releaseYear",
-				),
+				expression: createEntityPropertyExpression("smartphones", "releaseYear"),
 			});
 
 			const resolvedFields = buildResolvedFieldsExpression({
@@ -90,10 +90,7 @@ describe("query SQL integration", () => {
 				fields: [
 					{
 						key: "name",
-						expression: createEntityPropertyExpression(
-							"smartphones",
-							"nameplate",
-						),
+						expression: createEntityPropertyExpression("smartphones", "nameplate"),
 					},
 					{
 						key: "yearLabel",
@@ -149,10 +146,7 @@ describe("query SQL integration", () => {
 							expression: {
 								type: "arithmetic" as const,
 								operator: "divide" as const,
-								left: createEntityPropertyExpression(
-									"smartphones",
-									"releaseYear",
-								),
+								left: createEntityPropertyExpression("smartphones", "releaseYear"),
 								right: literalExpression(10),
 							},
 						},
@@ -238,9 +232,7 @@ describe("query SQL integration", () => {
 				alias: EVENT_CTE_ALIASES.paginated,
 			});
 
-			const compiled = compile(
-				createEntityPropertyExpression("smartphones", "nameplate"),
-			);
+			const compiled = compile(createEntityPropertyExpression("smartphones", "nameplate"));
 			const { sql } = dialect.sqlToQuery(compiled);
 
 			expect(sql).toContain("paginated_events.entity_properties");

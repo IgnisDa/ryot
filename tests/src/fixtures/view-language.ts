@@ -14,9 +14,7 @@ export type ViewExpression = Extract<
 	CreateSavedViewBody["queryDefinition"],
 	{ sort: unknown }
 >["sort"]["expression"];
-export type ViewPredicate = NonNullable<
-	CreateSavedViewBody["queryDefinition"]["filter"]
->;
+export type ViewPredicate = NonNullable<CreateSavedViewBody["queryDefinition"]["filter"]>;
 export type ExpressionInput = ViewExpression | string[];
 
 export const literalExpression = (value: unknown | null): ViewExpression => ({
@@ -93,16 +91,11 @@ export const entityField = (schemaSlug: string, property: string) => {
 	return `entity.${schemaSlug}.properties.${property}`;
 };
 
-export const qualifyBuiltinFields = (
-	schemaSlugs: string[],
-	property: string,
-) => {
+export const qualifyBuiltinFields = (schemaSlugs: string[], property: string) => {
 	return schemaSlugs.map((schemaSlug) => entityField(schemaSlug, property));
 };
 
-export const toExpression = (
-	input: ExpressionInput | null,
-): ViewExpression | null => {
+export const toExpression = (input: ExpressionInput | null): ViewExpression | null => {
 	if (input === null) {
 		return null;
 	}

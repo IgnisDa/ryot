@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
+
 import { createComputedFieldExpression } from "@ryot/ts-utils";
+
 import { literalExpression } from "~/lib/test-fixtures";
+
 import {
 	buildComputedFieldMap,
 	getComputedFieldDependencies,
@@ -50,8 +53,6 @@ describe("computed fields", () => {
 				{ key: "second", expression: createComputedFieldExpression("third") },
 				{ key: "third", expression: createComputedFieldExpression("first") },
 			]),
-		).toThrow(
-			"Computed field dependency cycle detected: first -> second -> third -> first",
-		);
+		).toThrow("Computed field dependency cycle detected: first -> second -> third -> first");
 	});
 });

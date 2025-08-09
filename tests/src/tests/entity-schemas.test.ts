@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	createEntitySchema,
@@ -46,9 +47,7 @@ describe("GET /entity-schemas", () => {
 		const schemas = await listEntitySchemas(client, cookies, {
 			trackerId: builtinTracker.id,
 		});
-		const collectionSchema = schemas.find(
-			(schema) => schema.slug === "collection",
-		);
+		const collectionSchema = schemas.find((schema) => schema.slug === "collection");
 
 		expect(collectionSchema).toBeDefined();
 		expect(collectionSchema).toMatchObject({
@@ -125,10 +124,8 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("returns 404 when attempting to access another user's custom tracker", async () => {
-		const { client: client1, cookies: cookies1 } =
-			await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } =
-			await createAuthenticatedClient();
+		const { client: client1, cookies: cookies1 } = await createAuthenticatedClient();
+		const { client: client2, cookies: cookies2 } = await createAuthenticatedClient();
 
 		const { trackerId } = await createTracker(client1, cookies1, {
 			name: "User 1 Tracker",
@@ -205,11 +202,7 @@ describe("GET /entity-schemas", () => {
 		const { trackerId: booksTrackerId } = await createTracker(client, cookies, {
 			name: "Books",
 		});
-		const { trackerId: moviesTrackerId } = await createTracker(
-			client,
-			cookies,
-			{ name: "Movies" },
-		);
+		const { trackerId: moviesTrackerId } = await createTracker(client, cookies, { name: "Movies" });
 
 		await createEntitySchema(client, cookies, {
 			name: "Book Entry",
@@ -227,14 +220,8 @@ describe("GET /entity-schemas", () => {
 		});
 
 		expect(schemas.length).toBe(2);
-		expect(schemas.map((schema) => schema.slug)).toEqual([
-			"book-entry",
-			"movie-entry",
-		]);
-		expect(schemas.map((schema) => schema.trackerId)).toEqual([
-			booksTrackerId,
-			moviesTrackerId,
-		]);
+		expect(schemas.map((schema) => schema.slug)).toEqual(["book-entry", "movie-entry"]);
+		expect(schemas.map((schema) => schema.trackerId)).toEqual([booksTrackerId, moviesTrackerId]);
 	});
 
 	it("returns all accessible schemas when trackerId and slugs are both missing", async () => {
@@ -260,12 +247,8 @@ describe("GET /entity-schemas", () => {
 
 		expect(response.status).toBe(200);
 		expect(data?.data).toBeDefined();
-		expect(data?.data?.some((schema) => schema.slug === "custom-entry")).toBe(
-			true,
-		);
-		expect(data?.data?.length).toBeGreaterThanOrEqual(
-			builtinSchemas.length + 1,
-		);
+		expect(data?.data?.some((schema) => schema.slug === "custom-entry")).toBe(true);
+		expect(data?.data?.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
 	});
 
 	it("built-in schemas with linked scripts have non-empty providers", async () => {
@@ -321,9 +304,7 @@ describe("POST /entity-schemas", () => {
 
 		expect(response.status).toBe(400);
 		expect(error?.error).toBeDefined();
-		expect(error?.error?.message).toBe(
-			"Built-in trackers do not support entity schema creation",
-		);
+		expect(error?.error?.message).toBe("Built-in trackers do not support entity schema creation");
 	});
 
 	it("successfully creates schema for custom tracker", async () => {
@@ -384,10 +365,8 @@ describe("POST /entity-schemas", () => {
 	});
 
 	it("returns 404 when attempting to create schema for another user's tracker", async () => {
-		const { client: client1, cookies: cookies1 } =
-			await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } =
-			await createAuthenticatedClient();
+		const { client: client1, cookies: cookies1 } = await createAuthenticatedClient();
+		const { client: client2, cookies: cookies2 } = await createAuthenticatedClient();
 
 		const { trackerId } = await createTracker(client1, cookies1, {
 			name: "User 1 Tracker",
@@ -487,11 +466,11 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 			name: "Test Tracker",
 		});
 
-		const { schemaId, data: createdData } = await createEntitySchema(
-			client,
-			cookies,
-			{ trackerId, name: "My Schema", slug: "my-schema" },
-		);
+		const { schemaId, data: createdData } = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "My Schema",
+			slug: "my-schema",
+		});
 
 		const schema = await getEntitySchema(client, cookies, schemaId);
 
@@ -508,10 +487,7 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 	it("returns 200 for a built-in entity schema accessible to the user", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { schema: firstSchema } = await findBuiltinEntitySchema(
-			client,
-			cookies,
-		);
+		const { schema: firstSchema } = await findBuiltinEntitySchema(client, cookies);
 		const schema = await getEntitySchema(client, cookies, firstSchema.id);
 
 		expect(schema.id).toBe(firstSchema.id);
@@ -522,23 +498,18 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
-		const { response, error } = await client.GET(
-			"/entity-schemas/{entitySchemaId}",
-			{
-				headers: { Cookie: cookies },
-				params: { path: { entitySchemaId: nonExistentId } },
-			},
-		);
+		const { response, error } = await client.GET("/entity-schemas/{entitySchemaId}", {
+			headers: { Cookie: cookies },
+			params: { path: { entitySchemaId: nonExistentId } },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Entity schema not found");
 	});
 
 	it("returns 404 when accessing another user's entity schema", async () => {
-		const { client: client1, cookies: cookies1 } =
-			await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } =
-			await createAuthenticatedClient();
+		const { client: client1, cookies: cookies1 } = await createAuthenticatedClient();
+		const { client: client2, cookies: cookies2 } = await createAuthenticatedClient();
 
 		const { trackerId } = await createTracker(client1, cookies1, {
 			name: "User 1 Tracker",
@@ -549,13 +520,10 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 			name: "User 1 Schema",
 		});
 
-		const { response, error } = await client2.GET(
-			"/entity-schemas/{entitySchemaId}",
-			{
-				headers: { Cookie: cookies2 },
-				params: { path: { entitySchemaId: schemaId } },
-			},
-		);
+		const { response, error } = await client2.GET("/entity-schemas/{entitySchemaId}", {
+			headers: { Cookie: cookies2 },
+			params: { path: { entitySchemaId: schemaId } },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Entity schema not found");
@@ -603,10 +571,9 @@ describe("POST /entity-schemas/search", () => {
 describe("GET /entity-schemas/search/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.GET(
-			"/entity-schemas/search/{jobId}",
-			{ params: { path: { jobId: crypto.randomUUID() } } },
-		);
+		const { response, error } = await client.GET("/entity-schemas/search/{jobId}", {
+			params: { path: { jobId: crypto.randomUUID() } },
+		});
 
 		expect(response.status).toBe(401);
 		expect(error?.error).toBeDefined();
@@ -615,23 +582,18 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.GET(
-			"/entity-schemas/search/{jobId}",
-			{
-				headers: { Cookie: cookies },
-				params: { path: { jobId: crypto.randomUUID() } },
-			},
-		);
+		const { response, error } = await client.GET("/entity-schemas/search/{jobId}", {
+			headers: { Cookie: cookies },
+			params: { path: { jobId: crypto.randomUUID() } },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Sandbox job not found");
 	});
 
 	it("returns 404 when another user polls the job", async () => {
-		const { client: clientA, cookies: cookiesA } =
-			await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } =
-			await createAuthenticatedClient();
+		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
 		const scriptId = getFirstProviderScriptId(schema);
@@ -641,10 +603,10 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
 
-		const { response, error } = await clientB.GET(
-			"/entity-schemas/search/{jobId}",
-			{ params: { path: { jobId } }, headers: { Cookie: cookiesB } },
-		);
+		const { response, error } = await clientB.GET("/entity-schemas/search/{jobId}", {
+			params: { path: { jobId } },
+			headers: { Cookie: cookiesB },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Sandbox job not found");
@@ -700,10 +662,9 @@ describe("POST /entity-schemas/import", () => {
 describe("GET /entity-schemas/import/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.GET(
-			"/entity-schemas/import/{jobId}",
-			{ params: { path: { jobId: crypto.randomUUID() } } },
-		);
+		const { response, error } = await client.GET("/entity-schemas/import/{jobId}", {
+			params: { path: { jobId: crypto.randomUUID() } },
+		});
 
 		expect(response.status).toBe(401);
 		expect(error?.error).toBeDefined();
@@ -712,23 +673,18 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.GET(
-			"/entity-schemas/import/{jobId}",
-			{
-				headers: { Cookie: cookies },
-				params: { path: { jobId: crypto.randomUUID() } },
-			},
-		);
+		const { response, error } = await client.GET("/entity-schemas/import/{jobId}", {
+			headers: { Cookie: cookies },
+			params: { path: { jobId: crypto.randomUUID() } },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Entity import job not found");
 	});
 
 	it("returns 404 when another user polls the import job", async () => {
-		const { client: clientA, cookies: cookiesA } =
-			await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } =
-			await createAuthenticatedClient();
+		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 
 		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
 		const scriptId = getFirstProviderScriptId(schema);
@@ -739,10 +695,10 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 			entitySchemaId: schema.id,
 		});
 
-		const { response, error } = await clientB.GET(
-			"/entity-schemas/import/{jobId}",
-			{ params: { path: { jobId } }, headers: { Cookie: cookiesB } },
-		);
+		const { response, error } = await clientB.GET("/entity-schemas/import/{jobId}", {
+			params: { path: { jobId } },
+			headers: { Cookie: cookiesB },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Entity import job not found");
@@ -751,9 +707,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 	it("reaches a terminal state for a builtin details script", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const detailsScriptId = schema.providers.find(
-			(p) => p.name === "OpenLibrary",
-		)?.scriptId;
+		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
 		if (!detailsScriptId) {
 			throw new Error("OpenLibrary provider script not found");
 		}
@@ -774,9 +728,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 	it("returns entity with populated properties in the completed import result", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const detailsScriptId = schema.providers.find(
-			(p) => p.name === "OpenLibrary",
-		)?.scriptId;
+		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
 		if (!detailsScriptId) {
 			throw new Error("OpenLibrary provider script not found");
 		}
@@ -803,9 +755,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const detailsScriptId = schema.providers.find(
-			(p) => p.name === "OpenLibrary",
-		)?.scriptId;
+		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
 		if (!detailsScriptId) {
 			throw new Error("OpenLibrary provider script not found");
 		}
@@ -827,9 +777,7 @@ describe("GET /entity-schemas/import/{jobId}", () => {
 		const entity = result.data as { populatedAt?: string };
 
 		if (!entity.populatedAt) {
-			throw new Error(
-				"Expected populatedAt to be present on the imported entity",
-			);
+			throw new Error("Expected populatedAt to be present on the imported entity");
 		}
 
 		expect(new Date(entity.populatedAt).toISOString()).toBe(entity.populatedAt);

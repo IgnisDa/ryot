@@ -1,5 +1,7 @@
 import { dayjs } from "@ryot/ts-utils";
+
 import type { AuthenticatedUser } from "~/lib/auth";
+
 import type { SidebarAccount } from "./Sidebar.types";
 
 export function toSidebarAccount(input: AuthenticatedUser): SidebarAccount {

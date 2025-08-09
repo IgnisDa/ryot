@@ -14,9 +14,7 @@ export type InternalAppRequestInput = {
 
 let appRequestHandler: AppRequestHandler | null = null;
 
-export const registerInternalAppRequestHandler = (
-	handler: AppRequestHandler | null,
-) => {
+export const registerInternalAppRequestHandler = (handler: AppRequestHandler | null) => {
 	appRequestHandler = handler;
 };
 
@@ -61,17 +59,14 @@ export const normalizeBaseAppPath = (path: string) => {
 	return `${pathname}${requestUrl.search}`;
 };
 
-export const executeInternalAppRequest = async (
-	input: InternalAppRequestInput,
-) => {
+export const executeInternalAppRequest = async (input: InternalAppRequestInput) => {
 	if (!appRequestHandler) {
 		throw new Error("Internal app request handler is not registered");
 	}
 
 	const normalizedPath = normalizeBaseAppPath(input.path);
 	const headers = new Headers(input.headers);
-	const body =
-		input.body === undefined ? undefined : JSON.stringify(input.body);
+	const body = input.body === undefined ? undefined : JSON.stringify(input.body);
 
 	if (body !== undefined && !headers.has("content-type")) {
 		headers.set("content-type", "application/json");

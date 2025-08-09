@@ -8,10 +8,7 @@ export const uploadContentTypes = [
 
 export type UploadContentType = (typeof uploadContentTypes)[number];
 
-export const uploadContentTypeExtensions: Record<
-	UploadContentType,
-	readonly string[]
-> = {
+export const uploadContentTypeExtensions: Record<UploadContentType, readonly string[]> = {
 	"image/gif": ["gif"],
 	"image/png": ["png"],
 	"image/webp": ["webp"],

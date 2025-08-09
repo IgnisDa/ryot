@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+
 import {
 	createAuthenticatedClient,
 	createCollection,
@@ -131,9 +132,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(collection.id).toBeDefined();
-			expect(collection.properties.membershipPropertiesSchema).toEqual(
-				membershipPropertiesSchema,
-			);
+			expect(collection.properties.membershipPropertiesSchema).toEqual(membershipPropertiesSchema);
 		});
 
 		it("creates a collection with array item schemas", async () => {
@@ -183,9 +182,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(collection.id).toBeDefined();
-			expect(collection.properties.membershipPropertiesSchema).toEqual(
-				membershipPropertiesSchema,
-			);
+			expect(collection.properties.membershipPropertiesSchema).toEqual(membershipPropertiesSchema);
 		});
 
 		it("rejects collection creation with invalid nested property type", async () => {
@@ -304,9 +301,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(collection.id).toBeDefined();
-			expect(collection.properties.membershipPropertiesSchema).toEqual(
-				membershipPropertiesSchema,
-			);
+			expect(collection.properties.membershipPropertiesSchema).toEqual(membershipPropertiesSchema);
 		});
 	});
 
@@ -351,18 +346,13 @@ describe("POST /collections", () => {
 			});
 
 			// Try to add the collection to itself
-			const { response, error } = await client.POST(
-				"/collections/memberships",
-				{
-					headers: { Cookie: cookies },
-					body: { entityId: collection.id, collectionId: collection.id },
-				},
-			);
+			const { response, error } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: { entityId: collection.id, collectionId: collection.id },
+			});
 
 			expect(response.status).toBe(400);
-			expect(error?.error?.message).toContain(
-				"Cannot add a collection to itself",
-			);
+			expect(error?.error?.message).toContain("Cannot add a collection to itself");
 		});
 
 		it("adds an entity to a collection", async () => {
@@ -375,10 +365,7 @@ describe("POST /collections", () => {
 			});
 
 			// Create a tracker, schema, and entity
-			const { entityId } = await createTrackerWithSchemaAndEntity(
-				client,
-				cookies,
-			);
+			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 			// Add entity to collection
 			const { data, response } = await client.POST("/collections/memberships", {
@@ -447,10 +434,7 @@ describe("POST /collections", () => {
 			});
 
 			// Create a tracker, schema, and entity
-			const { entityId } = await createTrackerWithSchemaAndEntity(
-				client,
-				cookies,
-			);
+			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 			// Add entity to collection with custom properties
 			const { data, response } = await client.POST("/collections/memberships", {
@@ -486,10 +470,7 @@ describe("POST /collections", () => {
 				},
 			});
 
-			const { entityId } = await createTrackerWithSchemaAndEntity(
-				client,
-				cookies,
-			);
+			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 			const first = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
@@ -511,9 +492,7 @@ describe("POST /collections", () => {
 
 			expect(first.response.status).toBe(200);
 			expect(second.response.status).toBe(200);
-			expect(second.data?.data?.memberOf?.id).toBe(
-				first.data?.data?.memberOf?.id,
-			);
+			expect(second.data?.data?.memberOf?.id).toBe(first.data?.data?.memberOf?.id);
 			expect(second.data?.data?.memberOf?.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "Bob",
@@ -524,22 +503,16 @@ describe("POST /collections", () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
 			// Create a tracker and entity
-			const { entityId } = await createTrackerWithSchemaAndEntity(
-				client,
-				cookies,
-			);
+			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 			// Try to add to non-existent collection
-			const { response, error } = await client.POST(
-				"/collections/memberships",
-				{
-					headers: { Cookie: cookies },
-					body: {
-						entityId,
-						collectionId: "nonexistent-collection-id",
-					},
+			const { response, error } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					entityId,
+					collectionId: "nonexistent-collection-id",
 				},
-			);
+			});
 
 			expect(response.status).toBe(404);
 			expect(error?.error?.message).toContain("Collection not found");
@@ -555,16 +528,13 @@ describe("POST /collections", () => {
 			});
 
 			// Try to add non-existent entity
-			const { response, error } = await client.POST(
-				"/collections/memberships",
-				{
-					headers: { Cookie: cookies },
-					body: {
-						collectionId: collection.id,
-						entityId: "nonexistent-entity-id",
-					},
+			const { response, error } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: {
+					collectionId: collection.id,
+					entityId: "nonexistent-entity-id",
 				},
-			);
+			});
 
 			expect(response.status).toBe(404);
 			expect(error?.error?.message).toContain("Entity not found");
@@ -572,10 +542,8 @@ describe("POST /collections", () => {
 
 		it("returns 404 when trying to add to another user's collection", async () => {
 			// Create two different users
-			const { client: clientA, cookies: cookiesA } =
-				await createAuthenticatedClient();
-			const { client: clientB, cookies: cookiesB } =
-				await createAuthenticatedClient();
+			const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
+			const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 
 			// User A creates a collection
 			const collection = await createCollection(clientA, cookiesA, {
@@ -584,19 +552,13 @@ describe("POST /collections", () => {
 			});
 
 			// User B creates a tracker, schema, and entity
-			const { entityId } = await createTrackerWithSchemaAndEntity(
-				clientB,
-				cookiesB,
-			);
+			const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
 			// User B tries to add their entity to User A's collection
-			const { response, error } = await clientB.POST(
-				"/collections/memberships",
-				{
-					headers: { Cookie: cookiesB },
-					body: { entityId, collectionId: collection.id },
-				},
-			);
+			const { response, error } = await clientB.POST("/collections/memberships", {
+				headers: { Cookie: cookiesB },
+				body: { entityId, collectionId: collection.id },
+			});
 
 			expect(response.status).toBe(404);
 			expect(error?.error?.message).toContain("Collection not found");
@@ -626,19 +588,13 @@ describe("POST /collections", () => {
 		});
 
 		// Create a tracker, schema, and entity
-		const { entityId } = await createTrackerWithSchemaAndEntity(
-			client,
-			cookies,
-		);
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 		// Add entity to collection first
-		const { data: addData, response: addResponse } = await client.POST(
-			"/collections/memberships",
-			{
-				headers: { Cookie: cookies },
-				body: { entityId, collectionId: collection.id },
-			},
-		);
+		const { data: addData, response: addResponse } = await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
 
 		expect(addResponse.status).toBe(200);
 		expect(addData?.data?.memberOf?.relationshipSchemaId).toBeDefined();
@@ -668,19 +624,13 @@ describe("POST /collections", () => {
 		});
 
 		// Create a tracker and entity
-		const { entityId } = await createTrackerWithSchemaAndEntity(
-			client,
-			cookies,
-		);
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 		// Try to remove entity that was never added to collection
-		const { response, error } = await client.DELETE(
-			"/collections/memberships",
-			{
-				headers: { Cookie: cookies },
-				body: { entityId, collectionId: collection.id },
-			},
-		);
+		const { response, error } = await client.DELETE("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toContain("Entity is not in collection");
@@ -690,22 +640,16 @@ describe("POST /collections", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		// Create an entity
-		const { entityId } = await createTrackerWithSchemaAndEntity(
-			client,
-			cookies,
-		);
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
 		// Try to remove from non-existent collection
-		const { response, error } = await client.DELETE(
-			"/collections/memberships",
-			{
-				headers: { Cookie: cookies },
-				body: {
-					entityId,
-					collectionId: "nonexistent-collection-id",
-				},
+		const { response, error } = await client.DELETE("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: {
+				entityId,
+				collectionId: "nonexistent-collection-id",
 			},
-		);
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toContain("Collection not found");
@@ -713,10 +657,8 @@ describe("POST /collections", () => {
 
 	it("returns 404 when trying to remove from another user's collection", async () => {
 		// Create two different users
-		const { client: clientA, cookies: cookiesA } =
-			await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } =
-			await createAuthenticatedClient();
+		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
 
 		// User A creates a collection
 		const collection = await createCollection(clientA, cookiesA, {
@@ -725,19 +667,13 @@ describe("POST /collections", () => {
 		});
 
 		// User B creates a tracker, schema, and entity
-		const { entityId } = await createTrackerWithSchemaAndEntity(
-			clientB,
-			cookiesB,
-		);
+		const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
 		// User B tries to remove their entity from User A's collection
-		const { response, error } = await clientB.DELETE(
-			"/collections/memberships",
-			{
-				headers: { Cookie: cookiesB },
-				body: { entityId, collectionId: collection.id },
-			},
-		);
+		const { response, error } = await clientB.DELETE("/collections/memberships", {
+			headers: { Cookie: cookiesB },
+			body: { entityId, collectionId: collection.id },
+		});
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toContain("Collection not found");

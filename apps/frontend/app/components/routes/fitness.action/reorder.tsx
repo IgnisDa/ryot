@@ -2,16 +2,14 @@ import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import { Drawer, Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
 import { useDidUpdate, useListState } from "@mantine/hooks";
 import { isEqual } from "@ryot/ts-utils";
-import {
-	IconDroplet,
-	IconDropletFilled,
-	IconDropletHalf2Filled,
-} from "@tabler/icons-react";
+import { IconDroplet, IconDropletFilled, IconDropletHalf2Filled } from "@tabler/icons-react";
 import { produce } from "immer";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
+
 import { useExerciseDetails } from "~/lib/shared/hooks";
 import { type Exercise, useCurrentWorkout } from "~/lib/state/fitness";
+
 import { focusOnExercise, getProgressOfExercise } from "./hooks";
 import { styles } from "./utils";
 
@@ -33,10 +31,7 @@ export const ReorderDrawer = (props: {
 				produce(currentWorkout, (draft) => {
 					if (!draft) return;
 					draft.exercises = exerciseElements.map(
-						(de) =>
-							draft.exercises.find(
-								(e) => e.identifier === de.identifier,
-							) as Exercise,
+						(de) => draft.exercises.find((e) => e.identifier === de.identifier) as Exercise,
 					);
 				}),
 			);
@@ -45,12 +40,7 @@ export const ReorderDrawer = (props: {
 	}, [exerciseElements]);
 
 	return currentWorkout ? (
-		<Drawer
-			size="sm"
-			styles={styles}
-			opened={props.opened}
-			onClose={props.onClose}
-		>
+		<Drawer size="sm" styles={styles} opened={props.opened} onClose={props.onClose}>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
 					if (!destination) return;
@@ -64,11 +54,7 @@ export const ReorderDrawer = (props: {
 			>
 				<Droppable droppableId="dnd-list">
 					{(provided) => (
-						<Stack
-							{...provided.droppableProps}
-							ref={provided.innerRef}
-							gap="xs"
-						>
+						<Stack {...provided.droppableProps} ref={provided.innerRef} gap="xs">
 							<Text c="dimmed">Hold and release to reorder exercises</Text>
 							{exerciseElements.map((exercise, index) => (
 								<ReorderDrawerExerciseElement
@@ -93,14 +79,11 @@ const ReorderDrawerExerciseElement = (props: {
 	exerciseToReorder: string | null | undefined;
 }) => {
 	const [currentWorkout] = useCurrentWorkout();
-	const isForThisExercise =
-		props.exerciseToReorder === props.exercise.identifier;
+	const isForThisExercise = props.exerciseToReorder === props.exercise.identifier;
 
 	invariant(currentWorkout);
 
-	const { data: exerciseDetails } = useExerciseDetails(
-		props.exercise.exerciseId,
-	);
+	const { data: exerciseDetails } = useExerciseDetails(props.exercise.exerciseId);
 
 	return (
 		<Draggable index={props.index} draggableId={props.index.toString()}>
@@ -118,11 +101,7 @@ const ReorderDrawerExerciseElement = (props: {
 						<Text size="sm" c={isForThisExercise ? "teal" : undefined}>
 							{exerciseDetails?.name}
 						</Text>
-						<ThemeIcon
-							size="xs"
-							variant="transparent"
-							color={isForThisExercise ? "teal" : "gray"}
-						>
+						<ThemeIcon size="xs" variant="transparent" color={isForThisExercise ? "teal" : "gray"}>
 							{match(getProgressOfExercise(currentWorkout, props.index))
 								.with("complete", () => <IconDropletFilled />)
 								.with("in-progress", () => <IconDropletHalf2Filled />)

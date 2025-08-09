@@ -1,4 +1,5 @@
 import { Button, Group, Modal, Stack } from "@mantine/core";
+
 import { FormError } from "~/components/PageStates";
 import type { CreateEntitySchemaPayload } from "~/features/entity-schemas/form";
 import { EntitySchemaPropertiesBuilder } from "~/features/entity-schemas/properties-builder";
@@ -35,10 +36,7 @@ export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 					<Stack gap="md">
 						<FormError message={props.errorMessage} />
 
-						<entitySchemaForm.AppField
-							name="name"
-							listeners={entitySchemaForm.nameFieldListeners}
-						>
+						<entitySchemaForm.AppField name="name" listeners={entitySchemaForm.nameFieldListeners}>
 							{(field) => (
 								<field.TextField
 									required
@@ -93,10 +91,7 @@ export function EntitySchemaCreateModal(props: EntitySchemaCreateModalProps) {
 							</entitySchemaForm.AppField>
 						</Group>
 
-						<EntitySchemaPropertiesBuilder
-							form={entitySchemaForm}
-							isLoading={props.isLoading}
-						/>
+						<EntitySchemaPropertiesBuilder form={entitySchemaForm} isLoading={props.isLoading} />
 
 						<Group justify="flex-end" gap="md">
 							<Button

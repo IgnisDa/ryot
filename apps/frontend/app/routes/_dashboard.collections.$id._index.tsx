@@ -1,13 +1,4 @@
-import {
-	ActionIcon,
-	Box,
-	Container,
-	Group,
-	Stack,
-	Tabs,
-	Text,
-	Title,
-} from "@mantine/core";
+import { ActionIcon, Box, Container, Group, Stack, Tabs, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
 	CollectionContentsDocument,
@@ -26,6 +17,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import invariant from "tiny-invariant";
+
 import { SkeletonLoader } from "~/components/common";
 import { BulkCollectionEditingAffix } from "~/components/common/bulk-collection-editing-affix";
 import { FilterPresetModalManager } from "~/components/common/filter-presets";
@@ -37,16 +29,9 @@ import { ReviewsTabPanel } from "~/components/routes/collections/reviews-tab-pan
 import { useFilterPresets } from "~/lib/hooks/filters/use-presets";
 import { useFiltersState } from "~/lib/hooks/filters/use-state";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import {
-	useUserCollections,
-	useUserDetails,
-	useUserPreferences,
-} from "~/lib/shared/hooks";
+import { useUserCollections, useUserDetails, useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import {
-	useBulkEditCollection,
-	useCreateOrUpdateCollectionModal,
-} from "~/lib/state/collection";
+import { useBulkEditCollection, useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
 
 enum TabNames {
@@ -78,14 +63,10 @@ export default function Page(props: { params: { id: string } }) {
 	const { filters, resetFilters, updateFilters, haveFiltersChanged } =
 		useFiltersState(defaultQueryState);
 
-	const [
-		presetModalOpened,
-		{ open: openPresetModal, close: closePresetModal },
-	] = useDisclosure(false);
-	const [
-		filtersModalOpened,
-		{ open: openFiltersModal, close: closeFiltersModal },
-	] = useDisclosure(false);
+	const [presetModalOpened, { open: openPresetModal, close: closePresetModal }] =
+		useDisclosure(false);
+	const [filtersModalOpened, { open: openFiltersModal, close: closeFiltersModal }] =
+		useDisclosure(false);
 
 	invariant(collectionId);
 
@@ -114,9 +95,7 @@ export default function Page(props: { params: { id: string } }) {
 				},
 				metadata:
 					isMetadataEntity &&
-					(filters.metadataLot ||
-						filters.metadataSource ||
-						filters.metadataGeneral)
+					(filters.metadataLot || filters.metadataSource || filters.metadataGeneral)
 						? {
 								lot: filters.metadataLot,
 								source: filters.metadataSource,
@@ -144,15 +123,13 @@ export default function Page(props: { params: { id: string } }) {
 		};
 	}, [collectionId, filters]);
 
-	const { data: collectionContents, refetch: refreshCollectionContents } =
-		useQuery({
-			queryKey:
-				queryFactory.collections.collectionContents(queryInput).queryKey,
-			queryFn: () =>
-				clientGqlService
-					.request(CollectionContentsDocument, { input: queryInput })
-					.then((data) => data.collectionContents),
-		});
+	const { data: collectionContents, refetch: refreshCollectionContents } = useQuery({
+		queryKey: queryFactory.collections.collectionContents(queryInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(CollectionContentsDocument, { input: queryInput })
+				.then((data) => data.collectionContents),
+	});
 
 	const details = collectionContents?.response;
 	const colDetails = details
@@ -205,30 +182,20 @@ export default function Page(props: { params: { id: string } }) {
 										) : null}
 									</Group>
 									<Text size="sm">
-										Created by {details.user.name}{" "}
-										{dayjsLib(details.details.createdOn).fromNow()}
+										Created by {details.user.name} {dayjsLib(details.details.createdOn).fromNow()}
 									</Text>
 								</Box>
 							</Group>
 							<Text>{details.details.description}</Text>
 							<Tabs value={tab} onChange={setTab} keepMounted={false}>
 								<Tabs.List mb="xs">
-									<Tabs.Tab
-										value={TabNames.Contents}
-										leftSection={<IconBucketDroplet size={16} />}
-									>
+									<Tabs.Tab value={TabNames.Contents} leftSection={<IconBucketDroplet size={16} />}>
 										Contents
 									</Tabs.Tab>
-									<Tabs.Tab
-										value={TabNames.Recommendations}
-										leftSection={<IconStar size={16} />}
-									>
+									<Tabs.Tab value={TabNames.Recommendations} leftSection={<IconStar size={16} />}>
 										Recommendations
 									</Tabs.Tab>
-									<Tabs.Tab
-										value={TabNames.Actions}
-										leftSection={<IconUser size={16} />}
-									>
+									<Tabs.Tab value={TabNames.Actions} leftSection={<IconUser size={16} />}>
 										Actions
 									</Tabs.Tab>
 									{!userPreferences.general.disableReviews ? (
@@ -278,10 +245,7 @@ export default function Page(props: { params: { id: string } }) {
 								</Tabs.Panel>
 								{!userPreferences.general.disableReviews ? (
 									<Tabs.Panel value={TabNames.Reviews}>
-										<ReviewsTabPanel
-											details={details}
-											collectionId={collectionId}
-										/>
+										<ReviewsTabPanel details={details} collectionId={collectionId} />
 									</Tabs.Panel>
 								) : null}
 							</Tabs>

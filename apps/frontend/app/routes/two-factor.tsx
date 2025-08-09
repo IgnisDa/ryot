@@ -1,15 +1,6 @@
 import { getFormProps, getInputProps, useForm } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
-import {
-	Anchor,
-	Button,
-	Center,
-	Container,
-	PinInput,
-	Stack,
-	Text,
-	TextInput,
-} from "@mantine/core";
+import { Anchor, Button, Center, Container, PinInput, Stack, Text, TextInput } from "@mantine/core";
 import {
 	UserTwoFactorVerifyMethod,
 	VerifyTwoFactorDocument,
@@ -20,6 +11,7 @@ import { data, Form, Link, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { z } from "zod";
+
 import {
 	combineHeaders,
 	createToastHeaders,
@@ -27,20 +19,18 @@ import {
 	serverGqlService,
 	twoFactorSessionStorage,
 } from "~/lib/utilities.server";
+
 import type { Route } from "./+types/two-factor";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
-	const session = await twoFactorSessionStorage.getSession(
-		request.headers.get("cookie"),
-	);
+	const session = await twoFactorSessionStorage.getSession(request.headers.get("cookie"));
 	const userId = session.get("userId") as string | undefined;
 
 	if (!userId) {
 		throw redirect($path("/auth"), {
 			headers: await createToastHeaders({
 				type: "error",
-				message:
-					"Two-factor authentication session expired. Please login again.",
+				message: "Two-factor authentication session expired. Please login again.",
 			}),
 		});
 	}
@@ -52,17 +42,14 @@ export const meta = () => [{ title: "Two-Factor Authentication | Ryot" }];
 
 export const action = async ({ request }: Route.ActionArgs) => {
 	const formData = await request.formData();
-	const session = await twoFactorSessionStorage.getSession(
-		request.headers.get("cookie"),
-	);
+	const session = await twoFactorSessionStorage.getSession(request.headers.get("cookie"));
 	const userId = session.get("userId") as string | undefined;
 
 	if (!userId) {
 		return redirect($path("/auth"), {
 			headers: await createToastHeaders({
 				type: "error",
-				message:
-					"Two-factor authentication session expired. Please login again.",
+				message: "Two-factor authentication session expired. Please login again.",
 			}),
 		});
 	}
@@ -80,20 +67,16 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		});
 	}
 
-	const { verifyTwoFactor } = await serverGqlService.request(
-		VerifyTwoFactorDocument,
-		{
-			input: {
-				userId,
-				code: submission.value.code,
-				method: submission.value.method,
-			},
+	const { verifyTwoFactor } = await serverGqlService.request(VerifyTwoFactorDocument, {
+		input: {
+			userId,
+			code: submission.value.code,
+			method: submission.value.method,
 		},
-	);
+	});
 
 	if (verifyTwoFactor.__typename === "ApiKeyResponse") {
-		const destroySessionCookie =
-			await twoFactorSessionStorage.destroySession(session);
+		const destroySessionCookie = await twoFactorSessionStorage.destroySession(session);
 		const authHeaders = await getCookiesForApplication(verifyTwoFactor.apiKey);
 		return redirect($path("/"), {
 			headers: combineHeaders(authHeaders, {
@@ -148,9 +131,7 @@ export default function Page() {
 						type="hidden"
 						name="method"
 						value={
-							useBackupCode
-								? UserTwoFactorVerifyMethod.BackupCode
-								: UserTwoFactorVerifyMethod.Totp
+							useBackupCode ? UserTwoFactorVerifyMethod.BackupCode : UserTwoFactorVerifyMethod.Totp
 						}
 					/>
 					{!useBackupCode ? (
@@ -179,10 +160,7 @@ export default function Page() {
 						mt="lg"
 						w="100%"
 						type="submit"
-						disabled={
-							(!useBackupCode && code.length !== 6) ||
-							(useBackupCode && !code.trim())
-						}
+						disabled={(!useBackupCode && code.length !== 6) || (useBackupCode && !code.trim())}
 					>
 						Verify & Continue
 					</Button>
@@ -195,9 +173,7 @@ export default function Page() {
 						setCode("");
 					}}
 				>
-					{useBackupCode
-						? "Use authenticator app instead"
-						: "Use backup code instead"}
+					{useBackupCode ? "Use authenticator app instead" : "Use backup code instead"}
 				</Button>
 				<Anchor component={Link} to="/auth" ta="center">
 					Back to login

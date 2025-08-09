@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+
 import type { AuthType } from "~/lib/auth";
 import {
 	commonErrors,
@@ -9,6 +10,7 @@ import {
 	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
+
 import {
 	getPresignedDownloadUrlBody,
 	getPresignedDownloadUrlResponseSchema,
@@ -53,10 +55,7 @@ const getPresignedDownloadUrlRoute = createAuthRoute(
 				successDescription: "Presigned download URLs for uploaded files",
 				successSchema: getPresignedDownloadUrlResponseSchema,
 			}),
-			500: createErrorResponse(
-				"Presigned URL generation failed",
-				commonErrors.internalError,
-			),
+			500: createErrorResponse("Presigned URL generation failed", commonErrors.internalError),
 		},
 	}),
 );
@@ -73,10 +72,7 @@ export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 			return c.json(uploadInput.body, uploadInput.status);
 		}
 
-		return c.json(
-			successResponse(await createPresignedUpload(uploadInput.data)),
-			200,
-		);
+		return c.json(successResponse(await createPresignedUpload(uploadInput.data)), 200);
 	})
 	.openapi(getPresignedDownloadUrlRoute, async (c) => {
 		const body = c.req.valid("json");

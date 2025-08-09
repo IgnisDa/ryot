@@ -11,28 +11,19 @@ import {
 	Text,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
-import {
-	Copy,
-	FolderPlus,
-	LayoutGrid,
-	List,
-	Table2,
-	Trash2,
-} from "lucide-react";
+import { Copy, FolderPlus, LayoutGrid, List, Table2, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
 import { EmptyState, ErrorState, LoadingState } from "~/components/PageStates";
 import { useResolvedImageUrls } from "~/features/entities/image";
-import {
-	type AppEntityImage,
-	toAppEntity,
-	toAppEntityImage,
-} from "~/features/entities/model";
+import { type AppEntityImage, toAppEntity, toAppEntityImage } from "~/features/entities/model";
 import { TrackerIcon } from "~/features/trackers/icons";
 import { useApiClient } from "~/hooks/api";
 import { useThemeTokens } from "~/hooks/theme";
 import type { ApiGetResponseData } from "~/lib/api/types";
 import { STORAGE_KEYS } from "~/lib/storage-keys";
 import { getAccentMuted } from "~/lib/theme";
+
 import { isEntitySavedView } from "./model";
 import { SavedViewResults } from "./view-page-sections";
 import {
@@ -43,8 +34,7 @@ import {
 	isRuntimeField,
 } from "./view-page-utils";
 
-type ViewLayout =
-	keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
+type ViewLayout = keyof ApiGetResponseData<"/saved-views/{viewSlug}">["displayConfiguration"];
 
 const isViewLayout = (value: string): value is ViewLayout => {
 	return ["grid", "list", "table"].includes(value);
@@ -72,8 +62,7 @@ export function SavedViewPage(props: {
 		params: { path: { viewSlug: props.viewSlug } },
 	});
 	const savedView = savedViewQuery.data?.data;
-	const entitySavedView =
-		savedView && isEntitySavedView(savedView) ? savedView : null;
+	const entitySavedView = savedView && isEntitySavedView(savedView) ? savedView : null;
 	const runtimeRequest = useMemo(
 		() =>
 			entitySavedView
@@ -95,11 +84,8 @@ export function SavedViewPage(props: {
 
 	const runtimePayload = runtimeQuery.data?.data;
 	const items =
-		runtimePayload?.mode === "entities"
-			? runtimePayload.data.items.map(toAppEntity)
-			: [];
-	const meta =
-		runtimePayload?.mode === "entities" ? runtimePayload.data.meta : undefined;
+		runtimePayload?.mode === "entities" ? runtimePayload.data.items.map(toAppEntity) : [];
+	const meta = runtimePayload?.mode === "entities" ? runtimePayload.data.meta : undefined;
 	const imageEntries = useMemo(() => {
 		const entries: Array<{ id: string; image: AppEntityImage }> = [];
 		for (const item of items) {
@@ -221,12 +207,7 @@ export function SavedViewPage(props: {
 									{entitySavedView.name}
 								</Text>
 								{entitySavedView.isBuiltin ? (
-									<Badge
-										size="sm"
-										c={accentColor}
-										variant="light"
-										bg={accentMuted}
-									>
+									<Badge size="sm" c={accentColor} variant="light" bg={accentMuted}>
 										Built-in
 									</Badge>
 								) : null}
@@ -244,8 +225,7 @@ export function SavedViewPage(props: {
 							</Group>
 						</Stack>
 						<Group gap="xs">
-							{entitySavedView.name === "Collections" &&
-							props.onCreateCollection ? (
+							{entitySavedView.name === "Collections" && props.onCreateCollection ? (
 								<Button
 									size="sm"
 									variant="light"

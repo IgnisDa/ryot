@@ -1,4 +1,5 @@
 import type { ApiPostRequestBody } from "~/lib/api/types";
+
 import {
 	buildDefaultPropertySchemaRow,
 	buildPropertiesSchema,
@@ -22,8 +23,7 @@ export const buildEventSchemaFormValues = buildPropertySchemaFormValues;
 
 export const buildEventSchemaPropertiesSchema = buildPropertiesSchema;
 
-export const defaultCreateEventSchemaFormValues =
-	defaultCreatePropertySchemaFormValues;
+export const defaultCreateEventSchemaFormValues = defaultCreatePropertySchemaFormValues;
 
 export type CreateEventSchemaPayload = ApiPostRequestBody<"/event-schemas">;
 
@@ -35,8 +35,6 @@ export function toCreateEventSchemaPayload(
 		name: input.name.trim(),
 		entitySchemaId,
 		propertiesSchema: buildEventSchemaPropertiesSchema(input.properties),
-		...(normalizeOptionalSlug(input.slug)
-			? { slug: normalizeOptionalSlug(input.slug) }
-			: {}),
+		...(normalizeOptionalSlug(input.slug) ? { slug: normalizeOptionalSlug(input.slug) } : {}),
 	};
 }
