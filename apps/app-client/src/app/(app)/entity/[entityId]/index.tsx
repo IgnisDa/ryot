@@ -1,5 +1,9 @@
+import { useLocalSearchParams } from "expo-router";
+
 import { EntityDetailScreen } from "@/features/entity-detail";
 
 export default function EntityDetailRoute() {
-	return <EntityDetailScreen />;
+	const { entityId } = useLocalSearchParams<"/(app)/entity/[entityId]">();
+
+	return <EntityDetailScreen entityId={entityId} />;
 }
