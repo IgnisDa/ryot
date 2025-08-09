@@ -312,7 +312,9 @@ const DisplayNotification = (props: {
 	const [isAdvancedSettingsOpen, { toggle: toggleAdvancedSettings }] =
 		useDisclosure(false);
 	const [configuredEvents, configuredEventsHandler] =
-		useListState<UserNotificationContentDiscriminants>(props.notification.configuredEvents);
+		useListState<UserNotificationContentDiscriminants>(
+			props.notification.configuredEvents,
+		);
 
 	return (
 		<>
@@ -346,89 +348,92 @@ const DisplayNotification = (props: {
 						</Flex>
 						<Collapse in={isAdvancedSettingsOpen}>
 							<Stack gap="xs">
-								{Object.values(UserNotificationContentDiscriminants).map((name) => (
-									<Switch
-										size="xs"
-										key={name}
-										defaultChecked={props.notification.configuredEvents.includes(
-											name,
-										)}
-										onChange={(value) => {
-											const checked = value.target.checked;
-											if (checked) configuredEventsHandler.append(name);
-											else
-												configuredEventsHandler.filter(
-													(event) => event !== name,
-												);
-										}}
-										label={match(name)
-											.with(
-												UserNotificationContentDiscriminants.OutdatedSeenEntries,
-												() => "Media has been in progress/on hold for too long",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataEpisodeNameChanged,
-												() => "Name of an episode changes",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataEpisodeImagesChanged,
-												() => "Images for an episode changes",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataEpisodeReleased,
-												() => "Number of episodes changes",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataPublished,
+								{Object.values(UserNotificationContentDiscriminants).map(
+									(name) => (
+										<Switch
+											size="xs"
+											key={name}
+											defaultChecked={props.notification.configuredEvents.includes(
+												name,
+											)}
+											onChange={(value) => {
+												const checked = value.target.checked;
+												if (checked) configuredEventsHandler.append(name);
+												else
+													configuredEventsHandler.filter(
+														(event) => event !== name,
+													);
+											}}
+											label={match(name)
+												.with(
+													UserNotificationContentDiscriminants.OutdatedSeenEntries,
+													() =>
+														"Media has been in progress/on hold for too long",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataEpisodeNameChanged,
+													() => "Name of an episode changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataEpisodeImagesChanged,
+													() => "Images for an episode changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataEpisodeReleased,
+													() => "Number of episodes changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataPublished,
 
-												() => "A media is published",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataStatusChanged,
-												() => "Status changes",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataReleaseDateChanged,
-												() => "Release date changes",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataNumberOfSeasonsChanged,
-												() => "Number of seasons changes",
-											)
-											.with(
-												UserNotificationContentDiscriminants.MetadataChaptersOrEpisodesChanged,
-												() =>
-													"Number of chapters/episodes changes for manga/anime",
-											)
-											.with(
-												UserNotificationContentDiscriminants.ReviewPosted,
-												() =>
-													"A new public review is posted for media/people you monitor",
-											)
-											.with(
-												UserNotificationContentDiscriminants.PersonMetadataAssociated,
-												() => "New media is associated with a person",
-											)
-											.with(
-												UserNotificationContentDiscriminants.PersonMetadataGroupAssociated,
-												() => "New media group is associated with a person",
-											)
-											.with(
-												UserNotificationContentDiscriminants.NotificationFromReminderCollection,
-												() =>
-													"When an item is added to the reminder collection",
-											)
-											.with(
-												UserNotificationContentDiscriminants.NewWorkoutCreated,
-												() => "A new workout is created",
-											)
-											.with(
-												UserNotificationContentDiscriminants.IntegrationDisabledDueToTooManyErrors,
-												() => "Integration disabled due to too many errors",
-											)
-											.exhaustive()}
-									/>
-								))}
+													() => "A media is published",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataStatusChanged,
+													() => "Status changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataReleaseDateChanged,
+													() => "Release date changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataNumberOfSeasonsChanged,
+													() => "Number of seasons changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataChaptersOrEpisodesChanged,
+													() =>
+														"Number of chapters/episodes changes for manga/anime",
+												)
+												.with(
+													UserNotificationContentDiscriminants.ReviewPosted,
+													() =>
+														"A new public review is posted for media/people you monitor",
+												)
+												.with(
+													UserNotificationContentDiscriminants.PersonMetadataAssociated,
+													() => "New media is associated with a person",
+												)
+												.with(
+													UserNotificationContentDiscriminants.PersonMetadataGroupAssociated,
+													() => "New media group is associated with a person",
+												)
+												.with(
+													UserNotificationContentDiscriminants.NotificationFromReminderCollection,
+													() =>
+														"When an item is added to the reminder collection",
+												)
+												.with(
+													UserNotificationContentDiscriminants.NewWorkoutCreated,
+													() => "A new workout is created",
+												)
+												.with(
+													UserNotificationContentDiscriminants.IntegrationDisabledDueToTooManyErrors,
+													() => "Integration disabled due to too many errors",
+												)
+												.exhaustive()}
+										/>
+									),
+								)}
 							</Stack>
 						</Collapse>
 						<Button type="submit" onClick={closeEditModal}>
