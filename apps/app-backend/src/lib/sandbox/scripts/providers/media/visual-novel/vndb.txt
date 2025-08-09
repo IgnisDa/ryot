@@ -13,6 +13,13 @@ function extractYear(released, dayjs) {
   return d.isValid() ? d.year() : null;
 }
 
+function extractDate(released) {
+  if (typeof released !== "string" || !released.trim()) return null;
+  const trimmed = released.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 function devstatusToString(devstatus) {
   if (devstatus === 0) return "Finished";
   if (devstatus === 1) return "In development";
@@ -273,6 +280,7 @@ driver("details", async function (context) {
       lengthMinutes,
       providerRating,
       productionStatus,
+      publishDate: extractDate(vn.released),
       sourceUrl: `https://vndb.org/${externalId}`,
       publishYear: extractYear(vn.released, dayjs),
     },
