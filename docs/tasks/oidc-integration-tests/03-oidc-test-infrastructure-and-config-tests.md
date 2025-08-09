@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -83,11 +83,11 @@ The `beforeAll`/`afterAll` structure must mirror `tests/src/setup.ts` exactly (s
 
 ## Acceptance criteria
 
-- [ ] `tests/src/tests/auth-oidc.test.ts` exists with a working `beforeAll`/`afterAll` that starts the mock OIDC server and three backend processes
-- [ ] `tests/src/fixtures/auth-oidc.ts` exists and exports a functional `oidcSignIn` helper
-- [ ] The four config assertions (two for backend A, two for backend B) pass
-- [ ] `afterAll` stops all three backend processes and all four containers cleanly
-- [ ] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] `tests/src/tests/auth-oidc.test.ts` exists with a working `beforeAll`/`afterAll` that starts the mock OIDC server and three backend processes
+- [x] `tests/src/fixtures/auth-oidc.ts` exists and exports a functional `oidcSignIn` helper
+- [x] The four config assertions (two for backend A, two for backend B) pass
+- [x] `afterAll` stops all three backend processes and all four containers cleanly
+- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
 
 ## User stories addressed
 
