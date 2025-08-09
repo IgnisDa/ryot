@@ -15,6 +15,7 @@ import {
 	Table,
 	Tabs,
 	Text,
+	Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -375,6 +376,8 @@ export default function Page() {
 
 	const platformReleases =
 		loaderData.metadataDetails.videoGameSpecifics?.platformReleases;
+	const timeToBeat = loaderData.metadataDetails.videoGameSpecifics?.timeToBeat;
+
 	return (
 		<>
 			<DisplayShowSeasonEpisodesModal
@@ -652,6 +655,48 @@ export default function Page() {
 													})
 											: null}
 									</SimpleGrid>
+									{timeToBeat &&
+									(timeToBeat.hastily ||
+										timeToBeat.normally ||
+										timeToBeat.completely) ? (
+										<Stack gap="sm">
+											<Title order={4} ta="center">
+												Time to beat
+											</Title>
+											<SimpleGrid cols={3}>
+												{timeToBeat.hastily ? (
+													<Paper p="xs" withBorder radius="md" ta="center">
+														<Text fw={700} size="lg">
+															{Math.round(timeToBeat.hastily / 3600)} H
+														</Text>
+														<Text c="dimmed" size="xs">
+															Hastily
+														</Text>
+													</Paper>
+												) : null}
+												{timeToBeat.normally ? (
+													<Paper p="xs" radius="md" withBorder ta="center">
+														<Text fw={700} size="lg">
+															{Math.round(timeToBeat.normally / 3600)} H
+														</Text>
+														<Text c="dimmed" size="xs">
+															Normally
+														</Text>
+													</Paper>
+												) : null}
+												{timeToBeat.completely ? (
+													<Paper p="xs" radius="md" withBorder ta="center">
+														<Text fw={700} size="lg">
+															{Math.round(timeToBeat.completely / 3600)} H
+														</Text>
+														<Text c="dimmed" size="xs">
+															Completely
+														</Text>
+													</Paper>
+												) : null}
+											</SimpleGrid>
+										</Stack>
+									) : null}
 									{platformReleases && (platformReleases?.length || 0) > 0 ? (
 										<Table
 											data={{
