@@ -35,13 +35,13 @@ const createEntityRoute = createAuthRoute(
 const getEntityRoute = createAuthRoute(
 	createRoute({
 		method: "get",
-		path: "/{entityId}",
 		tags: ["entities"],
+		path: "/{entityId}",
 		request: { params: entityParams },
 		summary: "Get a single custom entity",
 		responses: createStandardResponses({
-			successDescription: "Requested entity",
 			successSchema: getEntityResponseSchema,
+			successDescription: "Requested entity",
 			notFoundDescription: "Entity does not exist for this user",
 		}),
 	}),
@@ -53,8 +53,8 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const params = c.req.valid("param");
 
 		const result = await getEntityDetail({
-			entityId: params.entityId,
 			userId: user.id,
+			entityId: params.entityId,
 		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
