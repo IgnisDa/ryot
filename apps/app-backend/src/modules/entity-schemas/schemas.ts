@@ -11,13 +11,12 @@ import {
 	stringUnknownRecordSchema,
 } from "~/lib/zod";
 import { listedEntitySchema } from "~/modules/entities";
+import { createLabeledPropertySchemas } from "~/modules/property-schemas";
 import {
 	sandboxCompletedResultSchema,
 	sandboxFailedResultSchema,
 	sandboxPendingResultSchema,
 } from "~/modules/sandbox";
-
-import { createLabeledPropertySchemas } from "../property-schemas/schemas";
 
 const entitySchemaProperties = createLabeledPropertySchemas("Entity schema properties");
 

@@ -194,6 +194,7 @@ export type AggregationField = z.infer<typeof aggregationFieldSchema>;
 export type TimeSeriesMetric = z.infer<typeof timeSeriesMetricSchema>;
 export type AggregateExpression = z.infer<typeof aggregateExpressionSchema>;
 export type SavedViewQueryDefinition = z.infer<typeof savedViewQueryDefinitionSchema>;
+export type StoredSavedViewQueryDefinition = z.infer<typeof storedSavedViewQueryDefinitionSchema>;
 
 export const listedSavedViewSchema = z.object({
 	id: z.string(),

@@ -1,8 +1,7 @@
 import type { RuntimeRef } from "@ryot/ts-utils";
 
 import type { QueryEngineRequest } from "~/modules/query-engine";
-import type { DisplayConfiguration } from "~/modules/saved-views";
-import type { LatestRelationshipJoinDefinition } from "~/modules/saved-views/schemas";
+import type { DisplayConfiguration, LatestRelationshipJoinDefinition } from "~/modules/saved-views";
 
 import {
 	buildComputedFieldMap,

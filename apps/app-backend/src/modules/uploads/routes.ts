@@ -4,10 +4,11 @@ import type { AuthType } from "~/lib/auth";
 import {
 	commonErrors,
 	createAuthRoute,
+	createInternalErrorResult,
+	createValidationErrorResult,
 	createErrorResponse,
 	createStandardResponses,
 	jsonBody,
-	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
 
@@ -17,11 +18,7 @@ import {
 	getPresignedUploadUrlBody,
 	getPresignedUploadUrlResponseSchema,
 } from "./schemas";
-import {
-	createPresignedDownloads,
-	createPresignedUpload,
-	resolvePresignedUploadInput,
-} from "./service";
+import { createPresignedDownloads, createPresignedUpload } from "./service";
 
 const getPresignedUploadUrlRoute = createAuthRoute(
 	createRoute({
@@ -63,18 +60,25 @@ const getPresignedDownloadUrlRoute = createAuthRoute(
 export const uploadsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(getPresignedUploadUrlRoute, async (c) => {
 		const body = c.req.valid("json");
-		const uploadInput = resolveValidationData(
-			() => resolvePresignedUploadInput(body),
-			"Could not create presigned upload URL",
-		);
-
-		if ("status" in uploadInput) {
-			return c.json(uploadInput.body, uploadInput.status);
+		const result = await createPresignedUpload(body);
+		if ("error" in result) {
+			if (result.error === "validation") {
+				return c.json(createValidationErrorResult(result.message).body, 400);
+			}
+			return c.json(createInternalErrorResult(result.message).body, 500);
 		}
 
-		return c.json(successResponse(await createPresignedUpload(uploadInput.data)), 200);
+		return c.json(successResponse(result.data), 200);
 	})
 	.openapi(getPresignedDownloadUrlRoute, async (c) => {
 		const body = c.req.valid("json");
-		return c.json(successResponse(await createPresignedDownloads(body)), 200);
+		const result = await createPresignedDownloads(body);
+		if ("error" in result) {
+			if (result.error === "validation") {
+				return c.json(createValidationErrorResult(result.message).body, 400);
+			}
+			return c.json(createInternalErrorResult(result.message).body, 500);
+		}
+
+		return c.json(successResponse(result.data), 200);
 	});
