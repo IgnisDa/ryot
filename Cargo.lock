@@ -3976,6 +3976,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-entity-details-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "dependent-utils",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-entity-user-details-service"
 version = "0.1.0"
 dependencies = [
@@ -4051,6 +4070,7 @@ dependencies = [
  "migrations",
  "miscellaneous-background-service",
  "miscellaneous-calendar-service",
+ "miscellaneous-entity-details-service",
  "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
  "nanoid",

@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod entity_details;
 pub mod list_operations;
 pub mod lookup_operations;
 pub mod metadata_operations;
@@ -55,7 +54,8 @@ impl MiscellaneousService {
         metadata_id: &String,
         ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
-        entity_details::metadata_details(&self.0, metadata_id, ensure_updated).await
+        miscellaneous_entity_details_service::metadata_details(&self.0, metadata_id, ensure_updated)
+            .await
     }
 
     pub async fn user_metadata_details(
@@ -289,7 +289,7 @@ impl MiscellaneousService {
     }
 
     pub async fn person_details(&self, person_id: String) -> Result<GraphqlPersonDetails> {
-        entity_details::person_details(person_id, &self.0).await
+        miscellaneous_entity_details_service::person_details(person_id, &self.0).await
     }
 
     pub async fn genre_details(
@@ -297,14 +297,15 @@ impl MiscellaneousService {
         user_id: String,
         input: GenreDetailsInput,
     ) -> Result<GenreDetails> {
-        entity_details::genre_details(&self.0, user_id, input).await
+        miscellaneous_entity_details_service::genre_details(&self.0, user_id, input).await
     }
 
     pub async fn metadata_group_details(
         &self,
         metadata_group_id: String,
     ) -> Result<MetadataGroupDetails> {
-        entity_details::metadata_group_details(&self.0, metadata_group_id).await
+        miscellaneous_entity_details_service::metadata_group_details(&self.0, metadata_group_id)
+            .await
     }
 
     pub async fn create_review_comment(

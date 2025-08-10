@@ -16,6 +16,7 @@ sea-orm = { workspace = true }
 sea-query = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+
 background-models = { path = "../../models/background" }
 cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
@@ -30,6 +31,7 @@ media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 miscellaneous-background-service = { path = "./background" }
 miscellaneous-calendar-service = { path = "./calendar" }
+miscellaneous-entity-details-service = { path = "./entity-details" }
 miscellaneous-entity-user-details-service = { path = "./entity-user-details" }
 miscellaneous-general-service = { path = "./general" }
 supporting-service = { path = "../supporting" }
