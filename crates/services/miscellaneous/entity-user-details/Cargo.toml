@@ -17,6 +17,7 @@ database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-models = { path = "../../../models/dependent" }
 dependent-utils = { path = "../../../utils/dependent" }
+dependent-seen-utils = { path = "../../../utils/dependent/seen" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
 enum-models = { path = "../../../models/enum" }
 media-models = { path = "../../../models/media" }

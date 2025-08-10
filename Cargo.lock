@@ -1975,6 +1975,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-seen-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-collection-utils",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-utility-utils"
 version = "0.1.0"
 dependencies = [
@@ -2012,6 +2031,7 @@ dependencies = [
  "dependent-jobs-utils",
  "dependent-models",
  "dependent-review-utils",
+ "dependent-seen-utils",
  "dependent-utility-utils",
  "enum-models",
  "enum_meta",
@@ -4096,6 +4116,7 @@ dependencies = [
  "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-seen-utils",
  "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
@@ -4163,6 +4184,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-seen-utils",
  "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
@@ -4241,6 +4263,7 @@ dependencies = [
  "anyhow",
  "common-models",
  "database-models",
+ "dependent-seen-utils",
  "dependent-utility-utils",
  "dependent-utils",
  "enum-models",

@@ -9,6 +9,7 @@ use database_models::{metadata, prelude::*, seen};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, ExpireCacheKeyInput,
 };
+use dependent_seen_utils::handle_after_metadata_seen_tasks;
 use dependent_utility_utils::mark_entity_as_recently_consumed;
 use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::{join, try_join};
@@ -29,8 +30,6 @@ use sea_orm::{
     QueryOrder,
 };
 use supporting_service::SupportingService;
-
-use crate::seen_operations::handle_after_metadata_seen_tasks;
 
 pub async fn commit_import_seen_item(
     is_import: bool,

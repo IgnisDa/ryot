@@ -12,8 +12,8 @@ use database_models::{
     review, user, user_to_entity,
 };
 use database_utils::{entity_in_collections_with_details, get_enabled_users_query};
+use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::expire_user_metadata_list_cache;
-use dependent_utils::is_metadata_finished_by_user;
 use enum_models::{EntityLot, UserToMediaReason};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,

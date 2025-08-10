@@ -34,6 +34,7 @@ dependent-models = { path = "../../models/dependent" }
 dependent-collection-utils = { path = "./collection" }
 dependent-core-utils = { path = "./core" }
 dependent-jobs-utils = { path = "./jobs" }
+dependent-seen-utils = { path = "./seen" }
 dependent-review-utils = { path = "./review" }
 dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }

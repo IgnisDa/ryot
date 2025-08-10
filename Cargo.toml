@@ -73,6 +73,7 @@ members = [
     "crates/utils/dependent/entity-list",
     "crates/utils/dependent/jobs",
     "crates/utils/dependent/review",
+    "crates/utils/dependent/seen",
     "crates/utils/dependent/utility",
     "crates/utils/external",
     "crates/utils/env",

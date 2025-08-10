@@ -1,24 +1,23 @@
 [package]
-name = "miscellaneous-progress-service"
+name = "dependent-seen-utils"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-futures = { workspace = true }
+itertools = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
+cache-service = { path = "../../../services/cache" }
 common-models = { path = "../../../models/common" }
+common-utils = { path = "../../common" }
 database-models = { path = "../../../models/database" }
-dependent-utils = { path = "../../../utils/dependent" }
-dependent-seen-utils = { path = "../../../utils/dependent/seen" }
-dependent-utility-utils = { path = "../../../utils/dependent/utility" }
+dependent-collection-utils = { path = "../collection" }
+dependent-models = { path = "../../../models/dependent" }
 enum-models = { path = "../../../models/enum" }
-media-models = { path = "../../../models/media" }
-supporting-service = { path = "../../supporting" }
-traits = { path = "../../../traits" }
+supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
