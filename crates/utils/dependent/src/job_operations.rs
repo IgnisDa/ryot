@@ -1,11 +1,11 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use background_models::{ApplicationJob, HpApplicationJob, MpApplicationJob};
 use common_models::BackgroundJob;
 use database_models::{metadata, prelude::Metadata};
 use database_utils::admin_account_guard;
-use sea_orm::{EntityTrait, QueryOrder, QuerySelect};
-use sea_query::Expr;
-use std::sync::Arc;
+use sea_orm::{EntityTrait, QueryOrder, QuerySelect, prelude::Expr};
 use supporting_service::SupportingService;
 
 pub async fn deploy_update_metadata_job(

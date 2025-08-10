@@ -4,8 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 

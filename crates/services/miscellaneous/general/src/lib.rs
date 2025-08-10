@@ -8,8 +8,7 @@ use database_models::{
 use dependent_models::ExpireCacheKeyInput;
 use enum_models::EntityLot;
 use media_models::MarkEntityAsPartialInput;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 

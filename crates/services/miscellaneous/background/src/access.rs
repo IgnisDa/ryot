@@ -4,8 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use database_models::{access_link, prelude::AccessLink};
 use database_utils::revoke_access_link;
-use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, prelude::Expr};
 use supporting_service::SupportingService;
 
 pub async fn revoke_invalid_access_tokens(ss: &Arc<SupportingService>) -> Result<()> {

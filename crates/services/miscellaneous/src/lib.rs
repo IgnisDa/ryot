@@ -32,8 +32,7 @@ use media_models::{
     ReviewPostedEvent, UpdateCustomMetadataInput, UpdateSeenItemInput, UserCalendarEventInput,
     UserUpcomingCalendarEventInput,
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::DateTimeUtc, prelude::Expr};
 use supporting_service::SupportingService;
 use uuid::Uuid;
 

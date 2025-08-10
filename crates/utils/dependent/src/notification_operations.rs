@@ -12,8 +12,9 @@ use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;
 use notification_service::send_notification;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect};
-use sea_query::Expr;
+use sea_orm::{
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, prelude::Expr,
+};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;

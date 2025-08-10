@@ -11,8 +11,7 @@ use database_models::{
     },
     user_to_entity,
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, UpdateMany};
-use sea_query::Expr;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, UpdateMany, prelude::Expr};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
