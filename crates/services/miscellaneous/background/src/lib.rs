@@ -22,6 +22,7 @@ use crate::{
         update_monitored_metadata_and_queue_notifications,
         update_monitored_people_and_queue_notifications,
     },
+    moving::move_metadata_between_collections,
     notifications::queue_notifications_for_outdated_seen_entries,
     summaries::regenerate_user_summaries,
     user::cleanup_user_and_metadata_association,
@@ -34,6 +35,7 @@ mod cleanup;
 mod collections;
 mod integrations;
 mod monitoring;
+mod moving;
 mod notifications;
 mod summaries;
 mod user;
@@ -55,6 +57,8 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     recalculate_calendar_events(ss).await.trace_ok();
     ryot_log!(trace, "Queuing notifications for released media");
     queue_notifications_for_released_media(ss).await.trace_ok();
+    ryot_log!(trace, "Moving items between collections");
+    move_metadata_between_collections(ss).await.trace_ok();
     ryot_log!(trace, "Cleaning up user and metadata association");
     cleanup_user_and_metadata_association(ss).await.trace_ok();
     ryot_log!(trace, "Removing old user summaries and regenerating them");
