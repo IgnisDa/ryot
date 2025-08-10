@@ -5,8 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-enum_meta = { workspace = true }
-itertools = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
@@ -14,7 +12,6 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 background-models = { path = "../../models/background" }
-cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
@@ -31,6 +28,7 @@ miscellaneous-metadata-operations-service = { path = "./metadata-operations" }
 miscellaneous-progress-service = { path = "./progress" }
 miscellaneous-review-service = { path = "./review" }
 miscellaneous-search-service = { path = "./search" }
+miscellaneous-trending-and-events-service = { path = "./trending-and-events" }
 supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]

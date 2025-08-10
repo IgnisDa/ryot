@@ -34,8 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod trending_and_events;
-
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
 impl MiscellaneousService {
@@ -340,11 +338,11 @@ impl MiscellaneousService {
     }
 
     pub async fn trending_metadata(&self) -> Result<TrendingMetadataIdsResponse> {
-        trending_and_events::trending_metadata(&self.0).await
+        miscellaneous_trending_and_events_service::trending_metadata(&self.0).await
     }
 
     pub async fn handle_review_posted_event(&self, event: ReviewPostedEvent) -> Result<()> {
-        trending_and_events::handle_review_posted_event(&self.0, event).await
+        miscellaneous_trending_and_events_service::handle_review_posted_event(&self.0, event).await
     }
 
     pub async fn update_user_last_activity_performed(

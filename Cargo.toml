@@ -56,6 +56,7 @@ members = [
     "crates/services/miscellaneous/progress",
     "crates/services/miscellaneous/review",
     "crates/services/miscellaneous/search",
+    "crates/services/miscellaneous/trending-and-events",
     "crates/services/notification",
     "crates/services/session",
     "crates/services/statistics",

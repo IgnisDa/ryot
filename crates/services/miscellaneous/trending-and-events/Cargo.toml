@@ -1,0 +1,23 @@
+[package]
+name = "miscellaneous-trending-and-events-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+enum_meta = { workspace = true }
+itertools = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+cache-service = { path = "../../cache" }
+database-models = { path = "../../../models/database" }
+dependent-models = { path = "../../../models/dependent" }
+dependent-utils = { path = "../../../utils/dependent" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

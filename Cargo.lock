@@ -4146,14 +4146,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "background-models",
- "cache-service",
  "common-models",
  "database-models",
  "dependent-models",
  "dependent-utils",
  "enum-models",
- "enum_meta",
- "itertools 0.14.0",
  "media-models",
  "miscellaneous-background-service",
  "miscellaneous-calendar-service",
@@ -4165,12 +4162,32 @@ dependencies = [
  "miscellaneous-progress-service",
  "miscellaneous-review-service",
  "miscellaneous-search-service",
+ "miscellaneous-trending-and-events-service",
  "rust_decimal",
  "sea-orm",
  "sea-query",
  "supporting-service",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "miscellaneous-trending-and-events-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "database-models",
+ "dependent-models",
+ "dependent-utils",
+ "enum-models",
+ "enum_meta",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
 ]
 
 [[package]]
