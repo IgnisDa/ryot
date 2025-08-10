@@ -94,6 +94,6 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
         .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
         .exec(&ss.db)
         .await?;
-    common_utils::ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
+    ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
     Ok(())
 }
