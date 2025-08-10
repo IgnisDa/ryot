@@ -16,7 +16,7 @@ use supporting_service::SupportingService;
 const IN_PROGRESS_OUTDATED_THRESHOLD_DAYS: i64 = 7;
 const ON_A_HOLD_OUTDATED_THRESHOLD_DAYS: i64 = 14;
 
-pub async fn queue_notifications_for_outdated_seen_entries(
+pub async fn send_notifications_for_outdated_seen_entries(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     if !is_server_key_validated(ss).await? {

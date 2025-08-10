@@ -176,7 +176,7 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
     Ok(())
 }
 
-pub async fn queue_notifications_for_released_media(ss: &Arc<SupportingService>) -> Result<()> {
+pub async fn notify_users_for_released_media(ss: &Arc<SupportingService>) -> Result<()> {
     let today = get_current_date(&ss.timezone);
     let calendar_events = CalendarEvent::find()
         .filter(calendar_event::Column::Date.eq(today))
@@ -213,7 +213,7 @@ pub async fn queue_notifications_for_released_media(ss: &Arc<SupportingService>)
     Ok(())
 }
 
-pub async fn queue_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> {
+pub async fn notify_users_for_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct UserMediaReminder {

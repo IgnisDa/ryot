@@ -12,7 +12,7 @@ use crate::{
     access::revoke_invalid_access_tokens,
     cache::{expire_cache_keys, remove_cached_metadata_after_updates},
     calendar::{
-        queue_notifications_for_released_media, queue_pending_reminders,
+        notify_users_for_pending_reminders, notify_users_for_released_media,
         recalculate_calendar_events,
     },
     cleanup::{put_entities_in_partial_state, remove_useless_data},
@@ -22,7 +22,7 @@ use crate::{
         update_all_monitored_metadata_and_notify_users,
         update_all_monitored_people_and_notify_users,
     },
-    notifications::queue_notifications_for_outdated_seen_entries,
+    notifications::send_notifications_for_outdated_seen_entries,
     summaries::regenerate_user_summaries,
     user::cleanup_user_and_metadata_association,
 };
@@ -50,11 +50,11 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
         .await
         .trace_ok();
     ryot_log!(trace, "Checking and queuing any pending reminders");
-    queue_pending_reminders(ss).await.trace_ok();
+    notify_users_for_pending_reminders(ss).await.trace_ok();
     ryot_log!(trace, "Recalculating calendar events");
     recalculate_calendar_events(ss).await.trace_ok();
     ryot_log!(trace, "Queuing notifications for released media");
-    queue_notifications_for_released_media(ss).await.trace_ok();
+    notify_users_for_released_media(ss).await.trace_ok();
     ryot_log!(trace, "Cleaning up user and metadata association");
     cleanup_user_and_metadata_association(ss).await.trace_ok();
     ryot_log!(trace, "Removing old user summaries and regenerating them");
@@ -63,8 +63,8 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     sync_integrations_data_to_owned_collection(ss)
         .await
         .trace_ok();
-    ryot_log!(trace, "Queueing notifications for outdated seen entries");
-    queue_notifications_for_outdated_seen_entries(ss)
+    ryot_log!(trace, "Sending notifications for outdated seen entries");
+    send_notifications_for_outdated_seen_entries(ss)
         .await
         .trace_ok();
     ryot_log!(trace, "Removing useless data");
