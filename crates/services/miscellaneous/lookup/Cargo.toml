@@ -17,5 +17,8 @@ media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }
 tmdb-provider = { path = "../../../providers/tmdb" }
 
+[dev-dependencies]
+rstest = { workspace = true }
+
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
