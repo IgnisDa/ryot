@@ -1862,6 +1862,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-review-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
 name = "dependent-utility-utils"
 version = "0.1.0"
 dependencies = [
@@ -1897,6 +1918,7 @@ dependencies = [
  "database-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-review-utils",
  "dependent-utility-utils",
  "enum-models",
  "enum_meta",
@@ -4198,6 +4220,7 @@ dependencies = [
  "database-models",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-review-utils",
  "dependent-utils",
  "enum-models",
  "media-models",

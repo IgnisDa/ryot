@@ -15,9 +15,10 @@ use dependent_models::{
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
+use dependent_review_utils::post_review;
 use dependent_utils::{
     deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, post_review, update_metadata_and_notify_users,
+    deploy_update_person_job, update_metadata_and_notify_users,
     update_metadata_group_and_notify_users, update_person_and_notify_users, user_genres_list,
     user_metadata_groups_list, user_metadata_list, user_people_list,
 };

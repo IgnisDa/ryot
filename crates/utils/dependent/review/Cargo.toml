@@ -1,0 +1,25 @@
+[package]
+name = "dependent-review-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+background-models = { path = "../../../models/background" }
+common-models = { path = "../../../models/common" }
+common-utils = { path = "../../common" }
+database-models = { path = "../../../models/database" }
+database-utils = { path = "../../../utils/database" }
+dependent-utility-utils = { path = "../utility" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../../services/supporting" }
+user-models = { path = "../../../models/user" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

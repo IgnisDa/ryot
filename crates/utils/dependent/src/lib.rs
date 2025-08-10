@@ -13,9 +13,6 @@ pub use notification_operations::*;
 mod job_operations;
 pub use job_operations::*;
 
-mod review_operations;
-pub use review_operations::*;
-
 mod seen_operations;
 pub use seen_operations::*;
 

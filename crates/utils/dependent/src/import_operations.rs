@@ -5,6 +5,7 @@ use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use dependent_review_utils::{convert_review_into_input, post_review};
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use importer_models::ImportFailedItem;
 use importer_models::{ImportDetails, ImportFailStep, ImportResultResponse};
@@ -20,9 +21,8 @@ use supporting_service::SupportingService;
 
 use crate::{
     collection_operations, commit_import_seen_item, commit_metadata, commit_metadata_group,
-    commit_person, convert_review_into_input, create_custom_exercise,
-    create_or_update_user_workout, create_user_measurement, db_workout_to_workout_input,
-    deploy_update_metadata_group_job, deploy_update_person_job, post_review,
+    commit_person, create_custom_exercise, create_or_update_user_workout, create_user_measurement,
+    db_workout_to_workout_input, deploy_update_metadata_group_job, deploy_update_person_job,
 };
 
 async fn create_collection_and_add_entity_to_it(

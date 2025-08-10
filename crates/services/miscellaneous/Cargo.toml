@@ -16,6 +16,7 @@ common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
+dependent-review-utils = { path = "../../utils/dependent/review" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 media-models = { path = "../../models/media" }
