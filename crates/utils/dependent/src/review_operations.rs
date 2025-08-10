@@ -62,6 +62,13 @@ pub async fn post_review(
     }
     let mut review_obj =
         review::ActiveModel {
+            text: ActiveValue::Set(input.text),
+            comments: ActiveValue::Set(vec![]),
+            user_id: ActiveValue::Set(user_id.to_owned()),
+            show_extra_information: ActiveValue::Set(show_ei),
+            anime_extra_information: ActiveValue::Set(anime_ei),
+            manga_extra_information: ActiveValue::Set(manga_ei),
+            podcast_extra_information: ActiveValue::Set(podcast_ei),
             id: match input.review_id.clone() {
                 Some(i) => ActiveValue::Unchanged(i),
                 None => ActiveValue::NotSet,
@@ -73,13 +80,6 @@ pub async fn post_review(
                     UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
                 },
             )),
-            text: ActiveValue::Set(input.text),
-            user_id: ActiveValue::Set(user_id.to_owned()),
-            show_extra_information: ActiveValue::Set(show_ei),
-            anime_extra_information: ActiveValue::Set(anime_ei),
-            manga_extra_information: ActiveValue::Set(manga_ei),
-            podcast_extra_information: ActiveValue::Set(podcast_ei),
-            comments: ActiveValue::Set(vec![]),
             ..Default::default()
         };
     let entity_id = input.entity_id.clone();
@@ -151,17 +151,17 @@ pub fn convert_review_into_input(
     let is_spoiler = review.review.clone().map(|r| r.spoiler.unwrap_or(false));
     let date = review.review.clone().map(|r| r.date);
     Some(CreateOrUpdateReviewInput {
-        rating,
         text,
-        is_spoiler,
-        visibility: review.review.clone().and_then(|r| r.visibility),
-        date: date.flatten(),
+        rating,
         entity_id,
         entity_lot,
+        is_spoiler,
+        date: date.flatten(),
         show_season_number: review.show_season_number,
         show_episode_number: review.show_episode_number,
-        podcast_episode_number: review.podcast_episode_number,
         manga_chapter_number: review.manga_chapter_number,
+        podcast_episode_number: review.podcast_episode_number,
+        visibility: review.review.clone().and_then(|r| r.visibility),
         ..Default::default()
     })
 }
