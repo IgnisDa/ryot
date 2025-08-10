@@ -4052,6 +4052,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-metadata-operations-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-utils",
+ "enum-models",
+ "file-storage-service",
+ "itertools 0.14.0",
+ "media-models",
+ "nanoid",
+ "rstest",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
@@ -4074,14 +4096,12 @@ dependencies = [
  "cache-service",
  "chrono",
  "common-models",
- "common-utils",
  "database-models",
  "database-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
  "enum_meta",
- "file-storage-service",
  "futures",
  "itertools 0.14.0",
  "media-models",
@@ -4091,6 +4111,7 @@ dependencies = [
  "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
  "miscellaneous-lookup-service",
+ "miscellaneous-metadata-operations-service",
  "nanoid",
  "rust_decimal",
  "sea-orm",

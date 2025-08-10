@@ -19,13 +19,11 @@ uuid = { workspace = true }
 background-models = { path = "../../models/background" }
 cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
-file-storage-service = { path = "../file-storage" }
 media-models = { path = "../../models/media" }
 miscellaneous-background-service = { path = "./background" }
 miscellaneous-calendar-service = { path = "./calendar" }
@@ -33,6 +31,7 @@ miscellaneous-entity-details-service = { path = "./entity-details" }
 miscellaneous-entity-user-details-service = { path = "./entity-user-details" }
 miscellaneous-general-service = { path = "./general" }
 miscellaneous-lookup-service = { path = "./lookup" }
+miscellaneous-metadata-operations-service = { path = "./metadata-operations" }
 supporting-service = { path = "../supporting" }
 traits = { path = "../../traits" }
 

@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod metadata_operations;
 pub mod progress_operations;
 pub mod review_operations;
 pub mod search_operations;
@@ -191,7 +190,10 @@ impl MiscellaneousService {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        metadata_operations::merge_metadata(&self.0, user_id, merge_from, merge_into).await
+        miscellaneous_metadata_operations_service::merge_metadata(
+            &self.0, user_id, merge_from, merge_into,
+        )
+        .await
     }
 
     pub async fn disassociate_metadata(
@@ -199,7 +201,12 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<bool> {
-        metadata_operations::disassociate_metadata(&self.0, user_id, metadata_id).await
+        miscellaneous_metadata_operations_service::disassociate_metadata(
+            &self.0,
+            user_id,
+            metadata_id,
+        )
+        .await
     }
 
     pub async fn metadata_search(
@@ -251,7 +258,8 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateCustomMetadataInput,
     ) -> Result<metadata::Model> {
-        metadata_operations::create_custom_metadata(&self.0, user_id, input).await
+        miscellaneous_metadata_operations_service::create_custom_metadata(&self.0, user_id, input)
+            .await
     }
 
     pub async fn update_custom_metadata(
@@ -259,7 +267,8 @@ impl MiscellaneousService {
         user_id: &str,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        metadata_operations::update_custom_metadata(&self.0, user_id, input).await
+        miscellaneous_metadata_operations_service::update_custom_metadata(&self.0, user_id, input)
+            .await
     }
 
     pub async fn user_genres_list(
