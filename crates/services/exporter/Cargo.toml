@@ -22,7 +22,7 @@ common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
+dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
 enum-models = { path = "../../models/enum" }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }

@@ -1351,6 +1351,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-collection-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "dependent-utility-utils",
  "dependent-utils",
@@ -1864,6 +1865,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-entity-list-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "cache-service",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "enum-models",
+ "fitness-models",
+ "media-models",
+ "migrations",
+ "rust_decimal",
+ "sea-orm",
+ "sea-query",
+ "slug",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
 name = "dependent-models"
 version = "0.1.0"
 dependencies = [
@@ -1944,6 +1969,7 @@ dependencies = [
  "database-utils",
  "dependent-collection-utils",
  "dependent-core-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "dependent-review-utils",
  "dependent-utility-utils",
@@ -1962,7 +1988,6 @@ dependencies = [
  "manga-updates-provider",
  "markdown",
  "media-models",
- "migrations",
  "myanimelist-provider",
  "nanoid",
  "notification-service",
@@ -1974,7 +1999,6 @@ dependencies = [
  "sea-query",
  "serde",
  "serde_json",
- "slug",
  "spotify-provider",
  "sqlx",
  "supporting-service",
@@ -2393,8 +2417,8 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
- "dependent-utils",
  "enum-models",
  "file-storage-service",
  "fitness-models",
@@ -2553,6 +2577,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-core-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "dependent-utility-utils",
  "dependent-utils",
@@ -4248,6 +4273,7 @@ dependencies = [
  "common-models",
  "database-models",
  "dependent-core-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
  "dependent-review-utils",
  "dependent-utils",

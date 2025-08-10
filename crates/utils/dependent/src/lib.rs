@@ -22,8 +22,5 @@ pub use fitness_operations::*;
 mod import_operations;
 pub use import_operations::*;
 
-mod list_operations;
-pub use list_operations::*;
-
 mod progress_operations;
 pub use progress_operations::*;

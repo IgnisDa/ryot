@@ -18,7 +18,6 @@ sea-orm = { workspace = true }
 sea-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-slug = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
@@ -36,6 +35,7 @@ database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-collection-utils = { path = "./collection" }
 dependent-core-utils = { path = "./core" }
+dependent-entity-list-utils = { path = "./entity-list" }
 dependent-review-utils = { path = "./review" }
 dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }
@@ -49,7 +49,6 @@ itunes-provider = { path = "../../providers/itunes" }
 listennotes-provider = { path = "../../providers/listennotes" }
 manga-updates-provider = { path = "../../providers/manga-updates" }
 media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
 myanimelist-provider = { path = "../../providers/myanimelist" }
 notification-service = { path = "../../services/notification" }
 openlibrary-provider = { path = "../../providers/openlibrary" }

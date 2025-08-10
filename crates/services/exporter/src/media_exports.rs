@@ -8,11 +8,13 @@ use database_models::{
     seen,
 };
 use database_utils::{entity_in_collections_with_details, item_reviews};
+use dependent_entity_list_utils::{
+    user_metadata_groups_list, user_metadata_list, user_people_list,
+};
 use dependent_models::{
     ImportOrExportMetadataGroupItem, ImportOrExportMetadataItem, ImportOrExportPersonItem,
     UserMetadataGroupsListInput, UserMetadataListInput, UserPeopleListInput,
 };
-use dependent_utils::{user_metadata_groups_list, user_metadata_list, user_people_list};
 use enum_models::EntityLot;
 use media_models::ImportOrExportMetadataItemSeen;
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};

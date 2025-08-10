@@ -9,11 +9,11 @@ use dependent_collection_utils::{
     add_entities_to_collection, create_or_update_collection, remove_entities_from_collection,
     reorder_collection_entity,
 };
+use dependent_entity_list_utils::user_collections_list;
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
-use dependent_utils::user_collections_list;
 use media_models::CreateOrUpdateCollectionInput;
 use supporting_service::SupportingService;
 use uuid::Uuid;
