@@ -36,7 +36,6 @@ use uuid::Uuid;
 
 pub mod progress_operations;
 pub mod review_operations;
-pub mod search_operations;
 pub mod trending_and_events;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
@@ -214,7 +213,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: MetadataSearchInput,
     ) -> Result<CachedResponse<MetadataSearchResponse>> {
-        search_operations::metadata_search(&self.0, user_id, input).await
+        miscellaneous_search_service::metadata_search(&self.0, user_id, input).await
     }
 
     pub async fn people_search(
@@ -222,7 +221,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: PeopleSearchInput,
     ) -> Result<CachedResponse<PeopleSearchResponse>> {
-        search_operations::people_search(&self.0, user_id, input).await
+        miscellaneous_search_service::people_search(&self.0, user_id, input).await
     }
 
     pub async fn metadata_group_search(
@@ -230,7 +229,7 @@ impl MiscellaneousService {
         user_id: &String,
         input: MetadataGroupSearchInput,
     ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
-        search_operations::metadata_group_search(&self.0, user_id, input).await
+        miscellaneous_search_service::metadata_group_search(&self.0, user_id, input).await
     }
 
     pub async fn create_or_update_review(

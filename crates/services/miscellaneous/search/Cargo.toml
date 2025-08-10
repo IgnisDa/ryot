@@ -1,0 +1,25 @@
+[package]
+name = "miscellaneous-search-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+itertools = { workspace = true }
+futures = { workspace = true }
+rust_decimal = { workspace = true }
+tracing = { workspace = true }
+
+cache-service = { path = "../../cache" }
+common-models = { path = "../../../models/common" }
+database-utils = { path = "../../../utils/database" }
+dependent-models = { path = "../../../models/dependent" }
+dependent-utils = { path = "../../../utils/dependent" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+
+[dev-dependencies]
+rstest = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

@@ -4088,6 +4088,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-search-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "database-utils",
+ "dependent-models",
+ "dependent-utils",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rstest",
+ "rust_decimal",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-service"
 version = "0.1.0"
 dependencies = [
@@ -4112,6 +4131,7 @@ dependencies = [
  "miscellaneous-general-service",
  "miscellaneous-lookup-service",
  "miscellaneous-metadata-operations-service",
+ "miscellaneous-search-service",
  "nanoid",
  "rust_decimal",
  "sea-orm",

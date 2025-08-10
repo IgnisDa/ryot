@@ -53,6 +53,7 @@ members = [
     "crates/services/miscellaneous/general",
     "crates/services/miscellaneous/lookup",
     "crates/services/miscellaneous/metadata-operations",
+    "crates/services/miscellaneous/search",
     "crates/services/notification",
     "crates/services/session",
     "crates/services/statistics",
