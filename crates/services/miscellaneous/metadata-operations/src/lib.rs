@@ -195,6 +195,7 @@ pub async fn create_custom_metadata(
         ss,
     )
     .await?;
+    expire_user_metadata_list_cache(&user_id, ss).await?;
     Ok(metadata)
 }
 
