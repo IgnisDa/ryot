@@ -35,14 +35,14 @@ pub async fn cleanup_user_and_metadata_association(ss: &Arc<SupportingService>) 
             .await?;
 
         let mut collection_id_map: HashMap<String, String> = HashMap::new();
-        let default_collections = [
-            DefaultCollection::Monitoring,
-            DefaultCollection::Watchlist,
+        let target_collections = [
             DefaultCollection::Owned,
+            DefaultCollection::Watchlist,
             DefaultCollection::Reminders,
+            DefaultCollection::Monitoring,
         ];
 
-        for default_collection in default_collections {
+        for default_collection in target_collections {
             let collection_name = default_collection.to_string();
             if let Some(collection) = collections.iter().find(|c| c.name == collection_name) {
                 collection_id_map.insert(collection_name, collection.id.clone());
