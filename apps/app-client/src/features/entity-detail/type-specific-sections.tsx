@@ -174,30 +174,51 @@ export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
 			{episodes.map((episode) => (
 				<Box
 					key={episode.id}
-					className="flex-row items-start border-b py-3"
+					className="border-b py-3"
 					style={{ borderColor: hexToRgba(ACCENT, 0.12) }}
 				>
-					<Text className="mr-3 w-8 text-[13px] font-mono text-muted-foreground web:text-[15px]">
-						{episode.number}
-					</Text>
-					<Box className="flex-1">
-						<Text
-							numberOfLines={2}
-							className="text-[13px] font-sans-medium text-foreground web:text-[15px]"
-						>
-							{episode.title}
-						</Text>
-						<Box className="mt-1 flex-row gap-3">
-							<Text className="text-[11px] font-mono text-muted-foreground web:text-[13px]">
-								{dayjs(episode.publishDate).format("MMM D, YYYY")}
-							</Text>
-							{episode.runtime != null ? (
-								<Text className="text-[11px] font-mono text-muted-foreground web:text-[13px]">
-									{formatMinutes(episode.runtime)}
+					<Box className="flex-row items-start gap-3">
+						{episode.thumbnail ? (
+							<Box
+								className="overflow-hidden rounded"
+								style={{ width: 56, height: 56, flexShrink: 0 }}
+							>
+								<Image
+									resizeMode="cover"
+									style={{ width: 56, height: 56 }}
+									source={{ uri: episode.thumbnail }}
+								/>
+							</Box>
+						) : null}
+						<Box className="flex-1">
+							<Box className="flex-row items-start">
+								<Text className="mr-3 w-8 text-[13px] font-mono text-muted-foreground web:text-[15px]">
+									{episode.number}
 								</Text>
-							) : null}
+								<Text
+									numberOfLines={2}
+									className="flex-1 text-[13px] font-sans-medium text-foreground web:text-[15px]"
+								>
+									{episode.title}
+								</Text>
+							</Box>
+							<Box className="mt-1 flex-row gap-3">
+								<Text className="text-[11px] font-mono text-muted-foreground web:text-[13px]">
+									{dayjs(episode.publishDate).format("MMM D, YYYY")}
+								</Text>
+								{episode.runtime != null ? (
+									<Text className="text-[11px] font-mono text-muted-foreground web:text-[13px]">
+										{formatMinutes(episode.runtime)}
+									</Text>
+								) : null}
+							</Box>
 						</Box>
 					</Box>
+					{episode.overview ? (
+						<Text className="mt-2 text-[12px] font-sans leading-relaxed text-muted-foreground web:text-[13px]">
+							{episode.overview}
+						</Text>
+					) : null}
 				</Box>
 			))}
 		</Box>
