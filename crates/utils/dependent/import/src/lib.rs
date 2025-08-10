@@ -15,8 +15,7 @@ use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportRe
 use dependent_progress_utils::commit_import_seen_item;
 use dependent_review_utils::{convert_review_into_input, post_review};
 use enum_models::{EntityLot, MediaLot, MediaSource};
-use importer_models::ImportFailedItem;
-use importer_models::{ImportDetails, ImportFailStep, ImportResultResponse};
+use importer_models::{ImportDetails, ImportFailStep, ImportFailedItem, ImportResultResponse};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, CreateOrUpdateCollectionInput,
     PartialMetadataWithoutId, UniqueMediaIdentifier,

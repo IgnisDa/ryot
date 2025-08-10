@@ -1941,6 +1941,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-import-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "database-utils",
+ "dependent-collection-utils",
+ "dependent-fitness-utils",
+ "dependent-jobs-utils",
+ "dependent-metadata-utils",
+ "dependent-models",
+ "dependent-progress-utils",
+ "dependent-review-utils",
+ "enum-models",
+ "importer-models",
+ "media-models",
+ "rand 0.9.1",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-jobs-utils"
 version = "0.1.0"
 dependencies = [
@@ -2132,33 +2158,6 @@ dependencies = [
  "dependent-models",
  "enum-models",
  "sea-orm",
- "serde_json",
- "sqlx",
- "supporting-service",
- "tracing",
-]
-
-[[package]]
-name = "dependent-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "common-models",
- "common-utils",
- "database-utils",
- "dependent-collection-utils",
- "dependent-fitness-utils",
- "dependent-jobs-utils",
- "dependent-metadata-utils",
- "dependent-models",
- "dependent-progress-utils",
- "dependent-review-utils",
- "enum-models",
- "importer-models",
- "media-models",
- "rand 0.9.1",
- "rust_decimal",
- "rust_decimal_macros",
  "serde_json",
  "sqlx",
  "supporting-service",
@@ -3668,11 +3667,11 @@ dependencies = [
  "data-encoding",
  "database-models",
  "dependent-fitness-utils",
+ "dependent-import-utils",
  "dependent-jobs-utils",
  "dependent-metadata-utils",
  "dependent-models",
  "dependent-provider-utils",
- "dependent-utils",
  "enum-models",
  "external-models",
  "external-utils",
@@ -3765,11 +3764,11 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-core-utils",
+ "dependent-import-utils",
  "dependent-metadata-utils",
  "dependent-models",
  "dependent-notification-utils",
  "dependent-provider-utils",
- "dependent-utils",
  "enum-models",
  "eventsource-stream",
  "external-models",
