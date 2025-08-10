@@ -3922,6 +3922,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-background-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "dependent-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rstest",
+ "rust_decimal",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
@@ -3946,7 +3977,6 @@ dependencies = [
  "chrono",
  "common-models",
  "common-utils",
- "convert_case 0.8.0",
  "database-models",
  "database-utils",
  "dependent-models",
@@ -3958,6 +3988,7 @@ dependencies = [
  "itertools 0.14.0",
  "media-models",
  "migrations",
+ "miscellaneous-background-service",
  "nanoid",
  "regex",
  "rstest",
@@ -3965,8 +3996,6 @@ dependencies = [
  "rust_decimal_macros",
  "sea-orm",
  "sea-query",
- "serde",
- "serde_json",
  "supporting-service",
  "tmdb-provider",
  "tracing",

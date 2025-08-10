@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod background_operations;
 pub mod calendar_operations;
 pub mod core_operations;
 pub mod custom_metadata;
@@ -47,7 +46,6 @@ pub mod review_operations;
 pub mod search_operations;
 pub mod trending_and_events;
 pub mod user_details;
-pub mod user_management;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -350,11 +348,11 @@ impl MiscellaneousService {
     }
 
     pub async fn invalidate_import_jobs(&self) -> Result<()> {
-        background_operations::invalidate_import_jobs(&self.0).await
+        miscellaneous_background_service::invalidate_import_jobs(&self.0).await
     }
 
     pub async fn perform_background_jobs(&self) -> Result<()> {
-        background_operations::perform_background_jobs(&self.0).await
+        miscellaneous_background_service::perform_background_jobs(&self.0).await
     }
 
     pub async fn metadata_lookup(

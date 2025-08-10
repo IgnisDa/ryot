@@ -4,29 +4,16 @@ use anyhow::Result;
 use chrono::{Duration, Utc};
 use convert_case::{Case, Casing};
 use database_models::{
-    import_report,
-    prelude::{ImportReport, Metadata, Seen},
+    prelude::{Metadata, Seen},
     seen,
 };
 use dependent_utils::{is_server_key_validated, send_notification_for_user};
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
-use sea_query::Expr;
 use supporting_service::SupportingService;
 
 const IN_PROGRESS_OUTDATED_THRESHOLD_DAYS: i64 = 7;
 const ON_A_HOLD_OUTDATED_THRESHOLD_DAYS: i64 = 14;
-
-pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
-    let result = ImportReport::update_many()
-        .col_expr(import_report::Column::WasSuccess, Expr::value(false))
-        .filter(import_report::Column::WasSuccess.is_null())
-        .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
-        .exec(&ss.db)
-        .await?;
-    common_utils::ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
-    Ok(())
-}
 
 pub async fn queue_notifications_for_outdated_seen_entries(
     ss: &Arc<SupportingService>,

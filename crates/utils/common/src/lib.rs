@@ -6,7 +6,11 @@ use enum_models::MediaSource;
 use env_utils::APP_VERSION;
 use rand::{RngCore, rng};
 use reqwest::header::HeaderValue;
-use sea_orm::prelude::DateTimeUtc;
+use sea_orm::{
+    DatabaseBackend, Statement,
+    prelude::DateTimeUtc,
+    sea_query::{PostgresQueryBuilder, SelectStatement},
+};
 use serde::de;
 use tokio::time::{Duration, sleep};
 
@@ -155,4 +159,9 @@ pub fn generate_session_id(byte_length: Option<usize>) -> String {
     let mut token_bytes = vec![0u8; length];
     rng().fill_bytes(&mut token_bytes);
     BASE32.encode(&token_bytes)
+}
+
+pub fn get_db_stmt(stmt: SelectStatement) -> Statement {
+    let (sql, values) = stmt.build(PostgresQueryBuilder {});
+    Statement::from_sql_and_values(DatabaseBackend::Postgres, sql, values)
 }

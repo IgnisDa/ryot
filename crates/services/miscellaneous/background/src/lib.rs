@@ -1,35 +1,43 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use chrono::Utc;
 use common_utils::ryot_log;
+use database_models::{import_report, prelude::ImportReport};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_query::Expr;
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
 use crate::{
-    calendar_operations::{
+    access::revoke_invalid_access_tokens,
+    cache::{expire_cache_keys, remove_cached_metadata_after_updates},
+    calendar::{
         queue_notifications_for_released_media, queue_pending_reminders,
         recalculate_calendar_events,
     },
-    user_management::cleanup_user_and_metadata_association,
+    cleanup::{put_entities_in_partial_state, remove_useless_data},
+    collections::rebalance_collection_ranks,
+    integrations::sync_integrations_data_to_owned_collection,
+    monitoring::{
+        update_monitored_metadata_and_queue_notifications,
+        update_monitored_people_and_queue_notifications,
+    },
+    notifications::queue_notifications_for_outdated_seen_entries,
+    summaries::regenerate_user_summaries,
+    user::cleanup_user_and_metadata_association,
 };
 
-pub mod access;
-pub mod cache;
-pub mod cleanup;
-pub mod collections;
-pub mod integrations;
-pub mod monitoring;
-pub mod notifications;
-pub mod summaries;
-
-pub use access::*;
-pub use cache::*;
-pub use cleanup::*;
-pub use collections::*;
-pub use integrations::*;
-pub use monitoring::*;
-pub use notifications::*;
-pub use summaries::*;
+mod access;
+mod cache;
+mod calendar;
+mod cleanup;
+mod collections;
+mod integrations;
+mod monitoring;
+mod notifications;
+mod summaries;
+mod user;
 
 pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     ryot_log!(debug, "Starting background jobs...");
@@ -76,5 +84,16 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     expire_cache_keys(ss).await.trace_ok();
 
     ryot_log!(debug, "Completed background jobs...");
+    Ok(())
+}
+
+pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
+    let result = ImportReport::update_many()
+        .col_expr(import_report::Column::WasSuccess, Expr::value(false))
+        .filter(import_report::Column::WasSuccess.is_null())
+        .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
+        .exec(&ss.db)
+        .await?;
+    common_utils::ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
     Ok(())
 }

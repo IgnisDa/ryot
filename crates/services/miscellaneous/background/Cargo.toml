@@ -1,0 +1,37 @@
+[package]
+name = "miscellaneous-background-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+convert_case = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+application-utils = { path = "../../../utils/application" }
+background-models = { path = "../../../models/background" }
+cache-service = { path = "../../cache" }
+common-models = { path = "../../../models/common" }
+common-utils = { path = "../../../utils/common" }
+database-models = { path = "../../../models/database" }
+database-utils = { path = "../../../utils/database" }
+dependent-models = { path = "../../../models/dependent" }
+dependent-utils = { path = "../../../utils/dependent" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+traits = { path = "../../../traits" }
+
+[dev-dependencies]
+rstest = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

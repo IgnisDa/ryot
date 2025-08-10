@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true }
-convert_case = { workspace = true }
 enum_meta = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
@@ -16,8 +15,6 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
@@ -34,6 +31,7 @@ enum-models = { path = "../../models/enum" }
 file-storage-service = { path = "../file-storage" }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
+miscellaneous-background-service = { path = "./background" }
 supporting-service = { path = "../supporting" }
 tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }

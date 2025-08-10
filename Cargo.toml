@@ -46,6 +46,7 @@ members = [
     "crates/services/importer",
     "crates/services/integration",
     "crates/services/miscellaneous",
+    "crates/services/miscellaneous/background",
     "crates/services/notification",
     "crates/services/session",
     "crates/services/statistics",
