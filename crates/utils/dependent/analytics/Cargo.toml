@@ -1,0 +1,30 @@
+[package]
+name = "dependent-analytics-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+
+application-utils = { path = "../../application" }
+cache-service = { path = "../../../services/cache" }
+common-models = { path = "../../../models/common" }
+common-utils = { path = "../../common" }
+database-models = { path = "../../../models/database" }
+dependent-entity-list-utils = { path = "../entity-list" }
+dependent-models = { path = "../../../models/dependent" }
+dependent-utility-utils = { path = "../utility" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../../services/supporting" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

@@ -1817,6 +1817,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-analytics-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-entity-list-utils",
+ "dependent-models",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-collection-utils"
 version = "0.1.0"
 dependencies = [
@@ -1957,7 +1983,6 @@ version = "0.1.0"
 dependencies = [
  "anilist-provider",
  "anyhow",
- "application-utils",
  "audible-provider",
  "background-models",
  "cache-service",
@@ -1969,7 +1994,6 @@ dependencies = [
  "database-utils",
  "dependent-collection-utils",
  "dependent-core-utils",
- "dependent-entity-list-utils",
  "dependent-models",
  "dependent-review-utils",
  "dependent-utility-utils",
@@ -1997,7 +2021,6 @@ dependencies = [
  "rust_decimal_macros",
  "sea-orm",
  "sea-query",
- "serde",
  "serde_json",
  "spotify-provider",
  "sqlx",
@@ -4052,6 +4075,7 @@ dependencies = [
  "convert_case 0.8.0",
  "database-models",
  "database-utils",
+ "dependent-analytics-utils",
  "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-models",
@@ -6659,8 +6683,8 @@ dependencies = [
  "cache-service",
  "common-models",
  "database-models",
+ "dependent-analytics-utils",
  "dependent-models",
- "dependent-utils",
  "enum-models",
  "hashbag",
  "itertools 0.14.0",

@@ -16,14 +16,12 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
 anilist-provider = { path = "../../providers/anilist" }
-application-utils = { path = "../application" }
 audible-provider = { path = "../../providers/audible" }
 background-models = { path = "../../models/background" }
 cache-service = { path = "../../services/cache" }
@@ -35,7 +33,6 @@ database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-collection-utils = { path = "./collection" }
 dependent-core-utils = { path = "./core" }
-dependent-entity-list-utils = { path = "./entity-list" }
 dependent-review-utils = { path = "./review" }
 dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }

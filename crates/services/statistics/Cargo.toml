@@ -11,10 +11,11 @@ itertools = { workspace = true }
 sea-orm = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
+dependent-analytics-utils = { path = "../../utils/dependent/analytics" }
 enum-models = { path = "../../models/enum" }
 supporting-service = { path = "../supporting" }
 

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use database_models::user;
 use database_utils::get_enabled_users_query;
-use dependent_utils::calculate_user_activities_and_summary;
+use dependent_analytics_utils::calculate_user_activities_and_summary;
 use sea_orm::QuerySelect;
 use supporting_service::SupportingService;
 

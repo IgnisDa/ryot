@@ -22,9 +22,10 @@ common-models = { path = "../../../models/common" }
 common-utils = { path = "../../../utils/common" }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-analytics-utils = { path = "../../../utils/dependent/analytics" }
 dependent-collection-utils = { path = "../../../utils/dependent/collection" }
 dependent-core-utils = { path = "../../../utils/dependent/core" }
+dependent-models = { path = "../../../models/dependent" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
 dependent-utils = { path = "../../../utils/dependent" }
 enum-models = { path = "../../../models/enum" }
