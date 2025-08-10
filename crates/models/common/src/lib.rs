@@ -143,14 +143,14 @@ pub struct CollectionExtraInformation {
 
 #[derive(Display, EnumIter)]
 pub enum DefaultCollection {
+    Owned,
+    Custom,
     Watchlist,
-    #[strum(serialize = "In Progress")]
-    InProgress,
+    Reminders,
     Completed,
     Monitoring,
-    Custom,
-    Owned,
-    Reminders,
+    #[strum(serialize = "In Progress")]
+    InProgress,
 }
 
 meta! {
