@@ -1,0 +1,24 @@
+[package]
+name = "miscellaneous-general-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+sea-query = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+cache-service = { path = "../../cache" }
+database-models = { path = "../../../models/database" }
+dependent-models = { path = "../../../models/dependent" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+
+[dev-dependencies]
+rstest = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

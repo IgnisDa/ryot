@@ -3978,6 +3978,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-general-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "rstest",
+ "rust_decimal",
+ "sea-orm",
+ "sea-query",
+ "supporting-service",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
@@ -4015,6 +4034,7 @@ dependencies = [
  "migrations",
  "miscellaneous-background-service",
  "miscellaneous-calendar-service",
+ "miscellaneous-general-service",
  "nanoid",
  "regex",
  "rstest",

@@ -33,6 +33,7 @@ media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 miscellaneous-background-service = { path = "./background" }
 miscellaneous-calendar-service = { path = "./calendar" }
+miscellaneous-general-service = { path = "./general" }
 supporting-service = { path = "../supporting" }
 tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }

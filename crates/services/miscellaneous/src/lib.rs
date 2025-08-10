@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod core_operations;
 pub mod custom_metadata;
 pub mod entity_details;
 pub mod list_operations;
@@ -131,7 +130,7 @@ impl MiscellaneousService {
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
-        core_operations::expire_cache_key(&self.0, cache_id).await
+        miscellaneous_general_service::expire_cache_key(&self.0, cache_id).await
     }
 
     pub async fn deploy_background_job(
@@ -143,7 +142,7 @@ impl MiscellaneousService {
     }
 
     pub async fn mark_entity_as_partial(&self, input: MarkEntityAsPartialInput) -> Result<bool> {
-        core_operations::mark_entity_as_partial(&self.0, input).await
+        miscellaneous_general_service::mark_entity_as_partial(&self.0, input).await
     }
 
     pub async fn update_seen_item(
