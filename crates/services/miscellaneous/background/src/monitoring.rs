@@ -33,7 +33,7 @@ async fn get_monitored_entities(
     Ok(monitored_by)
 }
 
-pub async fn update_monitored_metadata_and_queue_notifications(
+pub async fn update_all_monitored_metadata_and_notify_users(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let m_map = get_monitored_entities(EntityLot::Metadata, ss).await?;
@@ -56,7 +56,7 @@ pub async fn update_monitored_metadata_and_queue_notifications(
     Ok(())
 }
 
-pub async fn update_monitored_people_and_queue_notifications(
+pub async fn update_all_monitored_people_and_notify_users(
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
     let p_map = get_monitored_entities(EntityLot::Person, ss).await?;

@@ -19,8 +19,8 @@ use crate::{
     collections::rebalance_collection_ranks,
     integrations::sync_integrations_data_to_owned_collection,
     monitoring::{
-        update_monitored_metadata_and_queue_notifications,
-        update_monitored_people_and_queue_notifications,
+        update_all_monitored_metadata_and_notify_users,
+        update_all_monitored_people_and_notify_users,
     },
     notifications::queue_notifications_for_outdated_seen_entries,
     summaries::regenerate_user_summaries,
@@ -42,11 +42,11 @@ pub async fn perform_background_jobs(ss: &Arc<SupportingService>) -> Result<()> 
     ryot_log!(debug, "Starting background jobs...");
 
     ryot_log!(trace, "Checking for updates for monitored media");
-    update_monitored_metadata_and_queue_notifications(ss)
+    update_all_monitored_metadata_and_notify_users(ss)
         .await
         .trace_ok();
     ryot_log!(trace, "Checking for updates for monitored people");
-    update_monitored_people_and_queue_notifications(ss)
+    update_all_monitored_people_and_notify_users(ss)
         .await
         .trace_ok();
     ryot_log!(trace, "Checking and queuing any pending reminders");
