@@ -1,6 +1,7 @@
 export {
 	addEntityToCollection,
 	createCollectionForUser,
+	createLibraryEntityForUser,
 	getBuiltinCollectionSchema,
 	getCollectionById,
 	getEntityById,
@@ -17,6 +18,12 @@ export type {
 	RemoveFromCollectionData,
 	RemoveFromCollectionResponse,
 } from "./schemas";
+export type {
+	AddToCollectionServiceDeps,
+	CollectionServiceDeps,
+	CollectionServiceResult,
+	RemoveFromCollectionServiceDeps,
+} from "./service";
 export {
 	addToCollection,
 	createCollection,

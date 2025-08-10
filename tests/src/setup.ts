@@ -23,6 +23,7 @@ const S3_SECRET_KEY = "rustfsadmin";
 
 let s3Client: S3Client;
 let backendPort: number;
+let testDatabaseUrl: string;
 let backendProcess: ChildProcess;
 let s3Container: StartedTestContainer;
 let redisContainer: StartedTestContainer;
@@ -78,6 +79,7 @@ beforeAll(async () => {
 	const s3MappedPort = s3Container.getMappedPort(9000);
 	const s3Endpoint = `http://${s3Host}:${s3MappedPort}`;
 
+	testDatabaseUrl = dbUrl;
 	s3Client = new S3Client({
 		region: "us-east-1",
 		endpoint: s3Endpoint,
@@ -162,4 +164,8 @@ export function getBackendUrl() {
 export function getBackendClient() {
 	const client = createClient<paths>({ baseUrl: getBackendUrl() });
 	return client;
+}
+
+export function getTestDatabaseUrl() {
+	return testDatabaseUrl;
 }

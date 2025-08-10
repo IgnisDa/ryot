@@ -1,11 +1,15 @@
 import { describe, expect, it } from "bun:test";
+import { Client as PgClient } from "pg";
 import {
 	createAuthenticatedClient,
 	createCollection,
 	createEntity,
 	createEntitySchema,
 	createTracker,
+	findBuiltinSchemaWithProviders,
+	seedMediaEntity,
 } from "../fixtures";
+import { getTestDatabaseUrl } from "../setup";
 
 describe("POST /collections", () => {
 	it("creates a collection with valid membershipPropertiesSchema", async () => {
@@ -352,6 +356,63 @@ describe("POST /collections", () => {
 			expect(data?.data?.memberOf?.relType).toBe("member_of");
 			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
 			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
+		});
+
+		it("adds a global entity to a collection and upserts in_library", async () => {
+			const { client, cookies, email } = await createAuthenticatedClient();
+			const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+			const provider = schema.providers[0];
+			if (!provider) {
+				throw new Error("No provider found");
+			}
+
+			const entity = await seedMediaEntity({
+				image: null,
+				userId: null,
+				properties: {},
+				entitySchemaId: schema.id,
+				sandboxScriptId: provider.scriptId,
+				externalId: `global-entity-${crypto.randomUUID()}`,
+				name: `Global Built-in Entity ${crypto.randomUUID()}`,
+			});
+
+			const collection = await createCollection(client, cookies, {
+				name: "Global Entity Collection",
+				description: "For testing global entity membership",
+			});
+
+			const { data, response } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: { entityId: entity.id, collectionId: collection.id },
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data?.memberOf?.sourceEntityId).toBe(entity.id);
+			expect(data?.data?.memberOf?.targetEntityId).toBe(collection.id);
+
+			const pg = new PgClient({ connectionString: getTestDatabaseUrl() });
+			await pg.connect();
+
+			try {
+				const membership = await pg.query(
+					`select r.id
+					 from relationship r
+					 inner join entity library_entity on library_entity.id = r.target_entity_id
+					 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
+					 inner join "user" u on u.id = library_entity.user_id
+					 where r.rel_type = 'in_library'
+					   and r.user_id = u.id
+					   and r.source_entity_id = $1
+					   and u.email = $2
+					   and library_schema.slug = 'library'
+					 limit 1`,
+					[entity.id, email],
+				);
+
+				expect(membership.rowCount).toBe(1);
+			} finally {
+				await pg.end();
+			}
 		});
 
 		it("adds an entity with custom properties", async () => {

@@ -1,5 +1,5 @@
 import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
-import { checkCustomAccess } from "~/lib/access";
+import { checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { ImageSchema, type ImageSchemaType } from "~/lib/db/schema/tables";
@@ -34,14 +34,13 @@ export type EntityServiceResult<T> = ServiceResult<T, EntityMutationError>;
 
 const entityProvenanceUniqueConstraint =
 	"entity_user_schema_script_external_id_unique";
+const entityNotFoundError = "Entity not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
 const customEntitySchemaError =
 	"Built-in entity schemas do not support manual entity creation";
 const entitySchemaNotFoundError = "Entity schema not found";
-const customEntityDetailError =
-	"Built-in entity schemas do not support generated entity detail pages";
-const entityNotFoundError = "Entity not found";
+const libraryEntityNotFoundError = "User library entity not found";
 
 const entityServiceDeps: EntityServiceDeps = {
 	createEntityForUser,
@@ -131,6 +130,35 @@ const resolveEntityCreateInputResult = (
 		"Entity payload is invalid",
 	);
 
+export const upsertInLibraryIfGlobal = async (
+	input: { userId: string; entityId: string; entityUserId: string | null },
+	deps: {
+		getUserLibraryEntityId: (input: {
+			userId: string;
+		}) => Promise<string | undefined>;
+		upsertInLibraryRelationship: (input: {
+			userId: string;
+			mediaEntityId: string;
+			libraryEntityId: string;
+		}) => Promise<void>;
+	},
+) => {
+	if (input.entityUserId !== null) {
+		return;
+	}
+	const libraryEntityId = await deps.getUserLibraryEntityId({
+		userId: input.userId,
+	});
+	if (!libraryEntityId) {
+		return serviceError("validation", libraryEntityNotFoundError);
+	}
+	await deps.upsertInLibraryRelationship({
+		libraryEntityId,
+		userId: input.userId,
+		mediaEntityId: input.entityId,
+	});
+};
+
 export const getEntityDetail = async (
 	input: { entityId: string; userId: string },
 	deps: EntityServiceDeps = entityServiceDeps,
@@ -140,21 +168,18 @@ export const getEntityDetail = async (
 		return entityIdResult;
 	}
 
-	const entityResult = checkCustomAccess(
+	const entityResult = checkReadAccess(
 		await deps.getEntityScopeForUser({
 			entityId: entityIdResult.data,
 			userId: input.userId,
 		}),
-		{
-			not_found: entityNotFoundError,
-			builtin_resource: customEntityDetailError,
-		},
+		{ not_found: entityNotFoundError },
 	);
 	if ("error" in entityResult) {
-		return serviceError(
-			entityResult.error === "not_found" ? "not_found" : "validation",
-			entityResult.message,
-		);
+		return serviceError("not_found", entityResult.message);
+	}
+	if (entityResult.data.isBuiltin && entityResult.data.entityUserId !== null) {
+		return serviceError("not_found", entityNotFoundError);
 	}
 
 	const entity = await deps.getEntityByIdForUser({
@@ -192,7 +217,7 @@ export const createEntity = async (
 	if (!scope) {
 		return serviceError("not_found", entitySchemaNotFoundError);
 	}
-	if (scope.isBuiltin && !hasExternalId) {
+	if (scope.isBuiltin) {
 		return serviceError("validation", customEntitySchemaError);
 	}
 
