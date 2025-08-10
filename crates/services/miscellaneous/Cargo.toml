@@ -10,7 +10,6 @@ enum_meta = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 nanoid = { workspace = true }
-regex = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
@@ -28,14 +27,13 @@ dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 file-storage-service = { path = "../file-storage" }
 media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
 miscellaneous-background-service = { path = "./background" }
 miscellaneous-calendar-service = { path = "./calendar" }
 miscellaneous-entity-details-service = { path = "./entity-details" }
 miscellaneous-entity-user-details-service = { path = "./entity-user-details" }
 miscellaneous-general-service = { path = "./general" }
+miscellaneous-lookup-service = { path = "./lookup" }
 supporting-service = { path = "../supporting" }
-tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }
 
 [dev-dependencies]

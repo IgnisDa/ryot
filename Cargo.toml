@@ -51,6 +51,7 @@ members = [
     "crates/services/miscellaneous/entity-details",
     "crates/services/miscellaneous/entity-user-details",
     "crates/services/miscellaneous/general",
+    "crates/services/miscellaneous/lookup",
     "crates/services/notification",
     "crates/services/session",
     "crates/services/statistics",

@@ -1,0 +1,21 @@
+[package]
+name = "miscellaneous-lookup-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+regex = { workspace = true }
+rust_decimal = { workspace = true }
+tracing = { workspace = true }
+
+cache-service = { path = "../../cache" }
+common-models = { path = "../../../models/common" }
+dependent-models = { path = "../../../models/dependent" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+tmdb-provider = { path = "../../../providers/tmdb" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

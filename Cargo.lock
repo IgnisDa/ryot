@@ -4034,6 +4034,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-lookup-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "regex",
+ "rust_decimal",
+ "supporting-service",
+ "tmdb-provider",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
@@ -4067,20 +4084,18 @@ dependencies = [
  "futures",
  "itertools 0.14.0",
  "media-models",
- "migrations",
  "miscellaneous-background-service",
  "miscellaneous-calendar-service",
  "miscellaneous-entity-details-service",
  "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
+ "miscellaneous-lookup-service",
  "nanoid",
- "regex",
  "rstest",
  "rust_decimal",
  "sea-orm",
  "sea-query",
  "supporting-service",
- "tmdb-provider",
  "tracing",
  "traits",
  "uuid",

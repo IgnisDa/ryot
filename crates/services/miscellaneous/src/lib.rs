@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod lookup_operations;
 pub mod metadata_operations;
 pub mod progress_operations;
 pub mod review_operations;
@@ -366,7 +365,7 @@ impl MiscellaneousService {
         &self,
         title: String,
     ) -> Result<CachedResponse<MetadataLookupResponse>> {
-        lookup_operations::metadata_lookup(&self.0, title).await
+        miscellaneous_lookup_service::metadata_lookup(&self.0, title).await
     }
 
     #[cfg(debug_assertions)]
