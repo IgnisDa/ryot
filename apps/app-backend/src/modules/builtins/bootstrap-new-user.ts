@@ -8,15 +8,13 @@ import { createSavedViewsForUser } from "~/modules/saved-views";
 import { createBuiltinTrackersForUser } from "~/modules/trackers";
 
 import {
-	buildAuthenticationSavedViewInputs,
-	buildAuthenticationTrackerEntitySchemaLinks,
+	buildBuiltinSavedViewInputs,
+	buildBuiltinTrackerEntitySchemaLinks,
 	buildLibraryEntityInput,
-} from "../service";
-import {
-	authenticationBuiltinEntitySchemas,
-	authenticationBuiltinSavedViews,
-	authenticationBuiltinTrackers,
-} from "./manifests";
+} from "./builders";
+import { builtinEntitySchemas } from "./entity-schemas";
+import { builtinSavedViews } from "./saved-views";
+import { builtinTrackers } from "./trackers";
 
 export const bootstrapNewUser = async (userId: string) => {
 	const [existingTracker] = await db
@@ -33,7 +31,7 @@ export const bootstrapNewUser = async (userId: string) => {
 		const createdTrackers = await createBuiltinTrackersForUser({
 			userId,
 			database: tx,
-			trackers: authenticationBuiltinTrackers(),
+			trackers: builtinTrackers(),
 		});
 
 		const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
@@ -42,10 +40,10 @@ export const bootstrapNewUser = async (userId: string) => {
 
 		await createTrackerEntitySchemas({
 			database: tx,
-			links: buildAuthenticationTrackerEntitySchemaLinks({
+			links: buildBuiltinTrackerEntitySchemaLinks({
 				trackers: createdTrackers,
 				entitySchemas: builtinEntitySchemaRows,
-				schemaLinks: authenticationBuiltinEntitySchemas()
+				schemaLinks: builtinEntitySchemas()
 					.filter((schema) => typeof schema.trackerSlug === "string")
 					.map((schema) => ({
 						slug: schema.slug,
@@ -57,10 +55,10 @@ export const bootstrapNewUser = async (userId: string) => {
 		await createSavedViewsForUser({
 			userId,
 			database: tx,
-			views: buildAuthenticationSavedViewInputs({
+			views: buildBuiltinSavedViewInputs({
 				trackers: createdTrackers,
+				savedViews: builtinSavedViews(),
 				entitySchemas: builtinEntitySchemaRows,
-				savedViews: authenticationBuiltinSavedViews(),
 			}),
 		});
 

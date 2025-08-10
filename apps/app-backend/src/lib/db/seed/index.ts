@@ -2,10 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import type { DbClient } from "~/lib/db";
 import { eventSchema as eventSchemaTable } from "~/lib/db/schema";
-import {
-	authenticationBuiltinEntitySchemas,
-	authenticationBuiltinRelationshipSchemas,
-} from "~/modules/authentication";
+import { builtinEntitySchemas, builtinRelationshipSchemas } from "~/modules/builtins";
 
 import {
 	ensureBuiltinEntitySchema,
@@ -36,7 +33,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 
 	await database.transaction(async (tx) => {
 		const schemaIds = new Map<string, string>();
-		for (const schema of authenticationBuiltinEntitySchemas()) {
+		for (const schema of builtinEntitySchemas()) {
 			// oxlint-disable-next-line no-await-in-loop
 			const schemaId = await ensureBuiltinEntitySchema({
 				database: tx,
@@ -123,7 +120,7 @@ export const seedInitialDatabase = async (database: DbClient) => {
 
 		console.info("Seeding relationship schemas...");
 
-		for (const schema of authenticationBuiltinRelationshipSchemas()) {
+		for (const schema of builtinRelationshipSchemas()) {
 			const sourceEntitySchemaId = schema.sourceEntitySchemaSlug
 				? ensureId(
 						schemaIds.get(schema.sourceEntitySchemaSlug),

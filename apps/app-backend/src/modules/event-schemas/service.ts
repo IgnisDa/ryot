@@ -3,7 +3,7 @@ import { resolveRequiredSlug, resolveRequiredString } from "@ryot/ts-utils/slug"
 import { checkCustomAccess, checkReadAccess } from "~/lib/access";
 import { isUniqueConstraintError } from "~/lib/app/postgres";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
-import { authenticationBuiltinEntitySchemas } from "~/modules/authentication";
+import { builtinEntitySchemas } from "~/modules/builtins";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 
 import {
@@ -63,8 +63,8 @@ export const validateEventSchemaSlugNotReserved = (
 	slug: string,
 	entitySchemaSlug: string,
 ): void => {
-	const builtinEntitySchemas = authenticationBuiltinEntitySchemas();
-	const entitySchema = builtinEntitySchemas.find((s) => s.slug === entitySchemaSlug);
+	const reservedEntitySchemas = builtinEntitySchemas();
+	const entitySchema = reservedEntitySchemas.find((s) => s.slug === entitySchemaSlug);
 
 	if (!entitySchema) {
 		return;
