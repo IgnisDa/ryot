@@ -6,6 +6,9 @@ use common_models::StringIdObject;
 use common_utils::ryot_log;
 use database_models::review;
 use database_utils::user_by_id;
+use dependent_utility_utils::{
+    associate_user_with_entity, get_entity_title_from_id_and_lot, mark_entity_as_recently_consumed,
+};
 use enum_models::{EntityLot, Visibility};
 use media_models::{
     CreateOrUpdateReviewInput, ImportOrExportItemRating, ReviewPostedEvent,
@@ -16,10 +19,6 @@ use rust_decimal_macros::dec;
 use sea_orm::{ActiveModelTrait, ActiveValue};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
-
-use crate::{
-    associate_user_with_entity, get_entity_title_from_id_and_lot, mark_entity_as_recently_consumed,
-};
 
 pub async fn post_review(
     user_id: &String,

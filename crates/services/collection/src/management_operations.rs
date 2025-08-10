@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use common_models::DefaultCollection;
 use database_models::{collection, prelude::Collection};
-use dependent_utils::expire_user_collections_list_cache;
+use dependent_utility_utils::expire_user_collections_list_cache;
 use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter};
 use supporting_service::SupportingService;
 

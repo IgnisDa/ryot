@@ -6,50 +6,16 @@ use database_models::{
     prelude::{UserToEntity, Workout},
     user_to_entity, workout,
 };
-use database_utils::{
-    schedule_user_for_workout_revision, user_workout_details as get_user_workout_details,
-};
-use dependent_models::{
-    CachedResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails, UserWorkoutsListResponse,
-};
-use dependent_utils::{
-    create_or_update_user_workout as create_or_update_user_workout_util,
-    db_workout_to_workout_input, expire_user_workouts_list_cache,
-    user_workouts_list as get_user_workouts_list,
-};
-use fitness_models::{
-    UpdateUserWorkoutAttributesInput, UserToExerciseExtraInformation, UserWorkoutInput,
-};
+use database_utils::schedule_user_for_workout_revision;
+use dependent_utility_utils::expire_user_workouts_list_cache;
+use dependent_utils::{create_or_update_user_workout, db_workout_to_workout_input};
+use fitness_models::{UpdateUserWorkoutAttributesInput, UserToExerciseExtraInformation};
 use futures::{TryStreamExt, try_join};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     QueryFilter, QueryOrder,
 };
 use supporting_service::SupportingService;
-
-pub async fn user_workout_details(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    workout_id: String,
-) -> Result<UserWorkoutDetails> {
-    get_user_workout_details(user_id, workout_id, ss).await
-}
-
-pub async fn user_workouts_list(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UserTemplatesOrWorkoutsListInput,
-) -> Result<CachedResponse<UserWorkoutsListResponse>> {
-    get_user_workouts_list(&user_id, input, ss).await
-}
-
-pub async fn create_or_update_user_workout(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    input: UserWorkoutInput,
-) -> Result<String> {
-    create_or_update_user_workout_util(user_id, input, ss).await
-}
 
 pub async fn update_user_workout_attributes(
     ss: &Arc<SupportingService>,
@@ -155,7 +121,7 @@ pub async fn revise_user_workouts(ss: &Arc<SupportingService>, user_id: String) 
     for (idx, workout) in workouts.into_iter().enumerate() {
         workout.clone().delete(&ss.db).await?;
         let workout_input = db_workout_to_workout_input(workout);
-        create_or_update_user_workout_util(&user_id, workout_input, ss).await?;
+        create_or_update_user_workout(&user_id, workout_input, ss).await?;
         ryot_log!(debug, "Revised workout: {}/{}", idx + 1, total);
     }
     Ok(())

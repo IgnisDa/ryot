@@ -1,0 +1,22 @@
+[package]
+name = "dependent-utility-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+
+cache-service = { path = "../../../services/cache" }
+common-models = { path = "../../../models/common" }
+database-models = { path = "../../../models/database" }
+dependent-models = { path = "../../../models/dependent" }
+enum-models = { path = "../../../models/enum" }
+supporting-service = { path = "../../../services/supporting" }
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json", "sqlx", "tracing"]

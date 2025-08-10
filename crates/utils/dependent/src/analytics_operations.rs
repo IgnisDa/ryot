@@ -14,6 +14,7 @@ use database_models::{
     review, seen, user_measurement, user_to_entity, workout,
 };
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
+use dependent_utility_utils::expire_user_collections_list_cache;
 use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::{TryStreamExt, try_join};
 use media_models::{
@@ -33,7 +34,7 @@ use sea_query::NullOrdering;
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
-use crate::{expire_user_collections_list_cache, user_collections_list};
+use crate::user_collections_list;
 
 pub async fn calculate_user_activities_and_summary(
     user_id: &String,

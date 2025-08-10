@@ -1351,6 +1351,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
  "futures",
@@ -1861,6 +1862,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-utility-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "sea-orm",
+ "serde_json",
+ "sqlx",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
@@ -1878,6 +1897,7 @@ dependencies = [
  "database-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-utility-utils",
  "enum-models",
  "enum_meta",
  "fitness-models",
@@ -2485,6 +2505,7 @@ dependencies = [
  "database-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
  "file-storage-service",
@@ -3959,6 +3980,7 @@ dependencies = [
  "database-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
  "futures",
@@ -4026,6 +4048,7 @@ dependencies = [
  "database-models",
  "database-utils",
  "dependent-models",
+ "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
  "futures",
@@ -4083,6 +4106,7 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
  "file-storage-service",
@@ -4102,6 +4126,7 @@ dependencies = [
  "anyhow",
  "common-models",
  "database-models",
+ "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
  "futures",
@@ -4136,7 +4161,7 @@ dependencies = [
  "common-models",
  "database-models",
  "database-utils",
- "dependent-utils",
+ "dependent-utility-utils",
  "media-models",
  "nanoid",
  "rust_decimal",

@@ -5,7 +5,7 @@ use chrono::Utc;
 use common_models::IdAndNamedObject;
 use database_models::{prelude::Review, review};
 use database_utils::user_by_id;
-use dependent_utils::associate_user_with_entity;
+use dependent_utility_utils::associate_user_with_entity;
 use media_models::{CreateReviewCommentInput, ImportOrExportItemReviewComment};
 use nanoid::nanoid;
 use sea_orm::{

@@ -5,6 +5,9 @@ use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityTo
 use common_utils::ryot_log;
 use database_models::{exercise, prelude::*, user_measurement, user_to_entity, workout};
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
+use dependent_utility_utils::{
+    expire_user_measurements_list_cache, expire_user_workouts_list_cache,
+};
 use enum_meta::Meta;
 use enum_models::{
     EntityLot, ExerciseLot, ExerciseSource, UserNotificationContent, WorkoutSetPersonalBest,
@@ -33,7 +36,6 @@ use user_models::UserStatisticsMeasurement;
 use crate::{
     collection_operations::add_entities_to_collection,
     notification_operations::send_notification_for_user,
-    utility_operations::{expire_user_measurements_list_cache, expire_user_workouts_list_cache},
 };
 
 pub async fn create_user_measurement(

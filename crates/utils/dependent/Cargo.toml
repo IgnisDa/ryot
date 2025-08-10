@@ -35,6 +35,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-core-utils = { path = "./core" }
+dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }
 fitness-models = { path = "../../models/fitness" }
 giant-bomb-provider = { path = "../../providers/giant-bomb" }

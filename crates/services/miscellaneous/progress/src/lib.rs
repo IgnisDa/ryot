@@ -3,9 +3,8 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use common_models::StringIdObject;
 use database_models::prelude::{Review, Seen};
-use dependent_utils::{
-    associate_user_with_entity, handle_after_metadata_seen_tasks, metadata_progress_update,
-};
+use dependent_utility_utils::associate_user_with_entity;
+use dependent_utils::{handle_after_metadata_seen_tasks, metadata_progress_update};
 use enum_models::EntityLot;
 use futures::try_join;
 use media_models::{MetadataProgressUpdateInput, UpdateSeenItemInput};
