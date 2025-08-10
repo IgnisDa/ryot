@@ -184,9 +184,9 @@ pub async fn handle_after_metadata_seen_tasks(
                 add_entities_to_collection(&DefaultCollection::Completed.to_string())
                     .await
                     .ok();
-                for col in &[DefaultCollection::InProgress, DefaultCollection::Monitoring] {
-                    remove_entities_from_collection(&col.to_string()).await.ok();
-                }
+                remove_entities_from_collection(&DefaultCollection::InProgress.to_string())
+                    .await
+                    .ok();
             };
         }
     };
