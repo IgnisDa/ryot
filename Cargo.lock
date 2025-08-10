@@ -1954,6 +1954,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-progress-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "dependent-seen-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-provider-utils"
 version = "0.1.0"
 dependencies = [
@@ -2045,8 +2069,6 @@ name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "background-models",
- "cache-service",
  "chrono",
  "common-models",
  "common-utils",
@@ -2056,9 +2078,9 @@ dependencies = [
  "dependent-core-utils",
  "dependent-jobs-utils",
  "dependent-models",
+ "dependent-progress-utils",
  "dependent-provider-utils",
  "dependent-review-utils",
- "dependent-seen-utils",
  "dependent-utility-utils",
  "enum-models",
  "enum_meta",
@@ -4279,9 +4301,9 @@ dependencies = [
  "anyhow",
  "common-models",
  "database-models",
+ "dependent-progress-utils",
  "dependent-seen-utils",
  "dependent-utility-utils",
- "dependent-utils",
  "enum-models",
  "futures",
  "media-models",

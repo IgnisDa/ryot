@@ -20,9 +20,6 @@ serde_json = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
-
-background-models = { path = "../../models/background" }
-cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../common" }
 database-models = { path = "../../models/database" }
@@ -31,8 +28,8 @@ dependent-models = { path = "../../models/dependent" }
 dependent-collection-utils = { path = "./collection" }
 dependent-core-utils = { path = "./core" }
 dependent-jobs-utils = { path = "./jobs" }
+dependent-progress-utils = { path = "./progress" }
 dependent-provider-utils = { path = "./provider" }
-dependent-seen-utils = { path = "./seen" }
 dependent-review-utils = { path = "./review" }
 dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }

@@ -9,6 +9,3 @@ pub use fitness_operations::*;
 
 mod import_operations;
 pub use import_operations::*;
-
-mod progress_operations;
-pub use progress_operations::*;
