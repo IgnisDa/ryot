@@ -33,6 +33,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
+dependent-provider-utils = { path = "../../utils/dependent/provider" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 external-models = { path = "../../models/external" }

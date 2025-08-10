@@ -14,6 +14,7 @@ cache-service = { path = "../../cache" }
 common-models = { path = "../../../models/common" }
 database-utils = { path = "../../../utils/database" }
 dependent-models = { path = "../../../models/dependent" }
+dependent-provider-utils = { path = "../../../utils/dependent/provider" }
 dependent-utils = { path = "../../../utils/dependent" }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }

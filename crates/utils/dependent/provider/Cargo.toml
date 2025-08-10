@@ -1,0 +1,33 @@
+[package]
+name = "dependent-provider-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+rust_decimal = { workspace = true }
+tracing = { workspace = true }
+
+anilist-provider = { path = "../../../providers/anilist" }
+audible-provider = { path = "../../../providers/audible" }
+config-definition = { path = "../../../config/definition" }
+enum-models = { path = "../../../models/enum" }
+giant-bomb-provider = { path = "../../../providers/giant-bomb" }
+google-books-provider = { path = "../../../providers/google-books" }
+hardcover-provider = { path = "../../../providers/hardcover" }
+igdb-provider = { path = "../../../providers/igdb" }
+itunes-provider = { path = "../../../providers/itunes" }
+listennotes-provider = { path = "../../../providers/listennotes" }
+manga-updates-provider = { path = "../../../providers/manga-updates" }
+media-models = { path = "../../../models/media" }
+myanimelist-provider = { path = "../../../providers/myanimelist" }
+openlibrary-provider = { path = "../../../providers/openlibrary" }
+spotify-provider = { path = "../../../providers/spotify" }
+supporting-service = { path = "../../../services/supporting" }
+traits = { path = "../../../traits" }
+tmdb-provider = { path = "../../../providers/tmdb" }
+vndb-provider = { path = "../../../providers/vndb" }
+youtube-music-provider = { path = "../../../providers/youtube-music" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

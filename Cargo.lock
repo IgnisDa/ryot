@@ -1954,6 +1954,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-provider-utils"
+version = "0.1.0"
+dependencies = [
+ "anilist-provider",
+ "anyhow",
+ "audible-provider",
+ "config-definition",
+ "enum-models",
+ "giant-bomb-provider",
+ "google-books-provider",
+ "hardcover-provider",
+ "igdb-provider",
+ "itunes-provider",
+ "listennotes-provider",
+ "manga-updates-provider",
+ "media-models",
+ "myanimelist-provider",
+ "openlibrary-provider",
+ "rust_decimal",
+ "spotify-provider",
+ "supporting-service",
+ "tmdb-provider",
+ "tracing",
+ "traits",
+ "vndb-provider",
+ "youtube-music-provider",
+]
+
+[[package]]
 name = "dependent-review-utils"
 version = "0.1.0"
 dependencies = [
@@ -2015,21 +2044,19 @@ dependencies = [
 name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
- "anilist-provider",
  "anyhow",
- "audible-provider",
  "background-models",
  "cache-service",
  "chrono",
  "common-models",
  "common-utils",
- "config-definition",
  "database-models",
  "database-utils",
  "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-jobs-utils",
  "dependent-models",
+ "dependent-provider-utils",
  "dependent-review-utils",
  "dependent-seen-utils",
  "dependent-utility-utils",
@@ -2037,37 +2064,24 @@ dependencies = [
  "enum_meta",
  "fitness-models",
  "futures",
- "giant-bomb-provider",
- "google-books-provider",
- "hardcover-provider",
- "igdb-provider",
  "importer-models",
  "itertools 0.14.0",
- "itunes-provider",
- "listennotes-provider",
- "manga-updates-provider",
  "markdown",
  "media-models",
- "myanimelist-provider",
  "nanoid",
  "notification-service",
- "openlibrary-provider",
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
  "sea-orm",
  "sea-query",
  "serde_json",
- "spotify-provider",
  "sqlx",
  "supporting-service",
- "tmdb-provider",
  "tracing",
  "traits",
  "user-models",
  "uuid",
- "vndb-provider",
- "youtube-music-provider",
 ]
 
 [[package]]
@@ -3574,6 +3588,7 @@ dependencies = [
  "database-models",
  "dependent-jobs-utils",
  "dependent-models",
+ "dependent-provider-utils",
  "dependent-utils",
  "enum-models",
  "external-models",
@@ -3668,6 +3683,7 @@ dependencies = [
  "database-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-provider-utils",
  "dependent-utils",
  "enum-models",
  "eventsource-stream",
@@ -4317,6 +4333,7 @@ dependencies = [
  "common-models",
  "database-utils",
  "dependent-models",
+ "dependent-provider-utils",
  "dependent-utils",
  "futures",
  "itertools 0.14.0",
@@ -4368,6 +4385,7 @@ dependencies = [
  "cache-service",
  "database-models",
  "dependent-models",
+ "dependent-provider-utils",
  "dependent-utils",
  "enum-models",
  "enum_meta",

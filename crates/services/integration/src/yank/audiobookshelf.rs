@@ -7,7 +7,8 @@ use common_utils::ryot_log;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
-use dependent_utils::{commit_metadata, get_identifier_from_book_isbn};
+use dependent_provider_utils::get_identifier_from_book_isbn;
+use dependent_utils::commit_metadata;
 use enum_models::{MediaLot, MediaSource};
 use external_models::audiobookshelf::{self, LibrariesListResponse, ListResponse};
 use google_books_provider::GoogleBooksService;

@@ -3,9 +3,8 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::Result;
 use database_models::{metadata, prelude::Metadata};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TrendingMetadataIdsResponse};
-use dependent_utils::{
-    commit_metadata, get_metadata_provider, get_users_monitoring_entity, send_notification_for_user,
-};
+use dependent_provider_utils::get_metadata_provider;
+use dependent_utils::{commit_metadata, get_users_monitoring_entity, send_notification_for_user};
 use enum_meta::Meta;
 use enum_models::{MediaLot, UserNotificationContent};
 use itertools::Itertools;

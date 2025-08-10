@@ -8,7 +8,7 @@ use csv::Reader;
 use dependent_models::{
     CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
 };
-use dependent_utils::get_identifier_from_book_isbn;
+use dependent_provider_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot};
 use futures::stream::{self, StreamExt};
 use google_books_provider::GoogleBooksService;

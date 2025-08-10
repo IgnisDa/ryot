@@ -14,6 +14,7 @@ tracing = { workspace = true }
 cache-service = { path = "../../cache" }
 database-models = { path = "../../../models/database" }
 dependent-models = { path = "../../../models/dependent" }
+dependent-provider-utils = { path = "../../../utils/dependent/provider" }
 dependent-utils = { path = "../../../utils/dependent" }
 enum-models = { path = "../../../models/enum" }
 media-models = { path = "../../../models/media" }

@@ -1,6 +1,3 @@
-mod provider_services;
-pub use provider_services::*;
-
 mod metadata_operations;
 pub use metadata_operations::*;
 

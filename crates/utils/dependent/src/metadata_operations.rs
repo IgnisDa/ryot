@@ -17,6 +17,9 @@ use database_models::{
 use database_utils::transform_entity_assets;
 use dependent_jobs_utils::deploy_update_metadata_job;
 use dependent_models::MetadataBaseData;
+use dependent_provider_utils::{
+    details_from_provider, get_metadata_provider, get_non_metadata_provider,
+};
 use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
@@ -34,8 +37,6 @@ use sea_orm::{
 };
 use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
 use supporting_service::SupportingService;
-
-use crate::{details_from_provider, get_metadata_provider, get_non_metadata_provider};
 
 async fn ensure_metadata_updated(
     metadata_id: &String,

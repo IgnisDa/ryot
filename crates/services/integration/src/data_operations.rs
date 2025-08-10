@@ -9,7 +9,9 @@ use database_models::{
 };
 use database_utils::{server_key_validation_guard, user_by_id};
 use dependent_core_utils::is_server_key_validated;
-use dependent_utils::{get_google_books_service, get_hardcover_service, get_openlibrary_service};
+use dependent_provider_utils::{
+    get_google_books_service, get_hardcover_service, get_openlibrary_service,
+};
 use enum_models::{IntegrationLot, IntegrationProvider};
 use futures::try_join;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};

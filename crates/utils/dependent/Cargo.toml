@@ -21,43 +21,28 @@ sqlx = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-anilist-provider = { path = "../../providers/anilist" }
-audible-provider = { path = "../../providers/audible" }
 background-models = { path = "../../models/background" }
 cache-service = { path = "../../services/cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../common" }
-config-definition = { path = "../../config/definition" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-collection-utils = { path = "./collection" }
 dependent-core-utils = { path = "./core" }
 dependent-jobs-utils = { path = "./jobs" }
+dependent-provider-utils = { path = "./provider" }
 dependent-seen-utils = { path = "./seen" }
 dependent-review-utils = { path = "./review" }
 dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }
 fitness-models = { path = "../../models/fitness" }
-giant-bomb-provider = { path = "../../providers/giant-bomb" }
-google-books-provider = { path = "../../providers/google-books" }
-hardcover-provider = { path = "../../providers/hardcover" }
-igdb-provider = { path = "../../providers/igdb" }
 importer-models = { path = "../../models/importer" }
-itunes-provider = { path = "../../providers/itunes" }
-listennotes-provider = { path = "../../providers/listennotes" }
-manga-updates-provider = { path = "../../providers/manga-updates" }
 media-models = { path = "../../models/media" }
-myanimelist-provider = { path = "../../providers/myanimelist" }
 notification-service = { path = "../../services/notification" }
-openlibrary-provider = { path = "../../providers/openlibrary" }
-spotify-provider = { path = "../../providers/spotify" }
 supporting-service = { path = "../../services/supporting" }
-tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }
 user-models = { path = "../../models/user" }
-vndb-provider = { path = "../../providers/vndb" }
-youtube-music-provider = { path = "../../providers/youtube-music" }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json", "sqlx", "tracing"]
