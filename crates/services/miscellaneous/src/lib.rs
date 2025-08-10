@@ -18,8 +18,8 @@ use dependent_utils::{
     core_details, deploy_background_job, deploy_update_metadata_group_job,
     deploy_update_metadata_job, deploy_update_person_job, post_review,
     update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users, user_metadata_groups_list, user_metadata_list,
-    user_people_list,
+    update_person_and_notify_users, user_genres_list, user_metadata_groups_list,
+    user_metadata_list, user_people_list,
 };
 use enum_models::EntityLot;
 use media_models::{
@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod list_operations;
 pub mod lookup_operations;
 pub mod metadata_operations;
 pub mod progress_operations;
@@ -264,12 +263,12 @@ impl MiscellaneousService {
         metadata_operations::update_custom_metadata(&self.0, user_id, input).await
     }
 
-    pub async fn genres_list(
+    pub async fn user_genres_list(
         &self,
         user_id: String,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
-        list_operations::genres_list(&self.0, user_id, input).await
+        user_genres_list(&self.0, user_id, input).await
     }
 
     pub async fn user_metadata_groups_list(

@@ -251,8 +251,8 @@ query UserImportReports {
 	}
 }
 
-query GenresList($input: SearchInput!) {
-	genresList(input: $input) {
+query UserGenresList($input: SearchInput!) {
+	userGenresList(input: $input) {
 		items
 		details {
 			total

@@ -2008,8 +2008,6 @@ export type QueryRoot = {
   exerciseDetails: Exercise;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
-  /** Get paginated list of genres. */
-  genresList: IdResults;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */
@@ -2052,6 +2050,8 @@ export type QueryRoot = {
   userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
+  /** Get paginated list of genres for the user. */
+  userGenresList: IdResults;
   /** Get all the import jobs deployed by the user. */
   userImportReports: Array<ImportReport>;
   /** Get all the integrations for the currently logged in user. */
@@ -2106,11 +2106,6 @@ export type QueryRootExerciseDetailsArgs = {
 
 export type QueryRootGenreDetailsArgs = {
   input: GenreDetailsInput;
-};
-
-
-export type QueryRootGenresListArgs = {
-  input: SearchInput;
 };
 
 
@@ -2182,6 +2177,11 @@ export type QueryRootUserExerciseDetailsArgs = {
 
 export type QueryRootUserExercisesListArgs = {
   input: UserExercisesListInput;
+};
+
+
+export type QueryRootUserGenresListArgs = {
+  input: SearchInput;
 };
 
 

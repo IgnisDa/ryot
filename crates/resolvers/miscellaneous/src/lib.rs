@@ -110,15 +110,15 @@ impl MiscellaneousQuery {
         Ok(response)
     }
 
-    /// Get paginated list of genres.
-    async fn genres_list(
+    /// Get paginated list of genres for the user.
+    async fn user_genres_list(
         &self,
         gql_ctx: &Context<'_>,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
         let user_id = self.user_id_from_ctx(gql_ctx).await?;
-        let response = service.genres_list(user_id, input).await?;
+        let response = service.user_genres_list(user_id, input).await?;
         Ok(response)
     }
 

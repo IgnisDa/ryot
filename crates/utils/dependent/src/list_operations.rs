@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use application_utils::graphql_to_db_order;
-use common_models::{SearchDetails, UserLevelCacheKey};
+use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, exercise, metadata, metadata_group, person, prelude::*,
-    review, seen, user_measurement, user_to_entity, workout, workout_template,
+    collection, collection_to_entity, exercise, genre, metadata, metadata_group, person,
+    prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_collection_filter, ilike_sql, user_by_id};
 use dependent_models::{
@@ -19,11 +19,11 @@ use dependent_models::{
 use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
-    CollectionItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
+    CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedReview, AliasedUser,
-    AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadataToGenre,
+    AliasedReview, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{
@@ -771,4 +771,50 @@ pub async fn user_measurements_list(
         },
     )
     .await
+}
+
+pub async fn user_genres_list(
+    ss: &Arc<SupportingService>,
+    user_id: String,
+    input: SearchInput,
+) -> Result<SearchResults<String>> {
+    let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
+    let preferences = user_by_id(&user_id, ss).await?.preferences;
+    let num_items = "num_items";
+    let query = Genre::find()
+        .column_as(
+            Expr::expr(Func::count(Expr::col((
+                AliasedMetadataToGenre::Table,
+                AliasedMetadataToGenre::MetadataId,
+            )))),
+            num_items,
+        )
+        .apply_if(input.query, |query, v| {
+            query.filter(Condition::all().add(Expr::col(genre::Column::Name).ilike(ilike_sql(&v))))
+        })
+        .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
+        .group_by(Expr::tuple([
+            Expr::col(genre::Column::Id).into(),
+            Expr::col(genre::Column::Name).into(),
+        ]))
+        .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
+    let paginator = query
+        .clone()
+        .into_model::<GenreListItem>()
+        .paginate(&ss.db, preferences.general.list_page_size);
+    let ItemsAndPagesNumber {
+        number_of_items,
+        number_of_pages,
+    } = paginator.num_items_and_pages().await?;
+    let mut items = vec![];
+    for c in paginator.fetch_page(page - 1).await? {
+        items.push(c.id);
+    }
+    Ok(SearchResults {
+        items,
+        details: SearchDetails {
+            total: number_of_items.try_into().unwrap(),
+            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
+        },
+    })
 }
