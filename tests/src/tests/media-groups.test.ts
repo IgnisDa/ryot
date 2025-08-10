@@ -103,12 +103,12 @@ describe("media group saved views", () => {
 		const views = await listSavedViews(client, cookies);
 
 		const expectedViewSlugs = [
-			"all-book-groups",
-			"all-movie-groups",
-			"all-music-groups",
-			"all-audiobook-groups",
-			"all-comic-book-groups",
-			"all-video-game-groups",
+			"all-book-series",
+			"all-music-albums",
+			"all-audiobook-series",
+			"all-comic-book-series",
+			"all-movie-collections",
+			"all-video-game-collections",
 		];
 
 		for (const slug of expectedViewSlugs) {
@@ -120,8 +120,8 @@ describe("media group saved views", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const views = await listSavedViews(client, cookies);
 
-		const movieGroupView = views.find((v) => v.slug === "all-movie-groups");
+		const movieGroupView = views.find((v) => v.slug === "all-movie-collections");
 		expect(movieGroupView?.isBuiltin).toBe(true);
-		expect(movieGroupView?.name).toBe("All Movie Groups");
+		expect(movieGroupView?.name).toBe("All Movie Collections");
 	});
 });
