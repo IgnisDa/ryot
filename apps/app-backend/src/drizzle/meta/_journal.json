@@ -5,15 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1776931474872,
-			"tag": "0000_public_gamma_corps",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1777259775636,
-			"tag": "0001_dapper_shard",
+			"when": 1779249314038,
+			"tag": "0000_lucky_switch",
 			"breakpoints": true
 		}
 	]
