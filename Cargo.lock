@@ -3953,6 +3953,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-calendar-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "migrations",
+ "rstest",
+ "rust_decimal",
+ "sea-orm",
+ "sea-query",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
 name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
@@ -3989,6 +4014,7 @@ dependencies = [
  "media-models",
  "migrations",
  "miscellaneous-background-service",
+ "miscellaneous-calendar-service",
  "nanoid",
  "regex",
  "rstest",

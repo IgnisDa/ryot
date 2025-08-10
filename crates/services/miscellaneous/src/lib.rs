@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod calendar_operations;
 pub mod core_operations;
 pub mod custom_metadata;
 pub mod entity_details;
@@ -91,7 +90,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        calendar_operations::user_calendar_events(user_id, input, &self.0).await
+        miscellaneous_calendar_service::user_calendar_events(user_id, input, &self.0).await
     }
 
     pub async fn user_upcoming_calendar_events(
@@ -99,7 +98,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        calendar_operations::user_upcoming_calendar_events(&self.0, user_id, input).await
+        miscellaneous_calendar_service::user_upcoming_calendar_events(&self.0, user_id, input).await
     }
 
     pub async fn user_metadata_list(

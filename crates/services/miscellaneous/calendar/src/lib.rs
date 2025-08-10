@@ -86,7 +86,7 @@ pub async fn user_upcoming_calendar_events(
     Ok(events)
 }
 
-pub async fn get_calendar_events(
+async fn get_calendar_events(
     ss: &Arc<SupportingService>,
     user_id: String,
     only_monitored: bool,
