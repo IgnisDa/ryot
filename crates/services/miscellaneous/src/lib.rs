@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod progress_operations;
 pub mod trending_and_events;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
@@ -130,7 +129,8 @@ impl MiscellaneousService {
         user_id: String,
         input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<()> {
-        progress_operations::bulk_metadata_progress_update(&self.0, &user_id, input).await
+        miscellaneous_progress_service::bulk_metadata_progress_update(&self.0, &user_id, input)
+            .await
     }
 
     pub async fn expire_cache_key(&self, cache_id: Uuid) -> Result<bool> {
@@ -154,7 +154,7 @@ impl MiscellaneousService {
         user_id: String,
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
-        progress_operations::update_seen_item(&self.0, &user_id, input).await
+        miscellaneous_progress_service::update_seen_item(&self.0, &user_id, input).await
     }
 
     pub async fn deploy_update_media_entity_job(
@@ -248,7 +248,7 @@ impl MiscellaneousService {
         user_id: &String,
         seen_id: String,
     ) -> Result<StringIdObject> {
-        progress_operations::delete_seen_item(&self.0, user_id, seen_id).await
+        miscellaneous_progress_service::delete_seen_item(&self.0, user_id, seen_id).await
     }
 
     pub async fn create_custom_metadata(

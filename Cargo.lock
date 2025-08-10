@@ -4066,11 +4066,28 @@ dependencies = [
  "itertools 0.14.0",
  "media-models",
  "nanoid",
- "rstest",
  "rust_decimal",
  "sea-orm",
  "supporting-service",
  "tracing",
+]
+
+[[package]]
+name = "miscellaneous-progress-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "database-models",
+ "dependent-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "traits",
 ]
 
 [[package]]
@@ -4099,7 +4116,6 @@ dependencies = [
  "dependent-utils",
  "media-models",
  "nanoid",
- "rstest",
  "rust_decimal",
  "sea-orm",
  "supporting-service",
@@ -4119,7 +4135,6 @@ dependencies = [
  "futures",
  "itertools 0.14.0",
  "media-models",
- "rstest",
  "rust_decimal",
  "supporting-service",
  "tracing",
@@ -4138,7 +4153,6 @@ dependencies = [
  "dependent-utils",
  "enum-models",
  "enum_meta",
- "futures",
  "itertools 0.14.0",
  "media-models",
  "miscellaneous-background-service",
@@ -4148,6 +4162,7 @@ dependencies = [
  "miscellaneous-general-service",
  "miscellaneous-lookup-service",
  "miscellaneous-metadata-operations-service",
+ "miscellaneous-progress-service",
  "miscellaneous-review-service",
  "miscellaneous-search-service",
  "rust_decimal",
@@ -4155,7 +4170,6 @@ dependencies = [
  "sea-query",
  "supporting-service",
  "tracing",
- "traits",
  "uuid",
 ]
 

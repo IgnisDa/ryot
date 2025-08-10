@@ -1,0 +1,22 @@
+[package]
+name = "miscellaneous-progress-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+futures = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+common-models = { path = "../../../models/common" }
+database-models = { path = "../../../models/database" }
+dependent-utils = { path = "../../../utils/dependent" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+traits = { path = "../../../traits" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

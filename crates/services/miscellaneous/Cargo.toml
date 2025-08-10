@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 enum_meta = { workspace = true }
-futures = { workspace = true }
 itertools = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
@@ -29,10 +28,10 @@ miscellaneous-entity-user-details-service = { path = "./entity-user-details" }
 miscellaneous-general-service = { path = "./general" }
 miscellaneous-lookup-service = { path = "./lookup" }
 miscellaneous-metadata-operations-service = { path = "./metadata-operations" }
+miscellaneous-progress-service = { path = "./progress" }
 miscellaneous-review-service = { path = "./review" }
 miscellaneous-search-service = { path = "./search" }
 supporting-service = { path = "../supporting" }
-traits = { path = "../../traits" }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
