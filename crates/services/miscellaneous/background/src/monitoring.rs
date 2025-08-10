@@ -15,7 +15,7 @@ use itertools::Itertools;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use supporting_service::SupportingService;
 
-pub async fn get_monitored_entities(
+async fn get_monitored_entities(
     entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<HashMap<String, HashSet<String>>> {
