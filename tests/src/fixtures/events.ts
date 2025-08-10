@@ -189,7 +189,7 @@ export async function createBuiltinMediaLifecycleFixture(
 		name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
 		properties: {
 			...(propertiesBySchemaSlug[entitySchemaSlug] ?? defaultMediaProperties),
-			...(options.properties),
+			...options.properties,
 		},
 	});
 
