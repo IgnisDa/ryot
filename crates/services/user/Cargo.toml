@@ -30,9 +30,9 @@ database-models = { path = "../../models/database" }
 dependent-collection-utils = { path = "../../utils/dependent/collection" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-metadata-utils = { path = "../../utils/dependent/metadata" }
+dependent-notification-utils = { path = "../../utils/dependent/notification" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 media-models = { path = "../../models/media" }
 notification-service = { path = "../notification" }

@@ -22,11 +22,11 @@ use dependent_models::{
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
-use dependent_review_utils::post_review;
-use dependent_utils::{
+use dependent_notification_utils::{
     update_metadata_and_notify_users, update_metadata_group_and_notify_users,
     update_person_and_notify_users,
 };
+use dependent_review_utils::post_review;
 use enum_models::EntityLot;
 use media_models::{
     CreateCustomMetadataInput, CreateOrUpdateReviewInput, CreateReviewCommentInput,

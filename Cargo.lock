@@ -1354,8 +1354,8 @@ dependencies = [
  "dependent-entity-list-utils",
  "dependent-metadata-utils",
  "dependent-models",
+ "dependent-notification-utils",
  "dependent-utility-utils",
- "dependent-utils",
  "enum-models",
  "futures",
  "itertools 0.14.0",
@@ -1981,6 +1981,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-notification-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "common-utils",
+ "database-models",
+ "dependent-core-utils",
+ "dependent-metadata-utils",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "notification-service",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "traits",
+ "uuid",
+]
+
+[[package]]
 name = "dependent-progress-utils"
 version = "0.1.0"
 dependencies = [
@@ -2096,16 +2118,15 @@ name = "dependent-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
  "common-models",
  "common-utils",
  "database-models",
  "database-utils",
  "dependent-collection-utils",
- "dependent-core-utils",
  "dependent-jobs-utils",
  "dependent-metadata-utils",
  "dependent-models",
+ "dependent-notification-utils",
  "dependent-progress-utils",
  "dependent-review-utils",
  "dependent-utility-utils",
@@ -2116,7 +2137,6 @@ dependencies = [
  "itertools 0.14.0",
  "media-models",
  "nanoid",
- "notification-service",
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
@@ -2125,9 +2145,7 @@ dependencies = [
  "sqlx",
  "supporting-service",
  "tracing",
- "traits",
  "user-models",
- "uuid",
 ]
 
 [[package]]
@@ -3731,6 +3749,7 @@ dependencies = [
  "dependent-core-utils",
  "dependent-metadata-utils",
  "dependent-models",
+ "dependent-notification-utils",
  "dependent-provider-utils",
  "dependent-utils",
  "enum-models",
@@ -4180,9 +4199,9 @@ dependencies = [
  "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-models",
+ "dependent-notification-utils",
  "dependent-seen-utils",
  "dependent-utility-utils",
- "dependent-utils",
  "enum-models",
  "futures",
  "itertools 0.14.0",
@@ -4403,8 +4422,8 @@ dependencies = [
  "dependent-entity-list-utils",
  "dependent-jobs-utils",
  "dependent-models",
+ "dependent-notification-utils",
  "dependent-review-utils",
- "dependent-utils",
  "enum-models",
  "media-models",
  "miscellaneous-background-service",
@@ -4434,8 +4453,8 @@ dependencies = [
  "database-models",
  "dependent-metadata-utils",
  "dependent-models",
+ "dependent-notification-utils",
  "dependent-provider-utils",
- "dependent-utils",
  "enum-models",
  "enum_meta",
  "itertools 0.14.0",
@@ -7620,7 +7639,7 @@ dependencies = [
  "dependent-core-utils",
  "dependent-metadata-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-notification-utils",
  "enum-models",
  "enum_meta",
  "futures",

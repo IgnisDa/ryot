@@ -3,7 +3,7 @@ use std::{collections::VecDeque, sync::Arc};
 use anyhow::Result;
 use chrono::Utc;
 use database_models::{integration, prelude::Integration};
-use dependent_utils::send_notification_for_user;
+use dependent_notification_utils::send_notification_for_user;
 use enum_models::{IntegrationLot, IntegrationProvider, UserNotificationContent};
 use media_models::IntegrationTriggerResult;
 use sea_orm::{

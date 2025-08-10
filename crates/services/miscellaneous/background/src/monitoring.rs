@@ -6,7 +6,9 @@ use std::{
 use anyhow::Result;
 use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
 use database_models::{monitored_entity, prelude::MonitoredEntity};
-use dependent_utils::{update_metadata_and_notify_users, update_person_and_notify_users};
+use dependent_notification_utils::{
+    update_metadata_and_notify_users, update_person_and_notify_users,
+};
 use enum_models::EntityLot;
 use futures::future::join_all;
 use itertools::Itertools;

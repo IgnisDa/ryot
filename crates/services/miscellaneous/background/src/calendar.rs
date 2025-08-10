@@ -15,7 +15,7 @@ use database_models::{
     prelude::UserToEntity,
 };
 use dependent_collection_utils::remove_entities_from_collection;
-use dependent_utils::{get_users_monitoring_entity, send_notification_for_user};
+use dependent_notification_utils::{get_users_monitoring_entity, send_notification_for_user};
 use enum_models::{EntityLot, UserNotificationContent};
 use futures::TryStreamExt;
 use itertools::Itertools;

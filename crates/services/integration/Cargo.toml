@@ -34,6 +34,7 @@ database-utils = { path = "../../utils/database" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-metadata-utils = { path = "../../utils/dependent/metadata" }
 dependent-models = { path = "../../models/dependent" }
+dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-provider-utils = { path = "../../utils/dependent/provider" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }

@@ -8,7 +8,7 @@ use database_models::{
     seen,
 };
 use dependent_core_utils::is_server_key_validated;
-use dependent_utils::send_notification_for_user;
+use dependent_notification_utils::send_notification_for_user;
 use enum_models::{EntityLot, SeenState, UserNotificationContent};
 use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use supporting_service::SupportingService;

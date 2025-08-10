@@ -10,7 +10,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CollectionRecommendationsCachedInput,
     CollectionRecommendationsInput, SearchResults,
 };
-use dependent_utils::update_metadata_and_notify_users;
+use dependent_notification_utils::update_metadata_and_notify_users;
 use sea_orm::{
     ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
     PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement,

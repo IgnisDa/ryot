@@ -13,12 +13,12 @@ uuid = { workspace = true }
 background-models = { path = "../../models/background" }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
 dependent-jobs-utils = { path = "../../utils/dependent/jobs" }
+dependent-models = { path = "../../models/dependent" }
+dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-review-utils = { path = "../../utils/dependent/review" }
-dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 media-models = { path = "../../models/media" }
 miscellaneous-background-service = { path = "./background" }

@@ -14,7 +14,7 @@ use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
     UserMetadataRecommendationsResponse,
 };
-use dependent_utils::update_metadata_and_notify_users;
+use dependent_notification_utils::update_metadata_and_notify_users;
 use enum_models::MetadataToMetadataRelation;
 use itertools::Itertools;
 use nanoid::nanoid;
