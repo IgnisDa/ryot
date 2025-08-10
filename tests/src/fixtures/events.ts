@@ -1,10 +1,6 @@
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
-import {
-	createTrackerWithSchema,
-	findBuiltinSchemaBySlug,
-	listBuiltinEntitySchemas,
-} from "./entity-schemas";
+import { createTrackerWithSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
 import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
@@ -171,15 +167,6 @@ export async function createBuiltinMediaLifecycleFixture(
 	const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");
 	const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
-	const { schemas } = await listBuiltinEntitySchemas(client, cookies);
-	const otherSchema = schemas.find((schema) => schema.id !== selectedSchema.id);
-	if (!otherSchema) {
-		throw new Error("Missing mismatched built-in schema");
-	}
-
-	const otherEventSchemas = await listEventSchemas(client, cookies, otherSchema.id);
-	const mismatchedBacklogEventSchema = requireEventSchemaBySlug(otherEventSchemas, "backlog");
-
 	const entity = await seedMediaEntity({
 		image: null,
 		userId: null,
@@ -199,6 +186,5 @@ export async function createBuiltinMediaLifecycleFixture(
 		backlogEventSchemaId: backlogEventSchema.id,
 		completeEventSchemaId: completeEventSchema.id,
 		progressEventSchemaId: progressEventSchema.id,
-		mismatchedEventSchemaId: mismatchedBacklogEventSchema.id,
 	};
 }
