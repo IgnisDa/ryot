@@ -11,6 +11,10 @@ use dependent_core_utils::core_details;
 use dependent_entity_list_utils::{
     user_genres_list, user_metadata_groups_list, user_metadata_list, user_people_list,
 };
+use dependent_jobs_utils::{
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job,
+};
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
@@ -20,9 +24,8 @@ use dependent_models::{
 };
 use dependent_review_utils::post_review;
 use dependent_utils::{
-    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
-    deploy_update_person_job, update_metadata_and_notify_users,
-    update_metadata_group_and_notify_users, update_person_and_notify_users,
+    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
+    update_person_and_notify_users,
 };
 use enum_models::EntityLot;
 use media_models::{

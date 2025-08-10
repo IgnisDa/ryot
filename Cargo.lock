@@ -1915,6 +1915,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-jobs-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-models"
 version = "0.1.0"
 dependencies = [
@@ -1994,6 +2009,7 @@ dependencies = [
  "database-utils",
  "dependent-collection-utils",
  "dependent-core-utils",
+ "dependent-jobs-utils",
  "dependent-models",
  "dependent-review-utils",
  "dependent-utility-utils",
@@ -3536,6 +3552,7 @@ dependencies = [
  "csv",
  "data-encoding",
  "database-models",
+ "dependent-jobs-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
@@ -4296,6 +4313,7 @@ dependencies = [
  "database-models",
  "dependent-core-utils",
  "dependent-entity-list-utils",
+ "dependent-jobs-utils",
  "dependent-models",
  "dependent-review-utils",
  "dependent-utils",

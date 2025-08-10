@@ -9,10 +9,11 @@ use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
 };
+use dependent_jobs_utils::deploy_background_job;
 use dependent_models::ImportOrExportMetadataItem;
 use dependent_utils::{
-    deploy_background_job, generate_exercise_id, get_google_books_service, get_hardcover_service,
-    get_openlibrary_service, get_tmdb_non_media_service, process_import,
+    generate_exercise_id, get_google_books_service, get_hardcover_service, get_openlibrary_service,
+    get_tmdb_non_media_service, process_import,
 };
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};

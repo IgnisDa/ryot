@@ -7,9 +7,6 @@ pub use metadata_operations::*;
 mod notification_operations;
 pub use notification_operations::*;
 
-mod job_operations;
-pub use job_operations::*;
-
 mod seen_operations;
 pub use seen_operations::*;
 
