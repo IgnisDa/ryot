@@ -1,5 +1,3 @@
-import { resolveRequiredString } from "@ryot/ts-utils/slug";
-
 import { createDefaultQueryDefinition } from "~/modules/saved-views";
 import type {
 	DisplayConfiguration,
@@ -16,9 +14,6 @@ export const buildLibraryEntityInput = (input: {
 	}
 	return { entitySchemaId: librarySchema.id };
 };
-
-export const resolveAuthenticationName = (name: string) =>
-	resolveRequiredString(name, "Signup name");
 
 export const buildAuthenticationTrackerEntitySchemaLinks = (input: {
 	trackers: Array<{ id: string; slug: string }>;

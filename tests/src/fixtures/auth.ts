@@ -1,10 +1,14 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils/dayjs";
+import { createAuthClient } from "better-auth/client";
 import type createClient from "openapi-fetch";
 
 import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
 
 export type Client = ReturnType<typeof createClient<paths>>;
+
+export const createTestAuthClient = (baseUrl = getBackendUrl()) =>
+	createAuthClient({ baseURL: new URL(baseUrl).origin });
 
 async function getUserIdByEmail(email: string) {
 	const result = await getPgClient().query<{ id: string }>(
@@ -23,16 +27,16 @@ export async function createTestUser() {
 	const password = "password123";
 	const baseUrl = getBackendUrl();
 	const email = `test-${dayjs().valueOf()}@example.com`;
+	const authClient = createTestAuthClient(baseUrl);
 
-	const signUpResponse = await fetch(`${baseUrl}/authentication/email`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, name: "Test User", password }),
+	const { error: signUpError } = await authClient.signUp.email({
+		email,
+		password,
+		name: "Test User",
 	});
 
-	if (!signUpResponse.ok) {
-		const error = await signUpResponse.text();
-		throw new Error(`Sign up failed: ${error}`);
+	if (signUpError) {
+		throw new Error(`Sign up failed: ${signUpError.message}`);
 	}
 
 	const signInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
