@@ -8,10 +8,10 @@ use database_models::{
     seen,
 };
 use database_utils::{entity_in_collections_with_details, item_reviews};
+use dependent_metadata_utils::generic_metadata;
 use dependent_models::{UserMetadataDetails, UserMetadataGroupDetails, UserPersonDetails};
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::get_entity_recently_consumed;
-use dependent_utils::generic_metadata;
 use enum_models::{EntityLot, SeenState};
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;

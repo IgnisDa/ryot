@@ -1,6 +1,3 @@
-mod metadata_operations;
-pub use metadata_operations::*;
-
 mod notification_operations;
 pub use notification_operations::*;
 

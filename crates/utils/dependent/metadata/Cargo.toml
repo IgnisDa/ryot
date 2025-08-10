@@ -1,27 +1,30 @@
 [package]
-name = "miscellaneous-entity-user-details-service"
+name = "dependent-metadata-utils"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-futures = { workspace = true }
+chrono = { workspace = true }
 itertools = { workspace = true }
+futures = { workspace = true }
+markdown = { workspace = true }
+nanoid = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
+sea-query = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../../utils/application" }
+common-models = { path = "../../../models/common" }
+common-utils = { path = "../../common" }
 database-models = { path = "../../../models/database" }
-database-utils = { path = "../../../utils/database" }
+database-utils = { path = "../../database" }
+dependent-jobs-utils = { path = "../jobs" }
 dependent-models = { path = "../../../models/dependent" }
-dependent-metadata-utils = { path = "../../../utils/dependent/metadata" }
-dependent-seen-utils = { path = "../../../utils/dependent/seen" }
-dependent-utility-utils = { path = "../../../utils/dependent/utility" }
+dependent-provider-utils = { path = "../provider" }
 enum-models = { path = "../../../models/enum" }
 media-models = { path = "../../../models/media" }
-supporting-service = { path = "../../supporting" }
+supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

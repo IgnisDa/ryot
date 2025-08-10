@@ -8,6 +8,7 @@ use database_models::{
     prelude::{CollectionToEntity, MonitoredEntity, NotificationPlatform},
 };
 use dependent_core_utils::get_entity_details_frontend_url;
+use dependent_metadata_utils::{update_metadata, update_metadata_group, update_person};
 use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;
@@ -18,8 +19,6 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
-
-use crate::metadata_operations::{update_metadata, update_metadata_group, update_person};
 
 pub async fn get_users_and_cte_monitoring_entity(
     entity_id: &String,

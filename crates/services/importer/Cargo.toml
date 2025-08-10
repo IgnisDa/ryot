@@ -32,6 +32,7 @@ common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-jobs-utils = { path = "../../utils/dependent/jobs" }
+dependent-metadata-utils = { path = "../../utils/dependent/metadata" }
 dependent-models = { path = "../../models/dependent" }
 dependent-provider-utils = { path = "../../utils/dependent/provider" }
 dependent-utils = { path = "../../utils/dependent" }

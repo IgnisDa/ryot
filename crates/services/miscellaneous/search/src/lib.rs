@@ -5,12 +5,12 @@ use common_models::{
     MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, UserLevelCacheKey,
 };
 use database_utils::user_by_id;
+use dependent_metadata_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, MetadataGroupSearchResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults,
 };
 use dependent_provider_utils::{get_metadata_provider, get_non_metadata_provider};
-use dependent_utils::{commit_metadata, commit_metadata_group, commit_person};
 use futures::future::try_join_all;
 use itertools::Itertools;
 use media_models::{

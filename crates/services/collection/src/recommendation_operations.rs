@@ -5,11 +5,12 @@ use common_models::SearchDetails;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{metadata, prelude::Metadata};
 use database_utils::{ilike_sql, user_by_id};
+use dependent_metadata_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CollectionRecommendationsCachedInput,
     CollectionRecommendationsInput, SearchResults,
 };
-use dependent_utils::{generic_metadata, update_metadata_and_notify_users};
+use dependent_utils::update_metadata_and_notify_users;
 use sea_orm::{
     ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
     PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement,

@@ -31,8 +31,9 @@ common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
+dependent-metadata-utils = { path = "../../utils/dependent/metadata" }
+dependent-models = { path = "../../models/dependent" }
 dependent-provider-utils = { path = "../../utils/dependent/provider" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }

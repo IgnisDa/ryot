@@ -9,11 +9,12 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::user_by_id;
+use dependent_metadata_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
     UserMetadataRecommendationsResponse,
 };
-use dependent_utils::{generic_metadata, update_metadata_and_notify_users};
+use dependent_utils::update_metadata_and_notify_users;
 use enum_models::MetadataToMetadataRelation;
 use itertools::Itertools;
 use nanoid::nanoid;

@@ -10,11 +10,12 @@ itertools = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
+
 common-models = { path = "../../../models/common" }
+dependent-metadata-utils = { path = "../../../utils/dependent/metadata" }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-models = { path = "../../../models/dependent" }
-dependent-utils = { path = "../../../utils/dependent" }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }
 
