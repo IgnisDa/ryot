@@ -13,6 +13,7 @@ async function pollForEventWithSchema(
 	eventSchemaSlug: string,
 ) {
 	for (let attempt = 0; attempt < 30; attempt++) {
+		// oxlint-disable-next-line no-await-in-loop
 		const events = await client.GET("/events", {
 			headers: { Cookie: cookies },
 			params: { query: { entityId } },
@@ -22,6 +23,7 @@ async function pollForEventWithSchema(
 			return found;
 		}
 
+		// oxlint-disable-next-line no-await-in-loop
 		await Bun.sleep(500);
 	}
 

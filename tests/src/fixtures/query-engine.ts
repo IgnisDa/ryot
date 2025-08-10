@@ -342,6 +342,7 @@ const createQueryEngineEntities = async (input: {
 	const entityIdsByName: Record<string, string> = {};
 
 	for (const entity of input.entities) {
+		// oxlint-disable-next-line no-await-in-loop
 		entityIdsByName[entity.name] = await createQueryEngineEntity({
 			name: entity.name,
 			image: entity.image,
