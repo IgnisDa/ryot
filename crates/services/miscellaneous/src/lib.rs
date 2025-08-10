@@ -34,7 +34,6 @@ use sea_query::Expr;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-pub mod custom_metadata;
 pub mod entity_details;
 pub mod list_operations;
 pub mod lookup_operations;
@@ -244,7 +243,7 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateCustomMetadataInput,
     ) -> Result<metadata::Model> {
-        custom_metadata::create_custom_metadata(&self.0, user_id, input).await
+        metadata_operations::create_custom_metadata(&self.0, user_id, input).await
     }
 
     pub async fn update_custom_metadata(
@@ -252,7 +251,7 @@ impl MiscellaneousService {
         user_id: &str,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        custom_metadata::update_custom_metadata(&self.0, user_id, input).await
+        metadata_operations::update_custom_metadata(&self.0, user_id, input).await
     }
 
     pub async fn genres_list(

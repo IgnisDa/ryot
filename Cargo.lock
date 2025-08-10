@@ -4046,7 +4046,6 @@ dependencies = [
  "tmdb-provider",
  "tracing",
  "traits",
- "user-models",
  "uuid",
 ]
 

@@ -37,7 +37,6 @@ miscellaneous-general-service = { path = "./general" }
 supporting-service = { path = "../supporting" }
 tmdb-provider = { path = "../../providers/tmdb" }
 traits = { path = "../../traits" }
-user-models = { path = "../../models/user" }
 
 [dev-dependencies]
 rstest = { workspace = true }
