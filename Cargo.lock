@@ -1814,6 +1814,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-core-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "common-utils",
+ "dependent-models",
+ "enum-models",
+ "enum_meta",
+ "env-utils",
+ "file-storage-service",
+ "isolang",
+ "itertools 0.14.0",
+ "rustypipe",
+ "sea-orm",
+ "serde_json",
+ "sqlx",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-models"
 version = "0.1.0"
 dependencies = [
@@ -1853,11 +1876,10 @@ dependencies = [
  "config-definition",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
  "dependent-models",
  "enum-models",
  "enum_meta",
- "env-utils",
- "file-storage-service",
  "fitness-models",
  "futures",
  "giant-bomb-provider",
@@ -1865,7 +1887,6 @@ dependencies = [
  "hardcover-provider",
  "igdb-provider",
  "importer-models",
- "isolang",
  "itertools 0.14.0",
  "itunes-provider",
  "listennotes-provider",
@@ -1880,7 +1901,6 @@ dependencies = [
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
- "rustypipe",
  "sea-orm",
  "sea-query",
  "serde",
@@ -2463,6 +2483,7 @@ dependencies = [
  "const-str",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
@@ -3490,6 +3511,7 @@ dependencies = [
  "convert_case 0.8.0",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
@@ -3935,6 +3957,7 @@ dependencies = [
  "convert_case 0.8.0",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
@@ -4148,6 +4171,7 @@ dependencies = [
  "background-models",
  "common-models",
  "database-models",
+ "dependent-core-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
@@ -7360,6 +7384,7 @@ dependencies = [
  "data-encoding",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",

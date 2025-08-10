@@ -5,7 +5,7 @@ use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{access_link, prelude::AccessLink, user};
 use database_utils::{get_enabled_users_query, server_key_validation_guard};
-use dependent_utils::is_server_key_validated;
+use dependent_core_utils::is_server_key_validated;
 use media_models::{
     CreateAccessLinkInput, ProcessAccessLinkError, ProcessAccessLinkErrorVariant,
     ProcessAccessLinkInput, ProcessAccessLinkResponse, ProcessAccessLinkResult,

@@ -7,6 +7,7 @@ use common_models::{
     StringIdObject,
 };
 use database_models::{metadata, prelude::User, user};
+use dependent_core_utils::core_details;
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
     MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
@@ -15,11 +16,10 @@ use dependent_models::{
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };
 use dependent_utils::{
-    core_details, deploy_background_job, deploy_update_metadata_group_job,
-    deploy_update_metadata_job, deploy_update_person_job, post_review,
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users, user_genres_list, user_metadata_groups_list,
-    user_metadata_list, user_people_list,
+    deploy_background_job, deploy_update_metadata_group_job, deploy_update_metadata_job,
+    deploy_update_person_job, post_review, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users, user_genres_list,
+    user_metadata_groups_list, user_metadata_list, user_people_list,
 };
 use enum_models::EntityLot;
 use media_models::{

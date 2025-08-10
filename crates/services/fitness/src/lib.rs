@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use database_models::{exercise, user_measurement};
+use database_utils::user_workout_template_details;
 use dependent_models::{
     CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
     UserMeasurementsListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails,
     UserWorkoutTemplateDetails, UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
 };
+use dependent_utils::user_workout_templates_list;
 use fitness_models::{
     UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput, UserExercisesListInput,
     UserMeasurementsListInput, UserWorkoutInput,
@@ -42,7 +44,7 @@ impl FitnessService {
         user_id: String,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-        template_management::user_workout_templates_list(&self.0, user_id, input).await
+        user_workout_templates_list(&user_id, &self.0, input).await
     }
 
     pub async fn user_workout_template_details(
@@ -50,8 +52,7 @@ impl FitnessService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        template_management::user_workout_template_details(&self.0, user_id, workout_template_id)
-            .await
+        user_workout_template_details(&self.0.db, &user_id, workout_template_id).await
     }
 
     pub async fn create_or_update_user_workout_template(

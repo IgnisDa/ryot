@@ -5,7 +5,7 @@ use database_models::{
     seen, user_to_entity,
 };
 use database_utils::server_key_validation_guard;
-use dependent_utils::is_server_key_validated;
+use dependent_core_utils::is_server_key_validated;
 use enum_models::{EntityLot, IntegrationLot, IntegrationProvider, MediaLot};
 use media_models::SeenShowExtraInformation;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};

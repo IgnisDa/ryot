@@ -67,6 +67,7 @@ members = [
     "crates/utils/common",
     "crates/utils/database",
     "crates/utils/dependent",
+    "crates/utils/dependent/core",
     "crates/utils/external",
     "crates/utils/env",
 ]

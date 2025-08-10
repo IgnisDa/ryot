@@ -7,6 +7,7 @@ use database_models::{
     collection_to_entity, monitored_entity, notification_platform,
     prelude::{CollectionToEntity, MonitoredEntity, NotificationPlatform},
 };
+use dependent_core_utils::get_entity_details_frontend_url;
 use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;
@@ -17,7 +18,7 @@ use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
 
-use crate::{get_entity_details_frontend_url, metadata_operations};
+use crate::metadata_operations::{update_metadata, update_metadata_group, update_person};
 
 pub async fn get_users_and_cte_monitoring_entity(
     entity_id: &String,
@@ -282,7 +283,7 @@ pub async fn update_metadata_and_notify_users(
     metadata_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = metadata_operations::update_metadata(metadata_id, ss).await?;
+    let result = update_metadata(metadata_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, &ss.db).await?;
@@ -304,7 +305,7 @@ pub async fn update_person_and_notify_users(
     person_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = metadata_operations::update_person(person_id.clone(), ss).await?;
+    let result = update_person(person_id.clone(), ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(person_id, EntityLot::Person, &ss.db).await?;
@@ -326,7 +327,7 @@ pub async fn update_metadata_group_and_notify_users(
     metadata_group_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
-    let result = metadata_operations::update_metadata_group(metadata_group_id, ss).await?;
+    let result = update_metadata_group(metadata_group_id, ss).await?;
     if !result.notifications.is_empty() {
         let users_to_notify = get_users_and_cte_monitoring_entity(
             metadata_group_id,

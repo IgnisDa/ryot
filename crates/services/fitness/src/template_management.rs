@@ -4,16 +4,10 @@ use database_models::{
     prelude::{Exercise, WorkoutTemplate},
     workout_template,
 };
-use database_utils::{
-    server_key_validation_guard, user_workout_template_details as get_user_workout_template_details,
-};
-use dependent_models::{
-    CachedResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutTemplateDetails,
-    UserWorkoutsTemplatesListResponse,
-};
+use database_utils::server_key_validation_guard;
+use dependent_core_utils::is_server_key_validated;
 use dependent_utils::{
     expire_user_workout_templates_list_cache, get_focused_workout_summary_with_exercises,
-    is_server_key_validated, user_workout_templates_list as get_user_workout_templates_list,
 };
 use fitness_models::{
     ProcessedExercise, UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary,
@@ -24,22 +18,6 @@ use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
 use sea_query::OnConflict;
 use std::{collections::HashMap, sync::Arc};
 use supporting_service::SupportingService;
-
-pub async fn user_workout_templates_list(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UserTemplatesOrWorkoutsListInput,
-) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-    get_user_workout_templates_list(&user_id, ss, input).await
-}
-
-pub async fn user_workout_template_details(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    workout_template_id: String,
-) -> Result<UserWorkoutTemplateDetails> {
-    get_user_workout_template_details(&ss.db, &user_id, workout_template_id).await
-}
 
 pub async fn create_or_update_user_workout_template(
     ss: &Arc<SupportingService>,
