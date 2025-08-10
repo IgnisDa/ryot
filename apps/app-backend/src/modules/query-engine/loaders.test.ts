@@ -53,8 +53,6 @@ describe("validateUniqueSchemaSlugs", () => {
 });
 
 describe("validateVisibleEventJoins", () => {
-	// oxlint-disable-next-line unicorn/consistent-function-scoping
-
 	it("resolves event joins when schemas are found", () => {
 		const joins = [
 			{
