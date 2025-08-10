@@ -67,6 +67,7 @@ members = [
     "crates/utils/common",
     "crates/utils/database",
     "crates/utils/dependent",
+    "crates/utils/dependent/collection",
     "crates/utils/dependent/core",
     "crates/utils/dependent/review",
     "crates/utils/dependent/utility",

@@ -13,8 +13,9 @@ use database_models::{
     review, seen, user_to_entity,
 };
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
+use dependent_collection_utils::add_entities_to_collection;
 use dependent_utility_utils::expire_user_metadata_list_cache;
-use dependent_utils::{add_entities_to_collection, change_metadata_associations};
+use dependent_utils::change_metadata_associations;
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};

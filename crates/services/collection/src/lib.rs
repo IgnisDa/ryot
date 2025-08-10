@@ -5,14 +5,15 @@ use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
     ChangeCollectionToEntitiesInput, ReorderCollectionEntityInput, StringIdObject,
 };
+use dependent_collection_utils::{
+    add_entities_to_collection, create_or_update_collection, remove_entities_from_collection,
+    reorder_collection_entity,
+};
 use dependent_models::{
     CachedResponse, CollectionContentsInput, CollectionContentsResponse,
     CollectionRecommendationsInput, SearchResults, UserCollectionsListResponse,
 };
-use dependent_utils::{
-    add_entities_to_collection, create_or_update_collection, remove_entities_from_collection,
-    user_collections_list,
-};
+use dependent_utils::user_collections_list;
 use media_models::CreateOrUpdateCollectionInput;
 use supporting_service::SupportingService;
 use uuid::Uuid;
@@ -81,7 +82,7 @@ impl CollectionService {
         user_id: &String,
         input: ReorderCollectionEntityInput,
     ) -> Result<bool> {
-        dependent_utils::reorder_collection_entity(user_id, input, &self.0).await
+        reorder_collection_entity(user_id, input, &self.0).await
     }
 
     pub async fn deploy_add_entities_to_collection_job(

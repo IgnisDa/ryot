@@ -34,6 +34,7 @@ config-definition = { path = "../../config/definition" }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
+dependent-collection-utils = { path = "./collection" }
 dependent-core-utils = { path = "./core" }
 dependent-review-utils = { path = "./review" }
 dependent-utility-utils = { path = "./utility" }

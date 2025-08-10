@@ -4,6 +4,7 @@ use anyhow::Result;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::SHOW_SPECIAL_SEASON_NAMES;
 use database_models::{prelude::*, seen};
+use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_models::{ApplicationCacheKeyDiscriminants, ExpireCacheKeyInput};
 use enum_models::{EntityLot, MediaLot, SeenState};
 use itertools::Itertools;
@@ -13,8 +14,6 @@ use rust_decimal::{
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
-
-use crate::collection_operations::{add_entities_to_collection, remove_entities_from_collection};
 
 pub async fn seen_history(
     user_id: &String,

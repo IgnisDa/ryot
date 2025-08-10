@@ -14,9 +14,8 @@ use database_models::{
     metadata::{self, Entity as Metadata},
     prelude::UserToEntity,
 };
-use dependent_utils::{
-    get_users_monitoring_entity, remove_entities_from_collection, send_notification_for_user,
-};
+use dependent_collection_utils::remove_entities_from_collection;
+use dependent_utils::{get_users_monitoring_entity, send_notification_for_user};
 use enum_models::{EntityLot, UserNotificationContent};
 use futures::TryStreamExt;
 use itertools::Itertools;
@@ -248,9 +247,9 @@ pub async fn queue_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> 
                             creator_user_id: col.user_id.clone(),
                             collection_name: DefaultCollection::Reminders.to_string(),
                             entities: vec![EntityToCollectionInput {
-                                entity_id: cte.entity_id.clone(),
-                                entity_lot: cte.entity_lot,
                                 information: None,
+                                entity_lot: cte.entity_lot,
+                                entity_id: cte.entity_id.clone(),
                             }],
                         },
                         ss,

@@ -1350,6 +1350,7 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
  "dependent-models",
  "dependent-utility-utils",
  "dependent-utils",
@@ -1815,6 +1816,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-collection-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-core-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "sea-query",
+ "supporting-service",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "dependent-core-utils"
 version = "0.1.0"
 dependencies = [
@@ -1916,6 +1942,7 @@ dependencies = [
  "config-definition",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-models",
  "dependent-review-utils",
@@ -4000,6 +4027,7 @@ dependencies = [
  "convert_case 0.8.0",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-models",
  "dependent-utility-utils",
@@ -4128,6 +4156,7 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
  "dependent-utility-utils",
  "dependent-utils",
  "enum-models",
@@ -7432,6 +7461,7 @@ dependencies = [
  "data-encoding",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
  "dependent-core-utils",
  "dependent-models",
  "dependent-utils",

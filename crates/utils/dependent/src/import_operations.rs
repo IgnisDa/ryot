@@ -4,6 +4,7 @@ use anyhow::Result;
 use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
+use dependent_collection_utils::{add_entities_to_collection, create_or_update_collection};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_review_utils::{convert_review_into_input, post_review};
 use enum_models::{EntityLot, MediaLot, MediaSource};
@@ -20,8 +21,8 @@ use std::collections::hash_map::Entry;
 use supporting_service::SupportingService;
 
 use crate::{
-    collection_operations, commit_import_seen_item, commit_metadata, commit_metadata_group,
-    commit_person, create_custom_exercise, create_or_update_user_workout, create_user_measurement,
+    commit_import_seen_item, commit_metadata, commit_metadata_group, commit_person,
+    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input, deploy_update_metadata_group_job, deploy_update_person_job,
 };
 
@@ -34,7 +35,7 @@ async fn create_collection_and_add_entity_to_it(
     information: Option<serde_json::Value>,
     import_failed_set: &mut Vec<ImportFailedItem>,
 ) {
-    if let Err(e) = collection_operations::create_or_update_collection(
+    if let Err(e) = create_or_update_collection(
         user_id,
         ss,
         CreateOrUpdateCollectionInput {
@@ -52,7 +53,7 @@ async fn create_collection_and_add_entity_to_it(
         });
         return;
     }
-    if let Err(e) = collection_operations::add_entities_to_collection(
+    if let Err(e) = add_entities_to_collection(
         user_id,
         ChangeCollectionToEntitiesInput {
             collection_name: collection_name.clone(),
@@ -353,12 +354,7 @@ where
                 }
             }
             ImportCompletedItem::Collection(col_details) => {
-                if let Err(e) = collection_operations::create_or_update_collection(
-                    user_id,
-                    ss,
-                    col_details.clone(),
-                )
-                .await
+                if let Err(e) = create_or_update_collection(user_id, ss, col_details.clone()).await
                 {
                     import.failed.push(ImportFailedItem {
                         error: Some(e.to_string()),
