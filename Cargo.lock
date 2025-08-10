@@ -4088,6 +4088,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-review-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-utils",
+ "media-models",
+ "nanoid",
+ "rstest",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-search-service"
 version = "0.1.0"
 dependencies = [
@@ -4113,10 +4132,8 @@ dependencies = [
  "anyhow",
  "background-models",
  "cache-service",
- "chrono",
  "common-models",
  "database-models",
- "database-utils",
  "dependent-models",
  "dependent-utils",
  "enum-models",
@@ -4131,8 +4148,8 @@ dependencies = [
  "miscellaneous-general-service",
  "miscellaneous-lookup-service",
  "miscellaneous-metadata-operations-service",
+ "miscellaneous-review-service",
  "miscellaneous-search-service",
- "nanoid",
  "rust_decimal",
  "sea-orm",
  "sea-query",

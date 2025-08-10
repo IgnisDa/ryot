@@ -5,11 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true }
 enum_meta = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
-nanoid = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
@@ -20,7 +18,6 @@ background-models = { path = "../../models/background" }
 cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
@@ -32,6 +29,7 @@ miscellaneous-entity-user-details-service = { path = "./entity-user-details" }
 miscellaneous-general-service = { path = "./general" }
 miscellaneous-lookup-service = { path = "./lookup" }
 miscellaneous-metadata-operations-service = { path = "./metadata-operations" }
+miscellaneous-review-service = { path = "./review" }
 miscellaneous-search-service = { path = "./search" }
 supporting-service = { path = "../supporting" }
 traits = { path = "../../traits" }

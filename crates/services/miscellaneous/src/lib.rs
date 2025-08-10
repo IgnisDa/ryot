@@ -35,7 +35,6 @@ use supporting_service::SupportingService;
 use uuid::Uuid;
 
 pub mod progress_operations;
-pub mod review_operations;
 pub mod trending_and_events;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
@@ -241,7 +240,7 @@ impl MiscellaneousService {
     }
 
     pub async fn delete_review(&self, user_id: String, review_id: String) -> Result<bool> {
-        review_operations::delete_review(&self.0, user_id, review_id).await
+        miscellaneous_review_service::delete_review(&self.0, user_id, review_id).await
     }
 
     pub async fn delete_seen_item(
@@ -319,7 +318,7 @@ impl MiscellaneousService {
         user_id: String,
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
-        review_operations::create_review_comment(&self.0, user_id, input).await
+        miscellaneous_review_service::create_review_comment(&self.0, user_id, input).await
     }
 
     pub async fn update_metadata_and_notify_users(&self, metadata_id: &String) -> Result<()> {
