@@ -6,7 +6,11 @@ import {
 	ensureBuiltinSandboxScript,
 	linkScriptToEntitySchema,
 } from "./helpers";
-import { builtinSandboxScripts, entitySchemaScriptLinks } from "./manifests";
+import {
+	builtinSandboxScripts,
+	entitySchemaScriptLinks,
+	personSchemaScriptLinks,
+} from "./manifests";
 
 export const seedInitialDatabase = async (database: DbClient) => {
 	console.info("Seeding entity schemas...");
@@ -41,7 +45,10 @@ export const seedInitialDatabase = async (database: DbClient) => {
 			scriptIds.set(script.slug, scriptId);
 		}
 
-		for (const link of entitySchemaScriptLinks()) {
+		for (const link of [
+			...entitySchemaScriptLinks(),
+			...personSchemaScriptLinks(),
+		]) {
 			const entitySchemaId = schemaIds.get(link.schemaSlug);
 			const scriptId = scriptIds.get(link.scriptSlug);
 

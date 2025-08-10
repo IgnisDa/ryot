@@ -199,6 +199,25 @@ export const listBuiltinEntitySchemas = async (input?: {
 	return rows;
 };
 
+export const getBuiltinEntitySchemaBySlug = async (slug: string) => {
+	const [foundSchema] = await db
+		.select({
+			id: entitySchema.id,
+			propertiesSchema: entitySchema.propertiesSchema,
+		})
+		.from(entitySchema)
+		.where(
+			and(
+				eq(entitySchema.slug, slug),
+				isNull(entitySchema.userId),
+				eq(entitySchema.isBuiltin, true),
+			),
+		)
+		.limit(1);
+
+	return foundSchema;
+};
+
 export const createTrackerEntitySchemas = async (input: {
 	database?: DbClient;
 	links: Array<{

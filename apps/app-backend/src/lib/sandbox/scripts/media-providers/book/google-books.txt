@@ -60,9 +60,9 @@ function collectImages(imageLinks) {
   return [...imageSet];
 }
 
-function collectPeople(authors, publisher) {
-  const people = [];
-  const seenPeople = new Set();
+function collectFreeCreators(authors, publisher) {
+  const freeCreators = [];
+  const seen = new Set();
 
   if (Array.isArray(authors)) {
     for (const author of authors) {
@@ -75,16 +75,12 @@ function collectPeople(authors, publisher) {
       }
 
       const key = `Author:${trimmedAuthor}`;
-      if (seenPeople.has(key)) {
+      if (seen.has(key)) {
         continue;
       }
-      seenPeople.add(key);
+      seen.add(key);
 
-      people.push({
-        role: "Author",
-        source: "google_books",
-        identifier: trimmedAuthor,
-      });
+      freeCreators.push({ role: "Author", name: trimmedAuthor });
     }
   }
 
@@ -92,18 +88,14 @@ function collectPeople(authors, publisher) {
     const trimmedPublisher = publisher.trim();
     if (trimmedPublisher) {
       const key = `Publisher:${trimmedPublisher}`;
-      if (!seenPeople.has(key)) {
-        seenPeople.add(key);
-        people.push({
-          role: "Publisher",
-          source: "google_books",
-          identifier: trimmedPublisher,
-        });
+      if (!seen.has(key)) {
+        seen.add(key);
+        freeCreators.push({ role: "Publisher", name: trimmedPublisher });
       }
     }
   }
 
-  return people;
+  return freeCreators;
 }
 
 function collectGenres(categories, mainCategory) {
@@ -316,9 +308,9 @@ driver("mediaDetails", async function(context) {
       pages,
       publishYear: parsePublishYear(volumeInfo?.publishedDate),
       assets: { remoteImages: collectImages(volumeInfo?.imageLinks) },
-      people: collectPeople(volumeInfo?.authors, volumeInfo?.publisher),
       genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
       sourceUrl: `https://www.google.co.in/books/edition/${title}/${identifier}`,
+      freeCreators: collectFreeCreators(volumeInfo?.authors, volumeInfo?.publisher),
       description:
         typeof volumeInfo?.description === "string"
           ? volumeInfo.description

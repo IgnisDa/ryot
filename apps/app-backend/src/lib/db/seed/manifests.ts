@@ -6,6 +6,7 @@ import openLibraryBookScriptCode from "~/lib/sandbox/scripts/media-providers/boo
 import anilistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/anilist.txt";
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/myanimelist.txt";
+import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/media-providers/person/hardcover.txt";
 
 export const builtinSandboxScripts = () => [
 	{
@@ -48,6 +49,11 @@ export const builtinSandboxScripts = () => [
 		slug: "manga.manga-updates",
 		code: mangaUpdatesMangaScriptCode,
 	},
+	{
+		name: "Hardcover",
+		slug: "person.hardcover",
+		code: hardcoverPersonScriptCode,
+	},
 ];
 
 export const entitySchemaScriptLinks = () =>
@@ -83,5 +89,13 @@ export const entitySchemaScriptLinks = () =>
 		{
 			schemaSlug: "manga",
 			scriptSlug: "manga.manga-updates",
+		},
+	] as const;
+
+export const personSchemaScriptLinks = () =>
+	[
+		{
+			schemaSlug: "person",
+			scriptSlug: "person.hardcover",
 		},
 	] as const;
