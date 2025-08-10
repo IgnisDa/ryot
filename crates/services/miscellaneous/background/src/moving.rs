@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use common_utils::ryot_log;
+use enum_models::EntityLot;
 use supporting_service::SupportingService;
 
+use crate::monitoring::get_monitored_entities;
+
 pub async fn move_metadata_between_collections(ss: &Arc<SupportingService>) -> Result<()> {
-    ryot_log!(trace, "Moving items between collections");
+    let metadata_entities = get_monitored_entities(EntityLot::Metadata, ss).await?;
     Ok(())
 }
