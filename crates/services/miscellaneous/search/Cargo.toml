@@ -18,8 +18,5 @@ dependent-utils = { path = "../../../utils/dependent" }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }
 
-[dev-dependencies]
-rstest = { workspace = true }
-
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
