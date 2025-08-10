@@ -30,8 +30,5 @@ media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }
 traits = { path = "../../../traits" }
 
-[dev-dependencies]
-rstest = { workspace = true }
-
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

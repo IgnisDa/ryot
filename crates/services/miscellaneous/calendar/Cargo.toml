@@ -24,8 +24,5 @@ migrations = { path = "../../../migrations" }
 supporting-service = { path = "../../supporting" }
 user-models = { path = "../../../models/user" }
 
-[dev-dependencies]
-rstest = { workspace = true }
-
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
