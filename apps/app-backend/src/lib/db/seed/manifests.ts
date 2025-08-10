@@ -1,12 +1,12 @@
-import anilistAnimeScriptCode from "~/lib/sandbox/scripts/media-providers/anime/anilist.txt";
-import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/media-providers/anime/myanimelist.txt";
-import googleBooksBookScriptCode from "~/lib/sandbox/scripts/media-providers/book/google-books.txt";
-import hardcoverBookScriptCode from "~/lib/sandbox/scripts/media-providers/book/hardcover.txt";
-import openLibraryBookScriptCode from "~/lib/sandbox/scripts/media-providers/book/openlibrary.txt";
-import anilistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/anilist.txt";
-import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/manga-updates.txt";
-import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/media-providers/manga/myanimelist.txt";
-import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/media-providers/person/hardcover.txt";
+import anilistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/anilist.txt";
+import myanimelistAnimeScriptCode from "~/lib/sandbox/scripts/providers/media/anime/myanimelist.txt";
+import googleBooksBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/google-books.txt";
+import hardcoverBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/hardcover.txt";
+import openLibraryBookScriptCode from "~/lib/sandbox/scripts/providers/media/book/openlibrary.txt";
+import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/anilist.txt";
+import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
+import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
+import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
 
 export const builtinSandboxScripts = () => [
 	{
