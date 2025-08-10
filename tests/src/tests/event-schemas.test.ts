@@ -11,6 +11,7 @@ import {
 	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "../fixtures";
+import { assertPresent } from "../test-support/assertions";
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
@@ -94,19 +95,13 @@ describe("GET /event-schemas", () => {
 
 		for (const slug of ["book", "anime", "manga"]) {
 			const mediaSchema = schemas.find((schema) => schema.slug === slug);
-			expect(mediaSchema).toBeDefined();
-			if (!mediaSchema) {
-				throw new Error(`Missing built-in ${slug} schema`);
-			}
+			assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
 			// oxlint-disable-next-line no-await-in-loop
 			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
 			expect(eventSchemas.some((schema) => schema.slug === "backlog")).toBe(true);
 			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
-			expect(progressSchema).toBeDefined();
-			if (!progressSchema) {
-				throw new Error(`Missing built-in progress schema for ${slug}`);
-			}
+			assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 			expect(progressSchema.propertiesSchema).toBeDefined();
 			expect(progressSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
@@ -120,10 +115,7 @@ describe("GET /event-schemas", () => {
 				},
 			});
 			const completeSchema = eventSchemas.find((schema) => schema.slug === "complete");
-			expect(completeSchema).toBeDefined();
-			if (!completeSchema) {
-				throw new Error(`Missing built-in complete schema for ${slug}`);
-			}
+			assertPresent(completeSchema, `Missing built-in complete schema for ${slug}`);
 			expect(completeSchema.propertiesSchema).toBeDefined();
 			expect(completeSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
@@ -162,10 +154,7 @@ describe("GET /event-schemas", () => {
 				],
 			});
 			const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
-			expect(reviewSchema).toBeDefined();
-			if (!reviewSchema) {
-				throw new Error(`Missing built-in review schema for ${slug}`);
-			}
+			assertPresent(reviewSchema, `Missing built-in review schema for ${slug}`);
 			expect(reviewSchema.propertiesSchema).toBeDefined();
 			expect(reviewSchema.propertiesSchema as Record<string, unknown>).toMatchObject({
 				fields: {
@@ -191,17 +180,11 @@ describe("GET /event-schemas", () => {
 
 		const getProgressSchema = async (slug: string) => {
 			const mediaSchema = schemas.find((schema) => schema.slug === slug);
-			expect(mediaSchema).toBeDefined();
-			if (!mediaSchema) {
-				throw new Error(`Missing built-in ${slug} schema`);
-			}
+			assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
 			const eventSchemas = await listEventSchemas(client, cookies, mediaSchema.id);
 			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
-			expect(progressSchema).toBeDefined();
-			if (!progressSchema) {
-				throw new Error(`Missing built-in progress schema for ${slug}`);
-			}
+			assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 
 			return progressSchema.propertiesSchema as Record<string, unknown>;
 		};
