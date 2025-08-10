@@ -1,6 +1,10 @@
 import { expect, it } from "bun:test";
 
-import { createEntityColumnExpression, createEntityPropertyExpression } from "@ryot/ts-utils";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+	sortBy,
+} from "@ryot/ts-utils";
 
 import {
 	buildGridDisplayConfiguration,
@@ -219,8 +223,8 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			"secondarySubtitle",
 			"callout",
 		]);
-		expect(Object.keys(gridResult.data.data.items[0] ?? {}).toSorted()).toEqual(
-			[...gridResult.data.data.meta.fieldOrder].toSorted(),
+		expect(sortBy(Object.keys(gridResult.data.data.items[0] ?? {}))).toEqual(
+			sortBy([...gridResult.data.data.meta.fieldOrder]),
 		);
 		expect(listResult.data.data.meta.fieldOrder).toEqual([
 			"image",
@@ -229,8 +233,8 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			"secondarySubtitle",
 			"callout",
 		]);
-		expect(Object.keys(listResult.data.data.items[0] ?? {}).toSorted()).toEqual(
-			[...listResult.data.data.meta.fieldOrder].toSorted(),
+		expect(sortBy(Object.keys(listResult.data.data.items[0] ?? {}))).toEqual(
+			sortBy([...listResult.data.data.meta.fieldOrder]),
 		);
 		expect(getQueryEngineFieldOrThrow(gridResult.data.data.items[0], "image").value).toEqual({
 			type: "remote",
@@ -486,8 +490,8 @@ export function registerQueryEnginePresentationAndErrorTests() {
 			column_2: { kind: "date" },
 		});
 		expect(data.data.meta.fieldOrder).toEqual(["column_0", "column_1", "column_2"]);
-		expect(Object.keys(data.data.items[0] ?? {}).toSorted()).toEqual(
-			[...data.data.meta.fieldOrder].toSorted(),
+		expect(sortBy(Object.keys(data.data.items[0] ?? {}))).toEqual(
+			sortBy([...data.data.meta.fieldOrder]),
 		);
 		for (const item of data.data.items) {
 			const reviewedAt = getQueryEngineFieldOrThrow(item, "column_2").value;
