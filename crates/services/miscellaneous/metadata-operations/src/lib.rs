@@ -107,7 +107,7 @@ pub async fn merge_metadata(
     } else {
         UserToEntity::update_many()
             .filter(user_to_entity::Column::MetadataId.eq(merge_from))
-            .filter(user_to_entity::Column::UserId.eq(user_id))
+            .filter(user_to_entity::Column::UserId.eq(&user_id))
             .set(user_to_entity::ActiveModel {
                 metadata_id: ActiveValue::Set(Some(merge_into.clone())),
                 ..Default::default()
@@ -116,6 +116,7 @@ pub async fn merge_metadata(
             .await?;
     }
     txn.commit().await?;
+    expire_user_metadata_list_cache(&user_id, ss).await?;
     Ok(true)
 }
 
@@ -235,6 +236,7 @@ pub async fn update_custom_metadata(
         ss,
     )
     .await?;
+    expire_user_metadata_list_cache(&user_id.to_string(), ss).await?;
     Ok(true)
 }
 
