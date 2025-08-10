@@ -82,6 +82,7 @@ export const ensureBuiltinEntitySchemaEventSchemas = async (input: {
 	}
 
 	for (const schema of input.eventSchemas) {
+		// oxlint-disable-next-line no-await-in-loop
 		await input.database.execute(sql`
 			insert into "event_schema" (
 				"id",

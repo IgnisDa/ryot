@@ -5,9 +5,10 @@ import { itemDataSchema, listDataSchema } from "~/lib/openapi";
 import {
 	computedFieldArraySchema,
 	nullableViewExpressionSchema,
+	nullableViewPredicateSchema,
 	viewExpressionSchema,
+	viewPredicateSchema,
 } from "~/lib/views/expression";
-import { nullableViewPredicateSchema, viewPredicateSchema } from "~/lib/views/filtering";
 import {
 	createIdParamsSchema,
 	createNonEmptyStringArraySchema,
