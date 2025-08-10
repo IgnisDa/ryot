@@ -7,8 +7,8 @@ use database_models::{
     user_to_entity, workout,
 };
 use database_utils::schedule_user_for_workout_revision;
+use dependent_fitness_utils::{create_or_update_user_workout, db_workout_to_workout_input};
 use dependent_utility_utils::expire_user_workouts_list_cache;
-use dependent_utils::{create_or_update_user_workout, db_workout_to_workout_input};
 use fitness_models::{UpdateUserWorkoutAttributesInput, UserToExerciseExtraInformation};
 use futures::{TryStreamExt, try_join};
 use sea_orm::{

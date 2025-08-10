@@ -1,0 +1,29 @@
+[package]
+name = "dependent-fitness-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+enum_meta = { workspace = true }
+itertools = { workspace = true }
+nanoid = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+common-models = { path = "../../../models/common" }
+common-utils = { path = "../../common" }
+database-models = { path = "../../../models/database" }
+database-utils = { path = "../../../utils/database" }
+dependent-collection-utils = { path = "../collection" }
+dependent-notification-utils = { path = "../notification" }
+dependent-utility-utils = { path = "../utility" }
+enum-models = { path = "../../../models/enum" }
+fitness-models = { path = "../../../models/fitness" }
+supporting-service = { path = "../../../services/supporting" }
+user-models = { path = "../../../models/user" }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

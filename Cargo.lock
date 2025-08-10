@@ -1916,6 +1916,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-fitness-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-collection-utils",
+ "dependent-notification-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "enum_meta",
+ "fitness-models",
+ "itertools 0.14.0",
+ "nanoid",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
 name = "dependent-jobs-utils"
 version = "0.1.0"
 dependencies = [
@@ -2120,32 +2145,24 @@ dependencies = [
  "anyhow",
  "common-models",
  "common-utils",
- "database-models",
  "database-utils",
  "dependent-collection-utils",
+ "dependent-fitness-utils",
  "dependent-jobs-utils",
  "dependent-metadata-utils",
  "dependent-models",
- "dependent-notification-utils",
  "dependent-progress-utils",
  "dependent-review-utils",
- "dependent-utility-utils",
  "enum-models",
- "enum_meta",
- "fitness-models",
  "importer-models",
- "itertools 0.14.0",
  "media-models",
- "nanoid",
  "rand 0.9.1",
  "rust_decimal",
  "rust_decimal_macros",
- "sea-orm",
  "serde_json",
  "sqlx",
  "supporting-service",
  "tracing",
- "user-models",
 ]
 
 [[package]]
@@ -2715,9 +2732,9 @@ dependencies = [
  "database-utils",
  "dependent-core-utils",
  "dependent-entity-list-utils",
+ "dependent-fitness-utils",
  "dependent-models",
  "dependent-utility-utils",
- "dependent-utils",
  "enum-models",
  "file-storage-service",
  "fitness-models",
@@ -3650,6 +3667,7 @@ dependencies = [
  "csv",
  "data-encoding",
  "database-models",
+ "dependent-fitness-utils",
  "dependent-jobs-utils",
  "dependent-metadata-utils",
  "dependent-models",

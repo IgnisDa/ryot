@@ -19,10 +19,10 @@ common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
+dependent-fitness-utils = { path = "../../utils/dependent/fitness" }
 dependent-utility-utils = { path = "../../utils/dependent/utility" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
 enum-models = { path = "../../models/enum" }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }

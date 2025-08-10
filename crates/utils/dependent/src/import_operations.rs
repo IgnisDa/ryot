@@ -5,6 +5,10 @@ use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::{add_entities_to_collection, create_or_update_collection};
+use dependent_fitness_utils::{
+    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
+    db_workout_to_workout_input,
+};
 use dependent_jobs_utils::{deploy_update_metadata_group_job, deploy_update_person_job};
 use dependent_metadata_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -22,11 +26,6 @@ use rust_decimal::{Decimal, prelude::FromPrimitive};
 use rust_decimal_macros::dec;
 use std::collections::hash_map::Entry;
 use supporting_service::SupportingService;
-
-use crate::{
-    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
-    db_workout_to_workout_input,
-};
 
 async fn create_collection_and_add_entity_to_it(
     user_id: &String,

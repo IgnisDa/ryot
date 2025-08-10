@@ -9,13 +9,14 @@ use database_models::{
     exercise, import_report,
     prelude::{Exercise, ImportReport},
 };
+use dependent_fitness_utils::generate_exercise_id;
 use dependent_jobs_utils::deploy_background_job;
 use dependent_models::ImportOrExportMetadataItem;
 use dependent_provider_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service,
     get_tmdb_non_media_service,
 };
-use dependent_utils::{generate_exercise_id, process_import};
+use dependent_utils::process_import;
 use enum_models::ImportSource;
 use enum_models::{ExerciseLot, ExerciseSource};
 use importer_models::{ImportFailStep, ImportFailedItem};

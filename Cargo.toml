@@ -71,6 +71,7 @@ members = [
     "crates/utils/dependent/collection",
     "crates/utils/dependent/core",
     "crates/utils/dependent/entity-list",
+    "crates/utils/dependent/fitness",
     "crates/utils/dependent/jobs",
     "crates/utils/dependent/metadata",
     "crates/utils/dependent/notification",

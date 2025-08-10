@@ -6,13 +6,13 @@ use database_utils::{user_workout_details, user_workout_template_details};
 use dependent_entity_list_utils::{
     user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
 };
+use dependent_fitness_utils::{
+    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
+};
 use dependent_models::{
     CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
     UserMeasurementsListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails,
     UserWorkoutTemplateDetails, UserWorkoutsListResponse, UserWorkoutsTemplatesListResponse,
-};
-use dependent_utils::{
-    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
 };
 use fitness_models::{
     UpdateUserExerciseSettings, UpdateUserWorkoutAttributesInput, UserExercisesListInput,

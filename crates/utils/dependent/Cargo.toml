@@ -5,35 +5,27 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-enum_meta = { workspace = true }
-itertools = { workspace = true }
-nanoid = { workspace = true }
 rand = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
-sea-orm = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }
 tracing = { workspace = true }
 common-models = { path = "../../models/common" }
 
 common-utils = { path = "../common" }
-database-models = { path = "../../models/database" }
 database-utils = { path = "../database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-collection-utils = { path = "./collection" }
+dependent-fitness-utils = { path = "./fitness" }
 dependent-jobs-utils = { path = "./jobs" }
 dependent-metadata-utils = { path = "./metadata" }
-dependent-notification-utils = { path = "./notification" }
 dependent-progress-utils = { path = "./progress" }
 dependent-review-utils = { path = "./review" }
-dependent-utility-utils = { path = "./utility" }
 enum-models = { path = "../../models/enum" }
-fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
 media-models = { path = "../../models/media" }
 supporting-service = { path = "../../services/supporting" }
-user-models = { path = "../../models/user" }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json", "sqlx", "tracing"]

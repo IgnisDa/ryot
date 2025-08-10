@@ -6,8 +6,8 @@ use database_models::{
 };
 use database_utils::server_key_validation_guard;
 use dependent_core_utils::is_server_key_validated;
+use dependent_fitness_utils::get_focused_workout_summary_with_exercises;
 use dependent_utility_utils::expire_user_workout_templates_list_cache;
-use dependent_utils::get_focused_workout_summary_with_exercises;
 use fitness_models::{
     ProcessedExercise, UserWorkoutInput, WorkoutInformation, WorkoutSetRecord, WorkoutSummary,
     WorkoutSummaryExercise,
