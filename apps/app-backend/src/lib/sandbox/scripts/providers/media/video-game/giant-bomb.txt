@@ -86,6 +86,16 @@ function combineDescription(deck, description) {
   return deckTrimmed ?? descTrimmed ?? null;
 }
 
+function extractGiantBombGuid(apiDetailUrl) {
+  if (typeof apiDetailUrl !== "string" || !apiDetailUrl.trim()) {
+    return null;
+  }
+
+  const parts = apiDetailUrl.split("/").filter((part) => part.trim());
+  const guid = parts[parts.length - 1];
+  return typeof guid === "string" && guid.trim() ? guid.trim() : null;
+}
+
 function collectNames(items) {
   if (!Array.isArray(items)) {
     return [];
@@ -299,15 +309,17 @@ driver("details", async function(context) {
     "guid",
     "name",
     "deck",
-    "description",
+    "image",
     "genres",
     "themes",
     "platforms",
     "developers",
     "publishers",
-    "image",
-    "original_release_date",
+    "description",
     "site_detail_url",
+    "franchises.name",
+    "original_release_date",
+    "franchises.api_detail_url",
   ].join(",");
 
   const url = `${BASE_URL}/game/${encodeURIComponent(contextIdentifier)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
@@ -357,11 +369,31 @@ driver("details", async function(context) {
     images.push({ type: "remote", url: primaryImage });
   }
 
+  const groups = Array.isArray(game.franchises)
+    ? game.franchises
+      .map((franchise) => {
+        const externalId = extractGiantBombGuid(franchise?.api_detail_url);
+        const name =
+          typeof franchise?.name === "string" && franchise.name.trim()
+            ? franchise.name.trim()
+            : null;
+        if (!externalId || !name) return null;
+
+        return {
+          name,
+          externalId,
+          scriptSlug: "video-game-group.giant-bomb",
+        };
+      })
+      .filter((group) => group !== null)
+    : [];
+
   return {
     name,
     properties: {
       images,
       genres,
+      groups,
       platformReleases,
       publishYear: extractYear(game.original_release_date),
       description: combineDescription(game.deck, game.description),
