@@ -1,0 +1,28 @@
+[package]
+name = "miscellaneous-entity-user-details-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+futures = { workspace = true }
+itertools = { workspace = true }
+rust_decimal = { workspace = true }
+rust_decimal_macros = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+application-utils = { path = "../../../utils/application" }
+database-models = { path = "../../../models/database" }
+database-utils = { path = "../../../utils/database" }
+dependent-models = { path = "../../../models/dependent" }
+dependent-utils = { path = "../../../utils/dependent" }
+enum-models = { path = "../../../models/enum" }
+media-models = { path = "../../../models/media" }
+supporting-service = { path = "../../supporting" }
+
+[dev-dependencies]
+rstest = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

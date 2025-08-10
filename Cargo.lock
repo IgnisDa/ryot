@@ -3978,6 +3978,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-entity-user-details-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "dependent-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rstest",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-general-service"
 version = "0.1.0"
 dependencies = [
@@ -4015,7 +4037,6 @@ name = "miscellaneous-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "background-models",
  "cache-service",
  "chrono",
@@ -4034,12 +4055,12 @@ dependencies = [
  "migrations",
  "miscellaneous-background-service",
  "miscellaneous-calendar-service",
+ "miscellaneous-entity-user-details-service",
  "miscellaneous-general-service",
  "nanoid",
  "regex",
  "rstest",
  "rust_decimal",
- "rust_decimal_macros",
  "sea-orm",
  "sea-query",
  "supporting-service",

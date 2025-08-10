@@ -42,7 +42,6 @@ pub mod progress_operations;
 pub mod review_operations;
 pub mod search_operations;
 pub mod trending_and_events;
-pub mod user_details;
 
 pub struct MiscellaneousService(pub Arc<SupportingService>);
 
@@ -64,7 +63,12 @@ impl MiscellaneousService {
         user_id: String,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        user_details::user_metadata_details(&self.0, user_id, metadata_id).await
+        miscellaneous_entity_user_details_service::user_metadata_details(
+            &self.0,
+            user_id,
+            metadata_id,
+        )
+        .await
     }
 
     pub async fn user_person_details(
@@ -72,7 +76,8 @@ impl MiscellaneousService {
         user_id: String,
         person_id: String,
     ) -> Result<UserPersonDetails> {
-        user_details::user_person_details(&self.0, user_id, person_id).await
+        miscellaneous_entity_user_details_service::user_person_details(&self.0, user_id, person_id)
+            .await
     }
 
     pub async fn user_metadata_group_details(
@@ -80,7 +85,12 @@ impl MiscellaneousService {
         user_id: String,
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
-        user_details::user_metadata_group_details(&self.0, user_id, metadata_group_id).await
+        miscellaneous_entity_user_details_service::user_metadata_group_details(
+            &self.0,
+            user_id,
+            metadata_group_id,
+        )
+        .await
     }
 
     pub async fn user_calendar_events(
