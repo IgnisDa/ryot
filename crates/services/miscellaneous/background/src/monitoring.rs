@@ -47,9 +47,7 @@ pub async fn update_all_monitored_metadata_and_notify_users(
         .chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE)
         .into_iter()
     {
-        let promises = chunk
-            .into_iter()
-            .map(|m| update_metadata_and_notify_users(m, ss));
+        let promises = chunk.map(|m| update_metadata_and_notify_users(m, ss));
         join_all(promises).await;
     }
     Ok(())
