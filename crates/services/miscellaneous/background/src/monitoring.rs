@@ -42,12 +42,11 @@ pub async fn update_all_monitored_metadata_and_notify_users(
         "Users to be notified for metadata state changes: {:?}",
         m_map
     );
-    let chunks = m_map.keys().chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE);
-    let items = chunks
+    for chunk in m_map
+        .keys()
+        .chunks(BULK_APPLICATION_UPDATE_CHUNK_SIZE)
         .into_iter()
-        .map(|chunk| chunk.into_iter().collect_vec())
-        .collect_vec();
-    for chunk in items {
+    {
         let promises = chunk
             .into_iter()
             .map(|m| update_metadata_and_notify_users(m, ss));
