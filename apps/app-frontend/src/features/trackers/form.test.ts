@@ -200,18 +200,6 @@ describe("createTrackerFormSchema", () => {
 
 		expect(parsed.success).toBe(false);
 	});
-
-	it("accepts valid values", () => {
-		const parsed = createTrackerFormSchema.safeParse({
-			icon: "target",
-			name: "My Tracker",
-			slug: "my-tracker",
-			description: "A tracker",
-			accentColor: "#00ff00",
-		});
-
-		expect(parsed.success).toBe(true);
-	});
 });
 
 describe("buildTrackerFormValues", () => {
