@@ -10,7 +10,6 @@ itertools = { workspace = true }
 futures = { workspace = true }
 markdown = { workspace = true }
 nanoid = { workspace = true }
-rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 sea-query = { workspace = true }
 tracing = { workspace = true }
@@ -27,4 +26,4 @@ media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]
-ignored = ["rust_decimal", "tracing"]
+ignored = ["tracing"]

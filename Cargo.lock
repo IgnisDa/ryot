@@ -2000,7 +2000,6 @@ dependencies = [
  "markdown",
  "media-models",
  "nanoid",
- "rust_decimal",
  "sea-orm",
  "sea-query",
  "supporting-service",
