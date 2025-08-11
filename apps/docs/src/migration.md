@@ -23,7 +23,7 @@ causing errors for all users.
    example, you can make this change: `image: "ignisda/ryot:v8.10.0"` in your docker-compose
    file.
 
-3. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+3. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
 4. Now you can upgrade to the latest version (`v9.*`). For example you can make this
@@ -36,7 +36,7 @@ causing errors for all users.
    example, you can make this change: `image: "ignisda/ryot:v7.16.0"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v8.*`). For example you can make this
@@ -52,7 +52,7 @@ causing errors for all users.
    example, you can make this change: `image: "ignisda/ryot:v6.11.0"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v7.*`). For example you can make this
@@ -73,7 +73,7 @@ for the new webhook format.
    example, you can make this change: `image: "ignisda/ryot:v5.5.6"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v6.*`). For example you can make this
@@ -86,7 +86,7 @@ for the new webhook format.
    example, you can make this change: `image: "ignisda/ryot:v4.4.3"` in your docker-compose
    file.
 
-2. Create a backup of your database. [Here](./guides/exporting.md#exporting-the-entire-database)
+2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
    is a guide on how to do this.
 
 3. Now you can upgrade to the latest version (`v5.*`). For example you can make this

@@ -2,14 +2,14 @@
 
 You need to have S3 configured in order to export your data. You can find the necessary
 configuration parameters under the
-[`FileStorageConfig`](../configuration.md#all-parameters) section. The export will be made
+[`FileStorageConfig`](./configuration.md#all-parameters) section. The export will be made
 in JSON format and always follows the schema (`CompleteExport`) described [below](#type-definitions).
 
 You can export your data from the app by going to the "Imports and Exports" settings page
 and then clicking the button under the "Export" tab. Once the export is complete, it will
 appear along with a button to download it.
 
-You can import it back using the [Generic JSON Importer](../importing/generic-json.md).
+You can import it back using the [Generic JSON Importer](./importing/generic-json.md).
 
 ## One time file storage
 
