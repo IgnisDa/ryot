@@ -64,6 +64,7 @@ import {
 	oauthConfig,
 	prices,
 	sendEmail,
+	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import { contactEmail } from "~/lib/utils";
@@ -169,7 +170,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ticketNumber: contactSubmissions.ticketNumber,
 				});
 
-			if (!isSpam && result[0]?.ticketNumber) {
+			if (
+				!isSpam &&
+				result[0]?.ticketNumber &&
+				!serverVariables.DISABLE_SENDING_CONTACT_EMAIL
+			) {
 				const insertedSubmission = result[0];
 				await sendEmail({
 					cc: contactEmail,

@@ -4,7 +4,7 @@ import {
 	type TransactionNotification,
 } from "@paddle/paddle-node-sdk";
 import {
-	CreateUserInvitationDocument,
+	GetPasswordChangeSessionDocument,
 	RegisterUserDocument,
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -128,15 +128,15 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 	const auth = oidcIssuerId
 		? email
 		: await serverGqlService
-				.request(CreateUserInvitationDocument, {
+				.request(GetPasswordChangeSessionDocument, {
 					input: {
 						userId: registerUser.id,
 						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 					},
 				})
-				.then(({ createUserInvitation }) => ({
+				.then(({ getPasswordChangeSession }) => ({
 					username: email,
-					passwordChangeUrl: createUserInvitation.passwordChangeUrl,
+					passwordChangeUrl: getPasswordChangeSession.passwordChangeUrl,
 				}));
 
 	return {

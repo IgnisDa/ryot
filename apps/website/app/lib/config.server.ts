@@ -48,6 +48,7 @@ export const serverVariablesSchema = z.object({
 	SERVER_SMTP_PORT: z.string().optional(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
+	DISABLE_SENDING_CONTACT_EMAIL: zodBoolAsString.optional(),
 });
 
 export const serverVariables = serverVariablesSchema.parse(process.env);
