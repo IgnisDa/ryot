@@ -1,4 +1,5 @@
 use async_graphql::Enum;
+use rust_decimal::Decimal;
 use sea_orm::{DeriveActiveEnum, EnumIter, prelude::Date};
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -88,8 +89,8 @@ pub enum UserNotificationContent {
         season_number: Option<i32>,
     },
     MetadataChaptersOrEpisodesChanged {
-        old_count: usize,
-        new_count: usize,
+        old_count: Decimal,
+        new_count: Decimal,
         entity_title: String,
         content_type: String,
     },

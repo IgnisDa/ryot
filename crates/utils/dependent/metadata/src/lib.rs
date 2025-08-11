@@ -296,9 +296,9 @@ async fn generate_metadata_change_notifications(
     if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
         if p1 != p2 {
             notifications.push(UserNotificationContent::MetadataStatusChanged {
-                entity_title: meta.title.clone(),
                 old_status: format!("{p1:#?}"),
                 new_status: format!("{p2:#?}"),
+                entity_title: meta.title.clone(),
             });
         }
     }
@@ -382,8 +382,8 @@ async fn generate_metadata_change_notifications(
         if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
             if e1 != e2 {
                 notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
-                    old_count: e1 as usize,
-                    new_count: e2 as usize,
+                    old_count: e1.into(),
+                    new_count: e2.into(),
                     entity_title: meta.title.clone(),
                     content_type: "episodes".to_string(),
                 });
@@ -394,10 +394,10 @@ async fn generate_metadata_change_notifications(
         if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
             if c1 != c2 {
                 notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+                    old_count: c1,
+                    new_count: c2,
                     entity_title: meta.title.clone(),
                     content_type: "chapters".to_string(),
-                    old_count: c1.to_usize().unwrap_or(0),
-                    new_count: c2.to_usize().unwrap_or(0),
                 });
             }
         }

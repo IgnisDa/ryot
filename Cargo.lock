@@ -2459,11 +2459,11 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "enum_meta",
+ "rust_decimal",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
  "serde",
- "serde_json",
  "strum",
 ]
 
