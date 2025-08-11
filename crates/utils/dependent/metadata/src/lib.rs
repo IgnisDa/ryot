@@ -26,8 +26,8 @@ use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
 use media_models::{
     CommitMetadataGroupInput, CommitPersonInput, GenreListItem, MediaAssociatedPersonStateChanges,
-    MetadataCreator, MetadataCreatorGroupedByRole, PartialMetadataPerson, PartialMetadataWithoutId,
-    UniqueMediaIdentifier, UpdateMediaEntityResult,
+    MetadataCreator, MetadataCreatorGroupedByRole, MetadataDetails, PartialMetadataPerson,
+    PartialMetadataWithoutId, UniqueMediaIdentifier, UpdateMediaEntityResult,
 };
 use nanoid::nanoid;
 use rust_decimal::prelude::ToPrimitive;
@@ -220,161 +220,13 @@ pub async fn update_metadata(
         details_from_provider(metadata.lot, metadata.source, &metadata.identifier, ss).await;
     match maybe_details {
         Ok(details) => {
-            let mut notifications = vec![];
             let meta = Metadata::find_by_id(metadata_id)
                 .one(&ss.db)
                 .await
                 .unwrap()
                 .unwrap();
 
-            if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
-                if p1 != p2 {
-                    notifications.push(UserNotificationContent::MetadataStatusChanged {
-                        entity_title: meta.title.clone(),
-                        old_status: format!("{p1:#?}"),
-                        new_status: format!("{p2:#?}"),
-                    });
-                }
-            }
-            if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
-                if p1 != p2 {
-                    notifications.push(UserNotificationContent::MetadataReleaseDateChanged {
-                        season_number: None,
-                        episode_number: None,
-                        old_date: format!("{p1:#?}"),
-                        new_date: format!("{p2:#?}"),
-                        entity_title: meta.title.clone(),
-                    });
-                }
-            }
-            if let (Some(s1), Some(s2)) = (&meta.show_specifics, &details.show_specifics) {
-                if s1.seasons.len() != s2.seasons.len() {
-                    notifications.push(UserNotificationContent::MetadataNumberOfSeasonsChanged {
-                        old_seasons: s1.seasons.len(),
-                        new_seasons: s2.seasons.len(),
-                        entity_title: meta.title.clone(),
-                    });
-                } else {
-                    for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
-                        if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
-                            && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
-                        {
-                            continue;
-                        }
-                        if s1.episodes.len() != s2.episodes.len() {
-                            notifications.push(UserNotificationContent::MetadataEpisodeReleased {
-                                entity_title: meta.title.clone(),
-                                old_episode_count: s1.episodes.len(),
-                                new_episode_count: s2.episodes.len(),
-                                season_number: Some(s1.season_number),
-                            });
-                        } else {
-                            for (before_episode, after_episode) in
-                                zip(s1.episodes.iter(), s2.episodes.iter())
-                            {
-                                if before_episode.name != after_episode.name {
-                                    notifications.push(
-                                        UserNotificationContent::MetadataEpisodeNameChanged {
-                                            entity_title: meta.title.clone(),
-                                            season_number: Some(s1.season_number),
-                                            episode_number: before_episode.episode_number,
-                                            new_name: format!("{:#?}", after_episode.name),
-                                            old_name: format!("{:#?}", before_episode.name),
-                                        },
-                                    );
-                                }
-                                if before_episode.poster_images != after_episode.poster_images {
-                                    notifications.push(
-                                        UserNotificationContent::MetadataEpisodeImagesChanged {
-                                            entity_title: meta.title.clone(),
-                                            season_number: Some(s1.season_number),
-                                            episode_number: before_episode.episode_number,
-                                        },
-                                    );
-                                }
-                                if let (Some(pd1), Some(pd2)) =
-                                    (before_episode.publish_date, after_episode.publish_date)
-                                {
-                                    if pd1 != pd2 {
-                                        notifications.push(
-                                            UserNotificationContent::MetadataReleaseDateChanged {
-                                                old_date: format!("{:?}", pd1),
-                                                new_date: format!("{:?}", pd2),
-                                                entity_title: meta.title.clone(),
-                                                season_number: Some(s1.season_number),
-                                                episode_number: Some(before_episode.episode_number),
-                                            },
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics) {
-                if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
-                    if e1 != e2 {
-                        notifications.push(
-                            UserNotificationContent::MetadataChaptersOrEpisodesChanged {
-                                old_count: e1 as usize,
-                                new_count: e2 as usize,
-                                entity_title: meta.title.clone(),
-                                content_type: "episodes".to_string(),
-                            },
-                        );
-                    }
-                }
-            };
-            if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics) {
-                if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
-                    if c1 != c2 {
-                        notifications.push(
-                            UserNotificationContent::MetadataChaptersOrEpisodesChanged {
-                                entity_title: meta.title.clone(),
-                                content_type: "chapters".to_string(),
-                                old_count: c1.to_usize().unwrap_or(0),
-                                new_count: c2.to_usize().unwrap_or(0),
-                            },
-                        );
-                    }
-                }
-            };
-            if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &details.podcast_specifics) {
-                if p1.episodes.len() != p2.episodes.len() {
-                    notifications.push(UserNotificationContent::MetadataEpisodeReleased {
-                        season_number: None,
-                        entity_title: meta.title.clone(),
-                        old_episode_count: p1.episodes.len(),
-                        new_episode_count: p2.episodes.len(),
-                    });
-                } else {
-                    for (before_episode, after_episode) in
-                        zip(p1.episodes.iter(), p2.episodes.iter())
-                    {
-                        if before_episode.title != after_episode.title {
-                            notifications.push(
-                                UserNotificationContent::MetadataEpisodeNameChanged {
-                                    season_number: None,
-                                    entity_title: meta.title.clone(),
-                                    episode_number: before_episode.number,
-                                    old_name: format!("{:#?}", before_episode.title),
-                                    new_name: format!("{:#?}", after_episode.title),
-                                },
-                            );
-                        }
-                        if before_episode.thumbnail != after_episode.thumbnail {
-                            notifications.push(
-                                UserNotificationContent::MetadataEpisodeImagesChanged {
-                                    season_number: None,
-                                    entity_title: meta.title.clone(),
-                                    episode_number: before_episode.number,
-                                },
-                            );
-                        }
-                    }
-                }
-            };
+            let notifications = generate_metadata_change_notifications(&meta, &details).await?;
 
             let free_creators = (!details.creators.is_empty())
                 .then_some(())
@@ -433,6 +285,154 @@ pub async fn update_metadata(
         }
     };
     Ok(result)
+}
+
+async fn generate_metadata_change_notifications(
+    meta: &metadata::Model,
+    details: &MetadataDetails,
+) -> Result<Vec<UserNotificationContent>> {
+    let mut notifications = vec![];
+
+    if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
+        if p1 != p2 {
+            notifications.push(UserNotificationContent::MetadataStatusChanged {
+                entity_title: meta.title.clone(),
+                old_status: format!("{p1:#?}"),
+                new_status: format!("{p2:#?}"),
+            });
+        }
+    }
+    if let (Some(p1), Some(p2)) = (meta.publish_year, details.publish_year) {
+        if p1 != p2 {
+            notifications.push(UserNotificationContent::MetadataReleaseDateChanged {
+                season_number: None,
+                episode_number: None,
+                old_date: format!("{p1:#?}"),
+                new_date: format!("{p2:#?}"),
+                entity_title: meta.title.clone(),
+            });
+        }
+    }
+    if let (Some(s1), Some(s2)) = (&meta.show_specifics, &details.show_specifics) {
+        if s1.seasons.len() != s2.seasons.len() {
+            notifications.push(UserNotificationContent::MetadataNumberOfSeasonsChanged {
+                old_seasons: s1.seasons.len(),
+                new_seasons: s2.seasons.len(),
+                entity_title: meta.title.clone(),
+            });
+        } else {
+            for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
+                if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
+                    && SHOW_SPECIAL_SEASON_NAMES.contains(&s2.name.as_str())
+                {
+                    continue;
+                }
+                if s1.episodes.len() != s2.episodes.len() {
+                    notifications.push(UserNotificationContent::MetadataEpisodeReleased {
+                        entity_title: meta.title.clone(),
+                        old_episode_count: s1.episodes.len(),
+                        new_episode_count: s2.episodes.len(),
+                        season_number: Some(s1.season_number),
+                    });
+                } else {
+                    for (before_episode, after_episode) in
+                        zip(s1.episodes.iter(), s2.episodes.iter())
+                    {
+                        if before_episode.name != after_episode.name {
+                            notifications.push(
+                                UserNotificationContent::MetadataEpisodeNameChanged {
+                                    entity_title: meta.title.clone(),
+                                    season_number: Some(s1.season_number),
+                                    episode_number: before_episode.episode_number,
+                                    new_name: format!("{:#?}", after_episode.name),
+                                    old_name: format!("{:#?}", before_episode.name),
+                                },
+                            );
+                        }
+                        if before_episode.poster_images != after_episode.poster_images {
+                            notifications.push(
+                                UserNotificationContent::MetadataEpisodeImagesChanged {
+                                    entity_title: meta.title.clone(),
+                                    season_number: Some(s1.season_number),
+                                    episode_number: before_episode.episode_number,
+                                },
+                            );
+                        }
+                        if let (Some(pd1), Some(pd2)) =
+                            (before_episode.publish_date, after_episode.publish_date)
+                        {
+                            if pd1 != pd2 {
+                                notifications.push(
+                                    UserNotificationContent::MetadataReleaseDateChanged {
+                                        old_date: format!("{:?}", pd1),
+                                        new_date: format!("{:?}", pd2),
+                                        entity_title: meta.title.clone(),
+                                        season_number: Some(s1.season_number),
+                                        episode_number: Some(before_episode.episode_number),
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if let (Some(a1), Some(a2)) = (&meta.anime_specifics, &details.anime_specifics) {
+        if let (Some(e1), Some(e2)) = (a1.episodes, a2.episodes) {
+            if e1 != e2 {
+                notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+                    old_count: e1 as usize,
+                    new_count: e2 as usize,
+                    entity_title: meta.title.clone(),
+                    content_type: "episodes".to_string(),
+                });
+            }
+        }
+    }
+    if let (Some(m1), Some(m2)) = (&meta.manga_specifics, &details.manga_specifics) {
+        if let (Some(c1), Some(c2)) = (m1.chapters, m2.chapters) {
+            if c1 != c2 {
+                notifications.push(UserNotificationContent::MetadataChaptersOrEpisodesChanged {
+                    entity_title: meta.title.clone(),
+                    content_type: "chapters".to_string(),
+                    old_count: c1.to_usize().unwrap_or(0),
+                    new_count: c2.to_usize().unwrap_or(0),
+                });
+            }
+        }
+    }
+    if let (Some(p1), Some(p2)) = (&meta.podcast_specifics, &details.podcast_specifics) {
+        if p1.episodes.len() != p2.episodes.len() {
+            notifications.push(UserNotificationContent::MetadataEpisodeReleased {
+                season_number: None,
+                entity_title: meta.title.clone(),
+                old_episode_count: p1.episodes.len(),
+                new_episode_count: p2.episodes.len(),
+            });
+        } else {
+            for (before_episode, after_episode) in zip(p1.episodes.iter(), p2.episodes.iter()) {
+                if before_episode.title != after_episode.title {
+                    notifications.push(UserNotificationContent::MetadataEpisodeNameChanged {
+                        season_number: None,
+                        entity_title: meta.title.clone(),
+                        episode_number: before_episode.number,
+                        old_name: format!("{:#?}", before_episode.title),
+                        new_name: format!("{:#?}", after_episode.title),
+                    });
+                }
+                if before_episode.thumbnail != after_episode.thumbnail {
+                    notifications.push(UserNotificationContent::MetadataEpisodeImagesChanged {
+                        season_number: None,
+                        entity_title: meta.title.clone(),
+                        episode_number: before_episode.number,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(notifications)
 }
 
 pub async fn update_metadata_group(
