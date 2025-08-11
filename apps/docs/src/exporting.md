@@ -1,7 +1,7 @@
 # Exporting
 
-You need to have S3 configured in order to export your data. You can use [this
-guide](./guides/file-storage.md) to set up S3. The necessary configuration parameters can
+You need to have S3 configured to export your data. You can use [this
+guide](./guides/file-storage.md) to set it up. The necessary configuration parameters can
 be found under the [`FileStorageConfig`](./configuration.md#all-parameters) section. The
 export will be made in JSON format and always follows the schema (`CompleteExport`)
 described [below](#type-definitions).

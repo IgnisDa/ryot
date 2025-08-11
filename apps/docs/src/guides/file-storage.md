@@ -31,6 +31,8 @@ cost-effective solution for production use.
     FILE_STORAGE_S3_ACCESS_KEY_ID=your-access-key-id
     FILE_STORAGE_S3_SECRET_ACCESS_KEY=your-secret-access-key
     FILE_STORAGE_S3_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    FILE_STORAGE_S3_REGION=auto # optional: some clients require a region; use "auto" for R2
     ```
 
-  Replace `<ACCOUNT_ID>` with your actual Cloudflare account ID, and use the actual values for your bucket name and API credentials.
+  Replace `<ACCOUNT_ID>` with your Cloudflare account ID. Use the actual values for your
+  bucket name and API credentials.
