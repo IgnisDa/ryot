@@ -5115,6 +5115,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@marsidev/react-turnstile@npm:1.3.0":
+  version: 1.3.0
+  resolution: "@marsidev/react-turnstile@npm:1.3.0"
+  peerDependencies:
+    react: ^17.0.2 || ^18.0.0 || ^19.0
+    react-dom: ^17.0.2 || ^18.0.0 || ^19.0
+  checksum: 10/c5b9d34f52cc856d82efab744a2815f4bcfa239886e48b671ef1c8bb42ae6f817bf571c452341ff46208902dd72e6e55302039e2b3ac7894de81a20faa926c2e
+  languageName: node
+  linkType: hard
+
 "@mjackson/form-data-parser@npm:0.9.1":
   version: 0.9.1
   resolution: "@mjackson/form-data-parser@npm:0.9.1"
@@ -7105,6 +7115,7 @@ __metadata:
   dependencies:
     "@conform-to/zod": "npm:1.8.2"
     "@isaacs/ttlcache": "npm:1.4.1"
+    "@marsidev/react-turnstile": "npm:1.3.0"
     "@oslojs/crypto": "npm:1.0.1"
     "@oslojs/encoding": "npm:1.1.0"
     "@paddle/paddle-js": "npm:1.4.2"

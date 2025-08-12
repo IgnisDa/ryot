@@ -36,19 +36,20 @@ export const serverVariablesSchema = z.object({
 	PADDLE_PRICE_IDS: z.string(),
 	SERVER_SMTP_USER: z.string(),
 	SERVER_SMTP_SERVER: z.string(),
+	TURNSTILE_SITE_KEY: z.string(),
 	PADDLE_CLIENT_TOKEN: z.string(),
 	PADDLE_SERVER_TOKEN: z.string(),
 	SERVER_SMTP_MAILBOX: z.string(),
+	TURNSTILE_SECRET_KEY: z.string(),
 	SERVER_SMTP_PASSWORD: z.string(),
 	SERVER_OIDC_CLIENT_ID: z.string(),
 	SERVER_OIDC_ISSUER_URL: z.string(),
-	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	SERVER_ADMIN_ACCESS_TOKEN: z.string(),
+	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
 	SERVER_SMTP_PORT: z.string().optional(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
-	DISABLE_SENDING_CONTACT_EMAIL: zodBoolAsString.optional(),
 });
 
 export const serverVariables = serverVariablesSchema.parse(process.env);
@@ -228,4 +229,32 @@ export const createUnkeyKey = async (
 		meta: renewOn ? { expiry: formatDateToNaiveDate(renewOn) } : undefined,
 	});
 	return created.data;
+};
+
+export const verifyTurnstileToken = async (input: {
+	token: string;
+	remoteIp?: string;
+}) => {
+	try {
+		const response = await fetch(
+			"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				body: new URLSearchParams({
+					response: input.token,
+					secret: serverVariables.TURNSTILE_SECRET_KEY,
+					...(input.remoteIp && { remoteip: input.remoteIp }),
+				}),
+			},
+		);
+
+		const data = await response.json();
+		return data.success === true;
+	} catch (error) {
+		console.error("Turnstile verification error:", error);
+		return false;
+	}
 };
