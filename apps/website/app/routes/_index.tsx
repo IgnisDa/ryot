@@ -25,6 +25,7 @@ import {
 	Zap,
 } from "lucide-react";
 import * as openidClient from "openid-client";
+import { useState } from "react";
 import {
 	Form,
 	Link,
@@ -57,18 +58,22 @@ import {
 	InputOTPSlot,
 } from "~/lib/components/ui/input-otp";
 import { Textarea } from "~/lib/components/ui/textarea";
+import { TurnstileWidget } from "~/lib/components/ui/turnstile";
 import {
 	OAUTH_CALLBACK_URL,
 	db,
 	honeypot,
-	oauthConfig,
 	prices,
-	sendEmail,
 	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { contactEmail } from "~/lib/utils";
-import { startUrl } from "~/lib/utils";
+import { contactEmail, startUrl } from "~/lib/constants";
+import {
+	getClientIp,
+	oauthConfig,
+	sendEmail,
+	verifyTurnstileToken,
+} from "~/lib/utilities.server";
 import type { loader as rootLoader } from "../root";
 import type { Route } from "./+types/_index";
 
@@ -83,7 +88,11 @@ export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
-	return { prices, query };
+	return {
+		query,
+		prices,
+		turnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
+	};
 };
 
 const otpCodesCache = new TTLCache<string, string>({
@@ -103,16 +112,27 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("sendLoginCode", async () => {
-			const { email } = processSubmission(formData, emailSchema);
+			const submission = processSubmission(formData, sendLoginCodeSchema);
+			const isTurnstileValid = await verifyTurnstileToken({
+				remoteIp: getClientIp(request),
+				token: submission.turnstileToken,
+			});
+			if (!isTurnstileValid) {
+				throw data(
+					{ message: "CAPTCHA verification failed. Please try again." },
+					{ status: 400 },
+				);
+			}
+
 			const otpCode = generateOtp(6);
-			otpCodesCache.set(email, otpCode);
-			console.log("OTP code generated:", { email, otpCode });
+			otpCodesCache.set(submission.email, otpCode);
+			console.log("OTP code generated:", { email: submission.email, otpCode });
 			await sendEmail({
-				recipient: email,
+				recipient: submission.email,
 				subject: LoginCodeEmail.subject,
 				element: LoginCodeEmail({ code: otpCode }),
 			});
-			return redirect(withQuery(startUrl, { email }));
+			return redirect(withQuery(startUrl, { email: submission.email }));
 		})
 		.with("registerWithEmail", async () => {
 			const submission = processSubmission(formData, registerSchema);
@@ -146,16 +166,29 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return redirect(redirectUrl.href);
 		})
 		.with("contactSubmission", async () => {
+			// DEV: https://github.com/edmundhung/conform/issues/854
+			const submission = contactSubmissionSchema.parse(
+				Object.fromEntries(formData.entries()),
+			);
+
+			const isTurnstileValid = await verifyTurnstileToken({
+				remoteIp: getClientIp(request),
+				token: submission.turnstileToken,
+			});
+
+			if (!isTurnstileValid) {
+				throw data(
+					{ message: "CAPTCHA verification failed. Please try again." },
+					{ status: 400 },
+				);
+			}
+
 			let isSpam = false;
 			try {
 				await honeypot.check(formData);
 			} catch (e) {
 				if (e instanceof SpamError) isSpam = true;
 			}
-			// DEV: https://github.com/edmundhung/conform/issues/854
-			const submission = contactSubmissionSchema.parse(
-				Object.fromEntries(formData.entries()),
-			);
 			const result = await db
 				.insert(contactSubmissions)
 				.values({
@@ -170,11 +203,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ticketNumber: contactSubmissions.ticketNumber,
 				});
 
-			if (
-				!isSpam &&
-				result[0]?.ticketNumber &&
-				!serverVariables.DISABLE_SENDING_CONTACT_EMAIL
-			) {
+			if (!isSpam && result[0]?.ticketNumber) {
 				const insertedSubmission = result[0];
 				await sendEmail({
 					cc: contactEmail,
@@ -193,7 +222,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
+const turnstileTokenSchema = z.object({
+	turnstileToken: z.string(),
+});
+
 const emailSchema = z.object({ email: z.email() });
+
+const sendLoginCodeSchema = emailSchema.extend(turnstileTokenSchema.shape);
 
 const registerSchema = z
 	.object({ otpCode: z.string().length(6) })
@@ -201,7 +236,8 @@ const registerSchema = z
 
 const contactSubmissionSchema = z
 	.object({ message: z.string() })
-	.extend(emailSchema.shape);
+	.extend(emailSchema.shape)
+	.extend(turnstileTokenSchema.shape);
 
 const FEATURE_CARD_STYLES =
 	"border-2 rounded-xl hover:border-primary/20 transition-all duration-300 hover:shadow-lg";
@@ -209,6 +245,11 @@ const FEATURE_CARD_STYLES =
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
+
+	const [contactSubmissionTurnstileToken, setContactSubmissionTurnstileToken] =
+		useState<string>("");
+	const [loginOtpTurnstileToken, setLoginOtpTurnstileToken] =
+		useState<string>("");
 
 	return (
 		<>
@@ -504,19 +545,31 @@ export default function Page() {
 										</>
 									) : (
 										<>
+											<input
+												type="hidden"
+												name="turnstileToken"
+												value={loginOtpTurnstileToken}
+											/>
 											<Input
 												type="email"
 												name="email"
-												placeholder="Enter your email"
 												className="max-w-lg flex-1"
+												placeholder="Enter your email"
 											/>
 											<Button
-												type="submit"
 												size="lg"
+												type="submit"
 												className="text-base px-8"
+												disabled={!loginOtpTurnstileToken}
 											>
 												Start Your Free Trial
 											</Button>
+											<TurnstileWidget
+												onSuccess={setLoginOtpTurnstileToken}
+												siteKey={loaderData.turnstileSiteKey}
+												onError={() => setLoginOtpTurnstileToken("")}
+												onExpire={() => setLoginOtpTurnstileToken("")}
+											/>
 										</>
 									)}
 								</Form>
@@ -622,11 +675,11 @@ export default function Page() {
 											Email
 										</label>
 										<Input
-											id="contact-email"
+											required
 											type="email"
 											name="email"
+											id="contact-email"
 											placeholder="your@email.com"
-											required
 										/>
 									</div>
 									<div>
@@ -637,14 +690,29 @@ export default function Page() {
 											Message
 										</label>
 										<Textarea
-											id="contact-message"
-											name="message"
-											placeholder="Tell us how we can help you..."
 											rows={6}
 											required
+											name="message"
+											id="contact-message"
+											placeholder="Tell us how we can help you..."
 										/>
 									</div>
-									<Button type="submit" className="w-full">
+									<TurnstileWidget
+										siteKey={loaderData.turnstileSiteKey}
+										onSuccess={setContactSubmissionTurnstileToken}
+										onError={() => setContactSubmissionTurnstileToken("")}
+										onExpire={() => setContactSubmissionTurnstileToken("")}
+									/>
+									<input
+										type="hidden"
+										name="turnstileToken"
+										value={contactSubmissionTurnstileToken}
+									/>
+									<Button
+										type="submit"
+										className="w-full"
+										disabled={!contactSubmissionTurnstileToken}
+									>
 										Send Message
 									</Button>
 								</Form>

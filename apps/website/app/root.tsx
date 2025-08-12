@@ -19,8 +19,9 @@ import { $path } from "safe-routes";
 import { withFragment } from "ufo";
 import { Button } from "./lib/components/ui/button";
 import { Toaster } from "./lib/components/ui/sonner";
-import { getCustomerFromCookie, honeypot } from "./lib/config.server";
-import { logoUrl, startUrl } from "./lib/utils";
+import { honeypot } from "./lib/config.server";
+import { logoUrl, startUrl } from "./lib/constants";
+import { getCustomerFromCookie } from "./lib/utilities.server";
 
 export const meta: MetaFunction = () => {
 	return [

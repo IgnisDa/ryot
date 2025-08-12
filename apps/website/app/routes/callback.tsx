@@ -4,12 +4,8 @@ import { redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { customers } from "~/drizzle/schema.server";
-import {
-	OAUTH_CALLBACK_URL,
-	db,
-	oauthConfig,
-	websiteAuthCookie,
-} from "~/lib/config.server";
+import { OAUTH_CALLBACK_URL, db, websiteAuthCookie } from "~/lib/config.server";
+import { oauthConfig } from "~/lib/utilities.server";
 import type { Route } from "./+types/callback";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {

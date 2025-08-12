@@ -1,7 +1,7 @@
 import { FileText, Mail, MapPin, Scale } from "lucide-react";
 import { Badge } from "~/lib/components/ui/badge";
 import { Card, CardContent } from "~/lib/components/ui/card";
-import { contactEmail } from "~/lib/utils";
+import { contactEmail } from "~/lib/constants";
 
 export const meta = () => {
 	return [{ title: "Terms and conditions | Ryot" }];
