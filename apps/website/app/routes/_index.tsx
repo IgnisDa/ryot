@@ -674,6 +674,7 @@ export default function Page() {
 									</div>
 									<div>
 										<TurnstileWidget
+											size="flexible"
 											onSuccess={setTurnstileToken}
 											siteKey={loaderData.turnstileSiteKey}
 											onError={() => setTurnstileToken("")}
