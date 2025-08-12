@@ -70,8 +70,7 @@ import {
 	verifyTurnstileToken,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { contactEmail } from "~/lib/utils";
-import { startUrl } from "~/lib/utils";
+import { contactEmail, getClientIp, startUrl } from "~/lib/utils";
 import type { loader as rootLoader } from "../root";
 import type { Route } from "./+types/_index";
 
@@ -159,11 +158,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			);
 
 			const isTurnstileValid = await verifyTurnstileToken({
+				remoteIp: getClientIp(request),
 				token: submission.turnstileToken,
-				remoteIp:
-					request.headers.get("cf-connecting-ip") ||
-					request.headers.get("x-forwarded-for") ||
-					undefined,
 			});
 
 			if (!isTurnstileValid) {
