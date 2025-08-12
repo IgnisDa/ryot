@@ -231,3 +231,31 @@ export const createUnkeyKey = async (
 	});
 	return created.data;
 };
+
+export const verifyTurnstileToken = async (input: {
+	token: string;
+	remoteIp?: string;
+}) => {
+	try {
+		const response = await fetch(
+			"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				body: new URLSearchParams({
+					response: input.token,
+					secret: serverVariables.TURNSTILE_SECRET_KEY,
+					...(input.remoteIp && { remoteip: input.remoteIp }),
+				}),
+			},
+		);
+
+		const data = await response.json();
+		return data.success === true;
+	} catch (error) {
+		console.error("Turnstile verification error:", error);
+		return false;
+	}
+};
