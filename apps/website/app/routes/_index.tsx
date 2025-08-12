@@ -193,11 +193,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ticketNumber: contactSubmissions.ticketNumber,
 				});
 
-			if (
-				!isSpam &&
-				result[0]?.ticketNumber &&
-				!serverVariables.DISABLE_SENDING_CONTACT_EMAIL
-			) {
+			if (!isSpam && result[0]?.ticketNumber) {
 				const insertedSubmission = result[0];
 				await sendEmail({
 					cc: contactEmail,
