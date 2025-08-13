@@ -1,12 +1,12 @@
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, type WidgetSize } from "@marsidev/react-turnstile";
 import { forwardRef } from "react";
 
 export interface TurnstileProps {
 	siteKey: string;
+	size?: WidgetSize;
 	onError?: () => void;
 	onExpire?: () => void;
 	onSuccess?: (token: string) => void;
-	size?: "normal" | "compact" | "flexible";
 }
 
 const TurnstileWidget = forwardRef<HTMLDivElement, TurnstileProps>(
@@ -18,7 +18,7 @@ const TurnstileWidget = forwardRef<HTMLDivElement, TurnstileProps>(
 					onError={props.onError}
 					onExpire={props.onExpire}
 					onSuccess={props.onSuccess}
-					options={{ size: props.size || "normal" }}
+					options={{ theme: "light", size: props.size || "normal" }}
 				/>
 			</div>
 		);
