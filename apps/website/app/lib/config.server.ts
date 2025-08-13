@@ -235,6 +235,7 @@ export const createUnkeyKey = async (
 
 export const verifyTurnstileToken = async (input: {
 	token: string;
+	secret: string;
 	remoteIp?: string;
 }) => {
 	try {
@@ -246,8 +247,8 @@ export const verifyTurnstileToken = async (input: {
 					"Content-Type": "application/x-www-form-urlencoded",
 				},
 				body: new URLSearchParams({
+					secret: input.secret,
 					response: input.token,
-					secret: serverVariables.CONTACT_SUBMISSION_TURNSTILE_SECRET_KEY,
 					...(input.remoteIp && { remoteip: input.remoteIp }),
 				}),
 			},
