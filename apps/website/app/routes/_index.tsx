@@ -231,7 +231,8 @@ export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const rootLoaderData = useRouteLoaderData<typeof rootLoader>("root");
 
-	const [turnstileToken, setTurnstileToken] = useState<string>("");
+	const [contactSubmissionTurnstileToken, setContactSubmissionTurnstileToken] =
+		useState<string>("");
 
 	return (
 		<>
@@ -669,20 +670,20 @@ export default function Page() {
 									</div>
 									<TurnstileWidget
 										size="flexible"
-										onSuccess={setTurnstileToken}
-										onError={() => setTurnstileToken("")}
-										onExpire={() => setTurnstileToken("")}
+										onSuccess={setContactSubmissionTurnstileToken}
+										onError={() => setContactSubmissionTurnstileToken("")}
+										onExpire={() => setContactSubmissionTurnstileToken("")}
 										siteKey={loaderData.contactSubmissionTurnstileSiteKey}
 									/>
 									<input
 										type="hidden"
 										name="turnstileToken"
-										value={turnstileToken}
+										value={contactSubmissionTurnstileToken}
 									/>
 									<Button
 										type="submit"
 										className="w-full"
-										disabled={!turnstileToken}
+										disabled={!contactSubmissionTurnstileToken}
 									>
 										Send Message
 									</Button>
