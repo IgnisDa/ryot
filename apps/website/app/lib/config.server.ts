@@ -37,8 +37,10 @@ export const serverVariablesSchema = z.object({
 	SERVER_SMTP_USER: z.string(),
 	SERVER_SMTP_SERVER: z.string(),
 	PADDLE_CLIENT_TOKEN: z.string(),
+	TURNSTILE_SITE_KEY: z.string(),
 	PADDLE_SERVER_TOKEN: z.string(),
 	SERVER_SMTP_MAILBOX: z.string(),
+	TURNSTILE_SECRET_KEY: z.string(),
 	SERVER_SMTP_PASSWORD: z.string(),
 	SERVER_OIDC_CLIENT_ID: z.string(),
 	SERVER_OIDC_ISSUER_URL: z.string(),
@@ -50,8 +52,6 @@ export const serverVariablesSchema = z.object({
 	LOGIN_OTP_TURNSTILE_SECRET_KEY: z.string(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
-	CONTACT_SUBMISSION_TURNSTILE_SITE_KEY: z.string(),
-	CONTACT_SUBMISSION_TURNSTILE_SECRET_KEY: z.string(),
 });
 
 export const serverVariables = serverVariablesSchema.parse(process.env);

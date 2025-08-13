@@ -89,8 +89,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		query,
 		prices,
 		loginOtpTurnstileSiteKey: serverVariables.LOGIN_OTP_TURNSTILE_SITE_KEY,
-		contactSubmissionTurnstileSiteKey:
-			serverVariables.CONTACT_SUBMISSION_TURNSTILE_SITE_KEY,
+		contactSubmissionTurnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
 	};
 };
 
@@ -174,7 +173,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const isTurnstileValid = await verifyTurnstileToken({
 				remoteIp: getClientIp(request),
 				token: submission.turnstileToken,
-				secret: serverVariables.CONTACT_SUBMISSION_TURNSTILE_SECRET_KEY,
+				secret: serverVariables.TURNSTILE_SECRET_KEY,
 			});
 
 			if (!isTurnstileValid) {
