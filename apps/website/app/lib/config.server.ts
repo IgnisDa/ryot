@@ -46,6 +46,8 @@ export const serverVariablesSchema = z.object({
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
 	SERVER_SMTP_PORT: z.string().optional(),
+	LOGIN_OTP_TURNSTILE_SITE_KEY: z.string(),
+	LOGIN_OTP_TURNSTILE_SECRET_KEY: z.string(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
 	CONTACT_SUBMISSION_TURNSTILE_SITE_KEY: z.string(),
