@@ -88,8 +88,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		query,
 		prices,
-		loginOtpTurnstileSiteKey: serverVariables.LOGIN_OTP_TURNSTILE_SITE_KEY,
-		contactSubmissionTurnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
+		turnstileSiteKey: serverVariables.TURNSTILE_SITE_KEY,
 	};
 };
 
@@ -114,7 +113,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const isTurnstileValid = await verifyTurnstileToken({
 				remoteIp: getClientIp(request),
 				token: submission.turnstileToken,
-				secret: serverVariables.LOGIN_OTP_TURNSTILE_SECRET_KEY,
 			});
 			if (!isTurnstileValid) {
 				throw data(
@@ -173,7 +171,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const isTurnstileValid = await verifyTurnstileToken({
 				remoteIp: getClientIp(request),
 				token: submission.turnstileToken,
-				secret: serverVariables.TURNSTILE_SECRET_KEY,
 			});
 
 			if (!isTurnstileValid) {
@@ -565,9 +562,8 @@ export default function Page() {
 												Start Your Free Trial
 											</Button>
 											<TurnstileWidget
-												size="invisible"
 												onSuccess={setLoginOtpTurnstileToken}
-												siteKey={loaderData.loginOtpTurnstileSiteKey}
+												siteKey={loaderData.turnstileSiteKey}
 												onError={() => setLoginOtpTurnstileToken("")}
 												onExpire={() => setLoginOtpTurnstileToken("")}
 											/>
@@ -699,11 +695,10 @@ export default function Page() {
 										/>
 									</div>
 									<TurnstileWidget
-										size="flexible"
+										siteKey={loaderData.turnstileSiteKey}
 										onSuccess={setContactSubmissionTurnstileToken}
 										onError={() => setContactSubmissionTurnstileToken("")}
 										onExpire={() => setContactSubmissionTurnstileToken("")}
-										siteKey={loaderData.contactSubmissionTurnstileSiteKey}
 									/>
 									<input
 										type="hidden"

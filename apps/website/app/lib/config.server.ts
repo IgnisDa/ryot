@@ -48,8 +48,6 @@ export const serverVariablesSchema = z.object({
 	SERVER_OIDC_CLIENT_SECRET: z.string(),
 	PADDLE_WEBHOOK_SECRET_KEY: z.string(),
 	SERVER_SMTP_PORT: z.string().optional(),
-	LOGIN_OTP_TURNSTILE_SITE_KEY: z.string(),
-	LOGIN_OTP_TURNSTILE_SECRET_KEY: z.string(),
 	PADDLE_SANDBOX: zodBoolAsString.optional(),
 	SERVER_SMTP_SECURE: zodBoolAsString.optional(),
 });
@@ -235,7 +233,6 @@ export const createUnkeyKey = async (
 
 export const verifyTurnstileToken = async (input: {
 	token: string;
-	secret: string;
 	remoteIp?: string;
 }) => {
 	try {
@@ -247,8 +244,8 @@ export const verifyTurnstileToken = async (input: {
 					"Content-Type": "application/x-www-form-urlencoded",
 				},
 				body: new URLSearchParams({
-					secret: input.secret,
 					response: input.token,
+					secret: serverVariables.TURNSTILE_SECRET_KEY,
 					...(input.remoteIp && { remoteip: input.remoteIp }),
 				}),
 			},
