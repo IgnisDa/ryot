@@ -18,7 +18,7 @@ const TurnstileWidget = forwardRef<HTMLDivElement, TurnstileProps>(
 					onError={props.onError}
 					onExpire={props.onExpire}
 					onSuccess={props.onSuccess}
-					options={{ size: props.size || "normal" }}
+					options={{ theme: "light", size: props.size || "normal" }}
 				/>
 			</div>
 		);

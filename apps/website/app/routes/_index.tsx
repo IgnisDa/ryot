@@ -665,15 +665,13 @@ export default function Page() {
 											required
 										/>
 									</div>
-									<div>
-										<TurnstileWidget
-											size="flexible"
-											onSuccess={setTurnstileToken}
-											onError={() => setTurnstileToken("")}
-											onExpire={() => setTurnstileToken("")}
-											siteKey={loaderData.contactSubmissionTurnstileSiteKey}
-										/>
-									</div>
+									<TurnstileWidget
+										size="flexible"
+										onSuccess={setTurnstileToken}
+										onError={() => setTurnstileToken("")}
+										onExpire={() => setTurnstileToken("")}
+										siteKey={loaderData.contactSubmissionTurnstileSiteKey}
+									/>
 									<input
 										type="hidden"
 										name="turnstileToken"
