@@ -672,11 +672,11 @@ export default function Page() {
 											Email
 										</label>
 										<Input
-											id="contact-email"
+											required
 											type="email"
 											name="email"
+											id="contact-email"
 											placeholder="your@email.com"
-											required
 										/>
 									</div>
 									<div>
@@ -687,11 +687,11 @@ export default function Page() {
 											Message
 										</label>
 										<Textarea
-											id="contact-message"
-											name="message"
-											placeholder="Tell us how we can help you..."
 											rows={6}
 											required
+											name="message"
+											id="contact-message"
+											placeholder="Tell us how we can help you..."
 										/>
 									</div>
 									<TurnstileWidget
