@@ -88,7 +88,8 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	return {
 		prices,
 		query,
-		turnstileSiteKey: serverVariables.CONTACT_SUBMISSION_TURNSTILE_SITE_KEY,
+		contactSubmissionTurnstileSiteKey:
+			serverVariables.CONTACT_SUBMISSION_TURNSTILE_SITE_KEY,
 	};
 };
 
@@ -668,9 +669,9 @@ export default function Page() {
 										<TurnstileWidget
 											size="flexible"
 											onSuccess={setTurnstileToken}
-											siteKey={loaderData.turnstileSiteKey}
 											onError={() => setTurnstileToken("")}
 											onExpire={() => setTurnstileToken("")}
+											siteKey={loaderData.contactSubmissionTurnstileSiteKey}
 										/>
 									</div>
 									<input
