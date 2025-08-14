@@ -19,18 +19,20 @@ import { Button } from "~/lib/components/ui/button";
 import { Card } from "~/lib/components/ui/card";
 import { Label } from "~/lib/components/ui/label";
 import {
-	type CustomData,
 	GRACE_PERIOD,
-	createUnkeyKey,
+	type PaddleCustomData,
 	db,
-	getCustomerWithActivePurchase,
-	getPaddleServerClient,
 	prices,
-	sendEmail,
 	serverVariables,
 	websiteAuthCookie,
 } from "~/lib/config.server";
-import { startUrl } from "~/lib/utils";
+import { startUrl } from "~/lib/constants";
+import {
+	createUnkeyKey,
+	getCustomerWithActivePurchase,
+	getPaddleServerClient,
+	sendEmail,
+} from "~/lib/utilities.server";
 import type { Route } from "./+types/me";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
@@ -255,7 +257,7 @@ export default function Index() {
 								: { email: loaderData.customerDetails.email },
 							customData: {
 								customerId: loaderData.customerDetails.id,
-							} as CustomData,
+							} as PaddleCustomData,
 							settings: paddleCustomerId ? { allowLogout: false } : undefined,
 						});
 					}}

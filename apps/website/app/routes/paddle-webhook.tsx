@@ -4,7 +4,7 @@ import {
 	type TransactionNotification,
 } from "@paddle/paddle-node-sdk";
 import {
-	CreateUserInvitationDocument,
+	GetPasswordChangeSessionDocument,
 	RegisterUserDocument,
 	UpdateUserDocument,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -24,16 +24,18 @@ import {
 } from "~/drizzle/schema.server";
 import {
 	GRACE_PERIOD,
-	calculateRenewalDate,
-	createUnkeyKey,
-	customDataSchema,
 	db,
-	getPaddleServerClient,
-	getProductAndPlanTypeByPriceId,
-	sendEmail,
+	paddleCustomDataSchema,
 	serverGqlService,
 	serverVariables,
 } from "~/lib/config.server";
+import {
+	calculateRenewalDate,
+	createUnkeyKey,
+	getPaddleServerClient,
+	getProductAndPlanTypeByPriceId,
+	sendEmail,
+} from "~/lib/utilities.server";
 import type { Route } from "./+types/paddle-webhook";
 
 type Customer = Awaited<ReturnType<typeof db.query.customers.findFirst>>;
@@ -54,7 +56,7 @@ async function findCustomerByPaddleId(
 async function findCustomerByCustomData(
 	customData: unknown,
 ): Promise<Customer | null> {
-	const parsed = customDataSchema.safeParse(customData);
+	const parsed = paddleCustomDataSchema.safeParse(customData);
 	if (!parsed.success) return null;
 
 	return await db.query.customers.findFirst({
@@ -128,15 +130,15 @@ async function handleCloudPurchase(customer: NonNullable<Customer>): Promise<{
 	const auth = oidcIssuerId
 		? email
 		: await serverGqlService
-				.request(CreateUserInvitationDocument, {
+				.request(GetPasswordChangeSessionDocument, {
 					input: {
 						userId: registerUser.id,
 						adminAccessToken: serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
 					},
 				})
-				.then(({ createUserInvitation }) => ({
+				.then(({ getPasswordChangeSession }) => ({
 					username: email,
-					passwordChangeUrl: createUserInvitation.passwordChangeUrl,
+					passwordChangeUrl: getPasswordChangeSession.passwordChangeUrl,
 				}));
 
 	return {
