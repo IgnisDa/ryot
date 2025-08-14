@@ -43,7 +43,7 @@ external-utils = { path = "../../utils/external" }
 fitness-models = { workspace = true }
 google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
-importer-models = { path = "../../models/importer" }
+importer-models = { workspace = true }
 media-models = { workspace = true }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 supporting-service = { path = "../supporting" }

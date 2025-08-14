@@ -20,7 +20,7 @@ config-definition = { workspace = true }
 database-models = { path = "../database" }
 enum-models = { workspace = true }
 fitness-models = { workspace = true }
-importer-models = { path = "../importer" }
+importer-models = { workspace = true }
 media-models = { workspace = true }
 user-models = { path = "../user" }
 
