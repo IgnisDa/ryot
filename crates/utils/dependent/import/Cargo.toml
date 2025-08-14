@@ -12,7 +12,7 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 
 common-models = { workspace = true }
-common-utils = { path = "../../common" }
+common-utils = { workspace = true }
 database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../collection" }
 dependent-fitness-utils = { path = "../fitness" }

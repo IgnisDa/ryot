@@ -12,7 +12,7 @@ sea-orm = { workspace = true }
 tracing = { workspace = true }
 
 common-models = { workspace = true }
-common-utils = { path = "../../../utils/common" }
+common-utils = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../../../utils/dependent/collection" }

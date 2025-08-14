@@ -11,7 +11,7 @@ nanoid = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
-common-utils = { path = "../../utils/common" }
+common-utils = { workspace = true }
 config-definition = { path = "../../config/definition" }
 integration-service = { path = "../../services/integration" }
 

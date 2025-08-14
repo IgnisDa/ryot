@@ -17,7 +17,7 @@ application-utils = { workspace = true }
 background-models = { path = "../../models/background" }
 cache-service = { path = "../cache" }
 common-models = { workspace = true }
-common-utils = { path = "../../utils/common" }
+common-utils = { workspace = true }
 database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-collection-utils = { path = "../../utils/dependent/collection" }

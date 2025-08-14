@@ -14,7 +14,7 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-common-utils = { path = "../common" }
+common-utils = { workspace = true }
 config-definition = { path = "../../config/definition" }
 media-models = { path = "../../models/media" }
 session-service = { path = "../../services/session" }

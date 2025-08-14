@@ -33,7 +33,7 @@ application-utils = { workspace = true }
 background-models = { path = "../../crates/models/background" }
 collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }
-common-utils = { path = "../../crates/utils/common" }
+common-utils = { workspace = true }
 config-definition = { path = "../../crates/config/definition" }
 dependent-models = { path = "../../crates/models/dependent" }
 env-utils = { path = "../../crates/utils/env" }

@@ -9,6 +9,6 @@ aws-sdk-s3 = { workspace = true }
 chrono = { workspace = true }
 nanoid = { workspace = true }
 
-common-utils = { path = "../../utils/common" }
+common-utils = { workspace = true }
 config-definition = { path = "../../config/definition" }
 supporting-service = { path = "../../services/supporting" }

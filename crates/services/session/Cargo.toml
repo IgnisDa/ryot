@@ -8,6 +8,6 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 
 cache-service = { path = "../cache" }
-common-utils = { path = "../../utils/common" }
+common-utils = { workspace = true }
 dependent-models = { path = "../../models/dependent" }
 supporting-service = { path = "../supporting" }

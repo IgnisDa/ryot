@@ -17,7 +17,7 @@ tracing = { workspace = true }
 application-utils = { workspace = true }
 cache-service = { path = "../../../services/cache" }
 common-models = { workspace = true }
-common-utils = { path = "../../common" }
+common-utils = { workspace = true }
 database-models = { path = "../../../models/database" }
 dependent-entity-list-utils = { path = "../entity-list" }
 dependent-models = { path = "../../../models/dependent" }

@@ -9,5 +9,5 @@ async-graphql = { workspace = true }
 schematic = { workspace = true }
 serde = { workspace = true }
 
-common-utils = { path = "../../utils/common" }
+common-utils = { workspace = true }
 config-macros = { path = "../macros" }
