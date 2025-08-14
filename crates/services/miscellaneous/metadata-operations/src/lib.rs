@@ -14,12 +14,13 @@ use database_models::{
     review, seen, user_to_entity,
 };
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
-use dependent_collection_utils::add_entities_to_collection;
+use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_entity_utils::change_metadata_associations;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::expire_user_metadata_list_cache;
 use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
+use futures::try_join;
 use itertools::Itertools;
 use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};
 use nanoid::nanoid;
@@ -334,16 +335,44 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
         if is_finished {
             continue;
         }
-        send_notification_for_user(
-            &user_id,
-            ss,
-            UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
-                entity_id: meta.id.clone(),
-                entity_lot: EntityLot::Metadata,
-                entity_title: meta.title.clone(),
-            },
-        )
-        .await?;
+
+        try_join!(
+            remove_entities_from_collection(
+                &user_id,
+                ChangeCollectionToEntitiesInput {
+                    creator_user_id: user_id.clone(),
+                    collection_name: DefaultCollection::Completed.to_string(),
+                    entities: vec![EntityToCollectionInput {
+                        information: None,
+                        entity_id: meta.id.clone(),
+                        entity_lot: EntityLot::Metadata,
+                    }],
+                },
+                ss,
+            ),
+            add_entities_to_collection(
+                &user_id,
+                ChangeCollectionToEntitiesInput {
+                    creator_user_id: user_id.clone(),
+                    collection_name: DefaultCollection::Watchlist.to_string(),
+                    entities: vec![EntityToCollectionInput {
+                        information: None,
+                        entity_id: meta.id.clone(),
+                        entity_lot: EntityLot::Metadata,
+                    }],
+                },
+                ss,
+            ),
+            send_notification_for_user(
+                &user_id,
+                ss,
+                UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
+                    entity_id: meta.id.clone(),
+                    entity_lot: EntityLot::Metadata,
+                    entity_title: meta.title.clone(),
+                },
+            )
+        )?;
     }
 
     Ok(())

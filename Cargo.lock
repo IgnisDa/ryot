@@ -4351,6 +4351,7 @@ dependencies = [
  "dependent-utility-utils",
  "enum-models",
  "file-storage-service",
+ "futures",
  "itertools 0.14.0",
  "media-models",
  "nanoid",

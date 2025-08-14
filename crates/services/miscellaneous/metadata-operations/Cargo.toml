@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+futures = { workspace = true }
 itertools = { workspace = true }
 nanoid = { workspace = true }
 rust_decimal = { workspace = true }
