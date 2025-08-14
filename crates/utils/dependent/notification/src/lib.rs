@@ -5,8 +5,8 @@ use chrono::Utc;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{
-    collection_to_entity, flat_collection_to_entity, notification_platform,
-    prelude::{CollectionToEntity, FlatCollectionToEntity, NotificationPlatform},
+    collection_to_entity, collection_entity_membership, notification_platform,
+    prelude::{CollectionToEntity, CollectionEntityMembership, NotificationPlatform},
 };
 use dependent_core_utils::get_entity_details_frontend_url;
 use dependent_entity_utils::{update_metadata, update_metadata_group, update_person};
@@ -26,14 +26,14 @@ pub async fn get_users_and_cte_monitoring_entity(
     entity_lot: EntityLot,
     db: &DatabaseConnection,
 ) -> Result<Vec<(String, Uuid)>> {
-    let all_entities = FlatCollectionToEntity::find()
+    let all_entities = CollectionEntityMembership::find()
         .select_only()
-        .column(flat_collection_to_entity::Column::UserId)
-        .column(flat_collection_to_entity::Column::CollectionToEntityId)
-        .filter(flat_collection_to_entity::Column::EntityId.eq(entity_id))
-        .filter(flat_collection_to_entity::Column::EntityLot.eq(entity_lot))
+        .column(collection_entity_membership::Column::UserId)
+        .column(collection_entity_membership::Column::CollectionToEntityId)
+        .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
+        .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
         .filter(
-            flat_collection_to_entity::Column::CollectionName
+            collection_entity_membership::Column::CollectionName
                 .eq(DefaultCollection::Monitoring.to_string()),
         )
         .into_tuple::<(String, Uuid)>()

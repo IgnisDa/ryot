@@ -6,7 +6,7 @@ use std::{
 use anyhow::Result;
 use common_models::DefaultCollection;
 use common_utils::{BULK_APPLICATION_UPDATE_CHUNK_SIZE, ryot_log};
-use database_models::{flat_collection_to_entity, prelude::FlatCollectionToEntity};
+use database_models::{collection_entity_membership, prelude::CollectionEntityMembership};
 use dependent_notification_utils::{
     update_metadata_and_notify_users, update_person_and_notify_users,
 };
@@ -20,10 +20,10 @@ async fn get_monitored_entities(
     entity_lot: EntityLot,
     ss: &Arc<SupportingService>,
 ) -> Result<HashMap<String, HashSet<String>>> {
-    let monitored_entities = FlatCollectionToEntity::find()
-        .filter(flat_collection_to_entity::Column::EntityLot.eq(entity_lot))
+    let monitored_entities = CollectionEntityMembership::find()
+        .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
         .filter(
-            flat_collection_to_entity::Column::CollectionName
+            collection_entity_membership::Column::CollectionName
                 .eq(DefaultCollection::Monitoring.to_string()),
         )
         .all(&ss.db)

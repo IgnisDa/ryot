@@ -4,8 +4,8 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static FLAT_COLLECTION_TO_ENTITY_VIEW_CREATION_SQL: &str = indoc! { r#"
-    CREATE VIEW flat_collection_to_entity AS
+pub static COLLECTION_ENTITY_MEMBERSHIP_VIEW_CREATION_SQL: &str = indoc! { r#"
+    CREATE VIEW collection_entity_membership AS
     SELECT
         ute."user_id",
         cte."entity_id",
@@ -29,7 +29,7 @@ pub static FLAT_COLLECTION_TO_ENTITY_VIEW_CREATION_SQL: &str = indoc! { r#"
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
-        db.execute_unprepared(FLAT_COLLECTION_TO_ENTITY_VIEW_CREATION_SQL)
+        db.execute_unprepared(COLLECTION_ENTITY_MEMBERSHIP_VIEW_CREATION_SQL)
             .await?;
         Ok(())
     }
