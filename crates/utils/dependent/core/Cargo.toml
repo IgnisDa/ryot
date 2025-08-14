@@ -19,7 +19,7 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-env-utils = { path = "../../env" }
+env-utils = { workspace = true }
 file-storage-service = { path = "../../../services/file-storage" }
 supporting-service = { path = "../../../services/supporting" }
 

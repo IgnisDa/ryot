@@ -14,4 +14,4 @@ serde = { workspace = true }
 tokio = { workspace = true }
 
 enum-models = { workspace = true }
-env-utils = { path = "../env" }
+env-utils = { workspace = true }

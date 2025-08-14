@@ -215,6 +215,7 @@ collection-service = { path = "crates/services/collection" }
 common-models = { path = "crates/models/common" }
 common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
+env-utils = { path = "crates/utils/env" }
 database-models = { path = "crates/models/database" }
 dependent-models = { path = "crates/models/dependent" }
 enum-models = { path = "crates/models/enum" }

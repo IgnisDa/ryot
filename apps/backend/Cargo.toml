@@ -36,7 +36,7 @@ collection-service = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 dependent-models = { workspace = true }
-env-utils = { path = "../../crates/utils/env" }
+env-utils = { workspace = true }
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }
 file-storage-resolver = { path = "../../crates/resolvers/file-storage" }
