@@ -15,7 +15,7 @@ sea-orm = { workspace = true }
 tracing = { workspace = true }
 
 common-utils = { workspace = true }
-config-definition = { path = "../../config/definition" }
+config-definition = { workspace = true }
 media-models = { path = "../../models/media" }
 session-service = { path = "../../services/session" }
 supporting-service = { path = "../../services/supporting" }

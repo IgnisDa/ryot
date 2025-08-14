@@ -16,7 +16,7 @@ strum = { workspace = true }
 uuid = { workspace = true }
 
 common-models = { workspace = true }
-config-definition = { path = "../../config/definition" }
+config-definition = { workspace = true }
 database-models = { path = "../database" }
 enum-models = { path = "../enum" }
 fitness-models = { path = "../fitness" }

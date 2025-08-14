@@ -17,7 +17,7 @@ unkey = { workspace = true }
 
 background-models = { path = "../../models/background" }
 common-utils = { workspace = true }
-config-definition = { path = "../../config/definition" }
+config-definition = { workspace = true }
 env-utils = { path = "../../utils/env" }
 
 [package.metadata.cargo-machete]

@@ -211,6 +211,7 @@ uuid = { version = "=1.17.0", features = ["v4"], default-features = false }
 application-utils = { path = "crates/utils/application" }
 common-models = { path = "crates/models/common" }
 common-utils = { path = "crates/utils/common" }
+config-definition = { path = "crates/config/definition" }
 
 [profile.release]
 lto = true

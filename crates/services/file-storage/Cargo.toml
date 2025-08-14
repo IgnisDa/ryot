@@ -10,5 +10,5 @@ chrono = { workspace = true }
 nanoid = { workspace = true }
 
 common-utils = { workspace = true }
-config-definition = { path = "../../config/definition" }
+config-definition = { workspace = true }
 supporting-service = { path = "../../services/supporting" }

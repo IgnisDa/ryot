@@ -17,7 +17,7 @@ tracing = { workspace = true }
 application-utils = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
-config-definition = { path = "../../config/definition" }
+config-definition = { workspace = true }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 enum-models = { path = "../../models/enum" }

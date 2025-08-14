@@ -10,7 +10,7 @@ tracing = { workspace = true }
 
 anilist-provider = { path = "../../../providers/anilist" }
 audible-provider = { path = "../../../providers/audible" }
-config-definition = { path = "../../../config/definition" }
+config-definition = { workspace = true }
 enum-models = { path = "../../../models/enum" }
 giant-bomb-provider = { path = "../../../providers/giant-bomb" }
 google-books-provider = { path = "../../../providers/google-books" }
