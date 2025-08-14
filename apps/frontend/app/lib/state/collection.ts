@@ -60,17 +60,10 @@ export const useBulkEditCollection = () => {
 		state: bec
 			? {
 					data: bec,
+					stopLoading: () => setBec({ ...bec, isLoading: false }),
 					stop: () => {
 						setBec(null);
 						navigate(bec.locationStartedFrom);
-					},
-					add: (toAdd: Entity) => {
-						if (findIndex(toAdd) !== -1) return;
-						setBec(
-							produce(bec, (draft) => {
-								draft.entities.push(toAdd);
-							}),
-						);
 					},
 					bulkAdd: async (getEntities: BulkAddEntities) => {
 						setBec({ ...bec, isLoading: true });
@@ -84,7 +77,14 @@ export const useBulkEditCollection = () => {
 							}),
 						);
 					},
-					stopLoading: () => setBec({ ...bec, isLoading: false }),
+					add: (toAdd: Entity) => {
+						if (findIndex(toAdd) !== -1) return;
+						setBec(
+							produce(bec, (draft) => {
+								draft.entities.push(toAdd);
+							}),
+						);
+					},
 				}
 			: (false as const),
 	};
