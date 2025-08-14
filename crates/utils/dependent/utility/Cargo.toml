@@ -12,7 +12,7 @@ sqlx = { workspace = true }
 tracing = { workspace = true }
 
 cache-service = { path = "../../../services/cache" }
-common-models = { path = "../../../models/common" }
+common-models = { workspace = true }
 database-models = { path = "../../../models/database" }
 dependent-models = { path = "../../../models/dependent" }
 enum-models = { path = "../../../models/enum" }

@@ -11,7 +11,7 @@ rust_decimal_macros = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
-common-models = { path = "../../../models/common" }
+common-models = { workspace = true }
 common-utils = { path = "../../common" }
 database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../collection" }

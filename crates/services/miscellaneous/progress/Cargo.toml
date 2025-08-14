@@ -10,7 +10,7 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-common-models = { path = "../../../models/common" }
+common-models = { workspace = true }
 database-models = { path = "../../../models/database" }
 dependent-progress-utils = { path = "../../../utils/dependent/progress" }
 dependent-seen-utils = { path = "../../../utils/dependent/seen" }

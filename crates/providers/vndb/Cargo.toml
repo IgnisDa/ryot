@@ -14,7 +14,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 application-utils = { workspace = true }
-common-models = { path = "../../models/common" }
+common-models = { workspace = true }
 common-utils = { path = "../../utils/common" }
 config-definition = { path = "../../config/definition" }
 dependent-models = { path = "../../models/dependent" }

@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 async-graphql = { workspace = true }
 
-common-models = { path = "../../models/common" }
+common-models = { workspace = true }
 dependent-models = { path = "../../models/dependent" }
 statistics-service = { path = "../../services/statistics" }
 traits = { path = "../../traits" }

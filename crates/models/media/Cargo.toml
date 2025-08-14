@@ -14,7 +14,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 
-common-models = { path = "../../models/common" }
+common-models = { workspace = true }
 common-utils = { path = "../../utils/common" }
 enum-models = { path = "../../models/enum" }
 

@@ -15,7 +15,7 @@ serde_with = { workspace = true }
 strum = { workspace = true }
 uuid = { workspace = true }
 
-common-models = { path = "../common" }
+common-models = { workspace = true }
 config-definition = { path = "../../config/definition" }
 database-models = { path = "../database" }
 enum-models = { path = "../enum" }

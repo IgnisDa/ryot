@@ -14,7 +14,7 @@ sea-query = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { workspace = true }
-common-models = { path = "../../../models/common" }
+common-models = { workspace = true }
 common-utils = { path = "../../../utils/common" }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }

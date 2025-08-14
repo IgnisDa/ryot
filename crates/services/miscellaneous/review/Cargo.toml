@@ -11,7 +11,7 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-common-models = { path = "../../../models/common" }
+common-models = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }

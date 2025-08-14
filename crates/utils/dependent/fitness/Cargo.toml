@@ -13,7 +13,7 @@ rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-common-models = { path = "../../../models/common" }
+common-models = { workspace = true }
 common-utils = { path = "../../common" }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
