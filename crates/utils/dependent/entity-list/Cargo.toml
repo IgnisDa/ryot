@@ -16,7 +16,7 @@ cache-service = { path = "../../../services/cache" }
 common-models = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-models = { workspace = true }
 fitness-models = { path = "../../../models/fitness" }
 migrations = { path = "../../../migrations" }
 enum-models = { workspace = true }

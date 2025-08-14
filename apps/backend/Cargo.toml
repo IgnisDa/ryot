@@ -35,7 +35,7 @@ collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
-dependent-models = { path = "../../crates/models/dependent" }
+dependent-models = { workspace = true }
 env-utils = { path = "../../crates/utils/env" }
 exporter-resolver = { path = "../../crates/resolvers/exporter" }
 exporter-service = { path = "../../crates/services/exporter" }

@@ -14,7 +14,7 @@ tracing = { workspace = true }
 
 common-models = { workspace = true }
 database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 dependent-analytics-utils = { path = "../../utils/dependent/analytics" }
 enum-models = { workspace = true }
 supporting-service = { path = "../supporting" }

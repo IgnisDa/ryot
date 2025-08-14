@@ -15,7 +15,7 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { path = "../../../models/database" }
 dependent-collection-utils = { path = "../collection" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-models = { workspace = true }
 enum-models = { workspace = true }
 supporting-service = { path = "../../../services/supporting" }
 

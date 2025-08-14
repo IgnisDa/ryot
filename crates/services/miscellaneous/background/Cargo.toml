@@ -25,7 +25,7 @@ database-utils = { path = "../../../utils/database" }
 dependent-analytics-utils = { path = "../../../utils/dependent/analytics" }
 dependent-collection-utils = { path = "../../../utils/dependent/collection" }
 dependent-core-utils = { path = "../../../utils/dependent/core" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-models = { workspace = true }
 dependent-notification-utils = { path = "../../../utils/dependent/notification" }
 dependent-seen-utils = { path = "../../../utils/dependent/seen" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }

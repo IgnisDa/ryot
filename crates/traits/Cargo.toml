@@ -14,7 +14,7 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { path = "../models/database" }
 database-utils = { path = "../utils/database" }
-dependent-models = { path = "../models/dependent" }
+dependent-models = { workspace = true }
 media-models = { path = "../models/media" }
 supporting-service = { path = "../services/supporting" }
 

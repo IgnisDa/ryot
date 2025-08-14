@@ -8,7 +8,7 @@ async-graphql = { workspace = true }
 sea-orm = { workspace = true }
 
 database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 fitness-service = { path = "../../services/fitness" }
 traits = { path = "../../traits" }

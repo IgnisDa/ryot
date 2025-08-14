@@ -22,7 +22,7 @@ dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
 dependent-fitness-utils = { path = "../../utils/dependent/fitness" }
 dependent-utility-utils = { path = "../../utils/dependent/utility" }
 database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }

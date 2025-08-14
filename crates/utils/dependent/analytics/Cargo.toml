@@ -20,7 +20,7 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { path = "../../../models/database" }
 dependent-entity-list-utils = { path = "../entity-list" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-models = { workspace = true }
 dependent-utility-utils = { path = "../utility" }
 enum-models = { workspace = true }
 media-models = { path = "../../../models/media" }

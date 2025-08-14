@@ -21,7 +21,7 @@ application-utils = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { path = "../../models/media" }
 traits = { path = "../../traits" }

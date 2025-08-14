@@ -14,7 +14,7 @@ cache-service = { path = "../../cache" }
 common-models = { workspace = true }
 database-utils = { path = "../../../utils/database" }
 dependent-entity-utils = { path = "../../../utils/dependent/entity" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-models = { workspace = true }
 dependent-provider-utils = { path = "../../../utils/dependent/provider" }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }

@@ -9,5 +9,5 @@ chrono = { workspace = true }
 
 cache-service = { path = "../cache" }
 common-utils = { workspace = true }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 supporting-service = { path = "../supporting" }

@@ -18,7 +18,7 @@ dependent-collection-utils = { path = "../collection" }
 dependent-fitness-utils = { path = "../fitness" }
 dependent-jobs-utils = { path = "../jobs" }
 dependent-entity-utils = { path = "../entity" }
-dependent-models = { path = "../../../models/dependent" }
+dependent-models = { workspace = true }
 dependent-progress-utils = { path = "../progress" }
 dependent-review-utils = { path = "../review" }
 importer-models = { path = "../../../models/importer" }

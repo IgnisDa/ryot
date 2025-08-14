@@ -18,7 +18,7 @@ background-models = { path = "../../models/background" }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
 media-models = { path = "../../models/media" }

@@ -16,7 +16,7 @@ database-models = { path = "../../models/database" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
 dependent-jobs-utils = { path = "../../utils/dependent/jobs" }
-dependent-models = { path = "../../models/dependent" }
+dependent-models = { workspace = true }
 dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-review-utils = { path = "../../utils/dependent/review" }
 enum-models = { workspace = true }
