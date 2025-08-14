@@ -12,4 +12,4 @@ dependent-models = { workspace = true }
 media-models = { workspace = true }
 traits = { workspace = true }
 user-models = { workspace = true }
-user-service = { path = "../../services/user" }
+user-service = { workspace = true }

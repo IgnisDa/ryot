@@ -220,6 +220,7 @@ importer-models = { path = "crates/models/importer" }
 media-models = { path = "crates/models/media" }
 traits = { path = "crates/traits" }
 user-models = { path = "crates/models/user" }
+user-service = { path = "crates/services/user" }
 
 [profile.release]
 lto = true

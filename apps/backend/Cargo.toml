@@ -55,4 +55,4 @@ statistics-service = { path = "../../crates/services/statistics" }
 supporting-service = { path = "../../crates/services/supporting" }
 traits = { workspace = true }
 user-resolver = { path = "../../crates/resolvers/user" }
-user-service = { path = "../../crates/services/user" }
+user-service = { workspace = true }
