@@ -64,12 +64,6 @@ pub struct UserPasswordChangeSessionInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MetadataEligibleForSmartCollectionMovingInput {
-    pub metadata_id: String,
-}
-
-#[skip_serializing_none]
-#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserPasswordChangeSessionValue {
     pub user_id: String,
 }
@@ -119,7 +113,6 @@ pub enum ApplicationCacheKey {
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
-    MetadataEligibleForSmartCollectionMoving(MetadataEligibleForSmartCollectionMovingInput),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
     MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
 }
@@ -159,7 +152,6 @@ pub enum ApplicationCacheValue {
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
-    MetadataEligibleForSmartCollectionMoving(EmptyCacheValue),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),

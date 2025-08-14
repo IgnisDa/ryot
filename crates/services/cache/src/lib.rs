@@ -37,10 +37,7 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::UserCollectionContents { .. }
         | ApplicationCacheKey::UserWorkoutTemplatesList { .. }
         | ApplicationCacheKey::MetadataRecentlyConsumed { .. }
-        | ApplicationCacheKey::UserMetadataRecommendations { .. }
-        | ApplicationCacheKey::MetadataEligibleForSmartCollectionMoving { .. } => {
-            Duration::hours(1)
-        }
+        | ApplicationCacheKey::UserMetadataRecommendations { .. } => Duration::hours(1),
 
         ApplicationCacheKey::MetadataProgressUpdateCompletedCache { .. } => {
             Duration::hours(ss.config.server.progress_update_threshold)
