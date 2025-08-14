@@ -30,7 +30,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 application-utils = { workspace = true }
-background-models = { path = "../../crates/models/background" }
+background-models = { workspace = true }
 collection-resolver = { workspace = true }
 collection-service = { path = "../../crates/services/collection" }
 common-utils = { workspace = true }

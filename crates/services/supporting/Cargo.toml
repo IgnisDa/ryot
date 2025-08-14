@@ -15,7 +15,7 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 unkey = { workspace = true }
 
-background-models = { path = "../../models/background" }
+background-models = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 env-utils = { path = "../../utils/env" }

@@ -14,7 +14,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 application-utils = { workspace = true }
-background-models = { path = "../../models/background" }
+background-models = { workspace = true }
 cache-service = { path = "../cache" }
 common-models = { workspace = true }
 common-utils = { workspace = true }
