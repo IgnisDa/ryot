@@ -1,3 +1,4 @@
+// FIXME: Remove in the next major release
 use indoc::indoc;
 use sea_orm_migration::prelude::*;
 

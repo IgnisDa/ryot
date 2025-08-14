@@ -72,6 +72,10 @@ impl MigrationTrait for Migration {
                 .await?;
         }
 
+        let db = manager.get_connection();
+        db.execute_unprepared("DROP VIEW IF EXISTS monitored_entity")
+            .await?;
+
         Ok(())
     }
 
