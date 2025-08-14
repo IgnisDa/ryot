@@ -16,10 +16,10 @@ tracing = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-database-utils = { path = "../../../utils/database" }
-dependent-collection-utils = { path = "../collection" }
-dependent-notification-utils = { path = "../notification" }
-dependent-utility-utils = { path = "../utility" }
+database-utils = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-notification-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
 fitness-models = { workspace = true }
 supporting-service = { workspace = true }

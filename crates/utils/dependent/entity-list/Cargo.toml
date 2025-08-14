@@ -12,10 +12,10 @@ slug = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { workspace = true }
-cache-service = { path = "../../../services/cache" }
+cache-service = { workspace = true }
 common-models = { workspace = true }
 database-models = { workspace = true }
-database-utils = { path = "../../../utils/database" }
+database-utils = { workspace = true }
 dependent-models = { workspace = true }
 fitness-models = { workspace = true }
 migrations = { workspace = true }

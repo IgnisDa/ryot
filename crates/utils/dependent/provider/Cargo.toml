@@ -8,26 +8,26 @@ anyhow = { workspace = true }
 rust_decimal = { workspace = true }
 tracing = { workspace = true }
 
-anilist-provider = { path = "../../../providers/anilist" }
-audible-provider = { path = "../../../providers/audible" }
+anilist-provider = { workspace = true }
+audible-provider = { workspace = true }
 config-definition = { workspace = true }
 enum-models = { workspace = true }
-giant-bomb-provider = { path = "../../../providers/giant-bomb" }
-google-books-provider = { path = "../../../providers/google-books" }
-hardcover-provider = { path = "../../../providers/hardcover" }
-igdb-provider = { path = "../../../providers/igdb" }
-itunes-provider = { path = "../../../providers/itunes" }
-listennotes-provider = { path = "../../../providers/listennotes" }
-manga-updates-provider = { path = "../../../providers/manga-updates" }
+giant-bomb-provider = { workspace = true }
+google-books-provider = { workspace = true }
+hardcover-provider = { workspace = true }
+igdb-provider = { workspace = true }
+itunes-provider = { workspace = true }
+listennotes-provider = { workspace = true }
+manga-updates-provider = { workspace = true }
 media-models = { workspace = true }
-myanimelist-provider = { path = "../../../providers/myanimelist" }
-openlibrary-provider = { path = "../../../providers/openlibrary" }
-spotify-provider = { path = "../../../providers/spotify" }
+myanimelist-provider = { workspace = true }
+openlibrary-provider = { workspace = true }
+spotify-provider = { workspace = true }
 supporting-service = { workspace = true }
 traits = { workspace = true }
-tmdb-provider = { path = "../../../providers/tmdb" }
-vndb-provider = { path = "../../../providers/vndb" }
-youtube-music-provider = { path = "../../../providers/youtube-music" }
+tmdb-provider = { workspace = true }
+vndb-provider = { workspace = true }
+youtube-music-provider = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

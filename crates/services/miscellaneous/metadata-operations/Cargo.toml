@@ -14,10 +14,10 @@ tracing = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-database-utils = { path = "../../../utils/database" }
-dependent-collection-utils = { path = "../../../utils/dependent/collection" }
-dependent-entity-utils = { path = "../../../utils/dependent/entity" }
-dependent-utility-utils = { path = "../../../utils/dependent/utility" }
+database-utils = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { workspace = true }
 media-models = { workspace = true }

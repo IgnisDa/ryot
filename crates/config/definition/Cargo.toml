@@ -10,4 +10,4 @@ schematic = { workspace = true }
 serde = { workspace = true }
 
 common-utils = { workspace = true }
-config-macros = { path = "../macros" }
+config-macros = { workspace = true }

@@ -23,7 +23,7 @@ enum-models = { workspace = true }
 file-storage-service = { workspace = true }
 media-models = { workspace = true }
 migrations = { workspace = true }
-session-service = { path = "../../services/session" }
+session-service = { workspace = true }
 supporting-service = { workspace = true }
 user-models = { workspace = true }
 

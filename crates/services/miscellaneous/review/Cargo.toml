@@ -13,8 +13,8 @@ tracing = { workspace = true }
 
 common-models = { workspace = true }
 database-models = { workspace = true }
-database-utils = { path = "../../../utils/database" }
-dependent-utility-utils = { path = "../../../utils/dependent/utility" }
+database-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }
 

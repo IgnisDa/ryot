@@ -243,5 +243,60 @@ user-resolver = { path = "crates/resolvers/user" }
 user-models = { path = "crates/models/user" }
 user-service = { path = "crates/services/user" }
 
+# Utility crates
+cache-service = { path = "crates/services/cache" }
+config-macros = { path = "crates/config/macros" }
+database-utils = { path = "crates/utils/database" }
+dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
+dependent-collection-utils = { path = "crates/utils/dependent/collection" }
+dependent-core-utils = { path = "crates/utils/dependent/core" }
+dependent-entity-list-utils = { path = "crates/utils/dependent/entity-list" }
+dependent-entity-utils = { path = "crates/utils/dependent/entity" }
+dependent-fitness-utils = { path = "crates/utils/dependent/fitness" }
+dependent-import-utils = { path = "crates/utils/dependent/import" }
+dependent-jobs-utils = { path = "crates/utils/dependent/jobs" }
+dependent-notification-utils = { path = "crates/utils/dependent/notification" }
+dependent-progress-utils = { path = "crates/utils/dependent/progress" }
+dependent-provider-utils = { path = "crates/utils/dependent/provider" }
+dependent-review-utils = { path = "crates/utils/dependent/review" }
+dependent-seen-utils = { path = "crates/utils/dependent/seen" }
+dependent-utility-utils = { path = "crates/utils/dependent/utility" }
+external-models = { path = "crates/models/external" }
+external-utils = { path = "crates/utils/external" }
+
+# Service crates  
+miscellaneous-background-service = { path = "crates/services/miscellaneous/background" }
+miscellaneous-calendar-service = { path = "crates/services/miscellaneous/calendar" }
+miscellaneous-entity-details-service = { path = "crates/services/miscellaneous/entity-details" }
+miscellaneous-entity-user-details-service = { path = "crates/services/miscellaneous/entity-user-details" }
+miscellaneous-general-service = { path = "crates/services/miscellaneous/general" }
+miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }
+miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
+miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
+miscellaneous-review-service = { path = "crates/services/miscellaneous/review" }
+miscellaneous-search-service = { path = "crates/services/miscellaneous/search" }
+miscellaneous-trending-and-events-service = { path = "crates/services/miscellaneous/trending-and-events" }
+notification-service = { path = "crates/services/notification" }
+session-service = { path = "crates/services/session" }
+
+# Provider crates
+google-books-provider = { path = "crates/providers/google-books" }
+hardcover-provider = { path = "crates/providers/hardcover" }
+openlibrary-provider = { path = "crates/providers/openlibrary" }
+tmdb-provider = { path = "crates/providers/tmdb" }
+
+# Additional provider crates
+anilist-provider = { path = "crates/providers/anilist" }
+audible-provider = { path = "crates/providers/audible" }
+giant-bomb-provider = { path = "crates/providers/giant-bomb" }
+igdb-provider = { path = "crates/providers/igdb" }
+itunes-provider = { path = "crates/providers/itunes" }
+listennotes-provider = { path = "crates/providers/listennotes" }
+manga-updates-provider = { path = "crates/providers/manga-updates" }
+myanimelist-provider = { path = "crates/providers/myanimelist" }
+spotify-provider = { path = "crates/providers/spotify" }
+vndb-provider = { path = "crates/providers/vndb" }
+youtube-music-provider = { path = "crates/providers/youtube-music" }
+
 [profile.release]
 lto = true

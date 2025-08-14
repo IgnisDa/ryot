@@ -23,20 +23,20 @@ totp-lite = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { workspace = true }
-cache-service = { path = "../cache" }
+cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-dependent-collection-utils = { path = "../../utils/dependent/collection" }
-dependent-core-utils = { path = "../../utils/dependent/core" }
-dependent-entity-utils = { path = "../../utils/dependent/entity" }
-dependent-notification-utils = { path = "../../utils/dependent/notification" }
-database-utils = { path = "../../utils/database" }
+dependent-collection-utils = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
+dependent-notification-utils = { workspace = true }
+database-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-notification-service = { path = "../notification" }
-session-service = { path = "../session" }
+notification-service = { workspace = true }
+session-service = { workspace = true }
 supporting-service = { workspace = true }
 user-models = { workspace = true }
 

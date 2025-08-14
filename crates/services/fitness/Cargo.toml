@@ -17,11 +17,11 @@ background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-dependent-core-utils = { path = "../../utils/dependent/core" }
-dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
-dependent-fitness-utils = { path = "../../utils/dependent/fitness" }
-dependent-utility-utils = { path = "../../utils/dependent/utility" }
-database-utils = { path = "../../utils/database" }
+dependent-core-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-fitness-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
+database-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { workspace = true }

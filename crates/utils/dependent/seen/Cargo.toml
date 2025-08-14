@@ -10,11 +10,11 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-cache-service = { path = "../../../services/cache" }
+cache-service = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-dependent-collection-utils = { path = "../collection" }
+dependent-collection-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 supporting-service = { workspace = true }

@@ -14,11 +14,11 @@ tracing = { workspace = true }
 
 application-utils = { workspace = true }
 database-models = { workspace = true }
-database-utils = { path = "../../../utils/database" }
+database-utils = { workspace = true }
 dependent-models = { workspace = true }
-dependent-entity-utils = { path = "../../../utils/dependent/entity" }
-dependent-seen-utils = { path = "../../../utils/dependent/seen" }
-dependent-utility-utils = { path = "../../../utils/dependent/utility" }
+dependent-entity-utils = { workspace = true }
+dependent-seen-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }

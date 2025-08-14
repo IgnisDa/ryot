@@ -11,12 +11,12 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-cache-service = { path = "../../cache" }
+cache-service = { workspace = true }
 database-models = { workspace = true }
-dependent-entity-utils = { path = "../../../utils/dependent/entity" }
+dependent-entity-utils = { workspace = true }
 dependent-models = { workspace = true }
-dependent-notification-utils = { path = "../../../utils/dependent/notification" }
-dependent-provider-utils = { path = "../../../utils/dependent/provider" }
+dependent-notification-utils = { workspace = true }
+dependent-provider-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }

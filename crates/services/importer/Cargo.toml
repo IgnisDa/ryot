@@ -31,23 +31,23 @@ background-models = { workspace = true }
 common-models = { workspace = true }
 common-utils = { workspace = true }
 database-models = { workspace = true }
-dependent-fitness-utils = { path = "../../utils/dependent/fitness" }
-dependent-import-utils = { path = "../../utils/dependent/import" }
-dependent-jobs-utils = { path = "../../utils/dependent/jobs" }
-dependent-entity-utils = { path = "../../utils/dependent/entity" }
+dependent-fitness-utils = { workspace = true }
+dependent-import-utils = { workspace = true }
+dependent-jobs-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
 dependent-models = { workspace = true }
-dependent-provider-utils = { path = "../../utils/dependent/provider" }
+dependent-provider-utils = { workspace = true }
 enum-models = { workspace = true }
-external-models = { path = "../../models/external" }
-external-utils = { path = "../../utils/external" }
+external-models = { workspace = true }
+external-utils = { workspace = true }
 fitness-models = { workspace = true }
-google-books-provider = { path = "../../providers/google-books" }
-hardcover-provider = { path = "../../providers/hardcover" }
+google-books-provider = { workspace = true }
+hardcover-provider = { workspace = true }
 importer-models = { workspace = true }
 media-models = { workspace = true }
-openlibrary-provider = { path = "../../providers/openlibrary" }
+openlibrary-provider = { workspace = true }
 supporting-service = { workspace = true }
-tmdb-provider = { path = "../../providers/tmdb" }
+tmdb-provider = { workspace = true }
 traits = { workspace = true }
 
 [package.metadata.cargo-machete]

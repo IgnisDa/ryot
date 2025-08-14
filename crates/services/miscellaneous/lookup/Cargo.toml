@@ -9,13 +9,13 @@ regex = { workspace = true }
 rust_decimal = { workspace = true }
 tracing = { workspace = true }
 
-cache-service = { path = "../../cache" }
+cache-service = { workspace = true }
 common-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }
-tmdb-provider = { path = "../../../providers/tmdb" }
+tmdb-provider = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }

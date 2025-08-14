@@ -7,7 +7,7 @@ edition = "2024"
 anyhow = { workspace = true }
 chrono = { workspace = true }
 
-cache-service = { path = "../cache" }
+cache-service = { workspace = true }
 common-utils = { workspace = true }
 dependent-models = { workspace = true }
 supporting-service = { workspace = true }

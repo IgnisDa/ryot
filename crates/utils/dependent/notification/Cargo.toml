@@ -14,11 +14,11 @@ uuid = { workspace = true }
 
 common-utils = { workspace = true }
 database-models = { workspace = true }
-dependent-core-utils = { path = "../core" }
-dependent-entity-utils = { path = "../entity" }
+dependent-core-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-notification-service = { path = "../../../services/notification" }
+notification-service = { workspace = true }
 supporting-service = { workspace = true }
 traits = { workspace = true }
 
