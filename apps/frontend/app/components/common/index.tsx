@@ -359,29 +359,30 @@ export const BulkCollectionEditingAffix = (props: {
 	if (!bulkEditingCollectionState) return null;
 
 	const handleBulkAction = async () => {
-		const { action, collection, entities } = bulkEditingCollectionState.data;
+		const { action, collection, targetEntities } =
+			bulkEditingCollectionState.data;
 
 		if (action === "remove") {
 			await removeEntitiesFromCollection.mutateAsync({
-				entities,
+				entities: targetEntities,
 				collectionName: collection.name,
 				creatorUserId: collection.creatorUserId,
 			});
 			notifications.show({
 				color: "green",
 				title: "Success",
-				message: `Removing ${entities.length} item${entities.length === 1 ? "" : "s"} from collection`,
+				message: `Removing ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} from collection`,
 			});
 		} else {
 			await addEntitiesToCollection.mutateAsync({
-				entities,
+				entities: targetEntities,
 				collectionName: collection.name,
 				creatorUserId: collection.creatorUserId,
 			});
 			notifications.show({
 				color: "green",
 				title: "Success",
-				message: `Adding ${entities.length} item${entities.length === 1 ? "" : "s"} to collection`,
+				message: `Adding ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} to collection`,
 			});
 		}
 
@@ -389,7 +390,11 @@ export const BulkCollectionEditingAffix = (props: {
 	};
 
 	const handleConfirmBulkAction = () => {
-		const { action, collection, entities } = bulkEditingCollectionState.data;
+		const {
+			action,
+			collection,
+			targetEntities: entities,
+		} = bulkEditingCollectionState.data;
 		const actionText = action === "remove" ? "remove" : "add";
 		const itemCount = entities.length;
 		const message = `Are you sure you want to ${actionText} ${itemCount} item${itemCount === 1 ? "" : "s"} ${action === "remove" ? "from" : "to"} "${collection.name}"?`;
@@ -405,7 +410,8 @@ export const BulkCollectionEditingAffix = (props: {
 			<Paper withBorder shadow="xl" p="md" w={{ md: "40%" }} mx="auto">
 				<Group wrap="nowrap" justify="space-between">
 					<Text fz={{ base: "xs", md: "md" }}>
-						{bulkEditingCollectionState.data.entities.length} items selected
+						{bulkEditingCollectionState.data.targetEntities.length} items
+						selected
 					</Text>
 					<Group wrap="nowrap">
 						<ActionIcon
@@ -428,7 +434,9 @@ export const BulkCollectionEditingAffix = (props: {
 							size="xs"
 							loading={isLoading}
 							onClick={handleConfirmBulkAction}
-							disabled={bulkEditingCollectionState.data.entities.length === 0}
+							disabled={
+								bulkEditingCollectionState.data.targetEntities.length === 0
+							}
 							color={
 								bulkEditingCollectionState.data.action === "remove"
 									? "red"

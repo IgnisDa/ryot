@@ -18,8 +18,8 @@ type BulkEditingCollectionData = {
 	action: Action;
 	isLoading: boolean;
 	collection: Collection;
-	entities: Array<Entity>;
 	locationStartedFrom: string;
+	targetEntities: Array<Entity>;
 };
 
 export type BulkAddEntities = () => Promise<Array<Entity>>;
@@ -32,14 +32,14 @@ export const useBulkEditCollection = () => {
 	const navigate = useNavigate();
 
 	const findIndex = (toFind: Entity) =>
-		(bec?.entities || []).findIndex((inHere) => isEqual(inHere, toFind));
+		(bec?.targetEntities || []).findIndex((inHere) => isEqual(inHere, toFind));
 
 	const start = async (collection: Collection, action: Action) => {
 		setBec({
 			action,
 			collection,
-			entities: [],
 			isLoading: false,
+			targetEntities: [],
 			locationStartedFrom: location.pathname,
 		});
 	};
@@ -58,12 +58,12 @@ export const useBulkEditCollection = () => {
 					bulkAdd: async (getEntities: BulkAddEntities) => {
 						setBec({ ...bec, isLoading: true });
 						const entities = await getEntities();
-						setBec({ ...bec, isLoading: false, entities });
+						setBec({ ...bec, isLoading: false, targetEntities: entities });
 					},
 					remove: (toRemove: Entity) => {
 						setBec(
 							produce(bec, (draft) => {
-								draft.entities.splice(findIndex(toRemove), 1);
+								draft.targetEntities.splice(findIndex(toRemove), 1);
 							}),
 						);
 					},
@@ -71,7 +71,7 @@ export const useBulkEditCollection = () => {
 						if (findIndex(toAdd) !== -1) return;
 						setBec(
 							produce(bec, (draft) => {
-								draft.entities.push(toAdd);
+								draft.targetEntities.push(toAdd);
 							}),
 						);
 					},
