@@ -23,7 +23,7 @@ media-models = { workspace = true }
 myanimelist-provider = { path = "../../../providers/myanimelist" }
 openlibrary-provider = { path = "../../../providers/openlibrary" }
 spotify-provider = { path = "../../../providers/spotify" }
-supporting-service = { path = "../../../services/supporting" }
+supporting-service = { workspace = true }
 traits = { workspace = true }
 tmdb-provider = { path = "../../../providers/tmdb" }
 vndb-provider = { path = "../../../providers/vndb" }

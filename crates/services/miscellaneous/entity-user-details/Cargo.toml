@@ -21,7 +21,7 @@ dependent-seen-utils = { path = "../../../utils/dependent/seen" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-supporting-service = { path = "../../supporting" }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

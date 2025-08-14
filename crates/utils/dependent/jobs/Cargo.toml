@@ -13,7 +13,7 @@ background-models = { workspace = true }
 common-models = { workspace = true }
 database-models = { workspace = true }
 database-utils = { path = "../../../utils/database" }
-supporting-service = { path = "../../../services/supporting" }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

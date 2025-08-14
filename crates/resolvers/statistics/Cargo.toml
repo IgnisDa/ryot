@@ -8,5 +8,5 @@ async-graphql = { workspace = true }
 
 common-models = { workspace = true }
 dependent-models = { workspace = true }
-statistics-service = { path = "../../services/statistics" }
+statistics-service = { workspace = true }
 traits = { workspace = true }

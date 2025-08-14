@@ -24,7 +24,7 @@ dependent-review-utils = { path = "../review" }
 importer-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-supporting-service = { path = "../../../services/supporting" }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

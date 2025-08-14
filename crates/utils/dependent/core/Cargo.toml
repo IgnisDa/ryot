@@ -21,7 +21,7 @@ dependent-models = { workspace = true }
 enum-models = { workspace = true }
 env-utils = { workspace = true }
 file-storage-service = { workspace = true }
-supporting-service = { path = "../../../services/supporting" }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json", "sqlx", "tracing"]

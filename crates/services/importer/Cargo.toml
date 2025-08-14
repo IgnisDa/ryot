@@ -46,7 +46,7 @@ hardcover-provider = { path = "../../providers/hardcover" }
 importer-models = { workspace = true }
 media-models = { workspace = true }
 openlibrary-provider = { path = "../../providers/openlibrary" }
-supporting-service = { path = "../supporting" }
+supporting-service = { workspace = true }
 tmdb-provider = { path = "../../providers/tmdb" }
 traits = { workspace = true }
 

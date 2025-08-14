@@ -18,7 +18,7 @@ common-utils = { workspace = true }
 config-definition = { workspace = true }
 media-models = { workspace = true }
 session-service = { path = "../../services/session" }
-supporting-service = { path = "../../services/supporting" }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

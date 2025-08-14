@@ -11,4 +11,4 @@ nanoid = { workspace = true }
 
 common-utils = { workspace = true }
 config-definition = { workspace = true }
-supporting-service = { path = "../../services/supporting" }
+supporting-service = { workspace = true }

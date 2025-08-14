@@ -11,5 +11,5 @@ common-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-miscellaneous-service = { path = "../../services/miscellaneous" }
+miscellaneous-service = { workspace = true }
 traits = { workspace = true }

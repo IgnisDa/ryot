@@ -22,7 +22,7 @@ dependent-notification-utils = { path = "../notification" }
 dependent-utility-utils = { path = "../utility" }
 enum-models = { workspace = true }
 fitness-models = { workspace = true }
-supporting-service = { path = "../../../services/supporting" }
+supporting-service = { workspace = true }
 user-models = { workspace = true }
 
 [package.metadata.cargo-machete]

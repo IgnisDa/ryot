@@ -44,5 +44,5 @@ google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
 media-models = { workspace = true }
 openlibrary-provider = { path = "../../providers/openlibrary" }
-supporting-service = { path = "../supporting" }
+supporting-service = { workspace = true }
 traits = { workspace = true }

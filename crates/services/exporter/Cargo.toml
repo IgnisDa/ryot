@@ -27,7 +27,7 @@ enum-models = { workspace = true }
 file-storage-service = { workspace = true }
 fitness-models = { workspace = true }
 media-models = { workspace = true }
-supporting-service = { path = "../supporting" }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]
