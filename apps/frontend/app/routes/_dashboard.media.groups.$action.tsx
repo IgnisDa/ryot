@@ -190,9 +190,6 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const bulkEditingCollection = useBulkEditCollection();
-
-	const bulkEditingState = bulkEditingCollection.state;
 	const areFiltersApplied =
 		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
 		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
@@ -293,34 +290,9 @@ export default function Page() {
 							/>
 							{loaderData.list.list.response.details.total > 0 ? (
 								<ApplicationGrid>
-									{loaderData.list.list.response.items.map((gr) => {
-										const becItem = {
-											entityId: gr,
-											entityLot: EntityLot.MetadataGroup,
-										};
-										const isAdded = bulkEditingCollection.isAdded(becItem);
-										return (
-											<MetadataGroupDisplayItem
-												key={gr}
-												metadataGroupId={gr}
-												topRight={
-													bulkEditingState &&
-													bulkEditingState.data.action === "add" ? (
-														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
-															color="green"
-															onClick={() => {
-																if (isAdded) bulkEditingState.remove(becItem);
-																else bulkEditingState.add(becItem);
-															}}
-														>
-															<IconCheck size={18} />
-														</ActionIcon>
-													) : undefined
-												}
-											/>
-										);
-									})}
+									{loaderData.list.list.response.items.map((gr) => (
+										<MetadataGroupListItem key={gr} item={gr} />
+									))}
 								</ApplicationGrid>
 							) : (
 								<Text>No information to display</Text>
@@ -402,5 +374,41 @@ const FiltersModalForm = () => {
 				applied={loaderData.list.url.collections}
 			/>
 		</>
+	);
+};
+
+type MetadataGroupListItemProps = {
+	item: string;
+};
+
+const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = bulkEditingCollection.state;
+
+	const becItem = { entityId: props.item, entityLot: EntityLot.MetadataGroup };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
+	const isAdded = bulkEditingCollection.isAdded(becItem);
+
+	return (
+		<MetadataGroupDisplayItem
+			key={props.item}
+			metadataGroupId={props.item}
+			topRight={
+				bulkEditingState &&
+				bulkEditingState.data.action === "add" &&
+				!isAlreadyPresent ? (
+					<ActionIcon
+						variant={isAdded ? "filled" : "transparent"}
+						color="green"
+						onClick={() => {
+							if (isAdded) bulkEditingState.remove(becItem);
+							else bulkEditingState.add(becItem);
+						}}
+					>
+						<IconCheck size={18} />
+					</ActionIcon>
+				) : undefined
+			}
+		/>
 	);
 };
