@@ -20,6 +20,7 @@ pub static UNIQUE_INDEX_6: &str = "collection_to_entity_uqi6";
 pub static RANK_INDEX: &str = "collection_to_entity_rank_idx";
 pub static ENTITY_ID_INDEX: &str = "collection_to_entity_entity_id_idx";
 pub static ENTITY_LOT_INDEX: &str = "collection_to_entity_entity_lot_idx";
+pub static ENTITY_ID_LOT_INDEX: &str = "collection_to_entity_entity_id_lot_idx";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "collection_to_entity" DROP CONSTRAINT IF EXISTS "collection_to_entity__ensure_one_entity";
     ALTER TABLE "collection_to_entity"
@@ -243,6 +244,16 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .name(ENTITY_LOT_INDEX)
                     .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::EntityLot)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(ENTITY_ID_LOT_INDEX)
+                    .table(CollectionToEntity::Table)
+                    .col(CollectionToEntity::EntityId)
                     .col(CollectionToEntity::EntityLot)
                     .to_owned(),
             )

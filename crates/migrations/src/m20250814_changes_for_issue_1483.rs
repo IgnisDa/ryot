@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230404_create_user::{IS_DISABLED_INDEX, User},
     m20231016_create_collection_to_entity::{
-        CollectionToEntity, ENTITY_ID_INDEX, ENTITY_LOT_INDEX,
+        CollectionToEntity, ENTITY_ID_INDEX, ENTITY_ID_LOT_INDEX, ENTITY_LOT_INDEX,
     },
 };
 
@@ -49,6 +49,22 @@ impl MigrationTrait for Migration {
                     Index::create()
                         .name(ENTITY_LOT_INDEX)
                         .table(CollectionToEntity::Table)
+                        .col(CollectionToEntity::EntityLot)
+                        .to_owned(),
+                )
+                .await?;
+        }
+
+        if !manager
+            .has_index("collection_to_entity", ENTITY_ID_LOT_INDEX)
+            .await?
+        {
+            manager
+                .create_index(
+                    Index::create()
+                        .name(ENTITY_ID_LOT_INDEX)
+                        .table(CollectionToEntity::Table)
+                        .col(CollectionToEntity::EntityId)
                         .col(CollectionToEntity::EntityLot)
                         .to_owned(),
                 )
