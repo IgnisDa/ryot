@@ -28,7 +28,7 @@ dependent-utility-utils = { path = "../../utils/dependent/utility" }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-migrations = { path = "../../migrations" }
+migrations = { workspace = true }
 supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]

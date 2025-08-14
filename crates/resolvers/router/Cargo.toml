@@ -13,7 +13,7 @@ tracing = { workspace = true }
 
 common-utils = { workspace = true }
 config-definition = { workspace = true }
-integration-service = { path = "../../services/integration" }
+integration-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

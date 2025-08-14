@@ -43,10 +43,10 @@ file-storage-resolver = { workspace = true }
 file-storage-service = { workspace = true }
 fitness-resolver = { workspace = true }
 fitness-service = { workspace = true }
-importer-resolver = { path = "../../crates/resolvers/importer" }
-importer-service = { path = "../../crates/services/importer" }
-integration-service = { path = "../../crates/services/integration" }
-migrations = { path = "../../crates/migrations" }
+importer-resolver = { workspace = true }
+importer-service = { workspace = true }
+integration-service = { workspace = true }
+migrations = { workspace = true }
 miscellaneous-resolver = { path = "../../crates/resolvers/miscellaneous" }
 miscellaneous-service = { path = "../../crates/services/miscellaneous" }
 router-resolver = { path = "../../crates/resolvers/router" }

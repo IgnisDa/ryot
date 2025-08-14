@@ -20,7 +20,7 @@ database-models = { workspace = true }
 database-utils = { path = "../../../utils/database" }
 enum-models = { workspace = true }
 media-models = { workspace = true }
-migrations = { path = "../../../migrations" }
+migrations = { workspace = true }
 supporting-service = { path = "../../supporting" }
 user-models = { workspace = true }
 
