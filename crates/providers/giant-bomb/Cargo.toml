@@ -12,7 +12,7 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
+application-utils = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }

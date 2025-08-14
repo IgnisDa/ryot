@@ -29,7 +29,7 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
-application-utils = { path = "../../crates/utils/application" }
+application-utils = { workspace = true }
 background-models = { path = "../../crates/models/background" }
 collection-resolver = { path = "../../crates/resolvers/collection" }
 collection-service = { path = "../../crates/services/collection" }

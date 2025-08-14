@@ -17,7 +17,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
+application-utils = { workspace = true }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }
 config-definition = { path = "../../config/definition" }

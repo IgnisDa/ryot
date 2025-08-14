@@ -22,7 +22,7 @@ tokio = { workspace = true }
 totp-lite = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
+application-utils = { workspace = true }
 cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }

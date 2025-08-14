@@ -15,7 +15,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../../utils/application" }
+application-utils = { workspace = true }
 background-models = { path = "../../../models/background" }
 cache-service = { path = "../../cache" }
 common-models = { path = "../../../models/common" }

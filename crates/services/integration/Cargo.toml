@@ -25,7 +25,7 @@ tracing = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
+application-utils = { workspace = true }
 cache-service = { path = "../cache" }
 common-models = { path = "../../models/common" }
 common-utils = { path = "../../utils/common" }

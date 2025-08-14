@@ -12,7 +12,7 @@ rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../../utils/application" }
+application-utils = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-models = { path = "../../../models/dependent" }

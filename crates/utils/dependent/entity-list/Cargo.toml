@@ -11,7 +11,7 @@ sea-query = { workspace = true }
 slug = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../application" }
+application-utils = { workspace = true }
 cache-service = { path = "../../../services/cache" }
 common-models = { path = "../../../models/common" }
 database-models = { path = "../../../models/database" }
