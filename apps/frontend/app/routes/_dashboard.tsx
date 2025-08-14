@@ -17,7 +17,8 @@ import {
 	rem,
 	useMantineTheme,
 } from "@mantine/core";
-import { upperFirst, useDisclosure } from "@mantine/hooks";
+import { useDisclosure } from "@mantine/hooks";
+import { startCase } from "@ryot/ts-utils";
 import {
 	IconArchive,
 	IconCalendar,
@@ -392,7 +393,7 @@ export default function Layout() {
 										<Icon size={16.8} stroke={1.5} />
 									</Center>
 									<Text size="sm" className={classes.value}>
-										{upperFirst(
+										{startCase(
 											loaderData.currentColorScheme === "dark"
 												? "light"
 												: "dark",
