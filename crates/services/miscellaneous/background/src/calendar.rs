@@ -9,10 +9,8 @@ use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityTo
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, ryot_log};
 use database_models::{
     calendar_event::{self, Entity as CalendarEvent},
-    collection::{self, Entity as Collection},
-    collection_to_entity::Entity as CollectionToEntity,
+    collection_entity_membership::{self, Entity as CollectionEntityMembership},
     metadata::{self, Entity as Metadata},
-    prelude::UserToEntity,
 };
 use dependent_collection_utils::remove_entities_from_collection;
 use dependent_notification_utils::{get_users_monitoring_entity, send_notification_for_user};
@@ -215,47 +213,44 @@ pub async fn notify_users_for_released_media(ss: &Arc<SupportingService>) -> Res
 
 pub async fn notify_users_for_pending_reminders(ss: &Arc<SupportingService>) -> Result<()> {
     #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "PascalCase")]
     struct UserMediaReminder {
-        reminder: NaiveDate,
         text: String,
+        reminder: NaiveDate,
     }
-    for (cte, col) in CollectionToEntity::find()
-        .find_also_related(Collection)
-        .filter(collection::Column::Name.eq(DefaultCollection::Reminders.to_string()))
+    for membership in CollectionEntityMembership::find()
+        .filter(
+            collection_entity_membership::Column::CollectionName
+                .eq(DefaultCollection::Reminders.to_string()),
+        )
         .all(&ss.db)
         .await?
     {
-        if let Some(reminder) = cte.information {
+        if let Some(reminder) = membership.collection_to_entity_information {
             let reminder: UserMediaReminder =
                 serde_json::from_str(&serde_json::to_string(&reminder)?)?;
-            let col = col.unwrap();
-            let related_users = col.find_related(UserToEntity).all(&ss.db).await?;
             if get_current_date(&ss.timezone) == reminder.reminder {
-                for user in related_users {
-                    send_notification_for_user(
-                        &user.user_id,
-                        ss,
-                        UserNotificationContent::NotificationFromReminderCollection {
-                            reminder_text: reminder.text.clone(),
-                        },
-                    )
-                    .await?;
-                    remove_entities_from_collection(
-                        &user.user_id,
-                        ChangeCollectionToEntitiesInput {
-                            creator_user_id: col.user_id.clone(),
-                            collection_name: DefaultCollection::Reminders.to_string(),
-                            entities: vec![EntityToCollectionInput {
-                                information: None,
-                                entity_lot: cte.entity_lot,
-                                entity_id: cte.entity_id.clone(),
-                            }],
-                        },
-                        ss,
-                    )
-                    .await?;
-                }
+                send_notification_for_user(
+                    &membership.user_id,
+                    ss,
+                    UserNotificationContent::NotificationFromReminderCollection {
+                        reminder_text: reminder.text.clone(),
+                    },
+                )
+                .await?;
+                remove_entities_from_collection(
+                    &membership.user_id,
+                    ChangeCollectionToEntitiesInput {
+                        creator_user_id: membership.user_id.clone(),
+                        collection_name: DefaultCollection::Reminders.to_string(),
+                        entities: vec![EntityToCollectionInput {
+                            information: None,
+                            entity_lot: membership.entity_lot,
+                            entity_id: membership.entity_id.clone(),
+                        }],
+                    },
+                    ss,
+                )
+                .await?;
             }
         }
     }
