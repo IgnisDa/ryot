@@ -26,7 +26,7 @@ dependent-entity-utils = { path = "../../utils/dependent/entity" }
 dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-utility-utils = { path = "../../utils/dependent/utility" }
 dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }
 media-models = { path = "../../models/media" }
 migrations = { path = "../../migrations" }
 supporting-service = { path = "../supporting" }

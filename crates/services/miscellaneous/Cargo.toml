@@ -19,7 +19,7 @@ dependent-jobs-utils = { path = "../../utils/dependent/jobs" }
 dependent-models = { path = "../../models/dependent" }
 dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-review-utils = { path = "../../utils/dependent/review" }
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }
 media-models = { path = "../../models/media" }
 miscellaneous-background-service = { path = "./background" }
 miscellaneous-calendar-service = { path = "./calendar" }

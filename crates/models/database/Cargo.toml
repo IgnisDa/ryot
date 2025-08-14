@@ -21,7 +21,7 @@ serde_with = { workspace = true }
 uuid = { workspace = true }
 
 common-models = { workspace = true }
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
 media-models = { path = "../../models/media" }

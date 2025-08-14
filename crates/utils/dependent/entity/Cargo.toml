@@ -21,7 +21,7 @@ database-utils = { path = "../../database" }
 dependent-jobs-utils = { path = "../jobs" }
 dependent-models = { path = "../../../models/dependent" }
 dependent-provider-utils = { path = "../provider" }
-enum-models = { path = "../../../models/enum" }
+enum-models = { workspace = true }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../../services/supporting" }
 

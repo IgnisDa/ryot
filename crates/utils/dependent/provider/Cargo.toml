@@ -11,7 +11,7 @@ tracing = { workspace = true }
 anilist-provider = { path = "../../../providers/anilist" }
 audible-provider = { path = "../../../providers/audible" }
 config-definition = { workspace = true }
-enum-models = { path = "../../../models/enum" }
+enum-models = { workspace = true }
 giant-bomb-provider = { path = "../../../providers/giant-bomb" }
 google-books-provider = { path = "../../../providers/google-books" }
 hardcover-provider = { path = "../../../providers/hardcover" }

@@ -13,7 +13,7 @@ uuid = { workspace = true }
 cache-service = { path = "../../cache" }
 database-models = { path = "../../../models/database" }
 dependent-models = { path = "../../../models/dependent" }
-enum-models = { path = "../../../models/enum" }
+enum-models = { workspace = true }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }
 

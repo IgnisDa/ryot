@@ -212,6 +212,7 @@ application-utils = { path = "crates/utils/application" }
 common-models = { path = "crates/models/common" }
 common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
+enum-models = { path = "crates/models/enum" }
 
 [profile.release]
 lto = true

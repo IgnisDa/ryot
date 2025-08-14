@@ -18,7 +18,7 @@ uuid = { workspace = true }
 common-models = { workspace = true }
 config-definition = { workspace = true }
 database-models = { path = "../database" }
-enum-models = { path = "../enum" }
+enum-models = { workspace = true }
 fitness-models = { path = "../fitness" }
 importer-models = { path = "../importer" }
 media-models = { path = "../media" }

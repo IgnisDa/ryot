@@ -16,7 +16,7 @@ common-models = { workspace = true }
 database-models = { path = "../../models/database" }
 dependent-models = { path = "../../models/dependent" }
 dependent-analytics-utils = { path = "../../utils/dependent/analytics" }
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }
 supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]

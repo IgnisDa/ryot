@@ -37,7 +37,7 @@ dependent-jobs-utils = { path = "../../utils/dependent/jobs" }
 dependent-entity-utils = { path = "../../utils/dependent/entity" }
 dependent-models = { path = "../../models/dependent" }
 dependent-provider-utils = { path = "../../utils/dependent/provider" }
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }
 external-models = { path = "../../models/external" }
 external-utils = { path = "../../utils/external" }
 fitness-models = { path = "../../models/fitness" }

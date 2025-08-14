@@ -20,7 +20,7 @@ database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../collection" }
 dependent-notification-utils = { path = "../notification" }
 dependent-utility-utils = { path = "../utility" }
-enum-models = { path = "../../../models/enum" }
+enum-models = { workspace = true }
 fitness-models = { path = "../../../models/fitness" }
 supporting-service = { path = "../../../services/supporting" }
 user-models = { path = "../../../models/user" }

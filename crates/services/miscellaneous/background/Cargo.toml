@@ -29,7 +29,7 @@ dependent-models = { path = "../../../models/dependent" }
 dependent-notification-utils = { path = "../../../utils/dependent/notification" }
 dependent-seen-utils = { path = "../../../utils/dependent/seen" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
-enum-models = { path = "../../../models/enum" }
+enum-models = { workspace = true }
 media-models = { path = "../../../models/media" }
 supporting-service = { path = "../../supporting" }
 traits = { path = "../../../traits" }

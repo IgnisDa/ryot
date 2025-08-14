@@ -15,7 +15,7 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 
 common-models = { workspace = true }
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json"]
