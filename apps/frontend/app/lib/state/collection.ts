@@ -24,10 +24,6 @@ type BulkEditingCollectionData = {
 
 export type BulkAddEntities = () => Promise<Array<Entity>>;
 
-export type CreateOrUpdateCollectionModalData = {
-	collectionId?: string;
-};
-
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 
 export const useBulkEditCollection = () => {
@@ -82,6 +78,10 @@ export const useBulkEditCollection = () => {
 				}
 			: (false as const),
 	};
+};
+
+export type CreateOrUpdateCollectionModalData = {
+	collectionId?: string;
 };
 
 const createOrUpdateCollectionModalAtom = atom<{
