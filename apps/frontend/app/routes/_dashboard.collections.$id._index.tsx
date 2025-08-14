@@ -355,8 +355,8 @@ export default function Page() {
 								<Button
 									w="100%"
 									variant="outline"
-									onClick={async () => {
-										await bulkEditingCollection.start(colDetails, "add");
+									onClick={() => {
+										bulkEditingCollection.start(colDetails, "add");
 										navigate(
 											$path("/media/:action/:lot", {
 												action: "list",
@@ -371,8 +371,8 @@ export default function Page() {
 									w="100%"
 									variant="outline"
 									disabled={details.results.details.total === 0}
-									onClick={async () => {
-										await bulkEditingCollection.start(colDetails, "remove");
+									onClick={() => {
+										bulkEditingCollection.start(colDetails, "remove");
 										setTab(TabNames.Contents);
 									}}
 								>
