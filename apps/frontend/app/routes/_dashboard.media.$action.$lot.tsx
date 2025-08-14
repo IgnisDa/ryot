@@ -401,8 +401,8 @@ export default function Page() {
 													bulkEditingState &&
 													bulkEditingState.data.action === "add" ? (
 														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
 															color="green"
+															variant={isAdded ? "filled" : "transparent"}
 															onClick={() => {
 																if (isAdded) bulkEditingState.remove(becItem);
 																else bulkEditingState.add(becItem);
