@@ -22,7 +22,7 @@ uuid = { workspace = true }
 
 common-models = { workspace = true }
 enum-models = { workspace = true }
-fitness-models = { path = "../../models/fitness" }
+fitness-models = { workspace = true }
 importer-models = { path = "../../models/importer" }
 media-models = { workspace = true }
 user-models = { path = "../../models/user" }

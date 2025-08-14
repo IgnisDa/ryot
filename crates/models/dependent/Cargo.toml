@@ -19,7 +19,7 @@ common-models = { workspace = true }
 config-definition = { workspace = true }
 database-models = { path = "../database" }
 enum-models = { workspace = true }
-fitness-models = { path = "../fitness" }
+fitness-models = { workspace = true }
 importer-models = { path = "../importer" }
 media-models = { workspace = true }
 user-models = { path = "../user" }

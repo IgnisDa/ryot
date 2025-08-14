@@ -21,7 +21,7 @@ dependent-collection-utils = { path = "../collection" }
 dependent-notification-utils = { path = "../notification" }
 dependent-utility-utils = { path = "../utility" }
 enum-models = { workspace = true }
-fitness-models = { path = "../../../models/fitness" }
+fitness-models = { workspace = true }
 supporting-service = { path = "../../../services/supporting" }
 user-models = { path = "../../../models/user" }
 

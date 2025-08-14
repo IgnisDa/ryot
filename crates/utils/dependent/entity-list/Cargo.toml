@@ -17,7 +17,7 @@ common-models = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-models = { workspace = true }
-fitness-models = { path = "../../../models/fitness" }
+fitness-models = { workspace = true }
 migrations = { path = "../../../migrations" }
 enum-models = { workspace = true }
 media-models = { workspace = true }

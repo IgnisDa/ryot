@@ -9,6 +9,6 @@ sea-orm = { workspace = true }
 
 database-models = { path = "../../models/database" }
 dependent-models = { workspace = true }
-fitness-models = { path = "../../models/fitness" }
+fitness-models = { workspace = true }
 fitness-service = { path = "../../services/fitness" }
 traits = { workspace = true }

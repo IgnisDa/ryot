@@ -25,7 +25,7 @@ database-utils = { path = "../../utils/database" }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
-fitness-models = { path = "../../models/fitness" }
+fitness-models = { workspace = true }
 supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]

@@ -25,7 +25,7 @@ dependent-models = { workspace = true }
 dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
-fitness-models = { path = "../../models/fitness" }
+fitness-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { path = "../supporting" }
 
