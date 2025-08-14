@@ -33,7 +33,7 @@ database-models = { path = "../../models/database" }
 database-utils = { path = "../../utils/database" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-import-utils = { path = "../../utils/dependent/import" }
-dependent-metadata-utils = { path = "../../utils/dependent/metadata" }
+dependent-entity-utils = { path = "../../utils/dependent/entity" }
 dependent-models = { path = "../../models/dependent" }
 dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-provider-utils = { path = "../../utils/dependent/provider" }

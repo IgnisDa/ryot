@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use database_models::{metadata, prelude::Metadata};
-use dependent_metadata_utils::commit_metadata;
+use dependent_entity_utils::commit_metadata;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TrendingMetadataIdsResponse};
 use dependent_notification_utils::{get_users_monitoring_entity, send_notification_for_user};
 use dependent_provider_utils::get_metadata_provider;

@@ -29,7 +29,7 @@ common-utils = { path = "../../utils/common" }
 database-models = { path = "../../models/database" }
 dependent-collection-utils = { path = "../../utils/dependent/collection" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
-dependent-metadata-utils = { path = "../../utils/dependent/metadata" }
+dependent-entity-utils = { path = "../../utils/dependent/entity" }
 dependent-notification-utils = { path = "../../utils/dependent/notification" }
 database-utils = { path = "../../utils/database" }
 dependent-models = { path = "../../models/dependent" }

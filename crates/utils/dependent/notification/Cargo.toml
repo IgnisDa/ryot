@@ -15,7 +15,7 @@ uuid = { workspace = true }
 common-utils = { path = "../../common" }
 database-models = { path = "../../../models/database" }
 dependent-core-utils = { path = "../core" }
-dependent-metadata-utils = { path = "../metadata" }
+dependent-entity-utils = { path = "../entity" }
 enum-models = { path = "../../../models/enum" }
 media-models = { path = "../../../models/media" }
 notification-service = { path = "../../../services/notification" }

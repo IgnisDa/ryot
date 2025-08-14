@@ -10,7 +10,7 @@ use database_models::{
     },
 };
 use database_utils::{transform_entity_assets, user_by_id};
-use dependent_metadata_utils::generic_metadata;
+use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, SearchResults,
 };

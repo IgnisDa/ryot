@@ -13,7 +13,7 @@ tracing = { workspace = true }
 
 cache-service = { path = "../../cache" }
 database-models = { path = "../../../models/database" }
-dependent-metadata-utils = { path = "../../../utils/dependent/metadata" }
+dependent-entity-utils = { path = "../../../utils/dependent/entity" }
 dependent-models = { path = "../../../models/dependent" }
 dependent-notification-utils = { path = "../../../utils/dependent/notification" }
 dependent-provider-utils = { path = "../../../utils/dependent/provider" }

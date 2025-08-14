@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_utils::ryot_log;
 use data_encoding::BASE64;
-use dependent_metadata_utils::commit_metadata;
+use dependent_entity_utils::commit_metadata;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_provider_utils::get_identifier_from_book_isbn;
 use enum_models::{ImportSource, MediaLot, MediaSource};

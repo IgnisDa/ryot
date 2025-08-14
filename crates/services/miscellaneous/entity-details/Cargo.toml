@@ -12,7 +12,7 @@ sea-orm = { workspace = true }
 tracing = { workspace = true }
 
 common-models = { path = "../../../models/common" }
-dependent-metadata-utils = { path = "../../../utils/dependent/metadata" }
+dependent-entity-utils = { path = "../../../utils/dependent/entity" }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-models = { path = "../../../models/dependent" }

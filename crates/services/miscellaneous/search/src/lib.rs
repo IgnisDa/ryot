@@ -5,7 +5,7 @@ use common_models::{
     MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, UserLevelCacheKey,
 };
 use database_utils::user_by_id;
-use dependent_metadata_utils::{commit_metadata, commit_metadata_group, commit_person};
+use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, MetadataGroupSearchResponse,
     MetadataSearchResponse, PeopleSearchResponse, SearchResults,

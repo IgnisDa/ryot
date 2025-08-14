@@ -9,7 +9,7 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::user_by_id;
-use dependent_metadata_utils::generic_metadata;
+use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
     UserMetadataRecommendationsResponse,

@@ -5,12 +5,12 @@ use common_models::{ChangeCollectionToEntitiesInput, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::{add_entities_to_collection, create_or_update_collection};
+use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_fitness_utils::{
     create_custom_exercise, create_or_update_user_workout, create_user_measurement,
     db_workout_to_workout_input,
 };
 use dependent_jobs_utils::{deploy_update_metadata_group_job, deploy_update_person_job};
-use dependent_metadata_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use dependent_progress_utils::commit_import_seen_item;
 use dependent_review_utils::{convert_review_into_input, post_review};

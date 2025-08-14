@@ -16,7 +16,7 @@ common-utils = { path = "../../../utils/common" }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../../../utils/dependent/collection" }
-dependent-metadata-utils = { path = "../../../utils/dependent/metadata" }
+dependent-entity-utils = { path = "../../../utils/dependent/entity" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
 enum-models = { path = "../../../models/enum" }
 file-storage-service = { path = "../../file-storage" }

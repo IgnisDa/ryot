@@ -8,7 +8,7 @@ use database_models::{
     prelude::{CollectionToEntity, MonitoredEntity, NotificationPlatform},
 };
 use dependent_core_utils::get_entity_details_frontend_url;
-use dependent_metadata_utils::{update_metadata, update_metadata_group, update_person};
+use dependent_entity_utils::{update_metadata, update_metadata_group, update_person};
 use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
 use media_models::UpdateMediaEntityResult;

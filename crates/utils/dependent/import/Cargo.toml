@@ -17,7 +17,7 @@ database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../collection" }
 dependent-fitness-utils = { path = "../fitness" }
 dependent-jobs-utils = { path = "../jobs" }
-dependent-metadata-utils = { path = "../metadata" }
+dependent-entity-utils = { path = "../entity" }
 dependent-models = { path = "../../../models/dependent" }
 dependent-progress-utils = { path = "../progress" }
 dependent-review-utils = { path = "../review" }
