@@ -2824,6 +2824,7 @@ export enum UserNotificationContentDiscriminants {
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
   MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
   MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
+  MetadataMovedFromCompletedToWatchlistCollection = 'METADATA_MOVED_FROM_COMPLETED_TO_WATCHLIST_COLLECTION',
   MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
   MetadataPublished = 'METADATA_PUBLISHED',
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
