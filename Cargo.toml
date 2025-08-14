@@ -215,6 +215,7 @@ config-definition = { path = "crates/config/definition" }
 dependent-models = { path = "crates/models/dependent" }
 enum-models = { path = "crates/models/enum" }
 media-models = { path = "crates/models/media" }
+traits = { path = "crates/traits" }
 
 [profile.release]
 lto = true

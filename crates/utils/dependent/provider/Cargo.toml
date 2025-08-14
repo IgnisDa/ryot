@@ -24,7 +24,7 @@ myanimelist-provider = { path = "../../../providers/myanimelist" }
 openlibrary-provider = { path = "../../../providers/openlibrary" }
 spotify-provider = { path = "../../../providers/spotify" }
 supporting-service = { path = "../../../services/supporting" }
-traits = { path = "../../../traits" }
+traits = { workspace = true }
 tmdb-provider = { path = "../../../providers/tmdb" }
 vndb-provider = { path = "../../../providers/vndb" }
 youtube-music-provider = { path = "../../../providers/youtube-music" }

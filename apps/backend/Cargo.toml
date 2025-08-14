@@ -53,6 +53,6 @@ router-resolver = { path = "../../crates/resolvers/router" }
 statistics-resolver = { path = "../../crates/resolvers/statistics" }
 statistics-service = { path = "../../crates/services/statistics" }
 supporting-service = { path = "../../crates/services/supporting" }
-traits = { path = "../../crates/traits" }
+traits = { workspace = true }
 user-resolver = { path = "../../crates/resolvers/user" }
 user-service = { path = "../../crates/services/user" }

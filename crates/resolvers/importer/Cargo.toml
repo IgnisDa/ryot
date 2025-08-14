@@ -9,4 +9,4 @@ async-graphql = { workspace = true }
 database-models = { path = "../../models/database" }
 importer-service = { path = "../../services/importer" }
 media-models = { workspace = true }
-traits = { path = "../../traits" }
+traits = { workspace = true }

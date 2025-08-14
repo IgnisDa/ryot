@@ -10,6 +10,6 @@ common-models = { workspace = true }
 database-models = { path = "../../models/database" }
 dependent-models = { workspace = true }
 media-models = { workspace = true }
-traits = { path = "../../traits" }
+traits = { workspace = true }
 user-models = { path = "../../models/user" }
 user-service = { path = "../../services/user" }

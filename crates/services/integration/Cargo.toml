@@ -45,4 +45,4 @@ hardcover-provider = { path = "../../providers/hardcover" }
 media-models = { workspace = true }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 supporting-service = { path = "../supporting" }
-traits = { path = "../../traits" }
+traits = { workspace = true }

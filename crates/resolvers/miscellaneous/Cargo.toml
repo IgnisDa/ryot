@@ -12,4 +12,4 @@ dependent-models = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 miscellaneous-service = { path = "../../services/miscellaneous" }
-traits = { path = "../../traits" }
+traits = { workspace = true }

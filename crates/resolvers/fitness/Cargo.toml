@@ -11,4 +11,4 @@ database-models = { path = "../../models/database" }
 dependent-models = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 fitness-service = { path = "../../services/fitness" }
-traits = { path = "../../traits" }
+traits = { workspace = true }

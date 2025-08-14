@@ -8,4 +8,4 @@ async-graphql = { workspace = true }
 
 common-models = { workspace = true }
 exporter-service = { path = "../../services/exporter" }
-traits = { path = "../../traits" }
+traits = { workspace = true }
