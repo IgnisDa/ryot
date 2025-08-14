@@ -30,12 +30,6 @@ export type CreateOrUpdateCollectionModalData = {
 
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
 
-const createOrUpdateCollectionModalAtom = atom<{
-	isOpen: boolean;
-	usersList: UsersListQuery["usersList"];
-	data: CreateOrUpdateCollectionModalData | null;
-}>({ isOpen: false, data: null, usersList: [] });
-
 export const useBulkEditCollection = () => {
 	const [bec, setBec] = useAtom(bulkEditingCollectionAtom);
 	const location = useLocation();
@@ -89,6 +83,12 @@ export const useBulkEditCollection = () => {
 			: (false as const),
 	};
 };
+
+const createOrUpdateCollectionModalAtom = atom<{
+	isOpen: boolean;
+	usersList: UsersListQuery["usersList"];
+	data: CreateOrUpdateCollectionModalData | null;
+}>({ isOpen: false, data: null, usersList: [] });
 
 export const useCreateOrUpdateCollectionModal = () => {
 	const [modal, setModal] = useAtom(createOrUpdateCollectionModalAtom);
