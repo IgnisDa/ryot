@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 use super::{
     m20230404_create_user::{IS_DISABLED_INDEX, User},
     m20231016_create_collection_to_entity::{
-        COMPOSITE_INDEX, CollectionToEntity, ENTITY_ID_INDEX, ENTITY_LOT_INDEX,
+        CollectionToEntity, ENTITY_ID_INDEX, ENTITY_LOT_INDEX,
     },
 };
 
@@ -55,22 +55,6 @@ impl MigrationTrait for Migration {
                 .await?;
         }
 
-        if !manager
-            .has_index("collection_to_entity", COMPOSITE_INDEX)
-            .await?
-        {
-            manager
-                .create_index(
-                    Index::create()
-                        .name(COMPOSITE_INDEX)
-                        .table(CollectionToEntity::Table)
-                        .col(CollectionToEntity::CollectionId)
-                        .col(CollectionToEntity::EntityId)
-                        .col(CollectionToEntity::EntityLot)
-                        .to_owned(),
-                )
-                .await?;
-        }
 
         let db = manager.get_connection();
         db.execute_unprepared("DROP VIEW IF EXISTS monitored_entity")
