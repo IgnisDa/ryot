@@ -5,8 +5,8 @@ use chrono::Utc;
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
 use database_models::{
-    collection_to_entity, collection_entity_membership, notification_platform,
-    prelude::{CollectionToEntity, CollectionEntityMembership, NotificationPlatform},
+    collection_entity_membership, collection_to_entity, notification_platform,
+    prelude::{CollectionEntityMembership, CollectionToEntity, NotificationPlatform},
 };
 use dependent_core_utils::get_entity_details_frontend_url;
 use dependent_entity_utils::{update_metadata, update_metadata_group, update_person};
