@@ -6,12 +6,12 @@ use chrono::Utc;
 use common_models::{BackendError, EntityAssets, IdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
-    access_link, collection, collection_to_entity,
+    access_link, collection, collection_entity_membership, collection_to_entity,
     prelude::{
-        AccessLink, Collection, CollectionToEntity, Review, Seen, User, UserToEntity, Workout,
+        AccessLink, CollectionEntityMembership, CollectionToEntity, Review, Seen, User, Workout,
         WorkoutTemplate,
     },
-    review, seen, user, user_to_entity, workout,
+    review, seen, user, workout,
 };
 use dependent_models::{
     CollectionToEntityDetails, GraphqlCollectionToEntityDetails, UserWorkoutDetails,
@@ -98,39 +98,26 @@ pub async fn entity_in_collections_with_details(
     entity_id: &String,
     entity_lot: EntityLot,
 ) -> Result<Vec<GraphqlCollectionToEntityDetails>> {
-    let user_collections = Collection::find()
-        .left_join(UserToEntity)
-        .filter(user_to_entity::Column::UserId.eq(user_id))
+    let memberships = CollectionEntityMembership::find()
+        .filter(collection_entity_membership::Column::UserId.eq(user_id))
+        .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
+        .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
         .all(db)
         .await
         .unwrap();
-    let mtc = CollectionToEntity::find()
-        .filter(
-            collection_to_entity::Column::CollectionId
-                .is_in(user_collections.into_iter().map(|c| c.id).collect_vec()),
-        )
-        .filter(collection_to_entity::Column::EntityId.eq(entity_id))
-        .filter(collection_to_entity::Column::EntityLot.eq(entity_lot))
-        .find_also_related(Collection)
-        .all(db)
-        .await
-        .unwrap();
-    let resp = mtc
+    let resp = memberships
         .into_iter()
-        .map(|(cte, col)| {
-            let model = col.unwrap();
-            GraphqlCollectionToEntityDetails {
-                id: cte.id,
-                details: CollectionToEntityDetails {
-                    rank: cte.rank,
-                    created_on: cte.created_on,
-                    information: cte.information,
-                    collection_id: model.id.clone(),
-                    collection_name: model.name.clone(),
-                    last_updated_on: cte.last_updated_on,
-                    creator_user_id: model.user_id.clone(),
-                },
-            }
+        .map(|membership| GraphqlCollectionToEntityDetails {
+            id: membership.collection_to_entity_id,
+            details: CollectionToEntityDetails {
+                rank: membership.collection_to_entity_rank,
+                creator_user_id: membership.user_id.clone(),
+                collection_name: membership.collection_name.clone(),
+                collection_id: membership.origin_collection_id.clone(),
+                created_on: membership.collection_to_entity_created_on,
+                information: membership.collection_to_entity_information,
+                last_updated_on: membership.collection_to_entity_last_updated_on,
+            },
         })
         .collect_vec();
     Ok(resp)
