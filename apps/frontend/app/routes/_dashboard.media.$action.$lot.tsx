@@ -637,7 +637,6 @@ const MediaListItem = (props: MediaListItemProps) => {
 
 	return (
 		<MetadataDisplayItem
-			key={props.item}
 			rightLabelHistory
 			metadataId={props.item}
 			topRight={

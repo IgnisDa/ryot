@@ -391,7 +391,6 @@ const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 
 	return (
 		<MetadataGroupDisplayItem
-			key={props.item}
 			metadataGroupId={props.item}
 			topRight={
 				bulkEditingState &&

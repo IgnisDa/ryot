@@ -432,7 +432,6 @@ const PersonListItem = (props: PersonListItemProps) => {
 
 	return (
 		<PersonDisplayItem
-			key={props.item}
 			personId={props.item}
 			topRight={
 				bulkEditingState &&
