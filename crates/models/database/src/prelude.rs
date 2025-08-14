@@ -17,6 +17,7 @@ pub use super::metadata_to_genre::Entity as MetadataToGenre;
 pub use super::metadata_to_metadata::Entity as MetadataToMetadata;
 pub use super::metadata_to_metadata_group::Entity as MetadataToMetadataGroup;
 pub use super::metadata_to_person::Entity as MetadataToPerson;
+pub use super::monitored_entity::Entity as MonitoredEntity;
 pub use super::notification_platform::Entity as NotificationPlatform;
 pub use super::person::Entity as Person;
 pub use super::review::Entity as Review;
