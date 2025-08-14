@@ -20,7 +20,7 @@ background-models = { path = "../../../models/background" }
 cache-service = { path = "../../cache" }
 common-models = { workspace = true }
 common-utils = { workspace = true }
-database-models = { path = "../../../models/database" }
+database-models = { workspace = true }
 database-utils = { path = "../../../utils/database" }
 dependent-analytics-utils = { path = "../../../utils/dependent/analytics" }
 dependent-collection-utils = { path = "../../../utils/dependent/collection" }

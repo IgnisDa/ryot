@@ -30,7 +30,7 @@ application-utils = { workspace = true }
 background-models = { path = "../../models/background" }
 common-models = { workspace = true }
 common-utils = { workspace = true }
-database-models = { path = "../../models/database" }
+database-models = { workspace = true }
 dependent-fitness-utils = { path = "../../utils/dependent/fitness" }
 dependent-import-utils = { path = "../../utils/dependent/import" }
 dependent-jobs-utils = { path = "../../utils/dependent/jobs" }

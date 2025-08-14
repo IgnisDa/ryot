@@ -13,7 +13,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 common-utils = { workspace = true }
-database-models = { path = "../../../models/database" }
+database-models = { workspace = true }
 dependent-core-utils = { path = "../core" }
 dependent-entity-utils = { path = "../entity" }
 enum-models = { workspace = true }

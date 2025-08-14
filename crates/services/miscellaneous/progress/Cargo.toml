@@ -11,7 +11,7 @@ sea-orm = { workspace = true }
 tracing = { workspace = true }
 
 common-models = { workspace = true }
-database-models = { path = "../../../models/database" }
+database-models = { workspace = true }
 dependent-progress-utils = { path = "../../../utils/dependent/progress" }
 dependent-seen-utils = { path = "../../../utils/dependent/seen" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }

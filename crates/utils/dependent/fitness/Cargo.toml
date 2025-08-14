@@ -15,7 +15,7 @@ tracing = { workspace = true }
 
 common-models = { workspace = true }
 common-utils = { workspace = true }
-database-models = { path = "../../../models/database" }
+database-models = { workspace = true }
 database-utils = { path = "../../../utils/database" }
 dependent-collection-utils = { path = "../collection" }
 dependent-notification-utils = { path = "../notification" }

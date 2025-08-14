@@ -13,7 +13,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 common-models = { workspace = true }
-database-models = { path = "../../models/database" }
+database-models = { workspace = true }
 dependent-models = { workspace = true }
 dependent-analytics-utils = { path = "../../utils/dependent/analytics" }
 enum-models = { workspace = true }

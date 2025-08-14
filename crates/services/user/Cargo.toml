@@ -26,7 +26,7 @@ application-utils = { workspace = true }
 cache-service = { path = "../cache" }
 common-models = { workspace = true }
 common-utils = { workspace = true }
-database-models = { path = "../../models/database" }
+database-models = { workspace = true }
 dependent-collection-utils = { path = "../../utils/dependent/collection" }
 dependent-core-utils = { path = "../../utils/dependent/core" }
 dependent-entity-utils = { path = "../../utils/dependent/entity" }

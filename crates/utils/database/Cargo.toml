@@ -17,7 +17,7 @@ uuid = { workspace = true }
 background-models = { path = "../../models/background" }
 common-models = { workspace = true }
 common-utils = { workspace = true }
-database-models = { path = "../../models/database" }
+database-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
