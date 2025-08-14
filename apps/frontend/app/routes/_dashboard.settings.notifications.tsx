@@ -430,6 +430,11 @@ const DisplayNotification = (props: {
 													UserNotificationContentDiscriminants.IntegrationDisabledDueToTooManyErrors,
 													() => "Integration disabled due to too many errors",
 												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataMovedFromCompletedToWatchlistCollection,
+													() =>
+														"Media moved from the Completed to the Watchlist collection",
+												)
 												.exhaustive()}
 										/>
 									),
