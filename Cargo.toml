@@ -208,44 +208,18 @@ unkey = "=0.6.0"
 url = "=2.5.4"
 uuid = { version = "=1.17.0", features = ["v4"], default-features = false }
 
+anilist-provider = { path = "crates/providers/anilist" }
 application-utils = { path = "crates/utils/application" }
+audible-provider = { path = "crates/providers/audible" }
 background-models = { path = "crates/models/background" }
+cache-service = { path = "crates/services/cache" }
 collection-resolver = { path = "crates/resolvers/collection" }
 collection-service = { path = "crates/services/collection" }
 common-models = { path = "crates/models/common" }
 common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
-env-utils = { path = "crates/utils/env" }
-database-models = { path = "crates/models/database" }
-dependent-models = { path = "crates/models/dependent" }
-enum-models = { path = "crates/models/enum" }
-exporter-resolver = { path = "crates/resolvers/exporter" }
-exporter-service = { path = "crates/services/exporter" }
-file-storage-resolver = { path = "crates/resolvers/file-storage" }
-file-storage-service = { path = "crates/services/file-storage" }
-fitness-models = { path = "crates/models/fitness" }
-fitness-resolver = { path = "crates/resolvers/fitness" }
-fitness-service = { path = "crates/services/fitness" }
-importer-models = { path = "crates/models/importer" }
-importer-resolver = { path = "crates/resolvers/importer" }
-importer-service = { path = "crates/services/importer" }
-integration-service = { path = "crates/services/integration" }
-migrations = { path = "crates/migrations" }
-media-models = { path = "crates/models/media" }
-miscellaneous-resolver = { path = "crates/resolvers/miscellaneous" }
-miscellaneous-service = { path = "crates/services/miscellaneous" }
-router-resolver = { path = "crates/resolvers/router" }
-statistics-resolver = { path = "crates/resolvers/statistics" }
-statistics-service = { path = "crates/services/statistics" }
-supporting-service = { path = "crates/services/supporting" }
-traits = { path = "crates/traits" }
-user-resolver = { path = "crates/resolvers/user" }
-user-models = { path = "crates/models/user" }
-user-service = { path = "crates/services/user" }
-
-# Utility crates
-cache-service = { path = "crates/services/cache" }
 config-macros = { path = "crates/config/macros" }
+database-models = { path = "crates/models/database" }
 database-utils = { path = "crates/utils/database" }
 dependent-analytics-utils = { path = "crates/utils/dependent/analytics" }
 dependent-collection-utils = { path = "crates/utils/dependent/collection" }
@@ -255,16 +229,37 @@ dependent-entity-utils = { path = "crates/utils/dependent/entity" }
 dependent-fitness-utils = { path = "crates/utils/dependent/fitness" }
 dependent-import-utils = { path = "crates/utils/dependent/import" }
 dependent-jobs-utils = { path = "crates/utils/dependent/jobs" }
+dependent-models = { path = "crates/models/dependent" }
 dependent-notification-utils = { path = "crates/utils/dependent/notification" }
 dependent-progress-utils = { path = "crates/utils/dependent/progress" }
 dependent-provider-utils = { path = "crates/utils/dependent/provider" }
 dependent-review-utils = { path = "crates/utils/dependent/review" }
 dependent-seen-utils = { path = "crates/utils/dependent/seen" }
 dependent-utility-utils = { path = "crates/utils/dependent/utility" }
+enum-models = { path = "crates/models/enum" }
+env-utils = { path = "crates/utils/env" }
+exporter-resolver = { path = "crates/resolvers/exporter" }
+exporter-service = { path = "crates/services/exporter" }
 external-models = { path = "crates/models/external" }
 external-utils = { path = "crates/utils/external" }
-
-# Service crates  
+file-storage-resolver = { path = "crates/resolvers/file-storage" }
+file-storage-service = { path = "crates/services/file-storage" }
+fitness-models = { path = "crates/models/fitness" }
+fitness-resolver = { path = "crates/resolvers/fitness" }
+fitness-service = { path = "crates/services/fitness" }
+giant-bomb-provider = { path = "crates/providers/giant-bomb" }
+google-books-provider = { path = "crates/providers/google-books" }
+hardcover-provider = { path = "crates/providers/hardcover" }
+igdb-provider = { path = "crates/providers/igdb" }
+importer-models = { path = "crates/models/importer" }
+importer-resolver = { path = "crates/resolvers/importer" }
+importer-service = { path = "crates/services/importer" }
+integration-service = { path = "crates/services/integration" }
+itunes-provider = { path = "crates/providers/itunes" }
+listennotes-provider = { path = "crates/providers/listennotes" }
+manga-updates-provider = { path = "crates/providers/manga-updates" }
+media-models = { path = "crates/models/media" }
+migrations = { path = "crates/migrations" }
 miscellaneous-background-service = { path = "crates/services/miscellaneous/background" }
 miscellaneous-calendar-service = { path = "crates/services/miscellaneous/calendar" }
 miscellaneous-entity-details-service = { path = "crates/services/miscellaneous/entity-details" }
@@ -273,28 +268,25 @@ miscellaneous-general-service = { path = "crates/services/miscellaneous/general"
 miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
+miscellaneous-resolver = { path = "crates/resolvers/miscellaneous" }
 miscellaneous-review-service = { path = "crates/services/miscellaneous/review" }
 miscellaneous-search-service = { path = "crates/services/miscellaneous/search" }
+miscellaneous-service = { path = "crates/services/miscellaneous" }
 miscellaneous-trending-and-events-service = { path = "crates/services/miscellaneous/trending-and-events" }
-notification-service = { path = "crates/services/notification" }
-session-service = { path = "crates/services/session" }
-
-# Provider crates
-google-books-provider = { path = "crates/providers/google-books" }
-hardcover-provider = { path = "crates/providers/hardcover" }
-openlibrary-provider = { path = "crates/providers/openlibrary" }
-tmdb-provider = { path = "crates/providers/tmdb" }
-
-# Additional provider crates
-anilist-provider = { path = "crates/providers/anilist" }
-audible-provider = { path = "crates/providers/audible" }
-giant-bomb-provider = { path = "crates/providers/giant-bomb" }
-igdb-provider = { path = "crates/providers/igdb" }
-itunes-provider = { path = "crates/providers/itunes" }
-listennotes-provider = { path = "crates/providers/listennotes" }
-manga-updates-provider = { path = "crates/providers/manga-updates" }
 myanimelist-provider = { path = "crates/providers/myanimelist" }
+notification-service = { path = "crates/services/notification" }
+openlibrary-provider = { path = "crates/providers/openlibrary" }
+router-resolver = { path = "crates/resolvers/router" }
+session-service = { path = "crates/services/session" }
 spotify-provider = { path = "crates/providers/spotify" }
+statistics-resolver = { path = "crates/resolvers/statistics" }
+statistics-service = { path = "crates/services/statistics" }
+supporting-service = { path = "crates/services/supporting" }
+tmdb-provider = { path = "crates/providers/tmdb" }
+traits = { path = "crates/traits" }
+user-models = { path = "crates/models/user" }
+user-resolver = { path = "crates/resolvers/user" }
+user-service = { path = "crates/services/user" }
 vndb-provider = { path = "crates/providers/vndb" }
 youtube-music-provider = { path = "crates/providers/youtube-music" }
 
