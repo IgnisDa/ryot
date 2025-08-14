@@ -209,6 +209,7 @@ url = "=2.5.4"
 uuid = { version = "=1.17.0", features = ["v4"], default-features = false }
 
 application-utils = { path = "crates/utils/application" }
+collection-resolver = { path = "crates/resolvers/collection" }
 common-models = { path = "crates/models/common" }
 common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
