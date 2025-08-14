@@ -2037,6 +2037,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "common-models",
  "common-utils",
  "database-models",
  "dependent-core-utils",

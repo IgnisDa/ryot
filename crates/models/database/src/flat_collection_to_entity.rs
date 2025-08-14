@@ -5,7 +5,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "monitored_entity")]
+#[sea_orm(table_name = "flat_collection_to_entity")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: String,
@@ -13,6 +13,7 @@ pub struct Model {
     pub entity_id: String,
     #[sea_orm(primary_key, auto_increment = false)]
     pub entity_lot: EntityLot,
+    pub collection_name: String,
     pub origin_collection_id: String,
     pub collection_to_entity_id: Uuid,
 }
