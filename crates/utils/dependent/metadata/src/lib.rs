@@ -225,7 +225,7 @@ pub async fn update_metadata(
                 .unwrap()
                 .unwrap();
 
-            let notifications = generate_metadata_change_notifications(&meta, &details).await?;
+            let notifications = generate_metadata_update_notifications(&meta, &details).await?;
 
             let free_creators = (!details.creators.is_empty())
                 .then_some(())
@@ -286,7 +286,7 @@ pub async fn update_metadata(
     Ok(result)
 }
 
-async fn generate_metadata_change_notifications(
+async fn generate_metadata_update_notifications(
     meta: &metadata::Model,
     details: &MetadataDetails,
 ) -> Result<Vec<UserNotificationContent>> {
