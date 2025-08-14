@@ -1,12 +1,14 @@
-import type {
-	EntityLot,
-	Scalars,
-	UsersListQuery,
+import {
+	CollectionContentsDocument,
+	type EntityLot,
+	type Scalars,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
+import { clientGqlService } from "~/lib/shared/query-factory";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -35,10 +37,18 @@ export const useBulkEditCollection = () => {
 		(bec?.entities || []).findIndex((inHere) => isEqual(inHere, toFind));
 
 	const start = async (collection: Collection, action: Action) => {
+		const result = await clientGqlService.request(CollectionContentsDocument, {
+			input: {
+				collectionId: collection.id,
+				search: { take: Number.MAX_SAFE_INTEGER },
+			},
+		});
+		const entities = result.collectionContents.response.results.items;
+
 		setBec({
 			action,
+			entities,
 			collection,
-			entities: [],
 			isLoading: false,
 			locationStartedFrom: location.pathname,
 		});
