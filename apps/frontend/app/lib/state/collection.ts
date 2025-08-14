@@ -44,7 +44,7 @@ export const useBulkEditCollection = () => {
 	const findIndex = (toFind: Entity) =>
 		(bec?.entities || []).findIndex((inHere) => isEqual(inHere, toFind));
 
-	const start = (collection: Collection, action: Action) => {
+	const start = async (collection: Collection, action: Action) => {
 		setBec({
 			action,
 			collection,
