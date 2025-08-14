@@ -195,9 +195,6 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const bulkEditingCollection = useBulkEditCollection();
-
-	const bulkEditingState = bulkEditingCollection.state;
 	const areFiltersApplied =
 		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
 		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
@@ -335,34 +332,9 @@ export default function Page() {
 							/>
 							{loaderData.list.list.response.details.total > 0 ? (
 								<ApplicationGrid>
-									{loaderData.list.list.response.items.map((person) => {
-										const becItem = {
-											entityId: person,
-											entityLot: EntityLot.Person,
-										};
-										const isAdded = bulkEditingCollection.isAdded(becItem);
-										return (
-											<PersonDisplayItem
-												key={person}
-												personId={person}
-												topRight={
-													bulkEditingState &&
-													bulkEditingState.data.action === "add" ? (
-														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
-															color="green"
-															onClick={() => {
-																if (isAdded) bulkEditingState.remove(becItem);
-																else bulkEditingState.add(becItem);
-															}}
-														>
-															<IconCheck size={18} />
-														</ActionIcon>
-													) : undefined
-												}
-											/>
-										);
-									})}
+									{loaderData.list.list.response.items.map((person) => (
+										<PersonListItem key={person} item={person} />
+									))}
 								</ApplicationGrid>
 							) : (
 								<Text>No information to display</Text>
@@ -443,5 +415,41 @@ const FiltersModalForm = () => {
 				applied={loaderData.list.url.collections}
 			/>
 		</>
+	);
+};
+
+type PersonListItemProps = {
+	item: string;
+};
+
+const PersonListItem = (props: PersonListItemProps) => {
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = bulkEditingCollection.state;
+
+	const becItem = { entityId: props.item, entityLot: EntityLot.Person };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
+	const isAdded = bulkEditingCollection.isAdded(becItem);
+
+	return (
+		<PersonDisplayItem
+			key={props.item}
+			personId={props.item}
+			topRight={
+				bulkEditingState &&
+				bulkEditingState.data.action === "add" &&
+				!isAlreadyPresent ? (
+					<ActionIcon
+						variant={isAdded ? "filled" : "transparent"}
+						color="green"
+						onClick={() => {
+							if (isAdded) bulkEditingState.remove(becItem);
+							else bulkEditingState.add(becItem);
+						}}
+					>
+						<IconCheck size={18} />
+					</ActionIcon>
+				) : undefined
+			}
+		/>
 	);
 };
