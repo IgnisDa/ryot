@@ -18,7 +18,7 @@ use database_utils::transform_entity_assets;
 use dependent_jobs_utils::deploy_update_metadata_job;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, MetadataBaseData,
-    MetadataEligibleForSmartCollectionMoving,
+    MetadataEligibleForSmartCollectionMovingInput,
 };
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
@@ -289,29 +289,24 @@ pub async fn update_metadata(
     Ok(result)
 }
 
-async fn make_metadata_eligible_for_smart_collection_moving(
-    metadata_id: &String,
-    ss: &Arc<SupportingService>,
-) -> Result<()> {
-    let already = cache_service::get_value::<MetadataEligibleForSmartCollectionMoving>(
-        ss,
-        ApplicationCacheKey::MetadataEligibleForSmartCollectionMoving,
-    )
-    .await?;
-    cache_service::set_key(
-        ss,
-        ApplicationCacheKey::MetadataEligibleForSmartCollectionMoving,
-        ApplicationCacheValue::MetadataEligibleForSmartCollectionMoving(EmptyCacheValue::default()),
-    )
-    .await?;
-    Ok(())
-}
-
 async fn generate_metadata_update_notifications(
     meta: &metadata::Model,
     details: &MetadataDetails,
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<UserNotificationContent>> {
+    let make_eligible_for_smart_collection = || {
+        cache_service::set_key(
+            ss,
+            ApplicationCacheKey::MetadataEligibleForSmartCollectionMoving(
+                MetadataEligibleForSmartCollectionMovingInput {
+                    metadata_id: meta.id.clone(),
+                },
+            ),
+            ApplicationCacheValue::MetadataEligibleForSmartCollectionMoving(
+                EmptyCacheValue::default(),
+            ),
+        )
+    };
     let mut notifications = vec![];
 
     if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {

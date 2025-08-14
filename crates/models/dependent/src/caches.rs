@@ -64,6 +64,12 @@ pub struct UserPasswordChangeSessionInput {
 
 #[skip_serializing_none]
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MetadataEligibleForSmartCollectionMovingInput {
+    pub metadata_id: String,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UserPasswordChangeSessionValue {
     pub user_id: String,
 }
@@ -90,7 +96,6 @@ pub enum ApplicationCacheKey {
     ListennotesSettings,
     TrendingMetadataIds,
     UserSession(UserSessionInput),
-    MetadataEligibleForSmartCollectionMoving,
     MetadataLookup(MetadataLookupCacheInput),
     UserTwoFactorSetup(UserLevelCacheKey<()>),
     UserCollectionsList(UserLevelCacheKey<()>),
@@ -114,6 +119,7 @@ pub enum ApplicationCacheKey {
     UserMetadataGroupsList(UserLevelCacheKey<UserMetadataGroupsListInput>),
     UserWorkoutTemplatesList(UserLevelCacheKey<UserTemplatesOrWorkoutsListInput>),
     MetadataRecentlyConsumed(UserLevelCacheKey<MetadataRecentlyConsumedCacheInput>),
+    MetadataEligibleForSmartCollectionMoving(MetadataEligibleForSmartCollectionMovingInput),
     MetadataProgressUpdateCompletedCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
     MetadataProgressUpdateInProgressCache(UserLevelCacheKey<MetadataProgressUpdateCacheInput>),
 }
@@ -124,7 +130,6 @@ pub type YoutubeMusicSongListenedResponse = bool;
 pub type ApplicationRecommendations = Vec<String>;
 pub type TrendingMetadataIdsResponse = Vec<String>;
 pub type ListennotesSettings = HashMap<i32, String>;
-pub type MetadataEligibleForSmartCollectionMoving = Vec<String>;
 
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
@@ -154,13 +159,13 @@ pub enum ApplicationCacheValue {
     MetadataProgressUpdateInProgressCache(EmptyCacheValue),
     UserMetadataGroupsList(UserMetadataGroupsListResponse),
     UserCollectionContents(Box<CollectionContentsResponse>),
+    MetadataEligibleForSmartCollectionMoving(EmptyCacheValue),
     UserPasswordChangeSession(UserPasswordChangeSessionValue),
     YoutubeMusicSongListened(YoutubeMusicSongListenedResponse),
     UserMetadataRecommendationsSet(ApplicationRecommendations),
     UserWorkoutTemplatesList(UserWorkoutsTemplatesListResponse),
     CollectionRecommendations(CollectionRecommendationsResponse),
     UserMetadataRecommendations(UserMetadataRecommendationsResponse),
-    MetadataEligibleForSmartCollectionMoving(MetadataEligibleForSmartCollectionMoving),
 }
 
 pub struct GetCacheKeyResponse {
