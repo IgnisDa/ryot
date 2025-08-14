@@ -632,6 +632,7 @@ const MediaListItem = (props: MediaListItemProps) => {
 	const bulkEditingState = bulkEditingCollection.state;
 
 	const becItem = { entityId: props.item, entityLot: EntityLot.Metadata };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
 	const isAdded = bulkEditingCollection.isAdded(becItem);
 
 	return (
@@ -640,7 +641,9 @@ const MediaListItem = (props: MediaListItemProps) => {
 			rightLabelHistory
 			metadataId={props.item}
 			topRight={
-				bulkEditingState && bulkEditingState.data.action === "add" ? (
+				bulkEditingState &&
+				bulkEditingState.data.action === "add" &&
+				!isAlreadyPresent ? (
 					<ActionIcon
 						color="green"
 						variant={isAdded ? "filled" : "transparent"}

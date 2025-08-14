@@ -1,12 +1,14 @@
-import type {
-	EntityLot,
-	Scalars,
-	UsersListQuery,
+import {
+	CollectionContentsDocument,
+	type EntityLot,
+	type Scalars,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
+import { clientGqlService } from "../shared/query-factory";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -20,6 +22,7 @@ type BulkEditingCollectionData = {
 	collection: Collection;
 	locationStartedFrom: string;
 	targetEntities: Array<Entity>;
+	alreadyPresentEntities: Array<Entity>;
 };
 
 export type BulkAddEntities = () => Promise<Array<Entity>>;
@@ -31,22 +34,31 @@ export const useBulkEditCollection = () => {
 	const location = useLocation();
 	const navigate = useNavigate();
 
-	const findIndex = (toFind: Entity) =>
-		(bec?.targetEntities || []).findIndex((inHere) => isEqual(inHere, toFind));
+	const findIndex = (toFind: Entity, inside?: Entity[]) =>
+		(inside || []).findIndex((inHere) => isEqual(inHere, toFind));
 
 	const start = async (collection: Collection, action: Action) => {
+		const result = await clientGqlService.request(CollectionContentsDocument, {
+			input: {
+				collectionId: collection.id,
+				search: { take: Number.MAX_SAFE_INTEGER },
+			},
+		});
 		setBec({
 			action,
 			collection,
 			isLoading: false,
 			targetEntities: [],
 			locationStartedFrom: location.pathname,
+			alreadyPresentEntities: result.collectionContents.response.results.items,
 		});
 	};
 
 	return {
 		start,
-		isAdded: (entity: Entity) => findIndex(entity) !== -1,
+		isAdded: (entity: Entity) => findIndex(entity, bec?.targetEntities) !== -1,
+		isAlreadyPresent: (entity: Entity) =>
+			findIndex(entity, bec?.alreadyPresentEntities) !== -1,
 		state: bec
 			? {
 					data: bec,
