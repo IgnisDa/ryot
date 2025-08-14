@@ -76,6 +76,12 @@ impl MigrationTrait for Migration {
         db.execute_unprepared("DROP VIEW IF EXISTS monitored_entity")
             .await?;
 
+        db.execute_unprepared(
+            "UPDATE notification_platform
+             SET configured_events = array_append(configured_events, 'metadata_moved_from_completed_to_watchlist_collection')
+             WHERE 'metadata_moved_from_completed_to_watchlist_collection' != ALL(configured_events)"
+        ).await?;
+
         Ok(())
     }
 

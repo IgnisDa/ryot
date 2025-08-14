@@ -128,4 +128,9 @@ pub enum UserNotificationContent {
         entity_title: String,
         season_number: Option<i32>,
     },
+    MetadataMovedFromCompletedToWatchlistCollection {
+        entity_id: String,
+        entity_title: String,
+        entity_lot: EntityLot,
+    },
 }

@@ -229,6 +229,17 @@ async fn get_notification_message(
                 provider_name
             ))
         }
+        UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
+            entity_id,
+            entity_lot,
+            entity_title,
+        } => {
+            let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
+            Ok(format!(
+                "{} ({}) has been moved from completed to watchlist collection",
+                entity_title, url
+            ))
+        }
     }
 }
 
