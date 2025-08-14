@@ -16,6 +16,10 @@ pub struct Model {
     pub collection_name: String,
     pub origin_collection_id: String,
     pub collection_to_entity_id: Uuid,
+    pub collection_to_entity_rank: Decimal,
+    pub collection_to_entity_created_on: DateTimeUtc,
+    pub collection_to_entity_last_updated_on: DateTimeUtc,
+    pub collection_to_entity_information: Option<serde_json::Value>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

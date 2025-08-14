@@ -11,8 +11,12 @@ pub static COLLECTION_ENTITY_MEMBERSHIP_VIEW_CREATION_SQL: &str = indoc! { r#"
         cte."entity_id",
         cte."entity_lot",
         c."name" AS "collection_name",
-        cte."id" as "collection_to_entity_id",
-        cte."collection_id" AS "origin_collection_id"
+        cte."id" AS "collection_to_entity_id",
+        cte."rank" AS "collection_to_entity_rank",
+        cte."collection_id" AS "origin_collection_id",
+        cte."created_on" AS "collection_to_entity_created_on",
+        cte."information" AS "collection_to_entity_information",
+        cte."last_updated_on" AS "collection_to_entity_last_updated_on"
     FROM
         "collection_to_entity" cte
     JOIN
