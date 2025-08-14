@@ -1812,7 +1812,7 @@ export type MutationRootVerifyTwoFactorArgs = {
 
 export type NotificationPlatform = {
   __typename?: 'NotificationPlatform';
-  configuredEvents: Array<UserNotificationContent>;
+  configuredEvents: Array<UserNotificationContentDiscriminants>;
   createdOn: Scalars['DateTime']['output'];
   description: Scalars['String']['output'];
   id: Scalars['String']['output'];
@@ -2008,8 +2008,6 @@ export type QueryRoot = {
   exerciseDetails: Exercise;
   /** Get details about a genre present in the database. */
   genreDetails: GenreDetails;
-  /** Get paginated list of genres. */
-  genresList: IdResults;
   /** Get an authorization URL using the configured OIDC client. */
   getOidcRedirectUrl: Scalars['String']['output'];
   /** Get an access token using the configured OIDC client. */
@@ -2052,6 +2050,8 @@ export type QueryRoot = {
   userExercisesList: CachedSearchIdResponse;
   /** Get all the export jobs for the current user. */
   userExports: Array<ExportJob>;
+  /** Get paginated list of genres for the user. */
+  userGenresList: IdResults;
   /** Get all the import jobs deployed by the user. */
   userImportReports: Array<ImportReport>;
   /** Get all the integrations for the currently logged in user. */
@@ -2106,11 +2106,6 @@ export type QueryRootExerciseDetailsArgs = {
 
 export type QueryRootGenreDetailsArgs = {
   input: GenreDetailsInput;
-};
-
-
-export type QueryRootGenresListArgs = {
-  input: SearchInput;
 };
 
 
@@ -2182,6 +2177,11 @@ export type QueryRootUserExerciseDetailsArgs = {
 
 export type QueryRootUserExercisesListArgs = {
   input: UserExercisesListInput;
+};
+
+
+export type QueryRootUserGenresListArgs = {
+  input: SearchInput;
 };
 
 
@@ -2516,7 +2516,7 @@ export type UpdateUserInput = {
 };
 
 export type UpdateUserNotificationPlatformInput = {
-  configuredEvents?: InputMaybe<Array<UserNotificationContent>>;
+  configuredEvents?: InputMaybe<Array<UserNotificationContentDiscriminants>>;
   isDisabled?: InputMaybe<Scalars['Boolean']['input']>;
   notificationId: Scalars['String']['input'];
 };
@@ -2913,12 +2913,14 @@ export type UserMetadataListInput = {
   sort?: InputMaybe<MediaSortInput>;
 };
 
-export enum UserNotificationContent {
+/** Auto-generated discriminant enum variants */
+export enum UserNotificationContentDiscriminants {
   IntegrationDisabledDueToTooManyErrors = 'INTEGRATION_DISABLED_DUE_TO_TOO_MANY_ERRORS',
   MetadataChaptersOrEpisodesChanged = 'METADATA_CHAPTERS_OR_EPISODES_CHANGED',
   MetadataEpisodeImagesChanged = 'METADATA_EPISODE_IMAGES_CHANGED',
   MetadataEpisodeNameChanged = 'METADATA_EPISODE_NAME_CHANGED',
   MetadataEpisodeReleased = 'METADATA_EPISODE_RELEASED',
+  MetadataMovedFromCompletedToWatchlistCollection = 'METADATA_MOVED_FROM_COMPLETED_TO_WATCHLIST_COLLECTION',
   MetadataNumberOfSeasonsChanged = 'METADATA_NUMBER_OF_SEASONS_CHANGED',
   MetadataPublished = 'METADATA_PUBLISHED',
   MetadataReleaseDateChanged = 'METADATA_RELEASE_DATE_CHANGED',
@@ -3165,11 +3167,37 @@ export type VerifyTwoFactorResult = ApiKeyResponse | VerifyTwoFactorError;
 
 export type VideoGameSpecifics = {
   __typename?: 'VideoGameSpecifics';
-  platforms: Array<Scalars['String']['output']>;
+  platformReleases?: Maybe<Array<VideoGameSpecificsPlatformRelease>>;
+  timeToBeat?: Maybe<VideoGameSpecificsTimeToBeat>;
 };
 
 export type VideoGameSpecificsInput = {
-  platforms: Array<Scalars['String']['input']>;
+  platformReleases?: InputMaybe<Array<VideoGameSpecificsPlatformReleaseInput>>;
+  timeToBeat?: InputMaybe<VideoGameSpecificsTimeToBeatInput>;
+};
+
+export type VideoGameSpecificsPlatformRelease = {
+  __typename?: 'VideoGameSpecificsPlatformRelease';
+  name: Scalars['String']['output'];
+  releaseDate?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type VideoGameSpecificsPlatformReleaseInput = {
+  name: Scalars['String']['input'];
+  releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
+};
+
+export type VideoGameSpecificsTimeToBeat = {
+  __typename?: 'VideoGameSpecificsTimeToBeat';
+  completely?: Maybe<Scalars['Int']['output']>;
+  hastily?: Maybe<Scalars['Int']['output']>;
+  normally?: Maybe<Scalars['Int']['output']>;
+};
+
+export type VideoGameSpecificsTimeToBeatInput = {
+  completely?: InputMaybe<Scalars['Int']['input']>;
+  hastily?: InputMaybe<Scalars['Int']['input']>;
+  normally?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export enum Visibility {

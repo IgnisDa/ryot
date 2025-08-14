@@ -12,17 +12,11 @@ use database_utils::{
     entity_in_collections_with_details, item_reviews, schedule_user_for_workout_revision,
     transform_entity_assets,
 };
-use dependent_models::{
-    CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
-};
-use dependent_utils::{
-    create_custom_exercise as create_custom_exercise_util,
-    user_exercises_list as get_user_exercises_list,
-};
+use dependent_models::{UpdateCustomExerciseInput, UserExerciseDetails};
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
     ExerciseAttributes, ExerciseCategory, GithubExercise, GithubExerciseAttributes,
-    UpdateUserExerciseSettings, UserExercisesListInput, UserToExerciseExtraInformation,
+    UpdateUserExerciseSettings, UserToExerciseExtraInformation,
 };
 use futures::try_join;
 use sea_orm::{
@@ -75,22 +69,6 @@ pub async fn user_exercise_details(
         resp.details = Some(association);
     }
     Ok(resp)
-}
-
-pub async fn user_exercises_list(
-    ss: &Arc<SupportingService>,
-    user_id: String,
-    input: UserExercisesListInput,
-) -> Result<CachedResponse<UserExercisesListResponse>> {
-    get_user_exercises_list(&user_id, input, ss).await
-}
-
-pub async fn create_custom_exercise(
-    ss: &Arc<SupportingService>,
-    user_id: &String,
-    input: exercise::Model,
-) -> Result<String> {
-    create_custom_exercise_util(user_id, input, ss).await
 }
 
 pub async fn update_custom_exercise(

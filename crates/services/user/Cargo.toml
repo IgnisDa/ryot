@@ -22,20 +22,23 @@ tokio = { workspace = true }
 totp-lite = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
-cache-service = { path = "../cache" }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
-enum-models = { path = "../../models/enum" }
-media-models = { path = "../../models/media" }
-notification-service = { path = "../notification" }
-session-service = { path = "../session" }
-supporting-service = { path = "../supporting" }
-user-models = { path = "../../models/user" }
+application-utils = { workspace = true }
+cache-service = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
+dependent-notification-utils = { workspace = true }
+database-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+notification-service = { workspace = true }
+session-service = { workspace = true }
+supporting-service = { workspace = true }
+user-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

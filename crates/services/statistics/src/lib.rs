@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use common_models::{ApplicationDateRange, UserAnalyticsInput};
+use dependent_analytics_utils::calculate_user_activities_and_summary;
 use dependent_models::{CachedResponse, UserAnalytics};
-use dependent_utils::calculate_user_activities_and_summary;
 use supporting_service::SupportingService;
 
 mod analytics_operations;

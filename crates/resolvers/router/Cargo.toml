@@ -11,9 +11,9 @@ nanoid = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 
-common-utils = { path = "../../utils/common" }
-config-definition = { path = "../../config/definition" }
-integration-service = { path = "../../services/integration" }
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+integration-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

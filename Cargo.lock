@@ -1350,8 +1350,12 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
+ "dependent-entity-list-utils",
+ "dependent-entity-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-notification-utils",
+ "dependent-utility-utils",
  "enum-models",
  "futures",
  "itertools 0.14.0",
@@ -1814,6 +1818,196 @@ dependencies = [
 ]
 
 [[package]]
+name = "dependent-analytics-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-entity-list-utils",
+ "dependent-models",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "sea-query",
+ "serde",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "dependent-collection-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-core-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "sea-query",
+ "supporting-service",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "dependent-core-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "common-utils",
+ "dependent-models",
+ "enum-models",
+ "enum_meta",
+ "env-utils",
+ "file-storage-service",
+ "isolang",
+ "itertools 0.14.0",
+ "rustypipe",
+ "sea-orm",
+ "serde_json",
+ "sqlx",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "dependent-entity-list-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "cache-service",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-models",
+ "enum-models",
+ "fitness-models",
+ "media-models",
+ "migrations",
+ "rust_decimal",
+ "sea-orm",
+ "sea-query",
+ "slug",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
+name = "dependent-entity-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "markdown",
+ "media-models",
+ "nanoid",
+ "sea-orm",
+ "sea-query",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "dependent-fitness-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-collection-utils",
+ "dependent-notification-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "enum_meta",
+ "fitness-models",
+ "itertools 0.14.0",
+ "nanoid",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
+name = "dependent-import-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "database-utils",
+ "dependent-collection-utils",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-jobs-utils",
+ "dependent-models",
+ "dependent-progress-utils",
+ "dependent-review-utils",
+ "enum-models",
+ "importer-models",
+ "media-models",
+ "rand 0.9.1",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "dependent-jobs-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "dependent-models"
 version = "0.1.0"
 dependencies = [
@@ -1838,64 +2032,137 @@ dependencies = [
 ]
 
 [[package]]
-name = "dependent-utils"
+name = "dependent-notification-utils"
 version = "0.1.0"
 dependencies = [
- "anilist-provider",
  "anyhow",
- "application-utils",
- "audible-provider",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-core-utils",
+ "dependent-entity-utils",
+ "enum-models",
+ "itertools 0.14.0",
+ "media-models",
+ "notification-service",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "traits",
+ "uuid",
+]
+
+[[package]]
+name = "dependent-progress-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
  "background-models",
  "cache-service",
  "chrono",
  "common-models",
  "common-utils",
- "config-definition",
  "database-models",
- "database-utils",
  "dependent-models",
+ "dependent-seen-utils",
+ "dependent-utility-utils",
  "enum-models",
- "enum_meta",
- "env-utils",
- "file-storage-service",
- "fitness-models",
  "futures",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "dependent-provider-utils"
+version = "0.1.0"
+dependencies = [
+ "anilist-provider",
+ "anyhow",
+ "audible-provider",
+ "config-definition",
+ "enum-models",
  "giant-bomb-provider",
  "google-books-provider",
  "hardcover-provider",
  "igdb-provider",
- "importer-models",
- "isolang",
- "itertools 0.14.0",
  "itunes-provider",
  "listennotes-provider",
  "manga-updates-provider",
- "markdown",
  "media-models",
- "migrations",
  "myanimelist-provider",
- "nanoid",
- "notification-service",
  "openlibrary-provider",
- "rand 0.9.1",
  "rust_decimal",
- "rust_decimal_macros",
- "rustypipe",
- "sea-orm",
- "sea-query",
- "serde",
- "serde_json",
- "slug",
  "spotify-provider",
- "sqlx",
  "supporting-service",
  "tmdb-provider",
  "tracing",
  "traits",
- "user-models",
- "uuid",
  "vndb-provider",
  "youtube-music-provider",
+]
+
+[[package]]
+name = "dependent-review-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "background-models",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
+name = "dependent-seen-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-collection-utils",
+ "dependent-models",
+ "enum-models",
+ "itertools 0.14.0",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "dependent-utility-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "sea-orm",
+ "serde_json",
+ "sqlx",
+ "supporting-service",
+ "tracing",
 ]
 
 [[package]]
@@ -2193,6 +2460,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "enum_meta",
+ "rust_decimal",
  "schematic",
  "sea-orm",
  "sea-orm-migration",
@@ -2304,8 +2572,8 @@ dependencies = [
  "common-utils",
  "database-models",
  "database-utils",
+ "dependent-entity-list-utils",
  "dependent-models",
- "dependent-utils",
  "enum-models",
  "file-storage-service",
  "fitness-models",
@@ -2463,8 +2731,11 @@ dependencies = [
  "const-str",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
+ "dependent-entity-list-utils",
+ "dependent-fitness-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-utility-utils",
  "enum-models",
  "file-storage-service",
  "fitness-models",
@@ -3345,6 +3616,7 @@ dependencies = [
  "database-models",
  "dependent-models",
  "enum-models",
+ "futures",
  "itertools 0.14.0",
  "media-models",
  "reqwest",
@@ -3396,8 +3668,12 @@ dependencies = [
  "csv",
  "data-encoding",
  "database-models",
+ "dependent-entity-utils",
+ "dependent-fitness-utils",
+ "dependent-import-utils",
+ "dependent-jobs-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-provider-utils",
  "enum-models",
  "external-models",
  "external-utils",
@@ -3489,8 +3765,12 @@ dependencies = [
  "convert_case 0.8.0",
  "database-models",
  "database-utils",
+ "dependent-core-utils",
+ "dependent-entity-utils",
+ "dependent-import-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-notification-utils",
+ "dependent-provider-utils",
  "enum-models",
  "eventsource-stream",
  "external-models",
@@ -3921,6 +4201,187 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-background-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "background-models",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "convert_case 0.8.0",
+ "database-models",
+ "database-utils",
+ "dependent-analytics-utils",
+ "dependent-collection-utils",
+ "dependent-core-utils",
+ "dependent-models",
+ "dependent-notification-utils",
+ "dependent-seen-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
+name = "miscellaneous-calendar-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "migrations",
+ "rust_decimal",
+ "sea-orm",
+ "sea-query",
+ "supporting-service",
+ "tracing",
+ "user-models",
+]
+
+[[package]]
+name = "miscellaneous-entity-details-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-entity-utils",
+ "dependent-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "miscellaneous-entity-user-details-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "database-models",
+ "database-utils",
+ "dependent-entity-utils",
+ "dependent-models",
+ "dependent-seen-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "miscellaneous-general-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "miscellaneous-lookup-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "dependent-models",
+ "enum-models",
+ "media-models",
+ "regex",
+ "rstest",
+ "rust_decimal",
+ "supporting-service",
+ "tmdb-provider",
+ "tracing",
+]
+
+[[package]]
+name = "miscellaneous-metadata-operations-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "database-utils",
+ "dependent-collection-utils",
+ "dependent-entity-utils",
+ "dependent-notification-utils",
+ "dependent-seen-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "file-storage-service",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "nanoid",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "miscellaneous-progress-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common-models",
+ "database-models",
+ "dependent-progress-utils",
+ "dependent-seen-utils",
+ "dependent-utility-utils",
+ "enum-models",
+ "futures",
+ "media-models",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "miscellaneous-resolver"
 version = "0.1.0"
 dependencies = [
@@ -3935,43 +4396,95 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-review-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "common-models",
+ "database-models",
+ "database-utils",
+ "dependent-utility-utils",
+ "media-models",
+ "nanoid",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
+name = "miscellaneous-search-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "common-models",
+ "database-utils",
+ "dependent-entity-utils",
+ "dependent-models",
+ "dependent-provider-utils",
+ "futures",
+ "itertools 0.14.0",
+ "media-models",
+ "rust_decimal",
+ "supporting-service",
+ "tracing",
+]
+
+[[package]]
 name = "miscellaneous-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "application-utils",
  "background-models",
- "cache-service",
- "chrono",
  "common-models",
- "common-utils",
- "convert_case 0.8.0",
  "database-models",
- "database-utils",
+ "dependent-core-utils",
+ "dependent-entity-list-utils",
+ "dependent-jobs-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-notification-utils",
+ "dependent-review-utils",
+ "enum-models",
+ "media-models",
+ "miscellaneous-background-service",
+ "miscellaneous-calendar-service",
+ "miscellaneous-entity-details-service",
+ "miscellaneous-entity-user-details-service",
+ "miscellaneous-general-service",
+ "miscellaneous-lookup-service",
+ "miscellaneous-metadata-operations-service",
+ "miscellaneous-progress-service",
+ "miscellaneous-review-service",
+ "miscellaneous-search-service",
+ "miscellaneous-trending-and-events-service",
+ "rust_decimal",
+ "sea-orm",
+ "supporting-service",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "miscellaneous-trending-and-events-service"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cache-service",
+ "database-models",
+ "dependent-entity-utils",
+ "dependent-models",
+ "dependent-notification-utils",
+ "dependent-provider-utils",
  "enum-models",
  "enum_meta",
- "file-storage-service",
- "futures",
  "itertools 0.14.0",
  "media-models",
- "migrations",
- "nanoid",
- "regex",
- "rstest",
  "rust_decimal",
- "rust_decimal_macros",
  "sea-orm",
- "sea-query",
- "serde",
- "serde_json",
  "supporting-service",
- "tmdb-provider",
  "tracing",
- "traits",
- "user-models",
- "uuid",
 ]
 
 [[package]]
@@ -6319,8 +6832,8 @@ dependencies = [
  "cache-service",
  "common-models",
  "database-models",
+ "dependent-analytics-utils",
  "dependent-models",
- "dependent-utils",
  "enum-models",
  "hashbag",
  "itertools 0.14.0",
@@ -7144,8 +7657,11 @@ dependencies = [
  "data-encoding",
  "database-models",
  "database-utils",
+ "dependent-collection-utils",
+ "dependent-core-utils",
+ "dependent-entity-utils",
  "dependent-models",
- "dependent-utils",
+ "dependent-notification-utils",
  "enum-models",
  "enum_meta",
  "futures",

@@ -23,11 +23,11 @@ ALTER TABLE exercise DROP CONSTRAINT IF EXISTS workout_to_user_foreign_key;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint 
+        SELECT 1 FROM pg_constraint
         WHERE conname = 'exercise_to_user_foreign_key'
     ) THEN
-        ALTER TABLE exercise ADD CONSTRAINT exercise_to_user_foreign_key 
-        FOREIGN KEY (created_by_user_id) REFERENCES "user"(id) 
+        ALTER TABLE exercise ADD CONSTRAINT exercise_to_user_foreign_key
+        FOREIGN KEY (created_by_user_id) REFERENCES "user"(id)
         ON UPDATE CASCADE ON DELETE SET NULL;
     END IF;
 END $$;
@@ -35,7 +35,7 @@ END $$;
 ALTER TABLE review ALTER COLUMN "entity_lot" SET NOT NULL;
 
 -- Remove entity_removed_from_monitoring_collection from configured_events arrays
-UPDATE notification_platform 
+UPDATE notification_platform
 SET configured_events = array_remove(configured_events, 'entity_removed_from_monitoring_collection')
 WHERE 'entity_removed_from_monitoring_collection' = ANY(configured_events);
         "#,

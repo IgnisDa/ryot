@@ -20,9 +20,9 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 uuid = { workspace = true }
 
-common-models = { path = "../../models/common" }
-enum-models = { path = "../../models/enum" }
-fitness-models = { path = "../../models/fitness" }
-importer-models = { path = "../../models/importer" }
-media-models = { path = "../../models/media" }
-user-models = { path = "../../models/user" }
+common-models = { workspace = true }
+enum-models = { workspace = true }
+fitness-models = { workspace = true }
+importer-models = { workspace = true }
+media-models = { workspace = true }
+user-models = { workspace = true }

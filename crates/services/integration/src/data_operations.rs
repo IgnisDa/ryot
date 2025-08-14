@@ -8,9 +8,9 @@ use database_models::{
     user,
 };
 use database_utils::{server_key_validation_guard, user_by_id};
-use dependent_utils::{
+use dependent_core_utils::is_server_key_validated;
+use dependent_provider_utils::{
     get_google_books_service, get_hardcover_service, get_openlibrary_service,
-    is_server_key_validated,
 };
 use enum_models::{IntegrationLot, IntegrationProvider};
 use futures::try_join;

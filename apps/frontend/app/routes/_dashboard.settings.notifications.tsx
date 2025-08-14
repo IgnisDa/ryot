@@ -25,7 +25,7 @@ import {
 	NotificationPlatformLot,
 	TestUserNotificationPlatformsDocument,
 	UpdateUserNotificationPlatformDocument,
-	UserNotificationContent,
+	UserNotificationContentDiscriminants,
 	UserNotificationPlatformsDocument,
 	type UserNotificationPlatformsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -142,7 +142,7 @@ const updateSchema = z.object({
 	notificationId: z.string(),
 	isDisabled: zodCheckboxAsString,
 	configuredEvents: zodCommaDelimitedString.transform(
-		(v) => v as UserNotificationContent[],
+		(v) => v as UserNotificationContentDiscriminants[],
 	),
 });
 
@@ -312,7 +312,9 @@ const DisplayNotification = (props: {
 	const [isAdvancedSettingsOpen, { toggle: toggleAdvancedSettings }] =
 		useDisclosure(false);
 	const [configuredEvents, configuredEventsHandler] =
-		useListState<UserNotificationContent>(props.notification.configuredEvents);
+		useListState<UserNotificationContentDiscriminants>(
+			props.notification.configuredEvents,
+		);
 
 	return (
 		<>
@@ -346,89 +348,97 @@ const DisplayNotification = (props: {
 						</Flex>
 						<Collapse in={isAdvancedSettingsOpen}>
 							<Stack gap="xs">
-								{Object.values(UserNotificationContent).map((name) => (
-									<Switch
-										size="xs"
-										key={name}
-										defaultChecked={props.notification.configuredEvents.includes(
-											name,
-										)}
-										onChange={(value) => {
-											const checked = value.target.checked;
-											if (checked) configuredEventsHandler.append(name);
-											else
-												configuredEventsHandler.filter(
-													(event) => event !== name,
-												);
-										}}
-										label={match(name)
-											.with(
-												UserNotificationContent.OutdatedSeenEntries,
-												() => "Media has been in progress/on hold for too long",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeNameChanged,
-												() => "Name of an episode changes",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeImagesChanged,
-												() => "Images for an episode changes",
-											)
-											.with(
-												UserNotificationContent.MetadataEpisodeReleased,
-												() => "Number of episodes changes",
-											)
-											.with(
-												UserNotificationContent.MetadataPublished,
+								{Object.values(UserNotificationContentDiscriminants).map(
+									(name) => (
+										<Switch
+											size="xs"
+											key={name}
+											defaultChecked={props.notification.configuredEvents.includes(
+												name,
+											)}
+											onChange={(value) => {
+												const checked = value.target.checked;
+												if (checked) configuredEventsHandler.append(name);
+												else
+													configuredEventsHandler.filter(
+														(event) => event !== name,
+													);
+											}}
+											label={match(name)
+												.with(
+													UserNotificationContentDiscriminants.OutdatedSeenEntries,
+													() =>
+														"Media has been in progress/on hold for too long",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataEpisodeNameChanged,
+													() => "Name of an episode changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataEpisodeImagesChanged,
+													() => "Images for an episode change",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataEpisodeReleased,
+													() => "An episode is released",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataPublished,
 
-												() => "A media is published",
-											)
-											.with(
-												UserNotificationContent.MetadataStatusChanged,
-												() => "Status changes",
-											)
-											.with(
-												UserNotificationContent.MetadataReleaseDateChanged,
-												() => "Release date changes",
-											)
-											.with(
-												UserNotificationContent.MetadataNumberOfSeasonsChanged,
-												() => "Number of seasons changes",
-											)
-											.with(
-												UserNotificationContent.MetadataChaptersOrEpisodesChanged,
-												() =>
-													"Number of chapters/episodes changes for manga/anime",
-											)
-											.with(
-												UserNotificationContent.ReviewPosted,
-												() =>
-													"A new public review is posted for media/people you monitor",
-											)
-											.with(
-												UserNotificationContent.PersonMetadataAssociated,
-												() => "New media is associated with a person",
-											)
-											.with(
-												UserNotificationContent.PersonMetadataGroupAssociated,
-												() => "New media group is associated with a person",
-											)
-											.with(
-												UserNotificationContent.NotificationFromReminderCollection,
-												() =>
-													"When an item is added to the reminder collection",
-											)
-											.with(
-												UserNotificationContent.NewWorkoutCreated,
-												() => "A new workout is created",
-											)
-											.with(
-												UserNotificationContent.IntegrationDisabledDueToTooManyErrors,
-												() => "Integration disabled due to too many errors",
-											)
-											.exhaustive()}
-									/>
-								))}
+													() => "A media is published",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataStatusChanged,
+													() => "Status changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataReleaseDateChanged,
+													() => "Release date changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataNumberOfSeasonsChanged,
+													() => "Number of seasons changes",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataChaptersOrEpisodesChanged,
+													() =>
+														"Number of chapters/episodes changes for manga/anime",
+												)
+												.with(
+													UserNotificationContentDiscriminants.ReviewPosted,
+													() =>
+														"A new public review is posted for media/people you monitor",
+												)
+												.with(
+													UserNotificationContentDiscriminants.PersonMetadataAssociated,
+													() => "New media is associated with a person",
+												)
+												.with(
+													UserNotificationContentDiscriminants.PersonMetadataGroupAssociated,
+													() => "New media group is associated with a person",
+												)
+												.with(
+													UserNotificationContentDiscriminants.NotificationFromReminderCollection,
+													() =>
+														"When an item is added to the reminder collection",
+												)
+												.with(
+													UserNotificationContentDiscriminants.NewWorkoutCreated,
+													() => "A new workout is created",
+												)
+												.with(
+													UserNotificationContentDiscriminants.IntegrationDisabledDueToTooManyErrors,
+													() => "Integration disabled due to too many errors",
+												)
+												.with(
+													UserNotificationContentDiscriminants.MetadataMovedFromCompletedToWatchlistCollection,
+													() =>
+														"Media moved from the Completed to the Watchlist collection",
+												)
+												.exhaustive()}
+										/>
+									),
+								)}
 							</Stack>
 						</Collapse>
 						<Button type="submit" onClick={closeEditModal}>

@@ -15,14 +15,14 @@ serde_with = { workspace = true }
 strum = { workspace = true }
 uuid = { workspace = true }
 
-common-models = { path = "../common" }
-config-definition = { path = "../../config/definition" }
-database-models = { path = "../database" }
-enum-models = { path = "../enum" }
-fitness-models = { path = "../fitness" }
-importer-models = { path = "../importer" }
-media-models = { path = "../media" }
-user-models = { path = "../user" }
+common-models = { workspace = true }
+config-definition = { workspace = true }
+database-models = { workspace = true }
+enum-models = { workspace = true }
+fitness-models = { workspace = true }
+importer-models = { workspace = true }
+media-models = { workspace = true }
+user-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json"]

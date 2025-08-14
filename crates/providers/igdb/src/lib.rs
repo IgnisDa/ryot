@@ -8,17 +8,18 @@ use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject,
     MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
 };
-use common_utils::{PAGE_SIZE, ryot_log};
+use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
+use futures::try_join;
 use itertools::Itertools;
 use media_models::{
     CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics,
+    VideoGameSpecifics, VideoGameSpecificsPlatformRelease, VideoGameSpecificsTimeToBeat,
 };
 use reqwest::{
     Client,
@@ -52,8 +53,9 @@ fields
     similar_games.id,
     similar_games.name,
     similar_games.cover.*,
-    platforms.name,
     collection.id,
+    release_dates.date,
+    release_dates.platform.name,
     videos.*,
     genres.*;
 where version_parent = null;
@@ -92,6 +94,12 @@ fields
     games.cover.*,
     games.version_parent;
 ";
+static TIME_TO_BEAT_FIELDS: &str = "
+fields
+    normally,
+    hastily,
+    completely;
+";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbWebsite {
@@ -103,11 +111,11 @@ struct IgdbWebsite {
 struct IgdbCompany {
     id: i32,
     name: String,
+    country: Option<i32>,
     logo: Option<IgdbImage>,
+    description: Option<String>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     start_date: Option<DateTimeUtc>,
-    country: Option<i32>,
-    description: Option<String>,
     websites: Option<Vec<IgdbWebsite>>,
     developed: Option<Vec<IgdbItemResponse>>,
     published: Option<Vec<IgdbItemResponse>>,
@@ -121,11 +129,11 @@ struct IgdbVideo {
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbInvolvedCompany {
     id: i32,
-    company: IgdbCompany,
+    porting: bool,
     developer: bool,
     publisher: bool,
-    porting: bool,
     supporting: bool,
+    company: IgdbCompany,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -134,26 +142,34 @@ struct IgdbImage {
 }
 
 #[serde_as]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbReleaseDate {
+    platform: NamedObject,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    date: Option<DateTimeUtc>,
+}
+
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbItemResponse {
     id: i32,
     name: Option<String>,
     rating: Option<Decimal>,
-    games: Option<Vec<IgdbItemResponse>>,
     summary: Option<String>,
     cover: Option<IgdbImage>,
-    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
-    first_release_date: Option<DateTimeUtc>,
-    involved_companies: Option<Vec<IgdbInvolvedCompany>>,
-    videos: Option<Vec<IgdbVideo>>,
-    artworks: Option<Vec<IgdbImage>>,
-    genres: Option<Vec<NamedObject>>,
-    platforms: Option<Vec<NamedObject>>,
-    similar_games: Option<Vec<IgdbItemResponse>>,
     version_parent: Option<i32>,
     collection: Option<IdObject>,
+    videos: Option<Vec<IgdbVideo>>,
+    genres: Option<Vec<NamedObject>>,
+    artworks: Option<Vec<IgdbImage>>,
+    games: Option<Vec<IgdbItemResponse>>,
+    #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
+    first_release_date: Option<DateTimeUtc>,
     #[serde(flatten)]
     rest_data: Option<HashMap<String, Value>>,
+    release_dates: Option<Vec<IgdbReleaseDate>>,
+    similar_games: Option<Vec<IgdbItemResponse>>,
+    involved_companies: Option<Vec<IgdbInvolvedCompany>>,
 }
 
 #[derive(Clone)]
@@ -413,16 +429,23 @@ where id = {identity};
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client_config().await?;
         let req_body = format!(r#"{GAME_FIELDS} where id = {identifier};"#);
-        ryot_log!(debug, "Body = {}", req_body);
-        let rsp = client
-            .post(format!("{URL}/games"))
-            .body(req_body)
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        ryot_log!(debug, "Response = {:?}", rsp);
-        let mut details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let ttb_req_body = format!(r#"{TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
+
+        let (details_rsp, ttb_rsp) = try_join!(
+            client.post(format!("{URL}/games")).body(req_body).send(),
+            client
+                .post(format!("{URL}/game_time_to_beats"))
+                .body(ttb_req_body)
+                .send()
+        )?;
+
+        let (mut details, ttb_details) = try_join!(
+            details_rsp.json::<Vec<IgdbItemResponse>>(),
+            ttb_rsp.json::<Vec<VideoGameSpecificsTimeToBeat>>()
+        )?;
+
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
+
         let groups = match detail.collection.as_ref() {
             Some(c) => vec![CommitMetadataGroupInput {
                 name: "Loading...".to_string(),
@@ -435,7 +458,8 @@ where id = {identity};
             }],
             None => vec![],
         };
-        let mut game_details = self.igdb_response_to_search_response(detail);
+        let mut game_details =
+            self.igdb_response_to_search_response(detail, ttb_details.first().cloned());
         game_details.groups = groups;
         Ok(game_details)
     }
@@ -499,7 +523,7 @@ offset: {offset};
         let resp = search
             .into_iter()
             .map(|r| {
-                let a = self.igdb_response_to_search_response(r);
+                let a = self.igdb_response_to_search_response(r, None);
                 MetadataSearchItem {
                     title: a.title,
                     identifier: a.identifier,
@@ -563,7 +587,11 @@ impl IgdbService {
         ])))
     }
 
-    fn igdb_response_to_search_response(&self, item: IgdbItemResponse) -> MetadataDetails {
+    fn igdb_response_to_search_response(
+        &self,
+        item: IgdbItemResponse,
+        time_to_beat: Option<VideoGameSpecificsTimeToBeat>,
+    ) -> MetadataDetails {
         let mut images = Vec::from_iter(item.cover.map(|a| self.get_cover_image_url(a.image_id)));
         let additional_images = item
             .artworks
@@ -610,15 +638,25 @@ impl IgdbService {
             .collect_vec();
 
         let title = item.name.unwrap();
+        let platform_releases = item
+            .release_dates
+            .unwrap_or_default()
+            .into_iter()
+            .map(|rd| VideoGameSpecificsPlatformRelease {
+                release_date: rd.date,
+                name: rd.platform.name,
+            })
+            .sorted_by_key(|rd| rd.name.clone())
+            .collect_vec();
         MetadataDetails {
+            people,
             title: title.clone(),
             lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
             description: item.summary,
             identifier: item.id.to_string(),
-            people,
-            publish_date: item.first_release_date.map(|d| d.date_naive()),
             publish_year: item.first_release_date.map(|d| d.year()),
+            publish_date: item.first_release_date.map(|d| d.date_naive()),
             source_url: Some(format!("https://www.igdb.com/games/{title}")),
             assets: EntityAssets {
                 remote_videos,
@@ -633,12 +671,11 @@ impl IgdbService {
                 .unique()
                 .collect(),
             video_game_specifics: Some(VideoGameSpecifics {
-                platforms: item
-                    .platforms
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|p| p.name)
-                    .collect(),
+                time_to_beat,
+                platform_releases: match platform_releases.is_empty() {
+                    true => None,
+                    false => Some(platform_releases),
+                },
             }),
             suggestions: item
                 .similar_games

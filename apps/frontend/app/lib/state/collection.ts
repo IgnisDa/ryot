@@ -1,12 +1,14 @@
-import type {
-	EntityLot,
-	Scalars,
-	UsersListQuery,
+import {
+	CollectionContentsDocument,
+	type EntityLot,
+	type Scalars,
+	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
+import { clientGqlService } from "../shared/query-factory";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 
@@ -18,77 +20,87 @@ type BulkEditingCollectionData = {
 	action: Action;
 	isLoading: boolean;
 	collection: Collection;
-	entities: Array<Entity>;
 	locationStartedFrom: string;
+	targetEntities: Array<Entity>;
+	alreadyPresentEntities: Array<Entity>;
 };
 
 export type BulkAddEntities = () => Promise<Array<Entity>>;
 
-export type CreateOrUpdateCollectionModalData = {
-	collectionId?: string;
-};
-
 const bulkEditingCollectionAtom = atom<BulkEditingCollectionData | null>(null);
-
-const createOrUpdateCollectionModalAtom = atom<{
-	isOpen: boolean;
-	usersList: UsersListQuery["usersList"];
-	data: CreateOrUpdateCollectionModalData | null;
-}>({ isOpen: false, data: null, usersList: [] });
 
 export const useBulkEditCollection = () => {
 	const [bec, setBec] = useAtom(bulkEditingCollectionAtom);
 	const location = useLocation();
 	const navigate = useNavigate();
 
-	const findIndex = (toFind: Entity) =>
-		(bec?.entities || []).findIndex((inHere) => isEqual(inHere, toFind));
+	const findIndex = (toFind: Entity, inside?: Entity[]) =>
+		(inside || []).findIndex((inHere) => isEqual(inHere, toFind));
 
-	const start = (collection: Collection, action: Action) => {
+	const start = async (collection: Collection, action: Action) => {
+		const result = await clientGqlService.request(CollectionContentsDocument, {
+			input: {
+				collectionId: collection.id,
+				search: { take: Number.MAX_SAFE_INTEGER },
+			},
+		});
 		setBec({
 			action,
 			collection,
-			entities: [],
 			isLoading: false,
+			targetEntities: [],
 			locationStartedFrom: location.pathname,
+			alreadyPresentEntities: result.collectionContents.response.results.items,
 		});
 	};
 
 	return {
 		start,
-		isAdded: (entity: Entity) => findIndex(entity) !== -1,
+		isAdded: (entity: Entity) => findIndex(entity, bec?.targetEntities) !== -1,
+		isAlreadyPresent: (entity: Entity) =>
+			findIndex(entity, bec?.alreadyPresentEntities) !== -1,
 		state: bec
 			? {
 					data: bec,
+					stopLoading: () => setBec({ ...bec, isLoading: false }),
 					stop: () => {
 						setBec(null);
 						navigate(bec.locationStartedFrom);
+					},
+					bulkAdd: async (getEntities: BulkAddEntities) => {
+						setBec({ ...bec, isLoading: true });
+						const entities = await getEntities();
+						setBec({ ...bec, isLoading: false, targetEntities: entities });
+					},
+					remove: (toRemove: Entity) => {
+						setBec(
+							produce(bec, (draft) => {
+								draft.targetEntities.splice(findIndex(toRemove), 1);
+							}),
+						);
 					},
 					add: (toAdd: Entity) => {
 						if (findIndex(toAdd) !== -1) return;
 						setBec(
 							produce(bec, (draft) => {
-								draft.entities.push(toAdd);
+								draft.targetEntities.push(toAdd);
 							}),
 						);
 					},
-					bulkAdd: async (getEntities: BulkAddEntities) => {
-						setBec({ ...bec, isLoading: true });
-						const entities = await getEntities();
-						setBec({ ...bec, isLoading: false, entities });
-					},
-					remove: (toRemove: Entity) => {
-						setBec(
-							produce(bec, (draft) => {
-								draft.entities.splice(findIndex(toRemove), 1);
-							}),
-						);
-					},
-					stopLoading: () => setBec({ ...bec, isLoading: false }),
 				}
 			: (false as const),
 	};
 };
+
+export type CreateOrUpdateCollectionModalData = {
+	collectionId?: string;
+};
+
+const createOrUpdateCollectionModalAtom = atom<{
+	isOpen: boolean;
+	usersList: UsersListQuery["usersList"];
+	data: CreateOrUpdateCollectionModalData | null;
+}>({ isOpen: false, data: null, usersList: [] });
 
 export const useCreateOrUpdateCollectionModal = () => {
 	const [modal, setModal] = useAtom(createOrUpdateCollectionModalAtom);

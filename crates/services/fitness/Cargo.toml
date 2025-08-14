@@ -13,17 +13,20 @@ sea-orm = { workspace = true }
 sea-query = { workspace = true }
 tracing = { workspace = true }
 
-background-models = { path = "../../models/background" }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
-enum-models = { path = "../../models/enum" }
-file-storage-service = { path = "../../services/file-storage" }
-fitness-models = { path = "../../models/fitness" }
-supporting-service = { path = "../supporting" }
+background-models = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-fitness-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
+database-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+file-storage-service = { workspace = true }
+fitness-models = { workspace = true }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

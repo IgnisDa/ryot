@@ -14,7 +14,7 @@ import {
 import { useInViewport } from "@mantine/hooks";
 import {
 	GenreDetailsDocument,
-	GenresListDocument,
+	UserGenresListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getInitials,
@@ -61,17 +61,17 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const cookieName = await getSearchEnhancedCookieName("genre.list", request);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ genresList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, GenresListDocument, {
+	const [{ userGenresList }] = await Promise.all([
+		serverGqlService.authenticatedRequest(request, UserGenresListDocument, {
 			input: { page: query[pageQueryParam], query: query.query },
 		}),
 	]);
 	const totalPages = await redirectToFirstPageIfOnInvalidPage({
 		request,
 		currentPage: query[pageQueryParam],
-		totalResults: genresList.details.total,
+		totalResults: userGenresList.details.total,
 	});
-	return { query, genresList, cookieName, totalPages };
+	return { query, userGenresList, cookieName, totalPages };
 };
 
 export const meta = () => {
@@ -93,16 +93,16 @@ export default function Page() {
 					initialValue={loaderData.query.query}
 					enhancedQueryParams={loaderData.cookieName}
 				/>
-				{loaderData.genresList.details.total > 0 ? (
+				{loaderData.userGenresList.details.total > 0 ? (
 					<>
 						<Box>
 							<Text display="inline" fw="bold">
-								{loaderData.genresList.details.total}
+								{loaderData.userGenresList.details.total}
 							</Text>{" "}
 							items found
 						</Box>
 						<ApplicationGrid>
-							{loaderData.genresList.items.map((genreId) => (
+							{loaderData.userGenresList.items.map((genreId) => (
 								<DisplayGenre key={genreId} genreId={genreId} />
 							))}
 						</ApplicationGrid>

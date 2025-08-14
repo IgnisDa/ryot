@@ -15,10 +15,10 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 unkey = { workspace = true }
 
-background-models = { path = "../../models/background" }
-common-utils = { path = "../../utils/common" }
-config-definition = { path = "../../config/definition" }
-env-utils = { path = "../../utils/env" }
+background-models = { workspace = true }
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+env-utils = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

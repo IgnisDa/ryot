@@ -13,5 +13,5 @@ sea-orm = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 
-enum-models = { path = "../../models/enum" }
-env-utils = { path = "../env" }
+enum-models = { workspace = true }
+env-utils = { workspace = true }

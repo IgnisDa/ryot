@@ -34,6 +34,7 @@ pub enum LpApplicationJob {
     HandleOnSeenComplete(String),
     HandleEntityAddedToCollectionEvent(Uuid),
     UpdateUserLastActivityPerformed(String, DateTimeUtc),
+    HandleMetadataEligibleForSmartCollectionMoving(String),
 }
 
 #[derive(Debug, Deserialize, Serialize, Display, Clone)]

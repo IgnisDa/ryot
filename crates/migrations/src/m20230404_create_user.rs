@@ -3,6 +3,8 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static IS_DISABLED_INDEX: &str = "user_is_disabled_idx";
+
 #[derive(Iden)]
 pub enum User {
     Id,
@@ -64,6 +66,15 @@ impl MigrationTrait for Migration {
                     .name("user__oidc_issuer_id__index")
                     .table(User::Table)
                     .col(User::OidcIssuerId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(IS_DISABLED_INDEX)
+                    .table(User::Table)
+                    .col(User::IsDisabled)
                     .to_owned(),
             )
             .await?;

@@ -14,11 +14,11 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 tracing = { workspace = true }
 
-common-utils = { path = "../common" }
-config-definition = { path = "../../config/definition" }
-media-models = { path = "../../models/media" }
-session-service = { path = "../../services/session" }
-supporting-service = { path = "../../services/supporting" }
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+media-models = { workspace = true }
+session-service = { workspace = true }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

@@ -1,0 +1,27 @@
+[package]
+name = "dependent-core-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+enum_meta = { workspace = true }
+isolang = { workspace = true }
+itertools = { workspace = true }
+rustypipe = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+
+cache-service = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+env-utils = { workspace = true }
+file-storage-service = { workspace = true }
+supporting-service = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["serde_json", "sqlx", "tracing"]

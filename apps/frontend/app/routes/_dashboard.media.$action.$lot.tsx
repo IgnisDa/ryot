@@ -258,11 +258,9 @@ export default function Page() {
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const bulkEditingCollection = useBulkEditCollection();
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
 
-	const bulkEditingState = bulkEditingCollection.state;
 	const mediaSearch = loaderData.mediaSearch;
 	const areFiltersApplied =
 		loaderData.mediaList?.url.generalFilter !==
@@ -386,35 +384,9 @@ export default function Page() {
 								<ApplicationGrid
 									className={OnboardingTourStepTargets.ShowAudiobooksListPage}
 								>
-									{loaderData.mediaList.list.response.items.map((item) => {
-										const becItem = {
-											entityId: item,
-											entityLot: EntityLot.Metadata,
-										};
-										const isAdded = bulkEditingCollection.isAdded(becItem);
-										return (
-											<MetadataDisplayItem
-												key={item}
-												metadataId={item}
-												rightLabelHistory
-												topRight={
-													bulkEditingState &&
-													bulkEditingState.data.action === "add" ? (
-														<ActionIcon
-															variant={isAdded ? "filled" : "transparent"}
-															color="green"
-															onClick={() => {
-																if (isAdded) bulkEditingState.remove(becItem);
-																else bulkEditingState.add(becItem);
-															}}
-														>
-															<IconCheck size={18} />
-														</ActionIcon>
-													) : undefined
-												}
-											/>
-										);
-									})}
+									{loaderData.mediaList.list.response.items.map((item) => (
+										<MediaListItem key={item} item={item} />
+									))}
 								</ApplicationGrid>
 							) : (
 								<Text>You do not have any saved yet</Text>
@@ -648,5 +620,41 @@ const FiltersModalForm = () => {
 				) : null}
 			</Stack>
 		</>
+	);
+};
+
+type MediaListItemProps = {
+	item: string;
+};
+
+const MediaListItem = (props: MediaListItemProps) => {
+	const bulkEditingCollection = useBulkEditCollection();
+	const bulkEditingState = bulkEditingCollection.state;
+
+	const becItem = { entityId: props.item, entityLot: EntityLot.Metadata };
+	const isAlreadyPresent = bulkEditingCollection.isAlreadyPresent(becItem);
+	const isAdded = bulkEditingCollection.isAdded(becItem);
+
+	return (
+		<MetadataDisplayItem
+			rightLabelHistory
+			metadataId={props.item}
+			topRight={
+				bulkEditingState &&
+				bulkEditingState.data.action === "add" &&
+				!isAlreadyPresent ? (
+					<ActionIcon
+						color="green"
+						variant={isAdded ? "filled" : "transparent"}
+						onClick={() => {
+							if (isAdded) bulkEditingState.remove(becItem);
+							else bulkEditingState.add(becItem);
+						}}
+					>
+						<IconCheck size={18} />
+					</ActionIcon>
+				) : undefined
+			}
+		/>
 	);
 };

@@ -5,6 +5,7 @@ import {
 	RingProgress,
 	SimpleGrid,
 	Text,
+	Tooltip,
 	useMantineTheme,
 } from "@mantine/core";
 import {
@@ -294,10 +295,10 @@ const ActualDisplayStat = (props: {
 	color?: string;
 	icon: ReactNode;
 	data: Array<{
-		type: "duration" | "number" | "string";
 		label: string;
-		value: number | string;
 		hideIfZero?: true;
+		value: number | string;
+		type: "duration" | "number" | "string";
 	}>;
 }) => {
 	const colors = useGetMantineColors();
@@ -312,44 +313,46 @@ const ActualDisplayStat = (props: {
 				rootColor={props.color ?? colors[11]}
 			/>
 			<Flex wrap="wrap" ml="xs">
-				{props.data.map((d, idx) => (
-					<Fragment key={idx.toString()}>
-						{isNumber(d.type) && d.value === 0 && d.hideIfZero ? undefined : (
-							<Box mx="xs" data-stat-stringified={JSON.stringify(d)}>
-								<Text
-									fw={d.label !== "Runtime" ? "bold" : undefined}
-									display="inline"
-									fz={{ base: "md", md: "sm", xl: "md" }}
-								>
-									{match(d.type)
-										.with("string", () => d.value)
-										.with("duration", () =>
-											humanizeDuration(
-												dayjsLib
-													.duration(Number(d.value), "minutes")
-													.asMilliseconds(),
-												{
-													round: true,
-													largest: 3,
-												},
-											),
-										)
-										.with("number", () =>
-											formatQuantityWithCompactNotation(Number(d.value)),
-										)
-										.exhaustive()}
-								</Text>
-								<Text
-									display="inline"
-									ml="4px"
-									fz={{ base: "md", md: "sm", xl: "md" }}
-								>
-									{d.label === "Runtime" ? "" : d.label}
-								</Text>
-							</Box>
-						)}
-					</Fragment>
-				))}
+				{props.data.map((d, idx) => {
+					const numDisplay = match(d.type)
+						.with("string", () => d.value)
+						.with("duration", () =>
+							humanizeDuration(
+								dayjsLib.duration(Number(d.value), "minutes").asMilliseconds(),
+								{ round: true, largest: 3 },
+							),
+						)
+						.with("number", () =>
+							formatQuantityWithCompactNotation(Number(d.value)),
+						)
+						.exhaustive();
+					return (
+						<Fragment key={idx.toString()}>
+							{isNumber(d.type) && d.value === 0 && d.hideIfZero ? undefined : (
+								<Box mx="xs">
+									<Tooltip
+										label={`${d.value} ${d.type === "duration" ? "minutes" : ""}`}
+									>
+										<Text
+											display="inline"
+											fz={{ base: "md", md: "sm", xl: "md" }}
+											fw={d.label !== "Runtime" ? "bold" : undefined}
+										>
+											{numDisplay}
+										</Text>
+									</Tooltip>
+									<Text
+										ml="4px"
+										display="inline"
+										fz={{ base: "md", md: "sm", xl: "md" }}
+									>
+										{d.label !== "Runtime" ? d.label : undefined}
+									</Text>
+								</Box>
+							)}
+						</Fragment>
+					);
+				})}
 			</Flex>
 		</Flex>
 	);
@@ -379,8 +382,8 @@ const DisplayStatForMediaType = (props: {
 			})}
 		>
 			<ActualDisplayStat
-				data={props.data}
 				icon={icon}
+				data={props.data}
 				lot={props.lot.toString()}
 				color={MediaColors[props.lot]}
 			/>

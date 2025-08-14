@@ -40,7 +40,7 @@ authenticate but not both.
 
 - Setup OpenID on your instance using the the above guide.
 - Make a backup of your database using this
-  [guide](./exporting.md#exporting-the-entire-database).
+  [guide](../exporting.md#exporting-the-entire-database).
 - Logout of your original account and then click on "Continue with OpenID Connect".
   Continue with user you want to select, after which a new account will be created.
 - Let's say that I want `IgnisDa` below to be able to login using OIDC (of

@@ -7,7 +7,7 @@ use database_models::{
     prelude::{Collection, CollectionToEntity, UserToEntity},
     user_to_entity,
 };
-use dependent_utils::expire_user_collections_list_cache;
+use dependent_utility_utils::expire_user_collections_list_cache;
 use futures::future::try_join_all;
 use itertools::Itertools;
 use sea_orm::{

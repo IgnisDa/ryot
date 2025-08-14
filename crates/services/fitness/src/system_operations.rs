@@ -5,8 +5,8 @@ use database_models::prelude::Exercise;
 use database_utils::get_enabled_users_query;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    prelude::Expr,
 };
-use sea_query::Expr;
 use std::sync::Arc;
 use supporting_service::SupportingService;
 

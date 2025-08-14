@@ -7,9 +7,9 @@ edition = "2024"
 async-graphql = { workspace = true }
 uuid = { workspace = true }
 
-common-models = { path = "../../models/common" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
-media-models = { path = "../../models/media" }
-miscellaneous-service = { path = "../../services/miscellaneous" }
-traits = { path = "../../traits" }
+common-models = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+miscellaneous-service = { workspace = true }
+traits = { workspace = true }

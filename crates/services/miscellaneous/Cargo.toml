@@ -5,42 +5,34 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true }
-convert_case = { workspace = true }
-enum_meta = { workspace = true }
-futures = { workspace = true }
-itertools = { workspace = true }
-nanoid = { workspace = true }
-regex = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
-background-models = { path = "../../models/background" }
-cache-service = { path = "../cache" }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-database-models = { path = "../../models/database" }
-database-utils = { path = "../../utils/database" }
-dependent-models = { path = "../../models/dependent" }
-dependent-utils = { path = "../../utils/dependent" }
-enum-models = { path = "../../models/enum" }
-file-storage-service = { path = "../file-storage" }
-media-models = { path = "../../models/media" }
-migrations = { path = "../../migrations" }
-supporting-service = { path = "../supporting" }
-tmdb-provider = { path = "../../providers/tmdb" }
-traits = { path = "../../traits" }
-user-models = { path = "../../models/user" }
-
-[dev-dependencies]
-rstest = { workspace = true }
+background-models = { workspace = true }
+common-models = { workspace = true }
+database-models = { workspace = true }
+dependent-core-utils = { workspace = true }
+dependent-entity-list-utils = { workspace = true }
+dependent-jobs-utils = { workspace = true }
+dependent-models = { workspace = true }
+dependent-notification-utils = { workspace = true }
+dependent-review-utils = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+miscellaneous-background-service = { workspace = true }
+miscellaneous-calendar-service = { workspace = true }
+miscellaneous-entity-details-service = { workspace = true }
+miscellaneous-entity-user-details-service = { workspace = true }
+miscellaneous-general-service = { workspace = true }
+miscellaneous-lookup-service = { workspace = true }
+miscellaneous-metadata-operations-service = { workspace = true }
+miscellaneous-progress-service = { workspace = true }
+miscellaneous-review-service = { workspace = true }
+miscellaneous-search-service = { workspace = true }
+miscellaneous-trending-and-events-service = { workspace = true }
+supporting-service = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]

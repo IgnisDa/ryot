@@ -14,4 +14,4 @@ serde_json = { workspace = true }
 serde_with = { workspace = true }
 strum = { workspace = true }
 
-enum-models = { path = "../../models/enum" }
+enum-models = { workspace = true }

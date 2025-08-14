@@ -1,0 +1,24 @@
+[package]
+name = "miscellaneous-progress-service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+futures = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+tracing = { workspace = true }
+
+common-models = { workspace = true }
+database-models = { workspace = true }
+dependent-progress-utils = { workspace = true }
+dependent-seen-utils = { workspace = true }
+dependent-utility-utils = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+supporting-service = { workspace = true }
+traits = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]

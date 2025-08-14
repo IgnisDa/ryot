@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 async-graphql = { workspace = true }
 
-database-models = { path = "../../models/database" }
-importer-service = { path = "../../services/importer" }
-media-models = { path = "../../models/media" }
-traits = { path = "../../traits" }
+database-models = { workspace = true }
+importer-service = { workspace = true }
+media-models = { workspace = true }
+traits = { workspace = true }

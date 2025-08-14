@@ -2,7 +2,7 @@ use std::{fs::File as StdFile, sync::Arc};
 
 use anyhow::Result;
 use common_utils::ryot_log;
-use dependent_utils::user_collections_list;
+use dependent_entity_list_utils::user_collections_list;
 use struson::writer::{JsonStreamWriter, JsonWriter};
 use supporting_service::SupportingService;
 

@@ -9,5 +9,5 @@ serde = { workspace = true }
 strum = { workspace = true }
 uuid = { workspace = true }
 
-common-models = { path = "../common" }
-media-models = { path = "../media" }
+common-models = { workspace = true }
+media-models = { workspace = true }

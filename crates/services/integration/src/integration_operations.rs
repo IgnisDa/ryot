@@ -3,7 +3,7 @@ use std::{collections::VecDeque, sync::Arc};
 use anyhow::Result;
 use chrono::Utc;
 use database_models::{integration, prelude::Integration};
-use dependent_utils::send_notification_for_user;
+use dependent_notification_utils::send_notification_for_user;
 use enum_models::{IntegrationLot, IntegrationProvider, UserNotificationContent};
 use media_models::IntegrationTriggerResult;
 use sea_orm::{
@@ -52,13 +52,9 @@ pub async fn set_trigger_result(
         send_notification_for_user(
             &integration.user_id,
             ss,
-            &(
-                format!(
-                    "Integration {} has been disabled due to too many errors",
-                    integration.provider,
-                ),
-                UserNotificationContent::IntegrationDisabledDueToTooManyErrors,
-            ),
+            UserNotificationContent::IntegrationDisabledDueToTooManyErrors {
+                provider_name: integration.provider.to_string(),
+            },
         )
         .await
         .trace_ok();

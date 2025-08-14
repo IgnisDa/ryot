@@ -26,6 +26,8 @@ mod m20240827_create_daily_user_activity;
 mod m20240904_create_monitored_entity;
 mod m20241004_create_application_cache;
 mod m20250801_is_v9_migration;
+mod m20250813_create_collection_entity_membership;
+mod m20250814_changes_for_issue_1483;
 
 pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -73,6 +75,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240904_create_monitored_entity::Migration),
             Box::new(m20241004_create_application_cache::Migration),
             Box::new(m20250801_is_v9_migration::Migration),
+            Box::new(m20250813_create_collection_entity_membership::Migration),
+            Box::new(m20250814_changes_for_issue_1483::Migration),
         ]
     }
 }

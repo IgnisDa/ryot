@@ -9,10 +9,10 @@ async-trait = { workspace = true }
 itertools = { workspace = true }
 rustypipe = { workspace = true }
 
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
-media-models = { path = "../../models/media" }
-traits = { path = "../../traits" }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+traits = { workspace = true }

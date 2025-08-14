@@ -4,10 +4,10 @@ use anyhow::Result;
 use common_models::StringIdObject;
 use database_models::{access_link, integration, notification_platform};
 use database_utils::server_key_validation_guard;
+use dependent_core_utils::is_server_key_validated;
 use dependent_models::{
     BasicUserDetails, CachedResponse, UserDetailsResult, UserMetadataRecommendationsResponse,
 };
-use dependent_utils::is_server_key_validated;
 use media_models::{
     AuthUserInput, CreateAccessLinkInput, CreateOrUpdateUserIntegrationInput,
     CreateUserNotificationPlatformInput, GetPasswordChangeSessionInput,

@@ -2,6 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use database_models::{exercise, user_measurement};
+use database_utils::{user_workout_details, user_workout_template_details};
+use dependent_entity_list_utils::{
+    user_exercises_list, user_measurements_list, user_workout_templates_list, user_workouts_list,
+};
+use dependent_fitness_utils::{
+    create_custom_exercise, create_or_update_user_workout, create_user_measurement,
+};
 use dependent_models::{
     CachedResponse, UpdateCustomExerciseInput, UserExerciseDetails, UserExercisesListResponse,
     UserMeasurementsListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutDetails,
@@ -42,7 +49,7 @@ impl FitnessService {
         user_id: String,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-        template_management::user_workout_templates_list(&self.0, user_id, input).await
+        user_workout_templates_list(&user_id, &self.0, input).await
     }
 
     pub async fn user_workout_template_details(
@@ -50,8 +57,7 @@ impl FitnessService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        template_management::user_workout_template_details(&self.0, user_id, workout_template_id)
-            .await
+        user_workout_template_details(&self.0.db, &user_id, workout_template_id).await
     }
 
     pub async fn create_or_update_user_workout_template(
@@ -89,7 +95,7 @@ impl FitnessService {
         user_id: String,
         input: UserExercisesListInput,
     ) -> Result<CachedResponse<UserExercisesListResponse>> {
-        exercise_management::user_exercises_list(&self.0, user_id, input).await
+        user_exercises_list(&user_id, input, &self.0).await
     }
 
     pub async fn create_custom_exercise(
@@ -97,7 +103,7 @@ impl FitnessService {
         user_id: &String,
         input: exercise::Model,
     ) -> Result<String> {
-        exercise_management::create_custom_exercise(&self.0, user_id, input).await
+        create_custom_exercise(user_id, input, &self.0).await
     }
 
     pub async fn update_custom_exercise(
@@ -131,7 +137,7 @@ impl FitnessService {
         user_id: &String,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        workout_operations::user_workout_details(&self.0, user_id, workout_id).await
+        user_workout_details(user_id, workout_id, &self.0).await
     }
 
     pub async fn user_workouts_list(
@@ -139,7 +145,7 @@ impl FitnessService {
         user_id: String,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
-        workout_operations::user_workouts_list(&self.0, user_id, input).await
+        user_workouts_list(&user_id, input, &self.0).await
     }
 
     pub async fn create_or_update_user_workout(
@@ -147,7 +153,7 @@ impl FitnessService {
         user_id: &String,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        workout_operations::create_or_update_user_workout(&self.0, user_id, input).await
+        create_or_update_user_workout(user_id, input, &self.0).await
     }
 
     pub async fn update_user_workout_attributes(
@@ -172,7 +178,7 @@ impl FitnessService {
         user_id: &String,
         input: UserMeasurementsListInput,
     ) -> Result<CachedResponse<UserMeasurementsListResponse>> {
-        measurement_operations::user_measurements_list(&self.0, user_id, input).await
+        user_measurements_list(user_id, &self.0, input).await
     }
 
     pub async fn create_user_measurement(
@@ -180,7 +186,7 @@ impl FitnessService {
         user_id: &String,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        measurement_operations::create_user_measurement(&self.0, user_id, input).await
+        create_user_measurement(user_id, input, &self.0).await
     }
 
     pub async fn delete_user_measurement(

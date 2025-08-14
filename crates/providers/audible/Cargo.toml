@@ -17,15 +17,15 @@ serde_json = { workspace = true }
 strum = { workspace = true }
 tracing = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-config-definition = { path = "../../config/definition" }
-database-models = { path = "../../models/database" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
-media-models = { path = "../../models/media" }
-traits = { path = "../../traits" }
+application-utils = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+config-definition = { workspace = true }
+database-models = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+traits = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

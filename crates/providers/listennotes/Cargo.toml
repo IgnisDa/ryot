@@ -15,12 +15,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
 
-application-utils = { path = "../../utils/application" }
-cache-service = { path = "../../services/cache" }
-common-models = { path = "../../models/common" }
-common-utils = { path = "../../utils/common" }
-dependent-models = { path = "../../models/dependent" }
-enum-models = { path = "../../models/enum" }
-media-models = { path = "../../models/media" }
-supporting-service = { path = "../../services/supporting" }
-traits = { path = "../../traits" }
+application-utils = { workspace = true }
+cache-service = { workspace = true }
+common-models = { workspace = true }
+common-utils = { workspace = true }
+dependent-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+supporting-service = { workspace = true }
+traits = { workspace = true }
