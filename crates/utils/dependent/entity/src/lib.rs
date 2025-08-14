@@ -395,6 +395,7 @@ async fn generate_metadata_update_notifications(
                     entity_title: meta.title.clone(),
                     content_type: "episodes".to_string(),
                 });
+                make_eligible_for_smart_collection().await?;
             }
         }
     }
@@ -407,6 +408,7 @@ async fn generate_metadata_update_notifications(
                     entity_title: meta.title.clone(),
                     content_type: "chapters".to_string(),
                 });
+                make_eligible_for_smart_collection().await?;
             }
         }
     }
