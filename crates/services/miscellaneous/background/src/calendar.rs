@@ -117,8 +117,8 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
             metadata_id: ActiveValue::Set(Some(meta.id.clone())),
             ..Default::default()
         };
-        if let Some(ps) = &meta.podcast_specifics {
-            for episode in ps.episodes.iter() {
+        if let Some(podcast_spec) = &meta.podcast_specifics {
+            for episode in podcast_spec.episodes.iter() {
                 let mut event = calendar_event_template.clone();
                 event.timestamp =
                     ActiveValue::Set(episode.publish_date.and_hms_opt(0, 0, 0).unwrap());
@@ -128,8 +128,8 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
                     }));
                 calendar_events_inserts.push(event);
             }
-        } else if let Some(ss) = &meta.show_specifics {
-            for season in ss.seasons.iter() {
+        } else if let Some(show_spec) = &meta.show_specifics {
+            for season in show_spec.seasons.iter() {
                 if SHOW_SPECIAL_SEASON_NAMES.contains(&season.name.as_str()) {
                     continue;
                 }
@@ -147,8 +147,8 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
                     }
                 }
             }
-        } else if let Some(ans) = &meta.anime_specifics {
-            if let Some(schedule) = &ans.airing_schedule {
+        } else if let Some(anime_spec) = &meta.anime_specifics {
+            if let Some(schedule) = &anime_spec.airing_schedule {
                 for episode in schedule.iter() {
                     let mut event = calendar_event_template.clone();
                     event.timestamp = ActiveValue::Set(episode.airing_at);

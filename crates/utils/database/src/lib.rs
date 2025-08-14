@@ -103,8 +103,7 @@ pub async fn entity_in_collections_with_details(
         .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
         .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
         .all(db)
-        .await
-        .unwrap();
+        .await?;
     let resp = memberships
         .into_iter()
         .map(|membership| GraphqlCollectionToEntityDetails {
@@ -329,8 +328,7 @@ pub async fn item_reviews(
         .order_by_desc(review::Column::PostedOn)
         .filter(column.eq(entity_id))
         .all(&ss.db)
-        .await
-        .unwrap();
+        .await?;
     let mut reviews = vec![];
     for (review, user) in all_reviews {
         let user = user.unwrap();
