@@ -32,7 +32,7 @@ tracing-subscriber = { workspace = true }
 application-utils = { workspace = true }
 background-models = { workspace = true }
 collection-resolver = { workspace = true }
-collection-service = { path = "../../crates/services/collection" }
+collection-service = { workspace = true }
 common-utils = { workspace = true }
 config-definition = { workspace = true }
 dependent-models = { workspace = true }
