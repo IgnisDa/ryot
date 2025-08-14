@@ -25,4 +25,4 @@ enum-models = { workspace = true }
 fitness-models = { workspace = true }
 importer-models = { workspace = true }
 media-models = { workspace = true }
-user-models = { path = "../../models/user" }
+user-models = { workspace = true }
