@@ -16,10 +16,7 @@ use database_models::{
 };
 use database_utils::transform_entity_assets;
 use dependent_jobs_utils::deploy_update_metadata_job;
-use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, EmptyCacheValue, MetadataBaseData,
-    MetadataEligibleForSmartCollectionMovingInput,
-};
+use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
 };
@@ -228,7 +225,7 @@ pub async fn update_metadata(
                 .unwrap()
                 .unwrap();
 
-            let notifications = generate_metadata_update_notifications(&meta, &details, ss).await?;
+            let notifications = generate_metadata_update_notifications(&meta, &details).await?;
 
             let free_creators = (!details.creators.is_empty())
                 .then_some(())
@@ -292,21 +289,7 @@ pub async fn update_metadata(
 async fn generate_metadata_update_notifications(
     meta: &metadata::Model,
     details: &MetadataDetails,
-    ss: &Arc<SupportingService>,
 ) -> Result<Vec<UserNotificationContent>> {
-    let make_eligible_for_smart_collection = || {
-        cache_service::set_key(
-            ss,
-            ApplicationCacheKey::MetadataEligibleForSmartCollectionMoving(
-                MetadataEligibleForSmartCollectionMovingInput {
-                    metadata_id: meta.id.clone(),
-                },
-            ),
-            ApplicationCacheValue::MetadataEligibleForSmartCollectionMoving(
-                EmptyCacheValue::default(),
-            ),
-        )
-    };
     let mut notifications = vec![];
 
     if let (Some(p1), Some(p2)) = (&meta.production_status, &details.production_status) {
@@ -336,7 +319,6 @@ async fn generate_metadata_update_notifications(
                 new_seasons: s2.seasons.len(),
                 entity_title: meta.title.clone(),
             });
-            make_eligible_for_smart_collection().await?;
         } else {
             for (s1, s2) in zip(s1.seasons.iter(), s2.seasons.iter()) {
                 if SHOW_SPECIAL_SEASON_NAMES.contains(&s1.name.as_str())
@@ -351,7 +333,6 @@ async fn generate_metadata_update_notifications(
                         new_episode_count: s2.episodes.len(),
                         season_number: Some(s1.season_number),
                     });
-                    make_eligible_for_smart_collection().await?;
                 } else {
                     for (before_episode, after_episode) in
                         zip(s1.episodes.iter(), s2.episodes.iter())
@@ -428,7 +409,6 @@ async fn generate_metadata_update_notifications(
                 old_episode_count: p1.episodes.len(),
                 new_episode_count: p2.episodes.len(),
             });
-            make_eligible_for_smart_collection().await?;
         } else {
             for (before_episode, after_episode) in zip(p1.episodes.iter(), p2.episodes.iter()) {
                 if before_episode.title != after_episode.title {
