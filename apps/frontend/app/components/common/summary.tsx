@@ -329,8 +329,10 @@ const ActualDisplayStat = (props: {
 					return (
 						<Fragment key={idx.toString()}>
 							{isNumber(d.type) && d.value === 0 && d.hideIfZero ? undefined : (
-								<Box mx="xs" data-stat-stringified={JSON.stringify(d)}>
-									<Tooltip label={d.value}>
+								<Box mx="xs">
+									<Tooltip
+										label={`${d.value} ${d.type === "duration" ? "minutes" : ""}`}
+									>
 										<Text
 											display="inline"
 											fz={{ base: "md", md: "sm", xl: "md" }}
@@ -344,7 +346,7 @@ const ActualDisplayStat = (props: {
 										display="inline"
 										fz={{ base: "md", md: "sm", xl: "md" }}
 									>
-										{d.label === "Runtime" ? "" : d.label}
+										{d.label !== "Runtime" ? d.label : undefined}
 									</Text>
 								</Box>
 							)}
