@@ -362,29 +362,23 @@ export const BulkCollectionEditingAffix = (props: {
 		const { action, collection, targetEntities } =
 			bulkEditingCollectionState.data;
 
-		if (action === "remove") {
-			await removeEntitiesFromCollection.mutateAsync({
-				entities: targetEntities,
-				collectionName: collection.name,
-				creatorUserId: collection.creatorUserId,
-			});
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: `Removing ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} from collection`,
-			});
-		} else {
-			await addEntitiesToCollection.mutateAsync({
-				entities: targetEntities,
-				collectionName: collection.name,
-				creatorUserId: collection.creatorUserId,
-			});
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: `Adding ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} to collection`,
-			});
-		}
+		const isRemoving = action === "remove";
+		const mutation = isRemoving
+			? removeEntitiesFromCollection
+			: addEntitiesToCollection;
+		const actionText = isRemoving ? "Removing" : "Adding";
+
+		await mutation.mutateAsync({
+			entities: targetEntities,
+			collectionName: collection.name,
+			creatorUserId: collection.creatorUserId,
+		});
+
+		notifications.show({
+			color: "green",
+			title: "Success",
+			message: `${actionText} ${targetEntities.length} item${targetEntities.length === 1 ? "" : "s"} ${isRemoving ? "from" : "to"} collection`,
+		});
 
 		bulkEditingCollectionState.stop();
 	};
