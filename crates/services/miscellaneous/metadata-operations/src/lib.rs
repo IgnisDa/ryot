@@ -4,17 +4,19 @@ use anyhow::{Result, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_models::{
-    collection, collection_to_entity,
+    collection, collection_entity_membership, collection_to_entity,
     functions::get_user_to_entity_association,
     metadata, metadata_to_genre,
     prelude::{
-        Collection, CollectionToEntity, Metadata, MetadataToGenre, Review, Seen, UserToEntity,
+        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataToGenre,
+        Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
 };
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::add_entities_to_collection;
 use dependent_entity_utils::change_metadata_associations;
+use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::expire_user_metadata_list_cache;
 use enum_models::{EntityLot, MediaLot, MediaSource};
 use itertools::Itertools;
@@ -22,7 +24,7 @@ use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomM
 use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait,
+    PaginatorTrait, QueryFilter, QuerySelect, TransactionTrait, prelude::Expr,
 };
 use supporting_service::SupportingService;
 
@@ -301,5 +303,35 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
     ss: &SupportingService,
     metadata_id: String,
 ) -> Result<()> {
+    let metadata = Metadata::find_by_id(&metadata_id)
+        .one(&ss.db)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("Metadata not found"))?;
+    if metadata.lot != MediaLot::Show {
+        return Ok(());
+    }
+    let users_with_both = CollectionEntityMembership::find()
+        .select_only()
+        .column(collection_entity_membership::Column::UserId)
+        .filter(collection_entity_membership::Column::EntityId.eq(&metadata_id))
+        .filter(collection_entity_membership::Column::CollectionName.is_in([
+            DefaultCollection::Monitoring.to_string(),
+            DefaultCollection::Completed.to_string(),
+        ]))
+        .group_by(collection_entity_membership::Column::UserId)
+        .having(
+            Expr::col(collection_entity_membership::Column::CollectionName)
+                .count()
+                .eq(2),
+        )
+        .into_tuple::<String>()
+        .all(&ss.db)
+        .await?;
+
+    for user_id in users_with_both {
+        let (is_finished, _) = is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db).await?;
+        dbg!(&user_id, &is_finished);
+    }
+
     Ok(())
 }
