@@ -241,9 +241,10 @@ pub async fn send_notification_for_user(
         )
         .all(&ss.db)
         .await?;
+    let msg = get_notification_message(notification.clone(), ss).await?;
     for platform in notification_platforms {
-        let not = notification.clone().into();
-        if !platform.configured_events.contains(&not) {
+        let notification = notification.clone().into();
+        if !platform.configured_events.contains(&notification) {
             ryot_log!(
                 debug,
                 "Skipping sending notification to user: {} for platform: {} since it is not configured for this event",
@@ -252,7 +253,6 @@ pub async fn send_notification_for_user(
             );
             continue;
         }
-        let msg = get_notification_message(notification.clone(), ss).await?;
         if let Err(err) = send_notification(platform.platform_specifics, &msg).await {
             ryot_log!(trace, "Error sending notification: {:?}", err);
         }
