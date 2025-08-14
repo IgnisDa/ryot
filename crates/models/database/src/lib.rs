@@ -20,7 +20,6 @@ pub mod metadata_to_genre;
 pub mod metadata_to_metadata;
 pub mod metadata_to_metadata_group;
 pub mod metadata_to_person;
-pub mod monitored_entity;
 pub mod notification_platform;
 pub mod person;
 pub mod review;
