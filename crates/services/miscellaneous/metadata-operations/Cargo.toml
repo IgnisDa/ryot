@@ -17,6 +17,7 @@ database-models = { workspace = true }
 database-utils = { workspace = true }
 dependent-collection-utils = { workspace = true }
 dependent-entity-utils = { workspace = true }
+dependent-notification-utils = { workspace = true }
 dependent-seen-utils = { workspace = true }
 dependent-utility-utils = { workspace = true }
 enum-models = { workspace = true }

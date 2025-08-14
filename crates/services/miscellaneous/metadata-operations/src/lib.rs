@@ -16,9 +16,10 @@ use database_models::{
 use database_utils::entity_in_collections_with_collection_to_entity_ids;
 use dependent_collection_utils::add_entities_to_collection;
 use dependent_entity_utils::change_metadata_associations;
+use dependent_notification_utils::send_notification_for_user;
 use dependent_seen_utils::is_metadata_finished_by_user;
 use dependent_utility_utils::expire_user_metadata_list_cache;
-use enum_models::{EntityLot, MediaLot, MediaSource};
+use enum_models::{EntityLot, MediaLot, MediaSource, UserNotificationContent};
 use itertools::Itertools;
 use media_models::{CreateCustomMetadataInput, MetadataFreeCreator, UpdateCustomMetadataInput};
 use nanoid::nanoid;
@@ -300,14 +301,14 @@ fn get_data_for_custom_metadata(
 }
 
 pub async fn handle_metadata_eligible_for_smart_collection_moving(
-    ss: &SupportingService,
+    ss: &Arc<SupportingService>,
     metadata_id: String,
 ) -> Result<()> {
-    let metadata = Metadata::find_by_id(&metadata_id)
+    let meta = Metadata::find_by_id(&metadata_id)
         .one(&ss.db)
         .await?
         .ok_or_else(|| anyhow::anyhow!("Metadata not found"))?;
-    if metadata.lot != MediaLot::Show {
+    if meta.lot != MediaLot::Show {
         return Ok(());
     }
     let users_with_both = CollectionEntityMembership::find()
@@ -330,7 +331,19 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
 
     for user_id in users_with_both {
         let (is_finished, _) = is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db).await?;
-        dbg!(&user_id, &is_finished);
+        if is_finished {
+            continue;
+        }
+        send_notification_for_user(
+            &user_id,
+            ss,
+            UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
+                entity_id: meta.id.clone(),
+                entity_lot: EntityLot::Metadata,
+                entity_title: meta.title.clone(),
+            },
+        )
+        .await?;
     }
 
     Ok(())
