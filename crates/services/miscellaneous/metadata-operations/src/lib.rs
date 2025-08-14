@@ -296,3 +296,10 @@ fn get_data_for_custom_metadata(
         ..Default::default()
     }
 }
+
+pub async fn handle_metadata_eligible_for_smart_collection_moving(
+    ss: &SupportingService,
+    metadata_id: String,
+) -> Result<()> {
+    Ok(())
+}

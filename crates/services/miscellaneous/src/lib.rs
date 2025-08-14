@@ -363,6 +363,13 @@ impl MiscellaneousService {
         Ok(())
     }
 
+    pub async fn handle_metadata_eligible_for_smart_collection_moving(
+        &self,
+        metadata_id: String,
+    ) -> Result<()> {
+        miscellaneous_metadata_operations_service::handle_metadata_eligible_for_smart_collection_moving(&self.0, metadata_id).await
+    }
+
     pub async fn invalidate_import_jobs(&self) -> Result<()> {
         miscellaneous_background_service::invalidate_import_jobs(&self.0).await
     }
