@@ -9,5 +9,5 @@ async-graphql = { workspace = true }
 collection-service = { path = "../../services/collection" }
 common-models = { workspace = true }
 dependent-models = { workspace = true }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 traits = { path = "../../traits" }

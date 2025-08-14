@@ -19,7 +19,7 @@ common-utils = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 enum-models = { workspace = true }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 migrations = { path = "../../../migrations" }
 supporting-service = { path = "../../supporting" }
 user-models = { path = "../../../models/user" }

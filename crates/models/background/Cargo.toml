@@ -10,4 +10,4 @@ strum = { workspace = true }
 uuid = { workspace = true }
 
 common-models = { workspace = true }
-media-models = { path = "../media" }
+media-models = { workspace = true }

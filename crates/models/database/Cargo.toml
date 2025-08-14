@@ -24,5 +24,5 @@ common-models = { workspace = true }
 enum-models = { workspace = true }
 fitness-models = { path = "../../models/fitness" }
 importer-models = { path = "../../models/importer" }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 user-models = { path = "../../models/user" }

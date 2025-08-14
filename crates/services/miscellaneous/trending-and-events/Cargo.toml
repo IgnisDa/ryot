@@ -18,7 +18,7 @@ dependent-models = { workspace = true }
 dependent-notification-utils = { path = "../../../utils/dependent/notification" }
 dependent-provider-utils = { path = "../../../utils/dependent/provider" }
 enum-models = { workspace = true }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../supporting" }
 
 [package.metadata.cargo-machete]

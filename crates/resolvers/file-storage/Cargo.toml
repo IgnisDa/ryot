@@ -8,4 +8,4 @@ async-graphql = { workspace = true }
 
 common-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }

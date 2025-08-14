@@ -26,7 +26,7 @@ dependent-entity-list-utils = { path = "../../utils/dependent/entity-list" }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
 fitness-models = { path = "../../models/fitness" }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../supporting" }
 
 [package.metadata.cargo-machete]

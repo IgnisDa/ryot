@@ -22,7 +22,7 @@ dependent-jobs-utils = { path = "../jobs" }
 dependent-models = { workspace = true }
 dependent-provider-utils = { path = "../provider" }
 enum-models = { workspace = true }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]

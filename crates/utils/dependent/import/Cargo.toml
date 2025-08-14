@@ -23,7 +23,7 @@ dependent-progress-utils = { path = "../progress" }
 dependent-review-utils = { path = "../review" }
 importer-models = { path = "../../../models/importer" }
 enum-models = { workspace = true }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]

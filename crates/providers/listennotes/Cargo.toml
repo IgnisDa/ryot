@@ -21,6 +21,6 @@ common-models = { workspace = true }
 common-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../services/supporting" }
 traits = { path = "../../traits" }

@@ -20,7 +20,7 @@ dependent-models = { workspace = true }
 dependent-notification-utils = { path = "../../utils/dependent/notification" }
 dependent-review-utils = { path = "../../utils/dependent/review" }
 enum-models = { workspace = true }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 miscellaneous-background-service = { path = "./background" }
 miscellaneous-calendar-service = { path = "./calendar" }
 miscellaneous-entity-details-service = { path = "./entity-details" }

@@ -214,6 +214,7 @@ common-utils = { path = "crates/utils/common" }
 config-definition = { path = "crates/config/definition" }
 dependent-models = { path = "crates/models/dependent" }
 enum-models = { path = "crates/models/enum" }
+media-models = { path = "crates/models/media" }
 
 [profile.release]
 lto = true

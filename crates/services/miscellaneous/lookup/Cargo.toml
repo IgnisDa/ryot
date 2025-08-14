@@ -13,7 +13,7 @@ cache-service = { path = "../../cache" }
 common-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../supporting" }
 tmdb-provider = { path = "../../../providers/tmdb" }
 

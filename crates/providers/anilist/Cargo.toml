@@ -23,7 +23,7 @@ common-utils = { workspace = true }
 config-definition = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 traits = { path = "../../traits" }
 
 [package.metadata.cargo-machete]

@@ -22,7 +22,7 @@ database-utils = { path = "../../../utils/database" }
 dependent-core-utils = { path = "../core" }
 dependent-utility-utils = { path = "../utility" }
 enum-models = { workspace = true }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]

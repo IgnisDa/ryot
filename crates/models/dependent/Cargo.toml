@@ -21,7 +21,7 @@ database-models = { path = "../database" }
 enum-models = { workspace = true }
 fitness-models = { path = "../fitness" }
 importer-models = { path = "../importer" }
-media-models = { path = "../media" }
+media-models = { workspace = true }
 user-models = { path = "../user" }
 
 [package.metadata.cargo-machete]

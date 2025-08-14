@@ -15,7 +15,7 @@ common-models = { workspace = true }
 database-models = { path = "../../../models/database" }
 database-utils = { path = "../../../utils/database" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../supporting" }
 
 [package.metadata.cargo-machete]

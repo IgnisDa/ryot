@@ -16,7 +16,7 @@ tracing = { workspace = true }
 
 common-utils = { workspace = true }
 config-definition = { workspace = true }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 session-service = { path = "../../services/session" }
 supporting-service = { path = "../../services/supporting" }
 

@@ -44,7 +44,7 @@ fitness-models = { path = "../../models/fitness" }
 google-books-provider = { path = "../../providers/google-books" }
 hardcover-provider = { path = "../../providers/hardcover" }
 importer-models = { path = "../../models/importer" }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 openlibrary-provider = { path = "../../providers/openlibrary" }
 supporting-service = { path = "../supporting" }
 tmdb-provider = { path = "../../providers/tmdb" }

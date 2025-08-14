@@ -16,7 +16,7 @@ database-utils = { path = "../../../utils/database" }
 dependent-entity-utils = { path = "../../../utils/dependent/entity" }
 dependent-models = { workspace = true }
 dependent-provider-utils = { path = "../../../utils/dependent/provider" }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 supporting-service = { path = "../../supporting" }
 
 [package.metadata.cargo-machete]

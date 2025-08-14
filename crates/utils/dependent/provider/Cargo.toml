@@ -19,7 +19,7 @@ igdb-provider = { path = "../../../providers/igdb" }
 itunes-provider = { path = "../../../providers/itunes" }
 listennotes-provider = { path = "../../../providers/listennotes" }
 manga-updates-provider = { path = "../../../providers/manga-updates" }
-media-models = { path = "../../../models/media" }
+media-models = { workspace = true }
 myanimelist-provider = { path = "../../../providers/myanimelist" }
 openlibrary-provider = { path = "../../../providers/openlibrary" }
 spotify-provider = { path = "../../../providers/spotify" }

@@ -21,7 +21,7 @@ database-models = { path = "../../models/database" }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { path = "../../services/file-storage" }
-media-models = { path = "../../models/media" }
+media-models = { workspace = true }
 migrations = { path = "../../migrations" }
 session-service = { path = "../../services/session" }
 supporting-service = { path = "../../services/supporting" }
