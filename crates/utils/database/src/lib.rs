@@ -102,6 +102,7 @@ pub async fn entity_in_collections_with_details(
         .filter(collection_entity_membership::Column::UserId.eq(user_id))
         .filter(collection_entity_membership::Column::EntityId.eq(entity_id))
         .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+        .order_by_desc(collection_entity_membership::Column::CollectionToEntityLastUpdatedOn)
         .all(db)
         .await?;
     let resp = memberships
