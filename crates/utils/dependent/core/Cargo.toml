@@ -20,7 +20,7 @@ common-utils = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
 env-utils = { workspace = true }
-file-storage-service = { path = "../../../services/file-storage" }
+file-storage-service = { workspace = true }
 supporting-service = { path = "../../../services/supporting" }
 
 [package.metadata.cargo-machete]

@@ -219,7 +219,13 @@ env-utils = { path = "crates/utils/env" }
 database-models = { path = "crates/models/database" }
 dependent-models = { path = "crates/models/dependent" }
 enum-models = { path = "crates/models/enum" }
+exporter-resolver = { path = "crates/resolvers/exporter" }
+exporter-service = { path = "crates/services/exporter" }
+file-storage-resolver = { path = "crates/resolvers/file-storage" }
+file-storage-service = { path = "crates/services/file-storage" }
 fitness-models = { path = "crates/models/fitness" }
+fitness-resolver = { path = "crates/resolvers/fitness" }
+fitness-service = { path = "crates/services/fitness" }
 importer-models = { path = "crates/models/importer" }
 media-models = { path = "crates/models/media" }
 traits = { path = "crates/traits" }

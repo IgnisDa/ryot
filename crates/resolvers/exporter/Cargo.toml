@@ -7,5 +7,5 @@ edition = "2024"
 async-graphql = { workspace = true }
 
 common-models = { workspace = true }
-exporter-service = { path = "../../services/exporter" }
+exporter-service = { workspace = true }
 traits = { workspace = true }

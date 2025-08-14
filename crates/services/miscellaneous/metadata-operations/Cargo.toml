@@ -19,7 +19,7 @@ dependent-collection-utils = { path = "../../../utils/dependent/collection" }
 dependent-entity-utils = { path = "../../../utils/dependent/entity" }
 dependent-utility-utils = { path = "../../../utils/dependent/utility" }
 enum-models = { workspace = true }
-file-storage-service = { path = "../../file-storage" }
+file-storage-service = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { path = "../../supporting" }
 

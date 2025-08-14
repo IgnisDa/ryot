@@ -20,7 +20,7 @@ common-utils = { workspace = true }
 database-models = { workspace = true }
 dependent-models = { workspace = true }
 enum-models = { workspace = true }
-file-storage-service = { path = "../../services/file-storage" }
+file-storage-service = { workspace = true }
 media-models = { workspace = true }
 migrations = { path = "../../migrations" }
 session-service = { path = "../../services/session" }

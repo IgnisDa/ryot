@@ -7,5 +7,5 @@ edition = "2024"
 async-graphql = { workspace = true }
 
 common-models = { workspace = true }
-file-storage-service = { path = "../../services/file-storage" }
+file-storage-service = { workspace = true }
 media-models = { workspace = true }
