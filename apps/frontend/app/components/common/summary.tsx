@@ -294,10 +294,10 @@ const ActualDisplayStat = (props: {
 	color?: string;
 	icon: ReactNode;
 	data: Array<{
-		type: "duration" | "number" | "string";
 		label: string;
-		value: number | string;
 		hideIfZero?: true;
+		value: number | string;
+		type: "duration" | "number" | "string";
 	}>;
 }) => {
 	const colors = useGetMantineColors();
@@ -317,9 +317,9 @@ const ActualDisplayStat = (props: {
 						{isNumber(d.type) && d.value === 0 && d.hideIfZero ? undefined : (
 							<Box mx="xs" data-stat-stringified={JSON.stringify(d)}>
 								<Text
-									fw={d.label !== "Runtime" ? "bold" : undefined}
 									display="inline"
 									fz={{ base: "md", md: "sm", xl: "md" }}
+									fw={d.label !== "Runtime" ? "bold" : undefined}
 								>
 									{match(d.type)
 										.with("string", () => d.value)
@@ -340,8 +340,8 @@ const ActualDisplayStat = (props: {
 										.exhaustive()}
 								</Text>
 								<Text
-									display="inline"
 									ml="4px"
+									display="inline"
 									fz={{ base: "md", md: "sm", xl: "md" }}
 								>
 									{d.label === "Runtime" ? "" : d.label}
@@ -379,8 +379,8 @@ const DisplayStatForMediaType = (props: {
 			})}
 		>
 			<ActualDisplayStat
-				data={props.data}
 				icon={icon}
+				data={props.data}
 				lot={props.lot.toString()}
 				color={MediaColors[props.lot]}
 			/>
