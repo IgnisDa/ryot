@@ -236,7 +236,7 @@ async fn get_notification_message(
         } => {
             let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
             Ok(format!(
-                "{} ({}) has been moved from completed to watchlist collection",
+                "{} ({}) has been moved from the Completed to the Watchlist collection",
                 entity_title, url
             ))
         }
