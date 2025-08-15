@@ -9,6 +9,7 @@ use common_models::{
     MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
+use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails, SearchResults,
@@ -21,6 +22,7 @@ use media_models::{
     PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
     VideoGameSpecifics, VideoGameSpecificsPlatformRelease, VideoGameSpecificsTimeToBeat,
 };
+use nest_struct::nest_struct;
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderName, HeaderValue},
@@ -54,9 +56,10 @@ fields
     similar_games.id,
     similar_games.name,
     similar_games.cover.*,
-    collection.id,
+    collections.id,
     release_dates.date,
     release_dates.platform.name,
+    release_dates.release_region.region,
     videos.*,
     genres.*;
 where version_parent = null;
@@ -142,12 +145,14 @@ struct IgdbImage {
     image_id: String,
 }
 
+#[nest_struct]
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbReleaseDate {
     platform: NamedObject,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     date: Option<DateTimeUtc>,
+    release_region: Option<nest! { region: Option<String> }>,
 }
 
 #[serde_as]
@@ -159,10 +164,10 @@ struct IgdbItemResponse {
     summary: Option<String>,
     cover: Option<IgdbImage>,
     version_parent: Option<i32>,
-    collection: Option<IdObject>,
     videos: Option<Vec<IgdbVideo>>,
     genres: Option<Vec<NamedObject>>,
     artworks: Option<Vec<IgdbImage>>,
+    collections: Option<Vec<IdObject>>,
     games: Option<Vec<IgdbItemResponse>>,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     first_release_date: Option<DateTimeUtc>,
@@ -450,17 +455,20 @@ where id = {identity};
 
         let detail = details.pop().ok_or_else(|| anyhow!("No details found"))?;
 
-        let groups = match detail.collection.as_ref() {
-            Some(c) => vec![CommitMetadataGroupInput {
-                name: "Loading...".to_string(),
-                unique: UniqueMediaIdentifier {
-                    lot: MediaLot::VideoGame,
-                    source: MediaSource::Igdb,
-                    identifier: c.id.to_string(),
-                },
-                ..Default::default()
-            }],
+        let groups = match detail.collections.as_ref() {
             None => vec![],
+            Some(cols) => cols
+                .iter()
+                .map(|c| CommitMetadataGroupInput {
+                    name: "Loading...".to_string(),
+                    unique: UniqueMediaIdentifier {
+                        lot: MediaLot::VideoGame,
+                        source: MediaSource::Igdb,
+                        identifier: c.id.to_string(),
+                    },
+                    ..Default::default()
+                })
+                .collect(),
         };
         let mut game_details =
             self.igdb_response_to_search_response(detail, ttb_details.first().cloned());
@@ -650,6 +658,9 @@ impl IgdbService {
             .map(|rd| VideoGameSpecificsPlatformRelease {
                 release_date: rd.date,
                 name: rd.platform.name,
+                release_region: rd
+                    .release_region
+                    .and_then(|r| r.region.map(|i| i.to_case(Case::Title))),
             })
             .sorted_by_key(|rd| rd.name.clone())
             .collect_vec();

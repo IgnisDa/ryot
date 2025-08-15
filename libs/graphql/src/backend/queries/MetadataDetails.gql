@@ -101,6 +101,7 @@ query MetadataDetails($metadataId: String!, $ensureUpdated: Boolean) {
 			platformReleases {
 				name
 				releaseDate
+				releaseRegion
 			}
 			timeToBeat {
 				hastily

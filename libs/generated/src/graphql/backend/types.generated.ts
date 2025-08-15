@@ -3180,11 +3180,13 @@ export type VideoGameSpecificsPlatformRelease = {
   __typename?: 'VideoGameSpecificsPlatformRelease';
   name: Scalars['String']['output'];
   releaseDate?: Maybe<Scalars['DateTime']['output']>;
+  releaseRegion?: Maybe<Scalars['String']['output']>;
 };
 
 export type VideoGameSpecificsPlatformReleaseInput = {
   name: Scalars['String']['input'];
   releaseDate?: InputMaybe<Scalars['DateTime']['input']>;
+  releaseRegion?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type VideoGameSpecificsTimeToBeat = {

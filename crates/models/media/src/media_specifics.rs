@@ -218,6 +218,7 @@ pub struct VideoGameSpecificsTimeToBeat {
 #[graphql(input_name = "VideoGameSpecificsPlatformReleaseInput")]
 pub struct VideoGameSpecificsPlatformRelease {
     pub name: String,
+    pub release_region: Option<String>,
     pub release_date: Option<DateTimeUtc>,
 }
 

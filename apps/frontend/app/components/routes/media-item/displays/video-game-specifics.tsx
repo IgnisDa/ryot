@@ -52,8 +52,9 @@ export function VideoGameSpecificsDisplay(props: {
 			{hasPlatformReleases ? (
 				<Table
 					data={{
-						head: ["Platform", "Release Date"],
+						head: ["Region", "Platform", "Release Date"],
 						body: platformReleases.map((p) => [
+							p.releaseRegion ? p.releaseRegion : "Unknown",
 							p.name,
 							p.releaseDate ? dayjsLib(p.releaseDate).format("LL") : "Unknown",
 						]),
