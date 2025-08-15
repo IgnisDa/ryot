@@ -31,6 +31,7 @@ use sea_orm::prelude::DateTimeUtc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
+use slug::slugify;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
@@ -286,7 +287,10 @@ where id = {identifier};
                 source: MediaSource::Igdb,
                 identifier: details.id.to_string(),
                 parts: items.len().try_into().unwrap(),
-                source_url: Some(format!("https://www.igdb.com/collection/{title}")),
+                source_url: Some(format!(
+                    "https://www.igdb.com/collection/{}",
+                    slugify(title)
+                )),
                 ..Default::default()
             },
             items,
@@ -406,7 +410,7 @@ where id = {identity};
             source: MediaSource::Igdb,
             description: detail.description,
             identifier: detail.id.to_string(),
-            source_url: Some(format!("https://www.igdb.com/companies/{name}")),
+            source_url: Some(format!("https://www.igdb.com/companies/{}", slugify(name))),
             assets: EntityAssets {
                 remote_images: Vec::from_iter(
                     detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
@@ -592,13 +596,14 @@ impl IgdbService {
         item: IgdbItemResponse,
         time_to_beat: Option<VideoGameSpecificsTimeToBeat>,
     ) -> MetadataDetails {
-        let mut images = Vec::from_iter(item.cover.map(|a| self.get_cover_image_url(a.image_id)));
+        let mut remote_images =
+            Vec::from_iter(item.cover.map(|a| self.get_cover_image_url(a.image_id)));
         let additional_images = item
             .artworks
             .unwrap_or_default()
             .into_iter()
             .map(|a| self.get_cover_image_url(a.image_id));
-        images.extend(additional_images);
+        remote_images.extend(additional_images);
 
         let people = item
             .involved_companies
@@ -654,22 +659,16 @@ impl IgdbService {
             lot: MediaLot::VideoGame,
             source: MediaSource::Igdb,
             description: item.summary,
+            provider_rating: item.rating,
             identifier: item.id.to_string(),
             publish_year: item.first_release_date.map(|d| d.year()),
             publish_date: item.first_release_date.map(|d| d.date_naive()),
-            source_url: Some(format!("https://www.igdb.com/games/{title}")),
+            source_url: Some(format!("https://www.igdb.com/games/{}", slugify(title))),
             assets: EntityAssets {
                 remote_videos,
-                remote_images: images,
+                remote_images,
                 ..Default::default()
             },
-            genres: item
-                .genres
-                .unwrap_or_default()
-                .into_iter()
-                .map(|g| g.name)
-                .unique()
-                .collect(),
             video_game_specifics: Some(VideoGameSpecifics {
                 time_to_beat,
                 platform_releases: match platform_releases.is_empty() {
@@ -677,6 +676,13 @@ impl IgdbService {
                     false => Some(platform_releases),
                 },
             }),
+            genres: item
+                .genres
+                .unwrap_or_default()
+                .into_iter()
+                .map(|g| g.name)
+                .unique()
+                .collect(),
             suggestions: item
                 .similar_games
                 .unwrap_or_default()
@@ -690,7 +696,6 @@ impl IgdbService {
                     ..Default::default()
                 })
                 .collect(),
-            provider_rating: item.rating,
             ..Default::default()
         }
     }

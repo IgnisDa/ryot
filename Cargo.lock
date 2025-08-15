@@ -3626,6 +3626,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "slug",
  "supporting-service",
  "tracing",
  "traits",
