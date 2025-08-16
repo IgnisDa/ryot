@@ -1,4 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
+import { fetch } from "expo/fetch";
 import createFetchClient from "openapi-fetch";
 import { useMemo } from "react";
 
@@ -14,6 +15,7 @@ export function useApiClient() {
 	return useMemo(
 		() =>
 			createFetchClient<paths>({
+				fetch,
 				baseUrl: `${baseUrl}/api`,
 				headers: { Cookie: cookie },
 			}),
