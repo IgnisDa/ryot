@@ -52,12 +52,12 @@ async function insertLibraryMembership(input: {
 
 		const schemaResult = await pg.query<{ id: string }>(
 			`select id from relationship_schema
-			 where slug = 'in_library' and user_id is null
+			 where slug = 'in-library' and user_id is null
 			 limit 1`,
 		);
 		const inLibrarySchemaId = schemaResult.rows[0]?.id;
 		if (!inLibrarySchemaId) {
-			throw new Error("Missing in_library relationship schema");
+			throw new Error("Missing in-library relationship schema");
 		}
 
 		await pg.query(

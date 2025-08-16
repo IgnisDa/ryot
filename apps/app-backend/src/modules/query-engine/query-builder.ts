@@ -106,7 +106,7 @@ const buildBaseEntitiesCte = (input: {
 				and ${relationship.relationshipSchemaId} = (
 				select ${relationshipSchema.id}
 				from ${relationshipSchema}
-				where ${relationshipSchema.slug} = 'in_library'
+				where ${relationshipSchema.slug} = 'in-library'
 				and ${relationshipSchema.userId} is null
 				limit 1
 			)
