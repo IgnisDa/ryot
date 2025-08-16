@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { router } from "expo-router";
-import { ChevronDown, ChevronRight, LogOut } from "lucide-react-native";
+import { ChevronDown, ChevronRight, LogOut, Settings } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView } from "react-native";
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from "react-native-reanimated";
@@ -19,7 +19,7 @@ export function TrackerSheet() {
 	const user = useUser();
 	const authClient = useAuthClient();
 	const setOpen = useSetNavSheetOpen();
-	const { trackers, libraryViews, userItem, isLoading } = useNavigationData(user?.name);
+	const { trackers, libraryViews, isLoading } = useNavigationData(user?.name);
 	const { isViewPath, activeTrackerSlug, activeSubItemSlug } = useActiveNav();
 	const [expandedId, setExpandedId] = useState<string | null>(
 		trackers.find((t) => t.slug === activeTrackerSlug && t.subItems.length > 0)?.key ?? null,
@@ -233,18 +233,24 @@ export function TrackerSheet() {
 
 					<Box className="mx-6 mt-2">
 						<Box className="h-[0.5px] bg-border mb-3.5" />
-						<Box className="flex-row items-center gap-2 min-h-11">
-							<Box className="opacity-40">
-								<TrackerIcon icon="user" size={16} />
-							</Box>
-							<Text className="text-[14px] text-muted-foreground font-heading">
-								{userItem.name}
-							</Text>
-						</Box>
 						<Pressable
-							onPress={() => void handleLogout()}
+							accessibilityRole="button"
+							accessibilityLabel="Open settings"
+							className="flex-row items-center gap-2 min-h-11"
+							onPress={() => {
+								close();
+								router.push("/settings");
+							}}
+						>
+							<Box className="opacity-40">
+								<Settings size={16} strokeWidth={1.5} color="#78716c" />
+							</Box>
+							<Text className="text-[14px] text-muted-foreground font-heading">Settings</Text>
+						</Pressable>
+						<Pressable
 							accessibilityRole="button"
 							accessibilityLabel="Log Out"
+							onPress={() => void handleLogout()}
 							className="flex-row items-center gap-2 min-h-11"
 						>
 							<Box className="opacity-40">
