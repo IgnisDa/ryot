@@ -3,34 +3,39 @@ import React from "react";
 
 import { textStyle } from "./styles";
 
-type ITextProps = React.ComponentProps<"span"> & VariantProps<typeof textStyle>;
+type ITextProps = React.ComponentProps<"span"> &
+	VariantProps<typeof textStyle> & {
+		// React Native prop — ignored on web
+		numberOfLines?: number;
+	};
 
 const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function Text(
 	{
-		className,
-		isTruncated,
-		bold,
-		underline,
-		strikeThrough,
-		size = "md",
 		sub,
+		bold,
 		italic,
+		className,
+		underline,
 		highlight,
+		isTruncated,
+		size = "md",
+		strikeThrough,
+		numberOfLines: _numberOfLines,
 		...props
-	}: { className?: string } & ITextProps,
+	},
 	ref,
 ) {
 	return (
 		<span
 			className={textStyle({
-				isTruncated: isTruncated as boolean,
-				bold: bold as boolean,
-				underline: underline as boolean,
-				strikeThrough: strikeThrough as boolean,
+				sub,
 				size,
-				sub: sub as boolean,
-				italic: italic as boolean,
-				highlight: highlight as boolean,
+				bold,
+				italic,
+				underline,
+				highlight,
+				isTruncated,
+				strikeThrough,
 				class: className,
 			})}
 			{...props}
