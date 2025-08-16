@@ -3,12 +3,15 @@ import {
 	createAuthenticatedClient,
 	createEntitySchema,
 	createTracker,
+	enqueueEntitySearch,
 	findBuiltinEntitySchema,
 	findBuiltinSchemaWithProviders,
 	findBuiltinTracker,
 	getEntitySchema,
 	listEntitySchemas,
+	pollEntitySearchResult,
 } from "../fixtures";
+import { getBackendClient } from "../setup";
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
@@ -543,5 +546,120 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 
 		expect(response.status).toBe(404);
 		expect(error?.error?.message).toBe("Entity schema not found");
+	});
+});
+
+describe("POST /entity-schemas/search", () => {
+	it("returns 401 when unauthenticated", async () => {
+		const client = getBackendClient();
+		const { response, error } = await client.POST("/entity-schemas/search", {
+			body: { scriptId: crypto.randomUUID() },
+		});
+
+		expect(response.status).toBe(401);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 404 when the scriptId does not exist", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { response, error } = await client.POST("/entity-schemas/search", {
+			headers: { Cookie: cookies },
+			body: { scriptId: crypto.randomUUID() },
+		});
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Sandbox script not found");
+	});
+
+	it("returns 200 with a jobId when given a valid builtin script", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const scriptId = schema.providers[0]?.scriptId;
+		if (!scriptId) {
+			throw new Error("No search provider found");
+		}
+
+		const { jobId } = await enqueueEntitySearch(client, cookies, {
+			scriptId,
+			context: { page: 1, pageSize: 5, query: "test" },
+		});
+
+		expect(typeof jobId).toBe("string");
+		expect(jobId.length).toBeGreaterThan(0);
+	});
+});
+
+describe("GET /entity-schemas/search/{jobId}", () => {
+	it("returns 401 when unauthenticated", async () => {
+		const client = getBackendClient();
+		const { response, error } = await client.GET(
+			"/entity-schemas/search/{jobId}",
+			{ params: { path: { jobId: crypto.randomUUID() } } },
+		);
+
+		expect(response.status).toBe(401);
+		expect(error?.error).toBeDefined();
+	});
+
+	it("returns 404 for a non-existent job id", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { response, error } = await client.GET(
+			"/entity-schemas/search/{jobId}",
+			{
+				headers: { Cookie: cookies },
+				params: { path: { jobId: crypto.randomUUID() } },
+			},
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Sandbox job not found");
+	});
+
+	it("returns 404 when another user polls the job", async () => {
+		const { client: clientA, cookies: cookiesA } =
+			await createAuthenticatedClient();
+		const { client: clientB, cookies: cookiesB } =
+			await createAuthenticatedClient();
+
+		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
+		const scriptId = schema.providers[0]?.scriptId;
+		if (!scriptId) {
+			throw new Error("No search provider found");
+		}
+
+		const { jobId } = await enqueueEntitySearch(clientA, cookiesA, {
+			scriptId,
+			context: { page: 1, pageSize: 5, query: "test" },
+		});
+
+		const { response, error } = await clientB.GET(
+			"/entity-schemas/search/{jobId}",
+			{ params: { path: { jobId } }, headers: { Cookie: cookiesB } },
+		);
+
+		expect(response.status).toBe(404);
+		expect(error?.error?.message).toBe("Sandbox job not found");
+	});
+
+	it("reaches a terminal state for a builtin search script", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const scriptId = schema.providers[0]?.scriptId;
+		if (!scriptId) {
+			throw new Error("No search provider found");
+		}
+
+		const { jobId } = await enqueueEntitySearch(client, cookies, {
+			scriptId,
+			context: { page: 1, pageSize: 5, query: "test" },
+		});
+
+		const result = await pollEntitySearchResult(client, cookies, jobId);
+
+		expect(result.status === "completed" || result.status === "failed").toBe(
+			true,
+		);
 	});
 });

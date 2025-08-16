@@ -7,16 +7,22 @@ import {
 	createSuccessResult,
 	jsonBody,
 } from "~/lib/openapi";
+import { sandboxJobParams } from "~/modules/sandbox";
 import {
 	createEntitySchemaBody,
 	createEntitySchemaResponseSchema,
 	entitySchemaParams,
+	entitySearchBody,
+	entitySearchResponseSchema,
+	entitySearchResultResponseSchema,
 	listEntitySchemasBody,
 	listEntitySchemasResponseSchema,
 } from "./schemas";
 import {
 	createEntitySchema,
+	enqueueEntitySearch,
 	getEntitySchemaById,
+	getEntitySearchResult,
 	listEntitySchemas,
 } from "./service";
 
@@ -65,6 +71,37 @@ const getEntitySchemaRoute = createAuthRoute(
 	}),
 );
 
+const enqueueEntitySearchRoute = createAuthRoute(
+	createRoute({
+		method: "post",
+		path: "/search",
+		tags: ["entity-schemas"],
+		request: { body: jsonBody(entitySearchBody) },
+		summary:
+			"Enqueue an entity search using the search driver of a sandbox script",
+		responses: createStandardResponses({
+			successSchema: entitySearchResponseSchema,
+			notFoundDescription: "Sandbox script not found",
+			successDescription: "Entity search job enqueued",
+		}),
+	}),
+);
+
+const getEntitySearchResultRoute = createAuthRoute(
+	createRoute({
+		method: "get",
+		path: "/search/{jobId}",
+		tags: ["entity-schemas"],
+		request: { params: sandboxJobParams },
+		summary: "Poll the result of an entity search job",
+		responses: createStandardResponses({
+			successDescription: "Entity search job result",
+			successSchema: entitySearchResultResponseSchema,
+			notFoundDescription: "Entity search job not found",
+		}),
+	}),
+);
+
 export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(listEntitySchemasRoute, async (c) => {
 		const user = c.get("user");
@@ -88,6 +125,35 @@ export const entitySchemasApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const body = c.req.valid("json");
 
 		const result = await createEntitySchema({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(enqueueEntitySearchRoute, async (c) => {
+		const user = c.get("user");
+		const body = c.req.valid("json");
+
+		const result = await enqueueEntitySearch({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(getEntitySearchResultRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const result = await getEntitySearchResult({
+			jobId: params.jobId,
+			userId: user.id,
+		});
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
