@@ -16,6 +16,9 @@ pub async fn rebalance_collection_ranks(ss: &Arc<SupportingService>) -> Result<(
                 -- Ranks with more than 3 decimal places (fragmented)
                 SCALE(rank) > 3
                 OR
+                -- Collections with negative ranks
+                rank <= 0
+                OR
                 -- Collections with many fractional ranks (> 10% of items)
                 collection_id IN (
                     SELECT collection_id
