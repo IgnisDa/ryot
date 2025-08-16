@@ -272,33 +272,6 @@ describe("GET /entity-schemas", () => {
 		expect(typeof provider?.name).toBe("string");
 		expect(provider?.name.length).toBeGreaterThan(0);
 		expect(typeof provider?.scriptId).toBe("string");
-		expect(typeof provider?.searchDriverName).toBe("string");
-	});
-
-	it("media schema providers carry searchDriverName of mediaSearch", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-
-		expect(schema.providers.length).toBeGreaterThan(0);
-		for (const provider of schema.providers) {
-			expect(provider.searchDriverName).toBe("search");
-		}
-	});
-
-	it("person schema providers carry searchDriverName of personSearch", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, {
-			slugs: ["person"],
-			trackerId: builtinTracker.id,
-		});
-		const personSchema = schemas[0];
-
-		expect(personSchema).toBeDefined();
-		expect(personSchema?.providers.length).toBeGreaterThan(0);
-		for (const provider of personSchema?.providers ?? []) {
-			expect(provider.searchDriverName).toBe("search");
-		}
 	});
 
 	it("custom schemas without linked scripts have providers as empty array", async () => {

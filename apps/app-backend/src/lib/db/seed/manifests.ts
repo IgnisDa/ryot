@@ -14,61 +14,51 @@ export const builtinSandboxScripts = () => [
 		name: "Hardcover",
 		slug: "book.hardcover",
 		code: hardcoverBookScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "OpenLibrary",
 		slug: "book.openlibrary",
 		code: openLibraryBookScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "Google Books",
 		slug: "book.google-book",
 		code: googleBooksBookScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "Anilist",
 		slug: "anime.anilist",
 		code: anilistAnimeScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "Anilist",
 		slug: "manga.anilist",
 		code: anilistMangaScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "MyAnimeList",
 		slug: "anime.myanimelist",
 		code: myanimelistAnimeScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "MyAnimeList",
 		slug: "manga.myanimelist",
 		code: myanimelistMangaScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "MangaUpdates",
 		slug: "manga.manga-updates",
 		code: mangaUpdatesMangaScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "Anilist",
 		slug: "person.anilist",
 		code: anilistPersonScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 	{
 		name: "Hardcover",
 		slug: "person.hardcover",
 		code: hardcoverPersonScriptCode,
-		metadata: { searchDriverName: "search" },
 	},
 ];
 
