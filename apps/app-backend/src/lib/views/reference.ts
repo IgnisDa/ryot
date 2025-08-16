@@ -1,4 +1,5 @@
-import type { AppPropertyDefinition, AppSchema, RuntimeRef } from "@ryot/ts-utils";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils/app-schema";
+import type { RuntimeRef } from "@ryot/ts-utils/view-language";
 
 import { QueryEngineValidationError } from "./errors";
 

@@ -7,7 +7,7 @@ import {
 	FilterPresetsDocument,
 	UpdateFilterPresetLastUsedDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEqual } from "@ryot/ts-utils";
+import { isEqual } from "@ryot/ts-utils/lodash";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientError } from "graphql-request";
 import type { ParserMap, Values } from "nuqs";

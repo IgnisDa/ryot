@@ -1,5 +1,5 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
-import { sortBy } from "@ryot/ts-utils";
+import { sortBy } from "@ryot/ts-utils/lodash";
 import type { Href } from "expo-router";
 
 type ApiTracker =

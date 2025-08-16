@@ -3,7 +3,7 @@ import {
 	ExerciseDurationUnit,
 	WorkoutSetPersonalBest,
 } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { startCase } from "@ryot/ts-utils/lodash";
 import { IconExternalLink } from "@tabler/icons-react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";

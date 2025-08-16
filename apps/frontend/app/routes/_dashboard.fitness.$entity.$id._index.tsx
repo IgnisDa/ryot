@@ -24,13 +24,9 @@ import {
 	EntityLot,
 	UpdateUserWorkoutAttributesDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	getActionIntent,
-	humanizeDuration,
-	parseParameters,
-	processSubmission,
-} from "@ryot/ts-utils";
+import { humanizeDuration } from "@ryot/ts-utils/format";
+import { getActionIntent, parseParameters, processSubmission } from "@ryot/ts-utils/request";
+import { changeCase } from "@ryot/ts-utils/string";
 import {
 	IconArchive,
 	IconBarbell,

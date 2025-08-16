@@ -1,8 +1,8 @@
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
-	getQueryEngineField,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 import { match } from "ts-pattern";
 
 import {

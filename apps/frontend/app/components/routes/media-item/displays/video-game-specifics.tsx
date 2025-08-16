@@ -1,6 +1,6 @@
 import { Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import type { VideoGameSpecifics } from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils/index";
+import { humanizeDuration } from "@ryot/ts-utils/format";
 
 import { dayjsLib } from "~/lib/shared/date-utils";
 

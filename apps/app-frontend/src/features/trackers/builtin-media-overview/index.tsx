@@ -12,7 +12,7 @@ import {
 	Stack,
 	Text,
 } from "@mantine/core";
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { useQueryClient } from "@tanstack/react-query";
 import { Bookmark, Clock } from "lucide-react";
 import { useCallback } from "react";

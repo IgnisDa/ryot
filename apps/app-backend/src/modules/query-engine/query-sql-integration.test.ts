@@ -4,7 +4,7 @@ import {
 	createComputedFieldExpression,
 	createEntityPropertyExpression,
 	createEntitySchemaExpression,
-} from "@ryot/ts-utils";
+} from "@ryot/ts-utils/view-language";
 import { PgDialect } from "drizzle-orm/pg-core";
 
 import {

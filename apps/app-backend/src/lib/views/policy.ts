@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition, AppPropertyPrimitiveType } from "@ryot/ts-utils";
+import type { AppPropertyDefinition, AppPropertyPrimitiveType } from "@ryot/ts-utils/app-schema";
 import { match } from "ts-pattern";
 
 import type { PropertyType } from "./reference";

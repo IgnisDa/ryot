@@ -1,5 +1,5 @@
-import type { AppSchema } from "@ryot/ts-utils";
-import { fromAppSchemaObject } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { fromAppSchemaObject } from "@ryot/ts-utils/app-schema";
 
 export type ValidationIssue = {
 	path: string;

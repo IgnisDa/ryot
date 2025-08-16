@@ -1,5 +1,9 @@
-import type { AppPropertyDefinition, AppSchema, AppSchemaRuleCondition } from "@ryot/ts-utils";
-import { fromAppSchemaObject, isAppPropertyRequired } from "@ryot/ts-utils";
+import type {
+	AppPropertyDefinition,
+	AppSchema,
+	AppSchemaRuleCondition,
+} from "@ryot/ts-utils/app-schema";
+import { fromAppSchemaObject, isAppPropertyRequired } from "@ryot/ts-utils/app-schema";
 import { match } from "ts-pattern";
 
 export function isPrimitiveProperty(propertyDef: AppPropertyDefinition): boolean {

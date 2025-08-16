@@ -1,4 +1,5 @@
-import { type AppSchema, resolveRequiredString } from "@ryot/ts-utils";
+import type { AppSchema } from "@ryot/ts-utils/app-schema";
+import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";

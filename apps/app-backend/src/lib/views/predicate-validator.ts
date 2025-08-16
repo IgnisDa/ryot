@@ -1,5 +1,9 @@
 import { z } from "@hono/zod-openapi";
-import { type AppObjectProperty, type AppPropertyDefinition, fromAppSchema } from "@ryot/ts-utils";
+import {
+	type AppObjectProperty,
+	type AppPropertyDefinition,
+	fromAppSchema,
+} from "@ryot/ts-utils/app-schema";
 import { match } from "ts-pattern";
 
 import { buildComputedFieldMap } from "./computed-fields";

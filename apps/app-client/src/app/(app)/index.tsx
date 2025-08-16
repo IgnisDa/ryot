@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Plus } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
