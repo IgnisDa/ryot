@@ -142,7 +142,7 @@ const processMediaImportJob = async (job: Job) => {
 		scriptId,
 		code: script.code,
 		context: { identifier },
-		driverName: "mediaDetails",
+		driverName: "details",
 		apiFunctionDescriptors: createApiFunctionDescriptors(userId),
 	});
 
@@ -242,7 +242,7 @@ const processPersonPopulateJob = async (job: Job) => {
 		context: { identifier },
 		code: personScript.code,
 		scriptId: personScript.id,
-		driverName: "personDetails",
+		driverName: "details",
 		apiFunctionDescriptors: createApiFunctionDescriptors(userId),
 	});
 
