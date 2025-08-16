@@ -1,0 +1,78 @@
+use std::sync::Arc;
+
+use async_graphql::{Context, Object, Result};
+use common_models::BackgroundJob;
+use dependent_models::CoreDetails;
+use enum_models::EntityLot;
+use miscellaneous_service::MiscellaneousService;
+use traits::AuthProvider;
+use uuid::Uuid;
+
+#[derive(Default)]
+pub struct SystemQuery;
+
+impl AuthProvider for SystemQuery {}
+
+#[Object]
+impl SystemQuery {
+    /// Get some primary information about the service.
+    async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let response = service.core_details().await?;
+        Ok(response)
+    }
+}
+
+#[derive(Default)]
+pub struct SystemMutation;
+
+impl AuthProvider for SystemMutation {
+    fn is_mutation(&self) -> bool {
+        true
+    }
+}
+
+#[Object]
+impl SystemMutation {
+    /// Expire a cache key by its ID
+    async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let response = service.expire_cache_key(cache_id).await?;
+        Ok(response)
+    }
+
+    /// Deploy a job to update a media entity's metadata.
+    async fn deploy_update_media_entity_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        entity_id: String,
+        entity_lot: EntityLot,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let response = service
+            .deploy_update_media_entity_job(entity_id, entity_lot)
+            .await?;
+        Ok(response)
+    }
+
+    /// Start a background job.
+    async fn deploy_background_job(
+        &self,
+        gql_ctx: &Context<'_>,
+        job_name: BackgroundJob,
+    ) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let response = service.deploy_background_job(&user_id, job_name).await?;
+        Ok(response)
+    }
+
+    /// Use this mutation to call a function that needs to be tested for implementation.
+    /// It is only available in development mode.
+    #[cfg(debug_assertions)]
+    async fn development_mutation(&self, gql_ctx: &Context<'_>) -> Result<bool> {
+        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let response = service.development_mutation().await?;
+        Ok(response)
+    }
+}
