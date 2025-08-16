@@ -105,10 +105,12 @@ export const authenticationBuiltinEntitySchemas = () => [
 		icon: "user",
 		slug: "person",
 		name: "Person",
-		eventSchemas: [],
 		trackerSlug: "media",
 		accentColor: "#6B7280",
 		propertiesSchema: personPropertiesJsonSchema,
+		eventSchemas: mediaLifecycleEventSchemas().filter(
+			(schema) => schema.slug === "review",
+		),
 	},
 	{
 		slug: "book",
