@@ -12,6 +12,7 @@ TypeScript backend (`apps/app-backend`) during startup.
 - Run the legacy table rename before Drizzle migrations.
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
 - Prefer SQL for set-based work. Use TypeScript only for orchestration.
+- **Never hardcode `public.` as a schema prefix in SQL statements.** The V1 backend (SeaORM) used bare table names that resolve through PostgreSQL's `search_path`, so V1 tables may live in a non-public schema. Use quoted bare table names (e.g., `"old_user"`, `"metadata"`) instead of `public.table_name` to resolve correctly regardless of schema. See #1372.
 
 ## Current Decisions
 
