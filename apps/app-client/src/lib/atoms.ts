@@ -4,6 +4,7 @@ import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
+import { useMemo } from "react";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
 
@@ -61,6 +62,14 @@ export function useUser() {
 	const authClient = useAuthClient();
 	const { data: session } = authClient.useSession();
 	return session?.user ?? null;
+}
+
+export function usePlatformStoredValue<T>(key: string, defaultValue: T) {
+	const storageAtom = useMemo(
+		() => atomWithPlatformStorage<T>(key, defaultValue),
+		[key, defaultValue],
+	);
+	return [useAtomValue(storageAtom), useSetAtom(storageAtom)] as const;
 }
 
 export function clearAppStorage() {
