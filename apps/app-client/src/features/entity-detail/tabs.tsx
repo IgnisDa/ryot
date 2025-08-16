@@ -123,6 +123,7 @@ function TypeSpecificTab(props: { entity: EntityDetail }) {
 	);
 }
 
+// TODO: Remove this
 function PlaceholderTab(props: { seed: number }) {
 	return (
 		<Box className="px-7 pt-8 web:mx-auto web:max-w-7xl">
