@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ Good coverage should create or fetch saved views through the API, assert that th
 
 ## Acceptance criteria
 
-- [ ] HTTP/API tests cover creating or retrieving a saved view with `entityIdProperty` and grid/list `eyebrowProperty`
-- [ ] HTTP/API tests cover invalid `entityIdProperty` validation through saved-view create or update
-- [ ] HTTP/API tests cover invalid null grid/list title or empty table columns through saved-view create or update
-- [ ] Query-engine execution through existing endpoints can resolve fields needed for at least one grid/list-style request and one table-style request
-- [ ] Tests assert meaningful returned values and validation messages rather than smoke-only status checks
-- [ ] No app-client UI automation is added unless it is cheap and consistent with existing test infrastructure
+- [x] HTTP/API tests cover creating or retrieving a saved view with `entityIdProperty` and grid/list `eyebrowProperty`
+- [x] HTTP/API tests cover invalid `entityIdProperty` validation through saved-view create or update
+- [x] HTTP/API tests cover invalid null grid/list title or empty table columns through saved-view create or update
+- [x] Query-engine execution through existing endpoints can resolve fields needed for at least one grid/list-style request and one table-style request
+- [x] Tests assert meaningful returned values and validation messages rather than smoke-only status checks
+- [x] No app-client UI automation is added unless it is cheap and consistent with existing test infrastructure
 
 ## User stories addressed
 

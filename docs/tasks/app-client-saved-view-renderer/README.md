@@ -213,17 +213,17 @@ The table should be treated as a first-class layout, not a fallback presentation
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 01](./01-saved-view-display-contract.md) (todo)
+**Current Task:** complete
 
 ### Task List
 
 | #   | Task                                                                                           | Type | Status |
 | --- | ---------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Saved View Display Contract](./01-saved-view-display-contract.md)                             | AFK  | todo   |
-| 02  | [App Client Runtime Request Builder](./02-app-client-runtime-request-builder.md)               | AFK  | todo   |
-| 03  | [Grid And List Rendering](./03-grid-and-list-rendering.md)                                     | AFK  | todo   |
-| 04  | [True Table Rendering](./04-true-table-rendering.md)                                           | AFK  | todo   |
-| 05  | [End-To-End Saved View Rendering Coverage](./05-end-to-end-saved-view-rendering-coverage.md)   | AFK  | todo   |
-| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                                                   | AFK  | todo   |
+| 01  | [Saved View Display Contract](./01-saved-view-display-contract.md)                             | AFK  | done   |
+| 02  | [App Client Runtime Request Builder](./02-app-client-runtime-request-builder.md)               | AFK  | done   |
+| 03  | [Grid And List Rendering](./03-grid-and-list-rendering.md)                                     | AFK  | done   |
+| 04  | [True Table Rendering](./04-true-table-rendering.md)                                           | AFK  | done   |
+| 05  | [End-To-End Saved View Rendering Coverage](./05-end-to-end-saved-view-rendering-coverage.md)   | AFK  | done   |
+| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                                                   | AFK  | done   |

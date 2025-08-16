@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,15 +16,15 @@ App-frontend behavior is not product scope for this plan, but shared backend con
 
 ## Acceptance criteria
 
-- [ ] Saved-view display configuration includes required root `entityIdProperty`
-- [ ] Grid and list display configurations include required `eyebrowProperty` keys whose values may be null
-- [ ] Default saved-view display configurations set `entityIdProperty` to entity built-in ID and `eyebrowProperty` to entity schema name
-- [ ] Backend validation rejects `entityIdProperty` expressions that do not resolve to string/text values
-- [ ] Backend validation rejects grid/list display configurations with null `titleProperty`
-- [ ] Backend validation or schema parsing rejects table display configurations with zero columns
-- [ ] Saved-view create/update API behavior rejects invalid display configurations before persistence
-- [ ] Backend defaults, bootstrap paths, fixtures, and tests are updated for the new required fields
-- [ ] App-frontend is only changed if required by shared type/schema compile fallout
+- [x] Saved-view display configuration includes required root `entityIdProperty`
+- [x] Grid and list display configurations include required `eyebrowProperty` keys whose values may be null
+- [x] Default saved-view display configurations set `entityIdProperty` to entity built-in ID and `eyebrowProperty` to entity schema name
+- [x] Backend validation rejects `entityIdProperty` expressions that do not resolve to string/text values
+- [x] Backend validation rejects grid/list display configurations with null `titleProperty`
+- [x] Backend validation or schema parsing rejects table display configurations with zero columns
+- [x] Saved-view create/update API behavior rejects invalid display configurations before persistence
+- [x] Backend defaults, bootstrap paths, fixtures, and tests are updated for the new required fields
+- [x] App-frontend is only changed if required by shared type/schema compile fallout
 
 ## User stories addressed
 
