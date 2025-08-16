@@ -1,3 +1,4 @@
+// TODO: delete this file eventually
 import { faker } from "@faker-js/faker";
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import { dayjs } from "@ryot/ts-utils";
@@ -11,7 +12,7 @@ async function createAndSignIn(): Promise<{
 	password: string;
 }> {
 	const email = `seed-${dayjs().valueOf()}@example.com`;
-	const password = "password123";
+	const password = email;
 
 	const signUpResponse = await fetch(`${API_BASE_URL}/authentication/email`, {
 		method: "POST",
