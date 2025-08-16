@@ -26,8 +26,13 @@ use importer_resolver::{ImporterMutation, ImporterQuery};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
 use itertools::Itertools;
-use miscellaneous_resolver::{MiscellaneousMutation, MiscellaneousQuery};
+use miscellaneous_grouping_resolver::GroupingQuery;
+use miscellaneous_metadata_resolver::{MetadataMutation, MetadataQuery};
+use miscellaneous_search_resolver::SearchQuery;
 use miscellaneous_service::MiscellaneousService;
+use miscellaneous_social_resolver::{SocialMutation, SocialQuery};
+use miscellaneous_system_resolver::{SystemMutation, SystemQuery};
+use miscellaneous_tracking_resolver::{TrackingMutation, TrackingQuery};
 use router_resolver::{
     config_handler, graphql_playground_handler, integration_webhook_handler, upload_file_handler,
 };
@@ -42,8 +47,10 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use user_resolver::{UserMutation, UserQuery};
+use user_authentication_resolver::{AuthenticationMutation, AuthenticationQuery};
+use user_management_resolver::{ManagementMutation, ManagementQuery};
 use user_service::UserService;
+use user_services_resolver::{ServicesMutation, ServicesQuery};
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -190,25 +197,37 @@ impl KeyExtractor for RateLimitExtractor {
 
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(
-    MiscellaneousQuery,
+    MetadataQuery,
+    SearchQuery,
+    SocialQuery,
+    GroupingQuery,
+    TrackingQuery,
+    SystemQuery,
+    AuthenticationQuery,
+    ManagementQuery,
+    ServicesQuery,
     ImporterQuery,
     ExporterQuery,
     FitnessQuery,
     FileStorageQuery,
     StatisticsQuery,
     CollectionQuery,
-    UserQuery,
 );
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    MiscellaneousMutation,
+    MetadataMutation,
+    SocialMutation,
+    TrackingMutation,
+    SystemMutation,
+    AuthenticationMutation,
+    ManagementMutation,
+    ServicesMutation,
     ImporterMutation,
     ExporterMutation,
     FitnessMutation,
     FileStorageMutation,
     CollectionMutation,
-    UserMutation,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
