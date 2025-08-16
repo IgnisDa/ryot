@@ -8,7 +8,7 @@ import { z } from "zod";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { createApiClient } from "@/lib/api";
+import { createApiClient } from "@/lib/api-client";
 import { useAuthClient, useServerUrl, useSetServerUrl } from "@/lib/atoms";
 import { useAppForm } from "@/lib/forms";
 import { CLOUD_URL } from "@/lib/server";
