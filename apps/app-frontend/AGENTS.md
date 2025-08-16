@@ -45,5 +45,4 @@ function MyComponent(props: MyComponentProps) {
 
 ### Tests
 
-- Shared fixtures in `src/features/test-fixtures/`; feature-only fixtures stay in their feature directory.
-- Split fixture modules by ownership, not one generic file.
+- Shared fixtures in `src/features/test-fixtures/`; feature-only fixtures stay in their feature directory. Split by ownership, not one generic file.
