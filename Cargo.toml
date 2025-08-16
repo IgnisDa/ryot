@@ -35,9 +35,18 @@ members = [
     "crates/resolvers/fitness",
     "crates/resolvers/importer",
     "crates/resolvers/miscellaneous",
+    "crates/resolvers/miscellaneous/grouping",
+    "crates/resolvers/miscellaneous/metadata",
+    "crates/resolvers/miscellaneous/search",
+    "crates/resolvers/miscellaneous/social",
+    "crates/resolvers/miscellaneous/system",
+    "crates/resolvers/miscellaneous/tracking",
     "crates/resolvers/statistics",
     "crates/resolvers/router",
     "crates/resolvers/user",
+    "crates/resolvers/user/authentication",
+    "crates/resolvers/user/management",
+    "crates/resolvers/user/services",
     "crates/services/cache",
     "crates/services/collection",
     "crates/services/exporter",
@@ -269,6 +278,12 @@ miscellaneous-lookup-service = { path = "crates/services/miscellaneous/lookup" }
 miscellaneous-metadata-operations-service = { path = "crates/services/miscellaneous/metadata-operations" }
 miscellaneous-progress-service = { path = "crates/services/miscellaneous/progress" }
 miscellaneous-resolver = { path = "crates/resolvers/miscellaneous" }
+miscellaneous-grouping-resolver = { path = "crates/resolvers/miscellaneous/grouping" }
+miscellaneous-metadata-resolver = { path = "crates/resolvers/miscellaneous/metadata" }
+miscellaneous-search-resolver = { path = "crates/resolvers/miscellaneous/search" }
+miscellaneous-social-resolver = { path = "crates/resolvers/miscellaneous/social" }
+miscellaneous-system-resolver = { path = "crates/resolvers/miscellaneous/system" }
+miscellaneous-tracking-resolver = { path = "crates/resolvers/miscellaneous/tracking" }
 miscellaneous-review-service = { path = "crates/services/miscellaneous/review" }
 miscellaneous-search-service = { path = "crates/services/miscellaneous/search" }
 miscellaneous-service = { path = "crates/services/miscellaneous" }
@@ -286,6 +301,9 @@ tmdb-provider = { path = "crates/providers/tmdb" }
 traits = { path = "crates/traits" }
 user-models = { path = "crates/models/user" }
 user-resolver = { path = "crates/resolvers/user" }
+user-authentication-resolver = { path = "crates/resolvers/user/authentication" }
+user-management-resolver = { path = "crates/resolvers/user/management" }
+user-services-resolver = { path = "crates/resolvers/user/services" }
 user-service = { path = "crates/services/user" }
 vndb-provider = { path = "crates/providers/vndb" }
 youtube-music-provider = { path = "crates/providers/youtube-music" }
