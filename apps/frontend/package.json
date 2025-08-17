@@ -4,9 +4,9 @@
 	"type": "module",
 	"sideEffects": false,
 	"scripts": {
-		"typecheck": "tsc",
 		"build": "bun --bun react-router build",
 		"lint": "oxlint . --fix && oxfmt . --write",
+		"typecheck": "tsc && oxlint . --type-aware",
 		"dev": "bun --bun react-router dev --port 3000 --host"
 	},
 	"dependencies": {
