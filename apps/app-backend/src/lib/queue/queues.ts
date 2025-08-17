@@ -12,8 +12,7 @@ export const createQueues = () => {
 	const connection = getRedisConnection();
 	const eventsQueue = new Queue("event", { connection, defaultJobOptions });
 	const sandboxQueue = new Queue("sandbox", { connection, defaultJobOptions });
-	// TODO: rename this queue once the media import worker is renamed for generic entity import.
-	const mediaQueue = new Queue("media", {
+	const entityQueue = new Queue("entity", {
 		connection,
 		defaultJobOptions: {
 			...defaultJobOptions,
@@ -30,7 +29,7 @@ export const createQueues = () => {
 			backoff: { type: "exponential", delay: 5000 },
 		},
 	});
-	return { eventsQueue, fitnessQueue, mediaQueue, sandboxQueue };
+	return { eventsQueue, fitnessQueue, entityQueue, sandboxQueue };
 };
 
 export type Queues = ReturnType<typeof createQueues>;
