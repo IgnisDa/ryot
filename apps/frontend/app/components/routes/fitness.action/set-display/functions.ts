@@ -31,9 +31,12 @@ export const getGlobalSetIndex = (
 	const exerciseId = currentWorkout.exercises[exerciseIdx].exerciseId;
 	let globalIndex = 0;
 	for (let i = 0; i < currentWorkout.exercises.length; i++) {
-		if (i === exerciseIdx) break;
-		if (currentWorkout.exercises[i].exerciseId === exerciseId)
+		if (i === exerciseIdx) {
+			break;
+		}
+		if (currentWorkout.exercises[i].exerciseId === exerciseId) {
 			globalIndex += currentWorkout.exercises[i].sets.length;
+		}
 	}
 	globalIndex += setIdx;
 	return globalIndex;
@@ -65,7 +68,9 @@ export const usePreviousSetData = (input: {
 			const allPreviousSets: WorkoutSetStatistic[] = [];
 
 			for (const history of userExerciseDetails?.history || []) {
-				if (allPreviousSets.length > globalSetIndex) break;
+				if (allPreviousSets.length > globalSetIndex) {
+					break;
+				}
 				const workout = await getWorkoutDetails(history.workoutId);
 				const exercise = workout.details.information.exercises[history.idx];
 				allPreviousSets.push(...exercise.sets.map((s) => s.statistic));
@@ -135,7 +140,9 @@ export const handleSetConfirmation = async (params: {
 		performTasksAfterSetConfirmed,
 	} = params;
 
-	if (!currentWorkout || !exercise || !set) return;
+	if (!currentWorkout || !exercise || !set) {
+		return;
+	}
 
 	playCheckSound();
 	const newConfirmed = !set.confirmedAt;
@@ -143,7 +150,9 @@ export const handleSetConfirmation = async (params: {
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const isOnboardingTourStep = set?.confirmedAt === null && exerciseIdx === 0 && setIdx === 0;
 
-	if (isOnboardingTourStep && newConfirmed) advanceOnboardingTourStep();
+	if (isOnboardingTourStep && newConfirmed) {
+		advanceOnboardingTourStep();
+	}
 
 	if (
 		!newConfirmed &&

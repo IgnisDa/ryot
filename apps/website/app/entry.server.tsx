@@ -52,7 +52,9 @@ function handleBotRequest(
 				onError(error: unknown) {
 					// oxlint-disable-next-line no-param-reassign
 					responseStatusCode = 500;
-					if (shellRendered) console.error(error);
+					if (shellRendered) {
+						console.error(error);
+					}
 				},
 			},
 		);
@@ -94,7 +96,9 @@ function handleBrowserRequest(
 				onError(error: unknown) {
 					// oxlint-disable-next-line no-param-reassign
 					responseStatusCode = 500;
-					if (shellRendered) console.error(error);
+					if (shellRendered) {
+						console.error(error);
+					}
 				},
 			},
 		);

@@ -66,7 +66,9 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 					value={props.selectedUnitSystem}
 					data={convertEnumToSelectData(UserUnitSystem)}
 					onChange={(v) => {
-						if (!currentWorkout) return;
+						if (!currentWorkout) {
+							return;
+						}
 						setCurrentWorkout(
 							produce(currentWorkout, (draft) => {
 								draft.exercises[props.exerciseIdx].unitSystem = v as UserUnitSystem;
@@ -106,7 +108,9 @@ export const ExerciseDetailsModal = (props: ExerciseDetailsModalProps) => {
 												() => {
 													const sets = workout.details.information.exercises[history.idx].sets;
 													const converted = sets.map((set) => convertHistorySetToCurrentSet(set));
-													if (!currentWorkout) return;
+													if (!currentWorkout) {
+														return;
+													}
 													setCurrentWorkout(
 														produce(currentWorkout, (draft) => {
 															draft.exercises[props.exerciseIdx].sets.push(...converted);

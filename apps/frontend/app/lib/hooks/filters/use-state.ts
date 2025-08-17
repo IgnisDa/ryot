@@ -5,10 +5,13 @@ function isDefaultState<Parsers extends ParserMap>(parsers: Parsers, values: Val
 		if (
 			["page", "query"].includes(key) ||
 			(parser.defaultValue === undefined && values[key] === null)
-		)
+		) {
 			continue;
+		}
 
-		if (!parser.eq(values[key], parser.defaultValue)) return false;
+		if (!parser.eq(values[key], parser.defaultValue)) {
+			return false;
+		}
 	}
 	return true;
 }

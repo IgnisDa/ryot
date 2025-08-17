@@ -11,12 +11,13 @@ export const NoteInput = (props: { note: string; noteIdx: number; exerciseIdx: n
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
 	useDidUpdate(() => {
-		if (currentWorkout)
+		if (currentWorkout) {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					draft.exercises[props.exerciseIdx].notes[props.noteIdx] = value;
 				}),
 			);
+		}
 	}, [value, props.noteIdx, currentWorkout, setCurrentWorkout, props.exerciseIdx]);
 
 	return (
@@ -37,12 +38,13 @@ export const NoteInput = (props: { note: string; noteIdx: number; exerciseIdx: n
 					openConfirmationModal(
 						"This note will be deleted. Are you sure you want to continue?",
 						() => {
-							if (currentWorkout)
+							if (currentWorkout) {
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
 										draft.exercises[props.exerciseIdx].notes.splice(props.noteIdx, 1);
 									}),
 								);
+							}
 						},
 					);
 				}}

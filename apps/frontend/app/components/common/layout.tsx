@@ -94,8 +94,9 @@ export const MediaDetailsLayout = (props: {
 						{props.externalLink.href ? (
 							<ActionIcon
 								onClick={() => {
-									if (props.externalLink.href)
+									if (props.externalLink.href) {
 										window.open(props.externalLink.href, "_blank", "noopener,noreferrer");
+									}
 								}}
 							>
 								<IconExternalLink size={18} />

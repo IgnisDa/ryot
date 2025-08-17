@@ -14,12 +14,13 @@ export const MetadataProgressUpdateForm = (props: {
 	const [{ data: metadataDetails }] = useMetadataDetails(metadataToUpdate?.metadataId);
 	const { data: userMetadataDetails } = useUserMetadataDetails(metadataToUpdate?.metadataId);
 
-	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails)
+	if (!metadataDetails || !metadataToUpdate || !userMetadataDetails) {
 		return (
 			<Center p="lg">
 				<Loader type="dots" />
 			</Center>
 		);
+	}
 
 	const onSubmit = () => {
 		props.closeMetadataProgressUpdateModal();

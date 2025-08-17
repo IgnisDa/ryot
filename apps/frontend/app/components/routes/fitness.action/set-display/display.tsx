@@ -83,12 +83,13 @@ export const SetDisplay = (props: {
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
 	useDidUpdate(() => {
-		if (isString(value))
+		if (isString(value)) {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					draft.exercises[props.exerciseIdx].sets[props.setIdx].note = value;
 				}),
 			);
+		}
 	}, [value]);
 
 	const didCurrentSetActivateTimer =
@@ -114,7 +115,9 @@ export const SetDisplay = (props: {
 							<UnstyledButton
 								w="5%"
 								onClick={() => {
-									if (isOnboardingTourStep) advanceOnboardingTourStep();
+									if (isOnboardingTourStep) {
+										advanceOnboardingTourStep();
+									}
 								}}
 								className={clsx(
 									isOnboardingTourStep && OnboardingTourStepTarget.OpenSetMenuDetails,
@@ -149,8 +152,9 @@ export const SetDisplay = (props: {
 											produce(currentWorkout, (draft) => {
 												const currentSet = draft.exercises[props.exerciseIdx].sets[props.setIdx];
 												currentSet.lot = lot;
-												if (!hasRestTimerOfThisSetElapsed && restTime)
+												if (!hasRestTimerOfThisSetElapsed && restTime) {
 													currentSet.restTimer = { duration: restTime };
+												}
 											}),
 										);
 									}}
@@ -176,8 +180,11 @@ export const SetDisplay = (props: {
 											const hasNote = !!set.note;
 											let currentSetNote =
 												draft.exercises[props.exerciseIdx].sets[props.setIdx].note;
-											if (!hasNote) currentSetNote = true;
-											else currentSetNote = undefined;
+											if (!hasNote) {
+												currentSetNote = true;
+											} else {
+												currentSetNote = undefined;
+											}
 											draft.exercises[props.exerciseIdx].sets[props.setIdx].note = currentSetNote;
 										}),
 									);
@@ -192,12 +199,13 @@ export const SetDisplay = (props: {
 									setCurrentWorkout(
 										produce(currentWorkout, (draft) => {
 											const hasRestTimer = !!set.restTimer;
-											if (hasRestTimer)
+											if (hasRestTimer) {
 												draft.exercises[props.exerciseIdx].sets[props.setIdx].restTimer = undefined;
-											else
+											} else {
 												draft.exercises[props.exerciseIdx].sets[props.setIdx].restTimer = {
 													duration: 60,
 												};
+											}
 										}),
 									);
 								}}
@@ -249,7 +257,9 @@ export const SetDisplay = (props: {
 										produce(currentWorkout, (draft) => {
 											const idxToTarget = set.confirmedAt ? props.setIdx + 1 : props.setIdx;
 											const setToTarget = draft.exercises[props.exerciseIdx].sets[idxToTarget];
-											if (setToTarget) setToTarget.statistic = previousSetData;
+											if (setToTarget) {
+												setToTarget.statistic = previousSetData;
+											}
 										}),
 									);
 								}}
@@ -325,7 +335,9 @@ export const SetDisplay = (props: {
 								cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer",
 							}}
 							onClick={() => {
-								if (hasRestTimerOfThisSetElapsed) return;
+								if (hasRestTimerOfThisSetElapsed) {
+									return;
+								}
 								setIsEditingRestTimer(true);
 							}}
 							label={

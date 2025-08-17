@@ -71,18 +71,21 @@ const getNextSetInWorkout = (
 	if (areAllSetsConfirmed) {
 		for (let i = currentExerciseIdx + 1; i < currentWorkout.exercises.length; i++) {
 			const exerciseProgress = getProgressOfExercise(currentWorkout, i) !== "complete";
-			if (exerciseProgress)
+			if (exerciseProgress) {
 				return {
 					setIdx: 0,
 					exerciseIdx: i,
 					wasLastSet: true,
 				};
+			}
 		}
 	}
 	const isLastSetOfLastExercise =
 		currentExerciseIdx === currentWorkout.exercises.length - 1 &&
 		currentSetIdx === currentWorkout.exercises[currentExerciseIdx].sets.length - 1;
-	if (isLastSetOfLastExercise) return { wasLastSet: true };
+	if (isLastSetOfLastExercise) {
+		return { wasLastSet: true };
+	}
 	return {
 		wasLastSet: false,
 		setIdx: currentSetIdx + 1,
@@ -107,7 +110,9 @@ export const usePerformTasksAfterSetConfirmed = () => {
 
 	const performTask = async (setIdx: number, exerciseIdx: number) => {
 		const exerciseId = currentWorkout?.exercises[exerciseIdx].exerciseId;
-		if (!exerciseId) return;
+		if (!exerciseId) {
+			return;
+		}
 		const exerciseDetails = await queryClient.ensureQueryData(getExerciseDetailsQuery(exerciseId));
 		const userExerciseDetails = await queryClient.ensureQueryData(
 			getUserExerciseDetailsQuery(exerciseId),
@@ -115,7 +120,9 @@ export const usePerformTasksAfterSetConfirmed = () => {
 		let exerciseIdxToFocusOn: number | undefined;
 		setCurrentWorkout((cw) =>
 			produce(cw, (draft) => {
-				if (!draft) return;
+				if (!draft) {
+					return;
+				}
 				const currentExercise = draft.exercises[exerciseIdx];
 				const nextSet = getNextSetInWorkout(setIdx, exerciseIdx, draft);
 				exerciseIdxToFocusOn = nextSet.exerciseIdx;
@@ -125,7 +132,9 @@ export const usePerformTasksAfterSetConfirmed = () => {
 						const nextExercise = draft.exercises[nextSet.exerciseIdx];
 						const nextExerciseHasDetailsToShow =
 							nextExercise && exerciseHasDetailsToShow(exerciseDetails, userExerciseDetails);
-						if (nextExerciseHasDetailsToShow) nextExercise.isCollapsed = false;
+						if (nextExerciseHasDetailsToShow) {
+							nextExercise.isCollapsed = false;
+						}
 					}
 				}
 			}),
@@ -143,7 +152,9 @@ export const usePlayFitnessSound = (fileName: string) => {
 	const sound = useMemo(() => new Howl({ src: [`/sounds/${fileName}.mp3`] }), []);
 
 	const playSound = () => {
-		if (!userPreferences.fitness.logging.muteSounds) sound.play();
+		if (!userPreferences.fitness.logging.muteSounds) {
+			sound.play();
+		}
 	};
 
 	return playSound;

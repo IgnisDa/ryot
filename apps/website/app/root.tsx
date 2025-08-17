@@ -79,12 +79,16 @@ export default function App() {
 	const location = useLocation();
 
 	const isActivePage = (path: string) => {
-		if (path === "/") return location.pathname === "/" && location.hash === "";
+		if (path === "/") {
+			return location.pathname === "/" && location.hash === "";
+		}
 		return location.pathname.startsWith(path);
 	};
 
 	const isActiveFragment = (fragment: string) => {
-		if (location.pathname !== "/") return false;
+		if (location.pathname !== "/") {
+			return false;
+		}
 		return location.hash === `#${fragment}`;
 	};
 

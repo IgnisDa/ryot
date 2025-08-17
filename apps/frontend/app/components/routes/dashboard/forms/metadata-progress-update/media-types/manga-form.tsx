@@ -9,7 +9,9 @@ import type { MediaFormProps } from "../utils/form-types";
 export const MangaForm = (props: MediaFormProps) => {
 	const { metadataToUpdate, updateMetadataToUpdate } = useMetadataProgressUpdate();
 	const [{ data: metadataDetails }] = useMetadataDetails(props.metadataId);
-	if (!metadataDetails || metadataDetails.lot !== MediaLot.Manga || !metadataToUpdate) return null;
+	if (!metadataDetails || metadataDetails.lot !== MediaLot.Manga || !metadataToUpdate) {
+		return null;
+	}
 
 	const totalVolumes = metadataDetails.mangaSpecifics?.volumes;
 	const totalChapters = metadataDetails.mangaSpecifics?.chapters;

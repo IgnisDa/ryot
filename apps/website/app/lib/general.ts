@@ -30,7 +30,9 @@ export const useConfigData = () =>
 		queryKey: ["websiteConfig"],
 		queryFn: async () => {
 			const response = await fetch("/api/config");
-			if (!response.ok) throw new Error("Failed to fetch config");
+			if (!response.ok) {
+				throw new Error("Failed to fetch config");
+			}
 			return response.json() as Promise<{
 				prices: TPrices;
 				isSandbox: boolean;
