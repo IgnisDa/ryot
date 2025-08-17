@@ -17,7 +17,7 @@ import {
 	listEventsQuery,
 	listEventsResponseSchema,
 } from "./schemas";
-import { listEntityEvents } from "./service";
+import { listEntityEvents, validateEventCreateInputForUser } from "./service";
 
 const listEventsRoute = createAuthRoute(
 	createRoute({
@@ -72,6 +72,18 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 	.openapi(createEventRoute, async (c) => {
 		const user = c.get("user");
 		const body = c.req.valid("json");
+
+		// Validate all events before enqueueing
+		const validationResults = await Promise.all(
+			body.map((item) => validateEventCreateInputForUser({ body: item, userId: user.id })),
+		);
+
+		for (const validationResult of validationResults) {
+			if ("error" in validationResult) {
+				const response = createServiceErrorResult(validationResult);
+				return c.json(response.body, response.status);
+			}
+		}
 
 		await getQueues().eventsQueue.add(createEventsJobName, {
 			body,

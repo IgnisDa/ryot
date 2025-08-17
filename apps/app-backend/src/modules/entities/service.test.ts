@@ -79,7 +79,7 @@ describe("parseEntityProperties", () => {
 		const properties = { pages: 350 };
 
 		expect(() => parseEntityProperties({ properties, propertiesSchema })).toThrow(
-			"Entity properties validation failed",
+			"Entity payload is invalid",
 		);
 	});
 
@@ -92,7 +92,7 @@ describe("parseEntityProperties", () => {
 		};
 
 		expect(() => parseEntityProperties({ properties, propertiesSchema })).toThrow(
-			"Entity properties validation failed",
+			"Entity payload is invalid",
 		);
 	});
 
