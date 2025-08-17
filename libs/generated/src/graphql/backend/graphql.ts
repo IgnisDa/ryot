@@ -1433,6 +1433,11 @@ export type MutationRoot = {
   deployRemoveEntitiesFromCollectionJob: Scalars['Boolean']['output'];
   /** Deploy a job to update a media entity's metadata. */
   deployUpdateMediaEntityJob: Scalars['Boolean']['output'];
+  /**
+   * Use this mutation to call a function that needs to be tested for implementation.
+   * It is only available in development mode.
+   */
+  developmentMutation: Scalars['Boolean']['output'];
   /** Disable two-factor authentication for the currently logged in user. */
   disableTwoFactor: Scalars['Boolean']['output'];
   /**

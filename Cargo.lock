@@ -4416,20 +4416,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miscellaneous-resolver"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "common-models",
- "dependent-models",
- "enum-models",
- "media-models",
- "miscellaneous-service",
- "traits",
- "uuid",
-]
-
-[[package]]
 name = "miscellaneous-review-service"
 version = "0.1.0"
 dependencies = [

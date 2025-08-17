@@ -34,7 +34,6 @@ members = [
     "crates/resolvers/file-storage",
     "crates/resolvers/fitness",
     "crates/resolvers/importer",
-    "crates/resolvers/miscellaneous",
     "crates/resolvers/miscellaneous/grouping",
     "crates/resolvers/miscellaneous/metadata",
     "crates/resolvers/miscellaneous/search",
