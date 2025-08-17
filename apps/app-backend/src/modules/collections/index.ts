@@ -7,7 +7,6 @@ export {
 	getEntityById,
 	removeEntityFromCollection,
 } from "./repository";
-export { collectionsApi } from "./routes";
 export type {
 	AddToCollectionBody,
 	AddToCollectionData,
