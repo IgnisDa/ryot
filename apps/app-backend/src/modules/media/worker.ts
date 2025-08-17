@@ -67,7 +67,7 @@ const extractPrimaryImage = (images: unknown) => {
 export const hasImportedEntityDetails = (
 	entityRow: Pick<ListedEntity, "image" | "properties" | "populatedAt">,
 ) => {
-	if (entityRow.populatedAt.getTime() <= 0) {
+	if (entityRow.populatedAt === null) {
 		return false;
 	}
 
@@ -578,7 +578,7 @@ export const processMediaImportJob = async (
 		entityId: mediaEntity.id,
 		removePropertyKeys: ["assets"],
 		properties: validatedProperties,
-		populatedAt: isNew ? dayjs().toDate() : mediaEntity.populatedAt,
+		populatedAt: isNew || !mediaEntity.populatedAt ? dayjs().toDate() : mediaEntity.populatedAt,
 	});
 
 	await upsertMediaEntityInLibrary({ userId, mediaEntityId: mediaEntity.id }, deps);
