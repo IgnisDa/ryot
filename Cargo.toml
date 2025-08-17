@@ -42,7 +42,6 @@ members = [
     "crates/resolvers/miscellaneous/tracking",
     "crates/resolvers/statistics",
     "crates/resolvers/router",
-    "crates/resolvers/user",
     "crates/resolvers/user/authentication",
     "crates/resolvers/user/management",
     "crates/resolvers/user/services",
