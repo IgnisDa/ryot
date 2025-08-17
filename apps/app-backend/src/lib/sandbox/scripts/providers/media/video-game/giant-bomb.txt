@@ -1,0 +1,333 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("GiantBomb returned invalid JSON");
+  }
+}
+
+async function getApiKey() {
+  const configValueResponse = await getAppConfigValue(
+    "VIDEO_GAMES_GIANT_BOMB_API_KEY",
+  );
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Failed to retrieve GiantBomb API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : null;
+
+  if (!apiKey) {
+    throw new Error(
+      "GiantBomb API key is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY in your environment.",
+    );
+  }
+
+  return apiKey;
+}
+
+function getPrioritizedImage(image) {
+  if (!image || typeof image !== "object") {
+    return null;
+  }
+
+  const candidates = [
+    image.original_url,
+    image.super_url,
+    image.medium_url,
+    image.screen_large_url,
+    image.screen_url,
+    image.small_url,
+    image.thumb_url,
+    image.icon_url,
+    image.tiny_url,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function extractYear(dateStr) {
+  if (typeof dateStr !== "string" || !dateStr.trim()) {
+    return null;
+  }
+
+  const match = dateStr.match(/^(\d{4})/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  return Number.isFinite(year) ? year : null;
+}
+
+// GiantBomb deck is plain text; description is HTML markup. We store as-is
+// since the frontend is expected to render description as HTML (consistent
+// with how other providers like Anilist handle description fields).
+function combineDescription(deck, description) {
+  const deckTrimmed =
+    typeof deck === "string" ? deck.trim() : null;
+  const descTrimmed =
+    typeof description === "string" ? description.trim() : null;
+
+  if (deckTrimmed && descTrimmed) {
+    return `${deckTrimmed}\n\n${descTrimmed}`;
+  }
+
+  return deckTrimmed ?? descTrimmed ?? null;
+}
+
+function collectNames(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item) =>
+      item && typeof item === "object" && typeof item.name === "string"
+        ? item.name.trim()
+        : null,
+    )
+    .filter((name) => name !== null && name.length > 0);
+}
+
+// GiantBomb's /game/ endpoint only provides platform names in the platforms
+// list; per-platform release dates and regions require a separate /releases/
+// sub-resource call. releaseDate and releaseRegion are reserved for richer
+// providers (e.g., IGDB) that can populate them.
+function buildPlatformReleases(platforms) {
+  if (!Array.isArray(platforms) || platforms.length === 0) {
+    return null;
+  }
+
+  const releases = platforms
+    .map((platform) => {
+      if (!platform || typeof platform !== "object") {
+        return null;
+      }
+
+      const name =
+        typeof platform.name === "string" ? platform.name.trim() : null;
+      if (!name) {
+        return null;
+      }
+
+      return { name, releaseDate: null, releaseRegion: null };
+    })
+    .filter((release) => release !== null);
+
+  return releases.length > 0 ? releases : null;
+}
+
+const BASE_URL = "https://www.giantbomb.com/api";
+
+// Identifiers are GiantBomb GUIDs (e.g., "3030-1"). They are taken directly
+// from the `guid` field in search results and must not be full API URLs.
+const GUID_PATTERN = /^\d+-\d+$/;
+
+driver("search", async function(context) {
+  const pageSize =
+    Number.isFinite(Number(context?.pageSize)) &&
+    Number(context.pageSize) > 0 &&
+    Number(context.pageSize) <= 100
+      ? Math.floor(Number(context.pageSize))
+      : 20;
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const query =
+    typeof context?.query === "string" ? context.query.trim() : "";
+
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const apiKey = await getApiKey();
+  const offset = (currentPage - 1) * pageSize;
+
+  const url = `${BASE_URL}/search/?api_key=${encodeURIComponent(apiKey)}&format=json&query=${encodeURIComponent(query)}&resources=game&limit=${pageSize}&offset=${offset}`;
+
+  const response = await httpCall("GET", url, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "GiantBomb search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (payload?.error && payload.error !== "OK") {
+    throw new Error(`GiantBomb API error: ${payload.error}`);
+  }
+
+  const totalItems =
+    typeof payload?.number_of_total_results === "number" &&
+    Number.isFinite(payload.number_of_total_results)
+      ? Math.max(0, Math.trunc(payload.number_of_total_results))
+      : 0;
+
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  const items = results
+    .map((game) => {
+      if (!game || typeof game !== "object") {
+        return null;
+      }
+
+      const identifier =
+        typeof game.guid === "string" && game.guid.trim()
+          ? game.guid.trim()
+          : null;
+      if (!identifier) {
+        return null;
+      }
+
+      const name =
+        typeof game.name === "string" && game.name.trim()
+          ? game.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      const publishYear = extractYear(game.original_release_date);
+      const image = getPrioritizedImage(game.image);
+
+      return {
+        identifier,
+        badgeProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        subtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { kind: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const contextIdentifier =
+    typeof context?.identifier === "string"
+      ? context.identifier.trim()
+      : "";
+
+  if (!contextIdentifier) {
+    throw new Error("identifier is required");
+  }
+
+  if (!GUID_PATTERN.test(contextIdentifier)) {
+    throw new Error(
+      "identifier must be a GiantBomb GUID (e.g., '3030-1')",
+    );
+  }
+
+  const apiKey = await getApiKey();
+
+  const fieldList = [
+    "id",
+    "guid",
+    "name",
+    "deck",
+    "description",
+    "genres",
+    "themes",
+    "platforms",
+    "image",
+    "original_release_date",
+    "site_detail_url",
+  ].join(",");
+
+  const url = `${BASE_URL}/game/${encodeURIComponent(contextIdentifier)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
+
+  const response = await httpCall("GET", url, {
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "GiantBomb details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (payload?.error && payload.error !== "OK") {
+    throw new Error(`GiantBomb API error: ${payload.error}`);
+  }
+
+  const game =
+    payload?.results && typeof payload.results === "object"
+      ? payload.results
+      : null;
+
+  if (!game) {
+    throw new Error("GiantBomb returned no game data");
+  }
+
+  const name =
+    typeof game.name === "string" && game.name.trim()
+      ? game.name.trim()
+      : null;
+
+  if (!name) {
+    throw new Error("GiantBomb game payload is missing name");
+  }
+
+  const genres = [
+    ...collectNames(game.genres),
+    ...collectNames(game.themes),
+  ];
+
+  const platformReleases = buildPlatformReleases(game.platforms);
+
+  const remoteImages = [];
+  const primaryImage = getPrioritizedImage(game.image);
+  if (primaryImage) {
+    remoteImages.push(primaryImage);
+  }
+
+  return {
+    name,
+    externalId: contextIdentifier,
+    properties: {
+      genres,
+      platformReleases,
+      // timeToBeat is reserved for providers that expose this data (e.g., IGDB).
+      // GiantBomb does not provide time-to-beat information.
+      timeToBeat: null,
+      // GiantBomb does not expose maturity ratings, aggregate scores, or
+      // production status via its public API.
+      isNsfw: null,
+      providerRating: null,
+      productionStatus: null,
+      assets: { remoteImages },
+      publishYear: extractYear(game.original_release_date),
+      description: combineDescription(game.deck, game.description),
+      sourceUrl:
+        typeof game.site_detail_url === "string" && game.site_detail_url.trim()
+          ? game.site_detail_url.trim()
+          : null,
+    },
+  };
+});
