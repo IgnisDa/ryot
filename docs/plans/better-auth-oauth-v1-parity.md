@@ -221,7 +221,7 @@ The app already has a session-based route guard, so no custom callback route is 
 | `src/lib/auth/index.ts` | Add the single OIDC provider and account-linking config; keep `disabledPaths` |
 | `src/modules/authentication/bootstrap/sign-up.ts` | Extract reusable bootstrap logic so it can be called from the new user-create hook flow |
 | `src/modules/authentication/routes.ts` | Keep as the thin custom email sign-up route |
-| `src/modules/legacyBootstrap/AGENTS.md` | Document that `USERS_TOKEN_VALID_FOR_DAYS` is intentionally not ported |
+| `src/modules/legacy-bootstrap/AGENTS.md` | Document that `USERS_TOKEN_VALID_FOR_DAYS` is intentionally not ported |
 
 ### `apps/app-client`
 
@@ -238,7 +238,7 @@ The app already has a session-based route guard, so no custom callback route is 
 3. ~~Add the Better Auth OIDC provider and account-linking settings.~~ **Done.**
 4. ~~Extract bootstrap logic out of the sign-up route and into the user-create hook flow.~~ **Done.**
 5. ~~Update `apps/app-client/src/app/auth.tsx` to render/configure the new states.~~ **Done.**
-6. ~~Update `apps/app-backend/src/modules/legacyBootstrap/AGENTS.md` with the session-length omission.~~ **Done.**
+6. ~~Update `apps/app-backend/src/modules/legacy-bootstrap/AGENTS.md` with the session-length omission.~~ **Done.**
 7. Verify the end-to-end flow manually and with tests.
 
 ## Acceptance Criteria
