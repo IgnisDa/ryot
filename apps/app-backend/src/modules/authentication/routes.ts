@@ -22,7 +22,12 @@ import {
 	authenticationBuiltinSavedViews,
 	authenticationBuiltinTrackers,
 } from "./bootstrap/manifests";
-import { meResponseSchema, signUpBody, signUpResponseSchema } from "./schemas";
+import {
+	defaultUserPreferences,
+	meResponseSchema,
+	signUpBody,
+	signUpResponseSchema,
+} from "./schemas";
 import {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
@@ -80,6 +85,7 @@ export const authenticationApi = new OpenAPIHono<{ Variables: MaybeAuthType }>()
 					email: body.email,
 					name: nameResult.data,
 					password: body.password,
+					preferences: defaultUserPreferences,
 				},
 			});
 
