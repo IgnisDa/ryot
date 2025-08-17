@@ -1,0 +1,372 @@
+const BASE_URL = "https://listen-api.listennotes.com/api/v2";
+const GENRE_CACHE_KEY = "genres";
+const GENRE_CACHE_TTL_SECONDS = 60 * 60 * 24;
+
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("ListenNotes returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+  const parsed = getString(value);
+  return parsed ? parsed : null;
+}
+
+function getNullableInt(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.trunc(value);
+}
+
+function getPositiveInt(value) {
+  const parsed = getNullableInt(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function getNullableNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function timestampMillisecondsToDate(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getPublishYearFromTimestamp(value) {
+  const date = timestampMillisecondsToDate(value);
+  return date ? date.getUTCFullYear() : null;
+}
+
+function getIsoDateFromTimestamp(value) {
+  const date = timestampMillisecondsToDate(value);
+  return date ? date.toISOString().slice(0, 10) : null;
+}
+
+function getSourceUrl(title, identifier) {
+  const trimmedTitle = getString(title);
+  return `https://www.listennotes.com/podcasts/${trimmedTitle}-${identifier}`;
+}
+
+async function getApiKey() {
+  const response = await getAppConfigValue("PODCASTS_LISTENNOTES_API_KEY");
+  if (!response?.success) {
+    throw new Error(
+      response?.error ?? "Could not load ListenNotes API key",
+    );
+  }
+
+  const apiKey =
+    typeof response.data === "string" ? response.data.trim() : "";
+  if (!apiKey) {
+    throw new Error("PODCASTS_LISTENNOTES_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+async function listennotesGet(path, params) {
+  const apiKey = await getApiKey();
+  const search = new URLSearchParams();
+
+  if (params && typeof params === "object") {
+    for (const [key, value] of Object.entries(params)) {
+      if (value === undefined || value === null) {
+        continue;
+      }
+      search.set(key, String(value));
+    }
+  }
+
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  const response = await httpCall("GET", `${BASE_URL}${path}${suffix}`, {
+    headers: { "X-ListenAPI-Key": apiKey },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "ListenNotes request failed");
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+function getRemoteImage(value) {
+  const image = getNullableString(value);
+  return image ? { kind: "image", value: { kind: "remote", url: image } } : null;
+}
+
+function mapSearchItem(item) {
+  const identifier = getString(item?.id);
+  const title = getString(item?.title_original ?? item?.title);
+  if (!identifier || !title) {
+    return null;
+  }
+
+  const publishYear = getPublishYearFromTimestamp(item?.earliest_pub_date_ms);
+  const imageProperty = getRemoteImage(item?.image);
+
+  return {
+    identifier,
+    badgeProperty: { kind: "null", value: null },
+    titleProperty: { kind: "text", value: title },
+    subtitleProperty:
+      publishYear === null
+        ? { kind: "null", value: null }
+        : { kind: "number", value: publishYear },
+    imageProperty: imageProperty ?? { kind: "null", value: null },
+  };
+}
+
+function mapRecommendation(item) {
+  const identifier = getString(item?.id);
+  const title = getString(item?.title ?? item?.title_original);
+  if (!identifier || !title) {
+    return null;
+  }
+
+  return {
+    identifier,
+    title,
+    image: getNullableString(item?.thumbnail),
+  };
+}
+
+function mapEpisode(item, episodeNumberOffset, index) {
+  const id = getString(item?.id);
+  const title = getString(item?.title);
+  const publishDate = getIsoDateFromTimestamp(item?.pub_date_ms);
+  if (!id || !title || !publishDate) {
+    return null;
+  }
+
+  const runtimeSeconds = getPositiveInt(item?.audio_length_sec);
+
+  return {
+    id,
+    title,
+    publishDate,
+    number: episodeNumberOffset + index + 1,
+    overview: getNullableString(item?.description),
+    thumbnail: getNullableString(item?.thumbnail),
+    runtime: runtimeSeconds === null ? null : Math.trunc(runtimeSeconds / 60),
+  };
+}
+
+function isGenreMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  for (const item of Object.values(value)) {
+    if (typeof item !== "string") {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function getGenresById() {
+  const cached = await getCachedValue(GENRE_CACHE_KEY);
+  if (cached?.success && isGenreMap(cached.data)) {
+    return cached.data;
+  }
+
+  const payload = await listennotesGet("/genres");
+  const genres = Array.isArray(payload?.genres) ? payload.genres : [];
+  const byId = {};
+
+  for (const genre of genres) {
+    const id = getNullableInt(genre?.id);
+    const name = getString(genre?.name);
+    if (id === null || !name) {
+      continue;
+    }
+    byId[id] = name;
+  }
+
+  const cacheResult = await setCachedValue(
+    GENRE_CACHE_KEY,
+    byId,
+    GENRE_CACHE_TTL_SECONDS,
+  );
+  if (!cacheResult?.success) {
+    console.warn(`ListenNotes genre cache write failed: ${cacheResult?.error}`);
+  }
+
+  return byId;
+}
+
+function collectGenres(genreIds, genresById) {
+  const values = new Set();
+
+  for (const genreId of Array.isArray(genreIds) ? genreIds : []) {
+    const id = getNullableInt(genreId);
+    if (id === null) {
+      continue;
+    }
+
+    const genre = getString(genresById?.[id]);
+    if (genre) {
+      values.add(genre);
+    }
+  }
+
+  return [...values];
+}
+
+async function fetchPodcastDetails(identifier, nextEpisodePubDate) {
+  return listennotesGet(`/podcasts/${encodeURIComponent(identifier)}`, {
+    sort: "oldest_first",
+    next_episode_pub_date:
+      nextEpisodePubDate === null || nextEpisodePubDate === undefined
+        ? "null"
+        : nextEpisodePubDate,
+  });
+}
+
+async function fetchRecommendations(identifier) {
+  const payload = await listennotesGet(
+    `/podcasts/${encodeURIComponent(identifier)}/recommendations`,
+  );
+
+  const items = Array.isArray(payload?.recommendations)
+    ? payload.recommendations
+    : [];
+
+  return items.map(mapRecommendation).filter((item) => item !== null);
+}
+
+driver("search", async function(context) {
+  const query = typeof context?.query === "string" ? context.query.trim() : "";
+  if (!query) {
+    throw new Error("query is required");
+  }
+
+  const currentPage = Number.isFinite(Number(context?.page))
+    ? Math.max(1, Math.floor(Number(context.page)))
+    : 1;
+  const pageSize = 20;
+
+  const payload = await listennotesGet("/search", {
+    q: query,
+    type: "podcast",
+    offset: (currentPage - 1) * pageSize,
+    len_per_page: pageSize,
+  });
+
+  const totalItems = getPositiveInt(payload?.total) ?? 0;
+  const items = (Array.isArray(payload?.results) ? payload.results : [])
+    .map(mapSearchItem)
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: payload?.next_offset === null || payload?.next_offset === undefined
+        ? null
+        : currentPage + 1,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const identifier =
+    typeof context?.identifier === "string" ? context.identifier.trim() : "";
+  if (!identifier) {
+    throw new Error("identifier is required");
+  }
+
+  const genresById = await getGenresById();
+  const podcast = await fetchPodcastDetails(identifier, null);
+
+  const title = getString(podcast?.title);
+  if (!title) {
+    throw new Error("Podcast is missing title");
+  }
+
+  const totalEpisodes = getPositiveInt(podcast?.total_episodes);
+  const episodes = [];
+  const seenEpisodeIds = new Set();
+  let episodeNumberOffset = 0;
+  let currentPodcast = podcast;
+  let previousEpisodePubDate = null;
+
+  while (true) {
+    const pageEpisodes = [];
+    const rawEpisodes = Array.isArray(currentPodcast?.episodes)
+      ? currentPodcast.episodes
+      : [];
+
+    for (const rawEpisode of rawEpisodes) {
+      const episode = mapEpisode(rawEpisode, episodeNumberOffset, pageEpisodes.length);
+      if (!episode || seenEpisodeIds.has(episode.id)) {
+        continue;
+      }
+
+      seenEpisodeIds.add(episode.id);
+      pageEpisodes.push(episode);
+    }
+
+    episodes.push(...pageEpisodes);
+    episodeNumberOffset += pageEpisodes.length;
+
+    if (totalEpisodes === null || episodes.length >= totalEpisodes) {
+      break;
+    }
+
+    if (pageEpisodes.length === 0) {
+      break;
+    }
+
+    const nextEpisodePubDate = getNullableInt(currentPodcast?.next_episode_pub_date);
+    if (nextEpisodePubDate === null) {
+      break;
+    }
+
+    if (nextEpisodePubDate === previousEpisodePubDate) {
+      break;
+    }
+
+    previousEpisodePubDate = nextEpisodePubDate;
+    currentPodcast = await fetchPodcastDetails(identifier, nextEpisodePubDate);
+  }
+
+  const recommendations = await fetchRecommendations(identifier);
+  const publisher = getNullableString(podcast?.publisher);
+  const image = getNullableString(podcast?.image);
+
+  return {
+    name: title,
+    externalId: identifier,
+    suggestions: recommendations,
+    properties: {
+      genres: collectGenres(podcast?.genre_ids, genresById),
+      isNsfw:
+        typeof podcast?.explicit_content === "boolean"
+          ? podcast.explicit_content
+          : null,
+      publishYear: getPublishYearFromTimestamp(podcast?.earliest_pub_date_ms),
+      providerRating: getNullableNumber(podcast?.listen_score),
+      description: getNullableString(podcast?.description),
+      sourceUrl: getSourceUrl(title, identifier),
+      assets: { remoteImages: image ? [image] : [] },
+      freeCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
+      totalEpisodes: totalEpisodes ?? episodes.length,
+      episodes,
+    },
+  };
+});

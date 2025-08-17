@@ -30,9 +30,10 @@ export const IS_DEVELOPMENT = config.NODE_ENV === "development";
 const appConfigSchema = z.object({
 	BOOKS_HARDCOVER_API_KEY: z.string().optional(),
 	BOOKS_GOOGLE_BOOKS_API_KEY: z.string().optional(),
+	VIDEO_GAMES_TWITCH_CLIENT_ID: z.string().optional(),
+	PODCASTS_LISTENNOTES_API_KEY: z.string().optional(),
 	ANIME_AND_MANGA_MAL_CLIENT_ID: z.string().optional(),
 	VIDEO_GAMES_GIANT_BOMB_API_KEY: z.string().optional(),
-	VIDEO_GAMES_TWITCH_CLIENT_ID: z.string().optional(),
 	VIDEO_GAMES_TWITCH_CLIENT_SECRET: z.string().optional(),
 });
 
