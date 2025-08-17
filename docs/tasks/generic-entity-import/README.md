@@ -159,25 +159,24 @@ The import flow will no longer enqueue person, company, or group populate jobs. 
 
 - The refactor depends on all details scripts using one generic related entity contract. Keeping a backend adapter for old people, companies, and groups fields would preserve the old special-type coupling in a different place.
 - The no-merge relationship decision means scripts own aggregation of roles and other edge metadata before returning related entities.
-- The current OpenLibrary details script has a known author-reference gap where linked people do not include a name. That must be corrected during script migration.
-- Current E2E coverage does not verify related entity creation, relationship row creation, or special entity imports. New tests are required for confidence in the generic behavior.
+- The OpenLibrary tracer bullet now resolves linked author names and the E2E test pins the provider-backed author plus the related entity and relationship rows.
 - The final cleanup task generated from this PRD should include removing dead dispatcher code, old special populate job definitions, stale tests, and any unused media-specific helper schemas that only existed for the old worker design.
 
 ---
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 01](./01-openlibrary-generic-import-tracer-bullet.md) (todo)
+**Current Task:** [Task 06](./06-codebase-cleanup.md) (done)
 
 ### Task List
 
 | #   | Task                                                                                                  | Type | Status |
 | --- | ----------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [OpenLibrary Generic Import Tracer Bullet](./01-openlibrary-generic-import-tracer-bullet.md)          | AFK  | todo   |
-| 02  | [Generic Import Validation And Relationship Overwrite](./02-generic-import-validation-and-relationship-overwrite.md) | AFK  | todo   |
-| 03  | [Migrate All Provider Details Scripts](./03-migrate-all-provider-details-scripts.md)                  | AFK  | todo   |
-| 04  | [Remove Special Populate Dispatchers](./04-remove-special-populate-dispatchers.md)                    | AFK  | todo   |
-| 05  | [Update E2E Fixtures And Seed Script](./05-update-e2e-fixtures-and-seed-script.md)                    | AFK  | todo   |
-| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                                                          | AFK  | todo   |
+| 01  | [OpenLibrary Generic Import Tracer Bullet](./01-openlibrary-generic-import-tracer-bullet.md)          | AFK  | done   |
+| 02  | [Generic Import Validation And Relationship Overwrite](./02-generic-import-validation-and-relationship-overwrite.md) | AFK  | done   |
+| 03  | [Migrate All Provider Details Scripts](./03-migrate-all-provider-details-scripts.md)                  | AFK  | done   |
+| 04  | [Remove Special Populate Dispatchers](./04-remove-special-populate-dispatchers.md)                    | AFK  | done   |
+| 05  | [Update E2E Fixtures And Seed Script](./05-update-e2e-fixtures-and-seed-script.md)                    | AFK  | done   |
+| 06  | [Codebase Cleanup](./06-codebase-cleanup.md)                                                          | AFK  | done   |
