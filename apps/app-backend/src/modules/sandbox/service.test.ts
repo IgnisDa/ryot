@@ -94,6 +94,8 @@ describe("enqueueSandbox", () => {
 				{ context: {}, functionKey: "httpCall" },
 				{ context: {}, functionKey: "getAppConfigValue" },
 				{ context: { userId: "user_1" }, functionKey: "executeQuery" },
+				{ context: { scriptId: "script_1" }, functionKey: "getCachedValue" },
+				{ context: { scriptId: "script_1" }, functionKey: "setCachedValue" },
 				{ context: { userId: "user_1" }, functionKey: "getUserPreferences" },
 			],
 		});
@@ -140,7 +142,12 @@ describe("getSandboxResult", () => {
 				getSandboxScriptForUser: async () => undefined,
 				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
 				getSandboxJobByIdForUser: async () => ({
-					jobData: { code: "run()", driverName: "main", userId: "user_1" },
+					jobData: {
+						code: "run()",
+						userId: "user_1",
+						driverName: "main",
+						scriptId: "script_1",
+					},
 					job: {
 						data: {},
 						getState: async () => "completed",
@@ -167,11 +174,16 @@ describe("getSandboxResult", () => {
 				getSandboxScriptForUser: async () => undefined,
 				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
 				getSandboxJobByIdForUser: async () => ({
-					jobData: { code: "run()", driverName: "main", userId: "user_1" },
 					job: {
 						data: {},
 						returnvalue: { nope: true },
 						getState: async () => "completed",
+					},
+					jobData: {
+						code: "run()",
+						userId: "user_1",
+						driverName: "main",
+						scriptId: "script_1",
 					},
 				}),
 			},
