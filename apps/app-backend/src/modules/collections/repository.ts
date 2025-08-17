@@ -19,14 +19,12 @@ const collectionSelection = {
 };
 
 type CollectionRow = Omit<CollectionResponse, "image" | "properties"> & {
-	image: unknown;
-	properties: unknown;
+	image: CollectionResponse["image"];
+	properties: Record<string, unknown>;
 };
 
 const toCollectionResponse = (row: CollectionRow): CollectionResponse => ({
 	...row,
-	image: row.image as CollectionResponse["image"],
-	properties: row.properties as Record<string, unknown>,
 });
 
 export const getBuiltinCollectionSchema = async () => {
@@ -98,6 +96,7 @@ export const createCollectionForUser = async (input: {
 		})
 		.returning(collectionSelection);
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return toCollectionResponse(assertPersisted(createdEntity, "collection") as CollectionRow);
 };
 
@@ -122,6 +121,7 @@ type MembershipRow = {
 const toMembershipResponse = (row: MembershipRow): AddToCollectionData["memberOf"] => ({
 	...row,
 	createdAt: row.createdAt.toISOString(),
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	properties: row.properties as Record<string, unknown>,
 });
 
@@ -232,6 +232,7 @@ export const getCollectionById = async (
 		return undefined;
 	}
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	return toCollectionResponse(foundEntity as CollectionRow);
 };
 

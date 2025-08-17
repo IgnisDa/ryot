@@ -7,22 +7,23 @@ import {
 	type HostFunction,
 } from "~/lib/sandbox/types";
 
-export const getAppConfigValue: HostFunction<Record<string, never>> = async (
+export const getAppConfigValue: HostFunction<Record<string, never>> = (
 	_context,
 	key,
 ): Promise<ConfigValueResult> => {
 	if (typeof key !== "string" || !key.trim()) {
-		return apiFailure("getAppConfigValue expects a non-empty key string");
+		return Promise.resolve(apiFailure("getAppConfigValue expects a non-empty key string"));
 	}
 
 	const trimmedKey = key.trim();
 
 	if (!(trimmedKey in appConfigPathIndex)) {
-		return apiFailure(`Config key "${trimmedKey}" does not exist`);
+		return Promise.resolve(apiFailure(`Config key "${trimmedKey}" does not exist`));
 	}
 
+	// oxlint-disable-next-line no-unsafe-type-assertion
 	const envKey = appConfigPathIndex[trimmedKey as AppConfigPath];
 	const value = appConfigEnvIndex[envKey];
 
-	return apiSuccess(value ?? null);
+	return Promise.resolve(apiSuccess(value ?? null));
 };

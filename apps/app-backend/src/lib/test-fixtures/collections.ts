@@ -45,45 +45,50 @@ export const createAddToCollectionData = (
 export const createCollectionDeps = (
 	overrides: Partial<CollectionServiceDeps> = {},
 ): CollectionServiceDeps => ({
-	getBuiltinCollectionSchema: async () => ({
-		id: "schema_collection",
-		propertiesSchema: { fields: {} },
-	}),
-	createCollectionForUser: async (input) =>
-		createCollectionResponse({
-			name: input.name,
-			properties: input.properties,
-			entitySchemaId: input.entitySchemaId,
+	getBuiltinCollectionSchema: () =>
+		Promise.resolve({
+			id: "schema_collection",
+			propertiesSchema: { fields: {} },
 		}),
+	createCollectionForUser: (input) =>
+		Promise.resolve(
+			createCollectionResponse({
+				name: input.name,
+				properties: input.properties,
+				entitySchemaId: input.entitySchemaId,
+			}),
+		),
 	...overrides,
 });
 
 export const createAddToCollectionDeps = (
 	overrides: Partial<AddToCollectionServiceDeps> = {},
 ): AddToCollectionServiceDeps => ({
-	getCollectionById: async () => createCollectionResponse(),
-	getEntityById: async (entityId) => ({ id: entityId, userId: "user_1" }),
-	getUserLibraryEntityId: async () => "library_1",
-	upsertInLibraryRelationship: async () => {},
-	addEntityToCollection: async (input) =>
-		createAddToCollectionData({
-			memberOf: {
-				id: "rel_1",
-				properties: {},
-				sourceEntityId: input.entityId,
-				targetEntityId: input.collectionId,
-				createdAt: "2024-01-01T00:00:00.000Z",
-				relationshipSchemaId: "rel_schema_member_of",
-			},
-		}),
+	getCollectionById: () => Promise.resolve(createCollectionResponse()),
+	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
+	getUserLibraryEntityId: () => Promise.resolve("library_1"),
+	upsertInLibraryRelationship: () => Promise.resolve(),
+	addEntityToCollection: (input) =>
+		Promise.resolve(
+			createAddToCollectionData({
+				memberOf: {
+					id: "rel_1",
+					properties: {},
+					sourceEntityId: input.entityId,
+					targetEntityId: input.collectionId,
+					createdAt: "2024-01-01T00:00:00.000Z",
+					relationshipSchemaId: "rel_schema_member_of",
+				},
+			}),
+		),
 	...overrides,
 });
 
 export const createRemoveFromCollectionDeps = (
 	overrides: Partial<RemoveFromCollectionServiceDeps> = {},
 ): RemoveFromCollectionServiceDeps => ({
-	getCollectionById: async () => createCollectionResponse(),
-	removeEntityFromCollection: async () => createAddToCollectionData(),
-	getEntityById: async (entityId) => ({ id: entityId, userId: "user_1" }),
+	getCollectionById: () => Promise.resolve(createCollectionResponse()),
+	removeEntityFromCollection: () => Promise.resolve(createAddToCollectionData()),
+	getEntityById: (entityId) => Promise.resolve({ id: entityId, userId: "user_1" }),
 	...overrides,
 });
