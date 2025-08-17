@@ -43,7 +43,7 @@ In this task, only the Zod schemas and TypeScript types are defined. The express
 - [x] Validator rejects `event` and `event-schema` references in entity mode with a clear error message
 - [x] All existing tests pass with the renamed reference type
 - [x] Media service code uses the new `event-join` naming
-- [x] `bun run check`, `bun run test`, and `bun run format` pass
+- [x] `bun run check` and `bun run test` pass
 
 ## Notes
 

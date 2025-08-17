@@ -54,7 +54,7 @@ The mock server (`ghcr.io/navikt/mock-oauth2-server`) derives the `email` claim 
 - [x] Test 2 passes: a `user` row with `email = {username}@localhost` exists after the OIDC flow
 - [x] Test 3 passes: at least one `tracker` row exists for the new OIDC user after the flow
 - [x] Each test uses a unique `username` and does not share state with other tests
-- [x] `bun run check`, `bun run test`, and `bun run format` pass in the `tests` directory
+- [x] `bun run check` and `bun run test` pass in the `tests` directory
 
 ## User stories addressed
 

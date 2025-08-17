@@ -4,10 +4,9 @@
 	"type": "module",
 	"sideEffects": false,
 	"scripts": {
-		"format": "oxfmt . --write",
 		"build": "bun --bun react-router build",
-		"check": "tsc && oxlint . --type-aware --fix",
-		"dev": "bun --bun react-router dev --port 3000 --host"
+		"dev": "bun --bun react-router dev --port 3000 --host",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@conform-to/react": "1.17.0",
