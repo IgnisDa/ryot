@@ -9,6 +9,7 @@
 		"preserveConstEnums": true,
 		"verbatimModuleSyntax": false,
 		"moduleResolution": "nodenext",
+		"noUncheckedIndexedAccess": true,
 		"allowSyntheticDefaultImports": true
 	}
 }

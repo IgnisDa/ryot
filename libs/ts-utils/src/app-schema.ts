@@ -435,23 +435,28 @@ const toAppSchemaDiscriminatedUnion = (input: {
 			.map((option) => option.shape[key])
 			// oxlint-disable-next-line no-unnecessary-condition
 			.filter((value): value is z.ZodType => value !== undefined);
-		if (childSchemas.length === 0) {
+		const [firstChild] = childSchemas;
+		if (!firstChild) {
 			continue;
 		}
 
 		const label = getDefaultPropertyLabel(key);
-		const description = childSchemas[0]?.description ?? label;
+		const description = firstChild.description ?? label;
 		const isRequiredInAllOptions = options.every((option) => key in option.shape);
 		const property = childSchemas.every((child) => child instanceof z.ZodLiteral)
 			? createEnumProperty({
 					label,
 					description,
 					isRequired: isRequiredInAllOptions,
-					options: [...new Set(childSchemas.flatMap((child) => Array.from(child.values)))].filter(
-						(value): value is string => typeof value === "string",
-					),
+					options: [
+						...new Set(
+							childSchemas
+								.filter((child): child is z.ZodLiteral => child instanceof z.ZodLiteral)
+								.flatMap((child) => Array.from(child.values)),
+						),
+					].filter((value): value is string => typeof value === "string"),
 				})
-			: toAppSchemaInternal(childSchemas[0], isRequiredInAllOptions, label, description);
+			: toAppSchemaInternal(firstChild, isRequiredInAllOptions, label, description);
 
 		properties[key] = isRequiredInAllOptions ? property : withoutRequiredValidation(property);
 	}
@@ -495,6 +500,9 @@ export const getAppPropertyDefinitionAtPath = (
 			return undefined;
 		}
 		currentProperty = currentFields[segment];
+		if (!currentProperty) {
+			return undefined;
+		}
 
 		if (currentProperty.type !== "object") {
 			currentFields = {};
