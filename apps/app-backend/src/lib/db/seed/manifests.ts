@@ -8,6 +8,7 @@ import anilistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/
 import mangaUpdatesMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/manga-updates.txt";
 import myanimelistMangaScriptCode from "~/lib/sandbox/scripts/providers/media/manga/myanimelist.txt";
 import giantBombVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/giant-bomb.txt";
+import igdbVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video-game/igdb.txt";
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
 import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audible.txt";
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
@@ -62,6 +63,11 @@ export const builtinSandboxScripts = () => [
 		name: "GiantBomb",
 		slug: "video-game.giant-bomb",
 		code: giantBombVideoGameScriptCode,
+	},
+	{
+		name: "IGDB",
+		slug: "video-game.igdb",
+		code: igdbVideoGameScriptCode,
 	},
 	{
 		name: "Anilist",
@@ -121,6 +127,10 @@ export const entitySchemaScriptLinks = () =>
 		{
 			schemaSlug: "video-game",
 			scriptSlug: "video-game.giant-bomb",
+		},
+		{
+			schemaSlug: "video-game",
+			scriptSlug: "video-game.igdb",
 		},
 	] as const;
 
