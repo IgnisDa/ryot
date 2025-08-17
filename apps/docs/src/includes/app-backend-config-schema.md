@@ -5,12 +5,12 @@
 ## Core system configuration
 
 | Variable       | Description                                                                                                                           | Required    | Default | Sensitive    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------- | ------------ | --- |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------- | ------------ |
 | `DATABASE_URL` | PostgreSQL connection string for the primary database. See https://www.sea-ql.org/SeaORM/docs/install-and-config/connection/#postgres | Yes         | `—`     | Yes          |
 | `REDIS_URL`    | Redis connection URL used for caching and the job queue                                                                               | Yes         | `—`     | Yes          |
 | `FRONTEND_URL` | Public base URL of the frontend application                                                                                           | Yes         | `—`     | No           |
 | `PORT`         | HTTP port the backend server listens on                                                                                               | No          | `8000`  | No           |
-| `NODE_ENV`     | Runtime environment (development                                                                                                      | production) | No      | `production` | No  |
+| `NODE_ENV`     | Runtime environment (development                                                                                                      | production) | No      | `production` | No |
 
 ### Server settings
 
