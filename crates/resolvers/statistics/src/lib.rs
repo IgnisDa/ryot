@@ -18,8 +18,7 @@ impl StatisticsQueryResolver {
         gql_ctx: &Context<'_>,
     ) -> Result<CachedResponse<ApplicationDateRange>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_analytics_parameters(&user_id).await?;
-        Ok(response)
+        Ok(service.user_analytics_parameters(&user_id).await?)
     }
 
     /// Get the analytics for the currently logged in user.
@@ -29,7 +28,6 @@ impl StatisticsQueryResolver {
         input: UserAnalyticsInput,
     ) -> Result<CachedResponse<UserAnalytics>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_analytics(&user_id, input).await?;
-        Ok(response)
+        Ok(service.user_analytics(&user_id, input).await?)
     }
 }

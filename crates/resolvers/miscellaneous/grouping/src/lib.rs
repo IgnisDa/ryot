@@ -24,8 +24,7 @@ impl MiscellaneousGroupingQueryResolver {
         metadata_group_id: String,
     ) -> Result<MetadataGroupDetails> {
         let service = self.svc(gql_ctx);
-        let response = service.metadata_group_details(metadata_group_id).await?;
-        Ok(response)
+        Ok(service.metadata_group_details(metadata_group_id).await?)
     }
 
     /// Get paginated list of metadata groups.
@@ -35,8 +34,7 @@ impl MiscellaneousGroupingQueryResolver {
         input: UserMetadataGroupsListInput,
     ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_metadata_groups_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_metadata_groups_list(user_id, input).await?)
     }
 
     /// Get details that can be displayed to a user for a metadata group.
@@ -46,10 +44,9 @@ impl MiscellaneousGroupingQueryResolver {
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .user_metadata_group_details(user_id, metadata_group_id)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Get details about a genre present in the database.
@@ -59,8 +56,7 @@ impl MiscellaneousGroupingQueryResolver {
         input: GenreDetailsInput,
     ) -> Result<GenreDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.genre_details(user_id, input).await?;
-        Ok(response)
+        Ok(service.genre_details(user_id, input).await?)
     }
 
     /// Get paginated list of genres for the user.
@@ -70,7 +66,6 @@ impl MiscellaneousGroupingQueryResolver {
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_genres_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_genres_list(user_id, input).await?)
     }
 }

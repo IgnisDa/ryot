@@ -15,8 +15,7 @@ impl FileStorageQueryResolver {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> Result<String> {
         let service = self.svc(gql_ctx);
-        let response = service.get_presigned_url(key).await?;
-        Ok(response)
+        Ok(service.get_presigned_url(key).await?)
     }
 }
 
@@ -44,7 +43,6 @@ impl FileStorageMutationResolver {
     /// Delete an S3 object by the given key.
     async fn delete_s3_object(&self, gql_ctx: &Context<'_>, key: String) -> Result<bool> {
         let service = self.svc(gql_ctx);
-        let response = service.delete_object(key).await?;
-        Ok(response)
+        Ok(service.delete_object(key).await?)
     }
 }

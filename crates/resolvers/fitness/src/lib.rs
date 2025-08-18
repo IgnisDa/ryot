@@ -29,8 +29,7 @@ impl FitnessQueryResolver {
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_workout_templates_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_workout_templates_list(user_id, input).await?)
     }
 
     /// Get information about a workout template.
@@ -40,10 +39,9 @@ impl FitnessQueryResolver {
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .user_workout_template_details(user_id, workout_template_id)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Get a paginated list of exercises in the database.
@@ -53,8 +51,7 @@ impl FitnessQueryResolver {
         input: UserExercisesListInput,
     ) -> Result<CachedResponse<UserExercisesListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_exercises_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_exercises_list(user_id, input).await?)
     }
 
     /// Get a paginated list of workouts done by the user.
@@ -64,8 +61,7 @@ impl FitnessQueryResolver {
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_workouts_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_workouts_list(user_id, input).await?)
     }
 
     /// Get details about an exercise.
@@ -75,8 +71,7 @@ impl FitnessQueryResolver {
         exercise_id: String,
     ) -> Result<exercise::Model> {
         let service = self.svc(gql_ctx);
-        let response = service.exercise_details(exercise_id).await?;
-        Ok(response)
+        Ok(service.exercise_details(exercise_id).await?)
     }
 
     /// Get details about a workout.
@@ -86,8 +81,7 @@ impl FitnessQueryResolver {
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_workout_details(&user_id, workout_id).await?;
-        Ok(response)
+        Ok(service.user_workout_details(&user_id, workout_id).await?)
     }
 
     /// Get information about an exercise for a user.
@@ -97,8 +91,7 @@ impl FitnessQueryResolver {
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_exercise_details(user_id, exercise_id).await?;
-        Ok(response)
+        Ok(service.user_exercise_details(user_id, exercise_id).await?)
     }
 
     /// Get all the measurements for a user.
@@ -108,8 +101,7 @@ impl FitnessQueryResolver {
         input: UserMeasurementsListInput,
     ) -> Result<CachedResponse<Vec<user_measurement::Model>>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_measurements_list(&user_id, input).await?;
-        Ok(response)
+        Ok(service.user_measurements_list(&user_id, input).await?)
     }
 }
 
@@ -133,10 +125,9 @@ impl FitnessMutationResolver {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .create_or_update_user_workout_template(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Delete a workout template.
@@ -146,10 +137,9 @@ impl FitnessMutationResolver {
         workout_template_id: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .delete_user_workout_template(user_id, workout_template_id)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Create a user measurement.
@@ -159,8 +149,7 @@ impl FitnessMutationResolver {
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.create_user_measurement(&user_id, input).await?;
-        Ok(response)
+        Ok(service.create_user_measurement(&user_id, input).await?)
     }
 
     /// Delete a user measurement.
@@ -170,8 +159,7 @@ impl FitnessMutationResolver {
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.delete_user_measurement(user_id, timestamp).await?;
-        Ok(response)
+        Ok(service.delete_user_measurement(user_id, timestamp).await?)
     }
 
     /// Take a user workout, process it and commit it to database.
@@ -181,10 +169,9 @@ impl FitnessMutationResolver {
         input: UserWorkoutInput,
     ) -> Result<String> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .create_or_update_user_workout(&user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Change the details about a user's workout.
@@ -194,17 +181,15 @@ impl FitnessMutationResolver {
         input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .update_user_workout_attributes(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Delete a workout and remove all exercise associations.
     async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.delete_user_workout(user_id, workout_id).await?;
-        Ok(response)
+        Ok(service.delete_user_workout(user_id, workout_id).await?)
     }
 
     /// Create a custom exercise.
@@ -214,8 +199,7 @@ impl FitnessMutationResolver {
         input: exercise::Model,
     ) -> Result<String> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.create_custom_exercise(&user_id, input).await?;
-        Ok(response)
+        Ok(service.create_custom_exercise(&user_id, input).await?)
     }
 
     /// Update a custom exercise.
@@ -225,8 +209,7 @@ impl FitnessMutationResolver {
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.update_custom_exercise(user_id, input).await?;
-        Ok(response)
+        Ok(service.update_custom_exercise(user_id, input).await?)
     }
 
     /// Update a user's exercise settings.
@@ -236,10 +219,9 @@ impl FitnessMutationResolver {
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .update_user_exercise_settings(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Merge an exercise into another.
@@ -250,9 +232,8 @@ impl FitnessMutationResolver {
         merge_into: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .merge_exercise(user_id, merge_from, merge_into)
-            .await?;
-        Ok(response)
+            .await?)
     }
 }

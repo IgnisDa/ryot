@@ -15,8 +15,7 @@ impl ExporterQueryResolver {
     /// Get all the export jobs for the current user.
     async fn user_exports(&self, gql_ctx: &Context<'_>) -> Result<Vec<ExportJob>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_exports(user_id).await?;
-        Ok(response)
+        Ok(service.user_exports(user_id).await?)
     }
 }
 
@@ -36,7 +35,6 @@ impl ExporterMutationResolver {
     /// Deploy a job to export data for a user.
     async fn deploy_export_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.deploy_export_job(user_id).await?;
-        Ok(response)
+        Ok(service.deploy_export_job(user_id).await?)
     }
 }

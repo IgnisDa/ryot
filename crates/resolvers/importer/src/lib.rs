@@ -19,8 +19,7 @@ impl ImporterQueryResolver {
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<import_report::Model>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_import_reports(user_id).await?;
-        Ok(response)
+        Ok(service.user_import_reports(user_id).await?)
     }
 }
 
@@ -44,7 +43,6 @@ impl ImporterMutationResolver {
         input: DeployImportJobInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.deploy_import_job(user_id, input).await?;
-        Ok(response)
+        Ok(service.deploy_import_job(user_id, input).await?)
     }
 }

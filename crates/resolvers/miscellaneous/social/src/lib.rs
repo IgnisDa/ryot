@@ -24,8 +24,7 @@ impl MiscellaneousSocialQueryResolver {
         person_id: String,
     ) -> Result<GraphqlPersonDetails> {
         let service = self.svc(gql_ctx);
-        let response = service.person_details(person_id).await?;
-        Ok(response)
+        Ok(service.person_details(person_id).await?)
     }
 
     /// Get details that can be displayed to a user for a creator.
@@ -35,8 +34,7 @@ impl MiscellaneousSocialQueryResolver {
         person_id: String,
     ) -> Result<UserPersonDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_person_details(user_id, person_id).await?;
-        Ok(response)
+        Ok(service.user_person_details(user_id, person_id).await?)
     }
 
     /// Get paginated list of people.
@@ -46,8 +44,7 @@ impl MiscellaneousSocialQueryResolver {
         input: UserPeopleListInput,
     ) -> Result<CachedResponse<UserPeopleListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_people_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_people_list(user_id, input).await?)
     }
 }
 
@@ -71,15 +68,13 @@ impl MiscellaneousSocialMutationResolver {
         input: CreateOrUpdateReviewInput,
     ) -> Result<StringIdObject> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.create_or_update_review(&user_id, input).await?;
-        Ok(response)
+        Ok(service.create_or_update_review(&user_id, input).await?)
     }
 
     /// Delete a review if it belongs to the currently logged in user.
     async fn delete_review(&self, gql_ctx: &Context<'_>, review_id: String) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.delete_review(user_id, review_id).await?;
-        Ok(response)
+        Ok(service.delete_review(user_id, review_id).await?)
     }
 
     /// Create, like or delete a comment on a review.
@@ -89,7 +84,6 @@ impl MiscellaneousSocialMutationResolver {
         input: CreateReviewCommentInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.create_review_comment(user_id, input).await?;
-        Ok(response)
+        Ok(service.create_review_comment(user_id, input).await?)
     }
 }

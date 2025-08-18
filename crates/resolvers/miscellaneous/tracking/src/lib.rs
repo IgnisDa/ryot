@@ -22,8 +22,7 @@ impl MiscellaneousTrackingQueryResolver {
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_calendar_events(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_calendar_events(user_id, input).await?)
     }
 
     /// Get upcoming calendar events for the given filter.
@@ -33,10 +32,9 @@ impl MiscellaneousTrackingQueryResolver {
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .user_upcoming_calendar_events(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 }
 
@@ -59,8 +57,7 @@ impl MiscellaneousTrackingMutationResolver {
         seen_id: String,
     ) -> Result<StringIdObject> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.delete_seen_item(&user_id, seen_id).await?;
-        Ok(response)
+        Ok(service.delete_seen_item(&user_id, seen_id).await?)
     }
 
     /// Deploy job to update progress of media items in bulk. For seen items in progress,
@@ -71,10 +68,9 @@ impl MiscellaneousTrackingMutationResolver {
         input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .deploy_bulk_metadata_progress_update(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Update the attributes of a seen item.
@@ -84,7 +80,6 @@ impl MiscellaneousTrackingMutationResolver {
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.update_seen_item(user_id, input).await?;
-        Ok(response)
+        Ok(service.update_seen_item(user_id, input).await?)
     }
 }

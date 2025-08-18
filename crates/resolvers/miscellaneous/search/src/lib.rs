@@ -23,8 +23,7 @@ impl MiscellaneousSearchQueryResolver {
         input: MetadataSearchInput,
     ) -> Result<CachedResponse<MetadataSearchResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.metadata_search(&user_id, input).await?;
-        Ok(response)
+        Ok(service.metadata_search(&user_id, input).await?)
     }
 
     /// Search for a list of people from a given source.
@@ -34,8 +33,7 @@ impl MiscellaneousSearchQueryResolver {
         input: PeopleSearchInput,
     ) -> Result<CachedResponse<PeopleSearchResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.people_search(&user_id, input).await?;
-        Ok(response)
+        Ok(service.people_search(&user_id, input).await?)
     }
 
     /// Search for a list of groups from a given source.
@@ -45,8 +43,7 @@ impl MiscellaneousSearchQueryResolver {
         input: MetadataGroupSearchInput,
     ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.metadata_group_search(&user_id, input).await?;
-        Ok(response)
+        Ok(service.metadata_group_search(&user_id, input).await?)
     }
 
     /// Get trending media items.
@@ -55,8 +52,7 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
     ) -> Result<TrendingMetadataIdsResponse> {
         let service = self.svc(gql_ctx);
-        let response = service.trending_metadata().await?;
-        Ok(response)
+        Ok(service.trending_metadata().await?)
     }
 
     /// Lookup metadata by title.
@@ -66,7 +62,6 @@ impl MiscellaneousSearchQueryResolver {
         title: String,
     ) -> Result<CachedResponse<MetadataLookupResponse>> {
         let service = self.svc(gql_ctx);
-        let response = service.metadata_lookup(title).await?;
-        Ok(response)
+        Ok(service.metadata_lookup(title).await?)
     }
 }

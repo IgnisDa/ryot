@@ -18,8 +18,7 @@ impl MiscellaneousSystemQueryResolver {
     /// Get some primary information about the service.
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = self.svc(gql_ctx);
-        let response = service.core_details().await?;
-        Ok(response)
+        Ok(service.core_details().await?)
     }
 }
 
@@ -39,8 +38,7 @@ impl MiscellaneousSystemMutationResolver {
     /// Expire a cache key by its ID
     async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
         let service = self.svc(gql_ctx);
-        let response = service.expire_cache_key(cache_id).await?;
-        Ok(response)
+        Ok(service.expire_cache_key(cache_id).await?)
     }
 
     /// Deploy a job to update a media entity's metadata.
@@ -51,10 +49,9 @@ impl MiscellaneousSystemMutationResolver {
         entity_lot: EntityLot,
     ) -> Result<bool> {
         let service = self.svc(gql_ctx);
-        let response = service
+        Ok(service
             .deploy_update_media_entity_job(entity_id, entity_lot)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Start a background job.
@@ -64,8 +61,7 @@ impl MiscellaneousSystemMutationResolver {
         job_name: BackgroundJob,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.deploy_background_job(&user_id, job_name).await?;
-        Ok(response)
+        Ok(service.deploy_background_job(&user_id, job_name).await?)
     }
 
     /// Use this mutation to call a function that needs to be tested for implementation.
@@ -73,7 +69,6 @@ impl MiscellaneousSystemMutationResolver {
     #[cfg(debug_assertions)]
     async fn development_mutation(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = self.svc(gql_ctx);
-        let response = service.development_mutation().await?;
-        Ok(response)
+        Ok(service.development_mutation().await?)
     }
 }

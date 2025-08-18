@@ -23,15 +23,13 @@ impl UserServicesQueryResolver {
         gql_ctx: &Context<'_>,
     ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_metadata_recommendations(&user_id).await?;
-        Ok(response)
+        Ok(service.user_metadata_recommendations(&user_id).await?)
     }
 
     /// Get all the integrations for the currently logged in user.
     async fn user_integrations(&self, gql_ctx: &Context<'_>) -> Result<Vec<integration::Model>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_integrations(&user_id).await?;
-        Ok(response)
+        Ok(service.user_integrations(&user_id).await?)
     }
 
     /// Get all the notification platforms for the currently logged in user.
@@ -40,8 +38,7 @@ impl UserServicesQueryResolver {
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<notification_platform::Model>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_notification_platforms(&user_id).await?;
-        Ok(response)
+        Ok(service.user_notification_platforms(&user_id).await?)
     }
 }
 
@@ -65,10 +62,9 @@ impl UserServicesMutationResolver {
         input: CreateOrUpdateUserIntegrationInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .create_or_update_user_integration(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Delete an integration for the currently logged in user.
@@ -78,10 +74,9 @@ impl UserServicesMutationResolver {
         integration_id: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .delete_user_integration(user_id, integration_id)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Add a notification platform for the currently logged in user.
@@ -91,10 +86,9 @@ impl UserServicesMutationResolver {
         input: CreateUserNotificationPlatformInput,
     ) -> Result<String> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .create_user_notification_platform(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Edit a notification platform for the currently logged in user.
@@ -104,10 +98,9 @@ impl UserServicesMutationResolver {
         input: UpdateUserNotificationPlatformInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .update_user_notification_platform(user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Delete a notification platform for the currently logged in user.
@@ -117,16 +110,14 @@ impl UserServicesMutationResolver {
         notification_id: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .delete_user_notification_platform(user_id, notification_id)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Test all notification platforms for the currently logged in user.
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.test_user_notification_platforms(&user_id).await?;
-        Ok(response)
+        Ok(service.test_user_notification_platforms(&user_id).await?)
     }
 }

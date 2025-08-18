@@ -24,8 +24,7 @@ impl CollectionQueryResolver {
         gql_ctx: &Context<'_>,
     ) -> Result<CachedResponse<UserCollectionsListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_collections_list(&user_id).await?;
-        Ok(response)
+        Ok(service.user_collections_list(&user_id).await?)
     }
 
     /// Get the contents of a collection and respect visibility.
@@ -35,8 +34,7 @@ impl CollectionQueryResolver {
         input: CollectionContentsInput,
     ) -> Result<CachedResponse<CollectionContentsResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.collection_contents(&user_id, input).await?;
-        Ok(response)
+        Ok(service.collection_contents(&user_id, input).await?)
     }
 
     /// Get recommendations for a collection.
@@ -46,8 +44,7 @@ impl CollectionQueryResolver {
         input: CollectionRecommendationsInput,
     ) -> Result<SearchResults<String>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.collection_recommendations(&user_id, input).await?;
-        Ok(response)
+        Ok(service.collection_recommendations(&user_id, input).await?)
     }
 }
 
@@ -70,8 +67,7 @@ impl CollectionMutationResolver {
         input: CreateOrUpdateCollectionInput,
     ) -> Result<StringIdObject> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.create_or_update_collection(&user_id, input).await?;
-        Ok(response)
+        Ok(service.create_or_update_collection(&user_id, input).await?)
     }
 
     /// Deploy a background job to add entities to a collection.
@@ -81,10 +77,9 @@ impl CollectionMutationResolver {
         input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .deploy_add_entities_to_collection_job(&user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Deploy a background job to remove entities from a collection.
@@ -94,10 +89,9 @@ impl CollectionMutationResolver {
         input: ChangeCollectionToEntitiesInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .deploy_remove_entities_from_collection_job(&user_id, input)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Delete a collection.
@@ -107,8 +101,7 @@ impl CollectionMutationResolver {
         collection_name: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.delete_collection(user_id, &collection_name).await?;
-        Ok(response)
+        Ok(service.delete_collection(user_id, &collection_name).await?)
     }
 
     /// Reorder an entity within a collection.
@@ -118,7 +111,6 @@ impl CollectionMutationResolver {
         input: ReorderCollectionEntityInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.reorder_collection_entity(&user_id, input).await?;
-        Ok(response)
+        Ok(service.reorder_collection_entity(&user_id, input).await?)
     }
 }

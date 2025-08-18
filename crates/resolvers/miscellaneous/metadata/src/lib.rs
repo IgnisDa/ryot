@@ -27,10 +27,9 @@ impl MiscellaneousMetadataQueryResolver {
         ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
         let service = self.svc(gql_ctx);
-        let response = service
+        Ok(service
             .metadata_details(&metadata_id, ensure_updated)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Get all the media items related to a user for a specific media type.
@@ -40,8 +39,7 @@ impl MiscellaneousMetadataQueryResolver {
         input: UserMetadataListInput,
     ) -> Result<CachedResponse<UserMetadataListResponse>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_metadata_list(user_id, input).await?;
-        Ok(response)
+        Ok(service.user_metadata_list(user_id, input).await?)
     }
 
     /// Get details that can be displayed to a user for a media.
@@ -51,8 +49,7 @@ impl MiscellaneousMetadataQueryResolver {
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.user_metadata_details(user_id, metadata_id).await?;
-        Ok(response)
+        Ok(service.user_metadata_details(user_id, metadata_id).await?)
     }
 }
 
@@ -87,8 +84,7 @@ impl MiscellaneousMetadataMutationResolver {
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.update_custom_metadata(&user_id, input).await?;
-        Ok(response)
+        Ok(service.update_custom_metadata(&user_id, input).await?)
     }
 
     /// Merge a media item into another. This will move all `seen`, `collection`
@@ -100,10 +96,9 @@ impl MiscellaneousMetadataMutationResolver {
         merge_into: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service
+        Ok(service
             .merge_metadata(user_id, merge_from, merge_into)
-            .await?;
-        Ok(response)
+            .await?)
     }
 
     /// Delete all history and reviews for a given media item and remove it from all
@@ -114,8 +109,7 @@ impl MiscellaneousMetadataMutationResolver {
         metadata_id: String,
     ) -> Result<bool> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
-        let response = service.disassociate_metadata(user_id, metadata_id).await?;
-        Ok(response)
+        Ok(service.disassociate_metadata(user_id, metadata_id).await?)
     }
 
     /// Mark an entity as partial.
@@ -125,7 +119,6 @@ impl MiscellaneousMetadataMutationResolver {
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
         let (service, _) = self.svc_and_user(gql_ctx).await?;
-        let response = service.mark_entity_as_partial(input).await?;
-        Ok(response)
+        Ok(service.mark_entity_as_partial(input).await?)
     }
 }
