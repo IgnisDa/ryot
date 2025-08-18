@@ -3,8 +3,11 @@ use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 use anyhow::{Result, anyhow};
 use common_models::SearchDetails;
 use database_models::{
-    entity_to_entity,
-    prelude::{EntityToEntity, Genre, MetadataGroup, Person},
+    metadata_group_to_person, metadata_to_genre, metadata_to_metadata_group, metadata_to_person,
+    prelude::{
+        Genre, MetadataGroup, MetadataGroupToPerson, MetadataToGenre, MetadataToMetadataGroup,
+        MetadataToPerson, Person,
+    },
 };
 use database_utils::{transform_entity_assets, user_by_id};
 use dependent_entity_utils::generic_metadata;
@@ -32,47 +35,42 @@ pub async fn person_details(
         .await?
         .unwrap();
     transform_entity_assets(&mut details.assets, ss).await?;
-    let metadata_associations = EntityToEntity::find()
-        .filter(entity_to_entity::Column::ToPersonId.eq(&person_id))
-        .order_by_asc(entity_to_entity::Column::IndexPosition)
+    let metadata_associations = MetadataToPerson::find()
+        .filter(metadata_to_person::Column::PersonId.eq(&person_id))
+        .order_by_asc(metadata_to_person::Column::Index)
         .all(&ss.db)
         .await?;
     let mut metadata_contents: HashMap<_, Vec<_>> = HashMap::new();
     for assoc in metadata_associations {
-        if let Some(metadata_id) = assoc.from_metadata_id {
-            let to_push = PersonDetailsItemWithCharacter {
-                character: assoc.character_name,
-                entity_id: metadata_id,
-            };
-            metadata_contents
-                .entry(assoc.relation)
-                .and_modify(|e| e.push(to_push.clone()))
-                .or_insert(vec![to_push]);
-        }
+        let to_push = PersonDetailsItemWithCharacter {
+            character: assoc.character,
+            entity_id: assoc.metadata_id,
+        };
+        metadata_contents
+            .entry(assoc.role)
+            .and_modify(|e| e.push(to_push.clone()))
+            .or_insert(vec![to_push]);
     }
     let associated_metadata = metadata_contents
         .into_iter()
         .map(|(name, items)| PersonDetailsGroupedByRole { name, items })
         .sorted_by_key(|f| Reverse(f.items.len()))
         .collect_vec();
-    let associated_metadata_groups = EntityToEntity::find()
-        .filter(entity_to_entity::Column::ToPersonId.eq(person_id))
-        .filter(entity_to_entity::Column::FromMetadataGroupId.is_not_null())
-        .order_by_asc(entity_to_entity::Column::IndexPosition)
+    let associated_metadata_groups = MetadataGroupToPerson::find()
+        .filter(metadata_group_to_person::Column::PersonId.eq(person_id))
+        .order_by_asc(metadata_group_to_person::Column::Index)
         .all(&ss.db)
         .await?;
     let mut metadata_group_contents: HashMap<_, Vec<_>> = HashMap::new();
     for assoc in associated_metadata_groups {
-        if let Some(metadata_group_id) = assoc.from_metadata_group_id {
-            let to_push = PersonDetailsItemWithCharacter {
-                entity_id: metadata_group_id,
-                ..Default::default()
-            };
-            metadata_group_contents
-                .entry(assoc.relation)
-                .and_modify(|e| e.push(to_push.clone()))
-                .or_insert(vec![to_push]);
-        }
+        let to_push = PersonDetailsItemWithCharacter {
+            entity_id: assoc.metadata_group_id,
+            ..Default::default()
+        };
+        metadata_group_contents
+            .entry(assoc.role)
+            .and_modify(|e| e.push(to_push.clone()))
+            .or_insert(vec![to_push]);
     }
     let associated_metadata_groups = metadata_group_contents
         .into_iter()
@@ -97,9 +95,8 @@ pub async fn genre_details(
         .await?
         .unwrap();
     let preferences = user_by_id(&user_id, ss).await?.preferences;
-    let paginator = EntityToEntity::find()
-        .filter(entity_to_entity::Column::ToGenreId.eq(input.genre_id))
-        .filter(entity_to_entity::Column::FromMetadataId.is_not_null())
+    let paginator = MetadataToGenre::find()
+        .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
         .paginate(&ss.db, preferences.general.list_page_size);
     let ItemsAndPagesNumber {
         number_of_items,
@@ -107,9 +104,7 @@ pub async fn genre_details(
     } = paginator.num_items_and_pages().await?;
     let mut contents = vec![];
     for association_items in paginator.fetch_page(page - 1).await? {
-        if let Some(metadata_id) = association_items.from_metadata_id {
-            contents.push(metadata_id);
-        }
+        contents.push(association_items.metadata_id);
     }
     Ok(GenreDetails {
         details: GenreListItem {
@@ -136,16 +131,14 @@ pub async fn metadata_group_details(
         .await?
         .unwrap();
     transform_entity_assets(&mut model.assets, ss).await?;
-    let contents = EntityToEntity::find()
+    let contents = MetadataToMetadataGroup::find()
         .select_only()
-        .column(entity_to_entity::Column::FromMetadataId)
-        .filter(entity_to_entity::Column::ToMetadataGroupId.eq(metadata_group_id))
-        .filter(entity_to_entity::Column::FromMetadataId.is_not_null())
-        .order_by_asc(entity_to_entity::Column::Part)
-        .into_tuple::<Option<String>>()
+        .column(metadata_to_metadata_group::Column::MetadataId)
+        .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(metadata_group_id))
+        .order_by_asc(metadata_to_metadata_group::Column::Part)
+        .into_tuple::<String>()
         .all(&ss.db)
         .await?;
-    let contents: Vec<String> = contents.into_iter().flatten().collect();
     Ok(MetadataGroupDetails {
         contents,
         details: model,
@@ -167,43 +160,21 @@ pub async fn metadata_details(
         associations,
     ) = try_join!(
         generic_metadata(metadata_id, ss, ensure_updated),
-        async {
-            let associations = EntityToEntity::find()
-                .filter(entity_to_entity::Column::FromMetadataId.eq(metadata_id))
-                .filter(entity_to_entity::Column::ToMetadataGroupId.is_not_null())
-                .all(&ss.db)
-                .await?;
-
-            let mut result = vec![];
-            for assoc in associations {
-                if let Some(group_id) = &assoc.to_metadata_group_id {
-                    if let Some(group) = MetadataGroup::find_by_id(group_id).one(&ss.db).await? {
-                        result.push((assoc, Some(group)));
-                    } else {
-                        result.push((assoc, None));
-                    }
-                }
-            }
-            Ok::<
-                Vec<(
-                    entity_to_entity::Model,
-                    Option<database_models::metadata_group::Model>,
-                )>,
-                sea_orm::DbErr,
-            >(result)
-        }
-        .map_err(|_| anyhow!("Failed to fetch metadata associations"))
+        MetadataToMetadataGroup::find()
+            .filter(metadata_to_metadata_group::Column::MetadataId.eq(metadata_id))
+            .find_also_related(MetadataGroup)
+            .all(&ss.db)
+            .map_err(|_| anyhow!("Failed to fetch metadata associations"))
     )?;
 
     let mut group = vec![];
-    for (assoc, grp_opt) in associations {
-        if let Some(grp) = grp_opt {
-            group.push(GraphqlMetadataGroup {
-                id: grp.id,
-                name: grp.title,
-                part: assoc.part.unwrap_or(0),
-            });
-        }
+    for association in associations {
+        let grp = association.1.unwrap();
+        group.push(GraphqlMetadataGroup {
+            id: grp.id,
+            name: grp.title,
+            part: association.0.part,
+        });
     }
 
     let watch_providers = model.watch_providers.unwrap_or_default();

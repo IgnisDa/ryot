@@ -22,7 +22,7 @@ use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedEntityToEntity, AliasedExercise,
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadataToGenre,
     AliasedReview, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
@@ -483,7 +483,7 @@ pub async fn user_people_list(
                     },
                 )
                 .filter(user_to_entity::Column::UserId.eq(user_id))
-                .left_join(EntityToEntity)
+                .left_join(MetadataToPerson)
                 .inner_join(UserToEntity)
                 .group_by(person::Column::Id)
                 .group_by(person::Column::Name)
@@ -784,15 +784,15 @@ pub async fn user_genres_list(
     let query = Genre::find()
         .column_as(
             Expr::expr(Func::count(Expr::col((
-                AliasedEntityToEntity::Table,
-                AliasedEntityToEntity::FromMetadataId,
+                AliasedMetadataToGenre::Table,
+                AliasedMetadataToGenre::MetadataId,
             )))),
             num_items,
         )
         .apply_if(input.query, |query, v| {
             query.filter(Condition::all().add(Expr::col(genre::Column::Name).ilike(ilike_sql(&v))))
         })
-        .join(JoinType::Join, genre::Relation::EntityToEntity.def())
+        .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
         .group_by(Expr::tuple([
             Expr::col(genre::Column::Id).into(),
             Expr::col(genre::Column::Name).into(),
