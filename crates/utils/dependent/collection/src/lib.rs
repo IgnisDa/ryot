@@ -95,7 +95,10 @@ async fn add_single_entity_to_collection(
                 EntityLot::WorkoutTemplate => {
                     created_collection.workout_template_id = ActiveValue::Set(Some(id))
                 }
-                EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                EntityLot::Genre
+                | EntityLot::Review
+                | EntityLot::Collection
+                | EntityLot::UserMeasurement => {
                     unreachable!()
                 }
             }

@@ -1,5 +1,5 @@
 [package]
-name = "file-storage-resolver"
+name = "miscellaneous-metadata-resolver"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,6 +7,7 @@ edition = "2024"
 async-graphql = { workspace = true }
 
 common-models = { workspace = true }
-file-storage-service = { workspace = true }
+dependent-models = { workspace = true }
 media-models = { workspace = true }
+miscellaneous-service = { workspace = true }
 traits = { workspace = true }

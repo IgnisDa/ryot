@@ -1,15 +1,13 @@
 [package]
-name = "miscellaneous-resolver"
+name = "user-services-resolver"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 async-graphql = { workspace = true }
-uuid = { workspace = true }
 
-common-models = { workspace = true }
+database-models = { workspace = true }
 dependent-models = { workspace = true }
-enum-models = { workspace = true }
 media-models = { workspace = true }
-miscellaneous-service = { workspace = true }
 traits = { workspace = true }
+user-service = { workspace = true }

@@ -48,7 +48,6 @@ export function LayoutModals() {
 			<FullscreenImageModal />
 			<Modal
 				centered
-				zIndex={999}
 				withCloseButton={false}
 				opened={metadataToUpdate !== null}
 				onClose={closeMetadataProgressUpdateModal}

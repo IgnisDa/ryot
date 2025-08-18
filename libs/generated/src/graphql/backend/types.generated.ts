@@ -570,6 +570,7 @@ export type EntityAssetsInput = {
 export enum EntityLot {
   Collection = 'COLLECTION',
   Exercise = 'EXERCISE',
+  Genre = 'GENRE',
   Metadata = 'METADATA',
   MetadataGroup = 'METADATA_GROUP',
   Person = 'PERSON',

@@ -90,16 +90,14 @@ pub async fn collection_contents(
                 })
                 .apply_if(filter.entity_lot, |query, v| {
                     let f = match v {
-                        EntityLot::Person => EntityLot::Person,
-                        EntityLot::Workout => EntityLot::Workout,
-                        EntityLot::Metadata => EntityLot::Metadata,
-                        EntityLot::Exercise => EntityLot::Exercise,
-                        EntityLot::MetadataGroup => EntityLot::MetadataGroup,
-                        EntityLot::WorkoutTemplate => EntityLot::WorkoutTemplate,
-                        EntityLot::Collection | EntityLot::Review | EntityLot::UserMeasurement => {
+                        EntityLot::Genre
+                        | EntityLot::Review
+                        | EntityLot::Collection
+                        | EntityLot::UserMeasurement => {
                             // These entity types cannot be directly added to collections
                             unreachable!()
                         }
+                        _ => v,
                     };
                     query.filter(collection_to_entity::Column::EntityLot.eq(f))
                 })

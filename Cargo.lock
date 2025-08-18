@@ -903,8 +903,13 @@ dependencies = [
  "itertools 0.14.0",
  "logs-wheel",
  "migrations",
- "miscellaneous-resolver",
+ "miscellaneous-grouping-resolver",
+ "miscellaneous-metadata-resolver",
+ "miscellaneous-search-resolver",
  "miscellaneous-service",
+ "miscellaneous-social-resolver",
+ "miscellaneous-system-resolver",
+ "miscellaneous-tracking-resolver",
  "router-resolver",
  "schematic",
  "sea-orm",
@@ -919,8 +924,10 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "traits",
- "user-resolver",
+ "user-authentication-resolver",
+ "user-management-resolver",
  "user-service",
+ "user-services-resolver",
 ]
 
 [[package]]
@@ -2675,6 +2682,7 @@ dependencies = [
  "common-models",
  "file-storage-service",
  "media-models",
+ "traits",
 ]
 
 [[package]]
@@ -4321,6 +4329,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-grouping-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
+ "media-models",
+ "miscellaneous-service",
+ "traits",
+]
+
+[[package]]
 name = "miscellaneous-lookup-service"
 version = "0.1.0"
 dependencies = [
@@ -4365,6 +4385,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "miscellaneous-metadata-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
+ "media-models",
+ "miscellaneous-service",
+ "traits",
+]
+
+[[package]]
 name = "miscellaneous-progress-service"
 version = "0.1.0"
 dependencies = [
@@ -4385,20 +4417,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "miscellaneous-resolver"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "common-models",
- "dependent-models",
- "enum-models",
- "media-models",
- "miscellaneous-service",
- "traits",
- "uuid",
-]
-
-[[package]]
 name = "miscellaneous-review-service"
 version = "0.1.0"
 dependencies = [
@@ -4414,6 +4432,18 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
+]
+
+[[package]]
+name = "miscellaneous-search-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
+ "media-models",
+ "miscellaneous-service",
+ "traits",
 ]
 
 [[package]]
@@ -4467,6 +4497,42 @@ dependencies = [
  "supporting-service",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "miscellaneous-social-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
+ "media-models",
+ "miscellaneous-service",
+ "traits",
+]
+
+[[package]]
+name = "miscellaneous-system-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "dependent-models",
+ "enum-models",
+ "miscellaneous-service",
+ "traits",
+ "uuid",
+]
+
+[[package]]
+name = "miscellaneous-tracking-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "media-models",
+ "miscellaneous-service",
+ "traits",
 ]
 
 [[package]]
@@ -7617,6 +7683,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
+name = "user-authentication-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "media-models",
+ "traits",
+ "user-service",
+]
+
+[[package]]
+name = "user-management-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "common-models",
+ "database-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+ "user-models",
+ "user-service",
+]
+
+[[package]]
 name = "user-models"
 version = "0.1.0"
 dependencies = [
@@ -7629,20 +7719,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "strum",
-]
-
-[[package]]
-name = "user-resolver"
-version = "0.1.0"
-dependencies = [
- "async-graphql",
- "common-models",
- "database-models",
- "dependent-models",
- "media-models",
- "traits",
- "user-models",
- "user-service",
 ]
 
 [[package]]
@@ -7683,6 +7759,18 @@ dependencies = [
  "totp-lite",
  "tracing",
  "user-models",
+]
+
+[[package]]
+name = "user-services-resolver"
+version = "0.1.0"
+dependencies = [
+ "async-graphql",
+ "database-models",
+ "dependent-models",
+ "media-models",
+ "traits",
+ "user-service",
 ]
 
 [[package]]

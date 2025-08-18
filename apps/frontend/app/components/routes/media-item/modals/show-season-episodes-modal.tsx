@@ -24,6 +24,7 @@ export const DisplayShowSeasonEpisodesModal = (props: {
 	return (
 		<Drawer
 			title={title}
+			zIndex={150}
 			opened={props.openedShowSeason !== undefined}
 			onClose={() => props.setOpenedShowSeason(undefined)}
 		>
