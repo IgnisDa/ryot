@@ -42,11 +42,11 @@ pub enum UserLot {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum EntityLot {
-    #[default]
-    Metadata,
     Person,
     Review,
     Workout,
+    #[default]
+    Metadata,
     Exercise,
     Collection,
     MetadataGroup,
