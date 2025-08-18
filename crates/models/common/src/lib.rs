@@ -381,8 +381,8 @@ pub struct PersonSourceSpecifics {
 #[graphql(input_name = "MetadataSearchSourceSpecificsInput")]
 #[serde(rename_all = "snake_case")]
 pub struct MetadataSearchSourceSpecifics {
-    pub igdb_allow_games_with_parent: Option<bool>,
     pub google_books_pass_raw_query: Option<bool>,
+    pub igdb_allow_games_with_parent: Option<bool>,
 }
 
 #[skip_serializing_none]
