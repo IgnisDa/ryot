@@ -4,11 +4,11 @@ use anyhow::{Result, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_models::{
-    collection, collection_entity_membership, collection_to_entity,
+    collection, collection_entity_membership, collection_to_entity, entity_to_entity,
     functions::get_user_to_entity_association,
-    metadata, metadata_to_genre,
+    metadata,
     prelude::{
-        Collection, CollectionEntityMembership, CollectionToEntity, Metadata, MetadataToGenre,
+        Collection, CollectionEntityMembership, CollectionToEntity, EntityToEntity, Metadata,
         Review, Seen, UserToEntity,
     },
     review, seen, user_to_entity,
@@ -218,8 +218,9 @@ pub async fn update_custom_metadata(
     if metadata.created_by_user_id != Some(user_id.to_owned()) {
         bail!("You are not authorized to update this metadata");
     }
-    MetadataToGenre::delete_many()
-        .filter(metadata_to_genre::Column::MetadataId.eq(&input.existing_metadata_id))
+    EntityToEntity::delete_many()
+        .filter(entity_to_entity::Column::FromMetadataId.eq(&input.existing_metadata_id))
+        .filter(entity_to_entity::Column::ToGenreId.is_not_null())
         .exec(&ss.db)
         .await?;
     for image in metadata.assets.s3_images.clone() {

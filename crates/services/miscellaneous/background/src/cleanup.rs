@@ -4,9 +4,9 @@ use anyhow::Result;
 use chrono::Utc;
 use common_utils::{BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, ryot_log};
 use database_models::{
-    access_link, application_cache, genre, metadata, metadata_group, metadata_to_genre, person,
+    access_link, application_cache, entity_to_entity, genre, metadata, metadata_group, person,
     prelude::{
-        AccessLink, ApplicationCache, Genre, Metadata, MetadataGroup, MetadataToGenre, Person,
+        AccessLink, ApplicationCache, EntityToEntity, Genre, Metadata, MetadataGroup, Person,
         UserToEntity,
     },
     user_to_entity,
@@ -67,8 +67,8 @@ pub async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
     let genre_to_delete = Genre::find()
         .select_only()
         .column(genre::Column::Id)
-        .left_join(MetadataToGenre)
-        .filter(metadata_to_genre::Column::MetadataId.is_null())
+        .left_join(EntityToEntity)
+        .filter(entity_to_entity::Column::FromMetadataId.is_null())
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;

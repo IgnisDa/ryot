@@ -8,12 +8,8 @@ use common_utils::{
     MAX_IMPORT_RETRIES_FOR_PARTIAL_STATE, SHOW_SPECIAL_SEASON_NAMES, ryot_log, sleep_for_n_seconds,
 };
 use database_models::{
-    genre, metadata, metadata_group, metadata_group_to_person, metadata_to_genre,
-    metadata_to_metadata, metadata_to_metadata_group, metadata_to_person, person,
-    prelude::{
-        Genre, Metadata, MetadataGroup, MetadataGroupToPerson, MetadataToGenre, MetadataToMetadata,
-        MetadataToMetadataGroup, MetadataToPerson, Person,
-    },
+    entity_to_entity, genre, metadata, metadata_group, person,
+    prelude::{EntityToEntity, Genre, Metadata, MetadataGroup, Person},
 };
 use database_utils::transform_entity_assets;
 use dependent_jobs_utils::deploy_update_metadata_job;
@@ -21,7 +17,7 @@ use dependent_models::MetadataBaseData;
 use dependent_provider_utils::{
     details_from_provider, get_metadata_provider, get_non_metadata_provider,
 };
-use enum_models::{MetadataToMetadataRelation, UserNotificationContent};
+use enum_models::UserNotificationContent;
 use futures::{TryFutureExt, try_join};
 use itertools::Itertools;
 use markdown::{CompileOptions, Options, to_html_with_options as markdown_to_html_opts};
@@ -33,9 +29,9 @@ use media_models::{
 use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
-    ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    QueryFilter, QueryOrder, QuerySelect, RelationTrait,
 };
-use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
+use sea_query::{JoinType, OnConflict};
 use supporting_service::SupportingService;
 
 async fn ensure_metadata_updated(
@@ -120,17 +116,8 @@ pub async fn change_metadata_associations(
     people: Vec<PartialMetadataPerson>,
     ss: &Arc<SupportingService>,
 ) -> Result<()> {
-    MetadataToPerson::delete_many()
-        .filter(metadata_to_person::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-    MetadataToGenre::delete_many()
-        .filter(metadata_to_genre::Column::MetadataId.eq(metadata_id))
-        .exec(&ss.db)
-        .await?;
-    MetadataToMetadata::delete_many()
-        .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
-        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
+    EntityToEntity::delete_many()
+        .filter(entity_to_entity::Column::FromMetadataId.eq(metadata_id))
         .exec(&ss.db)
         .await?;
 
@@ -147,12 +134,17 @@ pub async fn change_metadata_associations(
             ss,
         )
         .await?;
-        let intermediate = metadata_to_person::ActiveModel {
-            role: ActiveValue::Set(role),
-            person_id: ActiveValue::Set(db_person.id),
-            character: ActiveValue::Set(person.character),
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            index: ActiveValue::Set(Some(index.try_into().unwrap())),
+        let intermediate = entity_to_entity::ActiveModel {
+            from_metadata_id: ActiveValue::Set(Some(metadata_id.to_owned())),
+            to_person_id: ActiveValue::Set(Some(db_person.id)),
+            relation: ActiveValue::Set(if role.is_empty() {
+                "UNKNOWN".to_string()
+            } else {
+                role
+            }),
+            character_name: ActiveValue::Set(person.character),
+            index_position: ActiveValue::Set(Some(index.try_into().unwrap())),
+            ..Default::default()
         };
         intermediate.insert(&ss.db).await.ok();
     }
@@ -171,19 +163,21 @@ pub async fn change_metadata_associations(
             .exec_with_returning(&ss.db)
             .await?;
 
-        let intermediate = metadata_to_genre::ActiveModel {
-            genre_id: ActiveValue::Set(db_genre.id),
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        let intermediate = entity_to_entity::ActiveModel {
+            from_metadata_id: ActiveValue::Set(Some(metadata_id.to_owned())),
+            to_genre_id: ActiveValue::Set(Some(db_genre.id)),
+            relation: ActiveValue::Set("GENRE".to_string()),
+            ..Default::default()
         };
         intermediate.insert(&ss.db).await.ok();
     }
 
     for data in suggestions {
         let (db_partial_metadata, _) = commit_metadata(data, ss, None).await?;
-        let intermediate = metadata_to_metadata::ActiveModel {
-            to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
-            from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
-            relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+        let intermediate = entity_to_entity::ActiveModel {
+            from_metadata_id: ActiveValue::Set(Some(metadata_id.to_owned())),
+            to_metadata_id: ActiveValue::Set(Some(db_partial_metadata.id.clone())),
+            relation: ActiveValue::Set("SUGGESTION".to_string()),
             ..Default::default()
         };
         intermediate.insert(&ss.db).await.ok();
@@ -191,10 +185,12 @@ pub async fn change_metadata_associations(
 
     for metadata_group in groups {
         let db_group = commit_metadata_group(metadata_group, ss).await?;
-        let intermediate = metadata_to_metadata_group::ActiveModel {
-            part: ActiveValue::Set(0),
-            metadata_group_id: ActiveValue::Set(db_group.id),
-            metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+        let intermediate = entity_to_entity::ActiveModel {
+            from_metadata_id: ActiveValue::Set(Some(metadata_id.to_owned())),
+            to_metadata_group_id: ActiveValue::Set(Some(db_group.id)),
+            relation: ActiveValue::Set("GROUP_MEMBER".to_string()),
+            part: ActiveValue::Set(Some(0)),
+            ..Default::default()
         };
         intermediate.insert(&ss.db).await.ok();
     }
@@ -471,16 +467,18 @@ pub async fn update_metadata_group(
     let eg = eg.update(&ss.db).await?;
     for (idx, media) in associated_items.into_iter().enumerate() {
         let (db_partial_metadata, _) = commit_metadata(media, ss, None).await?;
-        MetadataToMetadataGroup::delete_many()
-            .filter(metadata_to_metadata_group::Column::MetadataGroupId.eq(&eg.id))
-            .filter(metadata_to_metadata_group::Column::MetadataId.eq(&db_partial_metadata.id))
+        EntityToEntity::delete_many()
+            .filter(entity_to_entity::Column::ToMetadataGroupId.eq(&eg.id))
+            .filter(entity_to_entity::Column::FromMetadataId.eq(&db_partial_metadata.id))
             .exec(&ss.db)
             .await
             .ok();
-        let intermediate = metadata_to_metadata_group::ActiveModel {
-            metadata_group_id: ActiveValue::Set(eg.id.clone()),
-            metadata_id: ActiveValue::Set(db_partial_metadata.id),
-            part: ActiveValue::Set((idx + 1).try_into().unwrap()),
+        let intermediate = entity_to_entity::ActiveModel {
+            from_metadata_id: ActiveValue::Set(Some(db_partial_metadata.id)),
+            to_metadata_group_id: ActiveValue::Set(Some(eg.id.clone())),
+            relation: ActiveValue::Set("PART".to_string()),
+            part: ActiveValue::Set(Some((idx + 1).try_into().unwrap())),
+            ..Default::default()
         };
         intermediate.insert(&ss.db).await.ok();
     }
@@ -522,18 +520,18 @@ pub async fn update_person(
     for data in provider_person.related_metadata.clone() {
         let title = data.metadata.title.clone();
         let (pm, _) = commit_metadata(data.metadata, ss, None).await?;
-        let already_intermediate = MetadataToPerson::find()
-            .filter(metadata_to_person::Column::MetadataId.eq(&pm.id))
-            .filter(metadata_to_person::Column::PersonId.eq(&person_id))
-            .filter(metadata_to_person::Column::Role.eq(&data.role))
+        let already_intermediate = EntityToEntity::find()
+            .filter(entity_to_entity::Column::FromMetadataId.eq(&pm.id))
+            .filter(entity_to_entity::Column::ToPersonId.eq(&person_id))
+            .filter(entity_to_entity::Column::Relation.eq(&data.role))
             .one(&ss.db)
             .await?;
         if already_intermediate.is_none() {
-            let intermediate = metadata_to_person::ActiveModel {
-                role: ActiveValue::Set(data.role.clone()),
-                metadata_id: ActiveValue::Set(pm.id.clone()),
-                person_id: ActiveValue::Set(person.id.clone()),
-                character: ActiveValue::Set(data.character.clone()),
+            let intermediate = entity_to_entity::ActiveModel {
+                from_metadata_id: ActiveValue::Set(Some(pm.id.clone())),
+                to_person_id: ActiveValue::Set(Some(person.id.clone())),
+                relation: ActiveValue::Set(data.role.clone()),
+                character_name: ActiveValue::Set(data.character.clone()),
                 ..Default::default()
             };
             intermediate.insert(&ss.db).await.unwrap();
@@ -580,18 +578,19 @@ pub async fn update_person(
                 m.insert(&ss.db).await?.id
             }
         };
-        let already_intermediate = MetadataGroupToPerson::find()
-            .filter(metadata_group_to_person::Column::Role.eq(&data.role))
-            .filter(metadata_group_to_person::Column::PersonId.eq(&person_id))
-            .filter(metadata_group_to_person::Column::MetadataGroupId.eq(&db_dg))
+        let already_intermediate = EntityToEntity::find()
+            .filter(entity_to_entity::Column::Relation.eq(&data.role))
+            .filter(entity_to_entity::Column::ToPersonId.eq(&person_id))
+            .filter(entity_to_entity::Column::FromMetadataGroupId.eq(&db_dg))
             .one(&ss.db)
             .await?;
         if already_intermediate.is_none() {
-            let intermediate = metadata_group_to_person::ActiveModel {
-                role: ActiveValue::Set(data.role.clone()),
-                metadata_group_id: ActiveValue::Set(db_dg),
-                index: ActiveValue::Set(idx.try_into().unwrap()),
-                person_id: ActiveValue::Set(person_id.to_owned()),
+            let intermediate = entity_to_entity::ActiveModel {
+                from_metadata_group_id: ActiveValue::Set(Some(db_dg)),
+                to_person_id: ActiveValue::Set(Some(person_id.to_owned())),
+                relation: ActiveValue::Set(data.role.clone()),
+                index_position: ActiveValue::Set(Some(idx.try_into().unwrap())),
+                ..Default::default()
             };
             intermediate.insert(&ss.db).await?;
         }
@@ -721,39 +720,55 @@ pub async fn generic_metadata(
         character: Option<String>,
     }
     let (genres, crts, suggestions, _) = try_join!(
-        meta.find_related(Genre)
+        Genre::find()
+            .join(JoinType::Join, genre::Relation::EntityToEntity.def())
+            .filter(entity_to_entity::Column::FromMetadataId.eq(&meta.id))
+            .filter(entity_to_entity::Column::Relation.eq("GENRE"))
             .order_by_asc(genre::Column::Name)
             .into_model::<GenreListItem>()
             .all(&ss.db)
             .map_err(|_| anyhow!("Failed to fetch genres")),
-        MetadataToPerson::find()
-            .expr(Expr::col(Asterisk))
-            .filter(metadata_to_person::Column::MetadataId.eq(&meta.id))
-            .join(
-                JoinType::Join,
-                metadata_to_person::Relation::Person
-                    .def()
-                    .on_condition(|left, right| {
-                        Condition::all().add(
-                            Expr::col((left, metadata_to_person::Column::PersonId))
-                                .equals((right, person::Column::Id)),
-                        )
-                    }),
-            )
-            .order_by_asc(metadata_to_person::Column::Index)
-            .into_model::<PartialCreator>()
-            .all(&ss.db)
-            .map_err(|_| anyhow!("Failed to fetch creators")),
-        MetadataToMetadata::find()
-            .select_only()
-            .column(metadata_to_metadata::Column::ToMetadataId)
-            .filter(metadata_to_metadata::Column::FromMetadataId.eq(&meta.id))
-            .filter(
-                metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion)
-            )
-            .into_tuple::<String>()
-            .all(&ss.db)
-            .map_err(|_| anyhow!("Failed to fetch suggestions")),
+        async {
+            let entities = EntityToEntity::find()
+                .filter(entity_to_entity::Column::FromMetadataId.eq(&meta.id))
+                .filter(entity_to_entity::Column::ToPersonId.is_not_null())
+                .order_by_asc(entity_to_entity::Column::IndexPosition)
+                .all(&ss.db)
+                .await?;
+
+            let mut creators = Vec::new();
+            for ete in entities {
+                if let Some(person_id) = &ete.to_person_id {
+                    if let Some(person) = Person::find_by_id(person_id).one(&ss.db).await? {
+                        creators.push(PartialCreator {
+                            id: person.id,
+                            name: person.name,
+                            role: ete.relation,
+                            assets: person.assets,
+                            character: ete.character_name,
+                        });
+                    }
+                }
+            }
+            Ok::<Vec<PartialCreator>, sea_orm::DbErr>(creators)
+        }
+        .map_err(|_| anyhow!("Failed to fetch creators")),
+        async {
+            let results = EntityToEntity::find()
+                .select_only()
+                .column(entity_to_entity::Column::ToMetadataId)
+                .filter(entity_to_entity::Column::FromMetadataId.eq(&meta.id))
+                .filter(entity_to_entity::Column::Relation.eq("SUGGESTION"))
+                .filter(entity_to_entity::Column::ToMetadataId.is_not_null())
+                .into_tuple::<Option<String>>()
+                .all(&ss.db)
+                .await?;
+
+            let suggestions: Vec<String> = results.into_iter().flatten().collect();
+
+            Ok::<Vec<String>, sea_orm::DbErr>(suggestions)
+        }
+        .map_err(|_| anyhow!("Failed to fetch suggestions")),
         transform_entity_assets(&mut meta.assets, ss),
     )?;
 

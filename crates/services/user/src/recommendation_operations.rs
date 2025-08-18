@@ -4,8 +4,8 @@ use anyhow::Result;
 use common_models::UserLevelCacheKey;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
-    metadata, metadata_to_metadata,
-    prelude::{Metadata, MetadataToMetadata},
+    entity_to_entity, metadata,
+    prelude::{EntityToEntity, Metadata},
     user_to_entity,
 };
 use database_utils::user_by_id;
@@ -15,7 +15,6 @@ use dependent_models::{
     UserMetadataRecommendationsResponse,
 };
 use dependent_notification_utils::update_metadata_and_notify_users;
-use enum_models::MetadataToMetadataRelation;
 use itertools::Itertools;
 use nanoid::nanoid;
 use rand::seq::{IndexedRandom, SliceRandom};
@@ -82,13 +81,13 @@ ORDER BY RANDOM() LIMIT 10;
                 let recommendations = generic_metadata(&media.id, ss, None).await?.suggestions;
                 ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                 for rec in recommendations {
-                    let relation = metadata_to_metadata::ActiveModel {
-                        to_metadata_id: ActiveValue::Set(rec.clone()),
-                        from_metadata_id: ActiveValue::Set(media.id.clone()),
-                        relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
+                    let relation = entity_to_entity::ActiveModel {
+                        from_metadata_id: ActiveValue::Set(Some(media.id.clone())),
+                        to_metadata_id: ActiveValue::Set(Some(rec.clone())),
+                        relation: ActiveValue::Set("SUGGESTION".to_string()),
                         ..Default::default()
                     };
-                    MetadataToMetadata::insert(relation)
+                    EntityToEntity::insert(relation)
                         .on_conflict_do_nothing()
                         .exec(&ss.db)
                         .await
