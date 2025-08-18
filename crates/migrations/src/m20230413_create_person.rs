@@ -37,6 +37,7 @@ pub enum Person {
     AssociatedMetadataGroupsCount,
 }
 
+// FIXME: Remove in the next major release
 #[derive(Iden)]
 pub enum MetadataToPerson {
     Role,
@@ -48,6 +49,7 @@ pub enum MetadataToPerson {
     MetadataId,
 }
 
+// FIXME: Remove in the next major release
 #[derive(Iden)]
 pub enum MetadataGroupToPerson {
     Role,
