@@ -11,12 +11,12 @@ use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct SearchQuery;
+pub struct MiscellaneousSearchQueryResolver;
 
-impl AuthProvider for SearchQuery {}
+impl AuthProvider for MiscellaneousSearchQueryResolver {}
 
 #[Object]
-impl SearchQuery {
+impl MiscellaneousSearchQueryResolver {
     /// Search for a list of media for a given type.
     async fn metadata_search(
         &self,

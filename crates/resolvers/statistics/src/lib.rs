@@ -7,12 +7,12 @@ use statistics_service::StatisticsService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct StatisticsQuery;
+pub struct StatisticsQueryResolver;
 
-impl AuthProvider for StatisticsQuery {}
+impl AuthProvider for StatisticsQueryResolver {}
 
 #[Object]
-impl StatisticsQuery {
+impl StatisticsQueryResolver {
     /// Get the analytics parameters for the currently logged in user.
     async fn user_analytics_parameters(
         &self,

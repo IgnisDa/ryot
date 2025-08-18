@@ -11,12 +11,12 @@ use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct SocialQuery;
+pub struct MiscellaneousSocialQueryResolver;
 
-impl AuthProvider for SocialQuery {}
+impl AuthProvider for MiscellaneousSocialQueryResolver {}
 
 #[Object]
-impl SocialQuery {
+impl MiscellaneousSocialQueryResolver {
     /// Get details about a creator present in the database.
     async fn person_details(
         &self,
@@ -54,16 +54,16 @@ impl SocialQuery {
 }
 
 #[derive(Default)]
-pub struct SocialMutation;
+pub struct MiscellaneousSocialMutationResolver;
 
-impl AuthProvider for SocialMutation {
+impl AuthProvider for MiscellaneousSocialMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl SocialMutation {
+impl MiscellaneousSocialMutationResolver {
     /// Create or update a review.
     async fn create_or_update_review(
         &self,

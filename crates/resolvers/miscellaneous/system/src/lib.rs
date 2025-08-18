@@ -9,12 +9,12 @@ use traits::AuthProvider;
 use uuid::Uuid;
 
 #[derive(Default)]
-pub struct SystemQuery;
+pub struct MiscellaneousSystemQueryResolver;
 
-impl AuthProvider for SystemQuery {}
+impl AuthProvider for MiscellaneousSystemQueryResolver {}
 
 #[Object]
-impl SystemQuery {
+impl MiscellaneousSystemQueryResolver {
     /// Get some primary information about the service.
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
@@ -24,16 +24,16 @@ impl SystemQuery {
 }
 
 #[derive(Default)]
-pub struct SystemMutation;
+pub struct MiscellaneousSystemMutationResolver;
 
-impl AuthProvider for SystemMutation {
+impl AuthProvider for MiscellaneousSystemMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl SystemMutation {
+impl MiscellaneousSystemMutationResolver {
     /// Expire a cache key by its ID
     async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();

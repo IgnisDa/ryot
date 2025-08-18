@@ -12,32 +12,40 @@ use axum::{
 };
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob, MpApplicationJob};
 use bon::builder;
-use collection_resolver::{CollectionMutation, CollectionQuery};
+use collection_resolver::{CollectionMutationResolver, CollectionQueryResolver};
 use collection_service::CollectionService;
-use exporter_resolver::{ExporterMutation, ExporterQuery};
+use exporter_resolver::{ExporterMutationResolver, ExporterQueryResolver};
 use exporter_service::ExporterService;
-use file_storage_resolver::{FileStorageMutation, FileStorageQuery};
+use file_storage_resolver::{FileStorageMutationResolver, FileStorageQueryResolver};
 use file_storage_service::FileStorageService;
-use fitness_resolver::{FitnessMutation, FitnessQuery};
+use fitness_resolver::{FitnessMutationResolver, FitnessQueryResolver};
 use fitness_service::FitnessService;
 use futures::try_join;
 use http::Request;
-use importer_resolver::{ImporterMutation, ImporterQuery};
+use importer_resolver::{ImporterMutationResolver, ImporterQueryResolver};
 use importer_service::ImporterService;
 use integration_service::IntegrationService;
 use itertools::Itertools;
-use miscellaneous_grouping_resolver::GroupingQuery;
-use miscellaneous_metadata_resolver::{MetadataMutation, MetadataQuery};
-use miscellaneous_search_resolver::SearchQuery;
+use miscellaneous_grouping_resolver::MiscellaneousGroupingQueryResolver;
+use miscellaneous_metadata_resolver::{
+    MiscellaneousMetadataMutationResolver, MiscellaneousMetadataQueryResolver,
+};
+use miscellaneous_search_resolver::MiscellaneousSearchQueryResolver;
 use miscellaneous_service::MiscellaneousService;
-use miscellaneous_social_resolver::{SocialMutation, SocialQuery};
-use miscellaneous_system_resolver::{SystemMutation, SystemQuery};
-use miscellaneous_tracking_resolver::{TrackingMutation, TrackingQuery};
+use miscellaneous_social_resolver::{
+    MiscellaneousSocialMutationResolver, MiscellaneousSocialQueryResolver,
+};
+use miscellaneous_system_resolver::{
+    MiscellaneousSystemMutationResolver, MiscellaneousSystemQueryResolver,
+};
+use miscellaneous_tracking_resolver::{
+    MiscellaneousTrackingMutationResolver, MiscellaneousTrackingQueryResolver,
+};
 use router_resolver::{
     config_handler, graphql_playground_handler, integration_webhook_handler, upload_file_handler,
 };
 use sea_orm::DatabaseConnection;
-use statistics_resolver::StatisticsQuery;
+use statistics_resolver::StatisticsQueryResolver;
 use statistics_service::StatisticsService;
 use supporting_service::SupportingService;
 use tower_governor::{
@@ -47,10 +55,12 @@ use tower_http::{
     catch_panic::CatchPanicLayer as TowerCatchPanicLayer, cors::CorsLayer as TowerCorsLayer,
     trace::TraceLayer as TowerTraceLayer,
 };
-use user_authentication_resolver::{AuthenticationMutation, AuthenticationQuery};
-use user_management_resolver::{ManagementMutation, ManagementQuery};
+use user_authentication_resolver::{
+    UserAuthenticationMutationResolver, UserAuthenticationQueryResolver,
+};
+use user_management_resolver::{UserManagementMutationResolver, UserManagementQueryResolver};
 use user_service::UserService;
-use user_services_resolver::{ServicesMutation, ServicesQuery};
+use user_services_resolver::{UserServicesMutationResolver, UserServicesQueryResolver};
 
 /// All the services that are used by the app
 pub struct AppServices {
@@ -197,37 +207,37 @@ impl KeyExtractor for RateLimitExtractor {
 
 #[derive(MergedObject, Default)]
 pub struct QueryRoot(
-    MetadataQuery,
-    SearchQuery,
-    SocialQuery,
-    GroupingQuery,
-    TrackingQuery,
-    SystemQuery,
-    AuthenticationQuery,
-    ManagementQuery,
-    ServicesQuery,
-    ImporterQuery,
-    ExporterQuery,
-    FitnessQuery,
-    FileStorageQuery,
-    StatisticsQuery,
-    CollectionQuery,
+    MiscellaneousMetadataQueryResolver,
+    MiscellaneousSearchQueryResolver,
+    MiscellaneousSocialQueryResolver,
+    MiscellaneousGroupingQueryResolver,
+    MiscellaneousTrackingQueryResolver,
+    MiscellaneousSystemQueryResolver,
+    UserAuthenticationQueryResolver,
+    UserManagementQueryResolver,
+    UserServicesQueryResolver,
+    ImporterQueryResolver,
+    ExporterQueryResolver,
+    FitnessQueryResolver,
+    FileStorageQueryResolver,
+    StatisticsQueryResolver,
+    CollectionQueryResolver,
 );
 
 #[derive(MergedObject, Default)]
 pub struct MutationRoot(
-    MetadataMutation,
-    SocialMutation,
-    TrackingMutation,
-    SystemMutation,
-    AuthenticationMutation,
-    ManagementMutation,
-    ServicesMutation,
-    ImporterMutation,
-    ExporterMutation,
-    FitnessMutation,
-    FileStorageMutation,
-    CollectionMutation,
+    MiscellaneousMetadataMutationResolver,
+    MiscellaneousSocialMutationResolver,
+    MiscellaneousTrackingMutationResolver,
+    MiscellaneousSystemMutationResolver,
+    UserAuthenticationMutationResolver,
+    UserManagementMutationResolver,
+    UserServicesMutationResolver,
+    ImporterMutationResolver,
+    ExporterMutationResolver,
+    FitnessMutationResolver,
+    FileStorageMutationResolver,
+    CollectionMutationResolver,
 );
 
 pub type GraphqlSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;

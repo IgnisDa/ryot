@@ -13,12 +13,12 @@ use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct MetadataQuery;
+pub struct MiscellaneousMetadataQueryResolver;
 
-impl AuthProvider for MetadataQuery {}
+impl AuthProvider for MiscellaneousMetadataQueryResolver {}
 
 #[Object]
-impl MetadataQuery {
+impl MiscellaneousMetadataQueryResolver {
     /// Get details about a media present in the database.
     async fn metadata_details(
         &self,
@@ -59,16 +59,16 @@ impl MetadataQuery {
 }
 
 #[derive(Default)]
-pub struct MetadataMutation;
+pub struct MiscellaneousMetadataMutationResolver;
 
-impl AuthProvider for MetadataMutation {
+impl AuthProvider for MiscellaneousMetadataMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl MetadataMutation {
+impl MiscellaneousMetadataMutationResolver {
     /// Create a custom media item.
     async fn create_custom_metadata(
         &self,

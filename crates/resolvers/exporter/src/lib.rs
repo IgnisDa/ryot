@@ -6,12 +6,12 @@ use exporter_service::ExporterService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct ExporterQuery;
+pub struct ExporterQueryResolver;
 
-impl AuthProvider for ExporterQuery {}
+impl AuthProvider for ExporterQueryResolver {}
 
 #[Object]
-impl ExporterQuery {
+impl ExporterQueryResolver {
     /// Get all the export jobs for the current user.
     async fn user_exports(&self, gql_ctx: &Context<'_>) -> Result<Vec<ExportJob>> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();
@@ -22,16 +22,16 @@ impl ExporterQuery {
 }
 
 #[derive(Default)]
-pub struct ExporterMutation;
+pub struct ExporterMutationResolver;
 
-impl AuthProvider for ExporterMutation {
+impl AuthProvider for ExporterMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl ExporterMutation {
+impl ExporterMutationResolver {
     /// Deploy a job to export data for a user.
     async fn deploy_export_job(&self, gql_ctx: &Context<'_>) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<ExporterService>>();

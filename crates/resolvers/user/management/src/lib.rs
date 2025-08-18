@@ -13,12 +13,12 @@ use user_models::{UpdateUserInput, UserPreferences};
 use user_service::UserService;
 
 #[derive(Default)]
-pub struct ManagementQuery;
+pub struct UserManagementQueryResolver;
 
-impl AuthProvider for ManagementQuery {}
+impl AuthProvider for UserManagementQueryResolver {}
 
 #[Object]
-impl ManagementQuery {
+impl UserManagementQueryResolver {
     /// Get details about all the users in the service.
     async fn users_list(
         &self,
@@ -48,16 +48,16 @@ impl ManagementQuery {
 }
 
 #[derive(Default)]
-pub struct ManagementMutation;
+pub struct UserManagementMutationResolver;
 
-impl AuthProvider for ManagementMutation {
+impl AuthProvider for UserManagementMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl ManagementMutation {
+impl UserManagementMutationResolver {
     /// Delete a user. The account deleting the user must be an `Admin`.
     async fn delete_user(&self, gql_ctx: &Context<'_>, to_delete_user_id: String) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();

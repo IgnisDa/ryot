@@ -13,12 +13,12 @@ use media_models::CreateOrUpdateCollectionInput;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct CollectionQuery;
+pub struct CollectionQueryResolver;
 
-impl AuthProvider for CollectionQuery {}
+impl AuthProvider for CollectionQueryResolver {}
 
 #[Object]
-impl CollectionQuery {
+impl CollectionQueryResolver {
     /// Get all collections for the currently logged in user.
     async fn user_collections_list(
         &self,
@@ -56,16 +56,16 @@ impl CollectionQuery {
 }
 
 #[derive(Default)]
-pub struct CollectionMutation;
+pub struct CollectionMutationResolver;
 
-impl AuthProvider for CollectionMutation {
+impl AuthProvider for CollectionMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl CollectionMutation {
+impl CollectionMutationResolver {
     /// Create a new collection for the logged in user or edit details of an existing one.
     async fn create_or_update_collection(
         &self,

@@ -12,12 +12,12 @@ use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct GroupingQuery;
+pub struct MiscellaneousGroupingQueryResolver;
 
-impl AuthProvider for GroupingQuery {}
+impl AuthProvider for MiscellaneousGroupingQueryResolver {}
 
 #[Object]
-impl GroupingQuery {
+impl MiscellaneousGroupingQueryResolver {
     /// Get details about a metadata group present in the database.
     async fn metadata_group_details(
         &self,

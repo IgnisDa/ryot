@@ -6,10 +6,10 @@ use file_storage_service::FileStorageService;
 use media_models::PresignedPutUrlInput;
 
 #[derive(Default)]
-pub struct FileStorageQuery;
+pub struct FileStorageQueryResolver;
 
 #[Object]
-impl FileStorageQuery {
+impl FileStorageQueryResolver {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<FileStorageService>>();
@@ -19,10 +19,10 @@ impl FileStorageQuery {
 }
 
 #[derive(Default)]
-pub struct FileStorageMutation;
+pub struct FileStorageMutationResolver;
 
 #[Object]
-impl FileStorageMutation {
+impl FileStorageMutationResolver {
     /// Get a presigned URL (valid for 10 minutes) for a given file name.
     async fn presigned_put_s3_url(
         &self,

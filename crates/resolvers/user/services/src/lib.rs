@@ -11,12 +11,12 @@ use traits::AuthProvider;
 use user_service::UserService;
 
 #[derive(Default)]
-pub struct ServicesQuery;
+pub struct UserServicesQueryResolver;
 
-impl AuthProvider for ServicesQuery {}
+impl AuthProvider for UserServicesQueryResolver {}
 
 #[Object]
-impl ServicesQuery {
+impl UserServicesQueryResolver {
     /// Get metadata recommendations for the currently logged in user.
     async fn user_metadata_recommendations(
         &self,
@@ -49,16 +49,16 @@ impl ServicesQuery {
 }
 
 #[derive(Default)]
-pub struct ServicesMutation;
+pub struct UserServicesMutationResolver;
 
-impl AuthProvider for ServicesMutation {
+impl AuthProvider for UserServicesMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl ServicesMutation {
+impl UserServicesMutationResolver {
     /// Create or update an integration for the currently logged in user.
     async fn create_or_update_user_integration(
         &self,

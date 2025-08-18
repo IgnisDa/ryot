@@ -10,12 +10,12 @@ use miscellaneous_service::MiscellaneousService;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct TrackingQuery;
+pub struct MiscellaneousTrackingQueryResolver;
 
-impl AuthProvider for TrackingQuery {}
+impl AuthProvider for MiscellaneousTrackingQueryResolver {}
 
 #[Object]
-impl TrackingQuery {
+impl MiscellaneousTrackingQueryResolver {
     /// Get calendar events for a user between a given date range.
     async fn user_calendar_events(
         &self,
@@ -44,16 +44,16 @@ impl TrackingQuery {
 }
 
 #[derive(Default)]
-pub struct TrackingMutation;
+pub struct MiscellaneousTrackingMutationResolver;
 
-impl AuthProvider for TrackingMutation {
+impl AuthProvider for MiscellaneousTrackingMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl TrackingMutation {
+impl MiscellaneousTrackingMutationResolver {
     /// Delete a seen item from a user's history.
     async fn delete_seen_item(
         &self,

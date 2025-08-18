@@ -16,12 +16,12 @@ use sea_orm::prelude::DateTimeUtc;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct FitnessQuery;
+pub struct FitnessQueryResolver;
 
-impl AuthProvider for FitnessQuery {}
+impl AuthProvider for FitnessQueryResolver {}
 
 #[Object]
-impl FitnessQuery {
+impl FitnessQueryResolver {
     /// Get a paginated list of templates created by the user.
     async fn user_workout_templates_list(
         &self,
@@ -121,16 +121,16 @@ impl FitnessQuery {
 }
 
 #[derive(Default)]
-pub struct FitnessMutation;
+pub struct FitnessMutationResolver;
 
-impl AuthProvider for FitnessMutation {
+impl AuthProvider for FitnessMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl FitnessMutation {
+impl FitnessMutationResolver {
     /// Create or update a workout template.
     async fn create_or_update_user_workout_template(
         &self,

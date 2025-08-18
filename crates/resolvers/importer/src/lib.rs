@@ -7,12 +7,12 @@ use media_models::DeployImportJobInput;
 use traits::AuthProvider;
 
 #[derive(Default)]
-pub struct ImporterQuery;
+pub struct ImporterQueryResolver;
 
-impl AuthProvider for ImporterQuery {}
+impl AuthProvider for ImporterQueryResolver {}
 
 #[Object]
-impl ImporterQuery {
+impl ImporterQueryResolver {
     /// Get all the import jobs deployed by the user.
     async fn user_import_reports(
         &self,
@@ -26,16 +26,16 @@ impl ImporterQuery {
 }
 
 #[derive(Default)]
-pub struct ImporterMutation;
+pub struct ImporterMutationResolver;
 
-impl AuthProvider for ImporterMutation {
+impl AuthProvider for ImporterMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl ImporterMutation {
+impl ImporterMutationResolver {
     /// Add job to import data from various sources.
     async fn deploy_import_job(
         &self,

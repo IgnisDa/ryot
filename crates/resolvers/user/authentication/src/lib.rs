@@ -10,12 +10,12 @@ use traits::AuthProvider;
 use user_service::UserService;
 
 #[derive(Default)]
-pub struct AuthenticationQuery;
+pub struct UserAuthenticationQueryResolver;
 
-impl AuthProvider for AuthenticationQuery {}
+impl AuthProvider for UserAuthenticationQueryResolver {}
 
 #[Object]
-impl AuthenticationQuery {
+impl UserAuthenticationQueryResolver {
     /// Get an authorization URL using the configured OIDC client.
     async fn get_oidc_redirect_url(&self, gql_ctx: &Context<'_>) -> Result<String> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
@@ -43,16 +43,16 @@ impl AuthenticationQuery {
 }
 
 #[derive(Default)]
-pub struct AuthenticationMutation;
+pub struct UserAuthenticationMutationResolver;
 
-impl AuthProvider for AuthenticationMutation {
+impl AuthProvider for UserAuthenticationMutationResolver {
     fn is_mutation(&self) -> bool {
         true
     }
 }
 
 #[Object]
-impl AuthenticationMutation {
+impl UserAuthenticationMutationResolver {
     /// Create a new user for the service. Also set their `lot` as admin if
     /// they are the first user.
     async fn register_user(
