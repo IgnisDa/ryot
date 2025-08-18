@@ -5,7 +5,6 @@ use super::{m20230410_create_metadata::Metadata, m20230411_create_metadata_group
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-// FIXME: Remove in the next major release
 #[derive(Iden)]
 pub enum MetadataToMetadata {
     Table,
@@ -15,7 +14,6 @@ pub enum MetadataToMetadata {
     Relation,
 }
 
-// FIXME: Remove in the next major release
 #[derive(Iden)]
 pub enum MetadataToMetadataGroup {
     Table,

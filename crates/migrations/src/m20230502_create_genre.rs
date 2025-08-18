@@ -5,7 +5,6 @@ use super::m20230410_create_metadata::Metadata;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-// FIXME: Remove in the next major release
 #[derive(Iden)]
 pub enum MetadataToGenre {
     Table,

@@ -28,8 +28,6 @@ mod m20241004_create_application_cache;
 mod m20250801_is_v9_migration;
 mod m20250813_create_collection_entity_membership;
 mod m20250814_changes_for_issue_1483;
-mod m20250818_create_entity_to_entity;
-mod m20250819_changes_for_issue_1506;
 
 pub use m20230404_create_user::User as AliasedUser;
 pub use m20230410_create_metadata::Metadata as AliasedMetadata;
@@ -45,7 +43,6 @@ pub use m20230510_create_seen::Seen as AliasedSeen;
 pub use m20230912_create_calendar_event::CalendarEvent as AliasedCalendarEvent;
 pub use m20231016_create_collection_to_entity::CollectionToEntity as AliasedCollectionToEntity;
 pub use m20231017_create_user_to_entity::UserToEntity as AliasedUserToEntity;
-pub use m20250818_create_entity_to_entity::EntityToEntity as AliasedEntityToEntity;
 
 pub struct Migrator;
 
@@ -80,8 +77,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20250801_is_v9_migration::Migration),
             Box::new(m20250813_create_collection_entity_membership::Migration),
             Box::new(m20250814_changes_for_issue_1483::Migration),
-            Box::new(m20250818_create_entity_to_entity::Migration),
-            Box::new(m20250819_changes_for_issue_1506::Migration),
         ]
     }
 }
