@@ -61,8 +61,12 @@ pub enum Relation {
     CalendarEvent,
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
-    #[sea_orm(has_many = "super::entity_to_entity::Entity")]
-    EntityToEntity,
+    #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
+    MetadataToGenre,
+    #[sea_orm(has_many = "super::metadata_to_metadata_group::Entity")]
+    MetadataToMetadataGroup,
+    #[sea_orm(has_many = "super::metadata_to_person::Entity")]
+    MetadataToPerson,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::seen::Entity")]
@@ -91,9 +95,21 @@ impl Related<super::collection_to_entity::Entity> for Entity {
     }
 }
 
-impl Related<super::entity_to_entity::Entity> for Entity {
+impl Related<super::metadata_to_genre::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::EntityToEntity.def()
+        Relation::MetadataToGenre.def()
+    }
+}
+
+impl Related<super::metadata_to_metadata_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToMetadataGroup.def()
+    }
+}
+
+impl Related<super::metadata_to_person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToPerson.def()
     }
 }
 
@@ -118,6 +134,28 @@ impl Related<super::user::Entity> for Entity {
 impl Related<super::user_to_entity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserToEntity.def()
+    }
+}
+
+impl Related<super::genre::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::metadata_to_genre::Relation::Genre.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::metadata_to_genre::Relation::Metadata.def().rev())
+    }
+}
+
+impl Related<super::metadata_group::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::metadata_to_metadata_group::Relation::MetadataGroup.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::metadata_to_metadata_group::Relation::Metadata
+                .def()
+                .rev(),
+        )
     }
 }
 

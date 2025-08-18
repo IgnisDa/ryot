@@ -16,13 +16,22 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::entity_to_entity::Entity")]
-    EntityToEntity,
+    #[sea_orm(has_many = "super::metadata_to_genre::Entity")]
+    MetadataToGenre,
 }
 
-impl Related<super::entity_to_entity::Entity> for Entity {
+impl Related<super::metadata::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::EntityToEntity.def()
+        super::metadata_to_genre::Relation::Metadata.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(super::metadata_to_genre::Relation::Genre.def().rev())
+    }
+}
+
+impl Related<super::metadata_to_genre::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToGenre.def()
     }
 }
 

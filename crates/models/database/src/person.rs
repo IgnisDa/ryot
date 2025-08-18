@@ -45,8 +45,10 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::collection_to_entity::Entity")]
     CollectionToEntity,
-    #[sea_orm(has_many = "super::entity_to_entity::Entity")]
-    EntityToEntity,
+    #[sea_orm(has_many = "super::metadata_group_to_person::Entity")]
+    MetadataGroupToPerson,
+    #[sea_orm(has_many = "super::metadata_to_person::Entity")]
+    MetadataToPerson,
     #[sea_orm(has_many = "super::review::Entity")]
     Review,
     #[sea_orm(has_many = "super::user_to_entity::Entity")]
@@ -59,9 +61,15 @@ impl Related<super::collection_to_entity::Entity> for Entity {
     }
 }
 
-impl Related<super::entity_to_entity::Entity> for Entity {
+impl Related<super::metadata_group_to_person::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::EntityToEntity.def()
+        Relation::MetadataGroupToPerson.def()
+    }
+}
+
+impl Related<super::metadata_to_person::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MetadataToPerson.def()
     }
 }
 
