@@ -3,7 +3,7 @@ use chrono::Utc;
 use common_models::{MetadataRecentlyConsumedCacheInput, UserLevelCacheKey};
 use database_models::{
     functions::get_user_to_entity_association,
-    prelude::{Collection, Metadata, MetadataGroup, Person, Workout, WorkoutTemplate},
+    prelude::{Collection, Genre, Metadata, MetadataGroup, Person, Workout, WorkoutTemplate},
     user_to_entity,
 };
 use dependent_models::{
@@ -21,6 +21,7 @@ pub async fn get_entity_title_from_id_and_lot(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let obj_title = match lot {
+        EntityLot::Genre => Genre::find_by_id(id).one(&ss.db).await?.unwrap().name,
         EntityLot::Metadata => Metadata::find_by_id(id).one(&ss.db).await?.unwrap().title,
         EntityLot::MetadataGroup => {
             MetadataGroup::find_by_id(id)
@@ -107,10 +108,11 @@ pub async fn associate_user_with_entity(
                 EntityLot::MetadataGroup => {
                     new_user_to_entity.metadata_group_id = ActiveValue::Set(Some(entity_id_owned))
                 }
-                EntityLot::Collection
-                | EntityLot::Workout
-                | EntityLot::WorkoutTemplate
+                EntityLot::Genre
                 | EntityLot::Review
+                | EntityLot::Workout
+                | EntityLot::Collection
+                | EntityLot::WorkoutTemplate
                 | EntityLot::UserMeasurement => {
                     unreachable!()
                 }

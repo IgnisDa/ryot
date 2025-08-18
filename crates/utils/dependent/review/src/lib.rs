@@ -91,9 +91,10 @@ pub async fn post_review(
         }
         EntityLot::Collection => review_obj.collection_id = ActiveValue::Set(Some(entity_id)),
         EntityLot::Exercise => review_obj.exercise_id = ActiveValue::Set(Some(entity_id)),
-        EntityLot::Workout
-        | EntityLot::WorkoutTemplate
+        EntityLot::Genre
         | EntityLot::Review
+        | EntityLot::Workout
+        | EntityLot::WorkoutTemplate
         | EntityLot::UserMeasurement => unreachable!(),
     };
     if let Some(s) = input.is_spoiler {

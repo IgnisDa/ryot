@@ -18,10 +18,11 @@ where
         EntityLot::Person => user_to_entity::Column::PersonId,
         EntityLot::Exercise => user_to_entity::Column::ExerciseId,
         EntityLot::MetadataGroup => user_to_entity::Column::MetadataGroupId,
-        EntityLot::Collection
-        | EntityLot::Workout
-        | EntityLot::WorkoutTemplate
+        EntityLot::Genre
         | EntityLot::Review
+        | EntityLot::Workout
+        | EntityLot::Collection
+        | EntityLot::WorkoutTemplate
         | EntityLot::UserMeasurement => unreachable!(),
     };
     let ute = UserToEntity::find()

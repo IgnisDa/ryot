@@ -35,13 +35,14 @@ pub enum UserLot {
     Deserialize,
     DeriveActiveEnum,
 )]
+#[serde(rename_all = "snake_case")]
 #[sea_orm(
     rs_type = "String",
     rename_all = "snake_case",
     db_type = "String(StringLen::None)"
 )]
-#[serde(rename_all = "snake_case")]
 pub enum EntityLot {
+    Genre,
     Person,
     Review,
     Workout,

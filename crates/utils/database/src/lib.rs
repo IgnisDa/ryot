@@ -308,14 +308,15 @@ pub async fn item_reviews(
     ss: &Arc<SupportingService>,
 ) -> Result<Vec<ReviewItem>> {
     let column = match entity_lot {
-        EntityLot::Metadata => review::Column::MetadataId,
-        EntityLot::MetadataGroup => review::Column::MetadataGroupId,
         EntityLot::Person => review::Column::PersonId,
         EntityLot::Exercise => review::Column::ExerciseId,
+        EntityLot::Metadata => review::Column::MetadataId,
         EntityLot::Collection => review::Column::CollectionId,
-        EntityLot::Workout
-        | EntityLot::WorkoutTemplate
+        EntityLot::MetadataGroup => review::Column::MetadataGroupId,
+        EntityLot::Genre
         | EntityLot::Review
+        | EntityLot::Workout
+        | EntityLot::WorkoutTemplate
         | EntityLot::UserMeasurement => unreachable!(),
     };
     let all_reviews = Review::find()

@@ -169,6 +169,7 @@ pub fn get_entity_details_frontend_url(
     ss: &Arc<SupportingService>,
 ) -> String {
     let mut url = match entity_lot {
+        EntityLot::Genre => format!("media/genre/{id}"),
         EntityLot::Metadata => format!("media/item/{id}"),
         EntityLot::Collection => format!("collections/{id}"),
         EntityLot::Person => format!("media/people/item/{id}"),
