@@ -158,7 +158,7 @@ impl ManagementMutation {
         access_link_id: String,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        self.user_id_from_ctx(gql_ctx).await?;
+        let _ = self.user_id_from_ctx(gql_ctx).await?;
         let response = service.revoke_access_link(access_link_id).await?;
         Ok(response)
     }

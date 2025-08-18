@@ -129,7 +129,7 @@ impl MetadataMutation {
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
         let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        self.user_id_from_ctx(gql_ctx).await?;
+        let _ = self.user_id_from_ctx(gql_ctx).await?;
         let response = service.mark_entity_as_partial(input).await?;
         Ok(response)
     }
