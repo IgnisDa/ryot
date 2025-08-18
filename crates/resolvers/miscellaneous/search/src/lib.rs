@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use common_models::{MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput};
 use dependent_models::{
@@ -8,12 +6,13 @@ use dependent_models::{
 };
 use media_models::MetadataLookupResponse;
 use miscellaneous_service::MiscellaneousService;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct MiscellaneousSearchQueryResolver;
 
 impl AuthProvider for MiscellaneousSearchQueryResolver {}
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousSearchQueryResolver {}
 
 #[Object]
 impl MiscellaneousSearchQueryResolver {
@@ -23,8 +22,7 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         input: MetadataSearchInput,
     ) -> Result<CachedResponse<MetadataSearchResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.metadata_search(&user_id, input).await?;
         Ok(response)
     }
@@ -35,8 +33,7 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         input: PeopleSearchInput,
     ) -> Result<CachedResponse<PeopleSearchResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.people_search(&user_id, input).await?;
         Ok(response)
     }
@@ -47,8 +44,7 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         input: MetadataGroupSearchInput,
     ) -> Result<CachedResponse<MetadataGroupSearchResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.metadata_group_search(&user_id, input).await?;
         Ok(response)
     }
@@ -58,7 +54,7 @@ impl MiscellaneousSearchQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<TrendingMetadataIdsResponse> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service.trending_metadata().await?;
         Ok(response)
     }
@@ -69,7 +65,7 @@ impl MiscellaneousSearchQueryResolver {
         gql_ctx: &Context<'_>,
         title: String,
     ) -> Result<CachedResponse<MetadataLookupResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service.metadata_lookup(title).await?;
         Ok(response)
     }

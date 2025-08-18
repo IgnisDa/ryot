@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
 use dependent_models::{
@@ -10,12 +8,14 @@ use media_models::{
     UpdateCustomMetadataInput,
 };
 use miscellaneous_service::MiscellaneousService;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct MiscellaneousMetadataQueryResolver;
 
 impl AuthProvider for MiscellaneousMetadataQueryResolver {}
+
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousMetadataQueryResolver {}
 
 #[Object]
 impl MiscellaneousMetadataQueryResolver {
@@ -26,7 +26,7 @@ impl MiscellaneousMetadataQueryResolver {
         metadata_id: String,
         ensure_updated: Option<bool>,
     ) -> Result<GraphqlMetadataDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service
             .metadata_details(&metadata_id, ensure_updated)
             .await?;
@@ -39,8 +39,7 @@ impl MiscellaneousMetadataQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserMetadataListInput,
     ) -> Result<CachedResponse<UserMetadataListResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_metadata_list(user_id, input).await?;
         Ok(response)
     }
@@ -51,8 +50,7 @@ impl MiscellaneousMetadataQueryResolver {
         gql_ctx: &Context<'_>,
         metadata_id: String,
     ) -> Result<UserMetadataDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_metadata_details(user_id, metadata_id).await?;
         Ok(response)
     }
@@ -67,6 +65,8 @@ impl AuthProvider for MiscellaneousMetadataMutationResolver {
     }
 }
 
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousMetadataMutationResolver {}
+
 #[Object]
 impl MiscellaneousMetadataMutationResolver {
     /// Create a custom media item.
@@ -75,8 +75,7 @@ impl MiscellaneousMetadataMutationResolver {
         gql_ctx: &Context<'_>,
         input: CreateCustomMetadataInput,
     ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let metadata = service.create_custom_metadata(user_id, input).await?;
         Ok(StringIdObject { id: metadata.id })
     }
@@ -87,8 +86,7 @@ impl MiscellaneousMetadataMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateCustomMetadataInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.update_custom_metadata(&user_id, input).await?;
         Ok(response)
     }
@@ -101,8 +99,7 @@ impl MiscellaneousMetadataMutationResolver {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .merge_metadata(user_id, merge_from, merge_into)
             .await?;
@@ -116,8 +113,7 @@ impl MiscellaneousMetadataMutationResolver {
         gql_ctx: &Context<'_>,
         metadata_id: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.disassociate_metadata(user_id, metadata_id).await?;
         Ok(response)
     }
@@ -128,8 +124,7 @@ impl MiscellaneousMetadataMutationResolver {
         gql_ctx: &Context<'_>,
         input: MarkEntityAsPartialInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let _ = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, _) = self.svc_and_user(gql_ctx).await?;
         let response = service.mark_entity_as_partial(input).await?;
         Ok(response)
     }

@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use media_models::{
     AuthUserInput, LoginResult, OidcTokenOutput, RegisterResult, RegisterUserInput,
     UserTwoFactorBackupCodesResponse, UserTwoFactorInitiateResponse, UserTwoFactorSetupInput,
     UserTwoFactorVerifyInput, VerifyTwoFactorResult,
 };
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 use user_service::UserService;
 
 #[derive(Default)]
@@ -14,18 +12,20 @@ pub struct UserAuthenticationQueryResolver;
 
 impl AuthProvider for UserAuthenticationQueryResolver {}
 
+impl GraphqlResolverSvc<UserService> for UserAuthenticationQueryResolver {}
+
 #[Object]
 impl UserAuthenticationQueryResolver {
     /// Get an authorization URL using the configured OIDC client.
     async fn get_oidc_redirect_url(&self, gql_ctx: &Context<'_>) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let service = self.svc(gql_ctx);
         let response = service.get_oidc_redirect_url().await?;
         Ok(response)
     }
 
     /// Get an access token using the configured OIDC client.
     async fn get_oidc_token(&self, gql_ctx: &Context<'_>, code: String) -> Result<OidcTokenOutput> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let service = self.svc(gql_ctx);
         let response = service.get_oidc_token(code).await?;
         Ok(response)
     }
@@ -36,7 +36,7 @@ impl UserAuthenticationQueryResolver {
         gql_ctx: &Context<'_>,
         oidc_issuer_id: String,
     ) -> Result<Option<String>> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let service = self.svc(gql_ctx);
         let response = service.user_by_oidc_issuer_id(oidc_issuer_id).await?;
         Ok(response)
     }
@@ -51,6 +51,8 @@ impl AuthProvider for UserAuthenticationMutationResolver {
     }
 }
 
+impl GraphqlResolverSvc<UserService> for UserAuthenticationMutationResolver {}
+
 #[Object]
 impl UserAuthenticationMutationResolver {
     /// Create a new user for the service. Also set their `lot` as admin if
@@ -60,22 +62,21 @@ impl UserAuthenticationMutationResolver {
         gql_ctx: &Context<'_>,
         input: RegisterUserInput,
     ) -> Result<RegisterResult> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let requester_user_id = self.user_id_from_ctx(gql_ctx).await.ok();
+        let (service, requester_user_id) = self.svc_and_maybe_user(gql_ctx).await?;
         let response = service.register_user(requester_user_id, input).await?;
         Ok(response)
     }
 
     /// Login a user using their username and password and return an auth token.
     async fn login_user(&self, gql_ctx: &Context<'_>, input: AuthUserInput) -> Result<LoginResult> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let service = self.svc(gql_ctx);
         let response = service.login_user(input).await?;
         Ok(response)
     }
 
     /// Logout the current user by invalidating their session.
     async fn logout_user(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let service = self.svc(gql_ctx);
         let session_id = self.user_session_id_from_ctx(gql_ctx)?;
         let response = service.logout_user(session_id).await?;
         Ok(response)
@@ -83,8 +84,7 @@ impl UserAuthenticationMutationResolver {
 
     /// Generate an auth token without any expiry.
     async fn generate_auth_token(&self, gql_ctx: &Context<'_>) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.generate_auth_token(user_id).await?;
         Ok(response)
     }
@@ -95,7 +95,7 @@ impl UserAuthenticationMutationResolver {
         gql_ctx: &Context<'_>,
         input: UserTwoFactorVerifyInput,
     ) -> Result<VerifyTwoFactorResult> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
+        let service = self.svc(gql_ctx);
         let response = service.verify_two_factor(input).await?;
         Ok(response)
     }
@@ -105,8 +105,7 @@ impl UserAuthenticationMutationResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<UserTwoFactorInitiateResponse> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.initiate_two_factor_setup(user_id).await?;
         Ok(response)
     }
@@ -117,16 +116,14 @@ impl UserAuthenticationMutationResolver {
         gql_ctx: &Context<'_>,
         input: UserTwoFactorSetupInput,
     ) -> Result<UserTwoFactorBackupCodesResponse> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.complete_two_factor_setup(user_id, input).await?;
         Ok(response)
     }
 
     /// Disable two-factor authentication for the currently logged in user.
     async fn disable_two_factor(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.disable_two_factor(user_id).await?;
         Ok(response)
     }
@@ -136,8 +133,7 @@ impl UserAuthenticationMutationResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<UserTwoFactorBackupCodesResponse> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.regenerate_two_factor_backup_codes(user_id).await?;
         Ok(response)
     }

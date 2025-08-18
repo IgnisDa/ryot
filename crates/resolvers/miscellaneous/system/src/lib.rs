@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use common_models::BackgroundJob;
 use dependent_models::CoreDetails;
 use enum_models::EntityLot;
 use miscellaneous_service::MiscellaneousService;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -13,11 +11,13 @@ pub struct MiscellaneousSystemQueryResolver;
 
 impl AuthProvider for MiscellaneousSystemQueryResolver {}
 
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousSystemQueryResolver {}
+
 #[Object]
 impl MiscellaneousSystemQueryResolver {
     /// Get some primary information about the service.
     async fn core_details(&self, gql_ctx: &Context<'_>) -> Result<CoreDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service.core_details().await?;
         Ok(response)
     }
@@ -32,11 +32,13 @@ impl AuthProvider for MiscellaneousSystemMutationResolver {
     }
 }
 
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousSystemMutationResolver {}
+
 #[Object]
 impl MiscellaneousSystemMutationResolver {
     /// Expire a cache key by its ID
     async fn expire_cache_key(&self, gql_ctx: &Context<'_>, cache_id: Uuid) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service.expire_cache_key(cache_id).await?;
         Ok(response)
     }
@@ -48,7 +50,7 @@ impl MiscellaneousSystemMutationResolver {
         entity_id: String,
         entity_lot: EntityLot,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service
             .deploy_update_media_entity_job(entity_id, entity_lot)
             .await?;
@@ -61,8 +63,7 @@ impl MiscellaneousSystemMutationResolver {
         gql_ctx: &Context<'_>,
         job_name: BackgroundJob,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.deploy_background_job(&user_id, job_name).await?;
         Ok(response)
     }
@@ -71,7 +72,7 @@ impl MiscellaneousSystemMutationResolver {
     /// It is only available in development mode.
     #[cfg(debug_assertions)]
     async fn development_mutation(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service.development_mutation().await?;
         Ok(response)
     }

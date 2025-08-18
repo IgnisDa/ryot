@@ -1,15 +1,14 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use common_models::{ApplicationDateRange, UserAnalyticsInput};
 use dependent_models::{CachedResponse, UserAnalytics};
 use statistics_service::StatisticsService;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct StatisticsQueryResolver;
 
 impl AuthProvider for StatisticsQueryResolver {}
+impl GraphqlResolverSvc<StatisticsService> for StatisticsQueryResolver {}
 
 #[Object]
 impl StatisticsQueryResolver {
@@ -18,8 +17,7 @@ impl StatisticsQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<CachedResponse<ApplicationDateRange>> {
-        let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_analytics_parameters(&user_id).await?;
         Ok(response)
     }
@@ -30,8 +28,7 @@ impl StatisticsQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserAnalyticsInput,
     ) -> Result<CachedResponse<UserAnalytics>> {
-        let service = gql_ctx.data_unchecked::<Arc<StatisticsService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_analytics(&user_id, input).await?;
         Ok(response)
     }

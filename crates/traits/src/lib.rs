@@ -114,6 +114,27 @@ pub trait AuthProvider {
     }
 }
 
+#[async_trait]
+pub trait GraphqlResolverSvc<T: Send + Sync + 'static>: AuthProvider {
+    fn svc<'a>(&self, ctx: &Context<'a>) -> &'a Arc<T> {
+        ctx.data_unchecked::<Arc<T>>()
+    }
+
+    async fn svc_and_maybe_user<'a>(
+        &self,
+        ctx: &Context<'a>,
+    ) -> GraphqlResult<(&'a Arc<T>, Option<String>)> {
+        let service = self.svc(ctx);
+        let user_id = self.user_id_from_ctx(ctx).await.ok();
+        Ok((service, user_id))
+    }
+
+    async fn svc_and_user<'a>(&self, ctx: &Context<'a>) -> GraphqlResult<(&'a Arc<T>, String)> {
+        let (service, user_id) = self.svc_and_maybe_user(ctx).await?;
+        Ok((service, user_id.unwrap()))
+    }
+}
+
 pub trait TraceOk<T, E> {
     fn trace_ok(self) -> Option<T>;
 }

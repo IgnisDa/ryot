@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use common_models::SearchInput;
 use dependent_models::SearchResults;
@@ -9,12 +7,13 @@ use dependent_models::{
 };
 use media_models::GenreDetailsInput;
 use miscellaneous_service::MiscellaneousService;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct MiscellaneousGroupingQueryResolver;
 
 impl AuthProvider for MiscellaneousGroupingQueryResolver {}
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousGroupingQueryResolver {}
 
 #[Object]
 impl MiscellaneousGroupingQueryResolver {
@@ -24,7 +23,7 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         metadata_group_id: String,
     ) -> Result<MetadataGroupDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
+        let service = self.svc(gql_ctx);
         let response = service.metadata_group_details(metadata_group_id).await?;
         Ok(response)
     }
@@ -35,8 +34,7 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserMetadataGroupsListInput,
     ) -> Result<CachedResponse<UserMetadataGroupsListResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_metadata_groups_list(user_id, input).await?;
         Ok(response)
     }
@@ -47,8 +45,7 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         metadata_group_id: String,
     ) -> Result<UserMetadataGroupDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .user_metadata_group_details(user_id, metadata_group_id)
             .await?;
@@ -61,8 +58,7 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         input: GenreDetailsInput,
     ) -> Result<GenreDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.genre_details(user_id, input).await?;
         Ok(response)
     }
@@ -73,8 +69,7 @@ impl MiscellaneousGroupingQueryResolver {
         gql_ctx: &Context<'_>,
         input: SearchInput,
     ) -> Result<SearchResults<String>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_genres_list(user_id, input).await?;
         Ok(response)
     }

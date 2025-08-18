@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use database_models::{integration, notification_platform};
 use dependent_models::{CachedResponse, UserMetadataRecommendationsResponse};
@@ -7,13 +5,15 @@ use media_models::{
     CreateOrUpdateUserIntegrationInput, CreateUserNotificationPlatformInput,
     UpdateUserNotificationPlatformInput,
 };
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 use user_service::UserService;
 
 #[derive(Default)]
 pub struct UserServicesQueryResolver;
 
 impl AuthProvider for UserServicesQueryResolver {}
+
+impl GraphqlResolverSvc<UserService> for UserServicesQueryResolver {}
 
 #[Object]
 impl UserServicesQueryResolver {
@@ -22,16 +22,14 @@ impl UserServicesQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<CachedResponse<UserMetadataRecommendationsResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_metadata_recommendations(&user_id).await?;
         Ok(response)
     }
 
     /// Get all the integrations for the currently logged in user.
     async fn user_integrations(&self, gql_ctx: &Context<'_>) -> Result<Vec<integration::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_integrations(&user_id).await?;
         Ok(response)
     }
@@ -41,8 +39,7 @@ impl UserServicesQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<notification_platform::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_notification_platforms(&user_id).await?;
         Ok(response)
     }
@@ -57,6 +54,8 @@ impl AuthProvider for UserServicesMutationResolver {
     }
 }
 
+impl GraphqlResolverSvc<UserService> for UserServicesMutationResolver {}
+
 #[Object]
 impl UserServicesMutationResolver {
     /// Create or update an integration for the currently logged in user.
@@ -65,8 +64,7 @@ impl UserServicesMutationResolver {
         gql_ctx: &Context<'_>,
         input: CreateOrUpdateUserIntegrationInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .create_or_update_user_integration(user_id, input)
             .await?;
@@ -79,8 +77,7 @@ impl UserServicesMutationResolver {
         gql_ctx: &Context<'_>,
         integration_id: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .delete_user_integration(user_id, integration_id)
             .await?;
@@ -93,8 +90,7 @@ impl UserServicesMutationResolver {
         gql_ctx: &Context<'_>,
         input: CreateUserNotificationPlatformInput,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .create_user_notification_platform(user_id, input)
             .await?;
@@ -107,8 +103,7 @@ impl UserServicesMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateUserNotificationPlatformInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .update_user_notification_platform(user_id, input)
             .await?;
@@ -121,8 +116,7 @@ impl UserServicesMutationResolver {
         gql_ctx: &Context<'_>,
         notification_id: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .delete_user_notification_platform(user_id, notification_id)
             .await?;
@@ -131,8 +125,7 @@ impl UserServicesMutationResolver {
 
     /// Test all notification platforms for the currently logged in user.
     async fn test_user_notification_platforms(&self, gql_ctx: &Context<'_>) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<UserService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.test_user_notification_platforms(&user_id).await?;
         Ok(response)
     }

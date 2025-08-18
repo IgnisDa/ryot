@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use database_models::{exercise, user_measurement};
 use dependent_models::{
@@ -13,12 +11,14 @@ use fitness_models::{
 };
 use fitness_service::FitnessService;
 use sea_orm::prelude::DateTimeUtc;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct FitnessQueryResolver;
 
 impl AuthProvider for FitnessQueryResolver {}
+
+impl GraphqlResolverSvc<FitnessService> for FitnessQueryResolver {}
 
 #[Object]
 impl FitnessQueryResolver {
@@ -28,8 +28,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsTemplatesListResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_workout_templates_list(user_id, input).await?;
         Ok(response)
     }
@@ -40,8 +39,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .user_workout_template_details(user_id, workout_template_id)
             .await?;
@@ -54,8 +52,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserExercisesListInput,
     ) -> Result<CachedResponse<UserExercisesListResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_exercises_list(user_id, input).await?;
         Ok(response)
     }
@@ -66,8 +63,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserTemplatesOrWorkoutsListInput,
     ) -> Result<CachedResponse<UserWorkoutsListResponse>> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_workouts_list(user_id, input).await?;
         Ok(response)
     }
@@ -78,7 +74,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         exercise_id: String,
     ) -> Result<exercise::Model> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
+        let service = self.svc(gql_ctx);
         let response = service.exercise_details(exercise_id).await?;
         Ok(response)
     }
@@ -89,8 +85,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         workout_id: String,
     ) -> Result<UserWorkoutDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_workout_details(&user_id, workout_id).await?;
         Ok(response)
     }
@@ -101,8 +96,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         exercise_id: String,
     ) -> Result<UserExerciseDetails> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_exercise_details(user_id, exercise_id).await?;
         Ok(response)
     }
@@ -113,8 +107,7 @@ impl FitnessQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserMeasurementsListInput,
     ) -> Result<CachedResponse<Vec<user_measurement::Model>>> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_measurements_list(&user_id, input).await?;
         Ok(response)
     }
@@ -129,6 +122,8 @@ impl AuthProvider for FitnessMutationResolver {
     }
 }
 
+impl GraphqlResolverSvc<FitnessService> for FitnessMutationResolver {}
+
 #[Object]
 impl FitnessMutationResolver {
     /// Create or update a workout template.
@@ -137,8 +132,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .create_or_update_user_workout_template(user_id, input)
             .await?;
@@ -151,8 +145,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         workout_template_id: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .delete_user_workout_template(user_id, workout_template_id)
             .await?;
@@ -165,8 +158,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: user_measurement::Model,
     ) -> Result<DateTimeUtc> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.create_user_measurement(&user_id, input).await?;
         Ok(response)
     }
@@ -177,8 +169,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         timestamp: DateTimeUtc,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.delete_user_measurement(user_id, timestamp).await?;
         Ok(response)
     }
@@ -189,8 +180,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: UserWorkoutInput,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .create_or_update_user_workout(&user_id, input)
             .await?;
@@ -203,8 +193,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateUserWorkoutAttributesInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .update_user_workout_attributes(user_id, input)
             .await?;
@@ -213,8 +202,7 @@ impl FitnessMutationResolver {
 
     /// Delete a workout and remove all exercise associations.
     async fn delete_user_workout(&self, gql_ctx: &Context<'_>, workout_id: String) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.delete_user_workout(user_id, workout_id).await?;
         Ok(response)
     }
@@ -225,8 +213,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: exercise::Model,
     ) -> Result<String> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.create_custom_exercise(&user_id, input).await?;
         Ok(response)
     }
@@ -237,8 +224,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateCustomExerciseInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.update_custom_exercise(user_id, input).await?;
         Ok(response)
     }
@@ -249,8 +235,7 @@ impl FitnessMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateUserExerciseSettings,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .update_user_exercise_settings(user_id, input)
             .await?;
@@ -264,8 +249,7 @@ impl FitnessMutationResolver {
         merge_from: String,
         merge_into: String,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<FitnessService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .merge_exercise(user_id, merge_from, merge_into)
             .await?;

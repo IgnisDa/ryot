@@ -2682,6 +2682,7 @@ dependencies = [
  "common-models",
  "file-storage-service",
  "media-models",
+ "traits",
 ]
 
 [[package]]

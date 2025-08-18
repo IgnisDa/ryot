@@ -1,15 +1,15 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use database_models::import_report;
 use importer_service::ImporterService;
 use media_models::DeployImportJobInput;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct ImporterQueryResolver;
 
 impl AuthProvider for ImporterQueryResolver {}
+
+impl GraphqlResolverSvc<ImporterService> for ImporterQueryResolver {}
 
 #[Object]
 impl ImporterQueryResolver {
@@ -18,8 +18,7 @@ impl ImporterQueryResolver {
         &self,
         gql_ctx: &Context<'_>,
     ) -> Result<Vec<import_report::Model>> {
-        let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_import_reports(user_id).await?;
         Ok(response)
     }
@@ -34,6 +33,8 @@ impl AuthProvider for ImporterMutationResolver {
     }
 }
 
+impl GraphqlResolverSvc<ImporterService> for ImporterMutationResolver {}
+
 #[Object]
 impl ImporterMutationResolver {
     /// Add job to import data from various sources.
@@ -42,8 +43,7 @@ impl ImporterMutationResolver {
         gql_ctx: &Context<'_>,
         input: DeployImportJobInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<ImporterService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.deploy_import_job(user_id, input).await?;
         Ok(response)
     }

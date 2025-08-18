@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use async_graphql::{Context, Object, Result};
 use common_models::StringIdObject;
 use media_models::{
@@ -7,12 +5,13 @@ use media_models::{
     UserCalendarEventInput, UserUpcomingCalendarEventInput,
 };
 use miscellaneous_service::MiscellaneousService;
-use traits::AuthProvider;
+use traits::{AuthProvider, GraphqlResolverSvc};
 
 #[derive(Default)]
 pub struct MiscellaneousTrackingQueryResolver;
 
 impl AuthProvider for MiscellaneousTrackingQueryResolver {}
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousTrackingQueryResolver {}
 
 #[Object]
 impl MiscellaneousTrackingQueryResolver {
@@ -22,8 +21,7 @@ impl MiscellaneousTrackingQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserCalendarEventInput,
     ) -> Result<Vec<GroupedCalendarEvent>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.user_calendar_events(user_id, input).await?;
         Ok(response)
     }
@@ -34,8 +32,7 @@ impl MiscellaneousTrackingQueryResolver {
         gql_ctx: &Context<'_>,
         input: UserUpcomingCalendarEventInput,
     ) -> Result<Vec<GraphqlCalendarEvent>> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .user_upcoming_calendar_events(user_id, input)
             .await?;
@@ -51,6 +48,7 @@ impl AuthProvider for MiscellaneousTrackingMutationResolver {
         true
     }
 }
+impl GraphqlResolverSvc<MiscellaneousService> for MiscellaneousTrackingMutationResolver {}
 
 #[Object]
 impl MiscellaneousTrackingMutationResolver {
@@ -60,8 +58,7 @@ impl MiscellaneousTrackingMutationResolver {
         gql_ctx: &Context<'_>,
         seen_id: String,
     ) -> Result<StringIdObject> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.delete_seen_item(&user_id, seen_id).await?;
         Ok(response)
     }
@@ -73,8 +70,7 @@ impl MiscellaneousTrackingMutationResolver {
         gql_ctx: &Context<'_>,
         input: Vec<MetadataProgressUpdateInput>,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service
             .deploy_bulk_metadata_progress_update(user_id, input)
             .await?;
@@ -87,8 +83,7 @@ impl MiscellaneousTrackingMutationResolver {
         gql_ctx: &Context<'_>,
         input: UpdateSeenItemInput,
     ) -> Result<bool> {
-        let service = gql_ctx.data_unchecked::<Arc<MiscellaneousService>>();
-        let user_id = self.user_id_from_ctx(gql_ctx).await?;
+        let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         let response = service.update_seen_item(user_id, input).await?;
         Ok(response)
     }
