@@ -55,6 +55,16 @@ pub struct ExerciseParameters {
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct CoreDetailsProviderIgdbSpecifics {
+    pub genres: Vec<String>,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct CoreDetailsProviderSpecifics {
+    pub igdb: CoreDetailsProviderIgdbSpecifics,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
     pub version: String,
@@ -76,6 +86,7 @@ pub struct CoreDetails {
     pub people_search_sources: Vec<MediaSource>,
     pub exercise_parameters: ExerciseParameters,
     pub frontend: config_definition::FrontendConfig,
+    pub provider_specifics: CoreDetailsProviderSpecifics,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,

@@ -714,4 +714,16 @@ impl IgdbService {
     fn get_cover_image_url(&self, hash: String) -> String {
         format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
     }
+
+    pub async fn get_service_genres(&self) -> Result<Vec<String>> {
+        let client = self.get_client_config().await?;
+        let rsp = client
+            .post(format!("{URL}/genres"))
+            .body("fields id, name; limit 500;")
+            .send()
+            .await
+            .map_err(|e| anyhow!(e))?;
+        let genres = rsp.json::<Vec<String>>().await?;
+        Ok(genres)
+    }
 }

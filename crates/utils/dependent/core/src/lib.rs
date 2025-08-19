@@ -4,7 +4,8 @@ use anyhow::Result;
 use common_models::BackendError;
 use common_utils::{PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderIgdbSpecifics,
+    CoreDetailsProviderSpecifics, ExerciseFilters, ExerciseParameters,
     ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
     ProviderLanguageInformation,
 };
@@ -14,6 +15,7 @@ use enum_models::{
     MediaLot, MediaSource,
 };
 use env_utils::APP_VERSION;
+use igdb_provider::IgdbService;
 use itertools::Itertools;
 use rustypipe::param::{LANGUAGES, Language};
 use sea_orm::Iterable;
@@ -110,6 +112,17 @@ fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
         .collect()
 }
 
+async fn build_provider_specifics(
+    ss: &Arc<SupportingService>,
+) -> Result<CoreDetailsProviderSpecifics> {
+    let service = IgdbService::new(ss.clone()).await?;
+    let genres = service.get_service_genres().await?;
+
+    Ok(CoreDetailsProviderSpecifics {
+        igdb: CoreDetailsProviderIgdbSpecifics { genres },
+    })
+}
+
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
     cache_service::get_or_set_with_callback(
         ss,
@@ -125,10 +138,12 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
             let metadata_provider_languages = build_provider_language_information();
+            let provider_specifics = build_provider_specifics(ss).await?;
 
             let core_details = CoreDetails {
-                page_size: PAGE_SIZE,
+                provider_specifics,
                 exercise_parameters,
+                page_size: PAGE_SIZE,
                 metadata_provider_languages,
                 metadata_lot_source_mappings,
                 version: APP_VERSION.to_owned(),
