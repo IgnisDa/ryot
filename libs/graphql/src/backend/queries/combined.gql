@@ -336,6 +336,11 @@ query CoreDetails {
 			lot
 			sources
 		}
+		providerSpecifics {
+			igdb {
+				genres
+			}
+		}
 		metadataProviderLanguages {
 			source
 			default

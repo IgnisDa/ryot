@@ -304,6 +304,7 @@ export type CoreDetails = {
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
   peopleSearchSources: Array<MediaSource>;
+  providerSpecifics: CoreDetailsProviderSpecifics;
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
@@ -311,6 +312,16 @@ export type CoreDetails = {
   twoFactorBackupCodesCount: Scalars['Int']['output'];
   version: Scalars['String']['output'];
   websiteUrl: Scalars['String']['output'];
+};
+
+export type CoreDetailsProviderIgdbSpecifics = {
+  __typename?: 'CoreDetailsProviderIgdbSpecifics';
+  genres: Array<Scalars['String']['output']>;
+};
+
+export type CoreDetailsProviderSpecifics = {
+  __typename?: 'CoreDetailsProviderSpecifics';
+  igdb: CoreDetailsProviderIgdbSpecifics;
 };
 
 export type CreateAccessLinkInput = {
