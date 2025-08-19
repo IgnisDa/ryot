@@ -1888,6 +1888,7 @@ dependencies = [
  "enum_meta",
  "env-utils",
  "file-storage-service",
+ "igdb-provider",
  "isolang",
  "itertools 0.14.0",
  "rustypipe",
