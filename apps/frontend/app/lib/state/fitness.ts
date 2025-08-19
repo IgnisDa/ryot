@@ -31,7 +31,7 @@ import {
 	clientGqlService,
 	queryClient,
 	queryFactory,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import { FitnessAction } from "~/lib/types";
 
 export type WorkoutDuration = {

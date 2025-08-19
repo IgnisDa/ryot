@@ -81,7 +81,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,

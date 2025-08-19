@@ -16,7 +16,7 @@ import {
 	clientGqlService,
 	queryClient,
 	queryFactory,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	currentWorkoutToCreateWorkoutInput,

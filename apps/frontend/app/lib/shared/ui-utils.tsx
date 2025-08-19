@@ -3,7 +3,7 @@ import { modals } from "@mantine/modals";
 import { PresignedPutS3UrlDocument } from "@ryot/generated/graphql/backend/graphql";
 import { startCase } from "@ryot/ts-utils";
 import { $path } from "safe-routes";
-import { clientGqlService } from "./query-factory";
+import { clientGqlService } from "./react-query";
 
 export const generateColor = (seed: number) => {
 	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));

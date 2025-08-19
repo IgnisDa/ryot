@@ -34,7 +34,7 @@ import {
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
 	refreshEntityDetails,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import { selectRandomElement } from "~/lib/shared/ui-utils";
 import {
 	type InProgressWorkout,

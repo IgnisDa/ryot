@@ -8,7 +8,7 @@ import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { atom, useAtom } from "jotai";
 import { useLocation, useNavigate } from "react-router";
-import { clientGqlService } from "../shared/query-factory";
+import { clientGqlService } from "../shared/react-query";
 
 type Entity = { entityId: string; entityLot: EntityLot };
 

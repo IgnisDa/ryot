@@ -18,7 +18,7 @@ import {
 	useDashboardLayoutData,
 	useUserPreferences,
 } from "../shared/hooks";
-import { clientGqlService } from "../shared/query-factory";
+import { clientGqlService } from "../shared/react-query";
 import { forcedDashboardPath } from "../shared/ui-utils";
 
 type OpenedSidebarLinks = {

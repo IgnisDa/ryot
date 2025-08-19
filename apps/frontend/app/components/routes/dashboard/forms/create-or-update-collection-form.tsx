@@ -33,7 +33,7 @@ import {
 	useUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 

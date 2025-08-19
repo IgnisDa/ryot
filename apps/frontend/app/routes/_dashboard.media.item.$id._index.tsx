@@ -100,7 +100,7 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodDateTimeString } from "~/lib/shared/validation";
 import {

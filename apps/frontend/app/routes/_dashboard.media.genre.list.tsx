@@ -41,7 +41,7 @@ import {
 	getMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import {
 	getSearchEnhancedCookieName,
 	redirectToFirstPageIfOnInvalidPage,

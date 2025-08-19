@@ -47,7 +47,7 @@ import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import { useUserDetails } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	getSearchEnhancedCookieName,

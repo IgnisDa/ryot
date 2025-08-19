@@ -75,7 +75,7 @@ import {
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	useBulkEditCollection,

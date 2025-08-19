@@ -40,7 +40,7 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
-import { refreshEntityDetails } from "~/lib/shared/query-factory";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { useReviewEntity } from "~/lib/state/media";
 import { ThreePointSmileyRating } from "~/lib/types";
 import { convertThreePointSmileyToDecimal } from "../utils";

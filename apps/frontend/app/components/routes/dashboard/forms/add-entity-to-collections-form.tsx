@@ -26,7 +26,7 @@ import {
 	getUserPersonDetailsQuery,
 	queryClient,
 	refreshEntityDetails,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import {
 	getUserExerciseDetailsQuery,
 	getWorkoutDetailsQuery,

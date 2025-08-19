@@ -67,7 +67,7 @@ import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { zodCollectionFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";

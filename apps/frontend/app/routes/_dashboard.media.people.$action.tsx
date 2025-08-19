@@ -58,7 +58,7 @@ import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { zodCollectionFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";

@@ -47,7 +47,7 @@ import {
 	getMetadataDetailsQuery,
 	queryClient,
 	queryFactory,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 import {

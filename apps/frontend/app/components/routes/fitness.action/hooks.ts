@@ -7,7 +7,7 @@ import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
 import { useUserPreferences } from "~/lib/shared/hooks";
-import { queryClient } from "~/lib/shared/query-factory";
+import { queryClient } from "~/lib/shared/react-query";
 import {
 	type InProgressWorkout,
 	getExerciseDetailsQuery,
