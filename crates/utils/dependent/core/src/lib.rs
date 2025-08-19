@@ -4,10 +4,9 @@ use anyhow::Result;
 use common_models::BackendError;
 use common_utils::{PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderIgdbSpecifics,
-    CoreDetailsProviderSpecifics, ExerciseFilters, ExerciseParameters,
-    ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
-    ProviderLanguageInformation,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderSpecifics,
+    ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping,
+    MetadataGroupSourceLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -116,11 +115,9 @@ async fn build_provider_specifics(
     ss: &Arc<SupportingService>,
 ) -> Result<CoreDetailsProviderSpecifics> {
     let service = IgdbService::new(ss.clone()).await?;
-    let genres = service.get_service_genres().await?;
+    let igdb = service.get_provider_specifics().await?;
 
-    Ok(CoreDetailsProviderSpecifics {
-        igdb: CoreDetailsProviderIgdbSpecifics { genres },
-    })
+    Ok(CoreDetailsProviderSpecifics { igdb })
 }
 
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {

@@ -12,7 +12,8 @@ use common_utils::PAGE_SIZE;
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetailsProviderIgdbSpecifics,
+    MetadataPersonRelated, PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
@@ -715,15 +716,19 @@ impl IgdbService {
         format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
     }
 
-    pub async fn get_service_genres(&self) -> Result<Vec<String>> {
+    pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let client = self.get_client_config().await?;
         let rsp = client
             .post(format!("{URL}/genres"))
-            .body("fields id, name; limit 500;")
+            .body("fields name; limit 500;")
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let genres = rsp.json::<Vec<String>>().await?;
-        Ok(genres)
+        let genres = rsp.json::<Vec<NamedObject>>().await?;
+
+        let response = CoreDetailsProviderIgdbSpecifics {
+            genres: genres.into_iter().map(|g| g.name).collect(),
+        };
+        Ok(response)
     }
 }
