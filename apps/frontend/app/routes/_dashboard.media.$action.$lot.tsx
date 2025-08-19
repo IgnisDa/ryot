@@ -257,6 +257,10 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [
+		searchFiltersModalOpened,
+		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
+	] = useDisclosure(false);
 	const navigate = useNavigate();
 	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
 		useOnboardingTour();
@@ -431,30 +435,16 @@ export default function Page() {
 											}))}
 										/>
 									) : null}
-									{mediaSearch.url.source === MediaSource.GoogleBooks ? (
-										<Checkbox
-											label="Pass raw query"
-											checked={mediaSearch.url.googleBooksPassRawQuery}
-											onChange={(e) =>
-												setP(
-													"googleBooksPassRawQuery",
-													String(e.target.checked),
-												)
-											}
-										/>
-									) : null}
-									{mediaSearch.url.source === MediaSource.Igdb ? (
-										<Checkbox
-											label="Allow games with parent"
-											checked={mediaSearch.url.igdbAllowGamesWithParent}
-											onChange={(e) =>
-												setP(
-													"igdbAllowGamesWithParent",
-													String(e.target.checked),
-												)
-											}
-										/>
-									) : null}
+									<ActionIcon onClick={openSearchFiltersModal} color="gray">
+										<IconFilter size={24} />
+									</ActionIcon>
+									<FiltersModal
+										opened={searchFiltersModalOpened}
+										cookieName={loaderData.cookieName}
+										closeFiltersModal={closeSearchFiltersModal}
+									>
+										<SearchFiltersModalForm />
+									</FiltersModal>
 								</Group>
 							</Flex>
 							{mediaSearch.search === false ? (
@@ -620,6 +610,36 @@ const FiltersModalForm = () => {
 				) : null}
 			</Stack>
 		</>
+	);
+};
+
+const SearchFiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+
+	if (!loaderData.mediaSearch) return null;
+
+	return (
+		<Stack gap="md">
+			{loaderData.mediaSearch.url.source === MediaSource.GoogleBooks ? (
+				<Checkbox
+					label="Pass raw query"
+					checked={loaderData.mediaSearch.url.googleBooksPassRawQuery}
+					onChange={(e) =>
+						setP("googleBooksPassRawQuery", String(e.target.checked))
+					}
+				/>
+			) : null}
+			{loaderData.mediaSearch.url.source === MediaSource.Igdb ? (
+				<Checkbox
+					label="Allow games with parent"
+					checked={loaderData.mediaSearch.url.igdbAllowGamesWithParent}
+					onChange={(e) =>
+						setP("igdbAllowGamesWithParent", String(e.target.checked))
+					}
+				/>
+			) : null}
+		</Stack>
 	);
 };
 
