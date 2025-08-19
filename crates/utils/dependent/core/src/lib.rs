@@ -111,7 +111,7 @@ fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
 }
 
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
-    let cached_response = cache_service::get_or_set_with_callback(
+    cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::CoreDetails,
         |data| ApplicationCacheValue::CoreDetails(Box::new(data)),
@@ -154,8 +154,8 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             Ok(core_details)
         },
     )
-    .await?;
-    Ok(cached_response.response)
+    .await
+    .map(|c| c.response)
 }
 
 pub async fn is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool> {

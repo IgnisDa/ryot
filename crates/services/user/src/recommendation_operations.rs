@@ -32,7 +32,7 @@ async fn get_or_generate_recommendation_set(
     ss: &Arc<SupportingService>,
     user_id: &String,
 ) -> Result<ApplicationRecommendations> {
-    let cached_response = cache_service::get_or_set_with_callback(
+    cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
             input: (),
@@ -100,9 +100,8 @@ ORDER BY RANDOM() LIMIT 10;
             Ok(media_item_ids)
         },
     )
-    .await?;
-
-    Ok(cached_response.response)
+    .await
+    .map(|c| c.response)
 }
 
 async fn filter_and_select_recommendations(

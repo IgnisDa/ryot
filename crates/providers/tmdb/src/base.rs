@@ -342,7 +342,7 @@ impl TmdbService {
 }
 
 async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<TmdbSettings> {
-    let cached_response = cache_service::get_or_set_with_callback(
+    cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::TmdbSettings,
         ApplicationCacheValue::TmdbSettings,
@@ -360,6 +360,6 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
             Ok(settings)
         },
     )
-    .await?;
-    Ok(cached_response.response)
+    .await
+    .map(|c| c.response)
 }

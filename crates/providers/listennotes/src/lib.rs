@@ -172,7 +172,7 @@ impl MediaProvider for ListennotesService {
 
 impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
-        let cached_response = cache_service::get_or_set_with_callback(
+        cache_service::get_or_set_with_callback(
             &self.ss,
             ApplicationCacheKey::ListennotesSettings,
             ApplicationCacheValue::ListennotesSettings,
@@ -201,8 +201,8 @@ impl ListennotesService {
                 Ok(genres)
             },
         )
-        .await?;
-        Ok(cached_response.response)
+        .await
+        .map(|c| c.response)
     }
 
     // The API does not return all the episodes for a podcast, and instead needs to be
