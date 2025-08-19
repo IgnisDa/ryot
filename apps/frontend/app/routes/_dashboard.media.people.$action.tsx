@@ -195,6 +195,11 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
+	const [
+		searchFiltersModalOpened,
+		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
+	] = useDisclosure(false);
+
 	const areFiltersApplied =
 		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
 		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
@@ -281,42 +286,16 @@ export default function Page() {
 										label: startCase(o.toLowerCase()),
 									}))}
 								/>
-								{loaderData.search?.url.source === MediaSource.Tmdb ? (
-									<Checkbox
-										label="Company"
-										checked={loaderData.search?.url.isTmdbCompany}
-										onChange={(e) =>
-											setP("isTmdbCompany", String(e.target.checked))
-										}
-									/>
-								) : null}
-								{loaderData.search?.url.source === MediaSource.Anilist ? (
-									<Checkbox
-										label="Studio"
-										checked={loaderData.search?.url.isAnilistStudio}
-										onChange={(e) =>
-											setP("isAnilistStudio", String(e.target.checked))
-										}
-									/>
-								) : null}
-								{loaderData.search?.url.source === MediaSource.Hardcover ? (
-									<Checkbox
-										label="Publisher"
-										checked={loaderData.search?.url.isHardcoverPublisher}
-										onChange={(e) =>
-											setP("isHardcoverPublisher", String(e.target.checked))
-										}
-									/>
-								) : null}
-								{loaderData.search?.url.source === MediaSource.GiantBomb ? (
-									<Checkbox
-										label="Company"
-										checked={loaderData.search?.url.isGiantBombCompany}
-										onChange={(e) =>
-											setP("isGiantBombCompany", String(e.target.checked))
-										}
-									/>
-								) : null}
+								<ActionIcon color="gray" onClick={openSearchFiltersModal}>
+									<IconFilter size={24} />
+								</ActionIcon>
+								<FiltersModal
+									opened={searchFiltersModalOpened}
+									cookieName={loaderData.cookieName}
+									closeFiltersModal={closeSearchFiltersModal}
+								>
+									<SearchFiltersModalForm />
+								</FiltersModal>
 							</>
 						) : null}
 					</Group>
@@ -415,6 +394,48 @@ const FiltersModalForm = () => {
 				applied={loaderData.list.url.collections}
 			/>
 		</>
+	);
+};
+
+const SearchFiltersModalForm = () => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+
+	if (!loaderData.search) return null;
+
+	return (
+		<Stack gap="md">
+			{loaderData.search.url.source === MediaSource.Tmdb ? (
+				<Checkbox
+					label="Company"
+					checked={loaderData.search.url.isTmdbCompany}
+					onChange={(e) => setP("isTmdbCompany", String(e.target.checked))}
+				/>
+			) : null}
+			{loaderData.search.url.source === MediaSource.Anilist ? (
+				<Checkbox
+					label="Studio"
+					checked={loaderData.search.url.isAnilistStudio}
+					onChange={(e) => setP("isAnilistStudio", String(e.target.checked))}
+				/>
+			) : null}
+			{loaderData.search.url.source === MediaSource.Hardcover ? (
+				<Checkbox
+					label="Publisher"
+					checked={loaderData.search.url.isHardcoverPublisher}
+					onChange={(e) =>
+						setP("isHardcoverPublisher", String(e.target.checked))
+					}
+				/>
+			) : null}
+			{loaderData.search.url.source === MediaSource.GiantBomb ? (
+				<Checkbox
+					label="Company"
+					checked={loaderData.search.url.isGiantBombCompany}
+					onChange={(e) => setP("isGiantBombCompany", String(e.target.checked))}
+				/>
+			) : null}
+		</Stack>
 	);
 };
 
