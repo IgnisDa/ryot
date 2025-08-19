@@ -10,8 +10,8 @@ use dependent_models::{
 };
 use enum_meta::Meta;
 use enum_models::{
-    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-    ExerciseMuscle, MediaLot, MediaSource,
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MediaLot, MediaSource,
 };
 use env_utils::APP_VERSION;
 use itertools::Itertools;
@@ -160,28 +160,4 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
 
 pub async fn is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool> {
     Ok(core_details(ss).await?.is_server_key_validated)
-}
-
-pub fn get_entity_details_frontend_url(
-    id: String,
-    entity_lot: EntityLot,
-    default_tab: Option<&str>,
-    ss: &Arc<SupportingService>,
-) -> String {
-    let mut url = match entity_lot {
-        EntityLot::Genre => format!("media/genre/{id}"),
-        EntityLot::Metadata => format!("media/item/{id}"),
-        EntityLot::Collection => format!("collections/{id}"),
-        EntityLot::Person => format!("media/people/item/{id}"),
-        EntityLot::Workout => format!("fitness/workouts/{id}"),
-        EntityLot::Exercise => format!("fitness/exercises/{id}"),
-        EntityLot::MetadataGroup => format!("media/groups/item/{id}"),
-        EntityLot::WorkoutTemplate => format!("fitness/templates/{id}"),
-        EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
-    };
-    url = format!("{}/{}", ss.config.frontend.url, url);
-    if let Some(tab) = default_tab {
-        url += format!("?defaultTab={tab}").as_str()
-    }
-    url
 }
