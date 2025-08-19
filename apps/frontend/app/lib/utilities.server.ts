@@ -200,7 +200,7 @@ export const getUserCollectionsList = async (request: Request) => {
 	return userCollectionsList.response;
 };
 
-export const uploadFileAndGetKey = async (
+const uploadFileAndGetKey = async (
 	fileName: string,
 	prefix: string,
 	contentType: string,
@@ -229,7 +229,7 @@ const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	return data[0];
 };
 
-export const createS3FileUploader = (prefix: string) => {
+const createS3FileUploader = (prefix: string) => {
 	return async (fileUpload: FileUpload) => {
 		if (!fileUpload.name) return null;
 		const key = await uploadFileAndGetKey(
@@ -242,7 +242,7 @@ export const createS3FileUploader = (prefix: string) => {
 	};
 };
 
-export const toastSessionStorage = createCookieSessionStorage({
+const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
 		path: "/",
 		name: toastKey,
@@ -277,7 +277,7 @@ const ToastSchema = z.object({
 });
 
 export type Toast = z.infer<typeof ToastSchema>;
-export type OptionalToast = Omit<Toast, "id" | "type"> & {
+type OptionalToast = Omit<Toast, "id" | "type"> & {
 	id?: string;
 	type?: z.infer<typeof TypeSchema>;
 };
@@ -396,7 +396,7 @@ export const redirectToFirstPageIfOnInvalidPage = async (input: {
 	return totalPages;
 };
 
-export const parseFormDataWithFileSize = async (
+const parseFormDataWithFileSize = async (
 	request: Request,
 	uploader: (file: FileUpload) => Promise<string | null>,
 ) => {
