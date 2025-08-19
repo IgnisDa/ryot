@@ -1,13 +1,12 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
-import type { FileUpload } from "@mjackson/form-data-parser";
-import { parseFormData } from "@mjackson/form-data-parser";
+import { type FileUpload, parseFormData } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isEmpty } from "@ryot/ts-utils";
 import { type SerializeOptions, parse, serialize } from "cookie";
 import {
