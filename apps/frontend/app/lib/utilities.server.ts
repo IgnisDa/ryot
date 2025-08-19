@@ -34,6 +34,7 @@ import {
 	redirectToQueryParam,
 	toastKey,
 } from "~/lib/shared/constants";
+import { queryClient } from "~/lib/shared/react-query";
 import {
 	zodEmptyDecimalString,
 	zodEmptyNumberString,
@@ -165,9 +166,11 @@ export const MetadataSpecificsSchema = z.object({
 });
 
 export const getCoreDetails = async () => {
-	return await serverGqlService
-		.request(CoreDetailsDocument)
-		.then((d) => d.coreDetails);
+	return await queryClient.ensureQueryData({
+		queryKey: ["coreDetails"],
+		queryFn: () =>
+			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
+	});
 };
 
 const getUserDetails = async (request: Request) => {
