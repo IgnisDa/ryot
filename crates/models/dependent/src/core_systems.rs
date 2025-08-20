@@ -1,5 +1,5 @@
 use async_graphql::SimpleObject;
-use common_models::BackendError;
+use common_models::{BackendError, IdAndNamedObject};
 use database_models::metadata;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -56,7 +56,7 @@ pub struct ExerciseParameters {
 
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetailsProviderIgdbSpecifics {
-    pub genres: Vec<String>,
+    pub genres: Vec<IdAndNamedObject>,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]

@@ -338,7 +338,10 @@ query CoreDetails {
 		}
 		providerSpecifics {
 			igdb {
-				genres
+				genres {
+					id
+					name
+				}
 			}
 		}
 		metadataProviderLanguages {

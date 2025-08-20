@@ -5,7 +5,7 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
-    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject,
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
@@ -720,15 +720,13 @@ impl IgdbService {
         let client = self.get_client_config().await?;
         let rsp = client
             .post(format!("{URL}/genres"))
-            .body("fields name; limit 500;")
+            .body("fields id, name; limit 500;")
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
-        let genres = rsp.json::<Vec<NamedObject>>().await?;
+        let genres = rsp.json::<Vec<IdAndNamedObject>>().await?;
 
-        let response = CoreDetailsProviderIgdbSpecifics {
-            genres: genres.into_iter().map(|g| g.name).collect(),
-        };
+        let response = CoreDetailsProviderIgdbSpecifics { genres };
         Ok(response)
     }
 }

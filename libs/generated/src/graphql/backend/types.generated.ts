@@ -316,7 +316,7 @@ export type CoreDetails = {
 
 export type CoreDetailsProviderIgdbSpecifics = {
   __typename?: 'CoreDetailsProviderIgdbSpecifics';
-  genres: Array<Scalars['String']['output']>;
+  genres: Array<IdAndNamedObject>;
 };
 
 export type CoreDetailsProviderSpecifics = {
