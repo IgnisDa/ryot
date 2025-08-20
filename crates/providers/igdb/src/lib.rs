@@ -549,13 +549,13 @@ impl IgdbService {
         format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
     }
 
-    async fn get_access_token(&self) -> String {
+    async fn get_access_token(&self) -> Result<String> {
         let client = Client::new();
         #[derive(Deserialize, Serialize, Default, Debug)]
         struct AccessResponse {
-            access_token: String,
-            token_type: String,
             expires_in: u128,
+            token_type: String,
+            access_token: String,
         }
         let access_res = client
             .post(AUTH_URL)
@@ -565,13 +565,9 @@ impl IgdbService {
                 "client_secret": self.ss.config.video_games.twitch.client_secret.to_owned(),
             }))
             .send()
-            .await
-            .unwrap();
-        let access = access_res
-            .json::<AccessResponse>()
-            .await
-            .unwrap_or_default();
-        format!("{} {}", access.token_type, access.access_token)
+            .await?;
+        let access = access_res.json::<AccessResponse>().await?;
+        Ok(format!("{} {}", access.token_type, access.access_token))
     }
 
     async fn get_client_config(&self) -> Result<Client> {
@@ -579,7 +575,7 @@ impl IgdbService {
             &self.ss,
             ApplicationCacheKey::IgdbSettings,
             ApplicationCacheValue::IgdbSettings,
-            || async { Ok(self.get_access_token().await) },
+            || async { self.get_access_token().await },
         )
         .await?;
         let access_token = cached_response.response;
