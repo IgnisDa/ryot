@@ -718,13 +718,14 @@ impl IgdbService {
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let client = self.get_client_config().await?;
-        let rsp = client
-            .post(format!("{URL}/genres"))
-            .body("fields id, name; limit 500;")
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let genres = rsp.json::<Vec<IdAndNamedObject>>().await?;
+        let (genres_rsp,) = try_join!(
+            client
+                .post(format!("{URL}/genres"))
+                .body("fields id, name; limit 500;")
+                .send()
+        )?;
+
+        let (genres,) = try_join!(genres_rsp.json::<Vec<IdAndNamedObject>>())?;
 
         let response = CoreDetailsProviderIgdbSpecifics { genres };
         Ok(response)
