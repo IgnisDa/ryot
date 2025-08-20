@@ -27,10 +27,19 @@ query CoreDetails {
 		}
 		providerSpecifics {
 			igdb {
+				themes {
+					...IdAndNamedObjectPart
+				}
 				genres {
 					...IdAndNamedObjectPart
 				}
-				gameLocalizations {
+				platforms {
+					...IdAndNamedObjectPart
+				}
+				gameModes {
+					...IdAndNamedObjectPart
+				}
+				gameLocalizationRegions {
 					...IdAndNamedObjectPart
 				}
 			}

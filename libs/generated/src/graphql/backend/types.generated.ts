@@ -316,8 +316,11 @@ export type CoreDetails = {
 
 export type CoreDetailsProviderIgdbSpecifics = {
   __typename?: 'CoreDetailsProviderIgdbSpecifics';
-  gameLocalizations: Array<IdAndNamedObject>;
+  gameLocalizationRegions: Array<IdAndNamedObject>;
+  gameModes: Array<IdAndNamedObject>;
   genres: Array<IdAndNamedObject>;
+  platforms: Array<IdAndNamedObject>;
+  themes: Array<IdAndNamedObject>;
 };
 
 export type CoreDetailsProviderSpecifics = {
