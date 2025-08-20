@@ -551,6 +551,10 @@ offset: {offset};
 }
 
 impl IgdbService {
+    fn get_cover_image_url(&self, hash: String) -> String {
+        format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
+    }
+
     async fn get_access_token(&self) -> String {
         let client = Client::new();
         #[derive(Deserialize, Serialize, Default, Debug)]
@@ -704,10 +708,6 @@ impl IgdbService {
                 .collect(),
             ..Default::default()
         }
-    }
-
-    fn get_cover_image_url(&self, hash: String) -> String {
-        format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
     }
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
