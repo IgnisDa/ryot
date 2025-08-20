@@ -580,11 +580,11 @@ impl IgdbService {
         .await?;
         let access_token = cached_response.response;
         Ok(get_base_http_client(Some(vec![
+            (AUTHORIZATION, HeaderValue::from_str(&access_token).unwrap()),
             (
                 HeaderName::from_static("client-id"),
                 HeaderValue::from_str(&self.ss.config.video_games.twitch.client_id).unwrap(),
             ),
-            (AUTHORIZATION, HeaderValue::from_str(&access_token).unwrap()),
         ])))
     }
 
