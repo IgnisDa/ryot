@@ -58,6 +58,7 @@ pub struct ExerciseParameters {
 pub struct CoreDetailsProviderIgdbSpecifics {
     pub genres: Vec<IdAndNamedObject>,
     pub platforms: Vec<IdAndNamedObject>,
+    pub game_modes: Vec<IdAndNamedObject>,
     pub game_localization_regions: Vec<IdAndNamedObject>,
 }
 
