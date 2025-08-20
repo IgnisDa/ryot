@@ -339,8 +339,10 @@ query CoreDetails {
 		providerSpecifics {
 			igdb {
 				genres {
-					id
-					name
+					...IdAndNamedObjectPart
+				}
+				gameLocalizations {
+					...IdAndNamedObjectPart
 				}
 			}
 		}
