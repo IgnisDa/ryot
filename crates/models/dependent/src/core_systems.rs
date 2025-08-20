@@ -57,6 +57,7 @@ pub struct ExerciseParameters {
 #[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetailsProviderIgdbSpecifics {
     pub genres: Vec<IdAndNamedObject>,
+    pub platforms: Vec<IdAndNamedObject>,
     pub game_localization_regions: Vec<IdAndNamedObject>,
 }
 
