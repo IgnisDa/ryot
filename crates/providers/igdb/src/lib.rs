@@ -736,7 +736,7 @@ impl IgdbService {
     }
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
-        self.get_client_config().await.ok();
+        self.get_client_config().await?;
         let (genres, game_localizations) = try_join!(
             self.get_all_list_items("genres"),
             self.get_all_list_items("game_localizations")

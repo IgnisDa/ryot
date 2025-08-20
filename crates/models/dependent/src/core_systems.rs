@@ -54,7 +54,7 @@ pub struct ExerciseParameters {
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetailsProviderIgdbSpecifics {
     pub genres: Vec<IdAndNamedObject>,
     pub game_localizations: Vec<IdAndNamedObject>,

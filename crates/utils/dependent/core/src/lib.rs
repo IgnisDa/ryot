@@ -115,7 +115,7 @@ async fn build_provider_specifics(
     ss: &Arc<SupportingService>,
 ) -> Result<CoreDetailsProviderSpecifics> {
     let service = IgdbService::new(ss.clone()).await?;
-    let igdb = service.get_provider_specifics().await?;
+    let igdb = service.get_provider_specifics().await.unwrap_or_default();
 
     Ok(CoreDetailsProviderSpecifics { igdb })
 }
