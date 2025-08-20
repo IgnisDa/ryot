@@ -701,16 +701,42 @@ impl IgdbService {
     }
 
     async fn get_all_list_items(&self, endpoint: &str) -> Result<Vec<IdAndNamedObject>> {
+        let limit = 500;
         let client = self.get_client_config().await?;
-        let rsp = client
-            .post(format!("{URL}/{endpoint}"))
-            .body("fields id, name; where name != null; limit 500;")
-            .send()
-            .await?;
-        Ok(rsp.json::<Vec<IdAndNamedObject>>().await?)
+        let base_body = format!("fields id, name; where name != null; limit {limit};");
+
+        let mut offset = 0;
+        let mut items = vec![];
+
+        loop {
+            let body = if offset == 0 {
+                base_body.clone()
+            } else {
+                format!("{base_body} offset {};", offset)
+            };
+
+            let rsp = client
+                .post(format!("{URL}/{endpoint}"))
+                .body(body)
+                .send()
+                .await?;
+
+            let page_items = rsp.json::<Vec<IdAndNamedObject>>().await?;
+            let page_size = page_items.len();
+            items.extend(page_items);
+
+            if page_size < limit {
+                break;
+            }
+
+            offset += limit;
+        }
+
+        Ok(items)
     }
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
+        self.get_client_config().await.ok();
         let (genres, game_localizations) = try_join!(
             self.get_all_list_items("genres"),
             self.get_all_list_items("game_localizations")
