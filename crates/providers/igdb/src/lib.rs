@@ -25,7 +25,7 @@ use media_models::{
 };
 use nest_struct::nest_struct;
 use reqwest::{
-    Client,
+    Client, Response,
     header::{AUTHORIZATION, HeaderName, HeaderValue},
 };
 use rust_decimal::Decimal;
@@ -197,6 +197,14 @@ impl IgdbService {
     }
 }
 
+fn extract_count_from_response(rsp: &Response) -> Result<i32> {
+    rsp.headers()
+        .get("x-count")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|v| v.parse::<i32>().ok())
+        .ok_or_else(|| anyhow!("Failed to extract count from response headers"))
+}
+
 #[async_trait]
 impl MediaProvider for IgdbService {
     #[allow(unused_variables)]
@@ -225,6 +233,7 @@ offset: {offset};
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
+        let total = extract_count_from_response(&rsp)?;
         let details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = details
             .into_iter()
@@ -238,7 +247,7 @@ offset: {offset};
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
-                total: resp.len().try_into().unwrap(),
+                total,
                 next_page: Some(page.unwrap_or(1) + 1),
             },
         })
@@ -329,6 +338,7 @@ offset: {offset};
             .send()
             .await
             .map_err(|e| anyhow!(e))?;
+        let total = extract_count_from_response(&rsp)?;
         let details: Vec<IgdbCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
         let resp = details
             .into_iter()
@@ -345,7 +355,7 @@ offset: {offset};
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
-                total: resp.len().try_into().unwrap(),
+                total,
                 next_page: Some(page.unwrap_or(1) + 1),
             },
         })
@@ -490,23 +500,6 @@ where id = {identity};
             .as_ref()
             .and_then(|s| s.igdb_allow_games_with_parent)
             .unwrap_or(false);
-        let version_parent_filter = if allow_games_with_parent {
-            ""
-        } else {
-            "where version_parent = null;"
-        };
-        let count_req_body =
-            format!(r#"fields id; {version_parent_filter} search "{query}"; limit: 500;"#);
-        let rsp = client
-            .post(format!("{URL}/games"))
-            .body(count_req_body)
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-
-        let search_count_resp: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
-
-        let total = search_count_resp.len().try_into().unwrap();
 
         let fields_with_filter = if allow_games_with_parent {
             GAME_FIELDS.replace("where version_parent = null;", "")
@@ -531,6 +524,7 @@ offset: {offset};
             .await
             .map_err(|e| anyhow!(e))?;
 
+        let total = extract_count_from_response(&rsp)?;
         let search: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
 
         let resp = search
@@ -718,16 +712,26 @@ impl IgdbService {
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let client = self.get_client_config().await?;
-        let (genres_rsp,) = try_join!(
+        let (genres_rsp, game_localizations_rsp) = try_join!(
             client
                 .post(format!("{URL}/genres"))
-                .body("fields id, name; limit 500;")
+                .body("fields id, name; where name != null; limit 500;")
+                .send(),
+            client
+                .post(format!("{URL}/game_localizations"))
+                .body("fields id, name; where name != null; limit 500;")
                 .send()
         )?;
 
-        let (genres,) = try_join!(genres_rsp.json::<Vec<IdAndNamedObject>>())?;
+        let (genres, game_localizations) = try_join!(
+            genres_rsp.json::<Vec<IdAndNamedObject>>(),
+            game_localizations_rsp.json::<Vec<IdAndNamedObject>>()
+        )?;
 
-        let response = CoreDetailsProviderIgdbSpecifics { genres };
+        let response = CoreDetailsProviderIgdbSpecifics {
+            genres,
+            game_localizations,
+        };
         Ok(response)
     }
 }
