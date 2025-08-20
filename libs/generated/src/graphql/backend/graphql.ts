@@ -269,7 +269,7 @@ export enum CollectionExtraInformationLot {
 export type CollectionItem = {
   collaborators: Array<CollectionItemCollaboratorInformation>;
   count: Scalars['Int']['output'];
-  creator: IdAndNamedObject;
+  creator: StringIdAndNamedObject;
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
@@ -278,7 +278,7 @@ export type CollectionItem = {
 };
 
 export type CollectionItemCollaboratorInformation = {
-  collaborator: IdAndNamedObject;
+  collaborator: StringIdAndNamedObject;
   extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
@@ -920,7 +920,7 @@ export type GroupedCalendarEvent = {
 };
 
 export type IdAndNamedObject = {
-  id: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -959,7 +959,7 @@ export type ImportOrExportItemReviewComment = {
   /** The user ids of all those who liked it. */
   likedBy: Array<Scalars['String']['output']>;
   text: Scalars['String']['output'];
-  user: IdAndNamedObject;
+  user: StringIdAndNamedObject;
 };
 
 export type ImportReport = {
@@ -2236,7 +2236,7 @@ export type ReviewItem = {
   isSpoiler: Scalars['Boolean']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
   podcastExtraInformation?: Maybe<SeenPodcastExtraOptionalInformation>;
-  postedBy: IdAndNamedObject;
+  postedBy: StringIdAndNamedObject;
   postedOn: Scalars['DateTime']['output'];
   rating?: Maybe<Scalars['Decimal']['output']>;
   seenItemsAssociatedWith: Array<Scalars['String']['output']>;
@@ -2402,6 +2402,11 @@ export type ShowSpecificsInput = {
   seasons: Array<ShowSeasonSpecificsInput>;
   totalEpisodes?: InputMaybe<Scalars['Int']['input']>;
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type StringIdAndNamedObject = {
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type StringIdObject = {
@@ -3843,7 +3848,7 @@ export type CollectionContentsQuery = { collectionContents: { cacheId: string, r
 export type CoreDetailsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type CoreDetailsQuery = { coreDetails: { version: string, docsLink: string, pageSize: number, websiteUrl: string, smtpEnabled: boolean, oidcEnabled: boolean, signupAllowed: boolean, maxFileSizeMb: number, repositoryLink: string, isDemoInstance: boolean, disableTelemetry: boolean, tokenValidForDays: number, localAuthDisabled: boolean, fileStorageEnabled: boolean, peopleSearchSources: Array<MediaSource>, isServerKeyValidated: boolean, twoFactorBackupCodesCount: number, metadataGroupSourceLotMappings: Array<{ lot: MediaLot, source: MediaSource }>, metadataLotSourceMappings: Array<{ lot: MediaLot, sources: Array<MediaSource> }>, providerSpecifics: { igdb: { genres: Array<{ id: string, name: string }> } }, metadataProviderLanguages: Array<{ source: MediaSource, default: string, supported: Array<string> }>, frontend: { url: string, oidcButtonLabel: string, dashboardMessage: string, umami: { scriptUrl: string, websiteId: string } }, exerciseParameters: { lotMapping: Array<{ lot: ExerciseLot, bests: Array<WorkoutSetPersonalBest> }>, filters: { type: Array<ExerciseLot>, level: Array<ExerciseLevel>, force: Array<ExerciseForce>, muscle: Array<ExerciseMuscle>, mechanic: Array<ExerciseMechanic>, equipment: Array<ExerciseEquipment> } } } };
+export type CoreDetailsQuery = { coreDetails: { version: string, docsLink: string, pageSize: number, websiteUrl: string, smtpEnabled: boolean, oidcEnabled: boolean, signupAllowed: boolean, maxFileSizeMb: number, repositoryLink: string, isDemoInstance: boolean, disableTelemetry: boolean, tokenValidForDays: number, localAuthDisabled: boolean, fileStorageEnabled: boolean, peopleSearchSources: Array<MediaSource>, isServerKeyValidated: boolean, twoFactorBackupCodesCount: number, metadataGroupSourceLotMappings: Array<{ lot: MediaLot, source: MediaSource }>, metadataLotSourceMappings: Array<{ lot: MediaLot, sources: Array<MediaSource> }>, providerSpecifics: { igdb: { genres: Array<{ id: number, name: string }> } }, metadataProviderLanguages: Array<{ source: MediaSource, default: string, supported: Array<string> }>, frontend: { url: string, oidcButtonLabel: string, dashboardMessage: string, umami: { scriptUrl: string, websiteId: string } }, exerciseParameters: { lotMapping: Array<{ lot: ExerciseLot, bests: Array<WorkoutSetPersonalBest> }>, filters: { type: Array<ExerciseLot>, level: Array<ExerciseLevel>, force: Array<ExerciseForce>, muscle: Array<ExerciseMuscle>, mechanic: Array<ExerciseMechanic>, equipment: Array<ExerciseEquipment> } } } };
 
 export type MetadataGroupDetailsQueryVariables = Exact<{
   metadataGroupId: Scalars['String']['input'];

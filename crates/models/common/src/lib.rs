@@ -32,6 +32,24 @@ pub struct StringIdObject {
 )]
 #[serde(rename_all = "snake_case")]
 pub struct IdAndNamedObject {
+    pub id: i32,
+    pub name: String,
+}
+
+#[derive(
+    Eq,
+    Debug,
+    Clone,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[serde(rename_all = "snake_case")]
+pub struct StringIdAndNamedObject {
     pub id: String,
     pub name: String,
 }

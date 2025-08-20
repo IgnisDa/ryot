@@ -114,11 +114,11 @@ struct IgdbWebsite {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbCompany {
-    id: i32,
-    name: String,
     country: Option<i32>,
     logo: Option<IgdbImage>,
     description: Option<String>,
+    #[serde(flatten)]
+    id_and_name: IdAndNamedObject,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     start_date: Option<DateTimeUtc>,
     websites: Option<Vec<IgdbWebsite>>,
@@ -336,8 +336,8 @@ offset: {offset};
                 let image = ic.logo.map(|a| self.get_cover_image_url(a.image_id));
                 PeopleSearchItem {
                     image,
-                    name: ic.name,
-                    identifier: ic.id.to_string(),
+                    name: ic.id_and_name.name,
+                    identifier: ic.id_and_name.id.to_string(),
                     ..Default::default()
                 }
             })
@@ -409,13 +409,13 @@ where id = {identity};
                 ..Default::default()
             }
         }));
-        let name = detail.name;
+        let name = detail.id_and_name.name;
         Ok(PersonDetails {
             related_metadata,
             name: name.clone(),
             source: MediaSource::Igdb,
             description: detail.description,
-            identifier: detail.id.to_string(),
+            identifier: detail.id_and_name.id.to_string(),
             source_url: Some(format!("https://www.igdb.com/companies/{}", slugify(name))),
             assets: EntityAssets {
                 remote_images: Vec::from_iter(
@@ -631,10 +631,10 @@ impl IgdbService {
                     "Unknown"
                 };
                 PartialMetadataPerson {
-                    name: ic.company.name,
                     role: role.to_owned(),
                     source: MediaSource::Igdb,
                     identifier: ic.id.to_string(),
+                    name: ic.company.id_and_name.name,
                     ..Default::default()
                 }
             })

@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use chrono::Utc;
-use common_models::IdAndNamedObject;
+use common_models::StringIdAndNamedObject;
 use database_models::{prelude::Review, review};
 use database_utils::user_by_id;
 use dependent_utility_utils::associate_user_with_entity;
@@ -70,7 +70,7 @@ pub async fn create_review_comment(
         comments.push(ImportOrExportItemReviewComment {
             id: nanoid!(20),
             text: input.text.unwrap(),
-            user: IdAndNamedObject {
+            user: StringIdAndNamedObject {
                 id: user_id,
                 name: user.name,
             },

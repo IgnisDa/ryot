@@ -1,5 +1,5 @@
 use async_graphql::SimpleObject;
-use common_models::IdAndNamedObject;
+use common_models::StringIdAndNamedObject;
 use enum_models::Visibility;
 use rust_decimal::Decimal;
 use sea_orm::prelude::DateTimeUtc;
@@ -17,7 +17,7 @@ pub struct ReviewItem {
     pub posted_on: DateTimeUtc,
     pub visibility: Visibility,
     pub rating: Option<Decimal>,
-    pub posted_by: IdAndNamedObject,
+    pub posted_by: StringIdAndNamedObject,
     pub text_original: Option<String>,
     pub text_rendered: Option<String>,
     pub seen_items_associated_with: Vec<String>,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{BackendError, EntityAssets, IdAndNamedObject};
+use common_models::{BackendError, EntityAssets, StringIdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership, collection_to_entity,
@@ -371,7 +371,7 @@ pub async fn item_reviews(
             podcast_extra_information: review.podcast_extra_information,
             anime_extra_information: review.anime_extra_information,
             manga_extra_information: review.manga_extra_information,
-            posted_by: IdAndNamedObject {
+            posted_by: StringIdAndNamedObject {
                 id: user.id,
                 name: user.name,
             },

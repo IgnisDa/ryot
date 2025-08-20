@@ -255,7 +255,7 @@ export type CollectionItem = {
   __typename?: 'CollectionItem';
   collaborators: Array<CollectionItemCollaboratorInformation>;
   count: Scalars['Int']['output'];
-  creator: IdAndNamedObject;
+  creator: StringIdAndNamedObject;
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
@@ -265,7 +265,7 @@ export type CollectionItem = {
 
 export type CollectionItemCollaboratorInformation = {
   __typename?: 'CollectionItemCollaboratorInformation';
-  collaborator: IdAndNamedObject;
+  collaborator: StringIdAndNamedObject;
   extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
@@ -940,7 +940,7 @@ export type GroupedCalendarEvent = {
 
 export type IdAndNamedObject = {
   __typename?: 'IdAndNamedObject';
-  id: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -983,7 +983,7 @@ export type ImportOrExportItemReviewComment = {
   /** The user ids of all those who liked it. */
   likedBy: Array<Scalars['String']['output']>;
   text: Scalars['String']['output'];
-  user: IdAndNamedObject;
+  user: StringIdAndNamedObject;
 };
 
 export type ImportReport = {
@@ -2295,7 +2295,7 @@ export type ReviewItem = {
   isSpoiler: Scalars['Boolean']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
   podcastExtraInformation?: Maybe<SeenPodcastExtraOptionalInformation>;
-  postedBy: IdAndNamedObject;
+  postedBy: StringIdAndNamedObject;
   postedOn: Scalars['DateTime']['output'];
   rating?: Maybe<Scalars['Decimal']['output']>;
   seenItemsAssociatedWith: Array<Scalars['String']['output']>;
@@ -2473,6 +2473,12 @@ export type ShowSpecificsInput = {
   seasons: Array<ShowSeasonSpecificsInput>;
   totalEpisodes?: InputMaybe<Scalars['Int']['input']>;
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type StringIdAndNamedObject = {
+  __typename?: 'StringIdAndNamedObject';
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type StringIdObject = {
