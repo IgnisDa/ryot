@@ -231,10 +231,9 @@ offset: {offset};
             .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let total = extract_count_from_response(&rsp)?;
-        let details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbItemResponse> = rsp.json().await?;
         let resp = details
             .into_iter()
             .map(|d| MetadataGroupSearchItem {
@@ -268,11 +267,9 @@ where id = {identifier};
             .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<Vec<_>>()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .pop()
             .unwrap();
         let items = details
@@ -336,10 +333,9 @@ offset: {offset};
             .post(format!("{URL}/companies"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let total = extract_count_from_response(&rsp)?;
-        let details: Vec<IgdbCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let details: Vec<IgdbCompany> = rsp.json().await?;
         let resp = details
             .into_iter()
             .map(|ic| {
@@ -377,9 +373,8 @@ where id = {identity};
             .post(format!("{URL}/involved_companies"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let mut details: Vec<IgdbInvolvedCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let mut details: Vec<IgdbInvolvedCompany> = rsp.json().await?;
         let detail = details
             .pop()
             .map(|ic| ic.company)
@@ -521,11 +516,10 @@ offset: {offset};
             .post(format!("{URL}/games"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
 
         let total = extract_count_from_response(&rsp)?;
-        let search: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let search: Vec<IgdbItemResponse> = rsp.json().await?;
 
         let resp = search
             .into_iter()
@@ -710,22 +704,20 @@ impl IgdbService {
         }
     }
 
-    pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
+    async fn get_all_list_items(&self, endpoint: &str) -> Result<Vec<IdAndNamedObject>> {
         let client = self.get_client_config().await?;
-        let (genres_rsp, game_localizations_rsp) = try_join!(
-            client
-                .post(format!("{URL}/genres"))
-                .body("fields id, name; where name != null; limit 500;")
-                .send(),
-            client
-                .post(format!("{URL}/game_localizations"))
-                .body("fields id, name; where name != null; limit 500;")
-                .send()
-        )?;
+        let rsp = client
+            .post(format!("{URL}/{endpoint}"))
+            .body("fields id, name; where name != null; limit 500;")
+            .send()
+            .await?;
+        Ok(rsp.json::<Vec<IdAndNamedObject>>().await?)
+    }
 
+    pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let (genres, game_localizations) = try_join!(
-            genres_rsp.json::<Vec<IdAndNamedObject>>(),
-            game_localizations_rsp.json::<Vec<IdAndNamedObject>>()
+            self.get_all_list_items("genres"),
+            self.get_all_list_items("game_localizations")
         )?;
 
         let response = CoreDetailsProviderIgdbSpecifics {
