@@ -7,6 +7,7 @@ import {
 	Divider,
 	Flex,
 	Group,
+	MultiSelect,
 	Select,
 	Stack,
 	Tabs,
@@ -69,7 +70,10 @@ import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import { zodCollectionFilter } from "~/lib/shared/validation";
+import {
+	zodCollectionFilter,
+	zodCommaDelimitedString,
+} from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
@@ -99,6 +103,7 @@ const defaultFilters = {
 };
 
 const searchSchema = z.object({
+	igdbThemeIds: zodCommaDelimitedString.optional(),
 	googleBooksPassRawQuery: zodBoolAsString.optional(),
 	igdbAllowGamesWithParent: zodBoolAsString.optional(),
 });
@@ -197,8 +202,11 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 							source: urlParse.source,
 							search: { page: query[pageQueryParam], query: query.query },
 							sourceSpecifics: {
-								googleBooksPassRawQuery: urlParse.googleBooksPassRawQuery,
-								igdbAllowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+								googleBooks: { passRawQuery: urlParse.googleBooksPassRawQuery },
+								igdb: {
+									themeIds: urlParse.igdbThemeIds,
+									allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+								},
 							},
 						},
 					},
@@ -616,6 +624,7 @@ const FiltersModalForm = () => {
 const SearchFiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const coreDetails = useCoreDetails();
 
 	if (!loaderData.mediaSearch) return null;
 
@@ -632,6 +641,16 @@ const SearchFiltersModalForm = () => {
 			) : null}
 			{loaderData.mediaSearch.url.source === MediaSource.Igdb ? (
 				<>
+					<MultiSelect
+						size="xs"
+						label="Select themes"
+						value={loaderData.mediaSearch.url.igdbThemeIds || []}
+						onChange={(v) => setP("igdbThemeIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.themes.map((t) => ({
+							label: t.name,
+							value: t.id.toString(),
+						}))}
+					/>
 					<Checkbox
 						label="Allow games with parent"
 						checked={loaderData.mediaSearch.url.igdbAllowGamesWithParent}
