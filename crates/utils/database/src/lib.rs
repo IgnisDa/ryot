@@ -332,23 +332,21 @@ pub async fn item_reviews(
         .all(&ss.db)
         .await?;
     let mut reviews = vec![];
+    let preferences = user_by_id(user_id, ss).await?.preferences;
     for (review, user) in all_reviews {
         let user = user.unwrap();
         let rating = match true {
-            true => {
-                let preferences = user_by_id(user_id, ss).await?.preferences;
-                review.rating.map(|s| {
-                    s.checked_div(match preferences.general.review_scale {
-                        UserReviewScale::OutOfTen => dec!(10),
-                        UserReviewScale::OutOfFive => dec!(20),
-                        UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => {
-                            dec!(1)
-                        }
-                    })
-                    .unwrap()
-                    .round_dp(1)
+            true => review.rating.map(|s| {
+                s.checked_div(match preferences.general.review_scale {
+                    UserReviewScale::OutOfTen => dec!(10),
+                    UserReviewScale::OutOfFive => dec!(20),
+                    UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => {
+                        dec!(1)
+                    }
                 })
-            }
+                .unwrap()
+                .round_dp(1)
+            }),
             false => review.rating,
         };
         let seen_items_associated_with = Seen::find()
