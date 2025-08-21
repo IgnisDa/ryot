@@ -103,13 +103,13 @@ const defaultFilters = {
 };
 
 const searchSchema = z.object({
-	igdbThemeIds: zodCommaDelimitedString,
-	igdbGenreIds: zodCommaDelimitedString,
-	igdbPlatformIds: zodCommaDelimitedString,
-	igdbGameModeIds: zodCommaDelimitedString,
-	googleBooksPassRawQuery: zodBoolAsString,
-	igdbAllowGamesWithParent: zodBoolAsString,
-	igdbLocalizationRegionIds: zodCommaDelimitedString,
+	igdbThemeIds: zodCommaDelimitedString.optional(),
+	igdbGenreIds: zodCommaDelimitedString.optional(),
+	igdbPlatformIds: zodCommaDelimitedString.optional(),
+	igdbGameModeIds: zodCommaDelimitedString.optional(),
+	googleBooksPassRawQuery: zodBoolAsString.optional(),
+	igdbAllowGamesWithParent: zodBoolAsString.optional(),
+	igdbLocalizationRegionIds: zodCommaDelimitedString.optional(),
 });
 
 enum Action {
