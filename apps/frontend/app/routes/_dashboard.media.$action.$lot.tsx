@@ -104,8 +104,12 @@ const defaultFilters = {
 
 const searchSchema = z.object({
 	igdbThemeIds: zodCommaDelimitedString.optional(),
+	igdbGenreIds: zodCommaDelimitedString.optional(),
+	igdbPlatformIds: zodCommaDelimitedString.optional(),
+	igdbGameModeIds: zodCommaDelimitedString.optional(),
 	googleBooksPassRawQuery: zodBoolAsString.optional(),
 	igdbAllowGamesWithParent: zodBoolAsString.optional(),
+	igdbLocalizationRegionIds: zodCommaDelimitedString.optional(),
 });
 
 enum Action {
@@ -205,7 +209,11 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 								googleBooks: { passRawQuery: urlParse.googleBooksPassRawQuery },
 								igdb: {
 									themeIds: urlParse.igdbThemeIds,
+									genreIds: urlParse.igdbGenreIds,
+									platformIds: urlParse.igdbPlatformIds,
+									gameModeIds: urlParse.igdbGameModeIds,
 									allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+									localizationRegionIds: urlParse.igdbLocalizationRegionIds,
 								},
 							},
 						},
@@ -643,6 +651,7 @@ const SearchFiltersModalForm = () => {
 				<>
 					<MultiSelect
 						size="xs"
+						searchable
 						label="Select themes"
 						value={loaderData.mediaSearch.url.igdbThemeIds || []}
 						onChange={(v) => setP("igdbThemeIds", v.join(","))}
@@ -650,6 +659,52 @@ const SearchFiltersModalForm = () => {
 							label: t.name,
 							value: t.id.toString(),
 						}))}
+					/>
+					<MultiSelect
+						size="xs"
+						searchable
+						label="Select genres"
+						value={loaderData.mediaSearch.url.igdbGenreIds || []}
+						onChange={(v) => setP("igdbGenreIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.genres.map((g) => ({
+							label: g.name,
+							value: g.id.toString(),
+						}))}
+					/>
+					<MultiSelect
+						size="xs"
+						searchable
+						label="Select platforms"
+						value={loaderData.mediaSearch.url.igdbPlatformIds || []}
+						onChange={(v) => setP("igdbPlatformIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
+							label: p.name,
+							value: p.id.toString(),
+						}))}
+					/>
+					<MultiSelect
+						size="xs"
+						searchable
+						label="Select game modes"
+						value={loaderData.mediaSearch.url.igdbGameModeIds || []}
+						onChange={(v) => setP("igdbGameModeIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.gameModes.map((gm) => ({
+							label: gm.name,
+							value: gm.id.toString(),
+						}))}
+					/>
+					<MultiSelect
+						size="xs"
+						searchable
+						label="Select localization regions"
+						value={loaderData.mediaSearch.url.igdbLocalizationRegionIds || []}
+						onChange={(v) => setP("igdbLocalizationRegionIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.gameLocalizationRegions.map(
+							(lr) => ({
+								label: lr.name,
+								value: lr.id.toString(),
+							}),
+						)}
 					/>
 					<Checkbox
 						label="Allow games with parent"
