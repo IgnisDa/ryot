@@ -645,7 +645,7 @@ const createProviderSpecificsSchema = () => {
 					fieldSchema = z.number().optional();
 					break;
 				case "multiselect":
-					fieldSchema = zodCommaDelimitedString.optional();
+					fieldSchema = zodCommaDelimitedString;
 					break;
 				default:
 					fieldSchema = z.unknown().optional();
