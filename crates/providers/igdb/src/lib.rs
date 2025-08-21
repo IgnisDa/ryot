@@ -770,6 +770,8 @@ impl IgdbService {
             offset += limit;
         }
 
+        items.sort_by_key(|item| item.name.clone());
+
         Ok(items)
     }
 
