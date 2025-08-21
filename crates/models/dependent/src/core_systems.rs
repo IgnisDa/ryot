@@ -63,7 +63,7 @@ pub struct CoreDetailsProviderIgdbSpecifics {
     pub game_localization_regions: Vec<IdAndNamedObject>,
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+#[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetailsProviderSpecifics {
     pub igdb: CoreDetailsProviderIgdbSpecifics,
 }

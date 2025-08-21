@@ -114,10 +114,15 @@ fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
 async fn build_provider_specifics(
     ss: &Arc<SupportingService>,
 ) -> Result<CoreDetailsProviderSpecifics> {
-    let service = IgdbService::new(ss.clone()).await?;
-    let igdb = service.get_provider_specifics().await.unwrap_or_default();
+    let mut specifics = CoreDetailsProviderSpecifics::default();
 
-    Ok(CoreDetailsProviderSpecifics { igdb })
+    if let Ok(service) = IgdbService::new(ss.clone()).await {
+        if let Ok(igdb) = service.get_provider_specifics().await {
+            specifics.igdb = igdb;
+        }
+    }
+
+    Ok(specifics)
 }
 
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
