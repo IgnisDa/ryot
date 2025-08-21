@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
-    MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
+    MetadataSearchSourceIgdbSpecifics, MetadataSearchSourceSpecifics, NamedObject,
+    PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
 use convert_case::{Case, Casing};
@@ -491,24 +492,63 @@ where id = {identity};
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let client = self.get_client_config().await?;
+
         let allow_games_with_parent = source_specifics
             .as_ref()
             .and_then(|s| s.igdb.as_ref().and_then(|i| i.allow_games_with_parent))
             .unwrap_or(false);
 
-        let fields_with_filter = if allow_games_with_parent {
-            GAME_FIELDS.replace("where version_parent = null;", "")
+        let filter_builders: [(
+            fn(&MetadataSearchSourceIgdbSpecifics) -> Option<&Vec<String>>,
+            &str,
+        ); 5] = [
+            (|i| i.theme_ids.as_ref(), "themes"),
+            (|i| i.genre_ids.as_ref(), "genres"),
+            (|i| i.platform_ids.as_ref(), "platforms"),
+            (|i| i.game_mode_ids.as_ref(), "game_modes"),
+            (
+                |i| i.localization_region_ids.as_ref(),
+                "release_dates.region",
+            ),
+        ];
+
+        let mut filters = Vec::new();
+
+        if !allow_games_with_parent {
+            filters.push("version_parent = null".to_string());
+        }
+
+        let param_filters: Vec<String> = filter_builders
+            .into_iter()
+            .filter_map(|(getter, name)| {
+                source_specifics
+                    .as_ref()
+                    .and_then(|s| s.igdb.as_ref())
+                    .and_then(getter)
+                    .filter(|ids| !ids.is_empty())
+                    .map(|ids| format!("{} = ({})", name, ids.join(",")))
+            })
+            .collect();
+
+        filters.extend(param_filters);
+
+        let where_clause = if filters.is_empty() {
+            String::new()
         } else {
-            GAME_FIELDS.to_string()
+            format!("where {};", filters.join(" & "))
         };
+        let fields_only = GAME_FIELDS.replace("where version_parent = null;", "");
         let req_body = format!(
             r#"
-{field}
+{fields}
+{where_clause}
 search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            field = fields_with_filter,
+            fields = fields_only.trim(),
+            where_clause = where_clause,
+            query = query,
             limit = PAGE_SIZE,
             offset = (page - 1) * PAGE_SIZE
         );
