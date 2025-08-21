@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, IdAndNamedObject, MetadataSearchSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_naive_to_utc};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults};
 use enum_models::{MediaLot, MediaSource};
@@ -178,14 +178,8 @@ impl ListennotesService {
             ApplicationCacheValue::ListennotesSettings,
             || async {
                 #[derive(Debug, Serialize, Deserialize, Default)]
-                #[serde(rename_all = "snake_case")]
-                pub struct ListennotesIdAndNamedObject {
-                    pub id: i32,
-                    pub name: String,
-                }
-                #[derive(Debug, Serialize, Deserialize, Default)]
                 struct GenreResponse {
-                    genres: Vec<ListennotesIdAndNamedObject>,
+                    genres: Vec<IdAndNamedObject>,
                 }
                 let rsp = self
                     .client
