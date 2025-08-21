@@ -88,15 +88,18 @@ export const useAppSearchParam = (cookieKey: string) => {
 	};
 
 	const setP = (key: string, value?: string | null) => {
+		const shouldDelete = !value;
+
 		setSearchParams(
 			(prev) => {
-				if (!value) delP(key);
+				if (shouldDelete) prev.delete(key);
 				else prev.set(key, value);
 				return prev;
 			},
 			{ replace: true },
 		);
-		updateCookieP(key, value);
+
+		updateCookieP(key, shouldDelete ? undefined : value);
 	};
 
 	return [searchParams, { setP, delP }] as const;
