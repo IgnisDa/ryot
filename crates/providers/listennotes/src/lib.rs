@@ -191,14 +191,9 @@ impl ListennotesService {
                     .client
                     .get(format!("{}/genres", self.url))
                     .send()
-                    .await
-                    .unwrap();
-                let data: GenreResponse = rsp.json().await.unwrap_or_default();
-                let mut genres = HashMap::new();
-                for genre in data.genres {
-                    genres.insert(genre.id, genre.name);
-                }
-                Ok(genres)
+                    .await?;
+                let data: GenreResponse = rsp.json().await?;
+                Ok(data.genres.into_iter().map(|g| (g.id, g.name)).collect())
             },
         )
         .await
