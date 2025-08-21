@@ -69,10 +69,10 @@ pub struct ImportOrExportItemReview {
 pub struct ImportOrExportItemReviewComment {
     pub id: String,
     pub text: String,
-    pub user: StringIdAndNamedObject,
     pub created_on: DateTimeUtc,
     /// The user ids of all those who liked it.
     pub liked_by: HashSet<String>,
+    pub user: StringIdAndNamedObject,
 }
 
 /// A rating given to an entity.
