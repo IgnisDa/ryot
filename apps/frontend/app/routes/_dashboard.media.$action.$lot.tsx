@@ -631,13 +631,15 @@ const SearchFiltersModalForm = () => {
 				/>
 			) : null}
 			{loaderData.mediaSearch.url.source === MediaSource.Igdb ? (
-				<Checkbox
-					label="Allow games with parent"
-					checked={loaderData.mediaSearch.url.igdbAllowGamesWithParent}
-					onChange={(e) =>
-						setP("igdbAllowGamesWithParent", String(e.target.checked))
-					}
-				/>
+				<>
+					<Checkbox
+						label="Allow games with parent"
+						checked={loaderData.mediaSearch.url.igdbAllowGamesWithParent}
+						onChange={(e) =>
+							setP("igdbAllowGamesWithParent", String(e.target.checked))
+						}
+					/>
+				</>
 			) : null}
 		</Stack>
 	);
