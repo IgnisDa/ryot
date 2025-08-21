@@ -1397,9 +1397,22 @@ export type MetadataSearchInput = {
   sourceSpecifics?: InputMaybe<MetadataSearchSourceSpecificsInput>;
 };
 
+export type MetadataSearchSourceGoogleBooksSpecifics = {
+  passRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type MetadataSearchSourceIgdbSpecifics = {
+  allowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
+  gameModeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  genreIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  localizationRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  themeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
 export type MetadataSearchSourceSpecificsInput = {
-  googleBooksPassRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
-  igdbAllowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
+  googleBooks?: InputMaybe<MetadataSearchSourceGoogleBooksSpecifics>;
+  igdb?: InputMaybe<MetadataSearchSourceIgdbSpecifics>;
 };
 
 export type MovieSpecifics = {

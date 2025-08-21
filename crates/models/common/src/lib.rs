@@ -396,11 +396,58 @@ pub struct PersonSourceSpecifics {
     SimpleObject,
     FromJsonQueryResult,
 )]
+#[graphql(input_name = "MetadataSearchSourceGoogleBooksSpecifics")]
+#[serde(rename_all = "snake_case")]
+pub struct MetadataSearchSourceGoogleBooksSpecifics {
+    pub pass_raw_query: Option<bool>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "MetadataSearchSourceIgdbSpecifics")]
+#[serde(rename_all = "snake_case")]
+pub struct MetadataSearchSourceIgdbSpecifics {
+    pub theme_ids: Option<Vec<String>>,
+    pub genre_ids: Option<Vec<String>>,
+    pub platform_ids: Option<Vec<String>>,
+    pub game_mode_ids: Option<Vec<String>>,
+    pub allow_games_with_parent: Option<bool>,
+    pub localization_region_ids: Option<Vec<String>>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
 #[graphql(input_name = "MetadataSearchSourceSpecificsInput")]
 #[serde(rename_all = "snake_case")]
 pub struct MetadataSearchSourceSpecifics {
-    pub google_books_pass_raw_query: Option<bool>,
-    pub igdb_allow_games_with_parent: Option<bool>,
+    pub igdb: Option<MetadataSearchSourceIgdbSpecifics>,
+    pub google_books: Option<MetadataSearchSourceGoogleBooksSpecifics>,
 }
 
 #[skip_serializing_none]

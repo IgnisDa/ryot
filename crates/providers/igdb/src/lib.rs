@@ -493,7 +493,7 @@ where id = {identity};
         let client = self.get_client_config().await?;
         let allow_games_with_parent = source_specifics
             .as_ref()
-            .and_then(|s| s.igdb_allow_games_with_parent)
+            .and_then(|s| s.igdb.as_ref().and_then(|i| i.allow_games_with_parent))
             .unwrap_or(false);
 
         let fields_with_filter = if allow_games_with_parent {
