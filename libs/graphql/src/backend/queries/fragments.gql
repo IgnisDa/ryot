@@ -3,6 +3,11 @@ fragment IdAndNamedObjectPart on IdAndNamedObject {
 	name
 }
 
+fragment StringIdAndNamedObjectPart on StringIdAndNamedObject {
+	id
+	name
+}
+
 fragment SeenPodcastExtraInformationPart on SeenPodcastExtraInformation {
 	episode
 }
@@ -160,8 +165,7 @@ fragment ReviewItemPart on ReviewItem {
 	textRendered
 	seenItemsAssociatedWith
 	postedBy {
-		id
-		name
+		...StringIdAndNamedObjectPart
 	}
 	comments {
 		id
@@ -169,8 +173,7 @@ fragment ReviewItemPart on ReviewItem {
 		likedBy
 		createdOn
 		user {
-			id
-			name
+			...StringIdAndNamedObjectPart
 		}
 	}
 	showExtraInformation {
