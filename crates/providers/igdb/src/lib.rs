@@ -64,7 +64,6 @@ fields
     release_dates.release_region.region,
     videos.*,
     genres.*;
-where version_parent = null;
 ";
 static INVOLVED_COMPANY_FIELDS: &str = "
 fields
@@ -444,7 +443,7 @@ where id = {identity};
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client_config().await?;
-        let req_body = format!(r#"{GAME_FIELDS} where id = {identifier};"#);
+        let req_body = format!(r#"{GAME_FIELDS} where id = {identifier} & version_parent = null;"#);
         let ttb_req_body = format!(r#"{TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
 
         let (details_rsp, ttb_rsp) = try_join!(
@@ -537,7 +536,6 @@ where id = {identity};
         } else {
             format!("where {};", filters.join(" & "))
         };
-        let fields_only = GAME_FIELDS.replace("where version_parent = null;", "");
         let req_body = format!(
             r#"
 {fields}
@@ -546,7 +544,7 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            fields = fields_only.trim(),
+            fields = GAME_FIELDS.trim(),
             where_clause = where_clause,
             query = query,
             limit = PAGE_SIZE,
