@@ -76,17 +76,6 @@ export const useAppSearchParam = (cookieKey: string) => {
 		});
 	};
 
-	const delP = (key: string) => {
-		setSearchParams(
-			(prev) => {
-				prev.delete(key);
-				return prev;
-			},
-			{ replace: true },
-		);
-		updateCookieP(key);
-	};
-
 	const setP = (key: string, value?: string | null) => {
 		const shouldDelete = !value;
 
@@ -102,7 +91,7 @@ export const useAppSearchParam = (cookieKey: string) => {
 		updateCookieP(key, shouldDelete ? undefined : value);
 	};
 
-	return [searchParams, { setP, delP }] as const;
+	return [searchParams, { setP }] as const;
 };
 
 export const useConfirmSubmit = () => {
