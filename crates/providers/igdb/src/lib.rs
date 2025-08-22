@@ -249,12 +249,11 @@ offset: {offset};
                 parts: d.games.map(|g| g.len()),
             })
             .collect_vec();
+        let next_page =
+            (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             items: resp.clone(),
-            details: SearchDetails {
-                total,
-                next_page: Some(page.unwrap_or(1) + 1),
-            },
+            details: SearchDetails { total, next_page },
         })
     }
 
@@ -354,12 +353,11 @@ offset: {offset};
                 }
             })
             .collect_vec();
+        let next_page =
+            (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             items: resp.clone(),
-            details: SearchDetails {
-                total,
-                next_page: Some(page.unwrap_or(1) + 1),
-            },
+            details: SearchDetails { total, next_page },
         })
     }
 
