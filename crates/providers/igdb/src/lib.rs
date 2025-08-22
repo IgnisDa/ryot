@@ -510,10 +510,7 @@ where id = {identity};
             (|i| i.genre_ids.as_ref(), "genres"),
             (|i| i.platform_ids.as_ref(), "platforms"),
             (|i| i.game_mode_ids.as_ref(), "game_modes"),
-            (
-                |i| i.localization_region_ids.as_ref(),
-                "release_dates.region",
-            ),
+            (|i| i.release_date_regions.as_ref(), "release_dates.region"),
         ];
 
         let mut filters = Vec::new();

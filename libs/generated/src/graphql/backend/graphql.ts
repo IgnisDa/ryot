@@ -1364,8 +1364,8 @@ export type MetadataSearchSourceIgdbSpecifics = {
   allowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
   gameModeIds?: InputMaybe<Array<Scalars['String']['input']>>;
   genreIds?: InputMaybe<Array<Scalars['String']['input']>>;
-  localizationRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  releaseDateRegions?: InputMaybe<Array<Scalars['String']['input']>>;
   themeIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
