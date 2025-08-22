@@ -40,7 +40,7 @@ query CoreDetails {
 					...IdAndNamedObjectPart
 				}
 				releaseDateRegions {
-					...StringIdAndNamedObjectPart
+					...IdAndNamedObjectPart
 				}
 			}
 		}

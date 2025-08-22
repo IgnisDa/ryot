@@ -319,7 +319,7 @@ export type CoreDetailsProviderIgdbSpecifics = {
   gameModes: Array<IdAndNamedObject>;
   genres: Array<IdAndNamedObject>;
   platforms: Array<IdAndNamedObject>;
-  releaseDateRegions: Array<StringIdAndNamedObject>;
+  releaseDateRegions: Array<IdAndNamedObject>;
   themes: Array<IdAndNamedObject>;
 };
 
