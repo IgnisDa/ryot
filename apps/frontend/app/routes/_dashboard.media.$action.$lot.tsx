@@ -652,7 +652,6 @@ const SearchFiltersModalForm = () => {
 					<MultiSelect
 						size="xs"
 						searchable
-						limit={10}
 						label="Select themes"
 						value={loaderData.mediaSearch.url.igdbThemeIds || []}
 						onChange={(v) => setP("igdbThemeIds", v.join(","))}
@@ -664,7 +663,6 @@ const SearchFiltersModalForm = () => {
 					<MultiSelect
 						size="xs"
 						searchable
-						limit={10}
 						label="Select genres"
 						value={loaderData.mediaSearch.url.igdbGenreIds || []}
 						onChange={(v) => setP("igdbGenreIds", v.join(","))}
@@ -676,7 +674,6 @@ const SearchFiltersModalForm = () => {
 					<MultiSelect
 						size="xs"
 						searchable
-						limit={10}
 						label="Select platforms"
 						value={loaderData.mediaSearch.url.igdbPlatformIds || []}
 						onChange={(v) => setP("igdbPlatformIds", v.join(","))}
@@ -688,7 +685,6 @@ const SearchFiltersModalForm = () => {
 					<MultiSelect
 						size="xs"
 						searchable
-						limit={10}
 						label="Select game modes"
 						value={loaderData.mediaSearch.url.igdbGameModeIds || []}
 						onChange={(v) => setP("igdbGameModeIds", v.join(","))}
@@ -700,7 +696,6 @@ const SearchFiltersModalForm = () => {
 					<MultiSelect
 						size="xs"
 						searchable
-						limit={10}
 						label="Select localization regions"
 						value={loaderData.mediaSearch.url.igdbLocalizationRegionIds || []}
 						onChange={(v) => setP("igdbLocalizationRegionIds", v.join(","))}
