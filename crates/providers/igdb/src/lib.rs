@@ -7,7 +7,7 @@ use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     MetadataSearchSourceIgdbSpecifics, MetadataSearchSourceSpecifics, NamedObject,
-    PersonSourceSpecifics, SearchDetails,
+    PersonSourceSpecifics, SearchDetails, StringIdAndNamedObject,
 };
 use common_utils::PAGE_SIZE;
 use convert_case::{Case, Casing};
@@ -109,6 +109,11 @@ fields
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbWebsite {
     url: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbRegionResponse {
+    region: String,
 }
 
 #[serde_as]
@@ -778,30 +783,67 @@ impl IgdbService {
         Ok(items)
     }
 
+    async fn get_regions(&self, client: &Client) -> Result<Vec<StringIdAndNamedObject>> {
+        let limit = 500;
+        let base_body = format!("fields region; limit {limit};");
+
+        let mut offset = 0;
+        let mut items = vec![];
+
+        loop {
+            let body = if offset == 0 {
+                base_body.clone()
+            } else {
+                format!("{base_body} offset {};", offset)
+            };
+
+            let rsp = client
+                .post(format!("{URL}/release_date_regions"))
+                .body(body)
+                .send()
+                .await?;
+
+            let page_items = rsp.json::<Vec<IgdbRegionResponse>>().await?;
+            let page_size = page_items.len();
+
+            let mapped_items: Vec<StringIdAndNamedObject> = page_items
+                .into_iter()
+                .map(|item| StringIdAndNamedObject {
+                    id: item.region.clone(),
+                    name: item.region.to_case(Case::Title),
+                })
+                .collect();
+
+            items.extend(mapped_items);
+
+            if page_size < limit {
+                break;
+            }
+
+            offset += limit;
+        }
+
+        items.sort_by_key(|item| item.name.clone());
+
+        Ok(items)
+    }
+
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let client = self.get_client_config().await?;
-        let (themes, genres, platforms, game_modes) = try_join!(
+        let (themes, genres, platforms, game_modes, regions) = try_join!(
             self.get_all_list_items("themes", &client),
             self.get_all_list_items("genres", &client),
             self.get_all_list_items("platforms", &client),
             self.get_all_list_items("game_modes", &client),
+            self.get_regions(&client),
         )?;
-
-        let regions = client
-            .post(format!("{URL}/release_date_regions"))
-            .body("fields region; limit 500;")
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
-        dbg!(regions);
 
         let response = CoreDetailsProviderIgdbSpecifics {
             themes,
             genres,
             platforms,
             game_modes,
-            game_localization_regions: vec![],
+            game_localization_regions: regions,
         };
         Ok(response)
     }
