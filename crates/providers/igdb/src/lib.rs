@@ -32,7 +32,7 @@ use reqwest::{
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use slug::slugify;
@@ -741,22 +741,24 @@ impl IgdbService {
         }
     }
 
-    async fn get_all_list_items(
+    async fn paginate_igdb_endpoint<T>(
         &self,
-        endpoint: &str,
         client: &Client,
-    ) -> Result<Vec<IdAndNamedObject>> {
+        endpoint: &str,
+        base_body: &str,
+    ) -> Result<Vec<T>>
+    where
+        T: DeserializeOwned,
+    {
         let limit = 500;
-        let base_body = format!("fields id, name; where name != null; limit {limit};");
-
         let mut offset = 0;
         let mut items = vec![];
 
         loop {
             let body = if offset == 0 {
-                base_body.clone()
+                base_body.to_string()
             } else {
-                format!("{base_body} offset {};", offset)
+                format!("{base_body} offset {offset};")
             };
 
             let rsp = client
@@ -765,7 +767,7 @@ impl IgdbService {
                 .send()
                 .await?;
 
-            let page_items = rsp.json::<Vec<IdAndNamedObject>>().await?;
+            let page_items = rsp.json::<Vec<T>>().await?;
             let page_size = page_items.len();
             items.extend(page_items);
 
@@ -776,53 +778,37 @@ impl IgdbService {
             offset += limit;
         }
 
-        items.sort_by_key(|item| item.name.clone());
+        Ok(items)
+    }
 
+    async fn get_all_list_items(
+        &self,
+        endpoint: &str,
+        client: &Client,
+    ) -> Result<Vec<IdAndNamedObject>> {
+        let base_body = "fields id, name; where name != null; limit 500;";
+        let mut items = self
+            .paginate_igdb_endpoint::<IdAndNamedObject>(client, endpoint, base_body)
+            .await?;
+        items.sort_by_key(|item| item.name.clone());
         Ok(items)
     }
 
     async fn get_release_date_regions(&self, client: &Client) -> Result<Vec<IdAndNamedObject>> {
-        let limit = 500;
-        let base_body = format!("fields id, region; limit {limit};");
+        let base_body = "fields id, region; limit 500;";
+        let raw_items = self
+            .paginate_igdb_endpoint::<IgdbRegionResponse>(client, "release_date_regions", base_body)
+            .await?;
 
-        let mut offset = 0;
-        let mut items = vec![];
-
-        loop {
-            let body = if offset == 0 {
-                base_body.clone()
-            } else {
-                format!("{base_body} offset {};", offset)
-            };
-
-            let rsp = client
-                .post(format!("{URL}/release_date_regions"))
-                .body(body)
-                .send()
-                .await?;
-
-            let page_items = rsp.json::<Vec<IgdbRegionResponse>>().await?;
-            let page_size = page_items.len();
-
-            let mapped_items: Vec<IdAndNamedObject> = page_items
-                .into_iter()
-                .map(|item| IdAndNamedObject {
-                    id: item.id,
-                    name: item.region.to_case(Case::Title),
-                })
-                .collect();
-
-            items.extend(mapped_items);
-
-            if page_size < limit {
-                break;
-            }
-
-            offset += limit;
-        }
+        let mut items: Vec<IdAndNamedObject> = raw_items
+            .into_iter()
+            .map(|item| IdAndNamedObject {
+                id: item.id,
+                name: item.region.to_case(Case::Title),
+            })
+            .collect();
 
         items.sort_by_key(|item| item.name.clone());
-
         Ok(items)
     }
 
