@@ -110,7 +110,7 @@ const searchSchema = z.object({
 	googleBooksPassRawQuery: zodBoolAsString.optional(),
 	igdbAllowGamesWithParent: zodBoolAsString.optional(),
 	igdbPlatformExclusivesOnly: zodBoolAsString.optional(),
-	igdbReleaseDateRegions: zodCommaDelimitedString.optional(),
+	igdbReleaseDateRegionIds: zodCommaDelimitedString.optional(),
 });
 
 enum Action {
@@ -213,7 +213,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 									genreIds: urlParse.igdbGenreIds,
 									platformIds: urlParse.igdbPlatformIds,
 									gameModeIds: urlParse.igdbGameModeIds,
-									releaseDateRegions: urlParse.igdbReleaseDateRegions,
+									releaseDateRegionIds: urlParse.igdbReleaseDateRegionIds,
 									allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
 									platformExclusivesOnly: urlParse.igdbPlatformExclusivesOnly,
 								},
@@ -720,8 +720,8 @@ const SearchFiltersModalForm = () => {
 						searchable
 						hidePickedOptions
 						label="Select release regions"
-						value={loaderData.mediaSearch.url.igdbReleaseDateRegions || []}
-						onChange={(v) => setP("igdbReleaseDateRegions", v.join(","))}
+						value={loaderData.mediaSearch.url.igdbReleaseDateRegionIds || []}
+						onChange={(v) => setP("igdbReleaseDateRegionIds", v.join(","))}
 						data={coreDetails.providerSpecifics.igdb.releaseDateRegions.map(
 							(lr) => ({
 								label: lr.name,

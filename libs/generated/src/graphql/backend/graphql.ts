@@ -1366,7 +1366,7 @@ export type MetadataSearchSourceIgdbSpecifics = {
   genreIds?: InputMaybe<Array<Scalars['String']['input']>>;
   platformExclusivesOnly?: InputMaybe<Scalars['Boolean']['input']>;
   platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
-  releaseDateRegions?: InputMaybe<Array<Scalars['String']['input']>>;
+  releaseDateRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   themeIds?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
