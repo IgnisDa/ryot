@@ -1,26 +1,20 @@
 import {
-	CreateOrUpdateReviewDocument,
 	CreateReviewCommentDocument,
-	DeleteReviewDocument,
 	DeleteS3ObjectDocument,
 	EntityLot,
 	ExpireCacheKeyDocument,
 	MarkEntityAsPartialDocument,
-	Visibility,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
 	processSubmission,
 	zodBoolAsString,
-	zodCheckboxAsString,
 } from "@ryot/ts-utils";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { z } from "zod";
 import {
-	MetadataSpecificsSchema,
 	colorSchemeCookie,
 	createToastHeaders,
 	extendResponseHeaders,
@@ -75,40 +69,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				}),
 			);
 		})
-		.with("performReviewAction", async () => {
-			const submission = processSubmission(formData, reviewSchema);
-			if (submission.shouldDelete) {
-				invariant(submission.reviewId);
-				await serverGqlService.authenticatedRequest(
-					request,
-					DeleteReviewDocument,
-					{ reviewId: submission.reviewId },
-				);
-				extendResponseHeaders(
-					headers,
-					await createToastHeaders({
-						message: "Review deleted successfully",
-						type: "success",
-					}),
-				);
-			} else {
-				const entityId = submission.entityId;
-				const entityLot = submission.entityLot;
-				invariant(entityId && entityLot);
-				await serverGqlService.authenticatedRequest(
-					request,
-					CreateOrUpdateReviewDocument,
-					{ input: { ...submission, entityId, entityLot } },
-				);
-				extendResponseHeaders(
-					headers,
-					await createToastHeaders({
-						message: "Review submitted successfully",
-						type: "success",
-					}),
-				);
-			}
-		})
 		.with("markEntityAsPartial", async () => {
 			const submission = processSubmission(formData, markEntityAsPartialSchema);
 			await serverGqlService.authenticatedRequest(
@@ -142,19 +102,6 @@ const reviewCommentSchema = z.object({
 	decrementLikes: zodBoolAsString.optional(),
 	incrementLikes: zodBoolAsString.optional(),
 });
-
-const reviewSchema = z
-	.object({
-		text: z.string().optional(),
-		rating: z.string().optional(),
-		entityId: z.string().optional(),
-		reviewId: z.string().optional(),
-		shouldDelete: zodBoolAsString.optional(),
-		isSpoiler: zodCheckboxAsString.optional(),
-		entityLot: z.enum(EntityLot).optional(),
-		visibility: z.enum(Visibility).optional(),
-	})
-	.extend(MetadataSpecificsSchema.shape);
 
 const markEntityAsPartialSchema = z.object({
 	entityId: z.string(),
