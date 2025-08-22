@@ -109,6 +109,7 @@ const searchSchema = z.object({
 	igdbGameModeIds: zodCommaDelimitedString.optional(),
 	googleBooksPassRawQuery: zodBoolAsString.optional(),
 	igdbAllowGamesWithParent: zodBoolAsString.optional(),
+	igdbPlatformExclusivesOnly: zodBoolAsString.optional(),
 	igdbReleaseDateRegions: zodCommaDelimitedString.optional(),
 });
 
@@ -214,6 +215,7 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 									gameModeIds: urlParse.igdbGameModeIds,
 									releaseDateRegions: urlParse.igdbReleaseDateRegions,
 									allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+									platformExclusivesOnly: urlParse.igdbPlatformExclusivesOnly,
 								},
 							},
 						},
@@ -675,19 +677,30 @@ const SearchFiltersModalForm = () => {
 							value: g.id.toString(),
 						}))}
 					/>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
-						label="Select platforms"
-						value={loaderData.mediaSearch.url.igdbPlatformIds || []}
-						onChange={(v) => setP("igdbPlatformIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
-							label: p.name,
-							value: p.id.toString(),
-						}))}
-					/>
+					<Stack gap="xs">
+						<MultiSelect
+							size="xs"
+							clearable
+							searchable
+							hidePickedOptions
+							label="Select platforms"
+							value={loaderData.mediaSearch.url.igdbPlatformIds || []}
+							onChange={(v) => setP("igdbPlatformIds", v.join(","))}
+							data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
+								label: p.name,
+								value: p.id.toString(),
+							}))}
+						/>
+						<Checkbox
+							size="xs"
+							ml="auto"
+							label="Platform exclusives only"
+							checked={loaderData.mediaSearch.url.igdbPlatformExclusivesOnly}
+							onChange={(e) =>
+								setP("igdbPlatformExclusivesOnly", String(e.target.checked))
+							}
+						/>
+					</Stack>
 					<MultiSelect
 						size="xs"
 						clearable

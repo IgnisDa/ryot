@@ -425,6 +425,7 @@ pub struct MetadataSearchSourceIgdbSpecifics {
     pub platform_ids: Option<Vec<String>>,
     pub game_mode_ids: Option<Vec<String>>,
     pub allow_games_with_parent: Option<bool>,
+    pub platform_exclusives_only: Option<bool>,
     pub release_date_regions: Option<Vec<String>>,
 }
 

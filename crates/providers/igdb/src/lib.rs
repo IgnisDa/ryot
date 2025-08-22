@@ -534,6 +534,15 @@ where id = {identity};
 
         filters.extend(param_filters);
 
+        let platform_exclusives_only = source_specifics
+            .as_ref()
+            .and_then(|s| s.igdb.as_ref().and_then(|i| i.platform_exclusives_only))
+            .unwrap_or(false);
+
+        if platform_exclusives_only {
+            filters.push("category = 0".to_string());
+        }
+
         let where_clause = if filters.is_empty() {
             String::new()
         } else {
