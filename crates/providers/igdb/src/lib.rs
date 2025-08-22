@@ -7,7 +7,7 @@ use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
     MetadataSearchSourceIgdbSpecifics, MetadataSearchSourceSpecifics, NamedObject,
-    PersonSourceSpecifics, SearchDetails, StringIdAndNamedObject,
+    PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
 use convert_case::{Case, Casing};
@@ -113,6 +113,7 @@ struct IgdbWebsite {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbRegionResponse {
+    id: i32,
     region: String,
 }
 
@@ -780,12 +781,9 @@ impl IgdbService {
         Ok(items)
     }
 
-    async fn get_release_date_regions(
-        &self,
-        client: &Client,
-    ) -> Result<Vec<StringIdAndNamedObject>> {
+    async fn get_release_date_regions(&self, client: &Client) -> Result<Vec<IdAndNamedObject>> {
         let limit = 500;
-        let base_body = format!("fields region; limit {limit};");
+        let base_body = format!("fields id, region; limit {limit};");
 
         let mut offset = 0;
         let mut items = vec![];
@@ -806,10 +804,10 @@ impl IgdbService {
             let page_items = rsp.json::<Vec<IgdbRegionResponse>>().await?;
             let page_size = page_items.len();
 
-            let mapped_items: Vec<StringIdAndNamedObject> = page_items
+            let mapped_items: Vec<IdAndNamedObject> = page_items
                 .into_iter()
-                .map(|item| StringIdAndNamedObject {
-                    id: item.region.clone(),
+                .map(|item| IdAndNamedObject {
+                    id: item.id,
                     name: item.region.to_case(Case::Title),
                 })
                 .collect();
@@ -830,7 +828,7 @@ impl IgdbService {
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let client = self.get_client_config().await?;
-        let (themes, genres, platforms, game_modes, regions) = try_join!(
+        let (themes, genres, platforms, game_modes, release_date_regions) = try_join!(
             self.get_all_list_items("themes", &client),
             self.get_all_list_items("genres", &client),
             self.get_all_list_items("platforms", &client),
@@ -843,7 +841,7 @@ impl IgdbService {
             genres,
             platforms,
             game_modes,
-            release_date_regions: regions,
+            release_date_regions,
         };
         Ok(response)
     }
