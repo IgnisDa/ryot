@@ -784,8 +784,17 @@ impl IgdbService {
             self.get_all_list_items("themes", &client),
             self.get_all_list_items("genres", &client),
             self.get_all_list_items("platforms", &client),
-            self.get_all_list_items("game_modes", &client)
+            self.get_all_list_items("game_modes", &client),
         )?;
+
+        let regions = client
+            .post(format!("{URL}/release_date_regions"))
+            .body("fields region; limit 500;")
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+        dbg!(regions);
 
         let response = CoreDetailsProviderIgdbSpecifics {
             themes,
