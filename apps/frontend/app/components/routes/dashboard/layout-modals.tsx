@@ -16,7 +16,7 @@ import { CreateMeasurementForm } from "./forms/create-measurement-form";
 import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";
 import { EditEntityCollectionInformationForm } from "./forms/edit-entity-collection-information-form";
 import { MetadataProgressUpdateForm } from "./forms/metadata-progress-update/progress-update";
-import { ReviewEntityForm } from "./forms/review-entity-form/review-form";
+import { ReviewEntityForm } from "./forms/review-entity-form";
 
 export function LayoutModals() {
 	const { metadataToUpdate, initializeMetadataToUpdate } =
