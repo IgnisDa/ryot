@@ -738,9 +738,12 @@ impl IgdbService {
         }
     }
 
-    async fn get_all_list_items(&self, endpoint: &str) -> Result<Vec<IdAndNamedObject>> {
+    async fn get_all_list_items(
+        &self,
+        endpoint: &str,
+        client: &Client,
+    ) -> Result<Vec<IdAndNamedObject>> {
         let limit = 500;
-        let client = self.get_client_config().await?;
         let base_body = format!("fields id, name; where name != null; limit {limit};");
 
         let mut offset = 0;
@@ -776,13 +779,12 @@ impl IgdbService {
     }
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
-        self.get_client_config().await?;
-        let (themes, genres, game_localization_regions, platforms, game_modes) = try_join!(
-            self.get_all_list_items("themes"),
-            self.get_all_list_items("genres"),
-            self.get_all_list_items("regions"),
-            self.get_all_list_items("platforms"),
-            self.get_all_list_items("game_modes")
+        let client = self.get_client_config().await?;
+        let (themes, genres, platforms, game_modes) = try_join!(
+            self.get_all_list_items("themes", &client),
+            self.get_all_list_items("genres", &client),
+            self.get_all_list_items("platforms", &client),
+            self.get_all_list_items("game_modes", &client)
         )?;
 
         let response = CoreDetailsProviderIgdbSpecifics {
@@ -790,7 +792,7 @@ impl IgdbService {
             genres,
             platforms,
             game_modes,
-            game_localization_regions,
+            game_localization_regions: vec![],
         };
         Ok(response)
     }
