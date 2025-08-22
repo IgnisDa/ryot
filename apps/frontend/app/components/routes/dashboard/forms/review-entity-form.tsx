@@ -15,7 +15,6 @@ import {
 	ThemeIcon,
 	rem,
 } from "@mantine/core";
-import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateReviewDocument,
@@ -33,7 +32,9 @@ import {
 	IconPercentage,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
+import { produce } from "immer";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import {
@@ -57,77 +58,58 @@ export const ReviewEntityForm = (props: {
 	const userPreferences = useUserPreferences();
 	const events = useApplicationEvents();
 	const [entityToReview] = useReviewEntity();
+	const [ratingInThreePointSmiley, setRatingInThreePointSmiley] = useState<
+		ThreePointSmileyRating | undefined
+	>(
+		entityToReview?.existingReview?.rating
+			? convertDecimalToThreePointSmiley(
+					Number(entityToReview.existingReview.rating),
+				)
+			: undefined,
+	);
+	const [showSeasonNumber, setShowSeasonNumber] = useState<string | undefined>(
+		entityToReview?.existingReview?.showExtraInformation?.season?.toString(),
+	);
+	const [showEpisodeNumber, setShowEpisodeNumber] = useState<
+		string | undefined
+	>(entityToReview?.existingReview?.showExtraInformation?.episode?.toString());
+	const [podcastEpisodeNumber, setPodcastEpisodeNumber] = useState<
+		string | undefined
+	>(
+		entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
+	);
 	const { data: metadataDetails } = useMetadataDetails(
 		entityToReview?.entityId,
 		entityToReview?.entityLot === EntityLot.Metadata,
 	);
 
-	const form = useForm<
-		CreateOrUpdateReviewInput & {
-			ratingInThreePointSmiley?: ThreePointSmileyRating;
-			showSeasonNumberString?: string;
-			showEpisodeNumberString?: string;
-			podcastEpisodeNumberString?: string;
-		}
-	>({
-		mode: "uncontrolled",
-		initialValues: {
-			entityId: entityToReview?.entityId || "",
-			reviewId: entityToReview?.existingReview?.id,
-			text: entityToReview?.existingReview?.textOriginal || "",
-			entityLot: entityToReview?.entityLot || EntityLot.Metadata,
-			isSpoiler: entityToReview?.existingReview?.isSpoiler || false,
-			visibility:
-				entityToReview?.existingReview?.visibility || Visibility.Public,
-			showSeasonNumber:
-				entityToReview?.existingReview?.showExtraInformation?.season,
-			showEpisodeNumber:
-				entityToReview?.existingReview?.showExtraInformation?.episode,
-			mangaVolumeNumber:
-				entityToReview?.existingReview?.mangaExtraInformation?.volume,
-			animeEpisodeNumber:
-				entityToReview?.existingReview?.animeExtraInformation?.episode,
-			mangaChapterNumber:
-				entityToReview?.existingReview?.mangaExtraInformation?.chapter,
-			podcastEpisodeNumber:
-				entityToReview?.existingReview?.podcastExtraInformation?.episode,
-			rating: entityToReview?.existingReview?.rating
-				? entityToReview.existingReview.rating
-				: undefined,
-			ratingInThreePointSmiley: entityToReview?.existingReview?.rating
-				? convertDecimalToThreePointSmiley(
-						Number(entityToReview.existingReview.rating),
-					)
-				: undefined,
-			showSeasonNumberString:
-				entityToReview?.existingReview?.showExtraInformation?.season?.toString(),
-			showEpisodeNumberString:
-				entityToReview?.existingReview?.showExtraInformation?.episode?.toString(),
-			podcastEpisodeNumberString:
-				entityToReview?.existingReview?.podcastExtraInformation?.episode?.toString(),
-		},
+	const [input, setInput] = useState<CreateOrUpdateReviewInput>({
+		entityId: entityToReview?.entityId || "",
+		reviewId: entityToReview?.existingReview?.id,
+		text: entityToReview?.existingReview?.textOriginal || "",
+		entityLot: entityToReview?.entityLot || EntityLot.Metadata,
+		isSpoiler: entityToReview?.existingReview?.isSpoiler || false,
+		visibility: entityToReview?.existingReview?.visibility || Visibility.Public,
+		showSeasonNumber:
+			entityToReview?.existingReview?.showExtraInformation?.season,
+		showEpisodeNumber:
+			entityToReview?.existingReview?.showExtraInformation?.episode,
+		mangaVolumeNumber:
+			entityToReview?.existingReview?.mangaExtraInformation?.volume,
+		animeEpisodeNumber:
+			entityToReview?.existingReview?.animeExtraInformation?.episode,
+		mangaChapterNumber:
+			entityToReview?.existingReview?.mangaExtraInformation?.chapter,
+		podcastEpisodeNumber:
+			entityToReview?.existingReview?.podcastExtraInformation?.episode,
+		rating: entityToReview?.existingReview?.rating
+			? entityToReview.existingReview.rating
+			: undefined,
 	});
 
 	const reviewMutation = useMutation({
-		mutationFn: () => {
-			const formValues = form.getValues();
-			const input: CreateOrUpdateReviewInput = {
-				text: formValues.text,
-				rating: formValues.rating,
-				entityId: formValues.entityId,
-				reviewId: formValues.reviewId,
-				entityLot: formValues.entityLot,
-				isSpoiler: formValues.isSpoiler,
-				visibility: formValues.visibility,
-				showSeasonNumber: formValues.showSeasonNumber,
-				showEpisodeNumber: formValues.showEpisodeNumber,
-				mangaVolumeNumber: formValues.mangaVolumeNumber,
-				animeEpisodeNumber: formValues.animeEpisodeNumber,
-				mangaChapterNumber: formValues.mangaChapterNumber,
-				podcastEpisodeNumber: formValues.podcastEpisodeNumber,
-			};
-			return clientGqlService.request(CreateOrUpdateReviewDocument, { input });
-		},
+		mutationFn: () =>
+			clientGqlService.request(CreateOrUpdateReviewDocument, { input }),
 	});
 
 	const SmileySurround = (props: {
@@ -137,15 +119,18 @@ export const ReviewEntityForm = (props: {
 		<ThemeIcon
 			size="xl"
 			variant={
-				props.smileyRating === form.getValues().ratingInThreePointSmiley
+				props.smileyRating === ratingInThreePointSmiley
 					? "outline"
 					: "transparent"
 			}
 			onClick={() => {
-				form.setFieldValue("ratingInThreePointSmiley", props.smileyRating);
-				form.setFieldValue(
-					"rating",
-					convertThreePointSmileyToDecimal(props.smileyRating).toString(),
+				setRatingInThreePointSmiley(props.smileyRating);
+				setInput(
+					produce(input, (draft) => {
+						draft.rating = convertThreePointSmileyToDecimal(
+							props.smileyRating,
+						).toString();
+					}),
 				);
 			}}
 		>
@@ -164,13 +149,13 @@ export const ReviewEntityForm = (props: {
 							<Input.Label>Rating:</Input.Label>
 							<Rating
 								fractions={2}
-								value={
-									form.getValues().rating
-										? Number(form.getValues().rating)
-										: undefined
-								}
+								value={input.rating ? Number(input.rating) : undefined}
 								onChange={(v) =>
-									form.setFieldValue("rating", v ? v.toString() : undefined)
+									setInput(
+										produce(input, (draft) => {
+											draft.rating = v ? v.toString() : undefined;
+										}),
+									)
 								}
 							/>
 						</Flex>
@@ -184,13 +169,13 @@ export const ReviewEntityForm = (props: {
 							hideControls
 							label="Rating"
 							rightSection={<IconPercentage size={16} />}
-							value={
-								form.getValues().rating
-									? Number(form.getValues().rating)
-									: undefined
-							}
+							value={input.rating ? Number(input.rating) : undefined}
 							onChange={(v) =>
-								form.setFieldValue("rating", v ? v.toString() : undefined)
+								setInput(
+									produce(input, (draft) => {
+										draft.rating = v ? v.toString() : undefined;
+									}),
+								)
 							}
 						/>
 					))
@@ -208,13 +193,13 @@ export const ReviewEntityForm = (props: {
 									Out of 10
 								</Text>
 							}
-							value={
-								form.getValues().rating
-									? Number(form.getValues().rating)
-									: undefined
-							}
+							value={input.rating ? Number(input.rating) : undefined}
 							onChange={(v) =>
-								form.setFieldValue("rating", v ? v.toString() : undefined)
+								setInput(
+									produce(input, (draft) => {
+										draft.rating = v ? v.toString() : undefined;
+									}),
+								)
 							}
 						/>
 					))
@@ -240,7 +225,14 @@ export const ReviewEntityForm = (props: {
 				<Checkbox
 					mt="lg"
 					label="This review is a spoiler"
-					{...form.getInputProps("isSpoiler", { type: "checkbox" })}
+					checked={input.isSpoiler || false}
+					onChange={(e) =>
+						setInput(
+							produce(input, (draft) => {
+								draft.isSpoiler = e.currentTarget.checked;
+							}),
+						)
+					}
 				/>
 			</Flex>
 			{entityToReview.metadataLot === MediaLot.Show ? (
@@ -251,10 +243,14 @@ export const ReviewEntityForm = (props: {
 						searchable
 						limit={50}
 						label="Season"
-						value={form.getValues().showSeasonNumberString}
+						value={showSeasonNumber}
 						onChange={(v) => {
-							form.setFieldValue("showSeasonNumberString", v || undefined);
-							form.setFieldValue("showSeasonNumber", v ? Number(v) : undefined);
+							setShowSeasonNumber(v || undefined);
+							setInput(
+								produce(input, (draft) => {
+									draft.showSeasonNumber = v ? Number(v) : undefined;
+								}),
+							);
 						}}
 						data={metadataDetails?.showSpecifics?.seasons.map((s) => ({
 							label: `${s.seasonNumber}. ${s.name.toString()}`,
@@ -267,21 +263,18 @@ export const ReviewEntityForm = (props: {
 						searchable
 						limit={50}
 						label="Episode"
-						value={form.getValues().showEpisodeNumberString}
+						value={showEpisodeNumber}
 						onChange={(v) => {
-							form.setFieldValue("showEpisodeNumberString", v || undefined);
-							form.setFieldValue(
-								"showEpisodeNumber",
-								v ? Number(v) : undefined,
+							setShowEpisodeNumber(v || undefined);
+							setInput(
+								produce(input, (draft) => {
+									draft.showEpisodeNumber = v ? Number(v) : undefined;
+								}),
 							);
 						}}
 						data={
 							metadataDetails?.showSpecifics?.seasons
-								.find(
-									(s) =>
-										s.seasonNumber.toString() ===
-										form.getValues().showSeasonNumberString,
-								)
+								.find((s) => s.seasonNumber.toString() === showSeasonNumber)
 								?.episodes.map((e) => ({
 									label: `${e.episodeNumber}. ${e.name.toString()}`,
 									value: e.episodeNumber.toString(),
@@ -296,12 +289,13 @@ export const ReviewEntityForm = (props: {
 					limit={50}
 					searchable
 					label="Episode"
-					value={form.getValues().podcastEpisodeNumberString}
+					value={podcastEpisodeNumber}
 					onChange={(v) => {
-						form.setFieldValue("podcastEpisodeNumberString", v || undefined);
-						form.setFieldValue(
-							"podcastEpisodeNumber",
-							v ? Number(v) : undefined,
+						setPodcastEpisodeNumber(v || undefined);
+						setInput(
+							produce(input, (draft) => {
+								draft.podcastEpisodeNumber = v ? Number(v) : undefined;
+							}),
 						);
 					}}
 					data={metadataDetails?.podcastSpecifics?.episodes.map((se) => ({
@@ -314,9 +308,13 @@ export const ReviewEntityForm = (props: {
 				<NumberInput
 					hideControls
 					label="Episode"
-					value={form.getValues().animeEpisodeNumber || undefined}
+					value={input.animeEpisodeNumber || undefined}
 					onChange={(v) =>
-						form.setFieldValue("animeEpisodeNumber", v as number)
+						setInput(
+							produce(input, (draft) => {
+								draft.animeEpisodeNumber = v as number;
+							}),
+						)
 					}
 				/>
 			) : null}
@@ -327,12 +325,16 @@ export const ReviewEntityForm = (props: {
 							hideControls
 							label="Chapter"
 							value={
-								form.getValues().mangaChapterNumber
-									? Number(form.getValues().mangaChapterNumber)
+								input.mangaChapterNumber
+									? Number(input.mangaChapterNumber)
 									: undefined
 							}
 							onChange={(v) =>
-								form.setFieldValue("mangaChapterNumber", v?.toString())
+								setInput(
+									produce(input, (draft) => {
+										draft.mangaChapterNumber = v?.toString();
+									}),
+								)
 							}
 						/>
 						<Text ta="center" fw="bold" mt="sm">
@@ -341,9 +343,13 @@ export const ReviewEntityForm = (props: {
 						<NumberInput
 							hideControls
 							label="Volume"
-							value={form.getValues().mangaVolumeNumber || undefined}
+							value={input.mangaVolumeNumber || undefined}
 							onChange={(v) =>
-								form.setFieldValue("mangaVolumeNumber", v as number)
+								setInput(
+									produce(input, (draft) => {
+										draft.mangaVolumeNumber = v as number;
+									}),
+								)
 							}
 						/>
 					</Group>
@@ -355,19 +361,32 @@ export const ReviewEntityForm = (props: {
 				minRows={10}
 				maxRows={20}
 				label="Review"
+				value={input.text || ""}
 				description="Markdown is supported"
-				{...form.getInputProps("text")}
+				onChange={(e) =>
+					setInput(
+						produce(input, (draft) => {
+							draft.text = e.target.value;
+						}),
+					)
+				}
 			/>
 			<Box>
 				<Input.Label>Visibility</Input.Label>
 				<SegmentedControl
 					fullWidth
-					value={form.getValues().visibility || Visibility.Public}
+					value={input.visibility || Visibility.Public}
 					data={Object.entries(Visibility).map(([k, v]) => ({
 						label: changeCase(k),
 						value: v,
 					}))}
-					onChange={(v) => form.setFieldValue("visibility", v as Visibility)}
+					onChange={(v) =>
+						setInput(
+							produce(input, (draft) => {
+								draft.visibility = v as Visibility;
+							}),
+						)
+					}
 				/>
 			</Box>
 			<Button
@@ -375,9 +394,6 @@ export const ReviewEntityForm = (props: {
 				w="100%"
 				loading={reviewMutation.isPending}
 				onClick={async () => {
-					const validation = form.validate();
-					if (validation.hasErrors) return;
-
 					events.postReview(entityToReview.entityTitle);
 					await reviewMutation.mutateAsync();
 					revalidator.revalidate();
