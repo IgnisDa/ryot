@@ -108,8 +108,25 @@ export const ReviewEntityForm = (props: {
 	});
 
 	const reviewMutation = useMutation({
-		mutationFn: () =>
-			clientGqlService.request(CreateOrUpdateReviewDocument, { input }),
+		mutationFn: (body: { input: CreateOrUpdateReviewInput }) =>
+			clientGqlService.request(CreateOrUpdateReviewDocument, body),
+		onSuccess: () => {
+			revalidator.revalidate();
+			refreshEntityDetails(entityToReview?.entityId || "");
+			notifications.show({
+				color: "green",
+				message: entityToReview?.existingReview?.id
+					? "Your review has been updated"
+					: "Your review has been created",
+			});
+			props.closeReviewEntityModal();
+		},
+		onError: () => {
+			notifications.show({
+				color: "red",
+				message: "Failed to submit review",
+			});
+		},
 	});
 
 	const SmileySurround = (props: {
@@ -394,18 +411,9 @@ export const ReviewEntityForm = (props: {
 				mt="md"
 				w="100%"
 				loading={reviewMutation.isPending}
-				onClick={async () => {
-					events.postReview(entityToReview.entityTitle);
-					await reviewMutation.mutateAsync();
-					revalidator.revalidate();
-					refreshEntityDetails(entityToReview.entityId);
-					notifications.show({
-						color: "green",
-						message: entityToReview.existingReview?.id
-							? "Your review has been updated"
-							: "Your review has been created",
-					});
-					props.closeReviewEntityModal();
+				onClick={() => {
+					events.postReview(entityToReview?.entityTitle);
+					reviewMutation.mutate({ input });
 				}}
 			>
 				{entityToReview.existingReview?.id ? "Update" : "Submit"}
