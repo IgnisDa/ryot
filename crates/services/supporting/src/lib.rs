@@ -91,13 +91,12 @@ impl SupportingService {
             .meta
             .map(|meta| serde_json::from_value::<Meta>(meta).unwrap());
         ryot_log!(debug, "Expiry: {:?}", key_meta.clone().map(|m| m.expiry));
-        if let Some(meta) = key_meta {
-            if let Some(expiry) = meta.expiry {
-                if self.server_start_time > convert_naive_to_utc(expiry) {
-                    ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
-                    return false;
-                }
-            }
+        if let Some(meta) = key_meta
+            && let Some(expiry) = meta.expiry
+            && self.server_start_time > convert_naive_to_utc(expiry)
+        {
+            ryot_log!(warn, "Pro key has expired. Please renew your subscription.");
+            return false;
         }
         ryot_log!(debug, "Pro key verified successfully");
         true

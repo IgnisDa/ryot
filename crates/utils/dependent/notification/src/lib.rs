@@ -92,8 +92,7 @@ async fn get_notification_message(
         } => {
             let url = get_entity_details_frontend_url(entity_id, entity_lot, Some("reviews"), ss);
             Ok(format!(
-                "New review posted for {} ({}, {}) by {}.",
-                entity_title, entity_lot, url, triggered_by_username
+                "New review posted for {entity_title} ({entity_lot}, {url}) by {triggered_by_username}."
             ))
         }
         UserNotificationContent::MetadataPublished {
@@ -105,17 +104,11 @@ async fn get_notification_message(
         } => {
             let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
             Ok(if let Some((season, episode)) = show_extra {
-                format!(
-                    "S{}E{} of {} ({}) has been released today.",
-                    season, episode, entity_title, url
-                )
+                format!("S{season}E{episode} of {entity_title} ({url}) has been released today.")
             } else if let Some(episode) = podcast_extra {
-                format!(
-                    "E{} of {} ({}) has been released today.",
-                    episode, entity_title, url
-                )
+                format!("E{episode} of {entity_title} ({url}) has been released today.")
             } else {
-                format!("{} ({}) has been released today.", entity_title, url)
+                format!("{entity_title} ({url}) has been released today.")
             })
         }
         UserNotificationContent::NewWorkoutCreated {
@@ -123,7 +116,7 @@ async fn get_notification_message(
             workout_name,
         } => {
             let url = get_entity_details_frontend_url(workout_id, EntityLot::Workout, None, ss);
-            Ok(format!("New workout created - {} ({})", workout_name, url))
+            Ok(format!("New workout created - {workout_name} ({url})"))
         }
         UserNotificationContent::OutdatedSeenEntries {
             entity_lot,
@@ -132,16 +125,14 @@ async fn get_notification_message(
             days_threshold,
             last_updated_on,
         } => Ok(format!(
-            "{} ({}) has been kept {} for more than {} days. Last updated on: {}.",
-            entity_title, entity_lot, seen_state, days_threshold, last_updated_on
+            "{entity_title} ({entity_lot}) has been kept {seen_state} for more than {days_threshold} days. Last updated on: {last_updated_on}."
         )),
         UserNotificationContent::MetadataStatusChanged {
             old_status,
             new_status,
             entity_title,
         } => Ok(format!(
-            "Status of {} changed from {} to {}",
-            entity_title, old_status, new_status
+            "Status of {entity_title} changed from {old_status} to {new_status}"
         )),
         UserNotificationContent::MetadataEpisodeReleased {
             entity_title,
@@ -150,13 +141,11 @@ async fn get_notification_message(
             season_number,
         } => Ok(if let Some(season) = season_number {
             format!(
-                "Number of episodes changed from {} to {} (Season {}) for {}",
-                old_episode_count, new_episode_count, season, entity_title
+                "Number of episodes changed from {old_episode_count} to {new_episode_count} (Season {season}) for {entity_title}"
             )
         } else {
             format!(
-                "Number of episodes changed from {} to {} for {}",
-                old_episode_count, new_episode_count, entity_title
+                "Number of episodes changed from {old_episode_count} to {new_episode_count} for {entity_title}"
             )
         }),
         UserNotificationContent::PersonMetadataAssociated {
@@ -164,8 +153,7 @@ async fn get_notification_message(
             person_name,
             metadata_title,
         } => Ok(format!(
-            "{} has been associated with {} as {}",
-            person_name, metadata_title, role
+            "{person_name} has been associated with {metadata_title} as {role}"
         )),
         UserNotificationContent::MetadataReleaseDateChanged {
             entity_title,
@@ -176,14 +164,10 @@ async fn get_notification_message(
         } => Ok(
             if let (Some(season), Some(episode)) = (season_number, episode_number) {
                 format!(
-                    "Episode release date changed from {} to {} (S{}E{}) for {}",
-                    old_date, new_date, season, episode, entity_title
+                    "Episode release date changed from {old_date} to {new_date} (S{season}E{episode}) for {entity_title}"
                 )
             } else {
-                format!(
-                    "Publish year changed from {} to {} for {}",
-                    old_date, new_date, entity_title
-                )
+                format!("Publish year changed from {old_date} to {new_date} for {entity_title}")
             },
         ),
         UserNotificationContent::MetadataEpisodeNameChanged {
@@ -194,13 +178,11 @@ async fn get_notification_message(
             episode_number,
         } => Ok(if let Some(season) = season_number {
             format!(
-                "Episode name changed from {} to {} (S{}E{}) for {}",
-                old_name, new_name, season, episode_number, entity_title
+                "Episode name changed from {old_name} to {new_name} (S{season}E{episode_number}) for {entity_title}"
             )
         } else {
             format!(
-                "Episode name changed from {} to {} (EP{}) for {}",
-                old_name, new_name, episode_number, entity_title
+                "Episode name changed from {old_name} to {new_name} (EP{episode_number}) for {entity_title}"
             )
         }),
         UserNotificationContent::MetadataEpisodeImagesChanged {
@@ -208,31 +190,23 @@ async fn get_notification_message(
             season_number,
             episode_number,
         } => Ok(if let Some(season) = season_number {
-            format!(
-                "Episode image changed for S{}E{} in {}",
-                season, episode_number, entity_title
-            )
+            format!("Episode image changed for S{season}E{episode_number} in {entity_title}")
         } else {
-            format!(
-                "Episode image changed for EP{} in {}",
-                episode_number, entity_title
-            )
+            format!("Episode image changed for EP{episode_number} in {entity_title}")
         }),
         UserNotificationContent::PersonMetadataGroupAssociated {
             role,
             person_name,
             metadata_group_title,
         } => Ok(format!(
-            "{} has been associated with {} as {}",
-            person_name, metadata_group_title, role
+            "{person_name} has been associated with {metadata_group_title} as {role}"
         )),
         UserNotificationContent::MetadataNumberOfSeasonsChanged {
             entity_title,
             old_seasons,
             new_seasons,
         } => Ok(format!(
-            "Number of seasons changed from {} to {} for {}",
-            old_seasons, new_seasons, entity_title
+            "Number of seasons changed from {old_seasons} to {new_seasons} for {entity_title}"
         )),
         UserNotificationContent::MetadataChaptersOrEpisodesChanged {
             entity_title,
@@ -240,18 +214,14 @@ async fn get_notification_message(
             new_count,
             content_type,
         } => Ok(format!(
-            "Number of {} changed from {} to {} for {}",
-            content_type, old_count, new_count, entity_title
+            "Number of {content_type} changed from {old_count} to {new_count} for {entity_title}"
         )),
         UserNotificationContent::NotificationFromReminderCollection { reminder_text } => {
             Ok(reminder_text)
         }
-        UserNotificationContent::IntegrationDisabledDueToTooManyErrors { provider_name } => {
-            Ok(format!(
-                "Integration {} has been disabled due to too many errors",
-                provider_name
-            ))
-        }
+        UserNotificationContent::IntegrationDisabledDueToTooManyErrors { provider_name } => Ok(
+            format!("Integration {provider_name} has been disabled due to too many errors"),
+        ),
         UserNotificationContent::MetadataMovedFromCompletedToWatchlistCollection {
             entity_id,
             entity_lot,
@@ -259,8 +229,7 @@ async fn get_notification_message(
         } => {
             let url = get_entity_details_frontend_url(entity_id, entity_lot, None, ss);
             Ok(format!(
-                "{} ({}) has been moved from the Completed to the Watchlist collection",
-                entity_title, url
+                "{entity_title} ({url}) has been moved from the Completed to the Watchlist collection"
             ))
         }
     }

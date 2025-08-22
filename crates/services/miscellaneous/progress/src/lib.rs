@@ -45,10 +45,10 @@ pub async fn update_seen_item(
             ),
             true => (None, None),
         };
-        if let Some(review_item) = review {
-            if &review_item.user_id != user_id {
-                bail!("You cannot associate a review with a seen item that is not yours",);
-            }
+        if let Some(review_item) = review
+            && &review_item.user_id != user_id
+        {
+            bail!("You cannot associate a review with a seen item that is not yours",);
         }
         seen.review_id = ActiveValue::Set(to_update_review_id);
     }

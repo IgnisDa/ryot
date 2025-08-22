@@ -116,10 +116,10 @@ async fn build_provider_specifics(
 ) -> Result<CoreDetailsProviderSpecifics> {
     let mut specifics = CoreDetailsProviderSpecifics::default();
 
-    if let Ok(service) = IgdbService::new(ss.clone()).await {
-        if let Ok(igdb) = service.get_provider_specifics().await {
-            specifics.igdb = igdb;
-        }
+    if let Ok(service) = IgdbService::new(ss.clone()).await
+        && let Ok(igdb) = service.get_provider_specifics().await
+    {
+        specifics.igdb = igdb;
     }
 
     Ok(specifics)
