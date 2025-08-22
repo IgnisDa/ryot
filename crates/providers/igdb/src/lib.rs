@@ -783,7 +783,10 @@ impl IgdbService {
         Ok(items)
     }
 
-    async fn get_regions(&self, client: &Client) -> Result<Vec<StringIdAndNamedObject>> {
+    async fn get_release_date_regions(
+        &self,
+        client: &Client,
+    ) -> Result<Vec<StringIdAndNamedObject>> {
         let limit = 500;
         let base_body = format!("fields region; limit {limit};");
 
@@ -835,7 +838,7 @@ impl IgdbService {
             self.get_all_list_items("genres", &client),
             self.get_all_list_items("platforms", &client),
             self.get_all_list_items("game_modes", &client),
-            self.get_regions(&client),
+            self.get_release_date_regions(&client),
         )?;
 
         let response = CoreDetailsProviderIgdbSpecifics {
@@ -843,7 +846,7 @@ impl IgdbService {
             genres,
             platforms,
             game_modes,
-            game_localization_regions: regions,
+            release_date_regions: regions,
         };
         Ok(response)
     }

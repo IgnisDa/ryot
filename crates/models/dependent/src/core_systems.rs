@@ -60,7 +60,7 @@ pub struct CoreDetailsProviderIgdbSpecifics {
     pub genres: Vec<IdAndNamedObject>,
     pub platforms: Vec<IdAndNamedObject>,
     pub game_modes: Vec<IdAndNamedObject>,
-    pub game_localization_regions: Vec<StringIdAndNamedObject>,
+    pub release_date_regions: Vec<StringIdAndNamedObject>,
 }
 
 #[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
