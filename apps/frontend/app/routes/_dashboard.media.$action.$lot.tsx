@@ -701,8 +701,8 @@ const SearchFiltersModalForm = () => {
 						onChange={(v) => setP("igdbReleaseDateRegions", v.join(","))}
 						data={coreDetails.providerSpecifics.igdb.releaseDateRegions.map(
 							(lr) => ({
-								value: lr.id,
 								label: lr.name,
+								value: lr.id.toString(),
 							}),
 						)}
 					/>
