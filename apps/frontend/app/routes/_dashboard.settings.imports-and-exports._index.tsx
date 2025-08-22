@@ -296,10 +296,10 @@ export default function Page() {
 												() => (
 													<>
 														<FileInput
-															label="CSV file"
-															accept=".csv"
 															required
 															name="csvPath"
+															accept=".csv"
+															label="CSV file"
 														/>
 													</>
 												),
@@ -363,50 +363,50 @@ export default function Page() {
 											.with(ImportSource.Movary, () => (
 												<>
 													<FileInput
-														label="History CSV file"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="history"
+														label="History CSV file"
 													/>
 													<FileInput
-														label="Ratings CSV file"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="ratings"
+														label="Ratings CSV file"
 													/>
 													<FileInput
-														label="Watchlist CSV file"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="watchlist"
+														label="Watchlist CSV file"
 													/>
 												</>
 											))
 											.with(ImportSource.Igdb, () => (
 												<>
 													<Select
-														label="Collection"
 														required
 														name="collection"
+														label="Collection"
 														data={userCollections.map((c) => c.name)}
 													/>
 													<FileInput
-														label="CSV File"
-														accept=".csv"
 														required
+														accept=".csv"
 														name="csvPath"
+														label="CSV File"
 													/>
 												</>
 											))
 											.with(ImportSource.Myanimelist, () => (
 												<>
 													<FileInput
-														label="Anime export file"
 														name="animePath"
+														label="Anime export file"
 													/>
 													<FileInput
-														label="Manga export file"
 														name="mangaPath"
+														label="Manga export file"
 													/>
 												</>
 											))
@@ -416,10 +416,10 @@ export default function Page() {
 												() => (
 													<>
 														<FileInput
-															label="JSON export file"
-															accept=".json"
 															required
 															name="export"
+															accept=".json"
+															label="JSON export file"
 														/>
 													</>
 												),
