@@ -75,23 +75,23 @@ pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Re
             error: LoginErrorVariant::AccountDisabled,
         }));
     }
-    if ss.config.users.validate_password
-        && let AuthUserInput::Password(PasswordUserInput { password, .. }) = input
-    {
-        if let Some(hashed_password) = &user.password {
-            let parsed_hash = PasswordHash::new(hashed_password).unwrap();
-            if Argon2::default()
-                .verify_password(password.as_bytes(), &parsed_hash)
-                .is_err()
-            {
+    if ss.config.users.validate_password {
+        if let AuthUserInput::Password(PasswordUserInput { password, .. }) = input {
+            if let Some(hashed_password) = &user.password {
+                let parsed_hash = PasswordHash::new(hashed_password).unwrap();
+                if Argon2::default()
+                    .verify_password(password.as_bytes(), &parsed_hash)
+                    .is_err()
+                {
+                    return Ok(LoginResult::Error(LoginError {
+                        error: LoginErrorVariant::CredentialsMismatch,
+                    }));
+                }
+            } else {
                 return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::CredentialsMismatch,
+                    error: LoginErrorVariant::IncorrectProviderChosen,
                 }));
             }
-        } else {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::IncorrectProviderChosen,
-            }));
         }
     }
     if user.two_factor_information.is_some() {

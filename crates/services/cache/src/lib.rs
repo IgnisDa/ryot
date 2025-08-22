@@ -181,10 +181,10 @@ pub async fn get_values(
 
     let mut values = HashMap::new();
     for cache in caches {
-        if let Some(cache_version) = cache.version
-            && cache_version != ss.server_start_time.to_string()
-        {
-            continue;
+        if let Some(cache_version) = cache.version {
+            if cache_version != ss.server_start_time.to_string() {
+                continue;
+            }
         }
         values.insert(
             serde_json::from_str(&cache.key).unwrap(),
