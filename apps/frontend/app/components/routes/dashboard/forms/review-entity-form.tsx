@@ -246,6 +246,7 @@ export const ReviewEntityForm = (props: {
 						value={showSeasonNumber}
 						onChange={(v) => {
 							setShowSeasonNumber(v || undefined);
+							setShowEpisodeNumber(undefined);
 							setInput(
 								produce(input, (draft) => {
 									draft.showSeasonNumber = v ? Number(v) : undefined;
