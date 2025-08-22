@@ -5070,18 +5070,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mantine/form@npm:8.2.2":
-  version: 8.2.2
-  resolution: "@mantine/form@npm:8.2.2"
-  dependencies:
-    fast-deep-equal: "npm:^3.1.3"
-    klona: "npm:^2.0.6"
-  peerDependencies:
-    react: ^18.x || ^19.x
-  checksum: 10/106e1249ea48d2aa781e7be3d2bd5e67c8ab975aae29db271a1a084bf3516567ad5acf1a440a9409880b4d33d78339bf6b9dab79cea9a612fbf0aba7648d1b61
-  languageName: node
-  linkType: hard
-
 "@mantine/hooks@npm:8.2.2":
   version: 8.2.2
   resolution: "@mantine/hooks@npm:8.2.2"
@@ -6991,7 +6979,6 @@ __metadata:
     "@mantine/code-highlight": "npm:8.2.2"
     "@mantine/core": "npm:8.2.2"
     "@mantine/dates": "npm:8.2.2"
-    "@mantine/form": "npm:8.2.2"
     "@mantine/hooks": "npm:8.2.2"
     "@mantine/modals": "npm:8.2.2"
     "@mantine/notifications": "npm:8.2.2"
@@ -12629,13 +12616,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-deep-equal@npm:^3.1.3":
-  version: 3.1.3
-  resolution: "fast-deep-equal@npm:3.1.3"
-  checksum: 10/e21a9d8d84f53493b6aa15efc9cfd53dd5b714a1f23f67fb5dc8f574af80df889b3bce25dc081887c6d25457cce704e636395333abad896ccdec03abaf1f3f9d
-  languageName: node
-  linkType: hard
-
 "fast-fifo@npm:^1.2.0, fast-fifo@npm:^1.3.2":
   version: 1.3.2
   resolution: "fast-fifo@npm:1.3.2"
@@ -14587,13 +14567,6 @@ __metadata:
   version: 3.0.3
   resolution: "kleur@npm:3.0.3"
   checksum: 10/0c0ecaf00a5c6173d25059c7db2113850b5457016dfa1d0e3ef26da4704fbb186b4938d7611246d86f0ddf1bccf26828daa5877b1f232a65e7373d0122a83e7f
-  languageName: node
-  linkType: hard
-
-"klona@npm:^2.0.6":
-  version: 2.0.6
-  resolution: "klona@npm:2.0.6"
-  checksum: 10/ed7e2c9af58cb646e758e60b75dec24bf72466066290f78c515a2bae23a06fa280f11ff3210c43b94a18744954aa5358f9d46583d5e4c36da073ecc3606355c4
   languageName: node
   linkType: hard
 
