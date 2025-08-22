@@ -282,6 +282,7 @@ fn get_data_for_custom_metadata(
         is_partial: ActiveValue::Set(Some(is_partial)),
         description: ActiveValue::Set(input.description),
         publish_year: ActiveValue::Set(input.publish_year),
+        publish_date: ActiveValue::Set(input.publish_date),
         show_specifics: ActiveValue::Set(input.show_specifics),
         book_specifics: ActiveValue::Set(input.book_specifics),
         manga_specifics: ActiveValue::Set(input.manga_specifics),

@@ -360,6 +360,7 @@ export type CreateCustomMetadataInput = {
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
   musicSpecifics?: InputMaybe<MusicSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']['input']>;
   publishYear?: InputMaybe<Scalars['Int']['input']>;
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
