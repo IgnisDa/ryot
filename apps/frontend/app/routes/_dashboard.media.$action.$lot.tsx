@@ -66,7 +66,11 @@ import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
-import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
+import {
+	useAppSearchParam,
+	useCoreDetails,
+	useInstantFilter,
+} from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
@@ -631,8 +635,43 @@ const FiltersModalForm = () => {
 
 const SearchFiltersModalForm = () => {
 	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const coreDetails = useCoreDetails();
+
+	const [themes, setThemes] = useInstantFilter({
+		key: "igdbThemeIds",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.igdbThemeIds || [],
+	});
+	const [genres, setGenres] = useInstantFilter({
+		key: "igdbGenreIds",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.igdbGenreIds || [],
+	});
+	const [platforms, setPlatforms] = useInstantFilter({
+		key: "igdbPlatformIds",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.igdbPlatformIds || [],
+	});
+	const [gameModes, setGameModes] = useInstantFilter({
+		key: "igdbGameModeIds",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.igdbGameModeIds || [],
+	});
+	const [regions, setRegions] = useInstantFilter({
+		key: "igdbLocalizationRegionIds",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.igdbLocalizationRegionIds || [],
+	});
+	const [passRawQuery, setPassRawQuery] = useInstantFilter({
+		key: "googleBooksPassRawQuery",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.googleBooksPassRawQuery || false,
+	});
+	const [allowParent, setAllowParent] = useInstantFilter({
+		key: "igdbAllowGamesWithParent",
+		cookieName: loaderData.cookieName,
+		serverValue: loaderData.mediaSearch?.url.igdbAllowGamesWithParent || false,
+	});
 
 	if (!loaderData.mediaSearch) return null;
 
@@ -641,10 +680,8 @@ const SearchFiltersModalForm = () => {
 			{loaderData.mediaSearch.url.source === MediaSource.GoogleBooks ? (
 				<Checkbox
 					label="Pass raw query"
-					checked={loaderData.mediaSearch.url.googleBooksPassRawQuery}
-					onChange={(e) =>
-						setP("googleBooksPassRawQuery", String(e.target.checked))
-					}
+					checked={passRawQuery}
+					onChange={(e) => setPassRawQuery(e.target.checked)}
 				/>
 			) : null}
 			{loaderData.mediaSearch.url.source === MediaSource.Igdb ? (
@@ -654,8 +691,8 @@ const SearchFiltersModalForm = () => {
 						searchable
 						limit={10}
 						label="Select themes"
-						value={loaderData.mediaSearch.url.igdbThemeIds || []}
-						onChange={(v) => setP("igdbThemeIds", v.join(","))}
+						value={themes}
+						onChange={setThemes}
 						data={coreDetails.providerSpecifics.igdb.themes.map((t) => ({
 							label: t.name,
 							value: t.id.toString(),
@@ -666,8 +703,8 @@ const SearchFiltersModalForm = () => {
 						searchable
 						limit={10}
 						label="Select genres"
-						value={loaderData.mediaSearch.url.igdbGenreIds || []}
-						onChange={(v) => setP("igdbGenreIds", v.join(","))}
+						value={genres}
+						onChange={setGenres}
 						data={coreDetails.providerSpecifics.igdb.genres.map((g) => ({
 							label: g.name,
 							value: g.id.toString(),
@@ -678,8 +715,8 @@ const SearchFiltersModalForm = () => {
 						searchable
 						limit={10}
 						label="Select platforms"
-						value={loaderData.mediaSearch.url.igdbPlatformIds || []}
-						onChange={(v) => setP("igdbPlatformIds", v.join(","))}
+						value={platforms}
+						onChange={setPlatforms}
 						data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
 							label: p.name,
 							value: p.id.toString(),
@@ -690,8 +727,8 @@ const SearchFiltersModalForm = () => {
 						searchable
 						limit={10}
 						label="Select game modes"
-						value={loaderData.mediaSearch.url.igdbGameModeIds || []}
-						onChange={(v) => setP("igdbGameModeIds", v.join(","))}
+						value={gameModes}
+						onChange={setGameModes}
 						data={coreDetails.providerSpecifics.igdb.gameModes.map((gm) => ({
 							label: gm.name,
 							value: gm.id.toString(),
@@ -702,8 +739,8 @@ const SearchFiltersModalForm = () => {
 						searchable
 						limit={10}
 						label="Select localization regions"
-						value={loaderData.mediaSearch.url.igdbLocalizationRegionIds || []}
-						onChange={(v) => setP("igdbLocalizationRegionIds", v.join(","))}
+						value={regions}
+						onChange={setRegions}
 						data={coreDetails.providerSpecifics.igdb.gameLocalizationRegions.map(
 							(lr) => ({
 								label: lr.name,
@@ -713,10 +750,8 @@ const SearchFiltersModalForm = () => {
 					/>
 					<Checkbox
 						label="Allow games with parent"
-						checked={loaderData.mediaSearch.url.igdbAllowGamesWithParent}
-						onChange={(e) =>
-							setP("igdbAllowGamesWithParent", String(e.target.checked))
-						}
+						checked={allowParent}
+						onChange={(e) => setAllowParent(e.target.checked)}
 					/>
 				</>
 			) : null}

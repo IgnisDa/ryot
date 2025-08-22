@@ -10,6 +10,7 @@ import {
 	type MediaLot,
 	type MetadataProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
+import { isEqual } from "@ryot/ts-utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import type { FormEvent } from "react";
@@ -346,4 +347,41 @@ export const useFormValidation = (dependency?: unknown) => {
 	}, [checkFormValidity, dependency]);
 
 	return { formRef, isFormValid, checkFormValidity };
+};
+
+const setUrlParam = <T>(
+	key: string,
+	value: T,
+	setP: (key: string, value: string) => void,
+) => {
+	if (Array.isArray(value)) setP(key, value.filter(Boolean).join(","));
+	else setP(key, String(value));
+};
+
+export const useInstantFilter = <T extends string[] | boolean>(options: {
+	key: string;
+	serverValue: T;
+	cookieName: string;
+}) => {
+	const { serverValue, key, cookieName } = options;
+	const [, { setP }] = useAppSearchParam(cookieName);
+	const [localValue, setLocalValue] = useState(serverValue);
+
+	useEffect(() => {
+		setLocalValue((prev) => {
+			return isEqual(prev, serverValue) ? prev : serverValue;
+		});
+	}, [serverValue]);
+
+	const onChange = useCallback(
+		(newValue: T) => {
+			setLocalValue((prev) => {
+				return isEqual(prev, newValue) ? prev : newValue;
+			});
+			setUrlParam(key, newValue, setP);
+		},
+		[key, setP],
+	);
+
+	return [localValue, onChange] as const;
 };
