@@ -99,7 +99,7 @@ fields
     games.cover.*,
     games.version_parent;
 ";
-static TIME_TO_BEAT_FIELDS: &str = "
+static GAME_TIME_TO_BEAT_FIELDS: &str = "
 fields
     normally,
     hastily,
@@ -455,7 +455,7 @@ where id = {identity};
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client_config().await?;
         let req_body = format!(r#"{GAME_FIELDS} where id = {identifier} & version_parent = null;"#);
-        let ttb_req_body = format!(r#"{TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
+        let ttb_req_body = format!(r#"{GAME_TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
 
         let (details_rsp, ttb_rsp) = try_join!(
             client.post(format!("{URL}/games")).body(req_body).send(),
