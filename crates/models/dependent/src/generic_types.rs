@@ -1,4 +1,4 @@
-use async_graphql::{Enum, InputObject, InputType, OutputType, SimpleObject};
+use async_graphql::{InputObject, InputType, OutputType, SimpleObject};
 use common_models::{ApplicationDateRange, SearchDetails, SearchInput};
 use database_models::{collection, metadata_group};
 use enum_models::MediaLot;
@@ -10,7 +10,7 @@ use media_models::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{BasicUserDetails, MetadataSearchSourceIgdbSpecificsSortBy, UserAnalytics};
+use crate::{BasicUserDetails, UserAnalytics};
 
 #[derive(PartialEq, Eq, Default, Serialize, Deserialize, Debug, SimpleObject, Clone)]
 #[graphql(concrete(
@@ -26,15 +26,11 @@ pub struct SearchResults<T: OutputType> {
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, InputObject, Clone, Default)]
 #[graphql(concrete(name = "MediaSortInput", params(MediaSortBy)))]
 #[graphql(concrete(name = "PersonSortInput", params(PersonAndMetadataGroupsSortBy)))]
-#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 #[graphql(concrete(
     name = "UserWorkoutsListSortInput",
     params(UserTemplatesOrWorkoutsListSortBy)
 ))]
-#[graphql(concrete(
-    name = "MetadataSearchSourceIgdbSpecificsSortInput",
-    params(MetadataSearchSourceIgdbSpecificsSortBy)
-))]
+#[graphql(concrete(name = "CollectionContentsSortInput", params(CollectionContentsSortBy)))]
 pub struct SortInput<T: InputType + Default> {
     #[graphql(default)]
     pub by: T,
@@ -128,7 +124,9 @@ pub struct UserMetadataGroupsListInput {
     pub sort: Option<SortInput<PersonAndMetadataGroupsSortBy>>,
 }
 
-#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
+#[derive(
+    Debug, Hash, Serialize, Deserialize, async_graphql::Enum, Clone, PartialEq, Eq, Copy, Default,
+)]
 pub enum UserTemplatesOrWorkoutsListSortBy {
     #[default]
     Time,
@@ -141,6 +139,7 @@ pub struct UserTemplatesOrWorkoutsListInput {
     pub sort: Option<SortInput<UserTemplatesOrWorkoutsListSortBy>>,
 }
 
+// Type aliases for different response types
 pub type PeopleSearchResponse = SearchResults<String>;
 pub type MetadataSearchResponse = SearchResults<String>;
 pub type UserPeopleListResponse = SearchResults<String>;

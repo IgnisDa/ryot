@@ -1,11 +1,10 @@
-use async_graphql::{Enum, InputObject};
+use async_graphql::{InputObject, SimpleObject};
 use common_models::SearchInput;
 use enum_models::{MediaLot, MediaSource};
+use schematic::Schematic;
 use sea_orm::FromJsonQueryResult;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
-
-use crate::SortInput;
 
 #[skip_serializing_none]
 #[derive(
@@ -14,10 +13,12 @@ use crate::SortInput;
     Clone,
     Debug,
     Default,
+    Schematic,
     PartialEq,
     Serialize,
     Deserialize,
     InputObject,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "MetadataSearchSourceGoogleBooksSpecifics")]
@@ -33,10 +34,12 @@ pub struct MetadataSearchSourceGoogleBooksSpecifics {
     Clone,
     Debug,
     Default,
+    Schematic,
     PartialEq,
     Serialize,
     Deserialize,
     InputObject,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "MetadataSearchSourceIgdbFilterSpecifics")]
@@ -51,12 +54,6 @@ pub struct MetadataSearchSourceIgdbFilterSpecifics {
     pub release_date_region_ids: Option<Vec<String>>,
 }
 
-#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]
-pub enum MetadataSearchSourceIgdbSpecificsSortBy {
-    #[default]
-    Name,
-}
-
 #[skip_serializing_none]
 #[derive(
     Eq,
@@ -64,17 +61,18 @@ pub enum MetadataSearchSourceIgdbSpecificsSortBy {
     Clone,
     Debug,
     Default,
+    Schematic,
     PartialEq,
     Serialize,
     Deserialize,
     InputObject,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "MetadataSearchSourceIgdbSpecifics")]
 #[serde(rename_all = "snake_case")]
 pub struct MetadataSearchSourceIgdbSpecifics {
     pub filters: Option<MetadataSearchSourceIgdbFilterSpecifics>,
-    pub sort: Option<SortInput<MetadataSearchSourceIgdbSpecificsSortBy>>,
 }
 
 #[skip_serializing_none]
@@ -84,10 +82,12 @@ pub struct MetadataSearchSourceIgdbSpecifics {
     Clone,
     Debug,
     Default,
+    Schematic,
     PartialEq,
     Serialize,
     Deserialize,
     InputObject,
+    SimpleObject,
     FromJsonQueryResult,
 )]
 #[graphql(input_name = "MetadataSearchSourceSpecificsInput")]
