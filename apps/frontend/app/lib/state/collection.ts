@@ -2,7 +2,6 @@ import {
 	CollectionContentsDocument,
 	type EntityLot,
 	type Scalars,
-	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isEqual } from "@ryot/ts-utils";
 import { produce } from "immer";
@@ -98,22 +97,18 @@ export type CreateOrUpdateCollectionModalData = {
 
 const createOrUpdateCollectionModalAtom = atom<{
 	isOpen: boolean;
-	usersList: UsersListQuery["usersList"];
 	data: CreateOrUpdateCollectionModalData | null;
-}>({ isOpen: false, data: null, usersList: [] });
+}>({ isOpen: false, data: null });
 
 export const useCreateOrUpdateCollectionModal = () => {
 	const [modal, setModal] = useAtom(createOrUpdateCollectionModalAtom);
 
-	const open = (
-		data: CreateOrUpdateCollectionModalData | null,
-		usersList: UsersListQuery["usersList"],
-	) => {
-		setModal({ isOpen: true, data, usersList });
+	const open = (data: CreateOrUpdateCollectionModalData | null) => {
+		setModal({ isOpen: true, data });
 	};
 
 	const close = () => {
-		setModal({ isOpen: false, data: null, usersList: [] });
+		setModal({ isOpen: false, data: null });
 	};
 
 	return {
@@ -121,7 +116,6 @@ export const useCreateOrUpdateCollectionModal = () => {
 		close,
 		data: modal.data,
 		isOpen: modal.isOpen,
-		usersList: modal.usersList,
 	};
 };
 

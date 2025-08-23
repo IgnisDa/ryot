@@ -20,9 +20,10 @@ import {
 	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
 import { Form, useRevalidator } from "react-router";
@@ -33,7 +34,7 @@ import {
 	useUserCollections,
 	useUserDetails,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 
@@ -45,7 +46,8 @@ export const CreateOrUpdateCollectionModal = (props: {
 	const userCollections = useUserCollections();
 	const revalidator = useRevalidator();
 	const [parent] = useAutoAnimate();
-	const { data: modalData, usersList } = useCreateOrUpdateCollectionModal();
+
+	const { data: modalData } = useCreateOrUpdateCollectionModal();
 
 	const toUpdateCollection = modalData?.collectionId
 		? userCollections.find((c) => c.id === modalData.collectionId)
@@ -73,6 +75,13 @@ export const CreateOrUpdateCollectionModal = (props: {
 
 	const { formRef, isFormValid } = useFormValidation(formData);
 
+	const { data: usersList } = useQuery({
+		queryKey: queryFactory.miscellaneous.usersList().queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UsersListDocument, {})
+				.then((data) => data.usersList),
+	});
 	const createOrUpdateMutation = useMutation({
 		mutationFn: () =>
 			clientGqlService.request(CreateOrUpdateCollectionDocument, {
@@ -170,7 +179,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 						value={formData.collaborators}
 						disabled={!coreDetails.isServerKeyValidated}
 						description="Add collaborators to this collection"
-						data={usersList.map((u) => ({
+						data={usersList?.map((u) => ({
 							value: u.id,
 							label: u.name,
 							disabled: u.id === userDetails.id,
