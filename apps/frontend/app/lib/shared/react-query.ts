@@ -4,6 +4,7 @@ import {
 } from "@lukemorales/query-key-factory";
 import {
 	type CollectionRecommendationsInput,
+	type GenreDetailsInput,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
@@ -50,6 +51,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	userPersonDetails: (personId?: string) => ({
 		queryKey: ["userPersonDetails", personId],
+	}),
+	genreDetails: (input: GenreDetailsInput) => ({
+		queryKey: ["genreDetails", input],
 	}),
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],

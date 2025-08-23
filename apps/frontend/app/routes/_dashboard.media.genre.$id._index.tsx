@@ -1,77 +1,96 @@
-import { Box, Container, Stack, Text, Title } from "@mantine/core";
-import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import {
-	parseParameters,
-	parseSearchQuery,
-	zodIntAsString,
-} from "@ryot/ts-utils";
-import { useLoaderData } from "react-router";
-import { z } from "zod";
+	Box,
+	Container,
+	Group,
+	Skeleton,
+	Stack,
+	Text,
+	Title,
+} from "@mantine/core";
+import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "react-router";
+import { useLocalStorage } from "usehooks-ts";
 import { ApplicationPagination } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
-import { pageQueryParam } from "~/lib/shared/constants";
-import { useAppSearchParam } from "~/lib/shared/hooks";
-import {
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.media.genre.$id._index";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-const searchParamsSchema = z.object({
-	[pageQueryParam]: zodIntAsString.default(1),
-});
+interface PaginationState {
+	page: number;
+}
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { id: genreId } = parseParameters(params, z.object({ id: z.string() }));
-	const cookieName = await getSearchEnhancedCookieName(
-		`genre.${genreId}`,
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const [{ genreDetails }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, GenreDetailsDocument, {
-			input: { genreId, page: query[pageQueryParam] },
-		}),
-	]);
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		currentPage: query[pageQueryParam],
-		totalResults: genreDetails.contents.details.total,
-	});
-	return { query, genreDetails, cookieName, totalPages };
+const defaultPaginationState: PaginationState = {
+	page: 1,
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.genreDetails.details.name} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Genre | Ryot" }];
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const params = useParams();
+	const genreId = params.id;
+
+	if (!genreId) {
+		return (
+			<Container>
+				<Stack>
+					<Skeleton height={40} />
+					<Skeleton height={20} />
+					<Skeleton height={300} />
+					<Skeleton height={40} />
+				</Stack>
+			</Container>
+		);
+	}
+
+	const [pagination, setPagination] = useLocalStorage(
+		`GenrePagination_${genreId}`,
+		defaultPaginationState,
+	);
+
+	const { data: genreDetails } = useQuery({
+		queryKey: queryFactory.media.genreDetails({
+			genreId,
+			page: pagination.page,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(GenreDetailsDocument, {
+					input: { genreId, page: pagination.page },
+				})
+				.then((data) => data.genreDetails),
+	});
+
+	const updatePage = (page: number) =>
+		setPagination((prev) => ({ ...prev, page }));
 
 	return (
 		<Container>
 			<Stack>
-				<Box>
-					<Title id="genre-title">{loaderData.genreDetails.details.name}</Title>
-					<Text>{loaderData.genreDetails.details.numItems} media items</Text>
-				</Box>
-				<ApplicationGrid>
-					{loaderData.genreDetails.contents.items.map((media) => (
-						<MetadataDisplayItem key={media} metadataId={media} />
-					))}
-				</ApplicationGrid>
-				<ApplicationPagination
-					total={loaderData.totalPages}
-					value={loaderData.query[pageQueryParam]}
-					onChange={(v) => setP(pageQueryParam, v.toString())}
-				/>
+				{genreDetails ? (
+					<>
+						<Group justify="space-between">
+							<Box>
+								<Title id="genre-title">{genreDetails.details.name}</Title>
+								<Text>{genreDetails.details.numItems} media items</Text>
+							</Box>
+							<ApplicationPagination
+								total={genreDetails.contents.details.total}
+								value={pagination.page}
+								onChange={updatePage}
+							/>
+						</Group>
+						<ApplicationGrid>
+							{genreDetails.contents.items.map((media) => (
+								<MetadataDisplayItem key={media} metadataId={media} />
+							))}
+						</ApplicationGrid>
+					</>
+				) : (
+					<Skeleton height={56} />
+				)}
 			</Stack>
 		</Container>
 	);
