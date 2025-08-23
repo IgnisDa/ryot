@@ -53,7 +53,6 @@ import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 import {
 	createToastHeaders,
 	getSearchEnhancedCookieName,
-	getUserCollectionsListRaw,
 	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
@@ -65,11 +64,10 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const [{ usersList }, userCollectionsList] = await Promise.all([
+	const [{ usersList }] = await Promise.all([
 		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
-		getUserCollectionsListRaw(request),
 	]);
-	return { usersList, cookieName, userCollectionsList };
+	return { usersList, cookieName };
 };
 
 export const meta = () => {
@@ -145,7 +143,7 @@ export default function Page() {
 						<ActionIcon
 							color="green"
 							variant="outline"
-							onClick={() => openCollectionModal(null, loaderData.usersList)}
+							onClick={() => openCollectionModal(null)}
 						>
 							<IconPlus size={20} />
 						</ActionIcon>
@@ -326,12 +324,9 @@ const DisplayCollection = (props: {
 									color="blue"
 									variant="outline"
 									onClick={() => {
-										openCollectionModal(
-											{
-												collectionId: props.collection.id,
-											},
-											props.usersList,
-										);
+										openCollectionModal({
+											collectionId: props.collection.id,
+										});
 									}}
 								>
 									<IconEdit size={18} />
