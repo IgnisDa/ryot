@@ -1378,9 +1378,7 @@ export type MetadataSearchSourceIgdbSpecifics = {
 };
 
 export enum MetadataSearchSourceIgdbSpecificsSortBy {
-  FirstReleaseDate = 'FIRST_RELEASE_DATE',
-  Name = 'NAME',
-  TotalRating = 'TOTAL_RATING'
+  Name = 'NAME'
 }
 
 export type MetadataSearchSourceIgdbSpecificsSortInput = {
