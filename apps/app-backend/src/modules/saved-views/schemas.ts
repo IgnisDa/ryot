@@ -15,7 +15,7 @@ import {
 	nonEmptyTrimmedStringSchema,
 	sortOrderSchema,
 	timestampFields,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 const savedViewEntitySchemaSlugArraySchema = z.array(
 	nonEmptyTrimmedStringSchema,

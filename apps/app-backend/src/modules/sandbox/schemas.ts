@@ -5,7 +5,7 @@ import {
 	createNameWithOptionalSlugSchema,
 	nonEmptyStringSchema,
 	stringUnknownRecordSchema,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 export const enqueueSandboxBody = z.object({
 	scriptId: nonEmptyStringSchema,

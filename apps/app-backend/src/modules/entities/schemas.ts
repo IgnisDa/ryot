@@ -6,7 +6,7 @@ import {
 	nonEmptyTrimmedStringSchema,
 	stringUnknownRecordSchema,
 	timestampFields,
-} from "~/lib/zod/base";
+} from "~/lib/zod";
 
 export const listedEntitySchema = z.object({
 	id: z.string(),
