@@ -112,6 +112,13 @@ struct IgdbWebsite {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbGameType {
+    id: i32,
+    #[serde(rename = "type")]
+    typ: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct IgdbRegionResponse {
     id: i32,
     region: String,
@@ -504,10 +511,11 @@ where id = {identity};
         let filter_builders: [(
             fn(&MetadataSearchSourceIgdbSpecifics) -> Option<&Vec<String>>,
             &str,
-        ); 5] = [
+        ); 6] = [
             (|i| i.theme_ids.as_ref(), "themes"),
             (|i| i.genre_ids.as_ref(), "genres"),
             (|i| i.platform_ids.as_ref(), "platforms"),
+            (|i| i.game_type_ids.as_ref(), "game_type"),
             (|i| i.game_mode_ids.as_ref(), "game_modes"),
             (
                 |i| i.release_date_region_ids.as_ref(),
@@ -535,15 +543,6 @@ where id = {identity};
 
         filters.extend(param_filters);
 
-        let platform_exclusives_only = source_specifics
-            .as_ref()
-            .and_then(|s| s.igdb.as_ref().and_then(|i| i.platform_exclusives_only))
-            .unwrap_or(false);
-
-        if platform_exclusives_only {
-            filters.push("category = 0".to_string());
-        }
-
         let where_clause = if filters.is_empty() {
             String::new()
         } else {
@@ -557,12 +556,13 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            fields = GAME_FIELDS.trim(),
-            where_clause = where_clause,
             query = query,
             limit = PAGE_SIZE,
+            fields = GAME_FIELDS.trim(),
+            where_clause = where_clause,
             offset = (page - 1) * PAGE_SIZE
         );
+
         let rsp = client
             .post(format!("{URL}/games"))
             .body(req_body)
@@ -804,6 +804,24 @@ impl IgdbService {
         Ok(items)
     }
 
+    async fn get_game_types(&self, client: &Client) -> Result<Vec<IdAndNamedObject>> {
+        let base_body = "fields id, type; limit 500;";
+        let raw_items = self
+            .paginate_igdb_endpoint::<IgdbGameType>(client, "game_types", base_body)
+            .await?;
+
+        let mut items: Vec<IdAndNamedObject> = raw_items
+            .into_iter()
+            .map(|item| IdAndNamedObject {
+                id: item.id,
+                name: item.typ,
+            })
+            .collect();
+
+        items.sort_by_key(|item| item.name.clone());
+        Ok(items)
+    }
+
     async fn get_release_date_regions(&self, client: &Client) -> Result<Vec<IdAndNamedObject>> {
         let base_body = "fields id, region; limit 500;";
         let raw_items = self
@@ -824,12 +842,13 @@ impl IgdbService {
 
     pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
         let client = self.get_client_config().await?;
-        let (themes, genres, platforms, game_modes, release_date_regions) = try_join!(
+        let (themes, genres, platforms, game_modes, release_date_regions, game_types) = try_join!(
             self.get_all_list_items("themes", &client),
             self.get_all_list_items("genres", &client),
             self.get_all_list_items("platforms", &client),
             self.get_all_list_items("game_modes", &client),
             self.get_release_date_regions(&client),
+            self.get_game_types(&client),
         )?;
 
         let response = CoreDetailsProviderIgdbSpecifics {
@@ -837,6 +856,7 @@ impl IgdbService {
             genres,
             platforms,
             game_modes,
+            game_types,
             release_date_regions,
         };
         Ok(response)

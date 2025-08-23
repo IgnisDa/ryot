@@ -59,6 +59,7 @@ pub struct CoreDetailsProviderIgdbSpecifics {
     pub themes: Vec<IdAndNamedObject>,
     pub genres: Vec<IdAndNamedObject>,
     pub platforms: Vec<IdAndNamedObject>,
+    pub game_types: Vec<IdAndNamedObject>,
     pub game_modes: Vec<IdAndNamedObject>,
     pub release_date_regions: Vec<IdAndNamedObject>,
 }
