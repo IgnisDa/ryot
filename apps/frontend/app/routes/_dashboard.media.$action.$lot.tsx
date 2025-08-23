@@ -269,6 +269,34 @@ export const meta = ({ params }: Route.MetaArgs) => {
 	];
 };
 
+interface IgdbMultiselectProps {
+	label: string;
+	valueKey: string;
+	value?: string[];
+	data: Array<{ id: number; name: string }>;
+}
+
+const IgdbMultiselect = (props: IgdbMultiselectProps) => {
+	const loaderData = useLoaderData<typeof loader>();
+	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+
+	return (
+		<MultiSelect
+			size="xs"
+			clearable
+			searchable
+			hidePickedOptions
+			label={props.label}
+			value={props.value}
+			onChange={(v) => setP(props.valueKey, v.join(","))}
+			data={props.data.map((item) => ({
+				label: item.name,
+				value: item.id.toString(),
+			}))}
+		/>
+	);
+};
+
 export default function Page() {
 	const loaderData = useLoaderData<typeof loader>();
 	const coreDetails = useCoreDetails();
@@ -653,85 +681,41 @@ const SearchFiltersModalForm = () => {
 			) : null}
 			{loaderData.mediaSearch.url.source === MediaSource.Igdb ? (
 				<>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
+					<IgdbMultiselect
 						label="Select themes"
-						value={loaderData.mediaSearch.url.igdbThemeIds || []}
-						onChange={(v) => setP("igdbThemeIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.themes.map((t) => ({
-							label: t.name,
-							value: t.id.toString(),
-						}))}
+						valueKey="igdbThemeIds"
+						value={loaderData.mediaSearch.url.igdbThemeIds}
+						data={coreDetails.providerSpecifics.igdb.themes}
 					/>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
+					<IgdbMultiselect
 						label="Select genres"
-						value={loaderData.mediaSearch.url.igdbGenreIds || []}
-						onChange={(v) => setP("igdbGenreIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.genres.map((g) => ({
-							label: g.name,
-							value: g.id.toString(),
-						}))}
+						valueKey="igdbGenreIds"
+						value={loaderData.mediaSearch.url.igdbGenreIds}
+						data={coreDetails.providerSpecifics.igdb.genres}
 					/>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
+					<IgdbMultiselect
 						label="Select platforms"
-						value={loaderData.mediaSearch.url.igdbPlatformIds || []}
-						onChange={(v) => setP("igdbPlatformIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
-							label: p.name,
-							value: p.id.toString(),
-						}))}
+						valueKey="igdbPlatformIds"
+						value={loaderData.mediaSearch.url.igdbPlatformIds}
+						data={coreDetails.providerSpecifics.igdb.platforms}
 					/>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
+					<IgdbMultiselect
 						label="Select game types"
-						value={loaderData.mediaSearch.url.igdbGameTypeIds || []}
-						onChange={(v) => setP("igdbGameTypeIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.gameTypes.map((gt) => ({
-							label: gt.name,
-							value: gt.id.toString(),
-						}))}
+						valueKey="igdbGameTypeIds"
+						value={loaderData.mediaSearch.url.igdbGameTypeIds}
+						data={coreDetails.providerSpecifics.igdb.gameTypes}
 					/>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
+					<IgdbMultiselect
 						label="Select game modes"
-						value={loaderData.mediaSearch.url.igdbGameModeIds || []}
-						onChange={(v) => setP("igdbGameModeIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.gameModes.map((gm) => ({
-							label: gm.name,
-							value: gm.id.toString(),
-						}))}
+						valueKey="igdbGameModeIds"
+						value={loaderData.mediaSearch.url.igdbGameModeIds}
+						data={coreDetails.providerSpecifics.igdb.gameModes}
 					/>
-					<MultiSelect
-						size="xs"
-						clearable
-						searchable
-						hidePickedOptions
+					<IgdbMultiselect
 						label="Select release regions"
-						value={loaderData.mediaSearch.url.igdbReleaseDateRegionIds || []}
-						onChange={(v) => setP("igdbReleaseDateRegionIds", v.join(","))}
-						data={coreDetails.providerSpecifics.igdb.releaseDateRegions.map(
-							(lr) => ({
-								label: lr.name,
-								value: lr.id.toString(),
-							}),
-						)}
+						valueKey="igdbReleaseDateRegionIds"
+						value={loaderData.mediaSearch.url.igdbReleaseDateRegionIds}
+						data={coreDetails.providerSpecifics.igdb.releaseDateRegions}
 					/>
 					<Checkbox
 						label="Allow games with parent"
