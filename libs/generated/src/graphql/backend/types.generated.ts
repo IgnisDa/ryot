@@ -317,6 +317,7 @@ export type CoreDetails = {
 export type CoreDetailsProviderIgdbSpecifics = {
   __typename?: 'CoreDetailsProviderIgdbSpecifics';
   gameModes: Array<IdAndNamedObject>;
+  gameTypes: Array<IdAndNamedObject>;
   genres: Array<IdAndNamedObject>;
   platforms: Array<IdAndNamedObject>;
   releaseDateRegions: Array<IdAndNamedObject>;
@@ -1405,8 +1406,8 @@ export type MetadataSearchSourceGoogleBooksSpecifics = {
 export type MetadataSearchSourceIgdbSpecifics = {
   allowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
   gameModeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  gameTypeIds?: InputMaybe<Array<Scalars['String']['input']>>;
   genreIds?: InputMaybe<Array<Scalars['String']['input']>>;
-  platformExclusivesOnly?: InputMaybe<Scalars['Boolean']['input']>;
   platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
   releaseDateRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   themeIds?: InputMaybe<Array<Scalars['String']['input']>>;

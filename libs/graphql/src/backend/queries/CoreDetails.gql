@@ -39,6 +39,9 @@ query CoreDetails {
 				gameModes {
 					...IdAndNamedObjectPart
 				}
+				gameTypes {
+					...IdAndNamedObjectPart
+				}
 				releaseDateRegions {
 					...IdAndNamedObjectPart
 				}
