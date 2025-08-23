@@ -660,7 +660,7 @@ export default function Page() {
 									setCurrentWorkout,
 									[
 										{
-											name: loaderData.exerciseDetails.id,
+											id: loaderData.exerciseDetails.id,
 											lot: loaderData.exerciseDetails.lot,
 										},
 									],

@@ -153,7 +153,7 @@ const mergeExerciseSchema = z.object({
 	mergeInto: z.string(),
 });
 
-type SelectExercise = { name: string; lot: ExerciseLot };
+type SelectExercise = { id: string; lot: ExerciseLot };
 
 export default function Page() {
 	const navigate = useNavigate();
@@ -451,13 +451,13 @@ const ExerciseItemDisplay = (props: {
 							onChange={(e) => {
 								if (e.currentTarget.checked) {
 									props.setSelectedExercises.append({
-										name: props.exerciseId,
 										lot: exercise.lot,
+										id: props.exerciseId,
 									});
 									if (isTourTargetExercise) advanceOnboardingTourStep();
 								} else
 									props.setSelectedExercises.filter(
-										(item) => item.name !== props.exerciseId,
+										(item) => item.id !== props.exerciseId,
 									);
 							}}
 						/>
