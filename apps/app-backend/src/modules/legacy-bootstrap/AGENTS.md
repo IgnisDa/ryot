@@ -3,6 +3,20 @@
 The purpose of this module is to migrate legacy V1 Rust data (`apps/backend`) into the V2
 TypeScript backend (`apps/app-backend`) during startup.
 
+## Fail-Fast Requirement
+
+Every step in this module must fail loudly on unexpected state. Use `throw new Error(...)` in TypeScript and `RAISE EXCEPTION '...'` in PL/pgSQL DO blocks — never `RETURN` from a DO block when the missing object signals an error rather than an already-completed step.
+
+The only permitted silent-skip patterns are:
+
+- **Idempotent guards**: skipping work that has already been done on a previous startup (e.g., `IF to_regclass('"old_user"') IS NOT NULL THEN RETURN; END IF;` in the rename block — `old_user` already exists means the rename already ran).
+- **`ON CONFLICT … DO NOTHING`**: all INSERT statements use this for restart-safety; do not remove them.
+- **`DROP TABLE IF EXISTS`**: used in `drop-tables.ts` for restart-safety.
+- **`shouldRunLegacyBootstrap` returning `false`**: the three top-level `if (!(await shouldRunLegacyBootstrap(database))) return;` guards in `rename-tables.ts`, `migrate-data.ts`, and `drop-tables.ts` are the intentional main gate — no V1 data present, skip everything.
+- **Documented data-level exceptions**: the intentional skips listed in the "Ignored For Now" sections below (metadata group lots without V2 schemas, 2FA, OIDC, sessions, etc.).
+
+Everything else must throw. Do not add new `RETURN` statements inside DO blocks to silently skip unexpected-missing tables or columns.
+
 ## Boundaries
 
 - Keep all legacy bootstrap-specific logic inside this module.
