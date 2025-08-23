@@ -1373,7 +1373,7 @@ export type MetadataSearchSourceIgdbFilterSpecifics = {
 };
 
 export type MetadataSearchSourceIgdbSpecifics = {
-  filters: MetadataSearchSourceIgdbFilterSpecifics;
+  filters?: InputMaybe<MetadataSearchSourceIgdbFilterSpecifics>;
 };
 
 export type MetadataSearchSourceSpecificsInput = {
