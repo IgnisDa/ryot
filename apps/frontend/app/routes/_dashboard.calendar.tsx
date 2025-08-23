@@ -26,11 +26,11 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
 interface FilterState {
-	date: Date;
+	date: string;
 }
 
 const defaultFilterState: FilterState = {
-	date: new Date(),
+	date: new Date().toISOString(),
 };
 
 export const meta = () => {
@@ -58,7 +58,7 @@ export default function Page() {
 				.then((data) => data.userCalendarEvents),
 	});
 
-	const updateDate = (newDate: Date) =>
+	const updateDate = (newDate: string) =>
 		setFilters((prev) => ({ ...prev, date: newDate }));
 
 	return (
@@ -73,7 +73,7 @@ export default function Page() {
 							variant="outline"
 							onClick={() => {
 								const newMonth = date.subtract(1, "month");
-								updateDate(newMonth.toDate());
+								updateDate(newMonth.toISOString());
 							}}
 						>
 							<IconChevronLeft />
@@ -83,7 +83,7 @@ export default function Page() {
 							ml="xs"
 							onClick={() => {
 								const newMonth = date.add(1, "month");
-								updateDate(newMonth.toDate());
+								updateDate(newMonth.toISOString());
 							}}
 						>
 							<IconChevronRight />
