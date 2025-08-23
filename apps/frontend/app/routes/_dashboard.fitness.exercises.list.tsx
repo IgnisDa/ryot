@@ -95,10 +95,10 @@ import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
 interface FilterState {
-	query?: string;
-	collection?: string;
 	page: number;
+	query?: string;
 	type?: ExerciseLot;
+	collection?: string;
 	level?: ExerciseLevel;
 	force?: ExerciseForce;
 	sortBy: ExerciseSortBy;
