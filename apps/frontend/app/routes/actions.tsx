@@ -2,7 +2,6 @@ import {
 	CreateReviewCommentDocument,
 	DeleteS3ObjectDocument,
 	EntityLot,
-	ExpireCacheKeyDocument,
 	MarkEntityAsPartialDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -84,12 +83,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				}),
 			);
 		})
-		.with("expireCacheKey", async () => {
-			const submission = processSubmission(formData, expireCacheKeySchema);
-			await serverGqlService.request(ExpireCacheKeyDocument, {
-				cacheId: submission.cacheId,
-			});
-		})
 		.run();
 	return data(returnData, { headers });
 };
@@ -106,8 +99,4 @@ const reviewCommentSchema = z.object({
 const markEntityAsPartialSchema = z.object({
 	entityId: z.string(),
 	entityLot: z.enum(EntityLot),
-});
-
-const expireCacheKeySchema = z.object({
-	cacheId: z.string().uuid(),
 });
