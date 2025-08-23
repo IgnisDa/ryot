@@ -314,7 +314,7 @@ export default function Page() {
 		useOnboardingTour();
 
 	const mediaSearch = loaderData.mediaSearch;
-	const areFiltersApplied =
+	const isFilterChanged =
 		loaderData.mediaList?.url.generalFilter !==
 			defaultFilters.mineGeneralFilter ||
 		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
@@ -409,7 +409,7 @@ export default function Page() {
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={areFiltersApplied ? "blue" : "gray"}
+									color={isFilterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>

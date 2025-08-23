@@ -190,7 +190,7 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const areFiltersApplied =
+	const isFilterChanged =
 		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
 		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
 		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
@@ -252,7 +252,7 @@ export default function Page() {
 							<>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={areFiltersApplied ? "blue" : "gray"}
+									color={isFilterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
