@@ -40,7 +40,7 @@ import {
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { StatInput } from "../stat-display-and-input";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";

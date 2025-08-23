@@ -81,7 +81,7 @@ import {
 	OnboardingTourStepTargets,
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { ApplicationTimeRange } from "~/lib/types";
 import {
 	getCoreDetails,

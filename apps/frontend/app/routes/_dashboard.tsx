@@ -65,11 +65,11 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { forcedDashboardPath } from "~/lib/shared/ui-utils";
+import { useOpenedSidebarLinks } from "~/lib/state/general";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-	useOpenedSidebarLinks,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import {
 	getCookieValue,

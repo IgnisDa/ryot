@@ -51,7 +51,7 @@ import {
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { getProgressOfExercise, usePlayFitnessSound } from "../hooks";
 import { SetDisplay } from "../set-display/display";
 import type { FuncStartTimer } from "../types";

@@ -26,7 +26,7 @@ import {
 	useUserDetails,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import { useOnboardingTour } from "~/lib/state/general";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.miscellaneous";
 

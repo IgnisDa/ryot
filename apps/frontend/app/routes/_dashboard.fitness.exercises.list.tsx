@@ -90,7 +90,7 @@ import {
 	OnboardingTourStepTargets,
 	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 

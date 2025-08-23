@@ -42,7 +42,7 @@ import {
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import type { Route } from "./+types/_dashboard.fitness.$action";
 

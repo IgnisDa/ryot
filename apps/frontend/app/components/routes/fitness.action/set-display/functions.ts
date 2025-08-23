@@ -20,7 +20,7 @@ import {
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
-import { useOnboardingTour } from "~/lib/state/general";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import { usePerformTasksAfterSetConfirmed } from "../hooks";
 import type { FuncStartTimer } from "../types";

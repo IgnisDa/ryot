@@ -87,7 +87,7 @@ import {
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
 import {
 	getSearchEnhancedCookieName,

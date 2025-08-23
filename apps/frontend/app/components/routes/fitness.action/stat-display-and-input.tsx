@@ -11,7 +11,7 @@ import {
 	ACTIVE_WORKOUT_WEIGHT_TARGET,
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 
 export const StatDisplay = (props: {
 	name: string;

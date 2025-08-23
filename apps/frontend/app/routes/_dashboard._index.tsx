@@ -55,7 +55,7 @@ import {
 } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import { useOnboardingTour } from "~/lib/state/general";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import {
 	getUserCollectionsList,
 	getUserPreferences,

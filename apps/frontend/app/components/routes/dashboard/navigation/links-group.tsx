@@ -3,7 +3,7 @@ import { IconChevronRight } from "@tabler/icons-react";
 import clsx from "clsx";
 import { Link, NavLink } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
-import { useOnboardingTour } from "~/lib/state/general";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import classes from "~/styles/dashboard.module.css";
 import type { LinksGroupProps } from "../types";
 

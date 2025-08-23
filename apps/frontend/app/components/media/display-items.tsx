@@ -24,8 +24,8 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 } from "~/lib/shared/hooks";
-import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { BaseEntityDisplayItem } from "../common/entity-display";
 import { DisplayAverageRatingOverlay } from "./rating-overlay";
 

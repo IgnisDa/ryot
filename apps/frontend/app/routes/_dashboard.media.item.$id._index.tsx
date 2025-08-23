@@ -104,14 +104,14 @@ import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodDateTimeString } from "~/lib/shared/validation";
 import {
-	OnboardingTourStepTargets,
-	useOnboardingTour,
-} from "~/lib/state/general";
-import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/onboarding-tour";
 import { Verb } from "~/lib/types";
 import {
 	MetadataIdSchema,

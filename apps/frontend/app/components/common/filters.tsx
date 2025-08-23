@@ -36,7 +36,7 @@ import {
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import type { OnboardingTourStepTargets } from "~/lib/state/general";
+import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
