@@ -82,12 +82,6 @@ pub async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -
 
     cache_service::expire_key(
         ss,
-        ExpireCacheKeyInput::ByKey(Box::new(ApplicationCacheKey::TrendingMetadataIds)),
-    )
-    .await?;
-
-    cache_service::expire_key(
-        ss,
         ExpireCacheKeyInput::BySanitizedKey {
             user_id: None,
             key: ApplicationCacheKeyDiscriminants::CollectionRecommendations,
