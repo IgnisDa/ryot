@@ -614,11 +614,7 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setMergingExercise(loaderData.exerciseDetails.id);
-											navigate(
-												$path("/fitness/exercises/list", {
-													type: loaderData.exerciseDetails.lot,
-												}),
-											);
+											navigate($path("/fitness/exercises/list"));
 										}}
 									>
 										Merge exercise
