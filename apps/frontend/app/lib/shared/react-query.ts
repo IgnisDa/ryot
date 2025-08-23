@@ -23,7 +23,12 @@ import Cookies from "js-cookie";
 import { FRONTEND_AUTH_COOKIE_NAME, applicationBaseUrl } from "./constants";
 
 export const queryClient = new QueryClient({
-	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+	defaultOptions: {
+		queries: {
+			staleTime: Number.POSITIVE_INFINITY,
+			placeholderData: (prev: unknown) => prev,
+		},
+	},
 });
 
 export const clientGqlService = new GraphQLClient(
