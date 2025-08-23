@@ -20,6 +20,7 @@
 		"get-port": "7.2.0",
 		"openapi-fetch": "0.17.0",
 		"pg": "8.20.0",
+		"rfc4648": "1.5.4",
 		"testcontainers": "11.14.0"
 	}
 }
