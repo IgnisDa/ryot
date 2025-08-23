@@ -55,6 +55,8 @@ pub struct MetadataSearchSourceIgdbFilterSpecifics {
 pub enum MetadataSearchSourceIgdbSpecificsSortBy {
     #[default]
     Name,
+    TotalRating,
+    FirstReleaseDate,
 }
 
 #[skip_serializing_none]
