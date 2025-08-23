@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use common_models::{
-    MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, UserLevelCacheKey,
-};
+use common_models::{MetadataGroupSearchInput, PeopleSearchInput, UserLevelCacheKey};
 use database_utils::user_by_id;
 use dependent_entity_utils::{commit_metadata, commit_metadata_group, commit_person};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, MetadataGroupSearchResponse,
-    MetadataSearchResponse, PeopleSearchResponse, SearchResults,
+    MetadataSearchInput, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
 };
 use dependent_provider_utils::{get_metadata_provider, get_non_metadata_provider};
 use futures::future::try_join_all;

@@ -1,8 +1,8 @@
 use async_graphql::{Context, Object, Result};
-use common_models::{MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput};
+use common_models::{MetadataGroupSearchInput, PeopleSearchInput};
 use dependent_models::{
-    CachedResponse, MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
-    TrendingMetadataIdsResponse,
+    CachedResponse, MetadataGroupSearchResponse, MetadataSearchInput, MetadataSearchResponse,
+    PeopleSearchResponse, TrendingMetadataIdsResponse,
 };
 use media_models::MetadataLookupResponse;
 use miscellaneous_service::MiscellaneousService;
