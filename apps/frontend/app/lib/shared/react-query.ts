@@ -3,6 +3,7 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
+	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
 	type GenreDetailsInput,
 	MetadataDetailsDocument,
@@ -75,6 +76,9 @@ const collectionQueryKeys = createQueryKeys("collections", {
 	images: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
+	contents: (input: CollectionContentsInput) => ({
+		queryKey: ["collectionContents", input],
+	}),
 	recommendations: (input: CollectionRecommendationsInput) => ({
 		queryKey: ["collectionRecommendations", input],
 	}),
@@ -104,6 +108,9 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	}),
 	presignedS3Url: (key: string) => ({
 		queryKey: ["presignedS3Url", key],
+	}),
+	usersList: () => ({
+		queryKey: ["usersList"],
 	}),
 });
 
