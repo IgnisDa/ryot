@@ -8,6 +8,7 @@ import {
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
 	type UserAnalyticsQueryVariables,
+	type UserExercisesListInput,
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 	UserPersonDetailsDocument,
@@ -76,6 +77,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 	userExerciseDetails: (exerciseId: string) => ({
 		queryKey: ["userExerciseDetails", exerciseId],
+	}),
+	userExercisesList: (input: UserExercisesListInput) => ({
+		queryKey: ["userExercisesList", input],
 	}),
 	workoutDetails: (workoutId: string) => ({
 		queryKey: ["workoutDetails", workoutId],

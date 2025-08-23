@@ -32,6 +32,7 @@ import {
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
+	ExpireCacheKeyDocument,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -46,16 +47,14 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { CSSProperties, ReactNode } from "react";
-import { Form, Link } from "react-router";
+import { Link } from "react-router";
 import { Fragment } from "react/jsx-runtime";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAddEntitiesToCollectionMutation,
-	useConfirmSubmit,
 	useCoreDetails,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
@@ -78,6 +77,8 @@ import {
 	PersonDisplayItem,
 } from "../media/display-items";
 import { MultiSelectCreatable } from "./multi-select-creatable";
+import { useMutation } from "@tanstack/react-query";
+import { clientGqlService } from "~/lib/shared/react-query";
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -311,9 +312,13 @@ export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId?: string;
 	rightSection?: ReactNode;
+	onRefreshButtonClicked?: () => void;
 	isRandomSortOrderSelected?: boolean;
 }) => {
-	const submit = useConfirmSubmit();
+	const expireCacheKey = useMutation({
+		mutationFn: (cacheId: string) =>
+			clientGqlService.request(ExpireCacheKeyDocument, { cacheId }),
+	});
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -325,22 +330,17 @@ export const DisplayListDetailsAndRefresh = (props: {
 				{props.rightSection}
 			</Box>
 			{props.cacheId && props.isRandomSortOrderSelected ? (
-				<Form
-					replace
-					method="POST"
-					onSubmit={submit}
-					action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
+				<Button
+					size="xs"
+					variant="subtle"
+					onClick={async () => {
+						await expireCacheKey.mutateAsync(props.cacheId ?? "");
+						props.onRefreshButtonClicked?.();
+					}}
+					leftSection={<IconArrowsShuffle size={20} />}
 				>
-					<input type="hidden" name="cacheId" value={props.cacheId} />
-					<Button
-						size="xs"
-						type="submit"
-						variant="subtle"
-						leftSection={<IconArrowsShuffle size={20} />}
-					>
-						Refresh
-					</Button>
-				</Form>
+					Refresh
+				</Button>
 			) : null}
 		</Group>
 	);

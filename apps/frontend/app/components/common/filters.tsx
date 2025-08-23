@@ -44,6 +44,7 @@ export const FiltersModal = (props: {
 	opened: boolean;
 	cookieName: string;
 	children: ReactNode;
+	resetFilters?: () => void;
 	closeFiltersModal: () => void;
 }) => {
 	const navigate = useNavigate();
@@ -61,6 +62,7 @@ export const FiltersModal = (props: {
 					<ActionIcon
 						onClick={() => {
 							navigate(".");
+							props.resetFilters?.();
 							props.closeFiltersModal();
 							Cookies.remove(props.cookieName);
 						}}
