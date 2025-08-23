@@ -164,7 +164,7 @@ export default function Page() {
 	const updateFilter: UpdateFilterFunction = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
-	const filterChanged = isFilterChanged(filters, defaultFilters);
+	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
 	return (
 		<>
@@ -248,7 +248,7 @@ export default function Page() {
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
-														color={filterChanged ? "blue" : "gray"}
+														color={areListFiltersActive ? "blue" : "gray"}
 													>
 														<IconFilter size={24} />
 													</ActionIcon>

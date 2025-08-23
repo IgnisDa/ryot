@@ -200,7 +200,7 @@ export default function Page() {
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const filterChanged = isFilterChanged(filters, defaultFilters);
+	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
 
 	const { data: replacingExercise } = useQuery({
 		enabled: !!replacingExerciseId,
@@ -247,7 +247,7 @@ export default function Page() {
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
-						color={filterChanged ? "blue" : "gray"}
+						color={areListFiltersActive ? "blue" : "gray"}
 					>
 						<IconFilter size={24} />
 					</ActionIcon>

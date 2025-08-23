@@ -315,7 +315,7 @@ export default function Page() {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const mediaSearch = loaderData.mediaSearch;
-	const filterChanged = isFilterChanged(
+	const areListFiltersActive = isFilterChanged(
 		loaderData.mediaList?.url,
 		defaultMineFilters,
 	);
@@ -404,7 +404,7 @@ export default function Page() {
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={filterChanged ? "blue" : "gray"}
+									color={areListFiltersActive ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>

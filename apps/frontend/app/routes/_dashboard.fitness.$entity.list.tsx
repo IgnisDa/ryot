@@ -178,7 +178,10 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const filterChanged = isFilterChanged(loaderData.query, defaultFilters);
+	const areListFiltersActive = isFilterChanged(
+		loaderData.query,
+		defaultFilters,
+	);
 
 	return (
 		<Container size="xs">
@@ -223,7 +226,7 @@ export default function Page() {
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
-						color={filterChanged ? "blue" : "gray"}
+						color={areListFiltersActive ? "blue" : "gray"}
 					>
 						<IconFilter size={24} />
 					</ActionIcon>

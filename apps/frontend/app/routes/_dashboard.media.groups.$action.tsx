@@ -192,7 +192,8 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const filterChanged = isFilterChanged(
+
+	const areListFiltersActive = isFilterChanged(
 		loaderData.list?.url || {},
 		defaultFilters,
 	);
@@ -254,7 +255,7 @@ export default function Page() {
 							<>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={filterChanged ? "blue" : "gray"}
+									color={areListFiltersActive ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
