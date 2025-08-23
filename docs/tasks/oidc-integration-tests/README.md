@@ -169,18 +169,18 @@ The test query to confirm bootstrap ran: `SELECT count(*) FROM tracker WHERE use
 
 ## Tasks
 
-**Overall Progress:** 0 of 7 tasks completed
+**Overall Progress:** 7 of 7 tasks completed
 
-**Current Task:** [01 — Fix Bootstrap Hook](./01-fix-bootstrap-hook.md) (todo)
+**Current Task:** All tasks complete.
 
 ### Task List
 
 | #   | Task                                                                                                              | Type | Status |
 | --- | ----------------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Fix Bootstrap Hook](./01-fix-bootstrap-hook.md)                                                                  | AFK  | todo   |
-| 02  | [Config Default Tests](./02-config-default-tests.md)                                                              | AFK  | todo   |
-| 03  | [OIDC Test Infrastructure and Config Tests](./03-oidc-test-infrastructure-and-config-tests.md)                    | AFK  | todo   |
-| 04  | [OIDC Sign-In Happy Path](./04-oidc-sign-in-happy-path.md)                                                        | AFK  | todo   |
-| 05  | [OIDC Idempotency and Account Linking](./05-oidc-idempotency-and-account-linking.md)                              | AFK  | todo   |
-| 06  | [Registration Gating for OIDC](./06-registration-gating-for-oidc.md)                                             | AFK  | todo   |
-| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                                                      | AFK  | todo   |
+| 01  | [Fix Bootstrap Hook](./01-fix-bootstrap-hook.md)                                                                  | AFK  | done   |
+| 02  | [Config Default Tests](./02-config-default-tests.md)                                                              | AFK  | done   |
+| 03  | [OIDC Test Infrastructure and Config Tests](./03-oidc-test-infrastructure-and-config-tests.md)                    | AFK  | done   |
+| 04  | [OIDC Sign-In Happy Path](./04-oidc-sign-in-happy-path.md)                                                        | AFK  | done   |
+| 05  | [OIDC Idempotency and Account Linking](./05-oidc-idempotency-and-account-linking.md)                              | AFK  | done   |
+| 06  | [Registration Gating for OIDC](./06-registration-gating-for-oidc.md)                                             | AFK  | done   |
+| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                                                      | AFK  | done   |
