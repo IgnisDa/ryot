@@ -111,7 +111,7 @@ type UpdateFilterFunction = (
 	value: string | number | null,
 ) => void;
 
-const defaultFiltersValue: FilterState = {
+const defaultFilters: FilterState = {
 	page: 1,
 	type: undefined,
 	force: undefined,
@@ -162,7 +162,7 @@ export default function Page() {
 	const [mergingExercise, setMergingExercise] = useMergingExercise();
 	const [filters, setFilters] = useLocalStorage(
 		"ExerciseListFilters",
-		defaultFiltersValue,
+		defaultFilters,
 	);
 	const [selectedExercises, setSelectedExercises] =
 		useListState<SelectExercise>([]);
@@ -199,11 +199,11 @@ export default function Page() {
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const isFilterChanged = Object.keys(defaultFiltersValue)
+	const isFilterChanged = Object.keys(defaultFilters)
 		.filter((k) => k !== "page" && k !== "query")
 		.some(
 			// biome-ignore lint/suspicious/noExplicitAny: required here
-			(k) => (filters as any)[k] !== (defaultFiltersValue as any)[k],
+			(k) => (filters as any)[k] !== (defaultFilters as any)[k],
 		);
 
 	const { data: replacingExercise } = useQuery({
@@ -216,7 +216,7 @@ export default function Page() {
 		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
-	const resetFilters = () => setFilters(defaultFiltersValue);
+	const resetFilters = () => setFilters(defaultFilters);
 
 	const updateFilter: UpdateFilterFunction = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
@@ -370,7 +370,7 @@ const FiltersModalForm = (props: {
 				data={convertEnumToSelectData(ExerciseSortBy)}
 				onChange={(v) => props.updateFilter("sortBy", v)}
 			/>
-			{Object.keys(defaultFiltersValue)
+			{Object.keys(defaultFilters)
 				.filter(
 					(f) =>
 						!["sortBy", "order", "collection", "page", "query"].includes(f),

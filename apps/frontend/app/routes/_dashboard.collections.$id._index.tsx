@@ -92,7 +92,7 @@ interface FilterState {
 	sortBy: CollectionContentsSortBy;
 }
 
-const defaultFiltersValue: FilterState = {
+const defaultFilters: FilterState = {
 	page: 1,
 	query: undefined,
 	entityLot: undefined,
@@ -121,7 +121,7 @@ export default function Page() {
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
 	const [filters, setFilters] = useLocalStorage(
 		`CollectionFilters-${collectionId}`,
-		defaultFiltersValue,
+		defaultFilters,
 	);
 	const [tab, setTab] = useState<string | null>(DEFAULT_TAB);
 	const [isReorderMode, setIsReorderMode] = useState(false);
@@ -162,10 +162,10 @@ export default function Page() {
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	const isFilterChanged =
-		filters.entityLot !== defaultFiltersValue.entityLot ||
-		filters.metadataLot !== defaultFiltersValue.metadataLot ||
-		filters.sortBy !== defaultFiltersValue.sortBy ||
-		filters.orderBy !== defaultFiltersValue.orderBy;
+		filters.entityLot !== defaultFilters.entityLot ||
+		filters.metadataLot !== defaultFilters.metadataLot ||
+		filters.sortBy !== defaultFilters.sortBy ||
+		filters.orderBy !== defaultFilters.orderBy;
 
 	return (
 		<>
@@ -256,7 +256,7 @@ export default function Page() {
 													<FiltersModal
 														opened={filtersModalOpened}
 														closeFiltersModal={closeFiltersModal}
-														resetFilters={() => setFilters(defaultFiltersValue)}
+														resetFilters={() => setFilters(defaultFilters)}
 														cookieName={`CollectionFilters-${collectionId}`}
 													>
 														<FiltersModalForm
