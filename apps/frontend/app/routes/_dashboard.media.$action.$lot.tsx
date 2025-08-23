@@ -105,11 +105,11 @@ const defaultFilters = {
 const searchSchema = z.object({
 	igdbThemeIds: zodCommaDelimitedString.optional(),
 	igdbGenreIds: zodCommaDelimitedString.optional(),
+	igdbGameTypeIds: zodCommaDelimitedString.optional(),
 	igdbPlatformIds: zodCommaDelimitedString.optional(),
 	igdbGameModeIds: zodCommaDelimitedString.optional(),
 	googleBooksPassRawQuery: zodBoolAsString.optional(),
 	igdbAllowGamesWithParent: zodBoolAsString.optional(),
-	igdbPlatformExclusivesOnly: zodBoolAsString.optional(),
 	igdbReleaseDateRegionIds: zodCommaDelimitedString.optional(),
 });
 
@@ -213,9 +213,9 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 									genreIds: urlParse.igdbGenreIds,
 									platformIds: urlParse.igdbPlatformIds,
 									gameModeIds: urlParse.igdbGameModeIds,
+									gameTypeIds: urlParse.igdbGameTypeIds,
 									releaseDateRegionIds: urlParse.igdbReleaseDateRegionIds,
 									allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
-									platformExclusivesOnly: urlParse.igdbPlatformExclusivesOnly,
 								},
 							},
 						},
@@ -677,30 +677,32 @@ const SearchFiltersModalForm = () => {
 							value: g.id.toString(),
 						}))}
 					/>
-					<Stack gap="xs">
-						<MultiSelect
-							size="xs"
-							clearable
-							searchable
-							hidePickedOptions
-							label="Select platforms"
-							value={loaderData.mediaSearch.url.igdbPlatformIds || []}
-							onChange={(v) => setP("igdbPlatformIds", v.join(","))}
-							data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
-								label: p.name,
-								value: p.id.toString(),
-							}))}
-						/>
-						<Checkbox
-							size="xs"
-							ml="auto"
-							label="Platform exclusives only"
-							checked={loaderData.mediaSearch.url.igdbPlatformExclusivesOnly}
-							onChange={(e) =>
-								setP("igdbPlatformExclusivesOnly", String(e.target.checked))
-							}
-						/>
-					</Stack>
+					<MultiSelect
+						size="xs"
+						clearable
+						searchable
+						hidePickedOptions
+						label="Select platforms"
+						value={loaderData.mediaSearch.url.igdbPlatformIds || []}
+						onChange={(v) => setP("igdbPlatformIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.platforms.map((p) => ({
+							label: p.name,
+							value: p.id.toString(),
+						}))}
+					/>
+					<MultiSelect
+						size="xs"
+						clearable
+						searchable
+						hidePickedOptions
+						label="Select game types"
+						value={loaderData.mediaSearch.url.igdbGameTypeIds || []}
+						onChange={(v) => setP("igdbGameTypeIds", v.join(","))}
+						data={coreDetails.providerSpecifics.igdb.gameTypes.map((gt) => ({
+							label: gt.name,
+							value: gt.id.toString(),
+						}))}
+					/>
 					<MultiSelect
 						size="xs"
 						clearable
