@@ -169,7 +169,7 @@ pub struct GetCacheKeyResponse {
 pub enum ExpireCacheKeyInput {
     ById(Uuid),
     ByUser(String),
-    ByKey(ApplicationCacheKey),
+    ByKey(Box<ApplicationCacheKey>),
     BySanitizedKey {
         user_id: Option<String>,
         key: ApplicationCacheKeyDiscriminants,

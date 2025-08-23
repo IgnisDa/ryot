@@ -51,6 +51,6 @@ pub async fn invalidate_session(ss: &Arc<SupportingService>, session_id: &str) -
     let cache_key = ApplicationCacheKey::UserSession(UserSessionInput {
         session_id: session_id.to_owned(),
     });
-    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(cache_key)).await?;
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(Box::new(cache_key))).await?;
     Ok(())
 }
