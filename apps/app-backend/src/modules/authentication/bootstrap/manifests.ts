@@ -9,9 +9,11 @@ import {
 	builtinMediaEntitySchemaSlugs,
 } from "~/lib/media/constants";
 import { mangaPropertiesJsonSchema } from "~/lib/media/manga";
+import { moviePropertiesJsonSchema } from "~/lib/media/movie";
 import { musicPropertiesJsonSchema } from "~/lib/media/music";
 import { personPropertiesJsonSchema } from "~/lib/media/person";
 import { podcastPropertiesJsonSchema } from "~/lib/media/podcast";
+import { showPropertiesJsonSchema } from "~/lib/media/show";
 import { videoGamePropertiesJsonSchema } from "~/lib/media/video-game";
 import { createDefaultDisplayConfiguration } from "~/modules/saved-views";
 
@@ -22,7 +24,7 @@ export const authenticationBuiltinTrackers = () => [
 		name: "Media",
 		accentColor: "#5B7FFF",
 		description:
-			"Track media across books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
+			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
 	{
 		slug: "fitness",
@@ -147,6 +149,24 @@ export const authenticationBuiltinEntitySchemas = () => [
 		propertiesSchema: animePropertiesJsonSchema,
 	},
 	{
+		slug: "movie",
+		name: "Movie",
+		icon: "clapperboard",
+		trackerSlug: "media",
+		accentColor: "#FACC15",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: moviePropertiesJsonSchema,
+	},
+	{
+		slug: "show",
+		name: "Show",
+		icon: "monitor-play",
+		trackerSlug: "media",
+		accentColor: "#8B5CF6",
+		eventSchemas: mediaLifecycleEventSchemas(),
+		propertiesSchema: showPropertiesJsonSchema,
+	},
+	{
 		slug: "manga",
 		name: "Manga",
 		icon: "book",
@@ -215,13 +235,15 @@ export const authenticationBuiltinEntitySchemas = () => [
 const getBuiltInSavedViewName = (slug: BuiltinMediaEntitySchemaSlug) => {
 	return match(slug)
 		.with("book", () => "All Books")
-		.with("comic-book", () => "All Comic Books")
+		.with("show", () => "All Shows")
 		.with("anime", () => "All Anime")
 		.with("manga", () => "All Manga")
+		.with("movie", () => "All Movies")
+		.with("music", () => "All Music")
 		.with("podcast", () => "All Podcasts")
+		.with("comic-book", () => "All Comic Books")
 		.with("audiobook", () => "All Audiobooks")
 		.with("video-game", () => "All Video Games")
-		.with("music", () => "All Music")
 		.exhaustive();
 };
 

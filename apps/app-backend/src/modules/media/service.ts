@@ -142,6 +142,8 @@ const buildBaseRequest = (): Omit<
 > => {
 	const entityCreatedAt = coalesceExpression(
 		entityColumnExpression("book", "createdAt"),
+		entityColumnExpression("show", "createdAt"),
+		entityColumnExpression("movie", "createdAt"),
 		entityColumnExpression("comic-book", "createdAt"),
 		entityColumnExpression("anime", "createdAt"),
 		entityColumnExpression("manga", "createdAt"),
@@ -151,6 +153,8 @@ const buildBaseRequest = (): Omit<
 	);
 	const publishYear = coalesceExpression(
 		entityPropertyExpression("book", "publishYear"),
+		entityPropertyExpression("show", "publishYear"),
+		entityPropertyExpression("movie", "publishYear"),
 		entityPropertyExpression("comic-book", "publishYear"),
 		entityPropertyExpression("anime", "publishYear"),
 		entityPropertyExpression("manga", "publishYear"),
