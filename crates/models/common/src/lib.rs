@@ -417,9 +417,9 @@ pub struct MetadataSearchSourceGoogleBooksSpecifics {
     SimpleObject,
     FromJsonQueryResult,
 )]
-#[graphql(input_name = "MetadataSearchSourceIgdbSpecifics")]
+#[graphql(input_name = "MetadataSearchSourceIgdbFilterSpecifics")]
 #[serde(rename_all = "snake_case")]
-pub struct MetadataSearchSourceIgdbSpecifics {
+pub struct MetadataSearchSourceIgdbFilterSpecifics {
     pub theme_ids: Option<Vec<String>>,
     pub genre_ids: Option<Vec<String>>,
     pub platform_ids: Option<Vec<String>>,
@@ -427,6 +427,27 @@ pub struct MetadataSearchSourceIgdbSpecifics {
     pub game_type_ids: Option<Vec<String>>,
     pub allow_games_with_parent: Option<bool>,
     pub release_date_region_ids: Option<Vec<String>>,
+}
+
+#[skip_serializing_none]
+#[derive(
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    Default,
+    Schematic,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    InputObject,
+    SimpleObject,
+    FromJsonQueryResult,
+)]
+#[graphql(input_name = "MetadataSearchSourceIgdbSpecifics")]
+#[serde(rename_all = "snake_case")]
+pub struct MetadataSearchSourceIgdbSpecifics {
+    pub filters: MetadataSearchSourceIgdbFilterSpecifics,
 }
 
 #[skip_serializing_none]
