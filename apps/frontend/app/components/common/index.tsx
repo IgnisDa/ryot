@@ -46,6 +46,7 @@ import {
 	IconPencil,
 	IconX,
 } from "@tabler/icons-react";
+import { useMutation } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import { Fragment } from "react/jsx-runtime";
@@ -60,6 +61,7 @@ import {
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
 } from "~/lib/shared/hooks";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
@@ -77,8 +79,6 @@ import {
 	PersonDisplayItem,
 } from "../media/display-items";
 import { MultiSelectCreatable } from "./multi-select-creatable";
-import { useMutation } from "@tanstack/react-query";
-import { clientGqlService } from "~/lib/shared/react-query";
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
