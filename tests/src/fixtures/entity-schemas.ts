@@ -1,7 +1,7 @@
 import type { components, paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
 import { type PollOptions, pollUntil } from "./polling";
-import { findBuiltinTracker } from "./trackers";
+import { createTracker, findBuiltinTracker } from "./trackers";
 
 type EnqueueEntitySearchBody = NonNullable<
 	paths["/entity-schemas/search"]["post"]["requestBody"]
@@ -217,4 +217,27 @@ export async function pollEntityImportResult(
 		},
 		options,
 	);
+}
+
+export function getFirstProviderScriptId(schema: {
+	providers: Array<{ scriptId: string }>;
+}) {
+	const scriptId = schema.providers[0]?.scriptId;
+	if (!scriptId) {
+		throw new Error("No provider found for schema");
+	}
+	return scriptId;
+}
+
+export async function createTrackerWithSchema(
+	client: Client,
+	cookies: string,
+	options: Partial<Omit<CreateEntitySchemaOptions, "trackerId">> = {},
+) {
+	const { trackerId } = await createTracker(client, cookies);
+	const { schemaId, slug, data } = await createEntitySchema(client, cookies, {
+		...options,
+		trackerId,
+	});
+	return { trackerId, schemaId, slug, data };
 }

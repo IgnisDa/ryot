@@ -1,5 +1,6 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 import type { Client } from "./auth";
+import { createTrackerWithSchema } from "./entity-schemas";
 
 type CreateEntityBody = NonNullable<
 	paths["/entities"]["post"]["requestBody"]
@@ -37,4 +38,21 @@ export async function getEntity(
 	}
 
 	return data.data;
+}
+
+export async function createTrackerWithSchemaAndEntity(
+	client: Client,
+	cookies: string,
+) {
+	const { trackerId, schemaId } = await createTrackerWithSchema(
+		client,
+		cookies,
+	);
+	const entity = await createEntity(client, cookies, {
+		image: null,
+		name: "Test Entity",
+		entitySchemaId: schemaId,
+		properties: { title: "Test Title" },
+	});
+	return { schemaId, trackerId, entityId: entity.id, entity };
 }
