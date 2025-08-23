@@ -87,6 +87,7 @@ const getMediaOverviewRateTheseRoute = createAuthRoute(
 	}),
 );
 
+// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 const getMediaOverviewRecentActivityRoute = createAuthRoute(
 	createRoute({
 		method: "get",
@@ -186,6 +187,7 @@ export const mediaApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	})
+	// TODO: Delete when app-frontend is removed. app-client does not use this endpoint.
 	.openapi(getMediaOverviewRecentActivityRoute, async (c) => {
 		const user = c.get("user");
 
