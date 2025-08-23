@@ -10,6 +10,7 @@ import {
 	ActionIcon,
 	Alert,
 	ColorSchemeScript,
+	Container,
 	createTheme,
 	Flex,
 	Loader,
@@ -40,6 +41,7 @@ import {
 	extendResponseHeaders,
 	getToast,
 } from "~/lib/utilities.server";
+import classes from "~/styles/common.module.css";
 
 const theme = createTheme({
 	fontFamily: "Poppins",
@@ -47,6 +49,12 @@ const theme = createTheme({
 		Alert: Alert.extend({ defaultProps: { p: "xs" } }),
 		ActionIcon: ActionIcon.extend({
 			defaultProps: { variant: "subtle", color: "gray" },
+		}),
+		Container: Container.extend({
+			defaultProps: { size: "responsive" },
+			classNames: (_, { size }) => ({
+				root: size === "responsive" ? classes.responsiveContainer : "",
+			}),
 		}),
 	},
 	breakpoints: {
@@ -56,6 +64,8 @@ const theme = createTheme({
 		lg: "74em",
 		xl: "90em",
 		"2xl": "120em",
+		"3xl": "155em",
+		"4xl": "225em",
 	},
 });
 
