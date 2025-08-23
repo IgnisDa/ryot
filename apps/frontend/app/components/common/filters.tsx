@@ -61,8 +61,8 @@ export const FiltersModal = (props: {
 					<Title order={3}>{props.title || "Filters"}</Title>
 					<ActionIcon
 						onClick={() => {
-							navigate(".");
 							props.resetFilters?.();
+							navigate(".");
 							props.closeFiltersModal();
 							Cookies.remove(props.cookieName);
 						}}
