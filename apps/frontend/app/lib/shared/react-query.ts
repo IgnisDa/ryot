@@ -41,6 +41,12 @@ export const clientGqlService = new GraphQLClient(
 	},
 );
 
+const calendarQueryKeys = createQueryKeys("calendar", {
+	userCalendarEvents: (input: UserCalendarEventInput) => ({
+		queryKey: ["userCalendarEvents", input],
+	}),
+});
+
 const mediaQueryKeys = createQueryKeys("media", {
 	trendingMetadata: () => ({
 		queryKey: ["trendingMetadata"],
@@ -116,12 +122,6 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	}),
 	userAnalytics: (input: UserAnalyticsQueryVariables) => ({
 		queryKey: ["userAnalytics", input],
-	}),
-});
-
-const calendarQueryKeys = createQueryKeys("calendar", {
-	userCalendarEvents: (input: UserCalendarEventInput) => ({
-		queryKey: ["userCalendarEvents", input],
 	}),
 });
 
