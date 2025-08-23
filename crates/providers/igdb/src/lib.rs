@@ -235,9 +235,9 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            fields = COLLECTION_FIELDS,
             query = query,
             limit = PAGE_SIZE,
+            fields = COLLECTION_FIELDS,
             offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
@@ -250,10 +250,10 @@ offset: {offset};
         let resp = details
             .into_iter()
             .map(|d| MetadataGroupSearchItem {
-                identifier: d.id.to_string(),
                 name: d.name.unwrap(),
-                image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                identifier: d.id.to_string(),
                 parts: d.games.map(|g| g.len()),
+                image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
         let next_page =
@@ -336,9 +336,9 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            fields = COMPANY_FIELDS,
             query = query,
             limit = PAGE_SIZE,
+            fields = COMPANY_FIELDS,
             offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
@@ -433,12 +433,6 @@ where id = {identity};
             description: detail.description,
             identifier: detail.id_and_name.id.to_string(),
             source_url: Some(format!("https://www.igdb.com/companies/{}", slugify(name))),
-            assets: EntityAssets {
-                remote_images: Vec::from_iter(
-                    detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
-                ),
-                ..Default::default()
-            },
             place: detail
                 .country
                 .and_then(from_numeric)
@@ -448,6 +442,12 @@ where id = {identity};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
+            assets: EntityAssets {
+                remote_images: Vec::from_iter(
+                    detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
+                ),
+                ..Default::default()
+            },
             ..Default::default()
         })
     }
@@ -585,12 +585,10 @@ offset: {offset};
             })
             .collect_vec();
 
+        let next_page = (total - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp,
-            details: SearchDetails {
-                total,
-                next_page: Some(page + 1),
-            },
+            details: SearchDetails { total, next_page },
         })
     }
 }
