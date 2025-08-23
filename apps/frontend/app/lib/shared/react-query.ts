@@ -10,6 +10,7 @@ import {
 	PersonDetailsDocument,
 	type SearchInput,
 	type UserAnalyticsQueryVariables,
+	type UserCalendarEventInput,
 	type UserExercisesListInput,
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
@@ -106,9 +107,16 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	}),
 });
 
+const calendarQueryKeys = createQueryKeys("calendar", {
+	userCalendarEvents: (input: UserCalendarEventInput) => ({
+		queryKey: ["userCalendarEvents", input],
+	}),
+});
+
 export const queryFactory = mergeQueryKeys(
 	mediaQueryKeys,
 	fitnessQueryKeys,
+	calendarQueryKeys,
 	collectionQueryKeys,
 	miscellaneousQueryKeys,
 );

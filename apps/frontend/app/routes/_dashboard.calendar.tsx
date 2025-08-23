@@ -4,6 +4,7 @@ import {
 	Button,
 	Container,
 	Group,
+	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -13,40 +14,23 @@ import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery, sum } from "@ryot/ts-utils";
+import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
-import { useLoaderData } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
-import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
-import { useAppSearchParam } from "~/lib/shared/hooks";
-import {
-	getSearchEnhancedCookieName,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.calendar";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
-const searchParamsSchema = z.object({
-	date: z.coerce.date().optional(),
-});
+interface FilterState {
+	date: Date;
+}
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getSearchEnhancedCookieName("calendar", request);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const date = dayjsLib(query.date);
-	const [{ userCalendarEvents }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, UserCalendarEventsDocument, {
-			input: { month: date.month() + 1, year: date.year() },
-		}),
-	]);
-	return { userCalendarEvents, cookieName, query };
+const defaultFilterState: FilterState = {
+	date: new Date(),
 };
 
 export const meta = () => {
@@ -54,9 +38,28 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
-	const date = dayjsLib(loaderData.query.date);
+	const [filters, setFilters] = useLocalStorage(
+		"CalendarFilters",
+		defaultFilterState,
+	);
+
+	const date = dayjsLib(filters.date);
+
+	const { data: userCalendarEvents } = useQuery({
+		queryKey: queryFactory.calendar.userCalendarEvents({
+			year: date.year(),
+			month: date.month() + 1,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserCalendarEventsDocument, {
+					input: { month: date.month() + 1, year: date.year() },
+				})
+				.then((data) => data.userCalendarEvents),
+	});
+
+	const updateDate = (newDate: Date) =>
+		setFilters((prev) => ({ ...prev, date: newDate }));
 
 	return (
 		<Container>
@@ -70,7 +73,7 @@ export default function Page() {
 							variant="outline"
 							onClick={() => {
 								const newMonth = date.subtract(1, "month");
-								setP("date", newMonth.toISOString());
+								updateDate(newMonth.toDate());
 							}}
 						>
 							<IconChevronLeft />
@@ -80,27 +83,31 @@ export default function Page() {
 							ml="xs"
 							onClick={() => {
 								const newMonth = date.add(1, "month");
-								setP("date", newMonth.toISOString());
+								updateDate(newMonth.toDate());
 							}}
 						>
 							<IconChevronRight />
 						</ActionIcon>
 					</Button.Group>
 				</Group>
-				{loaderData.userCalendarEvents.length > 0 ? (
-					<Stack gap={4}>
-						<Box>
-							<Text display="inline" fw="bold">
-								{sum(loaderData.userCalendarEvents.map((e) => e.events.length))}
-							</Text>{" "}
-							items found
-						</Box>
-						{loaderData.userCalendarEvents.map((ce) => (
-							<CalendarEvent key={ce.date} data={ce} />
-						))}
-					</Stack>
+				{userCalendarEvents ? (
+					userCalendarEvents.length > 0 ? (
+						<Stack gap={4}>
+							<Box>
+								<Text display="inline" fw="bold">
+									{sum(userCalendarEvents.map((e) => e.events.length))}
+								</Text>{" "}
+								items found
+							</Box>
+							{userCalendarEvents.map((ce) => (
+								<CalendarEvent key={ce.date} data={ce} />
+							))}
+						</Stack>
+					) : (
+						<Text fs="italic">No events in this time period</Text>
+					)
 				) : (
-					<Text fs="italic">No events in this time period</Text>
+					<Skeleton height={56} />
 				)}
 			</Stack>
 		</Container>
