@@ -374,7 +374,6 @@ export default function Page() {
 													});
 													return;
 												}
-												navigate(".");
 												setTab(TabNames.Contents);
 												setIsReorderMode(true);
 											}}
