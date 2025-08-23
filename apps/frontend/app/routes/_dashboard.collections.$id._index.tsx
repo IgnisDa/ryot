@@ -162,8 +162,8 @@ export default function Page() {
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	const isFilterChanged =
-		filters.entityLot !== undefined ||
-		filters.metadataLot !== undefined ||
+		filters.entityLot !== defaultFiltersValue.entityLot ||
+		filters.metadataLot !== defaultFiltersValue.metadataLot ||
 		filters.sortBy !== defaultFiltersValue.sortBy ||
 		filters.orderBy !== defaultFiltersValue.orderBy;
 
