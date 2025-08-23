@@ -22,6 +22,7 @@ TypeScript backend (apps/app-backend) during startup.
 
 - 2FA payloads.
 - OIDC identities.
+- OAuth redirect URL (V1 used `{frontend_url}/api/auth`; V2 uses Better Auth's default `/api/auth/oauth2/callback/:providerId`).
 - Sessions.
 - `USERS_TOKEN_VALID_FOR_DAYS`.
 - `extra_information`.
