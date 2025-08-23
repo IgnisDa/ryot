@@ -11,5 +11,4 @@ export {
 	buildAuthenticationSavedViewInputs,
 	buildAuthenticationTrackerEntitySchemaLinks,
 	buildLibraryEntityInput,
-	resolveAuthenticationName,
 } from "./service";

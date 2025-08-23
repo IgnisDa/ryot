@@ -8,7 +8,7 @@ import { z } from "zod";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useApiClient, useSystemConfig } from "@/lib/api-client";
+import { useSystemConfig } from "@/lib/api-client";
 import { useAuthClient, useSetServerUrl } from "@/lib/atoms";
 import { useAppForm } from "@/lib/forms";
 import { getNameFromEmail } from "@/lib/user";
@@ -38,7 +38,6 @@ const schema = z.object({
 });
 
 export default function Auth() {
-	const apiClient = useApiClient();
 	const authClient = useAuthClient();
 	const setServerUrl = useSetServerUrl();
 	const oidcAutoLaunched = useRef(false);
@@ -59,11 +58,13 @@ export default function Auth() {
 	const authMutation = useMutation({
 		mutationFn: async ({ email, password }: z.infer<typeof schema>) => {
 			if (mode === "signup") {
-				const { error } = await apiClient.POST("/authentication/email", {
-					body: { email, password, name: getNameFromEmail(email) },
+				const { error } = await authClient.signUp.email({
+					email,
+					password,
+					name: getNameFromEmail(email),
 				});
 				if (error) {
-					throw new Error(error.error.message);
+					throw new Error(error.message ?? "Could not create account");
 				}
 			}
 			const { error } = await authClient.signIn.email({ email, password });
