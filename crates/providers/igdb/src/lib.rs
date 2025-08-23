@@ -505,20 +505,24 @@ where id = {identity};
 
         let allow_games_with_parent = source_specifics
             .as_ref()
-            .and_then(|s| s.igdb.as_ref().and_then(|i| i.allow_games_with_parent))
+            .and_then(|s| {
+                s.igdb
+                    .as_ref()
+                    .and_then(|i| i.filters.allow_games_with_parent)
+            })
             .unwrap_or(false);
 
         let filter_builders: [(
             fn(&MetadataSearchSourceIgdbSpecifics) -> Option<&Vec<String>>,
             &str,
         ); 6] = [
-            (|i| i.theme_ids.as_ref(), "themes"),
-            (|i| i.genre_ids.as_ref(), "genres"),
-            (|i| i.platform_ids.as_ref(), "platforms"),
-            (|i| i.game_type_ids.as_ref(), "game_type"),
-            (|i| i.game_mode_ids.as_ref(), "game_modes"),
+            (|i| i.filters.theme_ids.as_ref(), "themes"),
+            (|i| i.filters.genre_ids.as_ref(), "genres"),
+            (|i| i.filters.platform_ids.as_ref(), "platforms"),
+            (|i| i.filters.game_type_ids.as_ref(), "game_type"),
+            (|i| i.filters.game_mode_ids.as_ref(), "game_modes"),
             (
-                |i| i.release_date_region_ids.as_ref(),
+                |i| i.filters.release_date_region_ids.as_ref(),
                 "release_dates.region",
             ),
         ];
