@@ -49,7 +49,6 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
-import { Fragment } from "react/jsx-runtime";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
@@ -452,7 +451,7 @@ export const CollectionTemplateRenderer = (props: {
 	onChange: (value: Scalars["JSON"]["input"]) => void;
 }) => {
 	return (
-		<Fragment>
+		<>
 			{match(props.template.lot)
 				.with(CollectionExtraInformationLot.String, () => (
 					<TextInput
@@ -512,7 +511,7 @@ export const CollectionTemplateRenderer = (props: {
 					/>
 				))
 				.exhaustive()}
-		</Fragment>
+		</>
 	);
 };
 

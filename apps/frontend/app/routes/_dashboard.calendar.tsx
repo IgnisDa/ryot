@@ -17,7 +17,6 @@ import {
 import { sum } from "@ryot/ts-utils";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment } from "react/jsx-runtime";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { ApplicationGrid } from "~/components/common/layout";
@@ -120,7 +119,7 @@ const CalendarEvent = (props: {
 	const date = dayjsLib(props.data.date);
 
 	return (
-		<Fragment>
+		<>
 			<Group data-calendar-date={props.data.date}>
 				<Text fz={{ base: "h1" }} fw="bold">
 					{date.format("D")}
@@ -155,6 +154,6 @@ const CalendarEvent = (props: {
 					/>
 				))}
 			</ApplicationGrid>
-		</Fragment>
+		</>
 	);
 };
