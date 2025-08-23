@@ -67,11 +67,12 @@ export const convertEnumToSelectData = (value: {
 export const isFilterChanged = <T extends object>(
 	current: T | undefined,
 	defaults: T,
-	excludeKeys: (keyof T)[] = ["page", "query"] as (keyof T)[],
 ) => {
 	if (!current) return false;
 
 	return Object.keys(defaults)
-		.filter((key) => !excludeKeys.includes(key as keyof T))
+		.filter(
+			(key) => !(["page", "query"] as (keyof T)[]).includes(key as keyof T),
+		)
 		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
 };
