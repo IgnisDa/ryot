@@ -209,13 +209,15 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 							sourceSpecifics: {
 								googleBooks: { passRawQuery: urlParse.googleBooksPassRawQuery },
 								igdb: {
-									themeIds: urlParse.igdbThemeIds,
-									genreIds: urlParse.igdbGenreIds,
-									platformIds: urlParse.igdbPlatformIds,
-									gameModeIds: urlParse.igdbGameModeIds,
-									gameTypeIds: urlParse.igdbGameTypeIds,
-									releaseDateRegionIds: urlParse.igdbReleaseDateRegionIds,
-									allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+									filters: {
+										themeIds: urlParse.igdbThemeIds,
+										genreIds: urlParse.igdbGenreIds,
+										platformIds: urlParse.igdbPlatformIds,
+										gameModeIds: urlParse.igdbGameModeIds,
+										gameTypeIds: urlParse.igdbGameTypeIds,
+										releaseDateRegionIds: urlParse.igdbReleaseDateRegionIds,
+										allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
+									},
 								},
 							},
 						},

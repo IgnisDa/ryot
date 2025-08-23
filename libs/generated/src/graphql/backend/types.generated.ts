@@ -1403,7 +1403,7 @@ export type MetadataSearchSourceGoogleBooksSpecifics = {
   passRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
-export type MetadataSearchSourceIgdbSpecifics = {
+export type MetadataSearchSourceIgdbFilterSpecifics = {
   allowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
   gameModeIds?: InputMaybe<Array<Scalars['String']['input']>>;
   gameTypeIds?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -1411,6 +1411,10 @@ export type MetadataSearchSourceIgdbSpecifics = {
   platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
   releaseDateRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
   themeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type MetadataSearchSourceIgdbSpecifics = {
+  filters: MetadataSearchSourceIgdbFilterSpecifics;
 };
 
 export type MetadataSearchSourceSpecificsInput = {
