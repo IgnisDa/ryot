@@ -85,8 +85,7 @@ export default function Page() {
 	} = useWorkoutModals();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const playCheckSound = usePlayFitnessSound("check");
 	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
@@ -224,7 +223,6 @@ export default function Page() {
 						isWorkoutPaused,
 						setCurrentWorkout,
 						advanceOnboardingTourStep,
-						isOnboardingTourInProgress,
 						performTasksAfterSetConfirmed,
 					});
 				}

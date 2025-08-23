@@ -119,7 +119,6 @@ export const handleSetConfirmation = async (params: {
 	set: ExerciseSet | undefined;
 	currentWorkout: CurrentWorkout;
 	exercise: Exercise | undefined;
-	isOnboardingTourInProgress: boolean;
 	advanceOnboardingTourStep: () => void;
 	currentTimer: CurrentWorkoutTimer | null;
 	userPreferences: ReturnType<typeof useUserPreferences>;
@@ -142,7 +141,6 @@ export const handleSetConfirmation = async (params: {
 		isWorkoutPaused,
 		setCurrentWorkout,
 		advanceOnboardingTourStep,
-		isOnboardingTourInProgress,
 		performTasksAfterSetConfirmed,
 	} = params;
 
@@ -153,10 +151,7 @@ export const handleSetConfirmation = async (params: {
 
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const isOnboardingTourStep =
-		isOnboardingTourInProgress &&
-		set?.confirmedAt === null &&
-		exerciseIdx === 0 &&
-		setIdx === 0;
+		set?.confirmedAt === null && exerciseIdx === 0 && setIdx === 0;
 
 	if (isOnboardingTourStep && newConfirmed) {
 		advanceOnboardingTourStep();
@@ -220,8 +215,7 @@ export const useSetConfirmationHandler = (props: {
 	const exercise = useGetExerciseAtIndex(props.exerciseIdx);
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
 	const set = useGetSetAtIndex(props.exerciseIdx, props.setIdx);
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	return async () => {
 		await handleSetConfirmation({
@@ -233,7 +227,6 @@ export const useSetConfirmationHandler = (props: {
 			setCurrentWorkout,
 			setIdx: props.setIdx,
 			advanceOnboardingTourStep,
-			isOnboardingTourInProgress,
 			stopTimer: props.stopTimer,
 			startTimer: props.startTimer,
 			performTasksAfterSetConfirmed,

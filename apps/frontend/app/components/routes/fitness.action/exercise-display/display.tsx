@@ -88,8 +88,7 @@ export const ExerciseDisplay = (props: {
 	const { data: userExerciseDetails } = useQuery(
 		getUserExerciseDetailsQuery(exercise.exerciseId),
 	);
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [
 		isDetailsModalOpen,
 		{ open: openDetailsModal, close: closeDetailsModal },
@@ -98,8 +97,7 @@ export const ExerciseDisplay = (props: {
 	const playAddSetSound = usePlayFitnessSound("add-set");
 
 	const selectedUnitSystem = exercise.unitSystem;
-	const isOnboardingTourStep =
-		isOnboardingTourInProgress && props.exerciseIdx === 0;
+	const isOnboardingTourStep = props.exerciseIdx === 0;
 	const [durationCol, distanceCol, weightCol, repsCol] = match(exercise.lot)
 		.with(ExerciseLot.Reps, () => [false, false, false, true])
 		.with(ExerciseLot.Duration, () => [true, false, false, false])

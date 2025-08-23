@@ -151,12 +151,9 @@ export default function Layout() {
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
-	const mediaLinks = getMediaLinks(userPreferences, isOnboardingTourInProgress);
+	const mediaLinks = getMediaLinks(userPreferences);
 	const Icon = getThemeIcon(loaderData.currentColorScheme);
-	const fitnessLinks = getFitnessLinks(
-		userPreferences,
-		isOnboardingTourInProgress,
-	);
+	const fitnessLinks = getFitnessLinks(userPreferences);
 	const settingsLinks = getSettingsLinks(userDetails);
 
 	return (

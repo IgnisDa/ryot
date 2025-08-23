@@ -58,16 +58,15 @@ export const StatInput = (props: {
 			: undefined,
 		500,
 	);
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const weightStepTourClassName =
-		isOnboardingTourInProgress && props.stat === "weight" && props.setIdx === 0
+		props.stat === "weight" && props.setIdx === 0
 			? OnboardingTourStepTargets.AddWeightToExercise
 			: undefined;
 
 	const repsStepTourClassName =
-		isOnboardingTourInProgress && props.stat === "reps" && props.setIdx === 0
+		props.stat === "reps" && props.setIdx === 0
 			? OnboardingTourStepTargets.AddRepsToExercise
 			: undefined;
 

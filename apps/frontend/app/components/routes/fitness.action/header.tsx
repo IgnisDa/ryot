@@ -5,7 +5,6 @@ import {
 	CreateOrUpdateUserWorkoutTemplateDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { sum } from "@ryot/ts-utils";
-import clsx from "clsx";
 import { RESET } from "jotai/utils";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
@@ -71,8 +70,7 @@ export function WorkoutHeader({
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 	const events = useApplicationEvents();
 	const navigate = useNavigate();
-	const { advanceOnboardingTourStep, isOnboardingTourInProgress } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	if (!currentWorkout) return null;
 
@@ -166,10 +164,7 @@ export function WorkoutHeader({
 						size="compact-sm"
 						loading={isSaveBtnLoading}
 						disabled={isWorkoutPaused}
-						className={clsx(
-							isOnboardingTourInProgress &&
-								OnboardingTourStepTargets.FinishWorkout,
-						)}
+						className={OnboardingTourStepTargets.FinishWorkout}
 						onClick={() => {
 							if (!currentWorkout.name) {
 								notifications.show({
@@ -186,7 +181,7 @@ export function WorkoutHeader({
 									: "Only sets marked as confirmed will be recorded. Are you sure you want to finish this workout?",
 								async () => {
 									setIsSaveBtnLoading(true);
-									if (isOnboardingTourInProgress) advanceOnboardingTourStep();
+									advanceOnboardingTourStep();
 
 									await new Promise((r) => setTimeout(r, 1000));
 									const input = currentWorkoutToCreateWorkoutInput(

@@ -312,8 +312,7 @@ export default function Page() {
 		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
 	] = useDisclosure(false);
 	const navigate = useNavigate();
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const mediaSearch = loaderData.mediaSearch;
 	const filterChanged = isFilterChanged(
@@ -321,8 +320,7 @@ export default function Page() {
 		defaultMineFilters,
 	);
 
-	const isEligibleForNextTourStep =
-		loaderData.lot === MediaLot.AudioBook && isOnboardingTourInProgress;
+	const isEligibleForNextTourStep = loaderData.lot === MediaLot.AudioBook;
 
 	return (
 		<>
@@ -359,7 +357,7 @@ export default function Page() {
 									},
 								),
 							);
-							if (v === "search" && isOnboardingTourInProgress) {
+							if (v === "search") {
 								advanceOnboardingTourStep();
 							}
 						}
