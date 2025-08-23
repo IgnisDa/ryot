@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
-    MetadataSearchSourceIgdbSpecifics, MetadataSearchSourceSpecifics, NamedObject,
+    MetadataSearchSourceIgdbFilterSpecifics, MetadataSearchSourceSpecifics, NamedObject,
     PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
@@ -502,27 +502,27 @@ where id = {identity};
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let client = self.get_client_config().await?;
-
-        let allow_games_with_parent = source_specifics
+        let search_filters = source_specifics
             .as_ref()
-            .and_then(|s| {
-                s.igdb
-                    .as_ref()
-                    .and_then(|i| i.filters.allow_games_with_parent)
-            })
+            .and_then(|s| s.igdb.as_ref())
+            .and_then(|i| i.filters.clone());
+
+        let allow_games_with_parent = search_filters
+            .as_ref()
+            .and_then(|i| i.allow_games_with_parent)
             .unwrap_or(false);
 
         let filter_builders: [(
-            fn(&MetadataSearchSourceIgdbSpecifics) -> Option<&Vec<String>>,
+            fn(&MetadataSearchSourceIgdbFilterSpecifics) -> Option<&Vec<String>>,
             &str,
         ); 6] = [
-            (|i| i.filters.theme_ids.as_ref(), "themes"),
-            (|i| i.filters.genre_ids.as_ref(), "genres"),
-            (|i| i.filters.platform_ids.as_ref(), "platforms"),
-            (|i| i.filters.game_type_ids.as_ref(), "game_type"),
-            (|i| i.filters.game_mode_ids.as_ref(), "game_modes"),
+            (|f| f.theme_ids.as_ref(), "themes"),
+            (|f| f.genre_ids.as_ref(), "genres"),
+            (|f| f.platform_ids.as_ref(), "platforms"),
+            (|f| f.game_type_ids.as_ref(), "game_type"),
+            (|f| f.game_mode_ids.as_ref(), "game_modes"),
             (
-                |i| i.filters.release_date_region_ids.as_ref(),
+                |f| f.release_date_region_ids.as_ref(),
                 "release_dates.region",
             ),
         ];
@@ -536,9 +536,8 @@ where id = {identity};
         let param_filters: Vec<String> = filter_builders
             .into_iter()
             .filter_map(|(getter, name)| {
-                source_specifics
+                search_filters
                     .as_ref()
-                    .and_then(|s| s.igdb.as_ref())
                     .and_then(getter)
                     .filter(|ids| !ids.is_empty())
                     .map(|ids| format!("{} = ({})", name, ids.join(",")))

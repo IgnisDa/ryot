@@ -447,7 +447,7 @@ pub struct MetadataSearchSourceIgdbFilterSpecifics {
 #[graphql(input_name = "MetadataSearchSourceIgdbSpecifics")]
 #[serde(rename_all = "snake_case")]
 pub struct MetadataSearchSourceIgdbSpecifics {
-    pub filters: MetadataSearchSourceIgdbFilterSpecifics,
+    pub filters: Option<MetadataSearchSourceIgdbFilterSpecifics>,
 }
 
 #[skip_serializing_none]
