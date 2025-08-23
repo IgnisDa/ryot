@@ -1,9 +1,10 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year};
 use convert_case::{Case, Casing};
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;

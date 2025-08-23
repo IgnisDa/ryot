@@ -6,15 +6,15 @@ use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
-    MetadataSearchSourceIgdbFilterSpecifics, MetadataSearchSourceSpecifics, NamedObject,
-    PersonSourceSpecifics, SearchDetails,
+    NamedObject, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetailsProviderIgdbSpecifics,
-    MetadataPersonRelated, PersonDetails, SearchResults,
+    MetadataPersonRelated, MetadataSearchSourceIgdbFilterSpecifics, MetadataSearchSourceSpecifics,
+    PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;

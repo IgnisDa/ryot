@@ -3,12 +3,11 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{
-    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, MetadataSearchSourceSpecifics,
-    PersonSourceSpecifics, SearchDetails,
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::{convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::SearchResults;
+use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
 use itertools::Itertools;

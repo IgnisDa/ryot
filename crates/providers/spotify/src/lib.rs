@@ -3,12 +3,11 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataGroupPersonRelated, MetadataPersonRelated,
     PersonDetails, SearchResults,

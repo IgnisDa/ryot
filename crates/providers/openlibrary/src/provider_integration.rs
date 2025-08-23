@@ -1,11 +1,10 @@
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;

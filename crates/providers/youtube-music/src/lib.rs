@@ -1,12 +1,11 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::get_temporary_directory;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    MetadataGroupPersonRelated, MetadataPersonRelated, PersonDetails, SearchResults,
+    MetadataGroupPersonRelated, MetadataPersonRelated, MetadataSearchSourceSpecifics,
+    PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;

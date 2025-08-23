@@ -1,8 +1,8 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{MetadataSearchSourceSpecifics, SearchDetails};
+use common_models::SearchDetails;
 use common_utils::PAGE_SIZE;
-use dependent_models::SearchResults;
+use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use media_models::MetadataDetails;
 use media_models::MetadataSearchItem;
 use traits::MediaProvider;
