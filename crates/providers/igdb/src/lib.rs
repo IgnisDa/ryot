@@ -13,16 +13,18 @@ use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CoreDetailsProviderIgdbSpecifics,
-    MetadataPersonRelated, MetadataSearchSourceIgdbFilterSpecifics, MetadataSearchSourceSpecifics,
-    PersonDetails, SearchResults,
+    MetadataPersonRelated, MetadataSearchSourceIgdbFilterSpecifics,
+    MetadataSearchSourceIgdbSpecificsSortBy, MetadataSearchSourceSpecifics, PersonDetails,
+    SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
 use itertools::Itertools;
 use media_models::{
-    CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem,
-    PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
-    VideoGameSpecifics, VideoGameSpecificsPlatformRelease, VideoGameSpecificsTimeToBeat,
+    CommitMetadataGroupInput, GraphqlSortOrder, MetadataDetails, MetadataGroupSearchItem,
+    MetadataSearchItem, PartialMetadataPerson, PartialMetadataWithoutId, PeopleSearchItem,
+    UniqueMediaIdentifier, VideoGameSpecifics, VideoGameSpecificsPlatformRelease,
+    VideoGameSpecificsTimeToBeat,
 };
 use nest_struct::nest_struct;
 use reqwest::{
@@ -507,6 +509,28 @@ where id = {identity};
             .and_then(|s| s.igdb.as_ref())
             .and_then(|i| i.filters.clone());
 
+        let sort_input = source_specifics
+            .as_ref()
+            .and_then(|s| s.igdb.as_ref())
+            .and_then(|i| i.sort.as_ref());
+
+        let sort_clause = sort_input
+            .map(|sort| {
+                let field = match sort.by {
+                    MetadataSearchSourceIgdbSpecificsSortBy::Name => "name",
+                    MetadataSearchSourceIgdbSpecificsSortBy::TotalRating => "total_rating",
+                    MetadataSearchSourceIgdbSpecificsSortBy::FirstReleaseDate => {
+                        "first_release_date"
+                    }
+                };
+                let direction = match sort.order {
+                    GraphqlSortOrder::Asc => "asc",
+                    GraphqlSortOrder::Desc => "desc",
+                };
+                format!("sort {} {};", field, direction)
+            })
+            .unwrap_or_default();
+
         let allow_games_with_parent = search_filters
             .as_ref()
             .and_then(|i| i.allow_games_with_parent)
@@ -555,6 +579,7 @@ where id = {identity};
             r#"
 {fields}
 {where_clause}
+{sort_clause}
 search "{query}";
 limit {limit};
 offset: {offset};
@@ -563,6 +588,7 @@ offset: {offset};
             limit = PAGE_SIZE,
             fields = GAME_FIELDS.trim(),
             where_clause = where_clause,
+            sort_clause = sort_clause,
             offset = (page - 1) * PAGE_SIZE
         );
 
