@@ -21,7 +21,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { useLocalStorage } from "usehooks-ts";
-import { ApplicationPagination, ProRequiredAlert } from "~/components/common";
+import {
+	ApplicationPagination,
+	ProRequiredAlert,
+	SkeletonLoader,
+} from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import {
@@ -111,7 +115,7 @@ export default function Page() {
 						)}
 					</>
 				) : (
-					<Skeleton height={56} />
+					<SkeletonLoader />
 				)}
 			</Stack>
 		</Container>
@@ -146,7 +150,9 @@ const DisplayGenre = (props: { genreId: string }) => {
 	const color = useGetRandomMantineColor(genreName);
 	const fallbackImageUrl = useFallbackImageUrl(getInitials(genreName));
 
-	return genreData ? (
+	if (!genreData) return <Skeleton height={290} ref={ref} />;
+
+	return (
 		<Anchor
 			component={Link}
 			to={$path("/media/genre/:id", { id: props.genreId })}
@@ -187,7 +193,5 @@ const DisplayGenre = (props: { genreId: string }) => {
 				</Group>
 			</Stack>
 		</Anchor>
-	) : (
-		<Skeleton height={290} ref={ref} />
 	);
 };

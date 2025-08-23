@@ -7,7 +7,6 @@ import {
 	Group,
 	Select,
 	SimpleGrid,
-	Skeleton,
 	Stack,
 	Tabs,
 	Text,
@@ -51,6 +50,7 @@ import {
 	BulkCollectionEditingAffix,
 	DisplayCollectionEntity,
 	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
 } from "~/components/common";
 import {
 	DebouncedSearchInput,
@@ -405,7 +405,7 @@ export default function Page() {
 							</Tabs>
 						</>
 					) : (
-						<Skeleton height={56} />
+						<SkeletonLoader />
 					)}
 				</Stack>
 			</Container>
@@ -521,7 +521,7 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 					<Text>No recommendations found</Text>
 				)
 			) : (
-				<Skeleton height={100} />
+				<SkeletonLoader />
 			)}
 		</Stack>
 	);

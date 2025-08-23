@@ -5,7 +5,6 @@ import {
 	Container,
 	Drawer,
 	Group,
-	Skeleton,
 	Stack,
 	Text,
 } from "@mantine/core";
@@ -39,7 +38,7 @@ import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { ProRequiredAlert } from "~/components/common";
+import { ProRequiredAlert, SkeletonLoader } from "~/components/common";
 import { DisplayCollectionEntity } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { DisplaySummarySection } from "~/components/common/summary";
@@ -302,7 +301,7 @@ const RecommendationsSection = () => {
 					<ProRequiredAlert tooltipLabel="Get new recommendations every hour" />
 				)
 			) : (
-				<Skeleton height={100} />
+				<SkeletonLoader />
 			)}
 		</>
 	);
@@ -378,7 +377,7 @@ const TrendingSection = () => {
 					<Text c="dimmed">No trending media available.</Text>
 				)
 			) : (
-				<Skeleton height={100} />
+				<SkeletonLoader />
 			)}
 		</>
 	);

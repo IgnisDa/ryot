@@ -4,7 +4,6 @@ import {
 	Button,
 	Container,
 	Group,
-	Skeleton,
 	Stack,
 	Text,
 	Title,
@@ -19,6 +18,7 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
+import { SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -106,7 +106,7 @@ export default function Page() {
 						<Text fs="italic">No events in this time period</Text>
 					)
 				) : (
-					<Skeleton height={56} />
+					<SkeletonLoader />
 				)}
 			</Stack>
 		</Container>

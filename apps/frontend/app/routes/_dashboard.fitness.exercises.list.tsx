@@ -59,6 +59,7 @@ import { z } from "zod";
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
 } from "~/components/common";
 import {
 	DebouncedSearchInput,
@@ -319,7 +320,7 @@ export default function Page() {
 						/>
 					</>
 				) : (
-					<Skeleton height={56} />
+					<SkeletonLoader />
 				)}
 			</Stack>
 			{allowAddingExerciseToWorkout ? (

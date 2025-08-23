@@ -17,6 +17,7 @@ import {
 	Pagination,
 	Paper,
 	Select,
+	Skeleton,
 	Stack,
 	Switch,
 	Text,
@@ -76,6 +77,8 @@ import {
 	PersonDisplayItem,
 } from "../media/display-items";
 import { MultiSelectCreatable } from "./multi-select-creatable";
+
+export const SkeletonLoader = () => <Skeleton height={100} />;
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;

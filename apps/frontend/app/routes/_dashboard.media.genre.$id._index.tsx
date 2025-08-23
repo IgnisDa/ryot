@@ -1,17 +1,10 @@
-import {
-	Box,
-	Container,
-	Group,
-	Skeleton,
-	Stack,
-	Text,
-	Title,
-} from "@mantine/core";
+import { Box, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router";
+import invariant from "tiny-invariant";
 import { useLocalStorage } from "usehooks-ts";
-import { ApplicationPagination } from "~/components/common";
+import { ApplicationPagination, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
@@ -32,18 +25,7 @@ export default function Page() {
 	const params = useParams();
 	const genreId = params.id;
 
-	if (!genreId) {
-		return (
-			<Container>
-				<Stack>
-					<Skeleton height={40} />
-					<Skeleton height={20} />
-					<Skeleton height={300} />
-					<Skeleton height={40} />
-				</Stack>
-			</Container>
-		);
-	}
+	invariant(genreId);
 
 	const [pagination, setPagination] = useLocalStorage(
 		`GenrePagination_${genreId}`,
@@ -89,7 +71,7 @@ export default function Page() {
 						</ApplicationGrid>
 					</>
 				) : (
-					<Skeleton height={56} />
+					<SkeletonLoader />
 				)}
 			</Stack>
 		</Container>
