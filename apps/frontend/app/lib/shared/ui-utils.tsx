@@ -71,8 +71,6 @@ export const isFilterChanged = <T extends object>(
 	if (!current) return false;
 
 	return Object.keys(defaults)
-		.filter(
-			(key) => !(["page", "query"] as (keyof T)[]).includes(key as keyof T),
-		)
+		.filter((key) => !["page", "query"].includes(key))
 		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
 };
