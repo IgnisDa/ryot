@@ -24,7 +24,6 @@ import {
 import {
 	changeCase,
 	cloneDeep,
-	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
@@ -58,7 +57,10 @@ import { MetadataGroupDisplayItem } from "~/components/media/display-items";
 import { pageQueryParam } from "~/lib/shared/constants";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import {
+	convertEnumToSelectData,
+	isFilterChanged,
+} from "~/lib/shared/ui-utils";
 import { zodCollectionFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
@@ -190,10 +192,10 @@ export default function Page() {
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const isFilterChanged =
-		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
-		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
-		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
+	const filterChanged = isFilterChanged(
+		loaderData.list?.url || {},
+		defaultFilters,
+	);
 
 	return (
 		<>
@@ -252,7 +254,7 @@ export default function Page() {
 							<>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={isFilterChanged ? "blue" : "gray"}
+									color={filterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>

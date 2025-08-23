@@ -67,7 +67,10 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import {
+	convertEnumToSelectData,
+	isFilterChanged,
+} from "~/lib/shared/ui-utils";
 import {
 	useBulkEditCollection,
 	useCreateOrUpdateCollectionModal,
@@ -161,11 +164,7 @@ export default function Page() {
 	const updateFilter: UpdateFilterFunction = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
-	const isFilterChanged =
-		filters.entityLot !== defaultFilters.entityLot ||
-		filters.metadataLot !== defaultFilters.metadataLot ||
-		filters.sortBy !== defaultFilters.sortBy ||
-		filters.orderBy !== defaultFilters.orderBy;
+	const filterChanged = isFilterChanged(filters, defaultFilters);
 
 	return (
 		<>
@@ -249,7 +248,7 @@ export default function Page() {
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
-														color={isFilterChanged ? "blue" : "gray"}
+														color={filterChanged ? "blue" : "gray"}
 													>
 														<IconFilter size={24} />
 													</ActionIcon>

@@ -76,7 +76,10 @@ import {
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import {
+	convertEnumToSelectData,
+	isFilterChanged,
+} from "~/lib/shared/ui-utils";
 import {
 	getDefaultWorkout,
 	getExerciseDetailsQuery,
@@ -175,9 +178,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const isFilterChanged =
-		loaderData.query.sortBy !== defaultFilters.sortBy ||
-		loaderData.query.orderBy !== defaultFilters.orderBy;
+	const filterChanged = isFilterChanged(loaderData.query, defaultFilters);
 
 	return (
 		<Container size="xs">
@@ -222,7 +223,7 @@ export default function Page() {
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
-						color={isFilterChanged ? "blue" : "gray"}
+						color={filterChanged ? "blue" : "gray"}
 					>
 						<IconFilter size={24} />
 					</ActionIcon>

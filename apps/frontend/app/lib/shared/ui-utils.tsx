@@ -1,9 +1,11 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { PresignedPutS3UrlDocument } from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils";
+import { isEqual, startCase } from "@ryot/ts-utils";
 import { $path } from "safe-routes";
 import { clientGqlService } from "./react-query";
+
+export const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
 
 export const generateColor = (seed: number) => {
 	const color = Math.floor(Math.abs(Math.sin(seed) * 16777215));
@@ -18,9 +20,8 @@ export const getStringAsciiValue = (input: string) => {
 	return total;
 };
 
-export function selectRandomElement<T>(array: T[], input: string): T {
-	return array[(getStringAsciiValue(input) + array.length) % array.length];
-}
+export const selectRandomElement = <T,>(array: T[], input: string): T =>
+	array[(getStringAsciiValue(input) + array.length) % array.length];
 
 export function getSurroundingElements<T>(
 	array: Array<T>,
@@ -63,4 +64,14 @@ export const convertEnumToSelectData = (value: {
 		label: startCase(v.toString().toLowerCase()),
 	}));
 
-export const forcedDashboardPath = $path("/", { ignoreLandingPath: "true" });
+export const isFilterChanged = <T extends object>(
+	current: T | undefined,
+	defaults: T,
+	excludeKeys: (keyof T)[] = ["page", "query"] as (keyof T)[],
+) => {
+	if (!current) return false;
+
+	return Object.keys(defaults)
+		.filter((key) => !excludeKeys.includes(key as keyof T))
+		.some((key) => !isEqual(current[key as keyof T], defaults[key as keyof T]));
+};

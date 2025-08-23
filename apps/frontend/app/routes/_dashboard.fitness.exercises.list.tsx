@@ -75,6 +75,7 @@ import { getExerciseDetailsPath } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
+	isFilterChanged,
 	openConfirmationModal,
 } from "~/lib/shared/ui-utils";
 import {
@@ -199,12 +200,7 @@ export default function Page() {
 		currentWorkout?.replacingExerciseIdx &&
 		currentWorkout.exercises[currentWorkout.replacingExerciseIdx].exerciseId;
 
-	const isFilterChanged = Object.keys(defaultFilters)
-		.filter((k) => k !== "page" && k !== "query")
-		.some(
-			// biome-ignore lint/suspicious/noExplicitAny: required here
-			(k) => (filters as any)[k] !== (defaultFilters as any)[k],
-		);
+	const filterChanged = isFilterChanged(filters, defaultFilters);
 
 	const { data: replacingExercise } = useQuery({
 		enabled: !!replacingExerciseId,
@@ -251,7 +247,7 @@ export default function Page() {
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
-						color={isFilterChanged ? "blue" : "gray"}
+						color={filterChanged ? "blue" : "gray"}
 					>
 						<IconFilter size={24} />
 					</ActionIcon>

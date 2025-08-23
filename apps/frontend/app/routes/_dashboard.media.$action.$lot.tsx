@@ -30,7 +30,6 @@ import {
 import {
 	changeCase,
 	cloneDeep,
-	isEqual,
 	parseParameters,
 	parseSearchQuery,
 	startCase,
@@ -69,7 +68,10 @@ import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
 import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService } from "~/lib/shared/react-query";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
+import {
+	convertEnumToSelectData,
+	isFilterChanged,
+} from "~/lib/shared/ui-utils";
 import {
 	zodCollectionFilter,
 	zodCommaDelimitedString,
@@ -94,12 +96,12 @@ export type SearchParams = {
 	query?: string;
 };
 
-const defaultFilters = {
-	mineCollections: [],
-	mineSortBy: MediaSortBy.LastUpdated,
-	mineSortOrder: GraphqlSortOrder.Desc,
-	mineGeneralFilter: MediaGeneralFilter.All,
-	mineDateRange: ApplicationTimeRange.AllTime,
+const defaultMineFilters = {
+	collections: [],
+	sortBy: MediaSortBy.LastUpdated,
+	sortOrder: GraphqlSortOrder.Desc,
+	generalFilter: MediaGeneralFilter.All,
+	dateRange: ApplicationTimeRange.AllTime,
 };
 
 const searchSchema = z.object({
@@ -148,16 +150,16 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 				collections: zodCollectionFilter,
 				endDateRange: z.string().optional(),
 				startDateRange: z.string().optional(),
-				sortBy: z.enum(MediaSortBy).default(defaultFilters.mineSortBy),
+				sortBy: z.enum(MediaSortBy).default(defaultMineFilters.sortBy),
 				dateRange: z
 					.enum(ApplicationTimeRange)
-					.default(defaultFilters.mineDateRange),
+					.default(defaultMineFilters.dateRange),
 				sortOrder: z
 					.enum(GraphqlSortOrder)
-					.default(defaultFilters.mineSortOrder),
+					.default(defaultMineFilters.sortOrder),
 				generalFilter: z
 					.enum(MediaGeneralFilter)
-					.default(defaultFilters.mineGeneralFilter),
+					.default(defaultMineFilters.generalFilter),
 			});
 			const urlParse = parseSearchQuery(request, listSchema);
 			const input: UserMetadataListInput = {
@@ -314,16 +316,11 @@ export default function Page() {
 		useOnboardingTour();
 
 	const mediaSearch = loaderData.mediaSearch;
-	const isFilterChanged =
-		loaderData.mediaList?.url.generalFilter !==
-			defaultFilters.mineGeneralFilter ||
-		loaderData.mediaList?.url.sortOrder !== defaultFilters.mineSortOrder ||
-		loaderData.mediaList?.url.sortBy !== defaultFilters.mineSortBy ||
-		loaderData.mediaList?.url.dateRange !== defaultFilters.mineDateRange ||
-		!isEqual(
-			loaderData.mediaList?.url.collections,
-			defaultFilters.mineCollections,
-		);
+	const filterChanged = isFilterChanged(
+		loaderData.mediaList?.url,
+		defaultMineFilters,
+	);
+
 	const isEligibleForNextTourStep =
 		loaderData.lot === MediaLot.AudioBook && isOnboardingTourInProgress;
 
@@ -409,7 +406,7 @@ export default function Page() {
 								/>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={isFilterChanged ? "blue" : "gray"}
+									color={filterChanged ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
