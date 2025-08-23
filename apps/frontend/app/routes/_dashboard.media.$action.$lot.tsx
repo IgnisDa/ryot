@@ -23,7 +23,6 @@ import {
 	MediaSortBy,
 	MediaSource,
 	MetadataSearchDocument,
-	MetadataSearchSourceIgdbSpecificsSortBy,
 	type MetadataSearchQuery,
 	UserMetadataListDocument,
 	type UserMetadataListInput,
@@ -112,10 +111,6 @@ const searchSchema = z.object({
 	googleBooksPassRawQuery: zodBoolAsString.optional(),
 	igdbAllowGamesWithParent: zodBoolAsString.optional(),
 	igdbReleaseDateRegionIds: zodCommaDelimitedString.optional(),
-	igdbSortOrder: z.enum(GraphqlSortOrder).default(GraphqlSortOrder.Asc),
-	igdbSortBy: z
-		.enum(MetadataSearchSourceIgdbSpecificsSortBy)
-		.default(MetadataSearchSourceIgdbSpecificsSortBy.Name),
 });
 
 enum Action {
@@ -222,10 +217,6 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 										gameTypeIds: urlParse.igdbGameTypeIds,
 										releaseDateRegionIds: urlParse.igdbReleaseDateRegionIds,
 										allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
-									},
-									sort: {
-										by: urlParse.igdbSortBy as MetadataSearchSourceIgdbSpecificsSortBy,
-										order: urlParse.igdbSortOrder as GraphqlSortOrder,
 									},
 								},
 							},
@@ -649,8 +640,6 @@ const SearchFiltersModalForm = () => {
 
 	if (!loaderData.mediaSearch) return null;
 
-	const currentOrder = loaderData.mediaSearch?.url.igdbSortOrder;
-
 	return (
 		<Stack gap="xs">
 			{loaderData.mediaSearch.url.source === MediaSource.GoogleBooks ? (
@@ -751,35 +740,6 @@ const SearchFiltersModalForm = () => {
 							setP("igdbAllowGamesWithParent", String(e.target.checked))
 						}
 					/>
-					<Flex gap="xs" align="center">
-						<Select
-							w="100%"
-							size="xs"
-							label="Sort by"
-							value={loaderData.mediaSearch?.url.igdbSortBy}
-							onChange={(v) => setP("igdbSortBy", v)}
-							data={convertEnumToSelectData(
-								MetadataSearchSourceIgdbSpecificsSortBy,
-							)}
-						/>
-						<ActionIcon
-							onClick={() => {
-								setP(
-									"igdbSortOrder",
-									currentOrder === GraphqlSortOrder.Asc
-										? GraphqlSortOrder.Desc
-										: GraphqlSortOrder.Asc,
-								);
-							}}
-						>
-							{loaderData.mediaSearch?.url.igdbSortOrder ===
-							GraphqlSortOrder.Asc ? (
-								<IconSortAscending />
-							) : (
-								<IconSortDescending />
-							)}
-						</ActionIcon>
-					</Flex>
 				</>
 			) : null}
 		</Stack>
