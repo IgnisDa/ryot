@@ -2,21 +2,7 @@ import { z } from "@hono/zod-openapi";
 import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { toAppSchemaProperties } from "@ryot/ts-utils/app-schema";
 
-const entityRemoteVideoSchema = z
-	.object({
-		url: z.string().describe("URL of the remote video"),
-		source: z.enum(["youtube", "dailymotion"]).describe("Video hosting platform"),
-	})
-	.strict();
-
-const entityAssetsSchema = z
-	.object({
-		s3Images: z.array(z.string()).describe("S3 image keys"),
-		s3Videos: z.array(z.string()).describe("S3 video keys"),
-		remoteImages: z.array(z.string()).describe("Remote image URLs"),
-		remoteVideos: z.array(entityRemoteVideoSchema).describe("Remote hosted videos"),
-	})
-	.strict();
+import { entityAssetsSchema, workoutSupersetSchema } from "./schemas";
 
 const workoutPropertiesSchema = z
 	.object({
@@ -25,6 +11,10 @@ const workoutPropertiesSchema = z
 		comment: z.string().nullish().describe("Optional notes or comments about this workout"),
 		endedAt: z.iso.datetime().nullish().describe("Date and time this workout session ended"),
 		caloriesBurnt: z.number().nullish().describe("Estimated calories burned during this workout"),
+		supersets: z
+			.array(workoutSupersetSchema)
+			.nullish()
+			.describe("Superset groupings for this workout"),
 	})
 	.strict();
 
