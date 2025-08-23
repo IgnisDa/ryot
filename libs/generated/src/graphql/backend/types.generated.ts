@@ -1415,6 +1415,16 @@ export type MetadataSearchSourceIgdbFilterSpecifics = {
 
 export type MetadataSearchSourceIgdbSpecifics = {
   filters?: InputMaybe<MetadataSearchSourceIgdbFilterSpecifics>;
+  sort?: InputMaybe<MetadataSearchSourceIgdbSpecificsSortInput>;
+};
+
+export enum MetadataSearchSourceIgdbSpecificsSortBy {
+  Name = 'NAME'
+}
+
+export type MetadataSearchSourceIgdbSpecificsSortInput = {
+  by?: MetadataSearchSourceIgdbSpecificsSortBy;
+  order?: GraphqlSortOrder;
 };
 
 export type MetadataSearchSourceSpecificsInput = {
