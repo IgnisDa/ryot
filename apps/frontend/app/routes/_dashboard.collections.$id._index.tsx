@@ -298,7 +298,9 @@ export default function Page() {
 												))}
 											</ApplicationGrid>
 										) : (
-											<Text>You have not added anything this collection</Text>
+											<Text>
+												You have not added anything to this collection
+											</Text>
 										)}
 										<ApplicationPagination
 											total={Math.ceil(
