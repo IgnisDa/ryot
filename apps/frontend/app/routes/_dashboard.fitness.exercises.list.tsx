@@ -371,10 +371,7 @@ const FiltersModalForm = (props: {
 				onChange={(v) => props.updateFilter("sortBy", v)}
 			/>
 			{Object.keys(defaultFilters)
-				.filter(
-					(f) =>
-						!["sortBy", "order", "collection", "page", "query"].includes(f),
-				)
+				.filter((f) => !["sortBy", "collection", "page", "query"].includes(f))
 				.map((f) => (
 					<Select
 						key={f}
