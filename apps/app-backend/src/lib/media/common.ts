@@ -59,6 +59,7 @@ export const relatedEntityReferenceSchema = z
 		name: nonEmptyStringSchema,
 		externalId: nonEmptyStringSchema,
 		scriptSlug: nonEmptyStringSchema,
+		reverseDirection: z.boolean().default(false),
 		relationshipProperties: stringUnknownRecordSchema,
 	})
 	.strict();
