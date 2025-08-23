@@ -11,6 +11,7 @@ import {
 	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
+import { assertPresent } from "../test-support/assertions";
 
 async function createBuiltInMediaEvent(input: {
 	cookies: string;
@@ -22,9 +23,7 @@ async function createBuiltInMediaEvent(input: {
 }) {
 	const eventSchemas = await listEventSchemas(input.client, input.cookies, input.entitySchemaId);
 	const eventSchema = eventSchemas.find((item) => item.slug === input.eventSchemaSlug);
-	if (!eventSchema) {
-		throw new Error(`Missing built-in event schema '${input.eventSchemaSlug}'`);
-	}
+	assertPresent(eventSchema, `Missing built-in event schema '${input.eventSchemaSlug}'`);
 
 	const before = await input.client.GET("/events", {
 		headers: { Cookie: input.cookies },
@@ -59,14 +58,12 @@ describe("GET /media/overview/continue", () => {
 		});
 		const bookSchema = schemas.find((item) => item.slug === "book");
 		const mangaSchema = schemas.find((item) => item.slug === "manga");
-		if (!bookSchema || !mangaSchema) {
-			throw new Error("Missing built-in media schemas");
-		}
+		assertPresent(bookSchema, "Missing built-in media schemas");
+		assertPresent(mangaSchema, "Missing built-in media schemas");
 		const bookProvider = bookSchema.providers[0];
 		const mangaProvider = mangaSchema.providers[0];
-		if (!bookProvider || !mangaProvider) {
-			throw new Error("Missing built-in providers");
-		}
+		assertPresent(bookProvider, "Missing built-in providers");
+		assertPresent(mangaProvider, "Missing built-in providers");
 
 		const continueBook = await seedMediaEntity({
 			userId,
@@ -136,13 +133,9 @@ describe("GET /media/overview/continue", () => {
 			trackerId: builtinTracker.id,
 		});
 		const bookSchema = schemas.find((item) => item.slug === "book");
-		if (!bookSchema) {
-			throw new Error("Missing book schema");
-		}
+		assertPresent(bookSchema, "Missing book schema");
 		const bookProvider = bookSchema.providers[0];
-		if (!bookProvider) {
-			throw new Error("Missing provider");
-		}
+		assertPresent(bookProvider, "Missing provider");
 
 		const testBook = await seedMediaEntity({
 			userId,
@@ -175,9 +168,7 @@ describe("GET /media/overview/continue", () => {
 		expect(continueItem).toBeDefined();
 
 		const progressAt = continueItem?.progressAt;
-		if (!progressAt) {
-			throw new Error("Expected progressAt");
-		}
+		assertPresent(progressAt, "Expected progressAt");
 		expect(typeof progressAt).toBe("string");
 		expect(dayjs.utc(progressAt).isValid()).toBe(true);
 		expect(dayjs.utc(progressAt).toISOString()).toBe(progressAt);
@@ -192,13 +183,9 @@ describe("GET /media/overview/up-next", () => {
 			trackerId: builtinTracker.id,
 		});
 		const animeSchema = schemas.find((item) => item.slug === "anime");
-		if (!animeSchema) {
-			throw new Error("Missing anime schema");
-		}
+		assertPresent(animeSchema, "Missing anime schema");
 		const animeProvider = animeSchema.providers[0];
-		if (!animeProvider) {
-			throw new Error("Missing provider");
-		}
+		assertPresent(animeProvider, "Missing provider");
 
 		const upNextAnime = await seedMediaEntity({
 			userId,
@@ -242,13 +229,9 @@ describe("GET /media/overview/up-next", () => {
 			trackerId: builtinTracker.id,
 		});
 		const animeSchema = schemas.find((item) => item.slug === "anime");
-		if (!animeSchema) {
-			throw new Error("Missing anime schema");
-		}
+		assertPresent(animeSchema, "Missing anime schema");
 		const animeProvider = animeSchema.providers[0];
-		if (!animeProvider) {
-			throw new Error("Missing provider");
-		}
+		assertPresent(animeProvider, "Missing provider");
 
 		const completedAnime = await seedMediaEntity({
 			userId,
@@ -302,13 +285,9 @@ describe("GET /media/overview/up-next", () => {
 			trackerId: builtinTracker.id,
 		});
 		const animeSchema = schemas.find((item) => item.slug === "anime");
-		if (!animeSchema) {
-			throw new Error("Missing anime schema");
-		}
+		assertPresent(animeSchema, "Missing anime schema");
 		const animeProvider = animeSchema.providers[0];
-		if (!animeProvider) {
-			throw new Error("Missing provider");
-		}
+		assertPresent(animeProvider, "Missing provider");
 
 		const testAnime = await seedMediaEntity({
 			userId,
@@ -340,9 +319,7 @@ describe("GET /media/overview/up-next", () => {
 		expect(upNextItem).toBeDefined();
 
 		const backlogAt = upNextItem?.backlogAt;
-		if (!backlogAt) {
-			throw new Error("Expected backlogAt");
-		}
+		assertPresent(backlogAt, "Expected backlogAt");
 		expect(typeof backlogAt).toBe("string");
 		expect(dayjs.utc(backlogAt).isValid()).toBe(true);
 		expect(dayjs.utc(backlogAt).toISOString()).toBe(backlogAt);
@@ -357,13 +334,9 @@ describe("GET /media/overview/review", () => {
 			trackerId: builtinTracker.id,
 		});
 		const animeSchema = schemas.find((item) => item.slug === "anime");
-		if (!animeSchema) {
-			throw new Error("Missing anime schema");
-		}
+		assertPresent(animeSchema, "Missing anime schema");
 		const animeProvider = animeSchema.providers[0];
-		if (!animeProvider) {
-			throw new Error("Missing provider");
-		}
+		assertPresent(animeProvider, "Missing provider");
 
 		const rateAnime = await seedMediaEntity({
 			userId,
@@ -422,14 +395,12 @@ describe("GET /media/overview/activity", () => {
 		});
 		const animeSchema = schemas.find((item) => item.slug === "anime");
 		const mangaSchema = schemas.find((item) => item.slug === "manga");
-		if (!animeSchema || !mangaSchema) {
-			throw new Error("Missing built-in media schemas");
-		}
+		assertPresent(animeSchema, "Missing built-in media schemas");
+		assertPresent(mangaSchema, "Missing built-in media schemas");
 		const animeProvider = animeSchema.providers[0];
 		const mangaProvider = mangaSchema.providers[0];
-		if (!animeProvider || !mangaProvider) {
-			throw new Error("Missing built-in providers");
-		}
+		assertPresent(animeProvider, "Missing built-in providers");
+		assertPresent(mangaProvider, "Missing built-in providers");
 
 		const watchedAnime = await seedMediaEntity({
 			userId,
@@ -502,9 +473,7 @@ describe("GET /media/overview/activity", () => {
 			]),
 		);
 		const occurredAt = reviewedItem?.occurredAt;
-		if (!occurredAt) {
-			throw new Error("Expected occurredAt");
-		}
+		assertPresent(occurredAt, "Expected occurredAt");
 		expect(typeof occurredAt).toBe("string");
 		expect(dayjs.utc(occurredAt).isValid()).toBe(true);
 		expect(dayjs.utc(occurredAt).toISOString()).toBe(occurredAt);
@@ -519,13 +488,9 @@ describe("GET /media/overview/week", () => {
 			trackerId: builtinTracker.id,
 		});
 		const bookSchema = schemas.find((item) => item.slug === "book");
-		if (!bookSchema) {
-			throw new Error("Missing built-in book schema");
-		}
+		assertPresent(bookSchema, "Missing built-in book schema");
 		const bookProvider = bookSchema.providers[0];
-		if (!bookProvider) {
-			throw new Error("Missing built-in provider");
-		}
+		assertPresent(bookProvider, "Missing built-in provider");
 
 		const weeklyBook = await seedMediaEntity({
 			userId,
@@ -590,14 +555,12 @@ describe("GET /media/overview/library", () => {
 		});
 		const bookSchema = schemas.find((item) => item.slug === "book");
 		const mangaSchema = schemas.find((item) => item.slug === "manga");
-		if (!bookSchema || !mangaSchema) {
-			throw new Error("Missing built-in media schemas");
-		}
+		assertPresent(bookSchema, "Missing built-in media schemas");
+		assertPresent(mangaSchema, "Missing built-in media schemas");
 		const bookProvider = bookSchema.providers[0];
 		const mangaProvider = mangaSchema.providers[0];
-		if (!bookProvider || !mangaProvider) {
-			throw new Error("Missing built-in providers");
-		}
+		assertPresent(bookProvider, "Missing built-in providers");
+		assertPresent(mangaProvider, "Missing built-in providers");
 
 		const backlogBook = await seedMediaEntity({
 			userId,
@@ -689,13 +652,9 @@ describe("GET /media/overview/library", () => {
 			trackerId: builtinTracker.id,
 		});
 		const bookSchema = schemas.find((item) => item.slug === "book");
-		if (!bookSchema) {
-			throw new Error("Missing book schema");
-		}
+		assertPresent(bookSchema, "Missing book schema");
 		const bookProvider = bookSchema.providers[0];
-		if (!bookProvider) {
-			throw new Error("Missing provider");
-		}
+		assertPresent(bookProvider, "Missing provider");
 
 		const backlogBook = await seedMediaEntity({
 			userId,

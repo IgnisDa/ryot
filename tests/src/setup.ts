@@ -7,6 +7,7 @@ import getPort from "get-port";
 import createClient from "openapi-fetch";
 import { Client as PgClient } from "pg";
 
+import { requirePresent } from "./test-support/assertions";
 import {
 	attachProcessLogs,
 	buildBackendEnv,
@@ -27,19 +28,11 @@ let backendPort: number;
 let backendProcess: ChildProcess | undefined;
 
 function requireCoreInfrastructure() {
-	if (!coreInfrastructure) {
-		throw new Error("Test infrastructure is not initialised");
-	}
-
-	return coreInfrastructure;
+	return requirePresent(coreInfrastructure, "Test infrastructure is not initialised");
 }
 
 function requirePgClient() {
-	if (!pgClient) {
-		throw new Error("PG client is not initialised");
-	}
-
-	return pgClient;
+	return requirePresent(pgClient, "PG client is not initialised");
 }
 
 beforeAll(async () => {

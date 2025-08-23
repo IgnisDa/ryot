@@ -10,6 +10,7 @@ import { GenericContainer, type StartedTestContainer, Wait } from "testcontainer
 
 import { createTestAuthClient } from "../fixtures/auth";
 import { oidcSignIn } from "../fixtures/auth-oidc";
+import { requirePresent } from "../test-support/assertions";
 import {
 	attachProcessLogs,
 	buildBackendEnv,
@@ -51,18 +52,11 @@ function getBackendUrlC() {
 }
 
 function requireCoreInfrastructure() {
-	if (!coreInfrastructure) {
-		throw new Error("OIDC test infrastructure is not initialised");
-	}
-
-	return coreInfrastructure;
+	return requirePresent(coreInfrastructure, "OIDC test infrastructure is not initialised");
 }
 
 function requireOidcPgClient(): PgClient {
-	if (!pgClientOidc) {
-		throw new Error("OIDC PG client is not initialised");
-	}
-	return pgClientOidc;
+	return requirePresent(pgClientOidc, "OIDC PG client is not initialised");
 }
 
 beforeAll(async () => {
@@ -292,11 +286,14 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			body: JSON.stringify({ providerId: "oidc", callbackURL: `${new URL(backendUrl).origin}/` }),
 		});
 		const step1Data: { url?: string } = await step1Response.json();
-		const authorizeUrl = step1Data.url;
-		const stateCookieHeader = step1Response.headers.get("set-cookie");
-		if (!authorizeUrl || !stateCookieHeader) {
-			throw new Error(`Step 1 failed: url=${authorizeUrl}, cookie=${stateCookieHeader}`);
-		}
+		const stateCookieHeader = requirePresent(
+			step1Response.headers.get("set-cookie"),
+			`Step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
+		);
+		const authorizeUrl = requirePresent(
+			step1Data.url,
+			`Step 1 failed: url=${step1Data.url}, cookie=${stateCookieHeader}`,
+		);
 		const [stateCookie] = stateCookieHeader.split(";");
 
 		const resolvedClaims = { name: username, email: `${username}@example.com` };
@@ -309,10 +306,10 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			body: formBody.toString(),
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		});
-		const callbackUrl = step2Response.headers.get("location");
-		if (!callbackUrl) {
-			throw new Error("Step 2 failed: no location header");
-		}
+		const callbackUrl = requirePresent(
+			step2Response.headers.get("location"),
+			"Step 2 failed: no location header",
+		);
 
 		const cookieValue = stateCookie ?? "";
 		const step3Response = await fetch(callbackUrl, {
