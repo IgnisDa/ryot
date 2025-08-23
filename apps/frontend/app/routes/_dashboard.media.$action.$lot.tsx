@@ -639,7 +639,7 @@ const SearchFiltersModalForm = () => {
 	if (!loaderData.mediaSearch) return null;
 
 	return (
-		<Stack gap="md">
+		<Stack gap="xs">
 			{loaderData.mediaSearch.url.source === MediaSource.GoogleBooks ? (
 				<Checkbox
 					label="Pass raw query"
