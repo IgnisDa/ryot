@@ -32,7 +32,6 @@ import {
 	CollectionExtraInformationLot,
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
-	ExpireCacheKeyDocument,
 	type Scalars,
 } from "@ryot/generated/graphql/backend/graphql";
 import { changeCase, snakeCase } from "@ryot/ts-utils";
@@ -46,7 +45,6 @@ import {
 	IconPencil,
 	IconX,
 } from "@tabler/icons-react";
-import { useMutation } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
@@ -56,11 +54,11 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAddEntitiesToCollectionMutation,
 	useCoreDetails,
+	useExpireCacheKeyMutation,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
@@ -314,10 +312,7 @@ export const DisplayListDetailsAndRefresh = (props: {
 	onRefreshButtonClicked?: () => void;
 	isRandomSortOrderSelected?: boolean;
 }) => {
-	const expireCacheKey = useMutation({
-		mutationFn: (cacheId: string) =>
-			clientGqlService.request(ExpireCacheKeyDocument, { cacheId }),
-	});
+	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">

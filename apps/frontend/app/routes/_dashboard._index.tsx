@@ -16,7 +16,6 @@ import {
 	CollectionContentsSortBy,
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
-	ExpireCacheKeyDocument,
 	GraphqlSortOrder,
 	MediaLot,
 	MinimalUserAnalyticsDocument,
@@ -31,7 +30,7 @@ import {
 	IconPlayerPlay,
 	IconRotateClockwise,
 } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
 import { redirect, useLoaderData } from "react-router";
@@ -48,6 +47,7 @@ import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
+	useExpireCacheKeyMutation,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
 	useUserDetails,
@@ -255,19 +255,12 @@ export default function Page() {
 const RecommendationsSection = () => {
 	const coreDetails = useCoreDetails();
 
-	const recommendations = useQuery({
+	const { data, refetch } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserMetadataRecommendationsDocument),
 	});
-
-	const expireCacheKey = useMutation({
-		mutationFn: () =>
-			clientGqlService.request(ExpireCacheKeyDocument, {
-				cacheId:
-					recommendations.data?.userMetadataRecommendations.cacheId ?? "",
-			}),
-	});
+	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<>
@@ -279,8 +272,10 @@ const RecommendationsSection = () => {
 						openConfirmationModal(
 							"Are you sure you want to refresh the recommendations?",
 							async () => {
-								await expireCacheKey.mutateAsync();
-								recommendations.refetch();
+								await expireCacheKey.mutateAsync(
+									data?.userMetadataRecommendations.cacheId ?? "",
+								);
+								refetch();
 							},
 						);
 					}}
@@ -288,20 +283,17 @@ const RecommendationsSection = () => {
 					<IconRotateClockwise />
 				</ActionIcon>
 			</Group>
-			{recommendations.data ? (
+			{data ? (
 				coreDetails.isServerKeyValidated ? (
-					recommendations.data.userMetadataRecommendations.response.length >
-					0 ? (
+					data.userMetadataRecommendations.response.length > 0 ? (
 						<ApplicationGrid>
-							{recommendations.data.userMetadataRecommendations.response.map(
-								(lm) => (
-									<MetadataDisplayItem
-										key={lm}
-										metadataId={lm}
-										shouldHighlightNameIfInteracted
-									/>
-								),
-							)}
+							{data.userMetadataRecommendations.response.map((lm) => (
+								<MetadataDisplayItem
+									key={lm}
+									metadataId={lm}
+									shouldHighlightNameIfInteracted
+								/>
+							))}
 						</ApplicationGrid>
 					) : (
 						<Text c="dimmed">No recommendations available.</Text>

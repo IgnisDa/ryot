@@ -7,6 +7,7 @@ import {
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
 	type EntityLot,
+	ExpireCacheKeyDocument,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -330,6 +331,13 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 
 	return mutation;
 };
+
+export const useExpireCacheKeyMutation = () =>
+	useMutation({
+		mutationFn: async (cacheId: string) => {
+			await clientGqlService.request(ExpireCacheKeyDocument, { cacheId });
+		},
+	});
 
 export const useFormValidation = (dependency?: unknown) => {
 	const formRef = useRef<HTMLFormElement>(null);
