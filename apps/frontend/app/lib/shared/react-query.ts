@@ -8,6 +8,7 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	PersonDetailsDocument,
+	type SearchInput,
 	type UserAnalyticsQueryVariables,
 	type UserExercisesListInput,
 	UserMetadataDetailsDocument,
@@ -57,6 +58,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
+	}),
+	userGenresList: (input: SearchInput) => ({
+		queryKey: ["userGenresList", input],
 	}),
 	trendingMetadata: () => ({
 		queryKey: ["trendingMetadata"],
