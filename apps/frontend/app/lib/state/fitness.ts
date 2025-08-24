@@ -31,7 +31,7 @@ import {
 	clientGqlService,
 	queryClient,
 	queryFactory,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import { FitnessAction } from "~/lib/types";
 
 export type WorkoutDuration = {
@@ -388,14 +388,14 @@ export const addExerciseToCurrentWorkout = async (
 	currentWorkout: InProgressWorkout,
 	userFitnessPreferences: UserFitnessPreferences,
 	setCurrentWorkout: (v: InProgressWorkout) => void,
-	selectedExercises: Array<{ name: string; lot: ExerciseLot }>,
+	selectedExercises: Array<{ id: string; lot: ExerciseLot }>,
 ) => {
 	const draft = createDraft(currentWorkout);
 	for (const [_exerciseIdx, ex] of selectedExercises.entries()) {
 		const setLot = SetLot.Normal;
 		const restTimer = await getRestTimerForSet(
 			setLot,
-			ex.name,
+			ex.id,
 			userFitnessPreferences.exercises.setRestTimers,
 		);
 		let sets: ExerciseSet[] = [
@@ -407,7 +407,7 @@ export const addExerciseToCurrentWorkout = async (
 				restTimer: restTimer ? { duration: restTimer } : undefined,
 			},
 		];
-		const exerciseDetails = await getExerciseDetails(ex.name);
+		const exerciseDetails = await getExerciseDetails(ex.id);
 		const history = (exerciseDetails.userDetails.history || []).at(0);
 		if (history) {
 			const workout = await getWorkoutDetails(history.workoutId);
@@ -421,7 +421,7 @@ export const addExerciseToCurrentWorkout = async (
 			images: [],
 			videos: [],
 			lot: ex.lot,
-			exerciseId: ex.name,
+			exerciseId: ex.id,
 			identifier: randomUUID(),
 			unitSystem: userFitnessPreferences.exercises.unitSystem,
 		});

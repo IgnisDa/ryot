@@ -61,3 +61,8 @@ export interface SendNotificationProps {
 export type TimestampToStringResult<T> = T extends Date | string
 	? string
 	: null;
+
+export type FilterUpdateFunction<T> = <K extends keyof T>(
+	key: K,
+	value: T[K] | null,
+) => void;

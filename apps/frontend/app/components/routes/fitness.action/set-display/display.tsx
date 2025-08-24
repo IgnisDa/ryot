@@ -40,7 +40,7 @@ import {
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { StatInput } from "../stat-display-and-input";
 import type { FuncStartTimer } from "../types";
 import { formatTimerDuration } from "../utils";
@@ -83,8 +83,7 @@ export const SetDisplay = (props: {
 		currentWorkout: currentWorkout,
 		exerciseId: exercise.exerciseId,
 	});
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const closeRpeModal = () => setIsRpeModalOpen(false);
 
@@ -102,10 +101,7 @@ export const SetDisplay = (props: {
 		currentTimer?.triggeredBy?.setIdentifier === set.identifier;
 	const hasRestTimerOfThisSetElapsed = set.restTimer?.hasElapsed;
 	const isOnboardingTourStep =
-		isOnboardingTourInProgress &&
-		set.confirmedAt === null &&
-		props.exerciseIdx === 0 &&
-		props.setIdx === 0;
+		set.confirmedAt === null && props.exerciseIdx === 0 && props.setIdx === 0;
 
 	return (
 		<>

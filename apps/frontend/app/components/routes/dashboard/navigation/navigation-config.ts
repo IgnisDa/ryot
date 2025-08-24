@@ -5,19 +5,16 @@ import { IconMoon, IconSun } from "@tabler/icons-react";
 import { $path } from "safe-routes";
 import { joinURL } from "ufo";
 import type { useUserDetails } from "~/lib/shared/hooks";
-import { OnboardingTourStepTargets } from "~/lib/state/general";
+import { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 
-export const getMediaLinks = (
-	userPreferences: UserPreferences,
-	isOnboardingTourInProgress: boolean,
-) =>
+export const getMediaLinks = (userPreferences: UserPreferences) =>
 	[
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
 				label: changeCase(f),
 				link: $path("/media/:action/:lot", { action: "list", lot: f }),
 				tourControlTarget:
-					isOnboardingTourInProgress && f === MediaLot.AudioBook
+					f === MediaLot.AudioBook
 						? `${OnboardingTourStepTargets.FirstSidebar} ${OnboardingTourStepTargets.GoBackToAudiobooksSection}`
 						: undefined,
 			};
@@ -42,10 +39,7 @@ export const getMediaLinks = (
 			: undefined,
 	].filter((link) => link !== undefined);
 
-export const getFitnessLinks = (
-	userPreferences: UserPreferences,
-	isOnboardingTourInProgress: boolean,
-) =>
+export const getFitnessLinks = (userPreferences: UserPreferences) =>
 	[
 		...(Object.entries(userPreferences.featuresEnabled.fitness || {})
 			.filter(([v, _]) => !["enabled"].includes(v))
@@ -55,7 +49,7 @@ export const getFitnessLinks = (
 				label: changeCase(f.name.toString()),
 				link: joinURL("/fitness", f.name, "list"),
 				tourControlTarget:
-					isOnboardingTourInProgress && f.name === "workouts"
+					f.name === "workouts"
 						? OnboardingTourStepTargets.OpenWorkoutsSection
 						: f.name === "templates"
 							? OnboardingTourStepTargets.ClickOnTemplatesSidebarSection

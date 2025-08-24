@@ -27,27 +27,22 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import Cookies from "js-cookie";
 import { type ReactNode, useState } from "react";
-import { useNavigate } from "react-router";
 import {
-	useAppSearchParam,
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import type { OnboardingTourStepTargets } from "~/lib/state/general";
+import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
 export const FiltersModal = (props: {
 	title?: string;
 	opened: boolean;
-	cookieName: string;
 	children: ReactNode;
+	resetFilters: () => void;
 	closeFiltersModal: () => void;
 }) => {
-	const navigate = useNavigate();
-
 	return (
 		<Modal
 			centered
@@ -60,9 +55,8 @@ export const FiltersModal = (props: {
 					<Title order={3}>{props.title || "Filters"}</Title>
 					<ActionIcon
 						onClick={() => {
-							navigate(".");
+							props.resetFilters();
 							props.closeFiltersModal();
-							Cookies.remove(props.cookieName);
 						}}
 					>
 						<IconFilterOff size={24} />
@@ -75,13 +69,12 @@ export const FiltersModal = (props: {
 };
 
 export const CollectionsFilter = (props: {
-	cookieName: string;
 	applied: MediaCollectionFilter[];
+	onFiltersChanged: (val: MediaCollectionFilter[]) => void;
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
 	const [parent] = useAutoAnimate();
-	const [_p, { setP }] = useAppSearchParam(props.cookieName);
 	const [filters, filtersHandlers] = useListState<
 		MediaCollectionFilter & { id: string }
 	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
@@ -90,11 +83,12 @@ export const CollectionsFilter = (props: {
 		const applicableFilters = coreDetails.isServerKeyValidated
 			? filters
 			: filters.slice(0, 1);
-		const final = applicableFilters
-			.filter((f) => f.collectionId)
-			.map((a) => `${a.collectionId}:${a.presence}`)
-			.join(",");
-		setP("collections", final);
+		props.onFiltersChanged(
+			applicableFilters.map((f) => ({
+				presence: f.presence,
+				collectionId: f.collectionId,
+			})),
+		);
 	}, [filters]);
 
 	return (
@@ -182,8 +176,7 @@ export const DebouncedSearchInput = (props: {
 	queryParam?: string;
 	placeholder?: string;
 	initialValue?: string;
-	enhancedQueryParams?: string;
-	onChange?: (query: string) => void;
+	onChange: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
 		onQueryChange: (query: string) => void;
@@ -191,9 +184,6 @@ export const DebouncedSearchInput = (props: {
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
-	const [_e, { setP }] = useAppSearchParam(
-		props.enhancedQueryParams || "query",
-	);
 
 	useDidUpdate(() => {
 		const query = debounced.trim().toLowerCase();
@@ -201,7 +191,6 @@ export const DebouncedSearchInput = (props: {
 			props.onChange(query);
 			return;
 		}
-		setP(props.queryParam || "query", query);
 		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
 

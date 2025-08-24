@@ -5,14 +5,16 @@ use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{
-    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdObject,
-    MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, IdAndNamedObject, IdObject,
+    NamedObject, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::PAGE_SIZE;
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, MetadataPersonRelated, PersonDetails, SearchResults,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetailsProviderIgdbSpecifics,
+    MetadataPersonRelated, MetadataSearchSourceIgdbFilterSpecifics, MetadataSearchSourceSpecifics,
+    PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use futures::try_join;
@@ -24,13 +26,13 @@ use media_models::{
 };
 use nest_struct::nest_struct;
 use reqwest::{
-    Client,
+    Client, Response,
     header::{AUTHORIZATION, HeaderName, HeaderValue},
 };
 use rust_decimal::Decimal;
 use rust_iso3166::from_numeric;
 use sea_orm::prelude::DateTimeUtc;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use serde_with::{TimestampSeconds, formats::Flexible, serde_as};
 use slug::slugify;
@@ -62,7 +64,6 @@ fields
     release_dates.release_region.region,
     videos.*,
     genres.*;
-where version_parent = null;
 ";
 static INVOLVED_COMPANY_FIELDS: &str = "
 fields
@@ -98,7 +99,7 @@ fields
     games.cover.*,
     games.version_parent;
 ";
-static TIME_TO_BEAT_FIELDS: &str = "
+static GAME_TIME_TO_BEAT_FIELDS: &str = "
 fields
     normally,
     hastily,
@@ -110,14 +111,27 @@ struct IgdbWebsite {
     url: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbGameType {
+    id: i32,
+    #[serde(rename = "type")]
+    typ: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct IgdbRegionResponse {
+    id: i32,
+    region: String,
+}
+
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 struct IgdbCompany {
-    id: i32,
-    name: String,
     country: Option<i32>,
     logo: Option<IgdbImage>,
     description: Option<String>,
+    #[serde(flatten)]
+    id_and_name: IdAndNamedObject,
     #[serde_as(as = "Option<TimestampSeconds<i64, Flexible>>")]
     start_date: Option<DateTimeUtc>,
     websites: Option<Vec<IgdbWebsite>>,
@@ -196,6 +210,14 @@ impl IgdbService {
     }
 }
 
+fn extract_count_from_response(rsp: &Response) -> Result<i32> {
+    rsp.headers()
+        .get("x-count")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|v| v.parse::<i32>().ok())
+        .ok_or_else(|| anyhow!("Failed to extract count from response headers"))
+}
+
 #[async_trait]
 impl MediaProvider for IgdbService {
     #[allow(unused_variables)]
@@ -213,32 +235,34 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            fields = COLLECTION_FIELDS,
             query = query,
             limit = PAGE_SIZE,
+            fields = COLLECTION_FIELDS,
             offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let details: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let total_items = extract_count_from_response(&rsp)?;
+        let details: Vec<IgdbItemResponse> = rsp.json().await?;
         let resp = details
             .into_iter()
             .map(|d| MetadataGroupSearchItem {
-                identifier: d.id.to_string(),
                 name: d.name.unwrap(),
-                image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
+                identifier: d.id.to_string(),
                 parts: d.games.map(|g| g.len()),
+                image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
+        let next_page =
+            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
-                total: resp.len().try_into().unwrap(),
-                next_page: Some(page.unwrap_or(1) + 1),
+                next_page,
+                total_items,
             },
         })
     }
@@ -258,11 +282,9 @@ where id = {identifier};
             .post(format!("{URL}/collections"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<Vec<_>>()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .pop()
             .unwrap();
         let items = details
@@ -317,35 +339,37 @@ search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            fields = COMPANY_FIELDS,
             query = query,
             limit = PAGE_SIZE,
+            fields = COMPANY_FIELDS,
             offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/companies"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let details: Vec<IgdbCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let total_items = extract_count_from_response(&rsp)?;
+        let details: Vec<IgdbCompany> = rsp.json().await?;
         let resp = details
             .into_iter()
             .map(|ic| {
                 let image = ic.logo.map(|a| self.get_cover_image_url(a.image_id));
                 PeopleSearchItem {
                     image,
-                    name: ic.name,
-                    identifier: ic.id.to_string(),
+                    name: ic.id_and_name.name,
+                    identifier: ic.id_and_name.id.to_string(),
                     ..Default::default()
                 }
             })
             .collect_vec();
+        let next_page =
+            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
-                total: resp.len().try_into().unwrap(),
-                next_page: Some(page.unwrap_or(1) + 1),
+                next_page,
+                total_items,
             },
         })
     }
@@ -366,9 +390,8 @@ where id = {identity};
             .post(format!("{URL}/involved_companies"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let mut details: Vec<IgdbInvolvedCompany> = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let mut details: Vec<IgdbInvolvedCompany> = rsp.json().await?;
         let detail = details
             .pop()
             .map(|ic| ic.company)
@@ -408,20 +431,14 @@ where id = {identity};
                 ..Default::default()
             }
         }));
-        let name = detail.name;
+        let name = detail.id_and_name.name;
         Ok(PersonDetails {
             related_metadata,
             name: name.clone(),
             source: MediaSource::Igdb,
             description: detail.description,
-            identifier: detail.id.to_string(),
+            identifier: detail.id_and_name.id.to_string(),
             source_url: Some(format!("https://www.igdb.com/companies/{}", slugify(name))),
-            assets: EntityAssets {
-                remote_images: Vec::from_iter(
-                    detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
-                ),
-                ..Default::default()
-            },
             place: detail
                 .country
                 .and_then(from_numeric)
@@ -431,14 +448,20 @@ where id = {identity};
                 .unwrap_or_default()
                 .first()
                 .map(|i| i.url.clone()),
+            assets: EntityAssets {
+                remote_images: Vec::from_iter(
+                    detail.logo.map(|l| self.get_cover_image_url(l.image_id)),
+                ),
+                ..Default::default()
+            },
             ..Default::default()
         })
     }
 
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
         let client = self.get_client_config().await?;
-        let req_body = format!(r#"{GAME_FIELDS} where id = {identifier};"#);
-        let ttb_req_body = format!(r#"{TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
+        let req_body = format!(r#"{GAME_FIELDS} where id = {identifier} & version_parent = null;"#);
+        let ttb_req_body = format!(r#"{GAME_TIME_TO_BEAT_FIELDS} where game_id = {identifier};"#);
 
         let (details_rsp, ttb_rsp) = try_join!(
             client.post(format!("{URL}/games")).body(req_body).send(),
@@ -485,52 +508,78 @@ where id = {identity};
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let client = self.get_client_config().await?;
-        let allow_games_with_parent = source_specifics
+        let search_filters = source_specifics
             .as_ref()
-            .and_then(|s| s.igdb_allow_games_with_parent)
+            .and_then(|s| s.igdb.as_ref())
+            .and_then(|i| i.filters.clone());
+
+        let allow_games_with_parent = search_filters
+            .as_ref()
+            .and_then(|i| i.allow_games_with_parent)
             .unwrap_or(false);
-        let version_parent_filter = if allow_games_with_parent {
-            ""
+
+        let filter_builders: [(
+            fn(&MetadataSearchSourceIgdbFilterSpecifics) -> Option<&Vec<String>>,
+            &str,
+        ); 6] = [
+            (|f| f.theme_ids.as_ref(), "themes"),
+            (|f| f.genre_ids.as_ref(), "genres"),
+            (|f| f.platform_ids.as_ref(), "platforms"),
+            (|f| f.game_type_ids.as_ref(), "game_type"),
+            (|f| f.game_mode_ids.as_ref(), "game_modes"),
+            (
+                |f| f.release_date_region_ids.as_ref(),
+                "release_dates.region",
+            ),
+        ];
+
+        let mut filters = Vec::new();
+
+        if !allow_games_with_parent {
+            filters.push("version_parent = null".to_string());
+        }
+
+        let param_filters: Vec<String> = filter_builders
+            .into_iter()
+            .filter_map(|(getter, name)| {
+                search_filters
+                    .as_ref()
+                    .and_then(getter)
+                    .filter(|ids| !ids.is_empty())
+                    .map(|ids| format!("{} = ({})", name, ids.join(",")))
+            })
+            .collect();
+
+        filters.extend(param_filters);
+
+        let where_clause = if filters.is_empty() {
+            String::new()
         } else {
-            "where version_parent = null;"
-        };
-        let count_req_body =
-            format!(r#"fields id; {version_parent_filter} search "{query}"; limit: 500;"#);
-        let rsp = client
-            .post(format!("{URL}/games"))
-            .body(count_req_body)
-            .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-
-        let search_count_resp: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
-
-        let total = search_count_resp.len().try_into().unwrap();
-
-        let fields_with_filter = if allow_games_with_parent {
-            GAME_FIELDS.replace("where version_parent = null;", "")
-        } else {
-            GAME_FIELDS.to_string()
+            format!("where {};", filters.join(" & "))
         };
         let req_body = format!(
             r#"
-{field}
+{fields}
+{where_clause}
 search "{query}";
 limit {limit};
 offset: {offset};
             "#,
-            field = fields_with_filter,
+            query = query,
             limit = PAGE_SIZE,
+            fields = GAME_FIELDS.trim(),
+            where_clause = where_clause,
             offset = (page - 1) * PAGE_SIZE
         );
+
         let rsp = client
             .post(format!("{URL}/games"))
             .body(req_body)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
 
-        let search: Vec<IgdbItemResponse> = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let total_items = extract_count_from_response(&rsp)?;
+        let search: Vec<IgdbItemResponse> = rsp.json().await?;
 
         let resp = search
             .into_iter()
@@ -545,24 +594,29 @@ offset: {offset};
             })
             .collect_vec();
 
+        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
-                total,
-                next_page: Some(page + 1),
+                next_page,
+                total_items,
             },
         })
     }
 }
 
 impl IgdbService {
-    async fn get_access_token(&self) -> String {
+    fn get_cover_image_url(&self, hash: String) -> String {
+        format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
+    }
+
+    async fn get_access_token(&self) -> Result<String> {
         let client = Client::new();
         #[derive(Deserialize, Serialize, Default, Debug)]
         struct AccessResponse {
-            access_token: String,
-            token_type: String,
             expires_in: u128,
+            token_type: String,
+            access_token: String,
         }
         let access_res = client
             .post(AUTH_URL)
@@ -572,13 +626,9 @@ impl IgdbService {
                 "client_secret": self.ss.config.video_games.twitch.client_secret.to_owned(),
             }))
             .send()
-            .await
-            .unwrap();
-        let access = access_res
-            .json::<AccessResponse>()
-            .await
-            .unwrap_or_default();
-        format!("{} {}", access.token_type, access.access_token)
+            .await?;
+        let access = access_res.json::<AccessResponse>().await?;
+        Ok(format!("{} {}", access.token_type, access.access_token))
     }
 
     async fn get_client_config(&self) -> Result<Client> {
@@ -586,16 +636,16 @@ impl IgdbService {
             &self.ss,
             ApplicationCacheKey::IgdbSettings,
             ApplicationCacheValue::IgdbSettings,
-            || async { Ok(self.get_access_token().await) },
+            || async { self.get_access_token().await },
         )
         .await?;
         let access_token = cached_response.response;
         Ok(get_base_http_client(Some(vec![
+            (AUTHORIZATION, HeaderValue::from_str(&access_token).unwrap()),
             (
                 HeaderName::from_static("client-id"),
                 HeaderValue::from_str(&self.ss.config.video_games.twitch.client_id).unwrap(),
             ),
-            (AUTHORIZATION, HeaderValue::from_str(&access_token).unwrap()),
         ])))
     }
 
@@ -630,10 +680,10 @@ impl IgdbService {
                     "Unknown"
                 };
                 PartialMetadataPerson {
-                    name: ic.company.name,
                     role: role.to_owned(),
                     source: MediaSource::Igdb,
                     identifier: ic.id.to_string(),
+                    name: ic.company.id_and_name.name,
                     ..Default::default()
                 }
             })
@@ -711,7 +761,114 @@ impl IgdbService {
         }
     }
 
-    fn get_cover_image_url(&self, hash: String) -> String {
-        format!("{}/{}/{}.jpg", self.image_url, self.image_size, hash)
+    async fn paginate_igdb_endpoint<T>(
+        &self,
+        client: &Client,
+        endpoint: &str,
+        base_body: &str,
+    ) -> Result<Vec<T>>
+    where
+        T: DeserializeOwned,
+    {
+        let limit = 500;
+        let mut offset = 0;
+        let mut items = vec![];
+
+        loop {
+            let body = if offset == 0 {
+                base_body.to_string()
+            } else {
+                format!("{base_body} offset {offset};")
+            };
+
+            let rsp = client
+                .post(format!("{URL}/{endpoint}"))
+                .body(body)
+                .send()
+                .await?;
+
+            let page_items = rsp.json::<Vec<T>>().await?;
+            let page_size = page_items.len();
+            items.extend(page_items);
+
+            if page_size < limit {
+                break;
+            }
+
+            offset += limit;
+        }
+
+        Ok(items)
+    }
+
+    async fn get_all_list_items(
+        &self,
+        endpoint: &str,
+        client: &Client,
+    ) -> Result<Vec<IdAndNamedObject>> {
+        let base_body = "fields id, name; where name != null; limit 500;";
+        let mut items = self
+            .paginate_igdb_endpoint::<IdAndNamedObject>(client, endpoint, base_body)
+            .await?;
+        items.sort_by_key(|item| item.name.clone());
+        Ok(items)
+    }
+
+    async fn get_game_types(&self, client: &Client) -> Result<Vec<IdAndNamedObject>> {
+        let base_body = "fields id, type; limit 500;";
+        let raw_items = self
+            .paginate_igdb_endpoint::<IgdbGameType>(client, "game_types", base_body)
+            .await?;
+
+        let mut items: Vec<IdAndNamedObject> = raw_items
+            .into_iter()
+            .map(|item| IdAndNamedObject {
+                id: item.id,
+                name: item.typ,
+            })
+            .collect();
+
+        items.sort_by_key(|item| item.name.clone());
+        Ok(items)
+    }
+
+    async fn get_release_date_regions(&self, client: &Client) -> Result<Vec<IdAndNamedObject>> {
+        let base_body = "fields id, region; limit 500;";
+        let raw_items = self
+            .paginate_igdb_endpoint::<IgdbRegionResponse>(client, "release_date_regions", base_body)
+            .await?;
+
+        let mut items: Vec<IdAndNamedObject> = raw_items
+            .into_iter()
+            .map(|item| IdAndNamedObject {
+                id: item.id,
+                name: item.region.to_case(Case::Title),
+            })
+            .collect();
+
+        items.sort_by_key(|item| item.name.clone());
+        Ok(items)
+    }
+
+    pub async fn get_provider_specifics(&self) -> Result<CoreDetailsProviderIgdbSpecifics> {
+        let client = self.get_client_config().await?;
+        let (themes, genres, platforms, game_modes, release_date_regions, game_types) = try_join!(
+            self.get_all_list_items("themes", &client),
+            self.get_all_list_items("genres", &client),
+            self.get_all_list_items("platforms", &client),
+            self.get_all_list_items("game_modes", &client),
+            self.get_release_date_regions(&client),
+            self.get_game_types(&client),
+        )?;
+
+        let response = CoreDetailsProviderIgdbSpecifics {
+            themes,
+            genres,
+            platforms,
+            game_modes,
+            game_types,
+            release_date_regions,
+        };
+        Ok(response)
     }
 }

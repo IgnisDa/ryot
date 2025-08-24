@@ -153,7 +153,7 @@ pub async fn expire_user_collections_list_cache(
         input: (),
         user_id: user_id.to_owned(),
     });
-    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(cache_key)).await?;
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(Box::new(cache_key))).await?;
     Ok(())
 }
 

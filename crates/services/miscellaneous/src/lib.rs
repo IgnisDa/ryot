@@ -3,8 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::{
-    BackgroundJob, MetadataGroupSearchInput, MetadataSearchInput, PeopleSearchInput, SearchInput,
-    StringIdObject,
+    BackgroundJob, MetadataGroupSearchInput, PeopleSearchInput, SearchInput, StringIdObject,
 };
 use database_models::{metadata, prelude::User, user};
 use dependent_core_utils::core_details;
@@ -17,8 +16,8 @@ use dependent_jobs_utils::{
 };
 use dependent_models::{
     CachedResponse, CoreDetails, GenreDetails, GraphqlPersonDetails, MetadataGroupDetails,
-    MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse, SearchResults,
-    TrendingMetadataIdsResponse, UserMetadataDetails, UserMetadataGroupDetails,
+    MetadataGroupSearchResponse, MetadataSearchInput, MetadataSearchResponse, PeopleSearchResponse,
+    SearchResults, TrendingMetadataIdsResponse, UserMetadataDetails, UserMetadataGroupDetails,
     UserMetadataGroupsListInput, UserMetadataGroupsListResponse, UserMetadataListInput,
     UserMetadataListResponse, UserPeopleListInput, UserPeopleListResponse, UserPersonDetails,
 };

@@ -28,7 +28,7 @@ import { type ReactNode, useState } from "react";
 import { useRevalidator } from "react-router";
 import { match } from "ts-pattern";
 import { useFallbackImageUrl, useUserPreferences } from "~/lib/shared/hooks";
-import { refreshEntityDetails } from "~/lib/shared/query-factory";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { getSurroundingElements } from "~/lib/shared/ui-utils";
 import { useFullscreenImage } from "~/lib/state/general";
 import classes from "~/styles/common.module.css";

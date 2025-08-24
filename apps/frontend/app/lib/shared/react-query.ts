@@ -3,14 +3,28 @@ import {
 	mergeQueryKeys,
 } from "@lukemorales/query-key-factory";
 import {
+	type CollectionContentsInput,
 	type CollectionRecommendationsInput,
+	type GenreDetailsInput,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
+	type MetadataGroupSearchInput,
+	type MetadataSearchInput,
+	type PeopleSearchInput,
 	PersonDetailsDocument,
-	type UserAnalyticsQueryVariables,
+	type SearchInput,
+	type UserAnalyticsInput,
+	type UserCalendarEventInput,
+	type UserExercisesListInput,
+	type UserMeasurementsListInput,
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
+	type UserMetadataGroupsListInput,
+	type UserMetadataListInput,
+	type UserPeopleListInput,
 	UserPersonDetailsDocument,
+	type UserTemplatesOrWorkoutsListInput,
+	type UserUpcomingCalendarEventInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
@@ -18,7 +32,12 @@ import Cookies from "js-cookie";
 import { FRONTEND_AUTH_COOKIE_NAME, applicationBaseUrl } from "./constants";
 
 export const queryClient = new QueryClient({
-	defaultOptions: { queries: { staleTime: Number.POSITIVE_INFINITY } },
+	defaultOptions: {
+		queries: {
+			staleTime: Number.POSITIVE_INFINITY,
+			placeholderData: (prev: unknown) => prev,
+		},
+	},
 });
 
 export const clientGqlService = new GraphQLClient(
@@ -31,72 +50,121 @@ export const clientGqlService = new GraphQLClient(
 	},
 );
 
+const calendarQueryKeys = createQueryKeys("calendar", {
+	userCalendarEvents: (input: UserCalendarEventInput) => ({
+		queryKey: ["userCalendarEvents", input],
+	}),
+	userUpcomingCalendarEvents: (input: UserUpcomingCalendarEventInput) => ({
+		queryKey: ["userUpcomingCalendarEvents", input],
+	}),
+});
+
 const mediaQueryKeys = createQueryKeys("media", {
-	metadataDetails: (metadataId?: string) => ({
-		queryKey: ["metadataDetails", metadataId],
-	}),
-	userMetadataDetails: (metadataId?: string) => ({
-		queryKey: ["userMetadataDetails", metadataId],
-	}),
-	metadataGroupDetails: (metadataGroupId?: string) => ({
-		queryKey: ["metadataGroupDetails", metadataGroupId],
-	}),
-	userMetadataGroupDetails: (metadataGroupId?: string) => ({
-		queryKey: ["userMetadataGroupDetails", metadataGroupId],
-	}),
-	personDetails: (personId?: string) => ({
-		queryKey: ["personDetails", personId],
-	}),
-	userPersonDetails: (personId?: string) => ({
-		queryKey: ["userPersonDetails", personId],
+	trendingMetadata: () => ({
+		queryKey: ["trendingMetadata"],
 	}),
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
 	}),
-	trendingMetadata: () => ({
-		queryKey: ["trendingMetadata"],
-	}),
 	userMetadataRecommendations: () => ({
 		queryKey: ["userMetadataRecommendations"],
+	}),
+	personDetails: (personId?: string) => ({
+		queryKey: ["personDetails", personId],
+	}),
+	userGenresList: (input: SearchInput) => ({
+		queryKey: ["userGenresList", input],
+	}),
+	metadataDetails: (metadataId?: string) => ({
+		queryKey: ["metadataDetails", metadataId],
+	}),
+	userPersonDetails: (personId?: string) => ({
+		queryKey: ["userPersonDetails", personId],
+	}),
+	peopleSearch: (input: PeopleSearchInput) => ({
+		queryKey: ["peopleSearch", input],
+	}),
+	genreDetails: (input: GenreDetailsInput) => ({
+		queryKey: ["genreDetails", input],
+	}),
+	userMetadataDetails: (metadataId?: string) => ({
+		queryKey: ["userMetadataDetails", metadataId],
+	}),
+	metadataSearch: (input: MetadataSearchInput) => ({
+		queryKey: ["metadataSearch", input],
+	}),
+	userPeopleList: (input: UserPeopleListInput) => ({
+		queryKey: ["userPeopleList", input],
+	}),
+	metadataGroupDetails: (metadataGroupId?: string) => ({
+		queryKey: ["metadataGroupDetails", metadataGroupId],
+	}),
+	userMetadataList: (input: UserMetadataListInput) => ({
+		queryKey: ["userMetadataList", input],
+	}),
+	userMetadataGroupDetails: (metadataGroupId?: string) => ({
+		queryKey: ["userMetadataGroupDetails", metadataGroupId],
+	}),
+	metadataGroupSearch: (input: MetadataGroupSearchInput) => ({
+		queryKey: ["metadataGroupSearch", input],
+	}),
+	userMetadataGroupsList: (input: UserMetadataGroupsListInput) => ({
+		queryKey: ["userMetadataGroupsList", input],
 	}),
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
-	images: (collectionId: string) => ({
+	collectionDetailsImages: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
-	recommendations: (input: CollectionRecommendationsInput) => ({
+	collectionContents: (input: CollectionContentsInput) => ({
+		queryKey: ["collectionContents", input],
+	}),
+	collectionRecommendations: (input: CollectionRecommendationsInput) => ({
 		queryKey: ["collectionRecommendations", input],
 	}),
 });
 
 const fitnessQueryKeys = createQueryKeys("fitness", {
+	workoutDetails: (workoutId: string) => ({
+		queryKey: ["workoutDetails", workoutId],
+	}),
 	exerciseDetails: (exerciseId: string) => ({
 		queryKey: ["exerciseDetails", exerciseId],
 	}),
 	userExerciseDetails: (exerciseId: string) => ({
 		queryKey: ["userExerciseDetails", exerciseId],
 	}),
-	workoutDetails: (workoutId: string) => ({
-		queryKey: ["workoutDetails", workoutId],
+	userExercisesList: (input: UserExercisesListInput) => ({
+		queryKey: ["userExercisesList", input],
 	}),
 	workoutTemplateDetails: (workoutTemplateId: string) => ({
 		queryKey: ["workoutTemplateDetails", workoutTemplateId],
 	}),
+	userMeasurementsList: (input: UserMeasurementsListInput) => ({
+		queryKey: ["userMeasurementsList", input],
+	}),
+	entityList: (entity: string, filters: UserTemplatesOrWorkoutsListInput) => ({
+		queryKey: ["fitnessEntityList", entity, filters],
+	}),
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
-	userAnalytics: (input: UserAnalyticsQueryVariables) => ({
-		queryKey: ["userAnalytics", input],
+	usersList: (query?: string) => ({
+		queryKey: ["usersList", query],
 	}),
 	presignedS3Url: (key: string) => ({
 		queryKey: ["presignedS3Url", key],
+	}),
+	userAnalytics: (input: UserAnalyticsInput) => ({
+		queryKey: ["userAnalytics", input],
 	}),
 });
 
 export const queryFactory = mergeQueryKeys(
 	mediaQueryKeys,
 	fitnessQueryKeys,
+	calendarQueryKeys,
 	collectionQueryKeys,
 	miscellaneousQueryKeys,
 );
@@ -172,12 +240,17 @@ export const refreshEntityDetails = (entityId: string) =>
 	setTimeout(async () => {
 		await Promise.all(
 			[
-				queryFactory.media.userMetadataDetails(entityId).queryKey,
-				queryFactory.media.metadataDetails(entityId).queryKey,
-				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
-				queryFactory.media.metadataGroupDetails(entityId).queryKey,
-				queryFactory.media.userPersonDetails(entityId).queryKey,
 				queryFactory.media.personDetails(entityId).queryKey,
+				queryFactory.media.userPersonDetails(entityId).queryKey,
+				queryFactory.media.metadataDetails(entityId).queryKey,
+				queryFactory.media.userMetadataDetails(entityId).queryKey,
+				queryFactory.media.metadataGroupDetails(entityId).queryKey,
+				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
+				queryFactory.media.userGenresList._def,
+				queryFactory.media.userPeopleList._def,
+				queryFactory.media.userMetadataList._def,
+				queryFactory.media.userMetadataGroupsList._def,
+				queryFactory.collections.collectionContents._def,
 			].map((q) => queryClient.invalidateQueries({ queryKey: q })),
 		);
 	}, 1500);

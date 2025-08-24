@@ -63,7 +63,7 @@ import {
 	useIsFitnessActionActive,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { FitnessEntity } from "~/lib/types";
 import classes from "~/styles/preferences.module.css";
@@ -310,7 +310,6 @@ export default function Page() {
 										"disableVideos",
 										"disableReviews",
 										"disableWatchProviders",
-										"persistQueries",
 										"showSpoilersInCalendar",
 									] as const
 								).map((name) => (
@@ -342,11 +341,6 @@ export default function Page() {
 											.with(
 												"disableWatchProviders",
 												() => 'Do not display the "Watch On" tab',
-											)
-											.with(
-												"persistQueries",
-												() =>
-													"Persist queries in the URL so that you look at the same data next time you visit it",
 											)
 											.with(
 												"showSpoilersInCalendar",

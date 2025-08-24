@@ -24,16 +24,16 @@ pub async fn expire_cache_keys(ss: &Arc<SupportingService>) -> Result<()> {
             user_id: Some(user_id.clone()),
             key: ApplicationCacheKeyDiscriminants::UserMetadataRecommendationsSet,
         });
-        all_keys.push(ExpireCacheKeyInput::ByKey(
+        all_keys.push(ExpireCacheKeyInput::ByKey(Box::new(
             ApplicationCacheKey::UserMetadataRecommendationsSet(UserLevelCacheKey {
                 input: (),
                 user_id: user_id.clone(),
             }),
-        ));
+        )));
     }
-    all_keys.push(ExpireCacheKeyInput::ByKey(
+    all_keys.push(ExpireCacheKeyInput::ByKey(Box::new(
         ApplicationCacheKey::TrendingMetadataIds,
-    ));
+    )));
 
     for key in all_keys {
         cache_service::expire_key(ss, key).await?;
@@ -79,12 +79,6 @@ pub async fn remove_cached_metadata_after_updates(ss: &Arc<SupportingService>) -
         .buffer_unordered(5)
         .collect()
         .await;
-
-    cache_service::expire_key(
-        ss,
-        ExpireCacheKeyInput::ByKey(ApplicationCacheKey::TrendingMetadataIds),
-    )
-    .await?;
 
     cache_service::expire_key(
         ss,

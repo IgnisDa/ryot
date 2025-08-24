@@ -154,7 +154,10 @@ pub async fn commit_import_seen_item(
 
         if progress >= dec!(100) {
             let _ = try_join!(
-                cache_service::expire_key(ss, ExpireCacheKeyInput::ByKey(in_progress_cache_key)),
+                cache_service::expire_key(
+                    ss,
+                    ExpireCacheKeyInput::ByKey(Box::new(in_progress_cache_key))
+                ),
                 cache_service::set_key(
                     ss,
                     completed_cache_key,

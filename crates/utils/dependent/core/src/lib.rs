@@ -4,16 +4,17 @@ use anyhow::Result;
 use common_models::BackendError;
 use common_utils::{PAGE_SIZE, PEOPLE_SEARCH_SOURCES, TWO_FACTOR_BACKUP_CODES_COUNT};
 use dependent_models::{
-    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, ExerciseFilters, ExerciseParameters,
-    ExerciseParametersLotMapping, MetadataGroupSourceLotMapping, MetadataLotSourceMappings,
-    ProviderLanguageInformation,
+    ApplicationCacheKey, ApplicationCacheValue, CoreDetails, CoreDetailsProviderSpecifics,
+    ExerciseFilters, ExerciseParameters, ExerciseParametersLotMapping,
+    MetadataGroupSourceLotMapping, MetadataLotSourceMappings, ProviderLanguageInformation,
 };
 use enum_meta::Meta;
 use enum_models::{
-    EntityLot, ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic,
-    ExerciseMuscle, MediaLot, MediaSource,
+    ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
+    MediaLot, MediaSource,
 };
 use env_utils::APP_VERSION;
+use igdb_provider::IgdbService;
 use itertools::Itertools;
 use rustypipe::param::{LANGUAGES, Language};
 use sea_orm::Iterable;
@@ -110,8 +111,22 @@ fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
         .collect()
 }
 
+async fn build_provider_specifics(
+    ss: &Arc<SupportingService>,
+) -> Result<CoreDetailsProviderSpecifics> {
+    let mut specifics = CoreDetailsProviderSpecifics::default();
+
+    if let Ok(service) = IgdbService::new(ss.clone()).await {
+        if let Ok(igdb) = service.get_provider_specifics().await {
+            specifics.igdb = igdb;
+        }
+    }
+
+    Ok(specifics)
+}
+
 pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
-    let cached_response = cache_service::get_or_set_with_callback(
+    cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::CoreDetails,
         |data| ApplicationCacheValue::CoreDetails(Box::new(data)),
@@ -125,10 +140,12 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
             let metadata_provider_languages = build_provider_language_information();
+            let provider_specifics = build_provider_specifics(ss).await?;
 
             let core_details = CoreDetails {
-                page_size: PAGE_SIZE,
+                provider_specifics,
                 exercise_parameters,
+                page_size: PAGE_SIZE,
                 metadata_provider_languages,
                 metadata_lot_source_mappings,
                 version: APP_VERSION.to_owned(),
@@ -154,34 +171,10 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             Ok(core_details)
         },
     )
-    .await?;
-    Ok(cached_response.response)
+    .await
+    .map(|c| c.response)
 }
 
 pub async fn is_server_key_validated(ss: &Arc<SupportingService>) -> Result<bool> {
     Ok(core_details(ss).await?.is_server_key_validated)
-}
-
-pub fn get_entity_details_frontend_url(
-    id: String,
-    entity_lot: EntityLot,
-    default_tab: Option<&str>,
-    ss: &Arc<SupportingService>,
-) -> String {
-    let mut url = match entity_lot {
-        EntityLot::Genre => format!("media/genre/{id}"),
-        EntityLot::Metadata => format!("media/item/{id}"),
-        EntityLot::Collection => format!("collections/{id}"),
-        EntityLot::Person => format!("media/people/item/{id}"),
-        EntityLot::Workout => format!("fitness/workouts/{id}"),
-        EntityLot::Exercise => format!("fitness/exercises/{id}"),
-        EntityLot::MetadataGroup => format!("media/groups/item/{id}"),
-        EntityLot::WorkoutTemplate => format!("fitness/templates/{id}"),
-        EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
-    };
-    url = format!("{}/{}", ss.config.frontend.url, url);
-    if let Some(tab) = default_tab {
-        url += format!("?defaultTab={tab}").as_str()
-    }
-    url
 }

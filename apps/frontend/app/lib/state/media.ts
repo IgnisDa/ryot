@@ -15,7 +15,7 @@ import {
 	getMetadataDetailsQuery,
 	getUserMetadataDetailsQuery,
 	queryClient,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 
 export type UpdateProgressData = {
 	metadataId: string;

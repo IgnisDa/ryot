@@ -77,7 +77,7 @@ import {
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
 import { MediaColors } from "~/lib/shared/media-utils";
-import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { selectRandomElement } from "~/lib/shared/ui-utils";
 import { ApplicationTimeRange } from "~/lib/types";
 import { serverGqlService } from "~/lib/utilities.server";
@@ -130,7 +130,7 @@ const useGetUserAnalytics = () => {
 	const input = { dateRange: { startDate, endDate } };
 
 	const { data: userAnalytics } = useQuery({
-		queryKey: queryFactory.miscellaneous.userAnalytics({ input }).queryKey,
+		queryKey: queryFactory.miscellaneous.userAnalytics(input).queryKey,
 		queryFn: async () => {
 			return await clientGqlService
 				.request(UserAnalyticsDocument, { input })

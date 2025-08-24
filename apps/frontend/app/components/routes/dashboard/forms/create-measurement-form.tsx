@@ -18,7 +18,7 @@ import { produce } from "immer";
 import { useState } from "react";
 import { useRevalidator } from "react-router";
 import { useApplicationEvents, useUserPreferences } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 
 export const CreateMeasurementForm = (props: {
 	closeMeasurementModal: () => void;

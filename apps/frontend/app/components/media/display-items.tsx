@@ -24,8 +24,8 @@ import {
 	useUserMetadataGroupDetails,
 	useUserPersonDetails,
 } from "~/lib/shared/hooks";
-import { useOnboardingTour } from "~/lib/state/general";
 import { useMetadataProgressUpdate } from "~/lib/state/media";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { BaseEntityDisplayItem } from "../common/entity-display";
 import { DisplayAverageRatingOverlay } from "./rating-overlay";
 
@@ -47,8 +47,7 @@ export const MetadataDisplayItem = (props: {
 	const { initializeMetadataToUpdate, isMetadataToUpdateLoading } =
 		useMetadataProgressUpdate();
 	const { ref, inViewport } = useInViewport();
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const { data: metadataDetails, isLoading: isMetadataDetailsLoading } =
 		useMetadataDetails(props.metadataId, inViewport);
@@ -194,10 +193,7 @@ export const MetadataDisplayItem = (props: {
 								true,
 							);
 
-							if (
-								isOnboardingTourInProgress &&
-								props.bottomRightImageOverlayClassName
-							) {
+							if (props.bottomRightImageOverlayClassName) {
 								await new Promise((resolve) => setTimeout(resolve, 7000));
 								advanceOnboardingTourStep();
 							}

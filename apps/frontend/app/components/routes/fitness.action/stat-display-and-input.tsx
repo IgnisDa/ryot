@@ -11,7 +11,7 @@ import {
 	ACTIVE_WORKOUT_WEIGHT_TARGET,
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 
 export const StatDisplay = (props: {
 	name: string;
@@ -58,16 +58,15 @@ export const StatInput = (props: {
 			: undefined,
 		500,
 	);
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 
 	const weightStepTourClassName =
-		isOnboardingTourInProgress && props.stat === "weight" && props.setIdx === 0
+		props.stat === "weight" && props.setIdx === 0
 			? OnboardingTourStepTargets.AddWeightToExercise
 			: undefined;
 
 	const repsStepTourClassName =
-		isOnboardingTourInProgress && props.stat === "reps" && props.setIdx === 0
+		props.stat === "reps" && props.setIdx === 0
 			? OnboardingTourStepTargets.AddRepsToExercise
 			: undefined;
 

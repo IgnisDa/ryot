@@ -19,7 +19,8 @@
 - When running tests, compile the backend in release mode and implement the feature first,
   then always ask the user's approval before executing tests to save iteration time.
 - After adding a GraphQL query or mutation to the backend, run `moon run
-  generated:backend-graphql` so that the frontend can use the new query or mutation.
+  generated:backend-graphql` so that the frontend can use the new query or mutation. Beforehand,
+  ensure the backend server is running in the background, and stop it after the generation completes.
 - Do not add code comments unless strictly necessary.
 - The migration files should be named `m<YYYYMMDD>_changes_for_issue_<number>`. Read other
   migration files for examples.

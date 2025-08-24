@@ -8,7 +8,6 @@ use database_models::{
     collection_entity_membership, collection_to_entity, notification_platform,
     prelude::{CollectionEntityMembership, CollectionToEntity, NotificationPlatform},
 };
-use dependent_core_utils::get_entity_details_frontend_url;
 use dependent_entity_utils::{update_metadata, update_metadata_group, update_person};
 use enum_models::{EntityLot, UserNotificationContent};
 use itertools::Itertools;
@@ -20,6 +19,30 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use traits::TraceOk;
 use uuid::Uuid;
+
+fn get_entity_details_frontend_url(
+    id: String,
+    entity_lot: EntityLot,
+    default_tab: Option<&str>,
+    ss: &Arc<SupportingService>,
+) -> String {
+    let mut url = match entity_lot {
+        EntityLot::Genre => format!("media/genre/{id}"),
+        EntityLot::Metadata => format!("media/item/{id}"),
+        EntityLot::Collection => format!("collections/{id}"),
+        EntityLot::Person => format!("media/people/item/{id}"),
+        EntityLot::Workout => format!("fitness/workouts/{id}"),
+        EntityLot::Exercise => format!("fitness/exercises/{id}"),
+        EntityLot::MetadataGroup => format!("media/groups/item/{id}"),
+        EntityLot::WorkoutTemplate => format!("fitness/templates/{id}"),
+        EntityLot::Review | EntityLot::UserMeasurement => unreachable!(),
+    };
+    url = format!("{}/{}", ss.config.frontend.url, url);
+    if let Some(tab) = default_tab {
+        url += format!("?defaultTab={tab}").as_str()
+    }
+    url
+}
 
 pub async fn get_users_and_cte_monitoring_entity(
     entity_id: &String,

@@ -1,14 +1,12 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core";
-import type { FileUpload } from "@mjackson/form-data-parser";
-import { parseFormData } from "@mjackson/form-data-parser";
+import { type FileUpload, parseFormData } from "@mjackson/form-data-parser";
 import {
 	BackendError,
 	CoreDetailsDocument,
 	PresignedPutS3UrlDocument,
 	UserCollectionsListDocument,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { UserDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty } from "@ryot/ts-utils";
 import { type SerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
@@ -30,14 +28,10 @@ import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
 	FRONTEND_AUTH_COOKIE_NAME,
-	pageQueryParam,
 	redirectToQueryParam,
 	toastKey,
 } from "~/lib/shared/constants";
-import {
-	zodEmptyDecimalString,
-	zodEmptyNumberString,
-} from "~/lib/shared/validation";
+import { queryClient } from "~/lib/shared/react-query";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -155,19 +149,12 @@ export const combineHeaders = (
 
 export const MetadataIdSchema = z.object({ metadataId: z.string() });
 
-export const MetadataSpecificsSchema = z.object({
-	showSeasonNumber: zodEmptyNumberString,
-	mangaVolumeNumber: zodEmptyNumberString,
-	showEpisodeNumber: zodEmptyNumberString,
-	animeEpisodeNumber: zodEmptyNumberString,
-	mangaChapterNumber: zodEmptyDecimalString,
-	podcastEpisodeNumber: zodEmptyNumberString,
-});
-
 export const getCoreDetails = async () => {
-	return await serverGqlService
-		.request(CoreDetailsDocument)
-		.then((d) => d.coreDetails);
+	return await queryClient.ensureQueryData({
+		queryKey: ["coreDetails"],
+		queryFn: () =>
+			serverGqlService.request(CoreDetailsDocument).then((d) => d.coreDetails),
+	});
 };
 
 const getUserDetails = async (request: Request) => {
@@ -198,7 +185,7 @@ export const getUserCollectionsList = async (request: Request) => {
 	return userCollectionsList.response;
 };
 
-export const uploadFileAndGetKey = async (
+const uploadFileAndGetKey = async (
 	fileName: string,
 	prefix: string,
 	contentType: string,
@@ -227,7 +214,7 @@ const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	return data[0];
 };
 
-export const createS3FileUploader = (prefix: string) => {
+const createS3FileUploader = (prefix: string) => {
 	return async (fileUpload: FileUpload) => {
 		if (!fileUpload.name) return null;
 		const key = await uploadFileAndGetKey(
@@ -240,7 +227,7 @@ export const createS3FileUploader = (prefix: string) => {
 	};
 };
 
-export const toastSessionStorage = createCookieSessionStorage({
+const toastSessionStorage = createCookieSessionStorage({
 	cookie: {
 		path: "/",
 		name: toastKey,
@@ -275,7 +262,7 @@ const ToastSchema = z.object({
 });
 
 export type Toast = z.infer<typeof ToastSchema>;
-export type OptionalToast = Omit<Toast, "id" | "type"> & {
+type OptionalToast = Omit<Toast, "id" | "type"> & {
 	id?: string;
 	type?: z.infer<typeof TypeSchema>;
 };
@@ -344,57 +331,7 @@ export const extendResponseHeaders = (
 		responseHeaders.append(key, value);
 };
 
-export const getEnhancedCookieName = async (input: {
-	name: string;
-	path?: string;
-	request: Request;
-}) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(input.request);
-	return `${input.name}__${userDetails.id}${input.path ? `__${input.path}` : ""}`;
-};
-
-export const getSearchEnhancedCookieName = async (
-	path: string,
-	request: Request,
-) => getEnhancedCookieName({ path, name: "SearchParams", request });
-
-export const redirectUsingEnhancedCookieSearchParams = async (
-	request: Request,
-	cookieName: string,
-) => {
-	const preferences = await getUserPreferences(request);
-	const { searchParams } = new URL(request.url);
-	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
-	const cookies = parse(request.headers.get("cookie") || "");
-	const savedSearchParams = cookies[cookieName];
-	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
-};
-
-export const redirectToFirstPageIfOnInvalidPage = async (input: {
-	request: Request;
-	currentPage: number;
-	totalResults: number;
-	respectCoreDetailsPageSize?: boolean;
-}) => {
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
-		getUserPreferences(input.request),
-	]);
-	const totalPages = Math.ceil(
-		input.totalResults /
-			(input.respectCoreDetailsPageSize
-				? coreDetails.pageSize
-				: userPreferences.general.listPageSize),
-	);
-	if (input.currentPage > totalPages && input.currentPage !== 1) {
-		const { searchParams } = new URL(input.request.url);
-		searchParams.set(pageQueryParam, "1");
-		throw redirect(`?${searchParams.toString()}`);
-	}
-	return totalPages;
-};
-
-export const parseFormDataWithFileSize = async (
+const parseFormDataWithFileSize = async (
 	request: Request,
 	uploader: (file: FileUpload) => Promise<string | null>,
 ) => {

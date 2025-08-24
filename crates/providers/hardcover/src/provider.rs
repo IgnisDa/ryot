@@ -1,11 +1,11 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
+use dependent_models::{
+    MetadataPersonRelated, MetadataSearchSourceSpecifics, PersonDetails, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     BookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
@@ -175,7 +175,7 @@ query {{
         let resp = SearchResults {
             items,
             details: SearchDetails {
-                total: response.found,
+                total_items: response.found,
                 next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
@@ -270,7 +270,7 @@ query {{
         let resp = SearchResults {
             items,
             details: SearchDetails {
-                total: response.found,
+                total_items: response.found,
                 next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
@@ -442,7 +442,7 @@ query {{
         let resp = SearchResults {
             items,
             details: SearchDetails {
-                total: response.found,
+                total_items: response.found,
                 next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };

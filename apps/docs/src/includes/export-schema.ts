@@ -2,7 +2,7 @@
 
 /* eslint-disable */
 
-export interface IdAndNamedObject {
+export interface StringIdAndNamedObject {
 	id: string;
 	name: string;
 }
@@ -12,7 +12,7 @@ export interface UserToCollectionExtraInformation {
 }
 
 export interface CollectionItemCollaboratorInformation {
-	collaborator: IdAndNamedObject;
+	collaborator: StringIdAndNamedObject;
 	extraInformation: UserToCollectionExtraInformation | null;
 }
 
@@ -34,7 +34,7 @@ export interface CollectionExtraInformation {
 export interface CollectionItem {
 	collaborators: CollectionItemCollaboratorInformation[];
 	count: number;
-	creator: IdAndNamedObject;
+	creator: StringIdAndNamedObject;
 	description: string | null;
 	id: string;
 	informationTemplate: CollectionExtraInformation[] | null;
@@ -60,7 +60,7 @@ export interface ImportOrExportItemReviewComment {
 	/** The user ids of all those who liked it. */
 	liked_by: string[];
 	text: string;
-	user: IdAndNamedObject;
+	user: StringIdAndNamedObject;
 }
 
 export type Visibility = 'public' | 'private';

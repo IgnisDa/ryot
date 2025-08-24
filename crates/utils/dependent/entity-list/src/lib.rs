@@ -209,7 +209,7 @@ pub async fn user_metadata_list(
             let response = SearchResults {
                 items,
                 details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
                 },
             };
@@ -413,7 +413,7 @@ pub async fn user_metadata_groups_list(
             let response = SearchResults {
                 items,
                 details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
                 },
             };
@@ -501,7 +501,7 @@ pub async fn user_people_list(
             let response = SearchResults {
                 items,
                 details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
                 },
             };
@@ -558,7 +558,7 @@ pub async fn user_workouts_list(
             let response = SearchResults {
                 items,
                 details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages.try_into().unwrap()).then(|| page + 1),
                 },
             };
@@ -615,7 +615,7 @@ pub async fn user_workout_templates_list(
             let response = SearchResults {
                 items,
                 details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages.try_into().unwrap()).then(|| page + 1),
                 },
             };
@@ -733,7 +733,7 @@ pub async fn user_exercises_list(
             let response = SearchResults {
                 items,
                 details: SearchDetails {
-                    total: number_of_items.try_into().unwrap(),
+                    total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages.try_into().unwrap()).then(|| page + 1),
                 },
             };
@@ -813,7 +813,7 @@ pub async fn user_genres_list(
     Ok(SearchResults {
         items,
         details: SearchDetails {
-            total: number_of_items.try_into().unwrap(),
+            total_items: number_of_items.try_into().unwrap(),
             next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
         },
     })

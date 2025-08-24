@@ -1,11 +1,10 @@
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, ryot_log};
 use convert_case::{Case, Casing};
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -60,7 +59,7 @@ impl MediaProvider for OpenlibraryService {
         let data = SearchResults {
             items: resp,
             details: SearchDetails {
-                total: search.num_found,
+                total_items: search.num_found,
                 next_page: (search.num_found - (page * PAGE_SIZE) > 0).then(|| page + 1),
             },
         };
@@ -281,7 +280,7 @@ impl MediaProvider for OpenlibraryService {
         Ok(SearchResults {
             details: SearchDetails {
                 next_page,
-                total: data.total,
+                total_items: data.total,
             },
             items: data
                 .items

@@ -2,11 +2,11 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::PAGE_SIZE;
-use dependent_models::{MetadataPersonRelated, PersonDetails, SearchResults};
+use dependent_models::{
+    MetadataPersonRelated, MetadataSearchSourceSpecifics, PersonDetails, SearchResults,
+};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
@@ -191,7 +191,7 @@ impl MediaProvider for MangaUpdatesService {
         Ok(SearchResults {
             items,
             details: SearchDetails {
-                total: data.total_hits,
+                total_items: data.total_hits,
                 next_page: (data.total_hits - (page * PAGE_SIZE) > 0).then(|| page + 1),
             },
         })
@@ -391,7 +391,7 @@ impl MediaProvider for MangaUpdatesService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search.total_hits,
+                total_items: search.total_hits,
             },
         })
     }

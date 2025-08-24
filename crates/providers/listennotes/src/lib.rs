@@ -4,8 +4,9 @@ use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
-use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, IdAndNamedObject, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_naive_to_utc};
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -150,7 +151,7 @@ impl MediaProvider for ListennotesService {
             .map_err(|e| anyhow!(e))?;
 
         let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
-        let total = search.total;
+        let total_items = search.total;
 
         let next_page = search.next_offset.map(|_| page + 1);
         let resp = search
@@ -165,44 +166,36 @@ impl MediaProvider for ListennotesService {
             .collect_vec();
         Ok(SearchResults {
             items: resp,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }
 
 impl ListennotesService {
     async fn get_genres(&self) -> Result<HashMap<i32, String>> {
-        let cached_response = cache_service::get_or_set_with_callback(
+        cache_service::get_or_set_with_callback(
             &self.ss,
             ApplicationCacheKey::ListennotesSettings,
             ApplicationCacheValue::ListennotesSettings,
             || async {
                 #[derive(Debug, Serialize, Deserialize, Default)]
-                #[serde(rename_all = "snake_case")]
-                pub struct ListennotesIdAndNamedObject {
-                    pub id: i32,
-                    pub name: String,
-                }
-                #[derive(Debug, Serialize, Deserialize, Default)]
                 struct GenreResponse {
-                    genres: Vec<ListennotesIdAndNamedObject>,
+                    genres: Vec<IdAndNamedObject>,
                 }
                 let rsp = self
                     .client
                     .get(format!("{}/genres", self.url))
                     .send()
-                    .await
-                    .unwrap();
-                let data: GenreResponse = rsp.json().await.unwrap_or_default();
-                let mut genres = HashMap::new();
-                for genre in data.genres {
-                    genres.insert(genre.id, genre.name);
-                }
-                Ok(genres)
+                    .await?;
+                let data: GenreResponse = rsp.json().await?;
+                Ok(data.genres.into_iter().map(|g| (g.id, g.name)).collect())
             },
         )
-        .await?;
-        Ok(cached_response.response)
+        .await
+        .map(|c| c.response)
     }
 
     // The API does not return all the episodes for a podcast, and instead needs to be

@@ -3,12 +3,11 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, MetadataGroupPersonRelated, MetadataPersonRelated,
     PersonDetails, SearchResults,
@@ -164,7 +163,7 @@ async fn get_spotify_access_token(
     config: &config_definition::SpotifyConfig,
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
-    let cached_response = cache_service::get_or_set_with_callback(
+    cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::SpotifyAccessToken,
         ApplicationCacheValue::SpotifyAccessToken,
@@ -187,9 +186,8 @@ async fn get_spotify_access_token(
             Ok(token_response.access_token)
         },
     )
-    .await?;
-
-    Ok(cached_response.response)
+    .await
+    .map(|c| c.response)
 }
 
 fn get_images_ordered_by_size(images: &[SpotifyImage]) -> Vec<String> {
@@ -363,7 +361,7 @@ impl MediaProvider for SpotifyService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.tracks.total,
+                total_items: search_response.tracks.total,
             },
         })
     }
@@ -448,7 +446,7 @@ impl MediaProvider for SpotifyService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.albums.total,
+                total_items: search_response.albums.total,
             },
         })
     }
@@ -578,7 +576,7 @@ impl MediaProvider for SpotifyService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.artists.total,
+                total_items: search_response.artists.total,
             },
         })
     }

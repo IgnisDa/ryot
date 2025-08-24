@@ -361,8 +361,6 @@ pub struct UserGeneralPreferences {
     pub disable_videos: bool,
     #[educe(Default = false)]
     pub disable_reviews: bool,
-    #[educe(Default = true)]
-    pub persist_queries: bool,
     #[educe(Default = GridPacking::Dense)]
     pub grid_packing: GridPacking,
     #[educe(Default = UserReviewScale::OutOfHundred)]

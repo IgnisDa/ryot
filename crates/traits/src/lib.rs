@@ -4,11 +4,11 @@ use anyhow::{Result, bail};
 use application_utils::AuthContext;
 use async_graphql::{Context, Error, Result as GraphqlResult};
 use async_trait::async_trait;
-use common_models::{BackendError, MetadataSearchSourceSpecifics, PersonSourceSpecifics};
+use common_models::{BackendError, PersonSourceSpecifics};
 use common_utils::ryot_log;
 use database_models::metadata_group::MetadataGroupWithoutId;
 use database_utils::{check_token, deploy_job_to_mark_user_last_activity};
-use dependent_models::{PersonDetails, SearchResults};
+use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use media_models::{
     MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
     PeopleSearchItem,

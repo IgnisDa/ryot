@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use common_models::{
     ApplicationDateRange, MetadataGroupSearchInput, MetadataLookupCacheInput,
-    MetadataRecentlyConsumedCacheInput, MetadataSearchInput, PeopleSearchInput, UserAnalyticsInput,
-    UserLevelCacheKey, YoutubeMusicSongListened,
+    MetadataRecentlyConsumedCacheInput, PeopleSearchInput, UserAnalyticsInput, UserLevelCacheKey,
+    YoutubeMusicSongListened,
 };
 use fitness_models::{UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{MetadataLookupResponse, MetadataProgressUpdateCacheInput};
@@ -25,6 +25,7 @@ use crate::{
         UserPeopleListResponse, UserTemplatesOrWorkoutsListInput, UserWorkoutsListResponse,
         UserWorkoutsTemplatesListResponse,
     },
+    search::MetadataSearchInput,
 };
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone)]
@@ -169,7 +170,7 @@ pub struct GetCacheKeyResponse {
 pub enum ExpireCacheKeyInput {
     ById(Uuid),
     ByUser(String),
-    ByKey(ApplicationCacheKey),
+    ByKey(Box<ApplicationCacheKey>),
     BySanitizedKey {
         user_id: Option<String>,
         key: ApplicationCacheKeyDiscriminants,

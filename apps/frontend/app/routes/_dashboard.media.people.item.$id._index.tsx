@@ -45,7 +45,7 @@ import {
 	useMetadataGroupDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { useAddEntityToCollections, useReviewEntity } from "~/lib/state/media";
 import { serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.people.item.$id._index";
@@ -76,8 +76,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	return { query, personId, userPersonDetails, personDetails };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.personDetails.details.name} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Person Details | Ryot" }];
 };
 
 export default function Page() {
