@@ -2,13 +2,17 @@ import { describe, expect, it } from "bun:test";
 
 import {
 	createBuiltinAnimeProgressEventDeps,
+	createBuiltinAnimeReviewEventDeps,
 	createBuiltinBacklogEventDeps,
 	createBuiltinCompleteEventDeps,
 	createBuiltinMangaProgressEventDeps,
+	createBuiltinMangaReviewEventDeps,
 	createBuiltinPodcastProgressEventDeps,
+	createBuiltinPodcastReviewEventDeps,
 	createBuiltinProgressEventDeps,
 	createBuiltinReviewEventDeps,
 	createBuiltinShowProgressEventDeps,
+	createBuiltinShowReviewEventDeps,
 	createBuiltinWorkoutSetEventDeps,
 	createEventBody,
 	createEventCreateScope,
@@ -1084,6 +1088,147 @@ describe("createEvent", () => {
 
 		expect(createdEvent.eventSchemaSlug).toBe("review");
 		expect(createdEvent.properties).toEqual({ text: "No rating needed" });
+	});
+
+	it("creates a built-in show review event with season and episode", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({ properties: { showSeason: 1, showEpisode: 3, rating: 80 } }),
+				},
+				createBuiltinShowReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.eventSchemaSlug).toBe("review");
+		expect(createdEvent.properties).toEqual({ showSeason: 1, showEpisode: 3, rating: 80 });
+	});
+
+	it("rejects show review events with episode but without season", async () => {
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody({ properties: { showEpisode: 3, rating: 80 } }) },
+			createBuiltinShowReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("showSeason is required"),
+		});
+	});
+
+	it("rejects show review events with season but without episode", async () => {
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody({ properties: { showSeason: 1, rating: 80 } }) },
+			createBuiltinShowReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("showEpisode is required"),
+		});
+	});
+
+	it("creates a built-in anime review event with an episode", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({ properties: { animeEpisode: 12, rating: 90 } }),
+				},
+				createBuiltinAnimeReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({ animeEpisode: 12, rating: 90 });
+	});
+
+	it("rejects anime review events with a non-integer episode", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { animeEpisode: 12.5, rating: 90 } }),
+			},
+			createBuiltinAnimeReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event payload is invalid"),
+		});
+	});
+
+	it("creates a built-in manga review event with decimal chapter and volume", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({ properties: { mangaVolume: 3, mangaChapter: 18.5, rating: 75 } }),
+				},
+				createBuiltinMangaReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({ mangaVolume: 3, mangaChapter: 18.5, rating: 75 });
+	});
+
+	it("rejects manga review events with a non-integer volume", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { mangaVolume: 3.5, mangaChapter: 18, rating: 75 } }),
+			},
+			createBuiltinMangaReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event payload is invalid"),
+		});
+	});
+
+	it("creates a built-in podcast review event with an episode", async () => {
+		const createdEvent = expectDataResult(
+			await createEvent(
+				{
+					userId: "user_1",
+					body: createEventBody({ properties: { podcastEpisode: 42, rating: 85 } }),
+				},
+				createBuiltinPodcastReviewEventDeps(),
+			),
+		);
+
+		expect(createdEvent.properties).toEqual({ podcastEpisode: 42, rating: 85 });
+	});
+
+	it("rejects podcast review events with a non-integer episode", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { podcastEpisode: 42.2, rating: 85 } }),
+			},
+			createBuiltinPodcastReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event payload is invalid"),
+		});
+	});
+
+	it("rejects show-only fields on non-episodic media review events", async () => {
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({ properties: { showSeason: 1, showEpisode: 1, rating: 80 } }),
+			},
+			createBuiltinReviewEventDeps(),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: expect.stringContaining("Event payload is invalid"),
+		});
 	});
 });
 
