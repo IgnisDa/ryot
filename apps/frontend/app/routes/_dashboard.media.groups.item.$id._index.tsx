@@ -77,8 +77,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	};
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.metadataGroupDetails.details.title} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Media Group Details | Ryot" }];
 };
 
 export default function Page() {

@@ -150,8 +150,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	return { query, metadataId, metadataDetails, userMetadataDetails };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.metadataDetails.title} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Media Item Details | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {

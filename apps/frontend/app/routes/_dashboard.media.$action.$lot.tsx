@@ -110,14 +110,8 @@ const defaultListFilters: ListFilterState = {
 	dateRange: ApplicationTimeRange.AllTime,
 };
 
-export const meta = (props: { params: { action: string; lot: string } }) => {
-	return [
-		{
-			title: `${changeCase(props.params.action || "")} ${changeCase(
-				props.params.lot?.toLowerCase() || "",
-			)}s | Ryot`,
-		},
-	];
+export const meta = () => {
+	return [{ title: "Media | Ryot" }];
 };
 
 export default function Page(props: {

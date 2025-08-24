@@ -118,8 +118,8 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	return { query, exerciseId, exerciseDetails, userExerciseDetails };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Exercise Details | Ryot" }];
 };
 
 export default function Page() {

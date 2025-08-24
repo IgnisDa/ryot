@@ -1,11 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
-import {
-	changeCase,
-	isNumber,
-	isString,
-	parseParameters,
-} from "@ryot/ts-utils";
+import { isNumber, isString, parseParameters } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useState } from "react";
@@ -58,8 +53,8 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 	};
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Fitness Action | Ryot" }];
 };
 
 export default function Page() {

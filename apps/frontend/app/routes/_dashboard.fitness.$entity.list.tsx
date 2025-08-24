@@ -86,11 +86,10 @@ import {
 	FitnessAction,
 	FitnessEntity,
 } from "~/lib/types";
-import type { Route } from "./+types/_dashboard.fitness.$entity.list";
 
 interface FilterState {
-	query?: string;
 	page: number;
+	query?: string;
 	orderBy: GraphqlSortOrder;
 	sortBy: UserTemplatesOrWorkoutsListSortBy;
 }
@@ -102,8 +101,8 @@ const defaultFilterState: FilterState = {
 	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
 };
 
-export const meta = ({ params }: Route.MetaArgs) => {
-	return [{ title: `${changeCase(params.entity || "")} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Fitness Entity List | Ryot" }];
 };
 
 export default function Page(props: { entity: FitnessEntity }) {

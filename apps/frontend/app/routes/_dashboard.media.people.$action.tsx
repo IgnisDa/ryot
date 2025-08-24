@@ -23,7 +23,7 @@ import {
 	UserPeopleListDocument,
 	type UserPeopleListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
+import { cloneDeep, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -92,8 +92,8 @@ const defaultSearchFilters: SearchFilterState = {
 	source: MediaSource.Tmdb,
 };
 
-export const meta = ({ params }: { params: { action: string } }) => {
-	return [{ title: `${changeCase(params.action || "")} People | Ryot` }];
+export const meta = () => {
+	return [{ title: "People | Ryot" }];
 };
 
 export default function Page(props: { params: { action: string } }) {

@@ -23,7 +23,7 @@ import {
 	UserMetadataGroupsListDocument,
 	type UserMetadataGroupsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
+import { cloneDeep, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -58,7 +58,6 @@ import {
 } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import type { FilterUpdateFunction } from "~/lib/types";
-import type { Route } from "./+types/_dashboard.media.groups.$action";
 
 export type SearchParams = {
 	query?: string;
@@ -86,8 +85,8 @@ const defaultSearchFilters: SearchFilterState = {
 	source: MediaSource.Tmdb,
 };
 
-export const meta = ({ params }: Route.MetaArgs) => {
-	return [{ title: `${changeCase(params.action || "")} Groups | Ryot` }];
+export const meta = () => {
+	return [{ title: "Media Groups | Ryot" }];
 };
 
 export default function Page(props: { params: { action: string } }) {
