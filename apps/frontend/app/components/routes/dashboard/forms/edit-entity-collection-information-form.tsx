@@ -10,7 +10,7 @@ import {
 	useFormValidation,
 	useUserCollections,
 } from "~/lib/shared/hooks";
-import { refreshEntityDetails } from "~/lib/shared/react-query";
+import { refreshReactQueryMediaKeys } from "~/lib/shared/react-query";
 import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 
 export const EditEntityCollectionInformationForm = ({
@@ -65,7 +65,7 @@ export const EditEntityCollectionInformationForm = ({
 			title: "Updated collection information",
 			message: "Entity collection information updated successfully",
 		});
-		refreshEntityDetails(editEntityCollectionInformationData.entityId);
+		refreshReactQueryMediaKeys();
 		closeEditEntityCollectionInformationModal();
 		events.addToCollection(editEntityCollectionInformationData.entityLot);
 	};

@@ -45,7 +45,7 @@ import {
 import { convertDecimalToThreePointSmiley } from "~/lib/shared/media-utils";
 import {
 	clientGqlService,
-	refreshEntityDetails,
+	refreshReactQueryMediaKeys,
 } from "~/lib/shared/react-query";
 import { useReviewEntity } from "~/lib/state/media";
 import { ThreePointSmileyRating } from "~/lib/types";
@@ -112,7 +112,7 @@ export const ReviewEntityForm = (props: {
 			clientGqlService.request(CreateOrUpdateReviewDocument, body),
 		onSuccess: () => {
 			revalidator.revalidate();
-			refreshEntityDetails(entityToReview?.entityId || "");
+			refreshReactQueryMediaKeys();
 			notifications.show({
 				color: "green",
 				message: entityToReview?.existingReview?.id

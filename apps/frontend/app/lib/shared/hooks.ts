@@ -29,7 +29,7 @@ import {
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
 	queryFactory,
-	refreshEntityDetails,
+	refreshReactQueryMediaKeys,
 } from "~/lib/shared/react-query";
 import { selectRandomElement } from "~/lib/shared/ui-utils";
 import {
@@ -246,10 +246,8 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title: string) => {
 			);
 			return [resp, input.map((i) => i.metadataId)] as const;
 		},
-		onSuccess: (data) => {
-			for (const id of data[1]) {
-				refreshEntityDetails(id);
-			}
+		onSuccess: () => {
+			refreshReactQueryMediaKeys();
 			notifications.show({
 				color: "green",
 				title: "Progress Updated",

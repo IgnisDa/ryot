@@ -56,12 +56,6 @@ const calendarQueryKeys = createQueryKeys("calendar", {
 });
 
 const mediaQueryKeys = createQueryKeys("media", {
-	trendingMetadata: () => ({
-		queryKey: ["trendingMetadata"],
-	}),
-	genreImages: (genreId: string) => ({
-		queryKey: ["genreDetails", "images", genreId],
-	}),
 	userMetadataRecommendations: () => ({
 		queryKey: ["userMetadataRecommendations"],
 	}),
@@ -146,11 +140,17 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 });
 
 const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
+	trendingMetadata: () => ({
+		queryKey: ["trendingMetadata"],
+	}),
 	usersList: (query?: string) => ({
 		queryKey: ["usersList", query],
 	}),
 	presignedS3Url: (key: string) => ({
 		queryKey: ["presignedS3Url", key],
+	}),
+	genreImages: (genreId: string) => ({
+		queryKey: ["genreDetails", "images", genreId],
 	}),
 	userAnalytics: (input: UserAnalyticsInput) => ({
 		queryKey: ["userAnalytics", input],
@@ -232,16 +232,7 @@ export const getUserMetadataGroupDetailsQuery = (metadataGroupId?: string) =>
 			: skipToken,
 	});
 
-export const refreshEntityDetails = (entityId: string) =>
+export const refreshReactQueryMediaKeys = () =>
 	setTimeout(async () => {
-		await Promise.all(
-			[
-				queryFactory.media.personDetails(entityId).queryKey,
-				queryFactory.media.userPersonDetails(entityId).queryKey,
-				queryFactory.media.metadataDetails(entityId).queryKey,
-				queryFactory.media.userMetadataDetails(entityId).queryKey,
-				queryFactory.media.metadataGroupDetails(entityId).queryKey,
-				queryFactory.media.userMetadataGroupDetails(entityId).queryKey,
-			].map((q) => queryClient.invalidateQueries({ queryKey: q })),
-		);
+		await queryClient.invalidateQueries({ queryKey: queryFactory.media._def });
 	}, 1500);

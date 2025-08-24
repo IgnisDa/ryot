@@ -25,7 +25,7 @@ import {
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
 	queryClient,
-	refreshEntityDetails,
+	refreshReactQueryMediaKeys,
 } from "~/lib/shared/react-query";
 import {
 	getUserExerciseDetailsQuery,
@@ -172,7 +172,7 @@ export const AddEntityToCollectionsForm = ({
 			message: `Entity added to ${selectedCollections.length} collection(s)`,
 		});
 		queryClient.removeQueries({ queryKey: alreadyInCollectionsQueryKey });
-		refreshEntityDetails(addEntityToCollectionData.entityId);
+		refreshReactQueryMediaKeys();
 		closeAddEntityToCollectionsDrawer();
 		events.addToCollection(addEntityToCollectionData.entityLot);
 	};
