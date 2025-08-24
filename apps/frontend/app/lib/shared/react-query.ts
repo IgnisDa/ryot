@@ -236,6 +236,10 @@ export const refreshEntityDetails = (entityId: string) =>
 	setTimeout(async () => {
 		await Promise.all(
 			[
+				queryFactory.media.userGenresList._def,
+				queryFactory.media.userPeopleList._def,
+				queryFactory.media.userMetadataList._def,
+				queryFactory.media.userMetadataGroupsList._def,
 				queryFactory.media.personDetails(entityId).queryKey,
 				queryFactory.media.userPersonDetails(entityId).queryKey,
 				queryFactory.media.metadataDetails(entityId).queryKey,
