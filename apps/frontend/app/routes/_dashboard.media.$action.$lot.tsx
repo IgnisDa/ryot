@@ -18,24 +18,18 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
+	type MediaCollectionFilter,
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSortBy,
 	MediaSource,
 	MetadataSearchDocument,
+	type MetadataSearchInput,
 	type MetadataSearchQuery,
 	UserMetadataListDocument,
 	type UserMetadataListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	cloneDeep,
-	parseParameters,
-	parseSearchQuery,
-	startCase,
-	zodBoolAsString,
-	zodIntAsString,
-} from "@ryot/ts-utils";
+import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -45,16 +39,17 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { Link, useLoaderData, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { Link, useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
-import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
 	ProRequiredAlert,
+	SkeletonLoader,
 } from "~/components/common";
 import {
 	CollectionsFilter,
@@ -63,19 +58,14 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
-import { pageQueryParam } from "~/lib/shared/constants";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
-import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
-import { clientGqlService } from "~/lib/shared/react-query";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	isFilterChanged,
 } from "~/lib/shared/ui-utils";
-import {
-	zodCollectionFilter,
-	zodCommaDelimitedString,
-} from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
 import {
 	OnboardingTourStepTargets,
@@ -83,20 +73,41 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { ApplicationTimeRange } from "~/lib/types";
-import {
-	getCoreDetails,
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.media.$action.$lot";
 
 export type SearchParams = {
 	query?: string;
 };
 
-const defaultMineFilters = {
+interface ListFilterState {
+	query?: string;
+	sortBy: MediaSortBy;
+	endDateRange?: string;
+	startDateRange?: string;
+	sortOrder: GraphqlSortOrder;
+	dateRange: ApplicationTimeRange;
+	generalFilter: MediaGeneralFilter;
+	collections: MediaCollectionFilter[];
+}
+
+interface SearchFilterState {
+	query?: string;
+	source: MediaSource;
+	igdbThemeIds?: string[];
+	igdbGenreIds?: string[];
+	igdbPlatformIds?: string[];
+	igdbGameModeIds?: string[];
+	igdbGameTypeIds?: string[];
+	googleBooksPassRawQuery?: boolean;
+	igdbAllowGamesWithParent?: boolean;
+	igdbReleaseDateRegionIds?: string[];
+}
+
+type FilterUpdateFunction<T> = (
+	key: keyof T,
+	value: string | number | boolean | string[] | null,
+) => void;
+
+const defaultListFilters: ListFilterState = {
 	collections: [],
 	sortBy: MediaSortBy.LastUpdated,
 	sortOrder: GraphqlSortOrder.Desc,
@@ -104,205 +115,23 @@ const defaultMineFilters = {
 	dateRange: ApplicationTimeRange.AllTime,
 };
 
-const searchSchema = z.object({
-	igdbThemeIds: zodCommaDelimitedString.optional(),
-	igdbGenreIds: zodCommaDelimitedString.optional(),
-	igdbGameTypeIds: zodCommaDelimitedString.optional(),
-	igdbPlatformIds: zodCommaDelimitedString.optional(),
-	igdbGameModeIds: zodCommaDelimitedString.optional(),
-	googleBooksPassRawQuery: zodBoolAsString.optional(),
-	igdbAllowGamesWithParent: zodBoolAsString.optional(),
-	igdbReleaseDateRegionIds: zodCommaDelimitedString.optional(),
-});
-
-enum Action {
-	List = "list",
-	Search = "search",
-}
-
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { action, lot } = parseParameters(
-		params,
-		z.object({
-			action: z.enum(Action),
-			lot: z.string().transform((v) => getLot(v) as MediaLot),
-		}),
-	);
-	const cookieName = await getSearchEnhancedCookieName(
-		`media.${action}.${lot}`,
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const schema = z.object({
-		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default(1),
-	});
-	const query = parseSearchQuery(request, schema);
-	const [
-		totalResults,
-		mediaList,
-		mediaSearch,
-		respectCoreDetailsPageSize,
-		listInput,
-	] = await match(action)
-		.with(Action.List, async () => {
-			const listSchema = z.object({
-				collections: zodCollectionFilter,
-				endDateRange: z.string().optional(),
-				startDateRange: z.string().optional(),
-				sortBy: z.enum(MediaSortBy).default(defaultMineFilters.sortBy),
-				dateRange: z
-					.enum(ApplicationTimeRange)
-					.default(defaultMineFilters.dateRange),
-				sortOrder: z
-					.enum(GraphqlSortOrder)
-					.default(defaultMineFilters.sortOrder),
-				generalFilter: z
-					.enum(MediaGeneralFilter)
-					.default(defaultMineFilters.generalFilter),
-			});
-			const urlParse = parseSearchQuery(request, listSchema);
-			const input: UserMetadataListInput = {
-				lot,
-				sort: { order: urlParse.sortOrder, by: urlParse.sortBy },
-				search: { page: query[pageQueryParam], query: query.query },
-				filter: {
-					general: urlParse.generalFilter,
-					collections: urlParse.collections,
-					dateRange: {
-						endDate: urlParse.endDateRange,
-						startDate: urlParse.startDateRange,
-					},
-				},
-			};
-			const { userMetadataList } = await serverGqlService.authenticatedRequest(
-				request,
-				UserMetadataListDocument,
-				{ input },
-			);
-			return [
-				userMetadataList.response.details.total,
-				{ list: userMetadataList, url: urlParse },
-				undefined,
-				false,
-				input,
-			] as const;
-		})
-		.with(Action.Search, async () => {
-			const coreDetails = await getCoreDetails();
-			const metadataSourcesForLot = coreDetails.metadataLotSourceMappings.find(
-				(m) => m.lot === lot,
-			);
-			invariant(metadataSourcesForLot);
-			const searchSchemaWithDefaults = searchSchema.extend({
-				source: z.enum(MediaSource).default(metadataSourcesForLot.sources[0]),
-			});
-			const urlParse = parseSearchQuery(request, searchSchemaWithDefaults);
-			let metadataSearch: MetadataSearchQuery["metadataSearch"] | false;
-			try {
-				const response = await serverGqlService.authenticatedRequest(
-					request,
-					MetadataSearchDocument,
-					{
-						input: {
-							lot,
-							source: urlParse.source,
-							search: { page: query[pageQueryParam], query: query.query },
-							sourceSpecifics: {
-								googleBooks: { passRawQuery: urlParse.googleBooksPassRawQuery },
-								igdb: {
-									filters: {
-										themeIds: urlParse.igdbThemeIds,
-										genreIds: urlParse.igdbGenreIds,
-										platformIds: urlParse.igdbPlatformIds,
-										gameModeIds: urlParse.igdbGameModeIds,
-										gameTypeIds: urlParse.igdbGameTypeIds,
-										releaseDateRegionIds: urlParse.igdbReleaseDateRegionIds,
-										allowGamesWithParent: urlParse.igdbAllowGamesWithParent,
-									},
-								},
-							},
-						},
-					},
-				);
-				metadataSearch = response.metadataSearch;
-			} catch {
-				metadataSearch = false;
-			}
-			return [
-				metadataSearch === false ? 0 : metadataSearch.response.details.total,
-				undefined,
-				{
-					url: urlParse,
-					search: metadataSearch,
-					mediaSources: metadataSourcesForLot.sources,
-				},
-				true,
-				undefined,
-			] as const;
-		})
-		.exhaustive();
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		totalResults,
-		respectCoreDetailsPageSize,
-		currentPage: query[pageQueryParam],
-	});
-	return {
-		lot,
-		query,
-		action,
-		listInput,
-		mediaList,
-		totalPages,
-		cookieName,
-		mediaSearch,
-		[pageQueryParam]: Number(query[pageQueryParam]),
-	};
-};
-
-export const meta = ({ params }: Route.MetaArgs) => {
+export const meta = (props: { params: { action: string; lot: string } }) => {
 	return [
 		{
-			title: `${changeCase(params.action || "")} ${changeCase(
-				params.lot?.toLowerCase() || "",
+			title: `${changeCase(props.params.action || "")} ${changeCase(
+				props.params.lot?.toLowerCase() || "",
 			)}s | Ryot`,
 		},
 	];
 };
 
-interface IgdbMultiselectProps {
-	label: string;
-	valueKey: string;
-	value?: string[];
-	data: Array<{ id: number; name: string }>;
-}
-
-const IgdbMultiselect = (props: IgdbMultiselectProps) => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
-
-	return (
-		<MultiSelect
-			size="xs"
-			clearable
-			searchable
-			hidePickedOptions
-			label={props.label}
-			value={props.value}
-			onChange={(v) => setP(props.valueKey, v.join(","))}
-			data={props.data.map((item) => ({
-				label: item.name,
-				value: item.id.toString(),
-			}))}
-		/>
-	);
-};
-
-export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+export default function Page(props: {
+	params: { action: string; lot: string };
+}) {
+	const action = props.params.action;
+	const lot = getLot(props.params.lot) as MediaLot;
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const navigate = useNavigate();
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
@@ -311,23 +140,108 @@ export default function Page() {
 		searchFiltersModalOpened,
 		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
 	] = useDisclosure(false);
-	const navigate = useNavigate();
 	const { advanceOnboardingTourStep } = useOnboardingTour();
-
-	const mediaSearch = loaderData.mediaSearch;
-	const areListFiltersActive = isFilterChanged(
-		loaderData.mediaList?.url,
-		defaultMineFilters,
+	const metadataLotSourceMapping = coreDetails.metadataLotSourceMappings.find(
+		(m) => m.lot === lot,
 	);
 
-	const isEligibleForNextTourStep = loaderData.lot === MediaLot.AudioBook;
+	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
+		`MediaListFilters_${lot}`,
+		defaultListFilters,
+	);
+	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
+		`MediaSearchFilters_${lot}`,
+		{ source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb },
+	);
+	const [searchQuery, setSearchQuery] = useLocalStorage(
+		`MediaSearchQuery_${lot}`,
+		"",
+	);
+	const [currentPage, setCurrentPage] = useLocalStorage(
+		`MediaCurrentPage_${lot}`,
+		1,
+	);
+
+	const listInput: UserMetadataListInput = useMemo(
+		() => ({
+			lot,
+			sort: { order: listFilters.sortOrder, by: listFilters.sortBy },
+			search: { page: currentPage, query: listFilters.query || searchQuery },
+			filter: {
+				general: listFilters.generalFilter,
+				collections: listFilters.collections,
+				dateRange: {
+					endDate: listFilters.endDateRange,
+					startDate: listFilters.startDateRange,
+				},
+			},
+		}),
+		[lot, listFilters, searchQuery, currentPage],
+	);
+
+	const searchInput: MetadataSearchInput = useMemo(
+		() => ({
+			lot,
+			source: searchFilters.source,
+			search: { page: currentPage, query: searchQuery },
+			sourceSpecifics: {
+				googleBooks: { passRawQuery: searchFilters.googleBooksPassRawQuery },
+				igdb: {
+					filters: {
+						themeIds: searchFilters.igdbThemeIds,
+						genreIds: searchFilters.igdbGenreIds,
+						platformIds: searchFilters.igdbPlatformIds,
+						gameModeIds: searchFilters.igdbGameModeIds,
+						gameTypeIds: searchFilters.igdbGameTypeIds,
+						releaseDateRegionIds: searchFilters.igdbReleaseDateRegionIds,
+						allowGamesWithParent: searchFilters.igdbAllowGamesWithParent,
+					},
+				},
+			},
+		}),
+		[lot, searchFilters, searchQuery, currentPage],
+	);
+
+	const { data: userMetadataList, refetch: refetchUserMetadataList } = useQuery(
+		{
+			enabled: action === "list",
+			queryKey: queryFactory.media.userMetadataList(listInput).queryKey,
+			queryFn: () =>
+				clientGqlService
+					.request(UserMetadataListDocument, { input: listInput })
+					.then((data) => data.userMetadataList),
+		},
+	);
+
+	const { data: metadataSearch } = useQuery({
+		enabled: action === "search",
+		queryKey: queryFactory.media.metadataSearch(searchInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(MetadataSearchDocument, { input: searchInput })
+				.then((data) => data.metadataSearch),
+	});
+
+	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
+
+	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
+		key,
+		value,
+	) => setListFilters((prev) => ({ ...prev, [key]: value }));
+
+	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
+		key,
+		value,
+	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
+
+	const isEligibleForNextTourStep = lot === MediaLot.AudioBook;
 
 	return (
 		<>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (!loaderData.listInput) return [];
-					const input = cloneDeep(loaderData.listInput);
+					if (action !== "list") return [];
+					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return await clientGqlService
 						.request(UserMetadataListDocument, { input })
@@ -343,19 +257,14 @@ export default function Page() {
 				<Tabs
 					mt="sm"
 					variant="default"
-					value={loaderData.action}
+					value={action}
 					onChange={(v) => {
 						if (v) {
 							navigate(
-								$path(
-									"/media/:action/:lot",
-									{ action: v, lot: loaderData.lot.toLowerCase() },
-									{
-										...(loaderData.query.query && {
-											query: loaderData.query.query,
-										}),
-									},
-								),
+								$path("/media/:action/:lot", {
+									action: v,
+									lot: lot.toLowerCase(),
+								}),
 							);
 							if (v === "search") {
 								advanceOnboardingTourStep();
@@ -365,7 +274,7 @@ export default function Page() {
 				>
 					<Tabs.List mb="xs" style={{ alignItems: "center" }}>
 						<Tabs.Tab value="list" leftSection={<IconListCheck size={24} />}>
-							<Text>My {changeCase(loaderData.lot.toLowerCase())}s</Text>
+							<Text>My {changeCase(lot.toLowerCase())}s</Text>
 						</Tabs.Tab>
 						<Tabs.Tab
 							value="search"
@@ -382,7 +291,7 @@ export default function Page() {
 								to={$path(
 									"/media/update/:action",
 									{ action: "create" },
-									{ lot: loaderData.lot },
+									{ lot },
 								)}
 							>
 								Create
@@ -392,138 +301,154 @@ export default function Page() {
 				</Tabs>
 
 				<Stack>
-					{loaderData.mediaList ? (
-						<>
-							<Group wrap="nowrap">
-								<DebouncedSearchInput
-									initialValue={loaderData.query.query}
-									enhancedQueryParams={loaderData.cookieName}
-									placeholder={`Sift through your ${changeCase(
-										loaderData.lot.toLowerCase(),
-									).toLowerCase()}s`}
-								/>
-								<ActionIcon
-									onClick={openFiltersModal}
-									color={areListFiltersActive ? "blue" : "gray"}
-								>
-									<IconFilter size={24} />
-								</ActionIcon>
-								<FiltersModal
-									opened={filtersModalOpened}
-									cookieName={loaderData.cookieName}
-									closeFiltersModal={closeFiltersModal}
-								>
-									<FiltersModalForm />
-								</FiltersModal>
-							</Group>
-							<DisplayListDetailsAndRefresh
-								cacheId={loaderData.mediaList.list.cacheId}
-								total={loaderData.mediaList.list.response.details.total}
-								isRandomSortOrderSelected={
-									loaderData.mediaList.url.sortBy === MediaSortBy.Random
-								}
-							/>
-							{(loaderData.mediaList?.url.startDateRange ||
-								loaderData.mediaList?.url.endDateRange) &&
-							!coreDetails.isServerKeyValidated ? (
-								<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
-							) : loaderData.mediaList.list.response.details.total > 0 ? (
-								<ApplicationGrid
-									className={OnboardingTourStepTargets.ShowAudiobooksListPage}
-								>
-									{loaderData.mediaList.list.response.items.map((item) => (
-										<MediaListItem key={item} item={item} />
-									))}
-								</ApplicationGrid>
-							) : (
-								<Text>You do not have any saved yet</Text>
-							)}
-							{loaderData.mediaList.list ? (
-								<ApplicationPagination
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
-								/>
-							) : null}
-						</>
-					) : null}
-					{mediaSearch ? (
-						<>
-							<Flex gap="xs" direction={{ base: "column", md: "row" }}>
-								<DebouncedSearchInput
-									initialValue={loaderData.query.query}
-									enhancedQueryParams={loaderData.cookieName}
-									placeholder={`Sift through your ${changeCase(
-										loaderData.lot.toLowerCase(),
-									).toLowerCase()}s`}
-									tourControl={{
-										target: OnboardingTourStepTargets.SearchAudiobook,
-										onQueryChange: (query) => {
-											if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
-												advanceOnboardingTourStep();
-											}
-										},
-									}}
-								/>
-								<Group gap="xs" wrap="nowrap">
-									{mediaSearch.mediaSources.length > 1 ? (
-										<Select
-											value={mediaSearch.url.source}
-											onChange={(v) => {
-												if (v) setP("source", v);
-											}}
-											data={mediaSearch.mediaSources.map((o) => ({
-												value: o.toString(),
-												label: startCase(o.toLowerCase()),
-											}))}
-										/>
-									) : null}
-									<ActionIcon onClick={openSearchFiltersModal} color="gray">
+					{action === "list" ? (
+						userMetadataList ? (
+							<>
+								<Group wrap="nowrap">
+									<DebouncedSearchInput
+										initialValue={searchQuery}
+										placeholder={`Sift through your ${changeCase(
+											lot.toLowerCase(),
+										).toLowerCase()}s`}
+										onChange={(value) => {
+											setSearchQuery(value);
+											setCurrentPage(1);
+											updateListFilters("query", value);
+										}}
+									/>
+									<ActionIcon
+										onClick={openFiltersModal}
+										color={areListFiltersActive ? "blue" : "gray"}
+									>
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										opened={searchFiltersModalOpened}
-										cookieName={loaderData.cookieName}
-										closeFiltersModal={closeSearchFiltersModal}
+										cookieName=""
+										opened={filtersModalOpened}
+										closeFiltersModal={closeFiltersModal}
 									>
-										<SearchFiltersModalForm />
+										<FiltersModalForm
+											filters={listFilters}
+											onFiltersChange={updateListFilters}
+											lot={lot}
+										/>
 									</FiltersModal>
 								</Group>
-							</Flex>
-							{mediaSearch.search === false ? (
-								<Text>
-									Something is wrong. Please try with an alternate provider.
-								</Text>
-							) : mediaSearch.search.response.details.total > 0 ? (
-								<>
-									<Box>
-										<Text display="inline" fw="bold">
-											{mediaSearch.search.response.details.total}
-										</Text>{" "}
-										items found
-									</Box>
-									<ApplicationGrid>
-										{mediaSearch.search.response.items.map((b, index) => (
-											<MediaSearchItem
-												key={b}
-												item={b}
-												isFirstItem={index === 0}
-												isEligibleForNextTourStep={isEligibleForNextTourStep}
-											/>
+								<DisplayListDetailsAndRefresh
+									cacheId={userMetadataList.cacheId}
+									total={userMetadataList.response.details.total}
+									onRefreshButtonClicked={refetchUserMetadataList}
+									isRandomSortOrderSelected={
+										listFilters.sortBy === MediaSortBy.Random
+									}
+								/>
+								{(listFilters.startDateRange || listFilters.endDateRange) &&
+								!coreDetails.isServerKeyValidated ? (
+									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
+								) : userMetadataList.response.details.total > 0 ? (
+									<ApplicationGrid
+										className={OnboardingTourStepTargets.ShowAudiobooksListPage}
+									>
+										{userMetadataList.response.items.map((item) => (
+											<MediaListItem key={item} item={item} />
 										))}
 									</ApplicationGrid>
-								</>
-							) : (
-								<Text>No media found matching your query</Text>
-							)}
-							{mediaSearch.search ? (
+								) : (
+									<Text>You do not have any saved yet</Text>
+								)}
 								<ApplicationPagination
-									total={loaderData.totalPages}
-									value={loaderData[pageQueryParam]}
-									onChange={(v) => setP(pageQueryParam, v.toString())}
+									value={currentPage}
+									onChange={setCurrentPage}
+									total={Math.ceil(
+										userMetadataList.response.details.total / 20,
+									)}
 								/>
-							) : null}
-						</>
+							</>
+						) : (
+							<SkeletonLoader />
+						)
+					) : null}
+					{action === "search" ? (
+						metadataSearch ? (
+							<>
+								<Flex gap="xs" direction={{ base: "column", md: "row" }}>
+									<DebouncedSearchInput
+										initialValue={searchQuery}
+										placeholder={`Search for ${changeCase(
+											lot.toLowerCase(),
+										).toLowerCase()}s`}
+										onChange={(value) => {
+											setSearchQuery(value);
+											setCurrentPage(1);
+										}}
+										tourControl={{
+											target: OnboardingTourStepTargets.SearchAudiobook,
+											onQueryChange: (query) => {
+												if (query === TOUR_METADATA_TARGET_ID.toLowerCase()) {
+													advanceOnboardingTourStep();
+												}
+											},
+										}}
+									/>
+									<Group gap="xs" wrap="nowrap">
+										{(metadataLotSourceMapping?.sources.length || 0) > 1 ? (
+											<Select
+												value={searchFilters.source}
+												onChange={(v) => {
+													if (v) updateSearchFilters("source", v);
+												}}
+												data={metadataLotSourceMapping?.sources.map((o) => ({
+													value: o.toString(),
+													label: startCase(o.toLowerCase()),
+												}))}
+											/>
+										) : null}
+										<ActionIcon onClick={openSearchFiltersModal} color="gray">
+											<IconFilter size={24} />
+										</ActionIcon>
+										<FiltersModal
+											cookieName=""
+											opened={searchFiltersModalOpened}
+											closeFiltersModal={closeSearchFiltersModal}
+										>
+											<SearchFiltersModalForm
+												filters={searchFilters}
+												onFiltersChange={updateSearchFilters}
+											/>
+										</FiltersModal>
+									</Group>
+								</Flex>
+								{metadataSearch.response.details.total > 0 ? (
+									<>
+										<Box>
+											<Text display="inline" fw="bold">
+												{metadataSearch.response.details.total}
+											</Text>{" "}
+											items found
+										</Box>
+										<ApplicationGrid>
+											{metadataSearch.response.items.map((b, index) => (
+												<MediaSearchItem
+													key={b}
+													item={b}
+													isFirstItem={index === 0}
+													isEligibleForNextTourStep={isEligibleForNextTourStep}
+												/>
+											))}
+										</ApplicationGrid>
+									</>
+								) : (
+									<Text>No media found matching your query</Text>
+								)}
+								<ApplicationPagination
+									value={currentPage}
+									onChange={setCurrentPage}
+									total={Math.ceil(metadataSearch.response.details.total / 20)}
+								/>
+							</>
+						) : (
+							<SkeletonLoader />
+						)
 					) : null}
 				</Stack>
 			</Container>
@@ -559,18 +484,21 @@ const MediaSearchItem = (props: {
 	);
 };
 
-const FiltersModalForm = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+interface FiltersModalFormProps {
+	lot: MediaLot;
+	filters: ListFilterState;
+	onFiltersChange: FilterUpdateFunction<ListFilterState>;
+}
 
-	if (!loaderData.mediaList) return null;
+const FiltersModalForm = (props: FiltersModalFormProps) => {
+	const { filters, onFiltersChange } = props;
 
 	return (
 		<>
 			<Select
-				defaultValue={loaderData.mediaList.url.generalFilter}
+				defaultValue={filters.generalFilter}
 				onChange={(v) => {
-					if (v) setP("generalFilter", v);
+					if (v) onFiltersChange("generalFilter", v);
 				}}
 				data={convertEnumToSelectData(MediaGeneralFilter)}
 			/>
@@ -583,19 +511,19 @@ const FiltersModalForm = () => {
 							items: convertEnumToSelectData(MediaSortBy),
 						},
 					]}
-					defaultValue={loaderData.mediaList.url.sortBy}
+					defaultValue={filters.sortBy}
 					onChange={(v) => {
-						if (v) setP("sortBy", v);
+						if (v) onFiltersChange("sortBy", v);
 					}}
 				/>
 				<ActionIcon
 					onClick={() => {
-						if (loaderData.mediaList?.url.sortOrder === GraphqlSortOrder.Asc)
-							setP("sortOrder", GraphqlSortOrder.Desc);
-						else setP("sortOrder", GraphqlSortOrder.Asc);
+						if (filters.sortOrder === GraphqlSortOrder.Asc)
+							onFiltersChange("sortOrder", GraphqlSortOrder.Desc);
+						else onFiltersChange("sortOrder", GraphqlSortOrder.Asc);
 					}}
 				>
-					{loaderData.mediaList.url.sortOrder === GraphqlSortOrder.Asc ? (
+					{filters.sortOrder === GraphqlSortOrder.Asc ? (
 						<IconSortAscending />
 					) : (
 						<IconSortDescending />
@@ -604,8 +532,8 @@ const FiltersModalForm = () => {
 			</Flex>
 			<Divider />
 			<CollectionsFilter
-				cookieName={loaderData.cookieName}
-				applied={loaderData.mediaList.url.collections}
+				applied={filters.collections}
+				cookieName={`MediaListFilters_${props.lot}`}
 			/>
 			<Divider />
 			<Stack gap="xs">
@@ -613,14 +541,17 @@ const FiltersModalForm = () => {
 					size="xs"
 					description="Finished between time range"
 					data={Object.values(ApplicationTimeRange)}
-					defaultValue={loaderData.mediaList.url.dateRange}
+					defaultValue={filters.dateRange}
 					onChange={(v) => {
 						const range = v as ApplicationTimeRange;
 						const startDateRange = getStartTimeFromRange(range);
-						setP("dateRange", v);
+						onFiltersChange("dateRange", v);
 						if (range === ApplicationTimeRange.Custom) return;
-						setP("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
-						setP(
+						onFiltersChange(
+							"startDateRange",
+							startDateRange?.format("YYYY-MM-DD") || "",
+						);
+						onFiltersChange(
 							"endDateRange",
 							range === ApplicationTimeRange.AllTime
 								? ""
@@ -628,17 +559,16 @@ const FiltersModalForm = () => {
 						);
 					}}
 				/>
-				{loaderData.mediaList.url.dateRange === ApplicationTimeRange.Custom ? (
+				{filters.dateRange === ApplicationTimeRange.Custom ? (
 					<DatePickerInput
 						size="xs"
 						type="range"
 						description="Select custom dates"
 						defaultValue={
-							loaderData.mediaList.url.startDateRange &&
-							loaderData.mediaList.url.endDateRange
+							filters.startDateRange && filters.endDateRange
 								? [
-										new Date(loaderData.mediaList.url.startDateRange),
-										new Date(loaderData.mediaList.url.endDateRange),
+										new Date(filters.startDateRange),
+										new Date(filters.endDateRange),
 									]
 								: undefined
 						}
@@ -646,8 +576,14 @@ const FiltersModalForm = () => {
 							const start = v[0];
 							const end = v[1];
 							if (!start || !end) return;
-							setP("startDateRange", dayjsLib(start).format("YYYY-MM-DD"));
-							setP("endDateRange", dayjsLib(end).format("YYYY-MM-DD"));
+							onFiltersChange(
+								"startDateRange",
+								dayjsLib(start).format("YYYY-MM-DD"),
+							);
+							onFiltersChange(
+								"endDateRange",
+								dayjsLib(end).format("YYYY-MM-DD"),
+							);
 						}}
 					/>
 				) : null}
@@ -656,67 +592,105 @@ const FiltersModalForm = () => {
 	);
 };
 
-const SearchFiltersModalForm = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+interface IgdbMultiselectProps {
+	label: string;
+	valueKey: string;
+	value?: string[];
+	data: Array<{ id: number; name: string }>;
+	onChange: (key: string, value: string[] | null) => void;
+}
+
+const IgdbMultiselect = (props: IgdbMultiselectProps) => {
+	return (
+		<MultiSelect
+			size="xs"
+			clearable
+			searchable
+			hidePickedOptions
+			label={props.label}
+			value={props.value}
+			onChange={(v) => props.onChange(props.valueKey, v)}
+			data={props.data.map((item) => ({
+				label: item.name,
+				value: item.id.toString(),
+			}))}
+		/>
+	);
+};
+
+interface SearchFiltersModalFormProps {
+	filters: SearchFilterState;
+	onFiltersChange: FilterUpdateFunction<SearchFilterState>;
+}
+
+const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
+	const { filters, onFiltersChange } = props;
 	const coreDetails = useCoreDetails();
 
-	if (!loaderData.mediaSearch) return null;
+	const handleIgdbFilterChange = (key: string, value: string[] | null) => {
+		onFiltersChange(key as keyof SearchFilterState, value);
+	};
 
 	return (
 		<Stack gap="xs">
-			{loaderData.mediaSearch.url.source === MediaSource.GoogleBooks ? (
+			{filters.source === MediaSource.GoogleBooks ? (
 				<Checkbox
 					label="Pass raw query"
-					checked={loaderData.mediaSearch.url.googleBooksPassRawQuery}
+					checked={filters.googleBooksPassRawQuery || false}
 					onChange={(e) =>
-						setP("googleBooksPassRawQuery", String(e.target.checked))
+						onFiltersChange("googleBooksPassRawQuery", e.target.checked)
 					}
 				/>
 			) : null}
-			{loaderData.mediaSearch.url.source === MediaSource.Igdb ? (
+			{filters.source === MediaSource.Igdb ? (
 				<>
 					<IgdbMultiselect
 						label="Select themes"
 						valueKey="igdbThemeIds"
-						value={loaderData.mediaSearch.url.igdbThemeIds}
+						value={filters.igdbThemeIds}
 						data={coreDetails.providerSpecifics.igdb.themes}
+						onChange={handleIgdbFilterChange}
 					/>
 					<IgdbMultiselect
 						label="Select genres"
 						valueKey="igdbGenreIds"
-						value={loaderData.mediaSearch.url.igdbGenreIds}
+						value={filters.igdbGenreIds}
 						data={coreDetails.providerSpecifics.igdb.genres}
+						onChange={handleIgdbFilterChange}
 					/>
 					<IgdbMultiselect
 						label="Select platforms"
 						valueKey="igdbPlatformIds"
-						value={loaderData.mediaSearch.url.igdbPlatformIds}
+						value={filters.igdbPlatformIds}
 						data={coreDetails.providerSpecifics.igdb.platforms}
+						onChange={handleIgdbFilterChange}
 					/>
 					<IgdbMultiselect
 						label="Select game types"
 						valueKey="igdbGameTypeIds"
-						value={loaderData.mediaSearch.url.igdbGameTypeIds}
+						value={filters.igdbGameTypeIds}
 						data={coreDetails.providerSpecifics.igdb.gameTypes}
+						onChange={handleIgdbFilterChange}
 					/>
 					<IgdbMultiselect
 						label="Select game modes"
 						valueKey="igdbGameModeIds"
-						value={loaderData.mediaSearch.url.igdbGameModeIds}
+						value={filters.igdbGameModeIds}
 						data={coreDetails.providerSpecifics.igdb.gameModes}
+						onChange={handleIgdbFilterChange}
 					/>
 					<IgdbMultiselect
 						label="Select release regions"
 						valueKey="igdbReleaseDateRegionIds"
-						value={loaderData.mediaSearch.url.igdbReleaseDateRegionIds}
+						value={filters.igdbReleaseDateRegionIds}
 						data={coreDetails.providerSpecifics.igdb.releaseDateRegions}
+						onChange={handleIgdbFilterChange}
 					/>
 					<Checkbox
 						label="Allow games with parent"
-						checked={loaderData.mediaSearch.url.igdbAllowGamesWithParent}
+						checked={filters.igdbAllowGamesWithParent || false}
 						onChange={(e) =>
-							setP("igdbAllowGamesWithParent", String(e.target.checked))
+							onFiltersChange("igdbAllowGamesWithParent", e.target.checked)
 						}
 					/>
 				</>

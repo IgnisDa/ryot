@@ -9,6 +9,7 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
+	type MetadataSearchInput,
 	type PeopleSearchInput,
 	PersonDetailsDocument,
 	type SearchInput,
@@ -19,6 +20,7 @@ import {
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 	type UserMetadataGroupsListInput,
+	type UserMetadataListInput,
 	type UserPeopleListInput,
 	UserPersonDetailsDocument,
 	type UserTemplatesOrWorkoutsListInput,
@@ -84,11 +86,17 @@ const mediaQueryKeys = createQueryKeys("media", {
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
 	}),
+	metadataSearch: (input: MetadataSearchInput) => ({
+		queryKey: ["metadataSearch", input],
+	}),
 	userPeopleList: (input: UserPeopleListInput) => ({
 		queryKey: ["userPeopleList", input],
 	}),
 	metadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
+	}),
+	userMetadataList: (input: UserMetadataListInput) => ({
+		queryKey: ["userMetadataList", input],
 	}),
 	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
