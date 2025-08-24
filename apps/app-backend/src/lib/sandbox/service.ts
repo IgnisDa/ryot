@@ -1,7 +1,9 @@
 import { dayjs } from "@ryot/ts-utils";
 import { generateId } from "better-auth";
-import type { Job } from "bullmq";
+import { type Job, Worker } from "bullmq";
 import { getQueues } from "../queue";
+import { getRedisConnection } from "../queue/connection";
+import { onWorkerError } from "../queue/utils";
 import { BridgeServer } from "./bridge";
 import {
 	defaultMaxHeapMB,
@@ -90,7 +92,33 @@ export class SandboxService {
 		return { job, jobData: jobData.data };
 	}
 
-	async executeQueuedRun(
+	createWorker() {
+		const worker = new Worker("sandbox", async (job) => this.processJob(job), {
+			concurrency: 5,
+			connection: getRedisConnection(),
+		});
+		worker.on("error", onWorkerError("sandbox"));
+		return worker;
+	}
+
+	private async processJob(job: Job) {
+		if (job.name === sandboxRunJobName) {
+			return this.processSandboxRunJob(job);
+		}
+
+		throw new Error(`Unsupported sandbox job: ${job.name}`);
+	}
+
+	private async processSandboxRunJob(job: Job) {
+		const parsed = sandboxRunJobData.safeParse(job.data);
+		if (!parsed.success) {
+			throw new Error("Sandbox run payload is invalid");
+		}
+
+		return this.executeQueuedRun(parsed.data);
+	}
+
+	private async executeQueuedRun(
 		jobData: SandboxRunJobData,
 		scriptFetcher: typeof getSandboxScriptById = getSandboxScriptById,
 	): Promise<QueuedRunResult> {
