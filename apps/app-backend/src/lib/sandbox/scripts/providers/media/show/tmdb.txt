@@ -413,7 +413,6 @@ driver("details", async function (context) {
 
   return {
     name: title,
-    externalId: identifier,
     properties: {
       showSeasons,
       genres: collectGenres(showData?.genres),
