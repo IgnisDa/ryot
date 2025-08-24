@@ -29,7 +29,7 @@ export function useRefreshOnFocus() {
 				firstTimeRef.current = false;
 				return;
 			}
-			client.refetchQueries({ stale: true, type: "active" });
+			void client.refetchQueries({ stale: true, type: "active" });
 		}, [client]),
 	);
 }
