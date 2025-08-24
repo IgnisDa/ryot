@@ -188,6 +188,7 @@ export const createCompletePropertiesSchema = () => ({
 export const createReviewPropertiesSchema = () => ({
 	fields: {
 		text: { label: "Review", description: "Review", type: "string" as const },
+		isSpoiler: { label: "Is Spoiler?", description: "Is Spoiler?", type: "boolean" as const },
 		rating: {
 			label: "Rating",
 			description: "Rating",
