@@ -310,7 +310,6 @@ export default function Page() {
 										"disableVideos",
 										"disableReviews",
 										"disableWatchProviders",
-										"persistQueries",
 										"showSpoilersInCalendar",
 									] as const
 								).map((name) => (
@@ -342,11 +341,6 @@ export default function Page() {
 											.with(
 												"disableWatchProviders",
 												() => 'Do not display the "Watch On" tab',
-											)
-											.with(
-												"persistQueries",
-												() =>
-													"Persist queries in the URL so that you look at the same data next time you visit it",
 											)
 											.with(
 												"showSpoilersInCalendar",
