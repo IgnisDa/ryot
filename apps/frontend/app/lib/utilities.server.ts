@@ -7,7 +7,6 @@ import {
 	UserCollectionsListDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
-import { isEmpty } from "@ryot/ts-utils";
 import { type SerializeOptions, parse, serialize } from "cookie";
 import {
 	ClientError,
@@ -344,32 +343,6 @@ export const extendResponseHeaders = (
 ) => {
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
-};
-
-export const getEnhancedCookieName = async (input: {
-	name: string;
-	path?: string;
-	request: Request;
-}) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(input.request);
-	return `${input.name}__${userDetails.id}${input.path ? `__${input.path}` : ""}`;
-};
-
-export const getSearchEnhancedCookieName = async (
-	path: string,
-	request: Request,
-) => getEnhancedCookieName({ path, name: "SearchParams", request });
-
-export const redirectUsingEnhancedCookieSearchParams = async (
-	request: Request,
-	cookieName: string,
-) => {
-	const preferences = await getUserPreferences(request);
-	const { searchParams } = new URL(request.url);
-	if (searchParams.size > 0 || !preferences.general.persistQueries) return;
-	const cookies = parse(request.headers.get("cookie") || "");
-	const savedSearchParams = cookies[cookieName];
-	if (!isEmpty(savedSearchParams)) throw redirect(`?${savedSearchParams}`);
 };
 
 export const redirectToFirstPageIfOnInvalidPage = async (input: {

@@ -50,9 +50,7 @@ import { useUserDetails } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
-	getSearchEnhancedCookieName,
 	redirectIfNotAuthenticatedOrUpdated,
-	redirectUsingEnhancedCookieSearchParams,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.settings.users";
@@ -91,18 +89,13 @@ type UrlDisplayData = {
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
 	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
-	const cookieName = await getSearchEnhancedCookieName(
-		"settings.users",
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const { usersList } = await serverGqlService.authenticatedRequest(
 		request,
 		UsersListDocument,
 		{ query: query.query },
 	);
-	return { usersList, query, cookieName };
+	return { usersList, query };
 };
 
 export const meta = () => {
@@ -253,7 +246,6 @@ export default function Page() {
 				<DebouncedSearchInput
 					placeholder="Search by name or ID"
 					initialValue={loaderData.query.query}
-					enhancedQueryParams={loaderData.cookieName}
 				/>
 				<DataTable
 					height={600}
