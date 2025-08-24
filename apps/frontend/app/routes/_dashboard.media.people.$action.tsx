@@ -170,10 +170,7 @@ export default function Page(props: { params: { action: string } }) {
 	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
 		key,
 		value,
-	) => {
-		if (key === "sourceSpecifics") return;
-		setSearchFilters((prev) => ({ ...prev, [key]: value }));
-	};
+	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
 
 	const updateSearchSourceSpecifics = (key: string, value: boolean) => {
 		setSearchFilters((prev) => ({
