@@ -187,14 +187,7 @@ export default function Page(props: { params: { action: string } }) {
 						variant="default"
 						value={action}
 						onChange={(v) => {
-							if (v)
-								navigate(
-									$path(
-										"/media/groups/:action",
-										{ action: v },
-										{ query: searchQuery },
-									),
-								);
+							if (v) navigate($path("/media/groups/:action", { action: v }));
 						}}
 					>
 						<Tabs.List style={{ alignItems: "center" }}>
