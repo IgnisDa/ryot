@@ -12,11 +12,9 @@ import { seedInitialDatabase } from "./seed";
 const migrationsFolder = `${process.cwd()}/src/drizzle`;
 
 export const migrateDB = async () => {
+	await renameLegacyTables(db);
 	await migrate(db, { migrationsFolder });
 	await seedInitialDatabase(db);
-	await db.transaction(async (tx) => {
-		await renameLegacyTables(tx);
-		await migrateLegacyTables(tx);
-		await dropLegacyTables(tx);
-	});
+	await migrateLegacyTables(db);
+	await dropLegacyTables(db);
 };
