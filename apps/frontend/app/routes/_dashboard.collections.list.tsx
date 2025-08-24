@@ -24,16 +24,16 @@ import {
 import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Form, Link, data, useLoaderData } from "react-router";
+import { Form, Link, data } from "react-router";
 import { Virtuoso } from "react-virtuoso";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
+import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { ProRequiredAlert } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import {
-	useAppSearchParam,
 	useConfirmSubmit,
 	useCoreDetails,
 	useFallbackImageUrl,
@@ -48,22 +48,8 @@ import {
 } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
-import {
-	createToastHeaders,
-	getSearchEnhancedCookieName,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.collections.list";
-
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getSearchEnhancedCookieName(
-		"collections.list",
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	return { cookieName };
-};
 
 export const meta = () => {
 	return [{ title: "Your collections | Ryot" }];
@@ -103,15 +89,32 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
+interface SearchFilters {
+	query: string;
+	showHidden: boolean;
+}
+
+const defaultSearchFilters: SearchFilters = {
+	query: "",
+	showHidden: false,
+};
+
 export default function Page() {
 	const userDetails = useUserDetails();
 	const collections = useUserCollections();
-	const loaderData = useLoaderData<typeof loader>();
 	const { open: openCollectionModal } = useCreateOrUpdateCollectionModal();
-	const [params, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const [searchFilters, setSearchFilters] = useLocalStorage(
+		"CollectionsListFilters",
+		defaultSearchFilters,
+	);
 
-	const query = params.get("query") || undefined;
-	const showHidden = Boolean(params.get("showHidden"));
+	const updateFilter = (
+		key: keyof SearchFilters,
+		value: string | boolean | null,
+	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
+
+	const query = searchFilters.query || undefined;
+	const showHidden = searchFilters.showHidden;
 	const hasHiddenCollections = collections.some(
 		(c) =>
 			c.collaborators.find((c) => c.collaborator.id === userDetails.id)
@@ -146,7 +149,8 @@ export default function Page() {
 				</Group>
 				<DebouncedSearchInput
 					initialValue={query}
-					enhancedQueryParams={loaderData.cookieName}
+					placeholder="Search collections"
+					onChange={(value) => updateFilter("query", value)}
 				/>
 				<Group justify="space-between" align="center">
 					<Box>
@@ -160,10 +164,8 @@ export default function Page() {
 							size="sm"
 							name="showHidden"
 							label="Show hidden"
-							defaultChecked={showHidden}
-							onChange={(e) =>
-								setP("showHidden", e.target.checked ? "yes" : "")
-							}
+							checked={showHidden}
+							onChange={(e) => updateFilter("showHidden", e.target.checked)}
 						/>
 					) : null}
 				</Group>
