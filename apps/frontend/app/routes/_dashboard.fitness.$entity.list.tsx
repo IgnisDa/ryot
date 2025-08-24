@@ -215,8 +215,8 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 						<>
 							<DisplayListDetailsAndRefresh
 								cacheId={listData.cacheId}
-								total={listData.details.total}
 								onRefreshButtonClicked={refetchListData}
+								total={listData.details.totalItems}
 								isRandomSortOrderSelected={
 									filters.sortBy === UserTemplatesOrWorkoutsListSortBy.Random
 								}
@@ -240,7 +240,7 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 				</Stack>
 				<ApplicationPagination
 					value={filters.page}
-					totalItems={listData?.details.total}
+					totalItems={listData?.details.totalItems}
 					onChange={(v) => updateFilter("page", v)}
 				/>
 			</Stack>

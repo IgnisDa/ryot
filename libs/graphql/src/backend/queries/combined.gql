@@ -160,8 +160,7 @@ query UserMetadataGroupsList($input: UserMetadataGroupsListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -173,8 +172,7 @@ query UserPeopleList($input: UserPeopleListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -221,8 +219,7 @@ query UserExercisesList($input: UserExercisesListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -255,8 +252,7 @@ query UserGenresList($input: SearchInput!) {
 	userGenresList(input: $input) {
 		items
 		details {
-			total
-			nextPage
+			...SearchDetailsPart
 		}
 	}
 }
@@ -270,8 +266,7 @@ query GenreDetails($input: GenreDetailsInput!) {
 		}
 		contents {
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 			items
 		}
@@ -297,8 +292,7 @@ query CollectionContents($input: CollectionContentsInput!) {
 			}
 			results {
 				details {
-					total
-					nextPage
+					...SearchDetailsPart
 				}
 				items {
 					entityId
@@ -335,8 +329,7 @@ query MetadataGroupSearch($input: MetadataGroupSearchInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -348,8 +341,7 @@ query UserMetadataList($input: UserMetadataListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -361,8 +353,7 @@ query MetadataSearch($input: MetadataSearchInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -374,8 +365,7 @@ query PeopleSearch($input: PeopleSearchInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -440,8 +430,7 @@ query UserWorkoutsList($input: UserTemplatesOrWorkoutsListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -472,8 +461,7 @@ query UserWorkoutTemplatesList($input: UserTemplatesOrWorkoutsListInput!) {
 		response {
 			items
 			details {
-				total
-				nextPage
+				...SearchDetailsPart
 			}
 		}
 	}
@@ -497,8 +485,7 @@ query CollectionRecommendations($input: CollectionRecommendationsInput!) {
 	collectionRecommendations(input: $input) {
 		items
 		details {
-			total
-			nextPage
+			...SearchDetailsPart
 		}
 	}
 }

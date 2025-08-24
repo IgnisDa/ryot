@@ -298,9 +298,9 @@ export default function Page(props: { params: { id: string } }) {
 											</Text>
 										)}
 										<ApplicationPagination
-											totalItems={details.results.details.total}
 											value={filters.page}
 											onChange={(v) => updateFilter("page", v)}
+											totalItems={details.results.details.totalItems}
 										/>
 									</Stack>
 								</Tabs.Panel>
@@ -341,7 +341,7 @@ export default function Page(props: { params: { id: string } }) {
 										<Button
 											w="100%"
 											variant="outline"
-											disabled={details.results.details.total === 0}
+											disabled={details.results.details.totalItems === 0}
 											onClick={() => {
 												if (!colDetails) return;
 												bulkEditingCollection.start(colDetails, "remove");
@@ -353,7 +353,7 @@ export default function Page(props: { params: { id: string } }) {
 										<Button
 											w="100%"
 											variant="outline"
-											disabled={details.results.details.total === 0}
+											disabled={details.results.details.totalItems === 0}
 											onClick={() => {
 												if (isReorderMode) {
 													setIsReorderMode(false);
@@ -492,7 +492,8 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 				onChange={(query) => setSearchInput({ ...search, query })}
 			/>
 			{recommendations.data ? (
-				recommendations.data.collectionRecommendations.details.total > 0 ? (
+				recommendations.data.collectionRecommendations.details.totalItems >
+				0 ? (
 					<>
 						<ApplicationGrid>
 							{recommendations.data.collectionRecommendations.items.map((r) => (
@@ -507,7 +508,8 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 							value={search.page}
 							onChange={(v) => setSearchInput({ ...search, page: v })}
 							totalItems={
-								recommendations.data.collectionRecommendations.details.total
+								recommendations.data.collectionRecommendations.details
+									.totalItems
 							}
 						/>
 					</>

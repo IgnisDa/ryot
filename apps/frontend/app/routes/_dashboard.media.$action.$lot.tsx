@@ -324,8 +324,8 @@ export default function Page(props: {
 								</Group>
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataList.cacheId}
-									total={userMetadataList.response.details.total}
 									onRefreshButtonClicked={refetchUserMetadataList}
+									total={userMetadataList.response.details.totalItems}
 									isRandomSortOrderSelected={
 										listFilters.sortBy === MediaSortBy.Random
 									}
@@ -333,7 +333,7 @@ export default function Page(props: {
 								{(listFilters.startDateRange || listFilters.endDateRange) &&
 								!coreDetails.isServerKeyValidated ? (
 									<ProRequiredAlert alertText="Ryot Pro is required to filter by dates" />
-								) : userMetadataList.response.details.total > 0 ? (
+								) : userMetadataList.response.details.totalItems > 0 ? (
 									<ApplicationGrid
 										className={OnboardingTourStepTargets.ShowAudiobooksListPage}
 									>
@@ -347,7 +347,7 @@ export default function Page(props: {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalItems={userMetadataList.response.details.total}
+									totalItems={userMetadataList.response.details.totalItems}
 								/>
 							</>
 						) : (
@@ -406,11 +406,11 @@ export default function Page(props: {
 										</FiltersModal>
 									</Group>
 								</Flex>
-								{metadataSearch.response.details.total > 0 ? (
+								{metadataSearch.response.details.totalItems > 0 ? (
 									<>
 										<Box>
 											<Text display="inline" fw="bold">
-												{metadataSearch.response.details.total}
+												{metadataSearch.response.details.totalItems}
 											</Text>{" "}
 											items found
 										</Box>
@@ -431,7 +431,7 @@ export default function Page(props: {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalItems={metadataSearch.response.details.total}
+									totalItems={metadataSearch.response.details.totalItems}
 								/>
 							</>
 						) : (

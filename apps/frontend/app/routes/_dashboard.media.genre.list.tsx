@@ -88,7 +88,7 @@ export default function Page() {
 							<ApplicationPagination
 								value={filters.page}
 								onChange={(v) => updateFilter("page", v)}
-								totalItems={userGenresList.details.total}
+								totalItems={userGenresList.details.totalItems}
 							/>
 						</Group>
 						<DebouncedSearchInput
@@ -96,11 +96,11 @@ export default function Page() {
 							placeholder="Search for genres"
 							onChange={(value) => updateFilter("query", value)}
 						/>
-						{userGenresList.details.total > 0 ? (
+						{userGenresList.details.totalItems > 0 ? (
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{userGenresList.details.total}
+										{userGenresList.details.totalItems}
 									</Text>{" "}
 									items found
 								</Box>

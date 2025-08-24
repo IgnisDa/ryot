@@ -277,13 +277,13 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<DisplayListDetailsAndRefresh
 									cacheId={userPeopleList.cacheId}
-									total={userPeopleList.response.details.total}
+									total={userPeopleList.response.details.totalItems}
 									onRefreshButtonClicked={refetchUserPeopleList}
 									isRandomSortOrderSelected={
 										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
-								{userPeopleList.response.details.total > 0 ? (
+								{userPeopleList.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{userPeopleList.response.items.map((person) => (
 											<PersonListItem key={person} item={person} />
@@ -295,7 +295,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalItems={userPeopleList.response.details.total}
+									totalItems={userPeopleList.response.details.totalItems}
 								/>
 							</>
 						) : (
@@ -308,11 +308,11 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{peopleSearch.response.details.total}
+										{peopleSearch.response.details.totalItems}
 									</Text>{" "}
 									items found
 								</Box>
-								{peopleSearch.response.details.total > 0 ? (
+								{peopleSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{peopleSearch.response.items.map((person) => (
 											<PersonDisplayItem
@@ -328,7 +328,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalItems={peopleSearch.response.details.total}
+									totalItems={peopleSearch.response.details.totalItems}
 								/>
 							</>
 						) : (

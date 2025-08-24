@@ -58,7 +58,7 @@ export default function Page(props: { params: { id: string } }) {
 							<ApplicationPagination
 								onChange={updatePage}
 								value={pagination.page}
-								totalItems={genreDetails.contents.details.total}
+								totalItems={genreDetails.contents.details.totalItems}
 							/>
 						</Group>
 						<ApplicationGrid>

@@ -2332,7 +2332,7 @@ export type ReviewItem = {
 export type SearchDetails = {
   __typename?: 'SearchDetails';
   nextPage?: Maybe<Scalars['Int']['output']>;
-  total: Scalars['Int']['output'];
+  totalItems: Scalars['Int']['output'];
 };
 
 export type SearchInput = {

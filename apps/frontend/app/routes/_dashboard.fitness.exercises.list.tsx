@@ -266,15 +266,15 @@ export default function Page() {
 				) : null}
 				{userExercisesList ? (
 					<>
-						{userExercisesList.response.details.total > 0 ? (
+						{userExercisesList.response.details.totalItems > 0 ? (
 							<>
 								<DisplayListDetailsAndRefresh
 									cacheId={userExercisesList.cacheId}
-									total={userExercisesList.response.details.total}
+									onRefreshButtonClicked={refetchUserExercisesList}
+									total={userExercisesList.response.details.totalItems}
 									isRandomSortOrderSelected={
 										filters.sortBy === ExerciseSortBy.Random
 									}
-									onRefreshButtonClicked={refetchUserExercisesList}
 									rightSection={
 										allowAddingExerciseToWorkout ? (
 											<>
@@ -309,7 +309,7 @@ export default function Page() {
 						<ApplicationPagination
 							value={filters.page}
 							onChange={(v) => updateFilter("page", v)}
-							totalItems={userExercisesList.response.details.total}
+							totalItems={userExercisesList.response.details.totalItems}
 						/>
 					</>
 				) : (

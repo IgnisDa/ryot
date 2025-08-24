@@ -257,13 +257,13 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<DisplayListDetailsAndRefresh
 									cacheId={userMetadataGroupsList.cacheId}
-									total={userMetadataGroupsList.response.details.total}
+									total={userMetadataGroupsList.response.details.totalItems}
 									onRefreshButtonClicked={refetchUserMetadataGroupsList}
 									isRandomSortOrderSelected={
 										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
 									}
 								/>
-								{userMetadataGroupsList.response.details.total > 0 ? (
+								{userMetadataGroupsList.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{userMetadataGroupsList.response.items.map((gr) => (
 											<MetadataGroupListItem key={gr} item={gr} />
@@ -275,7 +275,9 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalItems={userMetadataGroupsList.response.details.total}
+									totalItems={
+										userMetadataGroupsList.response.details.totalItems
+									}
 								/>
 							</>
 						) : (
@@ -288,11 +290,11 @@ export default function Page(props: { params: { action: string } }) {
 							<>
 								<Box>
 									<Text display="inline" fw="bold">
-										{metadataGroupSearch.response.details.total}
+										{metadataGroupSearch.response.details.totalItems}
 									</Text>{" "}
 									items found
 								</Box>
-								{metadataGroupSearch.response.details.total > 0 ? (
+								{metadataGroupSearch.response.details.totalItems > 0 ? (
 									<ApplicationGrid>
 										{metadataGroupSearch.response.items.map((group) => (
 											<MetadataGroupDisplayItem
@@ -308,7 +310,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalItems={metadataGroupSearch.response.details.total}
+									totalItems={metadataGroupSearch.response.details.totalItems}
 								/>
 							</>
 						) : (
