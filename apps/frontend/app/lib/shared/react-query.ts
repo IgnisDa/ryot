@@ -9,6 +9,7 @@ import {
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
 	type MetadataGroupSearchInput,
+	type PeopleSearchInput,
 	PersonDetailsDocument,
 	type SearchInput,
 	type UserAnalyticsQueryVariables,
@@ -18,6 +19,7 @@ import {
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 	type UserMetadataGroupsListInput,
+	type UserPeopleListInput,
 	UserPersonDetailsDocument,
 	type UserTemplatesOrWorkoutsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -55,11 +57,11 @@ const mediaQueryKeys = createQueryKeys("media", {
 	trendingMetadata: () => ({
 		queryKey: ["trendingMetadata"],
 	}),
-	userGenresList: (input: SearchInput) => ({
-		queryKey: ["userGenresList", input],
-	}),
 	personDetails: (personId?: string) => ({
 		queryKey: ["personDetails", personId],
+	}),
+	userGenresList: (input: SearchInput) => ({
+		queryKey: ["userGenresList", input],
 	}),
 	metadataDetails: (metadataId?: string) => ({
 		queryKey: ["metadataDetails", metadataId],
@@ -70,6 +72,9 @@ const mediaQueryKeys = createQueryKeys("media", {
 	userPersonDetails: (personId?: string) => ({
 		queryKey: ["userPersonDetails", personId],
 	}),
+	peopleSearch: (input: PeopleSearchInput) => ({
+		queryKey: ["peopleSearch", input],
+	}),
 	genreDetails: (input: GenreDetailsInput) => ({
 		queryKey: ["genreDetails", input],
 	}),
@@ -79,17 +84,20 @@ const mediaQueryKeys = createQueryKeys("media", {
 	genreImages: (genreId: string) => ({
 		queryKey: ["genreDetails", "images", genreId],
 	}),
+	userPeopleList: (input: UserPeopleListInput) => ({
+		queryKey: ["userPeopleList", input],
+	}),
 	metadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["metadataGroupDetails", metadataGroupId],
 	}),
 	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
 	}),
-	userMetadataGroupsList: (input: UserMetadataGroupsListInput) => ({
-		queryKey: ["userMetadataGroupsList", input],
-	}),
 	metadataGroupSearch: (input: MetadataGroupSearchInput) => ({
 		queryKey: ["metadataGroupSearch", input],
+	}),
+	userMetadataGroupsList: (input: UserMetadataGroupsListInput) => ({
+		queryKey: ["userMetadataGroupsList", input],
 	}),
 });
 
