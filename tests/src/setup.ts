@@ -9,6 +9,7 @@ import {
 import { config } from "dotenv";
 import getPort from "get-port";
 import createClient from "openapi-fetch";
+import { Client as PgClient } from "pg";
 import {
 	GenericContainer,
 	type StartedTestContainer,
@@ -22,8 +23,8 @@ const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
 
 let s3Client: S3Client;
+let pgClient: PgClient;
 let backendPort: number;
-let testDatabaseUrl: string;
 let backendProcess: ChildProcess;
 let s3Container: StartedTestContainer;
 let redisContainer: StartedTestContainer;
@@ -79,7 +80,6 @@ beforeAll(async () => {
 	const s3MappedPort = s3Container.getMappedPort(9000);
 	const s3Endpoint = `http://${s3Host}:${s3MappedPort}`;
 
-	testDatabaseUrl = dbUrl;
 	s3Client = new S3Client({
 		region: "us-east-1",
 		endpoint: s3Endpoint,
@@ -128,6 +128,9 @@ beforeAll(async () => {
 	const healthCheckUrl = `http://127.0.0.1:${backendPort}/api/system/health`;
 	await waitForHealthCheck(healthCheckUrl);
 
+	pgClient = new PgClient({ connectionString: dbUrl });
+	await pgClient.connect();
+
 	console.log("[E2E Setup] Backend ready!");
 }, 120000);
 
@@ -140,7 +143,9 @@ afterAll(async () => {
 		console.log("[E2E Teardown] Backend process stopped");
 	}
 
+	
 	await Promise.all([
+		pgClient?.end(),
 		pgContainer?.stop(),
 		s3Container?.stop(),
 		redisContainer?.stop(),
@@ -166,6 +171,6 @@ export function getBackendClient() {
 	return client;
 }
 
-export function getTestDatabaseUrl() {
-	return testDatabaseUrl;
+export function getPgClient() {
+	return pgClient;
 }
