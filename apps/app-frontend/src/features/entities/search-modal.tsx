@@ -128,17 +128,17 @@ export function SearchEntityModalContent(props: {
 	]);
 
 	const getActionState = useCallback(
-		(identifier: string) =>
-			actionStateById[identifier] ?? defaultSearchResultRowActionState,
+		(externalId: string) =>
+			actionStateById[externalId] ?? defaultSearchResultRowActionState,
 		[actionStateById],
 	);
 
 	const patchActionState = useCallback(
-		(identifier: string, patch: Partial<SearchResultRowActionState>) => {
+		(externalId: string, patch: Partial<SearchResultRowActionState>) => {
 			setActionStateById((prev) => ({
 				...prev,
-				[identifier]: {
-					...(prev[identifier] ?? defaultSearchResultRowActionState),
+				[externalId]: {
+					...(prev[externalId] ?? defaultSearchResultRowActionState),
 					...patch,
 				},
 			}));
@@ -148,11 +148,11 @@ export function SearchEntityModalContent(props: {
 
 	const markDone = useCallback(
 		(
-			identifier: string,
+			externalId: string,
 			actions: SearchResultRowActionState["doneActions"],
 		) => {
-			const current = getActionState(identifier);
-			patchActionState(identifier, {
+			const current = getActionState(externalId);
+			patchActionState(externalId, {
 				doneActions: [...new Set([...current.doneActions, ...actions])],
 			});
 		},
@@ -171,14 +171,14 @@ export function SearchEntityModalContent(props: {
 
 	const handleAdd = useCallback(
 		async (item: SearchResultItem) => {
-			patchActionState(item.identifier, {
+			patchActionState(item.externalId, {
 				actionError: null,
 				pendingAction: "add",
 			});
 
 			try {
 				await addItem(item);
-				markDone(item.identifier, ["track"]);
+				markDone(item.externalId, ["track"]);
 
 				props.onActionCompleted?.();
 				notifications.show({
@@ -191,11 +191,11 @@ export function SearchEntityModalContent(props: {
 					return;
 				}
 
-				patchActionState(item.identifier, {
+				patchActionState(item.externalId, {
 					actionError: getErrorMessage(error),
 				});
 			} finally {
-				patchActionState(item.identifier, { pendingAction: null });
+				patchActionState(item.externalId, { pendingAction: null });
 			}
 		},
 		[addItem, markDone, patchActionState],
@@ -203,7 +203,7 @@ export function SearchEntityModalContent(props: {
 
 	const runLifecycleAction = useCallback(
 		async (input: {
-			identifier: string;
+			externalId: string;
 			item: SearchResultItem;
 			pendingAction: "backlog" | "log" | "rate";
 			buildPayload: (
@@ -213,7 +213,7 @@ export function SearchEntityModalContent(props: {
 			partialFailureMessage: string;
 			doneAction: "backlog" | "log" | "rate";
 		}) => {
-			patchActionState(input.identifier, {
+			patchActionState(input.externalId, {
 				actionError: null,
 				pendingAction: input.pendingAction,
 			});
@@ -230,9 +230,9 @@ export function SearchEntityModalContent(props: {
 						params: { query: { entityId: entity.id } },
 					}).queryKey,
 				});
-				markDone(input.identifier, ["track", input.doneAction]);
+				markDone(input.externalId, ["track", input.doneAction]);
 				props.onActionCompleted?.();
-				patchActionState(input.identifier, {
+				patchActionState(input.externalId, {
 					actionError: null,
 					openPanel: null,
 				});
@@ -250,16 +250,16 @@ export function SearchEntityModalContent(props: {
 					? `${input.partialFailureMessage} ${getErrorMessage(error)}`
 					: getErrorMessage(error);
 				if (entityId) {
-					markDone(input.identifier, ["track"]);
+					markDone(input.externalId, ["track"]);
 				}
-				patchActionState(input.identifier, {
+				patchActionState(input.externalId, {
 					actionError: message,
 					openPanel: entityId
-						? getActionState(input.identifier).openPanel
+						? getActionState(input.externalId).openPanel
 						: null,
 				});
 			} finally {
-				patchActionState(input.identifier, { pendingAction: null });
+				patchActionState(input.externalId, { pendingAction: null });
 			}
 		},
 		[
@@ -283,7 +283,7 @@ export function SearchEntityModalContent(props: {
 				item,
 				doneAction: "backlog",
 				pendingAction: "backlog",
-				identifier: item.identifier,
+				externalId: item.externalId,
 				successMessage: `${item.titleProperty.value} is now in your backlog.`,
 				partialFailureMessage: `${item.titleProperty.value} is in your library, but it could not be added to backlog.`,
 				buildPayload: (entityId) =>
@@ -302,7 +302,7 @@ export function SearchEntityModalContent(props: {
 				return;
 			}
 
-			const state = getActionState(item.identifier);
+			const state = getActionState(item.externalId);
 			try {
 				createLogEventPayload({
 					entityId: "",
@@ -312,7 +312,7 @@ export function SearchEntityModalContent(props: {
 					eventSchemas: eventSchemasQuery.eventSchemas,
 				});
 			} catch (error) {
-				patchActionState(item.identifier, {
+				patchActionState(item.externalId, {
 					actionError: getErrorMessage(error),
 				});
 				return;
@@ -322,7 +322,7 @@ export function SearchEntityModalContent(props: {
 				item,
 				doneAction: "log",
 				pendingAction: "log",
-				identifier: item.identifier,
+				externalId: item.externalId,
 				successMessage:
 					state.logDate === "started"
 						? `Marked ${item.titleProperty.value} as started.`
@@ -356,7 +356,7 @@ export function SearchEntityModalContent(props: {
 				return;
 			}
 
-			const state = getActionState(item.identifier);
+			const state = getActionState(item.externalId);
 			try {
 				createReviewEventPayload({
 					entityId: "",
@@ -365,7 +365,7 @@ export function SearchEntityModalContent(props: {
 					eventSchemas: eventSchemasQuery.eventSchemas,
 				});
 			} catch (error) {
-				patchActionState(item.identifier, {
+				patchActionState(item.externalId, {
 					actionError: getErrorMessage(error),
 				});
 				return;
@@ -375,7 +375,7 @@ export function SearchEntityModalContent(props: {
 				item,
 				doneAction: "rate",
 				pendingAction: "rate",
-				identifier: item.identifier,
+				externalId: item.externalId,
 				successMessage: `Saved your review for ${item.titleProperty.value}.`,
 				partialFailureMessage: `${item.titleProperty.value} is in your library, but the review could not be saved.`,
 				buildPayload: (entityId) =>
@@ -410,7 +410,7 @@ export function SearchEntityModalContent(props: {
 					: [],
 			).safeParse(values);
 			if (!validationResult.success) {
-				patchActionState(item.identifier, {
+				patchActionState(item.externalId, {
 					actionError:
 						validationResult.error.issues[0]?.message ??
 						"Collection details are invalid.",
@@ -418,7 +418,7 @@ export function SearchEntityModalContent(props: {
 				return;
 			}
 
-			patchActionState(item.identifier, {
+			patchActionState(item.externalId, {
 				actionError: null,
 				pendingAction: "collection",
 			});
@@ -434,9 +434,9 @@ export function SearchEntityModalContent(props: {
 						selectedCollection,
 					),
 				});
-				markDone(item.identifier, ["track", "collection"]);
+				markDone(item.externalId, ["track", "collection"]);
 				props.onActionCompleted?.();
-				patchActionState(item.identifier, {
+				patchActionState(item.externalId, {
 					actionError: null,
 					openPanel: null,
 				});
@@ -461,14 +461,14 @@ export function SearchEntityModalContent(props: {
 					? `${item.titleProperty.value} is in your library, but could not be added to the collection: ${getErrorMessage(error)}`
 					: getErrorMessage(error);
 				if (isPartialFailure) {
-					markDone(item.identifier, ["track"]);
+					markDone(item.externalId, ["track"]);
 				}
-				patchActionState(item.identifier, {
+				patchActionState(item.externalId, {
 					actionError: message,
-					openPanel: getActionState(item.identifier).openPanel,
+					openPanel: getActionState(item.externalId).openPanel,
 				});
 			} finally {
-				patchActionState(item.identifier, { pendingAction: null });
+				patchActionState(item.externalId, { pendingAction: null });
 			}
 		},
 		[
@@ -583,22 +583,22 @@ export function SearchEntityModalContent(props: {
 									{results.map((item) => (
 										<SearchResultRow
 											item={item}
-											key={item.identifier}
+											key={item.externalId}
 											accentColor={accentColor}
 											isPersonSchema={isPersonSchema}
 											collectionState={collectionState}
 											onAdd={() => void handleAdd(item)}
-											addError={addError[item.identifier]}
+											addError={addError[item.externalId]}
 											entityName={props.entitySchema.name}
 											onSaveLog={() => handleSaveLog(item)}
 											providerName={activeProvider?.name ?? ""}
 											onBacklog={() => void handleBacklog(item)}
 											onSaveReview={() => handleSaveReview(item)}
-											actionState={getActionState(item.identifier)}
+											actionState={getActionState(item.externalId)}
 											lifecycleErrorMessage={lifecycleErrorMessage}
-											addStatus={addStatus[item.identifier] ?? "idle"}
+											addStatus={addStatus[item.externalId] ?? "idle"}
 											isLifecycleLoading={eventSchemasQuery.isLoading}
-											isExpanded={selectedResultId === item.identifier}
+											isExpanded={selectedResultId === item.externalId}
 											canUseCollectionAction={canUseCollectionAction}
 											collectionsDestination={
 												collectionsDestination.destination
@@ -607,35 +607,35 @@ export function SearchEntityModalContent(props: {
 												void refetchCollections()
 											}
 											onPatchActionState={(patch) =>
-												patchActionState(item.identifier, patch)
+												patchActionState(item.externalId, patch)
 											}
 											onSaveCollection={(values) =>
 												void handleSaveCollection(item, values)
 											}
 											onTogglePanel={(panel) => {
-												setSelectedResultId(item.identifier);
-												const state = getActionState(item.identifier);
-												patchActionState(item.identifier, {
+												setSelectedResultId(item.externalId);
+												const state = getActionState(item.externalId);
+												patchActionState(item.externalId, {
 													actionError: null,
 													openPanel: state.openPanel === panel ? null : panel,
 												});
 											}}
 											onToggleActions={() => {
 												const isCurrentlyExpanded =
-													selectedResultId === item.identifier;
+													selectedResultId === item.externalId;
 												setSelectedResultId((current) =>
-													current === item.identifier ? null : item.identifier,
+													current === item.externalId ? null : item.externalId,
 												);
 												if (
 													!isCurrentlyExpanded &&
 													props.initialAction === "log"
 												) {
-													patchActionState(item.identifier, {
+													patchActionState(item.externalId, {
 														openPanel: "log",
 														actionError: null,
 													});
 												} else {
-													patchActionState(item.identifier, {
+													patchActionState(item.externalId, {
 														openPanel: null,
 													});
 												}

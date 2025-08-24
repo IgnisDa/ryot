@@ -319,7 +319,7 @@ driver("search", async function (context) {
       const image = getImageUrl(show?.poster_path);
 
       return {
-        identifier: id,
+        externalId: id,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -348,20 +348,20 @@ driver("details", async function (context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  if (!/^\d+$/.test(identifier)) {
-    throw new Error("identifier must be a numeric TMDB show ID");
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TMDB show ID");
   }
 
   const token = await getTmdbAccessToken();
 
   const [showData, imagesData, creditsData] = await Promise.all([
-    tmdbGet(`/tv/${identifier}`, { language: "en-US" }, token),
-    tmdbGet(`/tv/${identifier}/images`, {}, token),
-    tmdbGet(`/tv/${identifier}/credits`, { language: "en-US" }, token),
+    tmdbGet(`/tv/${externalId}`, { language: "en-US" }, token),
+    tmdbGet(`/tv/${externalId}/images`, {}, token),
+    tmdbGet(`/tv/${externalId}/credits`, { language: "en-US" }, token),
   ]);
 
   const title =
@@ -389,7 +389,7 @@ driver("details", async function (context) {
     const batch = seasonNumbers.slice(i, i + SEASON_BATCH_SIZE);
     const batchResults = await Promise.all(
       batch.map((n) =>
-        tmdbGet(`/tv/${identifier}/season/${n}`, { language: "en-US" }, token),
+        tmdbGet(`/tv/${externalId}/season/${n}`, { language: "en-US" }, token),
       ),
     );
     seasonDataList.push(...batchResults);
@@ -433,7 +433,7 @@ driver("details", async function (context) {
           ? showData.status.trim()
           : null,
       assets: { remoteImages },
-      sourceUrl: `https://www.themoviedb.org/tv/${identifier}`,
+      sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
     },
   };
 });

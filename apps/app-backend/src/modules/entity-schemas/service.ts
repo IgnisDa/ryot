@@ -370,7 +370,7 @@ export const importEntity = async (
 			mediaImportJobData.parse({
 				userId: input.userId,
 				scriptId: input.body.scriptId,
-				identifier: input.body.identifier,
+				externalId: input.body.externalId,
 				entitySchemaId: input.body.entitySchemaId,
 			}),
 		"Entity import payload is invalid",

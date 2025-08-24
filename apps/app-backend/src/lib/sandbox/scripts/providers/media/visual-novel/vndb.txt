@@ -105,9 +105,9 @@ driver("search", async function (context) {
         return null;
       }
 
-      const identifier =
+      const externalId =
         typeof vn.id === "string" && vn.id.trim() ? vn.id.trim() : null;
-      if (!identifier) {
+      if (!externalId) {
         return null;
       }
 
@@ -129,7 +129,7 @@ driver("search", async function (context) {
           : null;
 
       return {
-        identifier,
+        externalId,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: name },
         subtitleProperty:
@@ -157,13 +157,13 @@ driver("details", async function (context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  if (!/^v\d+$/.test(identifier)) {
+  if (!/^v\d+$/.test(externalId)) {
     throw new Error(
-      "identifier must be a VNDB VN ID (e.g., 'v17')",
+      "externalId must be a VNDB VN ID (e.g., 'v17')",
     );
   }
 
@@ -174,7 +174,7 @@ driver("details", async function (context) {
     },
     body: JSON.stringify({
       fields: DETAIL_FIELDS,
-      filters: ["id", "=", identifier],
+      filters: ["id", "=", externalId],
     }),
   });
 
@@ -186,7 +186,7 @@ driver("details", async function (context) {
   const results = Array.isArray(payload?.results) ? payload.results : [];
 
   if (results.length === 0) {
-    throw new Error("VNDB returned no data for this identifier");
+    throw new Error("VNDB returned no data for this externalId");
   }
 
   const vn = results[0];
@@ -236,7 +236,7 @@ driver("details", async function (context) {
   const people = developers.map((dev) => ({
     role: "Developer",
     name: dev.name,
-    identifier: dev.id,
+    externalId: dev.id,
     scriptSlug: "person.vndb",
   }));
 
@@ -273,7 +273,7 @@ driver("details", async function (context) {
       lengthMinutes,
       assets: { remoteImages },
       publishYear: extractYear(vn.released, dayjs),
-      sourceUrl: `https://vndb.org/${identifier}`,
+      sourceUrl: `https://vndb.org/${externalId}`,
       people,
     },
   };

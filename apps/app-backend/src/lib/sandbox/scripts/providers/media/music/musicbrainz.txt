@@ -157,7 +157,7 @@ driver("search", async function (context) {
       const publishYear = getPublishYear(recording?.["first-release-date"], dayjs);
 
       return {
-        identifier: id,
+        externalId: id,
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -182,16 +182,16 @@ driver("details", async function (context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  const data = await mbGet(`recording/${identifier}`, {
+  const data = await mbGet(`recording/${externalId}`, {
     inc: "artists+releases+release-groups",
   });
 
   if (!data) {
-    throw new Error(`MusicBrainz recording not found: ${identifier}`);
+    throw new Error(`MusicBrainz recording not found: ${externalId}`);
   }
 
   const title = getString(data?.title);
@@ -219,7 +219,7 @@ driver("details", async function (context) {
       return {
         role: "Artist",
         name: artistName,
-        identifier: artistId,
+        externalId: artistId,
         scriptSlug: "person.musicbrainz",
       };
     })
@@ -244,7 +244,7 @@ driver("details", async function (context) {
       duration,
       byVariousArtists,
       people,
-      sourceUrl: `https://musicbrainz.org/recording/${identifier}`,
+      sourceUrl: `https://musicbrainz.org/recording/${externalId}`,
       assets: { remoteImages: coverUrl ? [coverUrl] : [] },
       description: null,
       providerRating: null,

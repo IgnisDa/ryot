@@ -304,7 +304,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
       const publishYear = parsePublishYear(item.startDate);
 
       return {
-        identifier: String(mediaId),
+        externalId: String(mediaId),
         badgeProperty: { kind: "null", value: null },
         titleProperty: { kind: "text", value: title },
         subtitleProperty:
@@ -332,18 +332,18 @@ driver("details", async function(context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { identifier: contextIdentifier } = z.object({
-    identifier: z.string().trim().min(1, "identifier is required"),
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
   if (!/^\d+$/.test(contextIdentifier)) {
-    throw new Error("identifier must be a numeric Anilist media id");
+    throw new Error("externalId must be a numeric Anilist media id");
   }
 
   const mediaId = Number(contextIdentifier);
   if (!Number.isSafeInteger(mediaId) || mediaId <= 0) {
     throw new Error(
-      "identifier must be a positive safe integer Anilist media id",
+      "externalId must be a positive safe integer Anilist media id",
     );
   }
 
