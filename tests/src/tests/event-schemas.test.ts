@@ -29,14 +29,16 @@ describe("GET /event-schemas", () => {
 		expect(eventSchemas.some((schema) => schema.slug === "read")).toBe(false);
 	});
 
-	it("returns the seeded workout-set event schema for exercise", async () => {
+	it("returns the seeded workout-set and review event schemas for exercise", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, cookies, "exercise");
 
 		const eventSchemas = await listEventSchemas(client, cookies, exerciseSchema.id);
 
-		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["workout-set"]);
-		expect(eventSchemas[0]?.propertiesSchema).toMatchObject({
+		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review", "workout-set"]);
+		const workoutSetSchema = eventSchemas.find((schema) => schema.slug === "workout-set");
+		assertPresent(workoutSetSchema, "Missing built-in workout-set schema for exercise");
+		expect(workoutSetSchema.propertiesSchema).toMatchObject({
 			fields: {
 				reps: {
 					label: "Reps",
@@ -84,6 +86,63 @@ describe("GET /event-schemas", () => {
 					label: "Rpe",
 					type: "integer",
 					description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
+				},
+			},
+		});
+		const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
+		assertPresent(reviewSchema, "Missing built-in review schema for exercise");
+		expect(reviewSchema.propertiesSchema).toMatchObject({
+			fields: {
+				text: {
+					type: "string",
+					label: "Review",
+					description: "Your written thoughts or notes about this media",
+				},
+				isSpoiler: {
+					type: "boolean",
+					label: "Is Spoiler?",
+					description: "Whether this review contains spoilers",
+				},
+				rating: {
+					type: "number",
+					label: "Rating",
+					validation: { maximum: 100, minimum: 0 },
+					description: "Your personal rating from 0 (lowest) to 100 (highest)",
+				},
+			},
+		});
+	});
+
+	it("returns the seeded review event schema for collection", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { schema: collectionSchema } = await findBuiltinSchemaBySlug(
+			client,
+			cookies,
+			"collection",
+		);
+
+		const eventSchemas = await listEventSchemas(client, cookies, collectionSchema.id);
+
+		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review"]);
+		const reviewSchema = eventSchemas[0];
+		assertPresent(reviewSchema, "Missing built-in review schema for collection");
+		expect(reviewSchema.propertiesSchema).toMatchObject({
+			fields: {
+				text: {
+					type: "string",
+					label: "Review",
+					description: "Your written thoughts or notes about this media",
+				},
+				isSpoiler: {
+					type: "boolean",
+					label: "Is Spoiler?",
+					description: "Whether this review contains spoilers",
+				},
+				rating: {
+					type: "number",
+					label: "Rating",
+					validation: { maximum: 100, minimum: 0 },
+					description: "Your personal rating from 0 (lowest) to 100 (highest)",
 				},
 			},
 		});
