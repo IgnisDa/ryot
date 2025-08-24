@@ -20,7 +20,6 @@ import {
 	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
 	UserMetadataRecommendationsDocument,
-	type UserPreferences,
 	UserUpcomingCalendarEventsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { isNumber, parseSearchQuery, zodBoolAsString } from "@ryot/ts-utils";
@@ -29,12 +28,11 @@ import {
 	IconPlayerPlay,
 	IconRotateClockwise,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
 import type { ReactNode } from "react";
-import { redirect, useLoaderData } from "react-router";
+import { redirect } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
-import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
@@ -49,17 +47,14 @@ import {
 	useExpireCacheKeyMutation,
 	useIsMobile,
 	useIsOnboardingTourCompleted,
+	useUserCollections,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { useOnboardingTour } from "~/lib/state/onboarding-tour";
-import {
-	getUserCollectionsList,
-	getUserPreferences,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { getUserPreferences } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard._index";
 
 const searchParamsSchema = z.object({
@@ -68,69 +63,13 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
-const redirectToLandingPath = (
-	request: Request,
-	preferences: UserPreferences,
-) => {
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const landingPath = preferences.general.landingPath;
-	if (landingPath === "/" || query.ignoreLandingPath) return;
-	throw redirect(landingPath);
-};
-
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
-	redirectToLandingPath(request, preferences);
-	const getTake = (el: DashboardElementLot) => {
-		const t = preferences.general.dashboard.find(
-			(de) => de.section === el,
-		)?.numElements;
-		invariant(isNumber(t));
-		return t;
-	};
-	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
-	const takeInProgress = getTake(DashboardElementLot.InProgress);
-	const userCollectionsList = await getUserCollectionsList(request);
-	const foundInProgressCollection = userCollectionsList.find(
-		(c) => c.name === "In Progress",
-	);
-	invariant(foundInProgressCollection);
-	const [
-		{ collectionContents: inProgressCollectionContents },
-		{ userUpcomingCalendarEvents },
-		{ userAnalytics },
-	] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, CollectionContentsDocument, {
-			input: {
-				search: { take: takeInProgress },
-				collectionId: foundInProgressCollection.id,
-				sort: {
-					order: GraphqlSortOrder.Desc,
-					by: CollectionContentsSortBy.LastUpdatedOn,
-				},
-			},
-		}),
-		serverGqlService.authenticatedRequest(
-			request,
-			UserUpcomingCalendarEventsDocument,
-			{ input: { nextMedia: takeUpcoming } },
-		),
-		serverGqlService.authenticatedRequest(
-			request,
-			MinimalUserAnalyticsDocument,
-			{
-				input: {
-					dateRange: {},
-					groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
-				},
-			},
-		),
-	]);
-	return {
-		userAnalytics,
-		userUpcomingCalendarEvents,
-		inProgressCollectionContents,
-	};
+	const query = parseSearchQuery(request, searchParamsSchema);
+	const landingPath = preferences.general.landingPath;
+	if (landingPath !== "/" && !query.ignoreLandingPath)
+		throw redirect(landingPath);
+	return {};
 };
 
 export const meta = () => {
@@ -138,17 +77,80 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
-	const userDetails = useUserDetails();
-	const { startOnboardingTour } = useOnboardingTour();
 	const isMobile = useIsMobile();
+	const coreDetails = useCoreDetails();
+	const userDetails = useUserDetails();
+	const userPreferences = useUserPreferences();
+	const { startOnboardingTour } = useOnboardingTour();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
 	const dashboardMessage = coreDetails.frontend.dashboardMessage;
+
+	const getTake = (el: DashboardElementLot) => {
+		const t = userPreferences.general.dashboard.find(
+			(de) => de.section === el,
+		)?.numElements;
+		return isNumber(t) ? t : 10;
+	};
+	const takeUpcoming = getTake(DashboardElementLot.Upcoming);
+	const takeInProgress = getTake(DashboardElementLot.InProgress);
+
+	const userCollections = useUserCollections();
+
+	const inProgressCollection = userCollections.find(
+		(c) => c.name === "In Progress",
+	);
+
+	const inProgressCollectionContentsQuery = useQuery({
+		queryKey: queryFactory.collections.collectionContents({
+			search: { take: takeInProgress },
+			collectionId: inProgressCollection?.id || "",
+			sort: {
+				order: GraphqlSortOrder.Desc,
+				by: CollectionContentsSortBy.LastUpdatedOn,
+			},
+		}).queryKey,
+		queryFn: inProgressCollection?.id
+			? () =>
+					clientGqlService.request(CollectionContentsDocument, {
+						input: {
+							search: { take: takeInProgress },
+							collectionId: inProgressCollection.id,
+							sort: {
+								order: GraphqlSortOrder.Desc,
+								by: CollectionContentsSortBy.LastUpdatedOn,
+							},
+						},
+					})
+			: skipToken,
+	});
+
+	const userUpcomingCalendarEventsQuery = useQuery({
+		queryKey: queryFactory.calendar.userUpcomingCalendarEvents({
+			nextMedia: takeUpcoming,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService.request(UserUpcomingCalendarEventsDocument, {
+				input: { nextMedia: takeUpcoming },
+			}),
+	});
+
+	const userAnalyticsQuery = useQuery({
+		queryKey: queryFactory.miscellaneous.userAnalytics({
+			dateRange: {},
+			groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
+		}).queryKey,
+		queryFn: () =>
+			clientGqlService.request(MinimalUserAnalyticsDocument, {
+				input: {
+					dateRange: {},
+					groupBy: DailyUserActivitiesResponseGroupedBy.AllTime,
+				},
+			}),
+	});
+
 	const latestUserSummary =
-		loaderData.userAnalytics.response.activities.items.at(0);
+		userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
 
 	const [isAlertDismissed, setIsAlertDismissed] = useLocalStorage(
 		`AlertDismissed-${userDetails.id}-${CryptoJS.SHA256(dashboardMessage)}`,
@@ -186,36 +188,47 @@ export default function Page() {
 				</ClientOnly>
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
-						.with([DashboardElementLot.Upcoming, false], ([v, _]) =>
-							loaderData.userUpcomingCalendarEvents.length > 0 ? (
-								<Section key={v} lot={v}>
-									<SectionTitle text="Upcoming" />
-									<ApplicationGrid>
-										{loaderData.userUpcomingCalendarEvents.map((um) => (
-											<UpComingMedia um={um} key={um.calendarEventId} />
-										))}
-									</ApplicationGrid>
-								</Section>
-							) : null,
-						)
+						.with([DashboardElementLot.Upcoming, false], ([v, _]) => (
+							<Section key={v} lot={v}>
+								<SectionTitle text="Upcoming" />
+								{userUpcomingCalendarEventsQuery.data ? (
+									userUpcomingCalendarEventsQuery.data
+										.userUpcomingCalendarEvents.length > 0 ? (
+										<ApplicationGrid>
+											{userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.map(
+												(um) => (
+													<UpComingMedia um={um} key={um.calendarEventId} />
+												),
+											)}
+										</ApplicationGrid>
+									) : null
+								) : (
+									<SkeletonLoader />
+								)}
+							</Section>
+						))
 						.with([DashboardElementLot.InProgress, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<SectionTitle text="In Progress" />
-								{loaderData.inProgressCollectionContents.response.results.items
-									.length > 0 ? (
-									<ApplicationGrid>
-										{loaderData.inProgressCollectionContents.response.results.items.map(
-											(lm) => (
-												<DisplayCollectionEntity
-													key={lm.entityId}
-													entityId={lm.entityId}
-													entityLot={lm.entityLot}
-												/>
-											),
-										)}
-									</ApplicationGrid>
+								{inProgressCollectionContentsQuery.data ? (
+									inProgressCollectionContentsQuery.data.collectionContents
+										.response.results.items.length > 0 ? (
+										<ApplicationGrid>
+											{inProgressCollectionContentsQuery.data.collectionContents.response.results.items.map(
+												(lm) => (
+													<DisplayCollectionEntity
+														key={lm.entityId}
+														entityId={lm.entityId}
+														entityLot={lm.entityLot}
+													/>
+												),
+											)}
+										</ApplicationGrid>
+									) : (
+										<Text c="dimmed">No media in progress.</Text>
+									)
 								) : (
-									<Text c="dimmed">No media in progress.</Text>
+									<SkeletonLoader />
 								)}
 							</Section>
 						))
@@ -227,15 +240,19 @@ export default function Page() {
 						.with([DashboardElementLot.Summary, false], ([v, _]) => (
 							<Section key={v} lot={v}>
 								<SectionTitle text="Summary" />
-								{latestUserSummary ? (
-									<DisplaySummarySection
-										latestUserSummary={latestUserSummary}
-									/>
+								{userAnalyticsQuery.data ? (
+									latestUserSummary ? (
+										<DisplaySummarySection
+											latestUserSummary={latestUserSummary}
+										/>
+									) : (
+										<Text c="dimmed">
+											No summary available. Please add some media to your
+											watched history.
+										</Text>
+									)
 								) : (
-									<Text c="dimmed">
-										No summary available. Please add some media to your watched
-										history.
-									</Text>
+									<SkeletonLoader />
 								)}
 							</Section>
 						))

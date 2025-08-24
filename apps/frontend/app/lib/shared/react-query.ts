@@ -24,6 +24,7 @@ import {
 	type UserPeopleListInput,
 	UserPersonDetailsDocument,
 	type UserTemplatesOrWorkoutsListInput,
+	type UserUpcomingCalendarEventInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
@@ -52,6 +53,9 @@ export const clientGqlService = new GraphQLClient(
 const calendarQueryKeys = createQueryKeys("calendar", {
 	userCalendarEvents: (input: UserCalendarEventInput) => ({
 		queryKey: ["userCalendarEvents", input],
+	}),
+	userUpcomingCalendarEvents: (input: UserUpcomingCalendarEventInput) => ({
+		queryKey: ["userUpcomingCalendarEvents", input],
 	}),
 });
 
