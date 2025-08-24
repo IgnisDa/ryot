@@ -13,7 +13,7 @@ import {
 	type PeopleSearchInput,
 	PersonDetailsDocument,
 	type SearchInput,
-	type UserAnalyticsQueryVariables,
+	type UserAnalyticsInput,
 	type UserCalendarEventInput,
 	type UserExercisesListInput,
 	type UserMeasurementsListInput,
@@ -110,14 +110,14 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
-	contents: (input: CollectionContentsInput) => ({
+	collectionImages: (collectionId: string) => ({
+		queryKey: ["collectionDetails", "images", collectionId],
+	}),
+	collectionContents: (input: CollectionContentsInput) => ({
 		queryKey: ["collectionContents", input],
 	}),
-	recommendations: (input: CollectionRecommendationsInput) => ({
+	collectionRecommendations: (input: CollectionRecommendationsInput) => ({
 		queryKey: ["collectionRecommendations", input],
-	}),
-	images: (collectionId: string) => ({
-		queryKey: ["collectionDetails", "images", collectionId],
 	}),
 });
 
@@ -152,7 +152,7 @@ const miscellaneousQueryKeys = createQueryKeys("miscellaneous", {
 	presignedS3Url: (key: string) => ({
 		queryKey: ["presignedS3Url", key],
 	}),
-	userAnalytics: (input: UserAnalyticsQueryVariables) => ({
+	userAnalytics: (input: UserAnalyticsInput) => ({
 		queryKey: ["userAnalytics", input],
 	}),
 });

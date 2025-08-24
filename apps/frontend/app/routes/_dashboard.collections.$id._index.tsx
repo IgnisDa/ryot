@@ -142,7 +142,8 @@ export default function Page() {
 
 	const { data: collectionContents, refetch: refreshCollectionContents } =
 		useQuery({
-			queryKey: queryFactory.collections.contents(queryInput).queryKey,
+			queryKey:
+				queryFactory.collections.collectionContents(queryInput).queryKey,
 			queryFn: () =>
 				clientGqlService
 					.request(CollectionContentsDocument, { input: queryInput })
@@ -482,7 +483,8 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 	const input: CollectionRecommendationsInput = { collectionId, search };
 
 	const recommendations = useQuery({
-		queryKey: queryFactory.collections.recommendations(input).queryKey,
+		queryKey:
+			queryFactory.collections.collectionRecommendations(input).queryKey,
 		queryFn: () =>
 			clientGqlService.request(CollectionRecommendationsDocument, { input }),
 	});

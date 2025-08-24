@@ -201,7 +201,8 @@ const DisplayCollection = (props: {
 	const additionalDisplay = [];
 
 	const { data: collectionImages } = useQuery({
-		queryKey: queryFactory.collections.images(props.collection.id).queryKey,
+		queryKey: queryFactory.collections.collectionImages(props.collection.id)
+			.queryKey,
 		queryFn: async () => {
 			const { collectionContents } = await clientGqlService.request(
 				CollectionContentsDocument,
