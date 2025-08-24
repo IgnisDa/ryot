@@ -256,7 +256,6 @@ export default function Page() {
 														opened={filtersModalOpened}
 														closeFiltersModal={closeFiltersModal}
 														resetFilters={() => setFilters(defaultFilters)}
-														cookieName={`CollectionFilters-${collectionId}`}
 													>
 														<FiltersModalForm
 															filters={filters}

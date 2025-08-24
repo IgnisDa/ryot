@@ -208,9 +208,9 @@ export default function Page() {
 						<IconFilter size={24} />
 					</ActionIcon>
 					<FiltersModal
-						cookieName=""
 						opened={filtersModalOpened}
 						closeFiltersModal={closeFiltersModal}
+						resetFilters={() => setFilters(defaultFilterState)}
 					>
 						<FiltersModalForm filters={filters} updateFilter={updateFilter} />
 					</FiltersModal>

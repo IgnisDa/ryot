@@ -85,7 +85,7 @@ type FilterUpdateFunction<T> = (
 	value: string | number | boolean | null,
 ) => void;
 
-const defaultFilters: ListFilterState = {
+const defaultListFilters: ListFilterState = {
 	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
@@ -116,7 +116,7 @@ export default function Page(props: { params: { action: string } }) {
 
 	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
 		"PeopleListFilters",
-		defaultFilters,
+		defaultListFilters,
 	);
 	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
 		"PeopleSearchFilters",
@@ -169,7 +169,7 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.peopleSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(listFilters, defaultFilters);
+	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
 
 	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
 		key,
@@ -259,9 +259,9 @@ export default function Page(props: { params: { action: string } }) {
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									closeFiltersModal={closeFiltersModal}
-									cookieName="PeopleListFilters"
 									opened={filtersModalOpened}
+									closeFiltersModal={closeFiltersModal}
+									resetFilters={() => setListFilters(defaultListFilters)}
 								>
 									<FiltersModalForm
 										filters={listFilters}
@@ -285,8 +285,8 @@ export default function Page(props: { params: { action: string } }) {
 								</ActionIcon>
 								<FiltersModal
 									opened={searchFiltersModalOpened}
-									cookieName="PeopleSearchFilters"
 									closeFiltersModal={closeSearchFiltersModal}
+									resetFilters={() => setSearchFilters(defaultSearchFilters)}
 								>
 									<SearchFiltersModalForm
 										filters={searchFilters}

@@ -27,9 +27,7 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import { produce } from "immer";
-import Cookies from "js-cookie";
 import { type ReactNode, useState } from "react";
-import { useNavigate } from "react-router";
 import {
 	useAppSearchParam,
 	useCoreDetails,
@@ -42,13 +40,10 @@ import { ProRequiredAlert } from ".";
 export const FiltersModal = (props: {
 	title?: string;
 	opened: boolean;
-	cookieName: string;
 	children: ReactNode;
-	resetFilters?: () => void;
+	resetFilters: () => void;
 	closeFiltersModal: () => void;
 }) => {
-	const navigate = useNavigate();
-
 	return (
 		<Modal
 			centered
@@ -61,10 +56,8 @@ export const FiltersModal = (props: {
 					<Title order={3}>{props.title || "Filters"}</Title>
 					<ActionIcon
 						onClick={() => {
-							props.resetFilters?.();
-							navigate(".");
+							props.resetFilters();
 							props.closeFiltersModal();
-							Cookies.remove(props.cookieName);
 						}}
 					>
 						<IconFilterOff size={24} />

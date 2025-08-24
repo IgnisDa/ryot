@@ -213,8 +213,6 @@ export default function Page() {
 		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
-	const resetFilters = () => setFilters(defaultFilters);
-
 	const updateFilter: UpdateFilterFunction = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
@@ -254,9 +252,8 @@ export default function Page() {
 					</ActionIcon>
 					<FiltersModal
 						opened={filtersModalOpened}
-						resetFilters={resetFilters}
-						cookieName="exerciseListFilters"
 						closeFiltersModal={closeFiltersModal}
+						resetFilters={() => setFilters(defaultFilters)}
 					>
 						<FiltersModalForm filter={filters} updateFilter={updateFilter} />
 					</FiltersModal>

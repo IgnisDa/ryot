@@ -80,10 +80,14 @@ type FilterUpdateFunction<T> = (
 	value: string | number | null,
 ) => void;
 
-const defaultFilters: ListFilterState = {
+const defaultListFilters: ListFilterState = {
 	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
+};
+
+const defaultSearchFilters: SearchFilterState = {
+	source: MediaSource.Tmdb,
 };
 
 export const meta = ({ params }: Route.MetaArgs) => {
@@ -102,11 +106,11 @@ export default function Page(props: { params: { action: string } }) {
 
 	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
 		"GroupsListFilters",
-		defaultFilters,
+		defaultListFilters,
 	);
 	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
 		"GroupsSearchFilters",
-		{ source: MediaSource.Tmdb },
+		defaultSearchFilters,
 	);
 	const [searchQuery, setSearchQuery] = useLocalStorage(
 		"GroupsSearchQuery",
@@ -156,7 +160,7 @@ export default function Page(props: { params: { action: string } }) {
 				.then((data) => data.metadataGroupSearch),
 	});
 
-	const areListFiltersActive = isFilterChanged(listFilters, defaultFilters);
+	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
 
 	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
 		key,
@@ -232,9 +236,9 @@ export default function Page(props: { params: { action: string } }) {
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									closeFiltersModal={closeFiltersModal}
 									opened={filtersModalOpened}
-									cookieName="GroupsListFilters"
+									closeFiltersModal={closeFiltersModal}
+									resetFilters={() => setListFilters(defaultListFilters)}
 								>
 									<FiltersModalForm
 										filters={listFilters}

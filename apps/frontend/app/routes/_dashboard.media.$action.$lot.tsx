@@ -149,9 +149,12 @@ export default function Page(props: {
 		`MediaListFilters_${lot}`,
 		defaultListFilters,
 	);
+	const defaultSearchFilters: SearchFilterState = {
+		source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
+	};
 	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
 		`MediaSearchFilters_${lot}`,
-		{ source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb },
+		defaultSearchFilters,
 	);
 	const [searchQuery, setSearchQuery] = useLocalStorage(
 		`MediaSearchQuery_${lot}`,
@@ -323,14 +326,14 @@ export default function Page(props: {
 										<IconFilter size={24} />
 									</ActionIcon>
 									<FiltersModal
-										cookieName=""
 										opened={filtersModalOpened}
 										closeFiltersModal={closeFiltersModal}
+										resetFilters={() => setListFilters(defaultListFilters)}
 									>
 										<FiltersModalForm
+											lot={lot}
 											filters={listFilters}
 											onFiltersChange={updateListFilters}
-											lot={lot}
 										/>
 									</FiltersModal>
 								</Group>
@@ -407,9 +410,11 @@ export default function Page(props: {
 											<IconFilter size={24} />
 										</ActionIcon>
 										<FiltersModal
-											cookieName=""
 											opened={searchFiltersModalOpened}
 											closeFiltersModal={closeSearchFiltersModal}
+											resetFilters={() =>
+												setSearchFilters(defaultSearchFilters)
+											}
 										>
 											<SearchFiltersModalForm
 												filters={searchFilters}
