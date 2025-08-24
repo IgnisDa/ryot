@@ -175,7 +175,7 @@ query {{
         let resp = SearchResults {
             items,
             details: SearchDetails {
-                total: response.found,
+                total_items: response.found,
                 next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
@@ -270,7 +270,7 @@ query {{
         let resp = SearchResults {
             items,
             details: SearchDetails {
-                total: response.found,
+                total_items: response.found,
                 next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };
@@ -442,7 +442,7 @@ query {{
         let resp = SearchResults {
             items,
             details: SearchDetails {
-                total: response.found,
+                total_items: response.found,
                 next_page: (page < response.found / PAGE_SIZE).then(|| page + 1),
             },
         };

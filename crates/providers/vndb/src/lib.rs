@@ -110,7 +110,7 @@ impl MediaProvider for VndbService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: data.count,
+                total_items: data.count,
             },
         })
     }
@@ -208,7 +208,7 @@ impl MediaProvider for VndbService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.count,
+                total_items: search.count,
             },
         })
     }

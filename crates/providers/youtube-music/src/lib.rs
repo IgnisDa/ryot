@@ -135,7 +135,7 @@ impl MediaProvider for YoutubeMusicService {
         let results = self.client.music_search_tracks(query).await?;
         let data = SearchResults {
             details: SearchDetails {
-                total: 100,
+                total_items: 100,
                 ..Default::default()
             },
             items: results
@@ -203,7 +203,7 @@ impl MediaProvider for YoutubeMusicService {
         let data = self.client.music_search_albums(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
-                total: 100,
+                total_items: 100,
                 ..Default::default()
             },
             items: data
@@ -302,7 +302,7 @@ impl MediaProvider for YoutubeMusicService {
         let data = self.client.music_search_artists(query).await?;
         Ok(SearchResults {
             details: SearchDetails {
-                total: 100,
+                total_items: 100,
                 ..Default::default()
             },
             items: data

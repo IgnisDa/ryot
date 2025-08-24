@@ -255,7 +255,7 @@ pub struct SearchInput {
 
 #[derive(PartialEq, Eq, Serialize, Deserialize, Debug, SimpleObject, Clone, Default)]
 pub struct SearchDetails {
-    pub total: i32,
+    pub total_items: i32,
     pub next_page: Option<i32>,
 }
 

@@ -74,7 +74,7 @@ impl MediaProvider for TmdbMovieService {
             items: resp.to_vec(),
             details: SearchDetails {
                 next_page,
-                total: search.total_results,
+                total_items: search.total_results,
             },
         })
     }
@@ -278,7 +278,7 @@ impl MediaProvider for TmdbMovieService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.total_results,
+                total_items: search.total_results,
             },
         })
     }

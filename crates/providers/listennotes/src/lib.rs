@@ -151,7 +151,7 @@ impl MediaProvider for ListennotesService {
             .map_err(|e| anyhow!(e))?;
 
         let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
-        let total = search.total;
+        let total_items = search.total;
 
         let next_page = search.next_offset.map(|_| page + 1);
         let resp = search
@@ -166,7 +166,10 @@ impl MediaProvider for ListennotesService {
             .collect_vec();
         Ok(SearchResults {
             items: resp,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }

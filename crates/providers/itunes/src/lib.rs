@@ -193,7 +193,7 @@ impl MediaProvider for ITunesService {
             .map(get_search_response)
             .collect_vec();
 
-        let total = resp.len().try_into().unwrap();
+        let total_items = resp.len().try_into().unwrap();
 
         let resp = resp
             .into_iter()
@@ -204,8 +204,8 @@ impl MediaProvider for ITunesService {
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
-                total,
-                next_page: (total > page * PAGE_SIZE).then(|| page + 1),
+                total_items,
+                next_page: (total_items > page * PAGE_SIZE).then(|| page + 1),
             },
         })
     }

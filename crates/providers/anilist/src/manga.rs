@@ -40,7 +40,7 @@ impl MediaProvider for AnilistMangaService {
         display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total, next_page) = search(
+        let (items, total_items, next_page) = search(
             &self.base.client,
             MediaType::Manga,
             query,
@@ -52,7 +52,10 @@ impl MediaProvider for AnilistMangaService {
         .await?;
         Ok(SearchResults {
             items,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }

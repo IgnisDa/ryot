@@ -245,7 +245,7 @@ offset: {offset};
             .body(req_body)
             .send()
             .await?;
-        let total = extract_count_from_response(&rsp)?;
+        let total_items = extract_count_from_response(&rsp)?;
         let details: Vec<IgdbItemResponse> = rsp.json().await?;
         let resp = details
             .into_iter()
@@ -257,10 +257,13 @@ offset: {offset};
             })
             .collect_vec();
         let next_page =
-            (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             items: resp.clone(),
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 
@@ -346,7 +349,7 @@ offset: {offset};
             .body(req_body)
             .send()
             .await?;
-        let total = extract_count_from_response(&rsp)?;
+        let total_items = extract_count_from_response(&rsp)?;
         let details: Vec<IgdbCompany> = rsp.json().await?;
         let resp = details
             .into_iter()
@@ -361,10 +364,13 @@ offset: {offset};
             })
             .collect_vec();
         let next_page =
-            (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
         Ok(SearchResults {
             items: resp.clone(),
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 
@@ -572,7 +578,7 @@ offset: {offset};
             .send()
             .await?;
 
-        let total = extract_count_from_response(&rsp)?;
+        let total_items = extract_count_from_response(&rsp)?;
         let search: Vec<IgdbItemResponse> = rsp.json().await?;
 
         let resp = search
@@ -588,10 +594,13 @@ offset: {offset};
             })
             .collect_vec();
 
-        let next_page = (total - (page * PAGE_SIZE) > 0).then(|| page + 1);
+        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }

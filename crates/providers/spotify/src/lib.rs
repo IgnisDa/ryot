@@ -361,7 +361,7 @@ impl MediaProvider for SpotifyService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.tracks.total,
+                total_items: search_response.tracks.total,
             },
         })
     }
@@ -446,7 +446,7 @@ impl MediaProvider for SpotifyService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.albums.total,
+                total_items: search_response.albums.total,
             },
         })
     }
@@ -576,7 +576,7 @@ impl MediaProvider for SpotifyService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.artists.total,
+                total_items: search_response.artists.total,
             },
         })
     }

@@ -144,7 +144,7 @@ impl GiantBombService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search_response.number_of_total_results,
+                total_items: search_response.number_of_total_results,
             },
         })
     }

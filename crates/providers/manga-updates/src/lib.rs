@@ -191,7 +191,7 @@ impl MediaProvider for MangaUpdatesService {
         Ok(SearchResults {
             items,
             details: SearchDetails {
-                total: data.total_hits,
+                total_items: data.total_hits,
                 next_page: (data.total_hits - (page * PAGE_SIZE) > 0).then(|| page + 1),
             },
         })
@@ -391,7 +391,7 @@ impl MediaProvider for MangaUpdatesService {
             items,
             details: SearchDetails {
                 next_page,
-                total: search.total_hits,
+                total_items: search.total_hits,
             },
         })
     }

@@ -143,7 +143,7 @@ impl MediaProvider for GoogleBooksService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.total_items,
+                total_items: search.total_items,
             },
         })
     }

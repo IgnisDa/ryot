@@ -199,7 +199,7 @@ impl MediaProvider for AudibleService {
         Ok(SearchResults {
             items,
             details: SearchDetails {
-                total: total_items.try_into().unwrap(),
+                total_items: total_items.try_into().unwrap(),
                 next_page: has_next_page.then(|| (internal_page + 1).try_into().unwrap()),
             },
         })
@@ -391,7 +391,7 @@ impl MediaProvider for AudibleService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.total_results,
+                total_items: search.total_results,
             },
         })
     }
