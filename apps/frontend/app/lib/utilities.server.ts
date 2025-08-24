@@ -28,7 +28,6 @@ import { v4 as randomUUID } from "uuid";
 import { z } from "zod";
 import {
 	FRONTEND_AUTH_COOKIE_NAME,
-	pageQueryParam,
 	redirectToQueryParam,
 	toastKey,
 } from "~/lib/shared/constants";
@@ -343,30 +342,6 @@ export const extendResponseHeaders = (
 ) => {
 	for (const [key, value] of headers.entries())
 		responseHeaders.append(key, value);
-};
-
-export const redirectToFirstPageIfOnInvalidPage = async (input: {
-	request: Request;
-	currentPage: number;
-	totalResults: number;
-	respectCoreDetailsPageSize?: boolean;
-}) => {
-	const [coreDetails, userPreferences] = await Promise.all([
-		getCoreDetails(),
-		getUserPreferences(input.request),
-	]);
-	const totalPages = Math.ceil(
-		input.totalResults /
-			(input.respectCoreDetailsPageSize
-				? coreDetails.pageSize
-				: userPreferences.general.listPageSize),
-	);
-	if (input.currentPage > totalPages && input.currentPage !== 1) {
-		const { searchParams } = new URL(input.request.url);
-		searchParams.set(pageQueryParam, "1");
-		throw redirect(`?${searchParams.toString()}`);
-	}
-	return totalPages;
 };
 
 const parseFormDataWithFileSize = async (
