@@ -36,17 +36,12 @@ import { useState } from "react";
 import { useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
-import { z } from "zod";
 import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
 import { useUserDetails, useUsersList } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-
-const searchParamsSchema = z.object({
-	query: z.string().optional(),
-});
 
 const showSuccessNotification = (message: string) => {
 	notifications.show({ message, color: "green", title: "Success" });
@@ -66,8 +61,6 @@ const handleCurrentUserLogout = (
 	});
 	navigate(logoutRoute);
 };
-
-export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 type UrlDisplayData = {
 	url: string;

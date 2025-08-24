@@ -47,8 +47,8 @@ import {
 import type { Route } from "./+types/_dashboard.media.update.$action";
 
 enum Action {
-	Create = "create",
 	Edit = "edit",
+	Create = "create",
 }
 
 const searchParamsSchema = z.object({

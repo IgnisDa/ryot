@@ -74,10 +74,6 @@ import {
 } from "~/lib/state/onboarding-tour";
 import { ApplicationTimeRange, type FilterUpdateFunction } from "~/lib/types";
 
-export type SearchParams = {
-	query?: string;
-};
-
 interface ListFilterState {
 	query?: string;
 	sortBy: MediaSortBy;

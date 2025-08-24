@@ -59,10 +59,6 @@ import {
 import { useBulkEditCollection } from "~/lib/state/collection";
 import type { FilterUpdateFunction } from "~/lib/types";
 
-export type SearchParams = {
-	query?: string;
-};
-
 interface ListFilterState {
 	query?: string;
 	orderBy: GraphqlSortOrder;

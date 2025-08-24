@@ -32,10 +32,6 @@ import {
 	toastKey,
 } from "~/lib/shared/constants";
 import { queryClient } from "~/lib/shared/react-query";
-import {
-	zodEmptyDecimalString,
-	zodEmptyNumberString,
-} from "~/lib/shared/validation";
 
 export const API_URL = process.env.API_URL || "http://127.0.0.1:8000/backend";
 
@@ -152,15 +148,6 @@ export const combineHeaders = (
 };
 
 export const MetadataIdSchema = z.object({ metadataId: z.string() });
-
-export const MetadataSpecificsSchema = z.object({
-	showSeasonNumber: zodEmptyNumberString,
-	mangaVolumeNumber: zodEmptyNumberString,
-	showEpisodeNumber: zodEmptyNumberString,
-	animeEpisodeNumber: zodEmptyNumberString,
-	mangaChapterNumber: zodEmptyDecimalString,
-	podcastEpisodeNumber: zodEmptyNumberString,
-});
 
 export const getCoreDetails = async () => {
 	return await queryClient.ensureQueryData({

@@ -115,16 +115,13 @@ import {
 import { Verb } from "~/lib/types";
 import {
 	MetadataIdSchema,
-	MetadataSpecificsSchema,
 	createToastHeaders,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
 
-const searchParamsSchema = z
-	.object({ defaultTab: z.string().optional() })
-	.extend(MetadataSpecificsSchema.shape);
+const searchParamsSchema = z.object({ defaultTab: z.string().optional() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
