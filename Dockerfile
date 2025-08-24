@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.9-debian AS base
+FROM oven/bun:1.3.14-debian AS base
 WORKDIR /app
 
 FROM base AS prepare
@@ -20,7 +20,7 @@ COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 RUN bun run --filter @ryot/app-client build
 RUN bun run --filter @ryot/app-backend build
 
-FROM oven/bun:1.3.9-debian AS runner
+FROM oven/bun:1.3.14-debian AS runner
 RUN useradd -m -u 1001 ryot
 RUN apt-get update && apt-get install -y curl unzip && \
     curl -fsSL https://deno.land/install.sh | sh -s -- --yes v2.6.10 && \
