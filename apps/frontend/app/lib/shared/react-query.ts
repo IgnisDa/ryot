@@ -8,6 +8,7 @@ import {
 	type GenreDetailsInput,
 	MetadataDetailsDocument,
 	MetadataGroupDetailsDocument,
+	type MetadataGroupSearchInput,
 	PersonDetailsDocument,
 	type SearchInput,
 	type UserAnalyticsQueryVariables,
@@ -16,6 +17,7 @@ import {
 	type UserMeasurementsListInput,
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
+	type UserMetadataGroupsListInput,
 	UserPersonDetailsDocument,
 	type UserTemplatesOrWorkoutsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
@@ -82,6 +84,12 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	userMetadataGroupDetails: (metadataGroupId?: string) => ({
 		queryKey: ["userMetadataGroupDetails", metadataGroupId],
+	}),
+	userMetadataGroupsList: (input: UserMetadataGroupsListInput) => ({
+		queryKey: ["userMetadataGroupsList", input],
+	}),
+	metadataGroupSearch: (input: MetadataGroupSearchInput) => ({
+		queryKey: ["metadataGroupSearch", input],
 	}),
 });
 

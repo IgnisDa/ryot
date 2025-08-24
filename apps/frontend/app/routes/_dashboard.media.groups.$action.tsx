@@ -15,20 +15,15 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
+	type MediaCollectionFilter,
 	MediaSource,
 	MetadataGroupSearchDocument,
+	type MetadataGroupSearchInput,
 	PersonAndMetadataGroupsSortBy,
 	UserMetadataGroupsListDocument,
 	type UserMetadataGroupsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	cloneDeep,
-	parseParameters,
-	parseSearchQuery,
-	startCase,
-	zodIntAsString,
-} from "@ryot/ts-utils";
+import { changeCase, cloneDeep, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -37,15 +32,16 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { useLoaderData, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import invariant from "tiny-invariant";
-import { match } from "ts-pattern";
-import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
 } from "~/components/common";
 import {
 	CollectionsFilter,
@@ -54,156 +50,130 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataGroupDisplayItem } from "~/components/media/display-items";
-import { pageQueryParam } from "~/lib/shared/constants";
-import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import { useCoreDetails } from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	isFilterChanged,
 } from "~/lib/shared/ui-utils";
-import { zodCollectionFilter } from "~/lib/shared/validation";
 import { useBulkEditCollection } from "~/lib/state/collection";
-import {
-	getCoreDetails,
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	serverGqlService,
-} from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.groups.$action";
 
 export type SearchParams = {
 	query?: string;
 };
 
-const defaultFilters = {
+interface ListFilterState {
+	query?: string;
+	orderBy: GraphqlSortOrder;
+	collections: MediaCollectionFilter[];
+	sortBy: PersonAndMetadataGroupsSortBy;
+}
+
+interface SearchFilterState {
+	query?: string;
+	source: MediaSource;
+}
+
+type FilterUpdateFunction<T> = (
+	key: keyof T,
+	value: string | number | null,
+) => void;
+
+const defaultFilters: ListFilterState = {
 	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
-};
-
-enum Action {
-	List = "list",
-	Search = "search",
-}
-
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(Action) }),
-	);
-	const cookieName = await getSearchEnhancedCookieName(
-		`groups.${action}`,
-		request,
-	);
-	const schema = z.object({
-		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default(1),
-	});
-	const query = parseSearchQuery(request, schema);
-	const [totalResults, list, search, respectCoreDetailsPageSize, listInput] =
-		await match(action)
-			.with(Action.List, async () => {
-				const listSchema = z.object({
-					collections: zodCollectionFilter,
-					orderBy: z.enum(GraphqlSortOrder).default(defaultFilters.orderBy),
-					sortBy: z
-						.enum(PersonAndMetadataGroupsSortBy)
-						.default(defaultFilters.sortBy),
-				});
-				const urlParse = parseSearchQuery(request, listSchema);
-				const input: UserMetadataGroupsListInput = {
-					filter: { collections: urlParse.collections },
-					sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-					search: { page: query[pageQueryParam], query: query.query },
-				};
-				const { userMetadataGroupsList } =
-					await serverGqlService.authenticatedRequest(
-						request,
-						UserMetadataGroupsListDocument,
-						{ input },
-					);
-				return [
-					userMetadataGroupsList.response.details.total,
-					{ list: userMetadataGroupsList, url: urlParse },
-					undefined,
-					false,
-					input,
-				] as const;
-			})
-			.with(Action.Search, async () => {
-				const searchSchema = z.object({
-					source: z.enum(MediaSource).default(MediaSource.Tmdb),
-				});
-				const urlParse = parseSearchQuery(request, searchSchema);
-				const coreDetails = await getCoreDetails();
-				const lot = coreDetails.metadataGroupSourceLotMappings.find(
-					(m) => m.source === urlParse.source,
-				)?.lot;
-				invariant(lot);
-				const { metadataGroupSearch } =
-					await serverGqlService.authenticatedRequest(
-						request,
-						MetadataGroupSearchDocument,
-						{
-							input: {
-								lot,
-								source: urlParse.source,
-								search: { page: query[pageQueryParam], query: query.query },
-							},
-						},
-					);
-				return [
-					metadataGroupSearch.response.details.total,
-					undefined,
-					{ search: metadataGroupSearch, url: urlParse, lot },
-					true,
-					undefined,
-				] as const;
-			})
-			.exhaustive();
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		totalResults,
-		respectCoreDetailsPageSize,
-		currentPage: query[pageQueryParam],
-	});
-	return {
-		list,
-		query,
-		action,
-		search,
-		listInput,
-		totalPages,
-		cookieName,
-		[pageQueryParam]: query[pageQueryParam],
-	};
 };
 
 export const meta = ({ params }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(params.action || "")} Groups | Ryot` }];
 };
 
-export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
+	const coreDetails = useCoreDetails();
+	const action = props.params.action;
+
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
 
-	const areListFiltersActive = isFilterChanged(
-		loaderData.list?.url || {},
+	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
+		"GroupsListFilters",
 		defaultFilters,
 	);
+	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
+		"GroupsSearchFilters",
+		{ source: MediaSource.Tmdb },
+	);
+	const [searchQuery, setSearchQuery] = useLocalStorage(
+		"GroupsSearchQuery",
+		"",
+	);
+	const [currentPage, setCurrentPage] = useLocalStorage("GroupsCurrentPage", 1);
+
+	const listInput: UserMetadataGroupsListInput = useMemo(
+		() => ({
+			filter: { collections: listFilters.collections },
+			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
+			search: { page: currentPage, query: listFilters.query || searchQuery },
+		}),
+		[listFilters, searchQuery, currentPage],
+	);
+
+	const {
+		data: userMetadataGroupsList,
+		refetch: refetchUserMetadataGroupsList,
+	} = useQuery({
+		enabled: action === "list",
+		queryKey: queryFactory.media.userMetadataGroupsList(listInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserMetadataGroupsListDocument, { input: listInput })
+				.then((data) => data.userMetadataGroupsList),
+	});
+
+	const searchInput: MetadataGroupSearchInput = useMemo(() => {
+		const lot = coreDetails.metadataGroupSourceLotMappings.find(
+			(m) => m.source === searchFilters.source,
+		)?.lot;
+		if (!lot) throw new Error("Invalid source selected");
+		return {
+			lot,
+			source: searchFilters.source,
+			search: { page: currentPage, query: searchQuery },
+		};
+	}, [searchFilters.source, searchQuery, currentPage, coreDetails]);
+
+	const { data: metadataGroupSearch } = useQuery({
+		enabled: action === "search" && !!searchInput.lot,
+		queryKey: queryFactory.media.metadataGroupSearch(searchInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(MetadataGroupSearchDocument, { input: searchInput })
+				.then((data) => data.metadataGroupSearch),
+	});
+
+	const areListFiltersActive = isFilterChanged(listFilters, defaultFilters);
+
+	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
+		key,
+		value,
+	) => setListFilters((prev) => ({ ...prev, [key]: value }));
+
+	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
+		key,
+		value,
+	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
 		<>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (!loaderData.listInput) return [];
-					const input = cloneDeep(loaderData.listInput);
+					if (action !== "list") return [];
+					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return await clientGqlService
 						.request(UserMetadataGroupsListDocument, { input })
@@ -220,18 +190,14 @@ export default function Page() {
 					<Title>Groups</Title>
 					<Tabs
 						variant="default"
-						value={loaderData.action}
+						value={action}
 						onChange={(v) => {
 							if (v)
 								navigate(
 									$path(
 										"/media/groups/:action",
 										{ action: v },
-										{
-											...(loaderData.query.query && {
-												query: loaderData.query.query,
-											}),
-										},
+										{ query: searchQuery },
 									),
 								);
 						}}
@@ -248,10 +214,16 @@ export default function Page() {
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
 							placeholder="Search for groups"
-							initialValue={loaderData.query.query}
-							enhancedQueryParams={loaderData.cookieName}
+							initialValue={searchQuery}
+							onChange={(value) => {
+								setSearchQuery(value);
+								setCurrentPage(1);
+								if (action === "list") {
+									updateListFilters("query", value);
+								}
+							}}
 						/>
-						{loaderData.action === Action.List ? (
+						{action === "list" ? (
 							<>
 								<ActionIcon
 									onClick={openFiltersModal}
@@ -261,80 +233,94 @@ export default function Page() {
 								</ActionIcon>
 								<FiltersModal
 									closeFiltersModal={closeFiltersModal}
-									cookieName={loaderData.cookieName}
 									opened={filtersModalOpened}
+									cookieName="GroupsListFilters"
 								>
-									<FiltersModalForm />
+									<FiltersModalForm
+										filters={listFilters}
+										onFiltersChange={updateListFilters}
+									/>
 								</FiltersModal>
 							</>
 						) : null}
-						{loaderData.action === Action.Search ? (
-							<>
-								<Select
-									onChange={(v) => setP("source", v)}
-									defaultValue={loaderData.search?.url.source}
-									data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
-										value: o.source.toString(),
-										label: startCase(o.source.toLowerCase()),
-									}))}
-								/>
-							</>
+						{action === "search" ? (
+							<Select
+								value={searchFilters.source}
+								onChange={(v) => v && updateSearchFilters("source", v)}
+								data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
+									value: o.source.toString(),
+									label: startCase(o.source.toLowerCase()),
+								}))}
+							/>
 						) : null}
 					</Group>
-					{loaderData.list ? (
-						<>
-							<DisplayListDetailsAndRefresh
-								cacheId={loaderData.list.list.cacheId}
-								total={loaderData.list.list.response.details.total}
-								isRandomSortOrderSelected={
-									loaderData.list.url.sortBy ===
-									PersonAndMetadataGroupsSortBy.Random
-								}
-							/>
-							{loaderData.list.list.response.details.total > 0 ? (
-								<ApplicationGrid>
-									{loaderData.list.list.response.items.map((gr) => (
-										<MetadataGroupListItem key={gr} item={gr} />
-									))}
-								</ApplicationGrid>
-							) : (
-								<Text>No information to display</Text>
-							)}
-							<ApplicationPagination
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</>
+
+					{action === "list" ? (
+						userMetadataGroupsList ? (
+							<>
+								<DisplayListDetailsAndRefresh
+									cacheId={userMetadataGroupsList.cacheId}
+									total={userMetadataGroupsList.response.details.total}
+									onRefreshButtonClicked={refetchUserMetadataGroupsList}
+									isRandomSortOrderSelected={
+										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
+									}
+								/>
+								{userMetadataGroupsList.response.details.total > 0 ? (
+									<ApplicationGrid>
+										{userMetadataGroupsList.response.items.map((gr) => (
+											<MetadataGroupListItem key={gr} item={gr} />
+										))}
+									</ApplicationGrid>
+								) : (
+									<Text>No information to display</Text>
+								)}
+								<ApplicationPagination
+									total={Math.ceil(
+										userMetadataGroupsList.response.details.total / 20,
+									)}
+									value={currentPage}
+									onChange={setCurrentPage}
+								/>
+							</>
+						) : (
+							<SkeletonLoader />
+						)
 					) : null}
 
-					{loaderData.search ? (
-						<>
-							<Box>
-								<Text display="inline" fw="bold">
-									{loaderData.search.search.response.details.total}
-								</Text>{" "}
-								items found
-							</Box>
-							{loaderData.search.search.response.details.total > 0 ? (
-								<ApplicationGrid>
-									{loaderData.search.search.response.items.map((group) => (
-										<MetadataGroupDisplayItem
-											key={group}
-											metadataGroupId={group}
-											shouldHighlightNameIfInteracted
-										/>
-									))}
-								</ApplicationGrid>
-							) : (
-								<Text>No groups found matching your query</Text>
-							)}
-							<ApplicationPagination
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</>
+					{action === "search" ? (
+						metadataGroupSearch ? (
+							<>
+								<Box>
+									<Text display="inline" fw="bold">
+										{metadataGroupSearch.response.details.total}
+									</Text>{" "}
+									items found
+								</Box>
+								{metadataGroupSearch.response.details.total > 0 ? (
+									<ApplicationGrid>
+										{metadataGroupSearch.response.items.map((group) => (
+											<MetadataGroupDisplayItem
+												key={group}
+												metadataGroupId={group}
+												shouldHighlightNameIfInteracted
+											/>
+										))}
+									</ApplicationGrid>
+								) : (
+									<Text>No groups found matching your query</Text>
+								)}
+								<ApplicationPagination
+									total={Math.ceil(
+										metadataGroupSearch.response.details.total / 20,
+									)}
+									value={currentPage}
+									onChange={setCurrentPage}
+								/>
+							</>
+						) : (
+							<SkeletonLoader />
+						)
 					) : null}
 				</Stack>
 			</Container>
@@ -342,29 +328,31 @@ export default function Page() {
 	);
 }
 
-const FiltersModalForm = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+interface FiltersModalFormProps {
+	filters: ListFilterState;
+	onFiltersChange: FilterUpdateFunction<ListFilterState>;
+}
 
-	if (!loaderData.list) return null;
+const FiltersModalForm = (props: FiltersModalFormProps) => {
+	const { filters, onFiltersChange } = props;
 
 	return (
 		<>
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
-					defaultValue={loaderData.list.url.sortBy}
-					onChange={(v) => setP("sortBy", v)}
+					value={filters.sortBy}
+					onChange={(v) => v && onFiltersChange("sortBy", v)}
 					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
 				/>
 				<ActionIcon
 					onClick={() => {
-						if (loaderData.list?.url.orderBy === GraphqlSortOrder.Asc)
-							setP("orderBy", GraphqlSortOrder.Desc);
-						else setP("orderBy", GraphqlSortOrder.Asc);
+						if (filters.orderBy === GraphqlSortOrder.Asc)
+							onFiltersChange("orderBy", GraphqlSortOrder.Desc);
+						else onFiltersChange("orderBy", GraphqlSortOrder.Asc);
 					}}
 				>
-					{loaderData.list.url.orderBy === GraphqlSortOrder.Asc ? (
+					{filters.orderBy === GraphqlSortOrder.Asc ? (
 						<IconSortAscending />
 					) : (
 						<IconSortDescending />
@@ -373,8 +361,8 @@ const FiltersModalForm = () => {
 			</Flex>
 			<Divider />
 			<CollectionsFilter
-				cookieName={loaderData.cookieName}
-				applied={loaderData.list.url.collections}
+				applied={filters.collections}
+				cookieName="GroupsListFilters"
 			/>
 		</>
 	);
