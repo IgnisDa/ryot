@@ -330,11 +330,11 @@ export const DisplayListDetailsAndRefresh = (props: {
 				<Button
 					size="xs"
 					variant="subtle"
+					leftSection={<IconArrowsShuffle size={20} />}
 					onClick={async () => {
 						await expireCacheKey.mutateAsync(props.cacheId ?? "");
 						props.onRefreshButtonClicked?.();
 					}}
-					leftSection={<IconArrowsShuffle size={20} />}
 				>
 					Refresh
 				</Button>
