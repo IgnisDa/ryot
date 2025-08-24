@@ -152,16 +152,16 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		slug: "review",
 		propertiesSchema: {
 			fields: {
-				review: {
+				text: {
 					label: "Review",
 					type: "string" as const,
 					description: "Your written thoughts or notes about this media",
 				},
 				rating: {
 					label: "Rating",
-					type: "integer" as const,
-					validation: { maximum: 5, minimum: 1, required: true as const },
-					description: "Your personal rating from 1 (lowest) to 5 (highest)",
+					type: "number" as const,
+					validation: { maximum: 100, minimum: 0 },
+					description: "Your personal rating from 0 (lowest) to 100 (highest)",
 				},
 			},
 		},
