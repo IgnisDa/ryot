@@ -244,6 +244,7 @@ export const refreshEntityDetails = (entityId: string) =>
 				queryFactory.media.userPeopleList._def,
 				queryFactory.media.userMetadataList._def,
 				queryFactory.media.userMetadataGroupsList._def,
+				queryFactory.collections.collectionContents._def,
 				queryFactory.media.personDetails(entityId).queryKey,
 				queryFactory.media.userPersonDetails(entityId).queryKey,
 				queryFactory.media.metadataDetails(entityId).queryKey,
