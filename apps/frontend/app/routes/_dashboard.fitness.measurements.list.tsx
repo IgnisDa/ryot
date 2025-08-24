@@ -15,10 +15,10 @@ import {
 import {
 	DeleteUserMeasurementDocument,
 	UserMeasurementsListDocument,
+	type UserMeasurementsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	getActionIntent,
-	parseSearchQuery,
 	processSubmission,
 	reverse,
 	startCase,
@@ -29,18 +29,17 @@ import {
 	IconTable,
 	IconTrash,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
-import { Form, data, useLoaderData } from "react-router";
+import { useMemo } from "react";
+import { Form, data } from "react-router";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
 import { dayjsLib, getDateFromTimeSpan } from "~/lib/shared/date-utils";
-import {
-	useAppSearchParam,
-	useConfirmSubmit,
-	useUserPreferences,
-} from "~/lib/shared/hooks";
+import { useConfirmSubmit, useUserPreferences } from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	generateColor,
@@ -49,44 +48,15 @@ import {
 } from "~/lib/shared/ui-utils";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
 import { TimeSpan } from "~/lib/types";
-import {
-	createToastHeaders,
-	getSearchEnhancedCookieName,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
+import { createToastHeaders, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.measurements.list";
 
-const searchParamsSchema = z.object({
-	timeSpan: z.enum(TimeSpan).optional(),
-});
+interface FilterState {
+	timeSpan: TimeSpan;
+}
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-const defaultTimeSpan = TimeSpan.Last30Days;
-
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const cookieName = await getSearchEnhancedCookieName(
-		"measurements.list",
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const now = dayjsLib();
-	const startTime = getDateFromTimeSpan(query.timeSpan || defaultTimeSpan);
-	const [{ userMeasurementsList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(
-			request,
-			UserMeasurementsListDocument,
-			{
-				input: {
-					endTime: now.toISOString(),
-					startTime: startTime?.toISOString(),
-				},
-			},
-		),
-	]);
-	return { query, userMeasurementsList, cookieName };
+const defaultFilterState: FilterState = {
+	timeSpan: TimeSpan.Last30Days,
 };
 
 export const meta = () => {
@@ -117,28 +87,53 @@ export const action = async ({ request }: Route.ActionArgs) => {
 const deleteSchema = z.object({ timestamp: z.string() });
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
-	const userPreferences = useUserPreferences();
 	const submit = useConfirmSubmit();
+	const userPreferences = useUserPreferences();
+	const [, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
+	const [filters, setFilters] = useLocalStorage(
+		"MeasurementsListFilters",
+		defaultFilterState,
+	);
+	const [selectedStats, setSelectedStats] = useLocalStorage(
+		"SavedMeasurementsDisplaySelectedStats",
+		["weight"],
+	);
+
+	const input: UserMeasurementsListInput = useMemo(() => {
+		const now = dayjsLib();
+		const startTime = getDateFromTimeSpan(filters.timeSpan);
+		return {
+			endTime: now.toISOString(),
+			startTime: startTime?.toISOString(),
+		};
+	}, [filters.timeSpan]);
+
+	const { data: userMeasurementsList } = useQuery({
+		queryKey: queryFactory.fitness.userMeasurementsList(input).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserMeasurementsListDocument, { input })
+				.then((data) => data.userMeasurementsList),
+	});
+
 	const selectedStatistics =
 		userPreferences.fitness.measurements.statistics.map((v) => ({
 			value: v.name,
 			label: `${startCase(v.name)} ${v.unit ? `(${v.unit})` : ""}`,
 		}));
-	const formattedData = loaderData.userMeasurementsList.response.map((m) => {
-		const local: Record<string, string> = {
-			timestamp: m.timestamp,
-			formattedTimestamp: tickFormatter(m.timestamp),
-		};
-		for (const s of m.information.statistics) local[s.name] = s.value;
-		return local;
-	});
-	const [selectedStats, setSelectedStats] = useLocalStorage(
-		"SavedMeasurementsDisplaySelectedStats",
-		["weight"],
-	);
-	const [_p, { setP }] = useAppSearchParam(loaderData.cookieName);
-	const [_m, setMeasurementsDrawerOpen] = useMeasurementsDrawerOpen();
+
+	const formattedData =
+		userMeasurementsList?.response?.map((m) => {
+			const local: Record<string, string> = {
+				timestamp: m.timestamp,
+				formattedTimestamp: tickFormatter(m.timestamp),
+			};
+			for (const s of m.information.statistics) local[s.name] = s.value;
+			return local;
+		}) || [];
+
+	const updateFilter = (key: keyof FilterState, value: TimeSpan) =>
+		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
 		<Container>
@@ -157,9 +152,9 @@ export default function Page() {
 					<Select
 						label="Time span"
 						data={convertEnumToSelectData(TimeSpan)}
-						defaultValue={loaderData.query.timeSpan || defaultTimeSpan}
+						value={filters.timeSpan}
 						onChange={(v) => {
-							if (v) setP("timeSpan", v);
+							if (v) updateFilter("timeSpan", v as TimeSpan);
 						}}
 					/>
 				</SimpleGrid>
@@ -252,7 +247,7 @@ export default function Page() {
 					</Tabs.Panel>
 				</Tabs>
 				<Text ta="right" mt="xl" fw="bold">
-					{loaderData.userMeasurementsList.response.length} data points
+					{userMeasurementsList?.response?.length || 0} data points
 				</Text>
 			</Stack>
 		</Container>

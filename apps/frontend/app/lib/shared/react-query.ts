@@ -13,6 +13,7 @@ import {
 	type UserAnalyticsQueryVariables,
 	type UserCalendarEventInput,
 	type UserExercisesListInput,
+	type UserMeasurementsListInput,
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 	UserPersonDetailsDocument,
@@ -114,6 +115,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 	entityList: (entity: string, filters: UserTemplatesOrWorkoutsListInput) => ({
 		queryKey: ["fitnessEntityList", entity, filters],
+	}),
+	userMeasurementsList: (input: UserMeasurementsListInput) => ({
+		queryKey: ["userMeasurementsList", input],
 	}),
 });
 
