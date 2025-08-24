@@ -26,14 +26,7 @@ import {
 	UserWorkoutsListDocument,
 	type WorkoutSummary,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	humanizeDuration,
-	parseParameters,
-	parseSearchQuery,
-	truncate,
-	zodIntAsString,
-} from "@ryot/ts-utils";
+import { changeCase, humanizeDuration, truncate } from "@ryot/ts-utils";
 import {
 	IconChevronDown,
 	IconChevronUp,
@@ -48,14 +41,15 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
-import { Link, useLoaderData } from "react-router";
+import { Link, useParams } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
-import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
 } from "~/components/common";
 import {
 	DebouncedSearchInput,
@@ -67,15 +61,14 @@ import {
 	displayWeightWithUnit,
 	getSetStatisticsTextToDisplay,
 } from "~/components/fitness/utils";
-import { PRO_REQUIRED_MESSAGE, pageQueryParam } from "~/lib/shared/constants";
+import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
-	useAppSearchParam,
 	useCoreDetails,
 	useGetWorkoutStarter,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/react-query";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
 	isFilterChanged,
@@ -89,88 +82,41 @@ import {
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
 import { FitnessAction, FitnessEntity } from "~/lib/types";
-import {
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.$entity.list";
 
-const defaultFilters = {
+interface FilterState {
+	query?: string;
+	page: number;
+	orderBy: GraphqlSortOrder;
+	sortBy: UserTemplatesOrWorkoutsListSortBy;
+}
+
+const defaultFilterState: FilterState = {
+	page: 1,
+	query: undefined,
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
 };
 
-const searchParamsSchema = z.object({
-	query: z.string().optional(),
-	[pageQueryParam]: zodIntAsString.default(1),
-	orderBy: z.enum(GraphqlSortOrder).default(defaultFilters.orderBy),
-	sortBy: z
-		.enum(UserTemplatesOrWorkoutsListSortBy)
-		.default(defaultFilters.sortBy),
-});
+type UpdateFilterFunction = (
+	key: keyof FilterState,
+	value: string | number | null,
+) => void;
 
-export type SearchParams = z.infer<typeof searchParamsSchema>;
-
-export const loader = async ({ params, request }: Route.LoaderArgs) => {
-	const { entity } = parseParameters(
-		params,
-		z.object({ entity: z.enum(FitnessEntity) }),
-	);
-	const cookieName = await getSearchEnhancedCookieName(
-		`${entity}.list`,
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const input: UserTemplatesOrWorkoutsListInput = {
-		sort: { by: query.sortBy, order: query.orderBy },
-		search: { query: query.query, page: query[pageQueryParam] },
-	};
-	const displayData = await match(entity)
-		.with(FitnessEntity.Workouts, async () => {
-			const { userWorkoutsList } = await serverGqlService.authenticatedRequest(
-				request,
-				UserWorkoutsListDocument,
-				{ input },
-			);
-			return {
-				cacheId: userWorkoutsList.cacheId,
-				items: userWorkoutsList.response.items,
-				details: userWorkoutsList.response.details,
-			};
-		})
-		.with(FitnessEntity.Templates, async () => {
-			const { userWorkoutTemplatesList } =
-				await serverGqlService.authenticatedRequest(
-					request,
-					UserWorkoutTemplatesListDocument,
-					{ input },
-				);
-			return {
-				cacheId: userWorkoutTemplatesList.cacheId,
-				items: userWorkoutTemplatesList.response.items,
-				details: userWorkoutTemplatesList.response.details,
-			};
-		})
-		.exhaustive();
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		currentPage: query[pageQueryParam],
-		totalResults: displayData.details.total,
-	});
-	return { query, entity, displayData, cookieName, totalPages };
-};
-
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${changeCase(data?.entity || "")} | Ryot` }];
+export const meta = ({ params }: Route.MetaArgs) => {
+	return [{ title: `${changeCase(params.entity || "")} | Ryot` }];
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+	const params = useParams();
+	const entity = params.entity as FitnessEntity;
+	invariant(entity);
+
+	const [filters, setFilters] = useLocalStorage(
+		`Fitness-${entity}-ListFilters`,
+		defaultFilterState,
+	);
 	const coreDetails = useCoreDetails();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
 	const startWorkout = useGetWorkoutStarter();
 	const [
 		filtersModalOpened,
@@ -178,17 +124,48 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const areListFiltersActive = isFilterChanged(
-		loaderData.query,
-		defaultFilters,
-	);
+	const updateFilter: UpdateFilterFunction = (key, value) =>
+		setFilters((prev) => ({ ...prev, [key]: value }));
+
+	const input: UserTemplatesOrWorkoutsListInput = {
+		sort: { by: filters.sortBy, order: filters.orderBy },
+		search: { query: filters.query, page: filters.page },
+	};
+	const { data: listData, refetch: refetchListData } = useQuery({
+		queryKey: queryFactory.fitness.entityList(entity, input).queryKey,
+		queryFn: () =>
+			match(entity)
+				.with(FitnessEntity.Workouts, () =>
+					clientGqlService
+						.request(UserWorkoutsListDocument, { input })
+						.then(({ userWorkoutsList }) => ({
+							cacheId: userWorkoutsList.cacheId,
+							items: userWorkoutsList.response.items,
+							details: userWorkoutsList.response.details,
+						})),
+				)
+				.with(FitnessEntity.Templates, () =>
+					clientGqlService
+						.request(UserWorkoutTemplatesListDocument, { input })
+						.then(({ userWorkoutTemplatesList }) => ({
+							cacheId: userWorkoutTemplatesList.cacheId,
+							items: userWorkoutTemplatesList.response.items,
+							details: userWorkoutTemplatesList.response.details,
+						})),
+				)
+				.exhaustive(),
+	});
+
+	const totalPages = listData ? Math.ceil(listData.details.total / 10) : 1;
+
+	const areListFiltersActive = isFilterChanged(filters, defaultFilterState);
 
 	return (
 		<Container size="xs">
 			<Stack>
 				<WorkoutRevisionScheduledAlert />
 				<Flex align="center" gap="md">
-					<Title>{changeCase(loaderData.entity)}</Title>
+					<Title>{changeCase(entity)}</Title>
 					<ActionIcon
 						color="green"
 						variant="outline"
@@ -196,7 +173,7 @@ export default function Page() {
 						onClick={async () => {
 							if (
 								!coreDetails.isServerKeyValidated &&
-								loaderData.entity === FitnessEntity.Templates
+								entity === FitnessEntity.Templates
 							) {
 								notifications.show({
 									color: "red",
@@ -204,7 +181,7 @@ export default function Page() {
 								});
 								return;
 							}
-							const action = match(loaderData.entity)
+							const action = match(entity)
 								.with(FitnessEntity.Workouts, () => FitnessAction.LogWorkout)
 								.with(
 									FitnessEntity.Templates,
@@ -220,9 +197,9 @@ export default function Page() {
 				</Flex>
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
-						initialValue={loaderData.query.query}
-						enhancedQueryParams={loaderData.cookieName}
-						placeholder={`Search for ${loaderData.entity}`}
+						initialValue={filters.query}
+						onChange={(value) => updateFilter("query", value)}
+						placeholder={`Search for ${entity}`}
 					/>
 					<ActionIcon
 						onClick={openFiltersModal}
@@ -231,46 +208,56 @@ export default function Page() {
 						<IconFilter size={24} />
 					</ActionIcon>
 					<FiltersModal
+						cookieName=""
 						opened={filtersModalOpened}
-						cookieName={loaderData.cookieName}
 						closeFiltersModal={closeFiltersModal}
 					>
-						<FiltersModalForm />
+						<FiltersModalForm filters={filters} updateFilter={updateFilter} />
 					</FiltersModal>
 				</Group>
 				<Stack gap="xs">
-					<DisplayListDetailsAndRefresh
-						cacheId={loaderData.displayData.cacheId}
-						total={loaderData.displayData.details.total}
-						isRandomSortOrderSelected={
-							loaderData.query.sortBy ===
-							UserTemplatesOrWorkoutsListSortBy.Random
-						}
-					/>
-					{loaderData.displayData.items.length > 0 ? (
-						loaderData.displayData.items.map((entityId, index) => (
-							<DisplayFitnessEntity
-								index={index}
-								key={entityId}
-								entityId={entityId}
+					{listData ? (
+						<>
+							<DisplayListDetailsAndRefresh
+								cacheId={listData.cacheId}
+								total={listData.details.total}
+								onRefreshButtonClicked={refetchListData}
+								isRandomSortOrderSelected={
+									filters.sortBy === UserTemplatesOrWorkoutsListSortBy.Random
+								}
 							/>
-						))
+							{listData.items.length > 0 ? (
+								listData.items.map((entityId, index) => (
+									<DisplayFitnessEntity
+										index={index}
+										key={entityId}
+										entity={entity}
+										entityId={entityId}
+									/>
+								))
+							) : (
+								<Text>No {entity} found</Text>
+							)}
+						</>
 					) : (
-						<Text>No {loaderData.entity} found</Text>
+						<SkeletonLoader />
 					)}
 				</Stack>
 				<ApplicationPagination
-					total={loaderData.totalPages}
-					value={loaderData.query[pageQueryParam]}
-					onChange={(v) => setP(pageQueryParam, v.toString())}
+					total={totalPages}
+					value={filters.page}
+					onChange={(v) => updateFilter("page", v)}
 				/>
 			</Stack>
 		</Container>
 	);
 }
 
-const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
-	const loaderData = useLoaderData<typeof loader>();
+const DisplayFitnessEntity = (props: {
+	index: number;
+	entityId: string;
+	entity: FitnessEntity;
+}) => {
 	const unitSystem = useUserUnitSystem();
 	const { ref, inViewport } = useInViewport();
 	const [parent] = useAutoAnimate();
@@ -280,7 +267,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 		enabled: inViewport,
 		queryKey: ["fitnessEntityDetails", props.entityId],
 		queryFn: () =>
-			match(loaderData.entity)
+			match(props.entity)
 				.with(FitnessEntity.Workouts, () =>
 					clientGqlService
 						.request(UserWorkoutDetailsDocument, { workoutId: props.entityId })
@@ -342,7 +329,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 								fz={{ base: "sm", md: "md" }}
 								to={$path("/fitness/:entity/:id", {
 									id: props.entityId,
-									entity: loaderData.entity,
+									entity: props.entity,
 								})}
 							>
 								{truncate(entityInformation.name, { length: 20 })}
@@ -354,7 +341,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 						<Group mt="xs">
 							<DisplayStat
 								data={entityInformation.detail}
-								icon={match(loaderData.entity)
+								icon={match(props.entity)
 									.with(FitnessEntity.Workouts, () => <IconClock size={16} />)
 									.with(FitnessEntity.Templates, () => <IconWeight size={16} />)
 									.exhaustive()}
@@ -408,7 +395,7 @@ const DisplayFitnessEntity = (props: { entityId: string; index: number }) => {
 					<Box px={{ base: "xs", md: "md" }}>
 						<Group justify="space-between">
 							<Text fw="bold">Exercise</Text>
-							{loaderData.entity === FitnessEntity.Workouts ? (
+							{props.entity === FitnessEntity.Workouts ? (
 								<Text fw="bold">Best set</Text>
 							) : null}
 						</Group>
@@ -467,33 +454,33 @@ const ExerciseDisplay = (props: {
 	);
 };
 
-const FiltersModalForm = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
-
+const FiltersModalForm = (props: {
+	filters: FilterState;
+	updateFilter: UpdateFilterFunction;
+}) => {
 	return (
-		<>
-			<Flex gap="xs" align="center">
-				<Select
-					w="100%"
-					defaultValue={loaderData.query.sortBy}
-					onChange={(v) => setP("sortBy", v)}
-					data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
-				/>
-				<ActionIcon
-					onClick={() => {
-						if (loaderData.query.orderBy === GraphqlSortOrder.Asc)
-							setP("orderBy", GraphqlSortOrder.Desc);
-						else setP("orderBy", GraphqlSortOrder.Asc);
-					}}
-				>
-					{loaderData.query.orderBy === GraphqlSortOrder.Asc ? (
-						<IconSortAscending />
-					) : (
-						<IconSortDescending />
-					)}
-				</ActionIcon>
-			</Flex>
-		</>
+		<Flex gap="xs" align="center">
+			<Select
+				w="100%"
+				defaultValue={props.filters.sortBy}
+				onChange={(v) =>
+					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy)
+				}
+				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
+			/>
+			<ActionIcon
+				onClick={() => {
+					if (props.filters.orderBy === GraphqlSortOrder.Asc)
+						props.updateFilter("orderBy", GraphqlSortOrder.Desc);
+					else props.updateFilter("orderBy", GraphqlSortOrder.Asc);
+				}}
+			>
+				{props.filters.orderBy === GraphqlSortOrder.Asc ? (
+					<IconSortAscending />
+				) : (
+					<IconSortDescending />
+				)}
+			</ActionIcon>
+		</Flex>
 	);
 };

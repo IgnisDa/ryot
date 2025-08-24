@@ -16,6 +16,7 @@ import {
 	UserMetadataDetailsDocument,
 	UserMetadataGroupDetailsDocument,
 	UserPersonDetailsDocument,
+	type UserTemplatesOrWorkoutsListInput,
 } from "@ryot/generated/graphql/backend/graphql";
 import { QueryClient, queryOptions, skipToken } from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
@@ -110,6 +111,9 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	}),
 	workoutTemplateDetails: (workoutTemplateId: string) => ({
 		queryKey: ["workoutTemplateDetails", workoutTemplateId],
+	}),
+	entityList: (entity: string, filters: UserTemplatesOrWorkoutsListInput) => ({
+		queryKey: ["fitnessEntityList", entity, filters],
 	}),
 });
 
