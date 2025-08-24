@@ -80,9 +80,9 @@ interface SearchFilterState {
 	};
 }
 
-type FilterUpdateFunction<T> = (
-	key: keyof T,
-	value: string | number | boolean | null | MediaCollectionFilter[],
+type FilterUpdateFunction<T> = <K extends keyof T>(
+	key: K,
+	value: T[K] | null,
 ) => void;
 
 const defaultListFilters: ListFilterState = {
@@ -152,12 +152,7 @@ export default function Page(props: { params: { action: string } }) {
 			sourceSpecifics: searchFilters.sourceSpecifics,
 			search: { page: currentPage, query: searchQuery },
 		}),
-		[
-			searchFilters.source,
-			searchFilters.sourceSpecifics,
-			searchQuery,
-			currentPage,
-		],
+		[searchFilters, searchQuery, currentPage],
 	);
 
 	const { data: peopleSearch } = useQuery({
@@ -180,10 +175,7 @@ export default function Page(props: { params: { action: string } }) {
 		key,
 		value,
 	) => {
-		if (key === "sourceSpecifics") {
-			// Handle nested sourceSpecifics updates
-			return;
-		}
+		if (key === "sourceSpecifics") return;
 		setSearchFilters((prev) => ({ ...prev, [key]: value }));
 	};
 
@@ -273,10 +265,12 @@ export default function Page(props: { params: { action: string } }) {
 						{action === "search" ? (
 							<>
 								<Select
-									onChange={(v) => v && updateSearchFilters("source", v)}
 									value={searchFilters.source}
+									onChange={(v) =>
+										v && updateSearchFilters("source", v as MediaSource)
+									}
 									data={coreDetails.peopleSearchSources.map((o) => ({
-										value: o.toString(),
+										value: o,
 										label: startCase(o.toLowerCase()),
 									}))}
 								/>
@@ -379,8 +373,10 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 				<Select
 					w="100%"
 					value={filters.sortBy}
-					onChange={(v) => v && onFiltersChange("sortBy", v)}
 					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
+					onChange={(v) =>
+						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
+					}
 				/>
 				<ActionIcon
 					onClick={() => {
