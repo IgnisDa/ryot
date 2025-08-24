@@ -75,7 +75,6 @@ import {
 import { ApplicationTimeRange, type FilterUpdateFunction } from "~/lib/types";
 
 interface ListFilterState {
-	query?: string;
 	sortBy: MediaSortBy;
 	endDateRange?: string;
 	startDateRange?: string;
@@ -154,7 +153,7 @@ export default function Page(props: {
 		() => ({
 			lot,
 			sort: { order: listFilters.sortOrder, by: listFilters.sortBy },
-			search: { page: currentPage, query: listFilters.query || searchQuery },
+			search: { page: currentPage, query: searchQuery },
 			filter: {
 				general: listFilters.generalFilter,
 				collections: listFilters.collections,
@@ -301,7 +300,6 @@ export default function Page(props: {
 										onChange={(value) => {
 											setSearchQuery(value);
 											setCurrentPage(1);
-											updateListFilters("query", value);
 										}}
 									/>
 									<ActionIcon

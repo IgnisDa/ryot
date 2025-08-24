@@ -60,7 +60,6 @@ import { useBulkEditCollection } from "~/lib/state/collection";
 import type { FilterUpdateFunction } from "~/lib/types";
 
 interface ListFilterState {
-	query?: string;
 	orderBy: GraphqlSortOrder;
 	collections: MediaCollectionFilter[];
 	sortBy: PersonAndMetadataGroupsSortBy;
@@ -124,7 +123,7 @@ export default function Page(props: { params: { action: string } }) {
 		() => ({
 			filter: { collections: listFilters.collections },
 			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
-			search: { page: currentPage, query: listFilters.query || searchQuery },
+			search: { page: currentPage, query: searchQuery },
 		}),
 		[listFilters, searchQuery, currentPage],
 	);
@@ -219,9 +218,6 @@ export default function Page(props: { params: { action: string } }) {
 							onChange={(value) => {
 								setSearchQuery(value);
 								setCurrentPage(1);
-								if (action === "list") {
-									updateListFilters("query", value);
-								}
 							}}
 						/>
 						{action === "list" ? (
