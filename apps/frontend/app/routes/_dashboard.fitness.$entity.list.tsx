@@ -81,7 +81,11 @@ import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import { FitnessAction, FitnessEntity } from "~/lib/types";
+import {
+	type FilterUpdateFunction,
+	FitnessAction,
+	FitnessEntity,
+} from "~/lib/types";
 import type { Route } from "./+types/_dashboard.fitness.$entity.list";
 
 interface FilterState {
@@ -97,11 +101,6 @@ const defaultFilterState: FilterState = {
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
 };
-
-type UpdateFilterFunction = (
-	key: keyof FilterState,
-	value: string | number | null,
-) => void;
 
 export const meta = ({ params }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(params.entity || "")} | Ryot` }];
@@ -124,7 +123,7 @@ export default function Page() {
 	] = useDisclosure(false);
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 
-	const updateFilter: UpdateFilterFunction = (key, value) =>
+	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	const input: UserTemplatesOrWorkoutsListInput = {
@@ -456,17 +455,17 @@ const ExerciseDisplay = (props: {
 
 const FiltersModalForm = (props: {
 	filters: FilterState;
-	updateFilter: UpdateFilterFunction;
+	updateFilter: FilterUpdateFunction<FilterState>;
 }) => {
 	return (
 		<Flex gap="xs" align="center">
 			<Select
 				w="100%"
 				defaultValue={props.filters.sortBy}
+				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
 				onChange={(v) =>
 					props.updateFilter("sortBy", v as UserTemplatesOrWorkoutsListSortBy)
 				}
-				data={convertEnumToSelectData(UserTemplatesOrWorkoutsListSortBy)}
 			/>
 			<ActionIcon
 				onClick={() => {

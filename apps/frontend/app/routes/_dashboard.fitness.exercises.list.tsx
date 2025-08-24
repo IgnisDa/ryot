@@ -92,6 +92,7 @@ import {
 	TOUR_EXERCISE_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
+import type { FilterUpdateFunction } from "~/lib/types";
 import { redirectWithToast, serverGqlService } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
@@ -107,11 +108,6 @@ interface FilterState {
 	mechanic?: ExerciseMechanic;
 	equipment?: ExerciseEquipment;
 }
-
-type UpdateFilterFunction = (
-	key: keyof FilterState,
-	value: string | number | null,
-) => void;
 
 const defaultFilters: FilterState = {
 	page: 1,
@@ -213,7 +209,7 @@ export default function Page() {
 		isFitnessActionActive &&
 		!isNumber(currentWorkout.replacingExerciseIdx);
 
-	const updateFilter: UpdateFilterFunction = (key, value) =>
+	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	return (
@@ -350,7 +346,7 @@ export default function Page() {
 
 const FiltersModalForm = (props: {
 	filter: FilterState;
-	updateFilter: UpdateFilterFunction;
+	updateFilter: FilterUpdateFunction<FilterState>;
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
@@ -362,7 +358,7 @@ const FiltersModalForm = (props: {
 				label="Sort by"
 				defaultValue={props.filter.sortBy}
 				data={convertEnumToSelectData(ExerciseSortBy)}
-				onChange={(v) => props.updateFilter("sortBy", v)}
+				onChange={(v) => props.updateFilter("sortBy", v as ExerciseSortBy)}
 			/>
 			{Object.keys(defaultFilters)
 				.filter((f) => !["sortBy", "collection", "page", "query"].includes(f))
@@ -379,8 +375,8 @@ const FiltersModalForm = (props: {
 						data={(coreDetails.exerciseParameters.filters as any)[f].map(
 							// biome-ignore lint/suspicious/noExplicitAny: required here
 							(v: any) => ({
-								label: startCase(snakeCase(v)),
 								value: v,
+								label: startCase(snakeCase(v)),
 							}),
 						)}
 					/>

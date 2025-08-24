@@ -57,6 +57,7 @@ import {
 	isFilterChanged,
 } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
+import type { FilterUpdateFunction } from "~/lib/types";
 
 export type SearchParams = {
 	query?: string;
@@ -75,15 +76,10 @@ interface SearchFilterState {
 	sourceSpecifics: {
 		isTmdbCompany?: boolean;
 		isAnilistStudio?: boolean;
-		isHardcoverPublisher?: boolean;
 		isGiantBombCompany?: boolean;
+		isHardcoverPublisher?: boolean;
 	};
 }
-
-type FilterUpdateFunction<T> = <K extends keyof T>(
-	key: K,
-	value: T[K] | null,
-) => void;
 
 const defaultListFilters: ListFilterState = {
 	collections: [],

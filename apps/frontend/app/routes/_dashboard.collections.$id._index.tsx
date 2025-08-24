@@ -76,6 +76,7 @@ import {
 	useCreateOrUpdateCollectionModal,
 } from "~/lib/state/collection";
 import { useReviewEntity } from "~/lib/state/media";
+import type { FilterUpdateFunction } from "~/lib/types";
 
 enum TabNames {
 	Actions = "actions",
@@ -107,11 +108,6 @@ const defaultFilters: FilterState = {
 export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
 };
-
-type UpdateFilterFunction = (
-	key: keyof FilterState,
-	value: string | number | null,
-) => void;
 
 export default function Page() {
 	const { id: collectionId } = useParams();
@@ -161,7 +157,7 @@ export default function Page() {
 	};
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
 
-	const updateFilter: UpdateFilterFunction = (key, value) =>
+	const updateFilter: FilterUpdateFunction<FilterState> = (key, value) =>
 		setFilters((prev) => ({ ...prev, [key]: value }));
 
 	const areListFiltersActive = isFilterChanged(filters, defaultFilters);
@@ -414,21 +410,23 @@ export default function Page() {
 
 const FiltersModalForm = (props: {
 	filters: FilterState;
-	updateFilter: UpdateFilterFunction;
+	updateFilter: FilterUpdateFunction<FilterState>;
 }) => {
 	return (
 		<>
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
+					defaultValue={props.filters.sortBy}
+					onChange={(v) =>
+						props.updateFilter("sortBy", v as CollectionContentsSortBy)
+					}
 					data={[
 						{
 							group: "Sort by",
 							items: convertEnumToSelectData(CollectionContentsSortBy),
 						},
 					]}
-					defaultValue={props.filters.sortBy}
-					onChange={(v) => props.updateFilter("sortBy", v)}
 				/>
 				<ActionIcon
 					onClick={() => {
@@ -448,7 +446,7 @@ const FiltersModalForm = (props: {
 				clearable
 				placeholder="Select an entity type"
 				defaultValue={props.filters.entityLot}
-				onChange={(v) => props.updateFilter("entityLot", v)}
+				onChange={(v) => props.updateFilter("entityLot", v as EntityLot)}
 				data={convertEnumToSelectData(
 					Object.values(EntityLot).filter(
 						(o) =>
@@ -467,7 +465,7 @@ const FiltersModalForm = (props: {
 					placeholder="Select a media type"
 					defaultValue={props.filters.metadataLot}
 					data={convertEnumToSelectData(MediaLot)}
-					onChange={(v) => props.updateFilter("metadataLot", v)}
+					onChange={(v) => props.updateFilter("metadataLot", v as MediaLot)}
 				/>
 			) : null}
 		</>

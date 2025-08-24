@@ -57,6 +57,7 @@ import {
 	isFilterChanged,
 } from "~/lib/shared/ui-utils";
 import { useBulkEditCollection } from "~/lib/state/collection";
+import type { FilterUpdateFunction } from "~/lib/types";
 import type { Route } from "./+types/_dashboard.media.groups.$action";
 
 export type SearchParams = {
@@ -74,11 +75,6 @@ interface SearchFilterState {
 	query?: string;
 	source: MediaSource;
 }
-
-type FilterUpdateFunction<T> = (
-	key: keyof T,
-	value: string | number | null | MediaCollectionFilter[],
-) => void;
 
 const defaultListFilters: ListFilterState = {
 	collections: [],
@@ -250,7 +246,9 @@ export default function Page(props: { params: { action: string } }) {
 						{action === "search" ? (
 							<Select
 								value={searchFilters.source}
-								onChange={(v) => v && updateSearchFilters("source", v)}
+								onChange={(v) =>
+									v && updateSearchFilters("source", v as MediaSource)
+								}
 								data={coreDetails.metadataGroupSourceLotMappings.map((o) => ({
 									value: o.source.toString(),
 									label: startCase(o.source.toLowerCase()),
@@ -346,8 +344,10 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 				<Select
 					w="100%"
 					value={filters.sortBy}
-					onChange={(v) => v && onFiltersChange("sortBy", v)}
 					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
+					onChange={(v) =>
+						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
+					}
 				/>
 				<ActionIcon
 					onClick={() => {

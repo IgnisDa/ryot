@@ -72,7 +72,7 @@ import {
 	TOUR_METADATA_TARGET_ID,
 	useOnboardingTour,
 } from "~/lib/state/onboarding-tour";
-import { ApplicationTimeRange } from "~/lib/types";
+import { ApplicationTimeRange, type FilterUpdateFunction } from "~/lib/types";
 
 export type SearchParams = {
 	query?: string;
@@ -101,11 +101,6 @@ interface SearchFilterState {
 	igdbAllowGamesWithParent?: boolean;
 	igdbReleaseDateRegionIds?: string[];
 }
-
-type FilterUpdateFunction<T> = (
-	key: keyof T,
-	value: string | number | boolean | string[] | MediaCollectionFilter[] | null,
-) => void;
 
 const defaultListFilters: ListFilterState = {
 	collections: [],
@@ -397,11 +392,11 @@ export default function Page(props: {
 										{(metadataLotSourceMapping?.sources.length || 0) > 1 ? (
 											<Select
 												value={searchFilters.source}
-												onChange={(v) => {
-													if (v) updateSearchFilters("source", v);
-												}}
+												onChange={(v) =>
+													v && updateSearchFilters("source", v as MediaSource)
+												}
 												data={metadataLotSourceMapping?.sources.map((o) => ({
-													value: o.toString(),
+													value: o,
 													label: startCase(o.toLowerCase()),
 												}))}
 											/>
@@ -502,24 +497,24 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 		<>
 			<Select
 				defaultValue={filters.generalFilter}
-				onChange={(v) => {
-					if (v) onFiltersChange("generalFilter", v);
-				}}
 				data={convertEnumToSelectData(MediaGeneralFilter)}
+				onChange={(v) => {
+					v && onFiltersChange("generalFilter", v as MediaGeneralFilter);
+				}}
 			/>
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
+					defaultValue={filters.sortBy}
+					onChange={(v) => {
+						v && onFiltersChange("sortBy", v as MediaSortBy);
+					}}
 					data={[
 						{
 							group: "Sort by",
 							items: convertEnumToSelectData(MediaSortBy),
 						},
 					]}
-					defaultValue={filters.sortBy}
-					onChange={(v) => {
-						if (v) onFiltersChange("sortBy", v);
-					}}
 				/>
 				<ActionIcon
 					onClick={() => {
@@ -551,8 +546,9 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 					onChange={(v) => {
 						const range = v as ApplicationTimeRange;
 						const startDateRange = getStartTimeFromRange(range);
-						onFiltersChange("dateRange", v);
+						onFiltersChange("dateRange", range);
 						if (range === ApplicationTimeRange.Custom) return;
+
 						onFiltersChange(
 							"startDateRange",
 							startDateRange?.format("YYYY-MM-DD") || "",
