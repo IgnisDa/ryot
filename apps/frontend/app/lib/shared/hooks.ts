@@ -10,6 +10,7 @@ import {
 	ExpireCacheKeyDocument,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Cookies from "js-cookie";
@@ -34,6 +35,7 @@ import {
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
+	queryFactory,
 	refreshEntityDetails,
 } from "~/lib/shared/react-query";
 import { selectRandomElement } from "~/lib/shared/ui-utils";
@@ -337,6 +339,15 @@ export const useExpireCacheKeyMutation = () =>
 		mutationFn: async (cacheId: string) => {
 			await clientGqlService.request(ExpireCacheKeyDocument, { cacheId });
 		},
+	});
+
+export const useUsersList = (query?: string) =>
+	useQuery({
+		queryKey: queryFactory.miscellaneous.usersList(query).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UsersListDocument, { query })
+				.then((data) => data.usersList),
 	});
 
 export const useFormValidation = (dependency?: unknown) => {

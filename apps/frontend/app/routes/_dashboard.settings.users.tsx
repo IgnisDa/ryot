@@ -21,10 +21,9 @@ import {
 	ResetUserDocument,
 	UpdateUserDocument,
 	UserLot,
-	UsersListDocument,
 	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, parseSearchQuery } from "@ryot/ts-utils";
+import { changeCase } from "@ryot/ts-utils";
 import {
 	IconPlus,
 	IconRotateClockwise,
@@ -34,26 +33,16 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
 import { useState } from "react";
-import {
-	redirect,
-	useLoaderData,
-	useNavigate,
-	useRevalidator,
-} from "react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import { withQuery } from "ufo";
 import { z } from "zod";
 import { CopyableTextInput } from "~/components/common";
 import { DebouncedSearchInput } from "~/components/common/filters";
 import { redirectToQueryParam } from "~/lib/shared/constants";
-import { useUserDetails } from "~/lib/shared/hooks";
+import { useUserDetails, useUsersList } from "~/lib/shared/hooks";
 import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
-import {
-	redirectIfNotAuthenticatedOrUpdated,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.settings.users";
 
 const searchParamsSchema = z.object({
 	query: z.string().optional(),
@@ -85,18 +74,6 @@ type UrlDisplayData = {
 	title: string;
 	description: string;
 } | null;
-
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	if (userDetails.lot !== UserLot.Admin) throw redirect($path("/"));
-	const query = parseSearchQuery(request, searchParamsSchema);
-	const { usersList } = await serverGqlService.authenticatedRequest(
-		request,
-		UsersListDocument,
-		{ query: query.query },
-	);
-	return { usersList, query };
-};
 
 export const meta = () => {
 	return [{ title: "User Settings | Ryot" }];
@@ -208,7 +185,6 @@ const UrlDisplayModal = (props: {
 };
 
 export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
 	const [
 		registerUserModalOpened,
 		{ open: openRegisterUserModal, close: closeRegisterUserModal },
@@ -216,6 +192,9 @@ export default function Page() {
 	const [urlDisplayData, setUrlDisplayData] = useState<UrlDisplayData | null>(
 		null,
 	);
+	const [query, setQuery] = useState("");
+
+	const { data: usersList } = useUsersList(query);
 
 	const handleCloseUrlDisplayModal = () => {
 		setUrlDisplayData(null);
@@ -244,15 +223,16 @@ export default function Page() {
 					onSuccess={handleInvitationSuccess}
 				/>
 				<DebouncedSearchInput
+					initialValue={query}
+					onChange={(q) => setQuery(q)}
 					placeholder="Search by name or ID"
-					initialValue={loaderData.query.query}
 				/>
 				<DataTable
 					height={600}
 					borderRadius="sm"
 					withColumnBorders
+					records={usersList}
 					withTableBorder={false}
-					records={loaderData.usersList}
 					columns={[
 						{
 							width: 150,

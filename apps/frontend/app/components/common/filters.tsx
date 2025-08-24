@@ -177,8 +177,7 @@ export const DebouncedSearchInput = (props: {
 	queryParam?: string;
 	placeholder?: string;
 	initialValue?: string;
-	enhancedQueryParams?: string;
-	onChange?: (query: string) => void;
+	onChange: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
 		onQueryChange: (query: string) => void;
@@ -186,9 +185,6 @@ export const DebouncedSearchInput = (props: {
 }) => {
 	const [query, setQuery] = useState(props.initialValue || "");
 	const [debounced] = useDebouncedValue(query, 1000);
-	const [_e, { setP }] = useAppSearchParam(
-		props.enhancedQueryParams || "query",
-	);
 
 	useDidUpdate(() => {
 		const query = debounced.trim().toLowerCase();
@@ -196,7 +192,6 @@ export const DebouncedSearchInput = (props: {
 			props.onChange(query);
 			return;
 		}
-		setP(props.queryParam || "query", query);
 		props.tourControl?.onQueryChange(query);
 	}, [debounced]);
 

@@ -20,10 +20,9 @@ import {
 	type CollectionExtraInformation,
 	CollectionExtraInformationLot,
 	CreateOrUpdateCollectionDocument,
-	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { IconTrash } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { produce } from "immer";
 import { useState } from "react";
 import { Form, useRevalidator } from "react-router";
@@ -33,8 +32,9 @@ import {
 	useFormValidation,
 	useUserCollections,
 	useUserDetails,
+	useUsersList,
 } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import { useCreateOrUpdateCollectionModal } from "~/lib/state/collection";
 
@@ -75,13 +75,7 @@ export const CreateOrUpdateCollectionModal = (props: {
 
 	const { formRef, isFormValid } = useFormValidation(formData);
 
-	const { data: usersList } = useQuery({
-		queryKey: queryFactory.miscellaneous.usersList().queryKey,
-		queryFn: () =>
-			clientGqlService
-				.request(UsersListDocument, {})
-				.then((data) => data.usersList),
-	});
+	const { data: usersList } = useUsersList();
 	const createOrUpdateMutation = useMutation({
 		mutationFn: () =>
 			clientGqlService.request(CreateOrUpdateCollectionDocument, {
