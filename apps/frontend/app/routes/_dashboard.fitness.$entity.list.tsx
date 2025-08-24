@@ -41,7 +41,7 @@ import {
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactElement } from "react";
-import { Link, useParams } from "react-router";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { match } from "ts-pattern";
@@ -106,9 +106,8 @@ export const meta = ({ params }: Route.MetaArgs) => {
 	return [{ title: `${changeCase(params.entity || "")} | Ryot` }];
 };
 
-export default function Page() {
-	const params = useParams();
-	const entity = params.entity as FitnessEntity;
+export default function Page(props: { entity: FitnessEntity }) {
+	const { entity } = props;
 	invariant(entity);
 
 	const [filters, setFilters] = useLocalStorage(

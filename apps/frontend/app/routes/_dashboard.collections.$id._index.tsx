@@ -41,7 +41,7 @@ import {
 } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate, useParams, useRevalidator } from "react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useLocalStorage } from "usehooks-ts";
@@ -109,8 +109,8 @@ export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
 };
 
-export default function Page() {
-	const { id: collectionId } = useParams();
+export default function Page(props: { id: string }) {
+	const { id: collectionId } = props;
 	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();

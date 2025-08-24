@@ -1,7 +1,6 @@
 import { Box, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router";
 import invariant from "tiny-invariant";
 import { useLocalStorage } from "usehooks-ts";
 import { ApplicationPagination, SkeletonLoader } from "~/components/common";
@@ -21,9 +20,8 @@ export const meta = () => {
 	return [{ title: "Genre | Ryot" }];
 };
 
-export default function Page() {
-	const params = useParams();
-	const genreId = params.id;
+export default function Page(props: { id: string }) {
+	const { id: genreId } = props;
 
 	invariant(genreId);
 
