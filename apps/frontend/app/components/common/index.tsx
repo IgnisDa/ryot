@@ -17,6 +17,7 @@ import {
 	Pagination,
 	Paper,
 	Select,
+	Skeleton,
 	Stack,
 	Switch,
 	Text,
@@ -46,20 +47,19 @@ import {
 	IconX,
 } from "@tabler/icons-react";
 import type { CSSProperties, ReactNode } from "react";
-import { Form, Link } from "react-router";
-import { Fragment } from "react/jsx-runtime";
+import { Link } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
-import { withQuery } from "ufo";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useAddEntitiesToCollectionMutation,
-	useConfirmSubmit,
 	useCoreDetails,
+	useExpireCacheKeyMutation,
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
+	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
@@ -78,6 +78,8 @@ import {
 	PersonDisplayItem,
 } from "../media/display-items";
 import { MultiSelectCreatable } from "./multi-select-creatable";
+
+export const SkeletonLoader = () => <Skeleton height={100} />;
 
 export const ProRequiredAlert = (props: {
 	alertText?: string;
@@ -311,9 +313,10 @@ export const DisplayListDetailsAndRefresh = (props: {
 	total: number;
 	cacheId?: string;
 	rightSection?: ReactNode;
+	onRefreshButtonClicked?: () => void;
 	isRandomSortOrderSelected?: boolean;
 }) => {
-	const submit = useConfirmSubmit();
+	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<Group justify="space-between" wrap="nowrap">
@@ -325,22 +328,17 @@ export const DisplayListDetailsAndRefresh = (props: {
 				{props.rightSection}
 			</Box>
 			{props.cacheId && props.isRandomSortOrderSelected ? (
-				<Form
-					replace
-					method="POST"
-					onSubmit={submit}
-					action={withQuery($path("/actions"), { intent: "expireCacheKey" })}
+				<Button
+					size="xs"
+					variant="subtle"
+					leftSection={<IconArrowsShuffle size={20} />}
+					onClick={async () => {
+						await expireCacheKey.mutateAsync(props.cacheId ?? "");
+						props.onRefreshButtonClicked?.();
+					}}
 				>
-					<input type="hidden" name="cacheId" value={props.cacheId} />
-					<Button
-						size="xs"
-						type="submit"
-						variant="subtle"
-						leftSection={<IconArrowsShuffle size={20} />}
-					>
-						Refresh
-					</Button>
-				</Form>
+					Refresh
+				</Button>
 			) : null}
 		</Group>
 	);
@@ -452,7 +450,7 @@ export const CollectionTemplateRenderer = (props: {
 	onChange: (value: Scalars["JSON"]["input"]) => void;
 }) => {
 	return (
-		<Fragment>
+		<>
 			{match(props.template.lot)
 				.with(CollectionExtraInformationLot.String, () => (
 					<TextInput
@@ -512,20 +510,27 @@ export const CollectionTemplateRenderer = (props: {
 					/>
 				))
 				.exhaustive()}
-		</Fragment>
+		</>
 	);
 };
 
 export const ApplicationPagination = (props: {
 	value?: number;
-	total?: number;
 	size?: MantineSize;
+	totalItems?: number;
+	pageSize?: number;
 	onChange: (value: number) => void;
 }) => {
-	if (!props.total || props.total <= 0) return null;
+	const userPreferences = useUserPreferences();
+	const pageSize = props.pageSize || userPreferences.general.listPageSize;
+	const totalPages = props.totalItems
+		? Math.ceil(props.totalItems / pageSize)
+		: 0;
+
+	if (!props.totalItems || props.totalItems <= 0 || totalPages <= 0)
+		return null;
 
 	const currentPage = props.value || 1;
-	const totalPages = props.total;
 
 	if (totalPages <= 7) {
 		return (

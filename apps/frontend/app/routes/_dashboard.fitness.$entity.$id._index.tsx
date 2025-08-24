@@ -169,8 +169,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	return { entityId, entity, ...resp };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.entityName} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Fitness Entity | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {

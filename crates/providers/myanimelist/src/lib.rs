@@ -1,10 +1,10 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, MetadataSearchSourceSpecifics, NamedObject, SearchDetails};
+use common_models::{EntityAssets, NamedObject, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
-use dependent_models::SearchResults;
+use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use media_models::{
     AnimeSpecifics, MangaSpecifics, MetadataDetails, MetadataSearchItem, PartialMetadataWithoutId,
@@ -66,10 +66,14 @@ impl MediaProvider for MalAnimeService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total, next_page) = search(&self.base.client, "anime", query, page).await?;
+        let (items, total_items, next_page) =
+            search(&self.base.client, "anime", query, page).await?;
         Ok(SearchResults {
             items,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }
@@ -102,10 +106,14 @@ impl MediaProvider for MalMangaService {
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let (items, total, next_page) = search(&self.base.client, "manga", query, page).await?;
+        let (items, total_items, next_page) =
+            search(&self.base.client, "manga", query, page).await?;
         Ok(SearchResults {
             items,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 }

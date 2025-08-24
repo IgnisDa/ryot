@@ -255,7 +255,7 @@ export type CollectionItem = {
   __typename?: 'CollectionItem';
   collaborators: Array<CollectionItemCollaboratorInformation>;
   count: Scalars['Int']['output'];
-  creator: IdAndNamedObject;
+  creator: StringIdAndNamedObject;
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   informationTemplate?: Maybe<Array<CollectionExtraInformation>>;
@@ -265,7 +265,7 @@ export type CollectionItem = {
 
 export type CollectionItemCollaboratorInformation = {
   __typename?: 'CollectionItemCollaboratorInformation';
-  collaborator: IdAndNamedObject;
+  collaborator: StringIdAndNamedObject;
   extraInformation?: Maybe<UserToCollectionExtraInformation>;
 };
 
@@ -304,6 +304,7 @@ export type CoreDetails = {
   oidcEnabled: Scalars['Boolean']['output'];
   pageSize: Scalars['Int']['output'];
   peopleSearchSources: Array<MediaSource>;
+  providerSpecifics: CoreDetailsProviderSpecifics;
   repositoryLink: Scalars['String']['output'];
   signupAllowed: Scalars['Boolean']['output'];
   smtpEnabled: Scalars['Boolean']['output'];
@@ -311,6 +312,21 @@ export type CoreDetails = {
   twoFactorBackupCodesCount: Scalars['Int']['output'];
   version: Scalars['String']['output'];
   websiteUrl: Scalars['String']['output'];
+};
+
+export type CoreDetailsProviderIgdbSpecifics = {
+  __typename?: 'CoreDetailsProviderIgdbSpecifics';
+  gameModes: Array<IdAndNamedObject>;
+  gameTypes: Array<IdAndNamedObject>;
+  genres: Array<IdAndNamedObject>;
+  platforms: Array<IdAndNamedObject>;
+  releaseDateRegions: Array<IdAndNamedObject>;
+  themes: Array<IdAndNamedObject>;
+};
+
+export type CoreDetailsProviderSpecifics = {
+  __typename?: 'CoreDetailsProviderSpecifics';
+  igdb: CoreDetailsProviderIgdbSpecifics;
 };
 
 export type CreateAccessLinkInput = {
@@ -336,6 +352,7 @@ export type CreateCustomMetadataInput = {
   movieSpecifics?: InputMaybe<MovieSpecificsInput>;
   musicSpecifics?: InputMaybe<MusicSpecificsInput>;
   podcastSpecifics?: InputMaybe<PodcastSpecificsInput>;
+  publishDate?: InputMaybe<Scalars['NaiveDate']['input']>;
   publishYear?: InputMaybe<Scalars['Int']['input']>;
   showSpecifics?: InputMaybe<ShowSpecificsInput>;
   title: Scalars['String']['input'];
@@ -929,7 +946,7 @@ export type GroupedCalendarEvent = {
 
 export type IdAndNamedObject = {
   __typename?: 'IdAndNamedObject';
-  id: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -972,7 +989,7 @@ export type ImportOrExportItemReviewComment = {
   /** The user ids of all those who liked it. */
   likedBy: Array<Scalars['String']['output']>;
   text: Scalars['String']['output'];
-  user: IdAndNamedObject;
+  user: StringIdAndNamedObject;
 };
 
 export type ImportReport = {
@@ -1382,9 +1399,27 @@ export type MetadataSearchInput = {
   sourceSpecifics?: InputMaybe<MetadataSearchSourceSpecificsInput>;
 };
 
+export type MetadataSearchSourceGoogleBooksSpecifics = {
+  passRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export type MetadataSearchSourceIgdbFilterSpecifics = {
+  allowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
+  gameModeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  gameTypeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  genreIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  platformIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  releaseDateRegionIds?: InputMaybe<Array<Scalars['String']['input']>>;
+  themeIds?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type MetadataSearchSourceIgdbSpecifics = {
+  filters?: InputMaybe<MetadataSearchSourceIgdbFilterSpecifics>;
+};
+
 export type MetadataSearchSourceSpecificsInput = {
-  googleBooksPassRawQuery?: InputMaybe<Scalars['Boolean']['input']>;
-  igdbAllowGamesWithParent?: InputMaybe<Scalars['Boolean']['input']>;
+  googleBooks?: InputMaybe<MetadataSearchSourceGoogleBooksSpecifics>;
+  igdb?: InputMaybe<MetadataSearchSourceIgdbSpecifics>;
 };
 
 export type MovieSpecifics = {
@@ -2284,7 +2319,7 @@ export type ReviewItem = {
   isSpoiler: Scalars['Boolean']['output'];
   mangaExtraInformation?: Maybe<SeenMangaExtraInformation>;
   podcastExtraInformation?: Maybe<SeenPodcastExtraOptionalInformation>;
-  postedBy: IdAndNamedObject;
+  postedBy: StringIdAndNamedObject;
   postedOn: Scalars['DateTime']['output'];
   rating?: Maybe<Scalars['Decimal']['output']>;
   seenItemsAssociatedWith: Array<Scalars['String']['output']>;
@@ -2297,7 +2332,7 @@ export type ReviewItem = {
 export type SearchDetails = {
   __typename?: 'SearchDetails';
   nextPage?: Maybe<Scalars['Int']['output']>;
-  total: Scalars['Int']['output'];
+  totalItems: Scalars['Int']['output'];
 };
 
 export type SearchInput = {
@@ -2462,6 +2497,12 @@ export type ShowSpecificsInput = {
   seasons: Array<ShowSeasonSpecificsInput>;
   totalEpisodes?: InputMaybe<Scalars['Int']['input']>;
   totalSeasons?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type StringIdAndNamedObject = {
+  __typename?: 'StringIdAndNamedObject';
+  id: Scalars['String']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type StringIdObject = {
@@ -2731,7 +2772,6 @@ export type UserGeneralPreferences = {
   gridPacking: GridPacking;
   landingPath: Scalars['String']['output'];
   listPageSize: Scalars['Int']['output'];
-  persistQueries: Scalars['Boolean']['output'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['output'];
   watchProviders: Array<UserGeneralWatchProvider>;
@@ -2748,7 +2788,6 @@ export type UserGeneralPreferencesInput = {
   gridPacking: GridPacking;
   landingPath: Scalars['String']['input'];
   listPageSize: Scalars['Int']['input'];
-  persistQueries: Scalars['Boolean']['input'];
   reviewScale: UserReviewScale;
   showSpoilersInCalendar: Scalars['Boolean']['input'];
   watchProviders: Array<UserGeneralWatchProviderInput>;

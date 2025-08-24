@@ -1,8 +1,8 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use chrono::Utc;
-use common_models::IdAndNamedObject;
+use common_models::StringIdAndNamedObject;
 use database_models::{prelude::Review, review};
 use database_utils::user_by_id;
 use dependent_utility_utils::associate_user_with_entity;
@@ -42,10 +42,9 @@ pub async fn create_review_comment(
     user_id: String,
     input: CreateReviewCommentInput,
 ) -> Result<bool> {
-    let review = Review::find_by_id(input.review_id)
-        .one(&ss.db)
-        .await?
-        .unwrap();
+    let Some(review) = Review::find_by_id(input.review_id).one(&ss.db).await? else {
+        bail!("Review not found");
+    };
     let mut comments = review.comments.clone();
     if input.should_delete.unwrap_or_default() {
         let position = comments
@@ -70,7 +69,7 @@ pub async fn create_review_comment(
         comments.push(ImportOrExportItemReviewComment {
             id: nanoid!(20),
             text: input.text.unwrap(),
-            user: IdAndNamedObject {
+            user: StringIdAndNamedObject {
                 id: user_id,
                 name: user.name,
             },

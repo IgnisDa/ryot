@@ -1,10 +1,9 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -111,7 +110,7 @@ impl MediaProvider for VndbService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: data.count,
+                total_items: data.count,
             },
         })
     }
@@ -209,7 +208,7 @@ impl MediaProvider for VndbService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.count,
+                total_items: search.count,
             },
         })
     }

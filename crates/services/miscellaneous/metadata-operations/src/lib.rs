@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Result, bail};
+use chrono::Datelike;
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
 use common_utils::ryot_log;
 use database_models::{
@@ -281,7 +282,7 @@ fn get_data_for_custom_metadata(
         source: ActiveValue::Set(MediaSource::Custom),
         is_partial: ActiveValue::Set(Some(is_partial)),
         description: ActiveValue::Set(input.description),
-        publish_year: ActiveValue::Set(input.publish_year),
+        publish_date: ActiveValue::Set(input.publish_date),
         show_specifics: ActiveValue::Set(input.show_specifics),
         book_specifics: ActiveValue::Set(input.book_specifics),
         manga_specifics: ActiveValue::Set(input.manga_specifics),
@@ -297,6 +298,11 @@ fn get_data_for_custom_metadata(
             true => None,
             false => Some(free_creators),
         }),
+        publish_year: ActiveValue::Set(
+            input
+                .publish_year
+                .or_else(|| input.publish_date.map(|d| d.year())),
+        ),
         ..Default::default()
     }
 }

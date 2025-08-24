@@ -7,24 +7,19 @@ import {
 	DeployBulkMetadataProgressUpdateDocument,
 	DeployRemoveEntitiesFromCollectionJobDocument,
 	type EntityLot,
+	ExpireCacheKeyDocument,
 	type MediaLot,
 	type MetadataProgressUpdateInput,
+	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import Cookies from "js-cookie";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import {
-	useRevalidator,
-	useRouteLoaderData,
-	useSearchParams,
-	useSubmit,
-} from "react-router";
+import { useRevalidator, useRouteLoaderData, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
-import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -33,8 +28,9 @@ import {
 	getUserMetadataDetailsQuery,
 	getUserMetadataGroupDetailsQuery,
 	getUserPersonDetailsQuery,
+	queryFactory,
 	refreshEntityDetails,
-} from "~/lib/shared/query-factory";
+} from "~/lib/shared/react-query";
 import { selectRandomElement } from "~/lib/shared/ui-utils";
 import {
 	type InProgressWorkout,
@@ -61,45 +57,6 @@ export const useFallbackImageUrl = (text = "No Image") => {
 	return `https://placehold.co/100x200/${
 		colorScheme === "dark" ? "343632" : "c1c4bb"
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
-};
-
-export const useAppSearchParam = (cookieKey: string) => {
-	const [searchParams, setSearchParams] = useSearchParams();
-
-	const updateCookieP = (key: string, value?: string | null) => {
-		const cookieValue = Cookies.get(cookieKey);
-		const cookieSearchParams = new URLSearchParams(cookieValue);
-		if (!value) cookieSearchParams.delete(key);
-		else cookieSearchParams.set(key, value);
-		Cookies.set(cookieKey, cookieSearchParams.toString(), {
-			expires: dayjsLib().add(10, "day").toDate(),
-		});
-	};
-
-	const delP = (key: string) => {
-		setSearchParams(
-			(prev) => {
-				prev.delete(key);
-				return prev;
-			},
-			{ replace: true },
-		);
-		updateCookieP(key);
-	};
-
-	const setP = (key: string, value?: string | null) => {
-		setSearchParams(
-			(prev) => {
-				if (!value) delP(key);
-				else prev.set(key, value);
-				return prev;
-			},
-			{ replace: true },
-		);
-		updateCookieP(key, value);
-	};
-
-	return [searchParams, { setP, delP }] as const;
 };
 
 export const useConfirmSubmit = () => {
@@ -338,6 +295,22 @@ export const useRemoveEntitiesFromCollectionMutation = () => {
 
 	return mutation;
 };
+
+export const useExpireCacheKeyMutation = () =>
+	useMutation({
+		mutationFn: async (cacheId: string) => {
+			await clientGqlService.request(ExpireCacheKeyDocument, { cacheId });
+		},
+	});
+
+export const useUsersList = (query?: string) =>
+	useQuery({
+		queryKey: queryFactory.miscellaneous.usersList(query).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UsersListDocument, { query })
+				.then((data) => data.usersList),
+	});
 
 export const useFormValidation = (dependency?: unknown) => {
 	const formRef = useRef<HTMLFormElement>(null);

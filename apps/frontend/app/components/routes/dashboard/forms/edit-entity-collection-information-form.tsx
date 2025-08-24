@@ -10,7 +10,7 @@ import {
 	useFormValidation,
 	useUserCollections,
 } from "~/lib/shared/hooks";
-import { refreshEntityDetails } from "~/lib/shared/query-factory";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { useEditEntityCollectionInformation } from "~/lib/state/collection";
 
 export const EditEntityCollectionInformationForm = ({

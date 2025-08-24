@@ -3,11 +3,10 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use common_models::{
-    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, MetadataSearchSourceSpecifics,
-    PersonSourceSpecifics, SearchDetails,
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
 };
 use common_utils::{SHOW_SPECIAL_SEASON_NAMES, convert_date_to_year, convert_string_to_date};
-use dependent_models::SearchResults;
+use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
 use enum_models::{MediaLot, MediaSource};
 use futures::{
     stream::{self, StreamExt},
@@ -295,7 +294,7 @@ impl MediaProvider for TmdbShowService {
             items: resp.to_vec(),
             details: SearchDetails {
                 next_page,
-                total: search.total_results,
+                total_items: search.total_results,
             },
         })
     }

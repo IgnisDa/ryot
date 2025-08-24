@@ -1,5 +1,5 @@
 use async_graphql::SimpleObject;
-use common_models::BackendError;
+use common_models::{BackendError, IdAndNamedObject};
 use database_models::metadata;
 use enum_models::{
     ExerciseEquipment, ExerciseForce, ExerciseLevel, ExerciseLot, ExerciseMechanic, ExerciseMuscle,
@@ -54,6 +54,21 @@ pub struct ExerciseParameters {
     pub lot_mapping: Vec<ExerciseParametersLotMapping>,
 }
 
+#[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct CoreDetailsProviderIgdbSpecifics {
+    pub themes: Vec<IdAndNamedObject>,
+    pub genres: Vec<IdAndNamedObject>,
+    pub platforms: Vec<IdAndNamedObject>,
+    pub game_types: Vec<IdAndNamedObject>,
+    pub game_modes: Vec<IdAndNamedObject>,
+    pub release_date_regions: Vec<IdAndNamedObject>,
+}
+
+#[derive(PartialEq, Default, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
+pub struct CoreDetailsProviderSpecifics {
+    pub igdb: CoreDetailsProviderIgdbSpecifics,
+}
+
 #[derive(PartialEq, Eq, Clone, Debug, SimpleObject, Serialize, Deserialize)]
 pub struct CoreDetails {
     pub page_size: i32,
@@ -76,6 +91,7 @@ pub struct CoreDetails {
     pub people_search_sources: Vec<MediaSource>,
     pub exercise_parameters: ExerciseParameters,
     pub frontend: config_definition::FrontendConfig,
+    pub provider_specifics: CoreDetailsProviderSpecifics,
     pub metadata_lot_source_mappings: Vec<MetadataLotSourceMappings>,
     pub metadata_provider_languages: Vec<ProviderLanguageInformation>,
     pub metadata_group_source_lot_mappings: Vec<MetadataGroupSourceLotMapping>,

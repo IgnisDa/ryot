@@ -16,22 +16,14 @@ import { useDisclosure } from "@mantine/hooks";
 import {
 	EntityLot,
 	GraphqlSortOrder,
+	type MediaCollectionFilter,
 	MediaSource,
 	PeopleSearchDocument,
 	PersonAndMetadataGroupsSortBy,
 	UserPeopleListDocument,
 	type UserPeopleListInput,
 } from "@ryot/generated/graphql/backend/graphql";
-import {
-	changeCase,
-	cloneDeep,
-	isEqual,
-	parseParameters,
-	parseSearchQuery,
-	startCase,
-	zodBoolAsString,
-	zodIntAsString,
-} from "@ryot/ts-utils";
+import { cloneDeep, startCase } from "@ryot/ts-utils";
 import {
 	IconCheck,
 	IconFilter,
@@ -40,14 +32,16 @@ import {
 	IconSortAscending,
 	IconSortDescending,
 } from "@tabler/icons-react";
-import { useLoaderData, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
-import { match } from "ts-pattern";
-import { z } from "zod";
+import { useLocalStorage } from "usehooks-ts";
 import {
 	ApplicationPagination,
 	BulkCollectionEditingAffix,
 	DisplayListDetailsAndRefresh,
+	SkeletonLoader,
 } from "~/components/common";
 import {
 	CollectionsFilter,
@@ -56,156 +50,136 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
-import { pageQueryParam } from "~/lib/shared/constants";
-import { useAppSearchParam, useCoreDetails } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
-import { zodCollectionFilter } from "~/lib/shared/validation";
-import { useBulkEditCollection } from "~/lib/state/collection";
+import { useCoreDetails } from "~/lib/shared/hooks";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
-	getSearchEnhancedCookieName,
-	redirectToFirstPageIfOnInvalidPage,
-	redirectUsingEnhancedCookieSearchParams,
-	serverGqlService,
-} from "~/lib/utilities.server";
-import type { Route } from "./+types/_dashboard.media.people.$action";
+	convertEnumToSelectData,
+	isFilterChanged,
+} from "~/lib/shared/ui-utils";
+import { useBulkEditCollection } from "~/lib/state/collection";
+import type { FilterUpdateFunction } from "~/lib/types";
 
-export type SearchParams = {
+interface ListFilterState {
+	orderBy: GraphqlSortOrder;
+	collections: MediaCollectionFilter[];
+	sortBy: PersonAndMetadataGroupsSortBy;
+}
+
+interface SearchFilterState {
 	query?: string;
-};
+	source: MediaSource;
+	sourceSpecifics: {
+		isTmdbCompany?: boolean;
+		isAnilistStudio?: boolean;
+		isGiantBombCompany?: boolean;
+		isHardcoverPublisher?: boolean;
+	};
+}
 
-const defaultFilters = {
+const defaultListFilters: ListFilterState = {
 	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 };
 
-enum Action {
-	List = "list",
-	Search = "search",
-}
-
-const searchSchema = z.object({
-	isTmdbCompany: zodBoolAsString.optional(),
-	isAnilistStudio: zodBoolAsString.optional(),
-	isHardcoverPublisher: zodBoolAsString.optional(),
-	isGiantBombCompany: zodBoolAsString.optional(),
-	source: z.enum(MediaSource).default(MediaSource.Tmdb),
-});
-
-export const loader = async ({ request, params }: Route.LoaderArgs) => {
-	const { action } = parseParameters(
-		params,
-		z.object({ action: z.enum(Action) }),
-	);
-	const cookieName = await getSearchEnhancedCookieName(
-		`people.${action}`,
-		request,
-	);
-	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const schema = z.object({
-		query: z.string().optional(),
-		[pageQueryParam]: zodIntAsString.default(1),
-	});
-	const query = parseSearchQuery(request, schema);
-	const [totalResults, list, search, respectCoreDetailsPageSize, listInput] =
-		await match(action)
-			.with(Action.List, async () => {
-				const listSchema = z.object({
-					collections: zodCollectionFilter,
-					orderBy: z.enum(GraphqlSortOrder).default(defaultFilters.orderBy),
-					sortBy: z
-						.enum(PersonAndMetadataGroupsSortBy)
-						.default(defaultFilters.sortBy),
-				});
-				const urlParse = parseSearchQuery(request, listSchema);
-				const input: UserPeopleListInput = {
-					filter: { collections: urlParse.collections },
-					sort: { by: urlParse.sortBy, order: urlParse.orderBy },
-					search: { page: query[pageQueryParam], query: query.query },
-				};
-				const { userPeopleList } = await serverGqlService.authenticatedRequest(
-					request,
-					UserPeopleListDocument,
-					{ input },
-				);
-				return [
-					userPeopleList.response.details.total,
-					{ list: userPeopleList, url: urlParse },
-					undefined,
-					false,
-					input,
-				] as const;
-			})
-			.with(Action.Search, async () => {
-				const urlParse = parseSearchQuery(request, searchSchema);
-				const { peopleSearch } = await serverGqlService.authenticatedRequest(
-					request,
-					PeopleSearchDocument,
-					{
-						input: {
-							source: urlParse.source,
-							sourceSpecifics: {
-								isTmdbCompany: urlParse.isTmdbCompany,
-								isAnilistStudio: urlParse.isAnilistStudio,
-								isHardcoverPublisher: urlParse.isHardcoverPublisher,
-								isGiantBombCompany: urlParse.isGiantBombCompany,
-							},
-							search: { page: query[pageQueryParam], query: query.query },
-						},
-					},
-				);
-				return [
-					peopleSearch.response.details.total,
-					undefined,
-					{ search: peopleSearch, url: urlParse },
-					true,
-					undefined,
-				] as const;
-			})
-			.exhaustive();
-	const totalPages = await redirectToFirstPageIfOnInvalidPage({
-		request,
-		totalResults,
-		respectCoreDetailsPageSize,
-		currentPage: query[pageQueryParam],
-	});
-	return {
-		list,
-		query,
-		action,
-		search,
-		listInput,
-		totalPages,
-		cookieName,
-		[pageQueryParam]: query[pageQueryParam],
-	};
+const defaultSearchFilters: SearchFilterState = {
+	sourceSpecifics: {},
+	source: MediaSource.Tmdb,
 };
 
-export const meta = ({ params }: Route.MetaArgs) => {
-	return [{ title: `${changeCase(params.action || "")} People | Ryot` }];
+export const meta = () => {
+	return [{ title: "People | Ryot" }];
 };
 
-export default function Page() {
-	const loaderData = useLoaderData<typeof loader>();
+export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
-	const [_e, { setP }] = useAppSearchParam(loaderData.cookieName);
+	const action = props.params.action;
+
 	const [
 		filtersModalOpened,
 		{ open: openFiltersModal, close: closeFiltersModal },
 	] = useDisclosure(false);
-	const areFiltersApplied =
-		loaderData.list?.url.orderBy !== defaultFilters.orderBy ||
-		loaderData.list?.url.sortBy !== defaultFilters.sortBy ||
-		!isEqual(loaderData.list?.url.collections, defaultFilters.collections);
+	const [
+		searchFiltersModalOpened,
+		{ open: openSearchFiltersModal, close: closeSearchFiltersModal },
+	] = useDisclosure(false);
+
+	const [listFilters, setListFilters] = useLocalStorage<ListFilterState>(
+		"PeopleListFilters",
+		defaultListFilters,
+	);
+	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
+		"PeopleSearchFilters",
+		defaultSearchFilters,
+	);
+	const [searchQuery, setSearchQuery] = useLocalStorage(
+		"PeopleSearchQuery",
+		"",
+	);
+	const [currentPage, setCurrentPage] = useLocalStorage("PeopleCurrentPage", 1);
+
+	const listInput: UserPeopleListInput = useMemo(
+		() => ({
+			filter: { collections: listFilters.collections },
+			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
+			search: { page: currentPage, query: searchQuery },
+		}),
+		[listFilters, searchQuery, currentPage],
+	);
+
+	const { data: userPeopleList, refetch: refetchUserPeopleList } = useQuery({
+		enabled: action === "list",
+		queryKey: queryFactory.media.userPeopleList(listInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(UserPeopleListDocument, { input: listInput })
+				.then((data) => data.userPeopleList),
+	});
+
+	const searchInput = useMemo(
+		() => ({
+			source: searchFilters.source,
+			sourceSpecifics: searchFilters.sourceSpecifics,
+			search: { page: currentPage, query: searchQuery },
+		}),
+		[searchFilters, searchQuery, currentPage],
+	);
+
+	const { data: peopleSearch } = useQuery({
+		enabled: action === "search",
+		queryKey: queryFactory.media.peopleSearch(searchInput).queryKey,
+		queryFn: () =>
+			clientGqlService
+				.request(PeopleSearchDocument, { input: searchInput })
+				.then((data) => data.peopleSearch),
+	});
+
+	const areListFiltersActive = isFilterChanged(listFilters, defaultListFilters);
+
+	const updateListFilters: FilterUpdateFunction<ListFilterState> = (
+		key,
+		value,
+	) => setListFilters((prev) => ({ ...prev, [key]: value }));
+
+	const updateSearchFilters: FilterUpdateFunction<SearchFilterState> = (
+		key,
+		value,
+	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
+
+	const updateSearchSourceSpecifics = (key: string, value: boolean) => {
+		setSearchFilters((prev) => ({
+			...prev,
+			sourceSpecifics: { ...prev.sourceSpecifics, [key]: value },
+		}));
+	};
 
 	return (
 		<>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (!loaderData.listInput) return [];
-					const input = cloneDeep(loaderData.listInput);
+					if (action !== "list") return [];
+					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return await clientGqlService
 						.request(UserPeopleListDocument, { input })
@@ -222,20 +196,9 @@ export default function Page() {
 					<Title>People</Title>
 					<Tabs
 						variant="default"
-						value={loaderData.action}
+						value={action}
 						onChange={(v) => {
-							if (v)
-								navigate(
-									$path(
-										"/media/people/:action",
-										{ action: v },
-										{
-											...(loaderData.query.query && {
-												query: loaderData.query.query,
-											}),
-										},
-									),
-								);
+							if (v) navigate($path("/media/people/:action", { action: v }));
 						}}
 					>
 						<Tabs.List style={{ alignItems: "center" }}>
@@ -251,128 +214,122 @@ export default function Page() {
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
 							placeholder="Search for people"
-							initialValue={loaderData.query.query}
-							enhancedQueryParams={loaderData.cookieName}
+							initialValue={searchQuery}
+							onChange={(value) => {
+								setSearchQuery(value);
+								setCurrentPage(1);
+							}}
 						/>
-						{loaderData.action === Action.List ? (
+						{action === "list" ? (
 							<>
 								<ActionIcon
 									onClick={openFiltersModal}
-									color={areFiltersApplied ? "blue" : "gray"}
+									color={areListFiltersActive ? "blue" : "gray"}
 								>
 									<IconFilter size={24} />
 								</ActionIcon>
 								<FiltersModal
-									closeFiltersModal={closeFiltersModal}
-									cookieName={loaderData.cookieName}
 									opened={filtersModalOpened}
+									closeFiltersModal={closeFiltersModal}
+									resetFilters={() => setListFilters(defaultListFilters)}
 								>
-									<FiltersModalForm />
+									<FiltersModalForm
+										filters={listFilters}
+										onFiltersChange={updateListFilters}
+									/>
 								</FiltersModal>
 							</>
 						) : null}
-						{loaderData.action === Action.Search ? (
+						{action === "search" ? (
 							<>
 								<Select
-									onChange={(v) => setP("source", v)}
-									defaultValue={loaderData.search?.url.source}
+									value={searchFilters.source}
+									onChange={(v) =>
+										v && updateSearchFilters("source", v as MediaSource)
+									}
 									data={coreDetails.peopleSearchSources.map((o) => ({
-										value: o.toString(),
+										value: o,
 										label: startCase(o.toLowerCase()),
 									}))}
 								/>
-								{loaderData.search?.url.source === MediaSource.Tmdb ? (
-									<Checkbox
-										label="Company"
-										checked={loaderData.search?.url.isTmdbCompany}
-										onChange={(e) =>
-											setP("isTmdbCompany", String(e.target.checked))
-										}
+								<ActionIcon color="gray" onClick={openSearchFiltersModal}>
+									<IconFilter size={24} />
+								</ActionIcon>
+								<FiltersModal
+									opened={searchFiltersModalOpened}
+									closeFiltersModal={closeSearchFiltersModal}
+									resetFilters={() => setSearchFilters(defaultSearchFilters)}
+								>
+									<SearchFiltersModalForm
+										filters={searchFilters}
+										onFiltersChange={updateSearchSourceSpecifics}
 									/>
-								) : null}
-								{loaderData.search?.url.source === MediaSource.Anilist ? (
-									<Checkbox
-										label="Studio"
-										checked={loaderData.search?.url.isAnilistStudio}
-										onChange={(e) =>
-											setP("isAnilistStudio", String(e.target.checked))
-										}
-									/>
-								) : null}
-								{loaderData.search?.url.source === MediaSource.Hardcover ? (
-									<Checkbox
-										label="Publisher"
-										checked={loaderData.search?.url.isHardcoverPublisher}
-										onChange={(e) =>
-											setP("isHardcoverPublisher", String(e.target.checked))
-										}
-									/>
-								) : null}
-								{loaderData.search?.url.source === MediaSource.GiantBomb ? (
-									<Checkbox
-										label="Company"
-										checked={loaderData.search?.url.isGiantBombCompany}
-										onChange={(e) =>
-											setP("isGiantBombCompany", String(e.target.checked))
-										}
-									/>
-								) : null}
+								</FiltersModal>
 							</>
 						) : null}
 					</Group>
-					{loaderData.list ? (
-						<>
-							<DisplayListDetailsAndRefresh
-								cacheId={loaderData.list.list.cacheId}
-								total={loaderData.list.list.response.details.total}
-								isRandomSortOrderSelected={
-									loaderData.list.url.sortBy ===
-									PersonAndMetadataGroupsSortBy.Random
-								}
-							/>
-							{loaderData.list.list.response.details.total > 0 ? (
-								<ApplicationGrid>
-									{loaderData.list.list.response.items.map((person) => (
-										<PersonListItem key={person} item={person} />
-									))}
-								</ApplicationGrid>
-							) : (
-								<Text>No information to display</Text>
-							)}
-							<ApplicationPagination
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</>
+					{action === "list" ? (
+						userPeopleList ? (
+							<>
+								<DisplayListDetailsAndRefresh
+									cacheId={userPeopleList.cacheId}
+									total={userPeopleList.response.details.totalItems}
+									onRefreshButtonClicked={refetchUserPeopleList}
+									isRandomSortOrderSelected={
+										listFilters.sortBy === PersonAndMetadataGroupsSortBy.Random
+									}
+								/>
+								{userPeopleList.response.details.totalItems > 0 ? (
+									<ApplicationGrid>
+										{userPeopleList.response.items.map((person) => (
+											<PersonListItem key={person} item={person} />
+										))}
+									</ApplicationGrid>
+								) : (
+									<Text>No information to display</Text>
+								)}
+								<ApplicationPagination
+									value={currentPage}
+									onChange={setCurrentPage}
+									totalItems={userPeopleList.response.details.totalItems}
+								/>
+							</>
+						) : (
+							<SkeletonLoader />
+						)
 					) : null}
-					{loaderData.search ? (
-						<>
-							<Box>
-								<Text display="inline" fw="bold">
-									{loaderData.search.search.response.details.total}
-								</Text>{" "}
-								items found
-							</Box>
-							{loaderData.search.search.response.details.total > 0 ? (
-								<ApplicationGrid>
-									{loaderData.search.search.response.items.map((person) => (
-										<PersonDisplayItem
-											key={person}
-											personId={person}
-											shouldHighlightNameIfInteracted
-										/>
-									))}
-								</ApplicationGrid>
-							) : (
-								<Text>No people found matching your query</Text>
-							)}
-							<ApplicationPagination
-								total={loaderData.totalPages}
-								value={loaderData[pageQueryParam]}
-								onChange={(v) => setP(pageQueryParam, v.toString())}
-							/>
-						</>
+
+					{action === "search" ? (
+						peopleSearch ? (
+							<>
+								<Box>
+									<Text display="inline" fw="bold">
+										{peopleSearch.response.details.totalItems}
+									</Text>{" "}
+									items found
+								</Box>
+								{peopleSearch.response.details.totalItems > 0 ? (
+									<ApplicationGrid>
+										{peopleSearch.response.items.map((person) => (
+											<PersonDisplayItem
+												key={person}
+												personId={person}
+												shouldHighlightNameIfInteracted
+											/>
+										))}
+									</ApplicationGrid>
+								) : (
+									<Text>No people found matching your query</Text>
+								)}
+								<ApplicationPagination
+									value={currentPage}
+									onChange={setCurrentPage}
+									totalItems={peopleSearch.response.details.totalItems}
+								/>
+							</>
+						) : (
+							<SkeletonLoader />
+						)
 					) : null}
 				</Stack>
 			</Container>
@@ -380,29 +337,33 @@ export default function Page() {
 	);
 }
 
-const FiltersModalForm = () => {
-	const loaderData = useLoaderData<typeof loader>();
-	const [_, { setP }] = useAppSearchParam(loaderData.cookieName);
+interface FiltersModalFormProps {
+	filters: ListFilterState;
+	onFiltersChange: FilterUpdateFunction<ListFilterState>;
+}
 
-	if (!loaderData.list) return null;
+const FiltersModalForm = (props: FiltersModalFormProps) => {
+	const { filters, onFiltersChange } = props;
 
 	return (
 		<>
 			<Flex gap="xs" align="center">
 				<Select
 					w="100%"
-					onChange={(v) => setP("sortBy", v)}
-					defaultValue={loaderData.list.url.sortBy}
+					value={filters.sortBy}
 					data={convertEnumToSelectData(PersonAndMetadataGroupsSortBy)}
+					onChange={(v) =>
+						v && onFiltersChange("sortBy", v as PersonAndMetadataGroupsSortBy)
+					}
 				/>
 				<ActionIcon
 					onClick={() => {
-						if (loaderData.list?.url.orderBy === GraphqlSortOrder.Asc)
-							setP("orderBy", GraphqlSortOrder.Desc);
-						else setP("orderBy", GraphqlSortOrder.Asc);
+						if (filters.orderBy === GraphqlSortOrder.Asc)
+							onFiltersChange("orderBy", GraphqlSortOrder.Desc);
+						else onFiltersChange("orderBy", GraphqlSortOrder.Asc);
 					}}
 				>
-					{loaderData.list.url.orderBy === GraphqlSortOrder.Asc ? (
+					{filters.orderBy === GraphqlSortOrder.Asc ? (
 						<IconSortAscending />
 					) : (
 						<IconSortDescending />
@@ -411,10 +372,56 @@ const FiltersModalForm = () => {
 			</Flex>
 			<Divider />
 			<CollectionsFilter
-				cookieName={loaderData.cookieName}
-				applied={loaderData.list.url.collections}
+				applied={filters.collections}
+				onFiltersChanged={(val) => onFiltersChange("collections", val)}
 			/>
 		</>
+	);
+};
+
+interface SearchFiltersModalFormProps {
+	filters: SearchFilterState;
+	onFiltersChange: (key: string, value: boolean) => void;
+}
+
+const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
+	const { filters, onFiltersChange } = props;
+
+	return (
+		<Stack gap="md">
+			{filters.source === MediaSource.Tmdb ? (
+				<Checkbox
+					label="Company"
+					checked={filters.sourceSpecifics.isTmdbCompany || false}
+					onChange={(e) => onFiltersChange("isTmdbCompany", e.target.checked)}
+				/>
+			) : null}
+			{filters.source === MediaSource.Anilist ? (
+				<Checkbox
+					label="Studio"
+					checked={filters.sourceSpecifics.isAnilistStudio || false}
+					onChange={(e) => onFiltersChange("isAnilistStudio", e.target.checked)}
+				/>
+			) : null}
+			{filters.source === MediaSource.Hardcover ? (
+				<Checkbox
+					label="Publisher"
+					checked={filters.sourceSpecifics.isHardcoverPublisher || false}
+					onChange={(e) =>
+						onFiltersChange("isHardcoverPublisher", e.target.checked)
+					}
+				/>
+			) : null}
+			{filters.source === MediaSource.GiantBomb ? (
+				<Checkbox
+					label="Company"
+					checked={filters.sourceSpecifics.isGiantBombCompany || false}
+					onChange={(e) =>
+						onFiltersChange("isGiantBombCompany", e.target.checked)
+					}
+				/>
+			) : null}
+		</Stack>
 	);
 };
 

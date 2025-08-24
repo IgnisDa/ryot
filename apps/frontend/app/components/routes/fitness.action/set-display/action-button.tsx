@@ -12,7 +12,7 @@ import {
 	useGetExerciseAtIndex,
 	useGetSetAtIndex,
 } from "~/lib/state/fitness";
-import { OnboardingTourStepTargets } from "~/lib/state/general";
+import { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { usePlayFitnessSound } from "../hooks";
 import type { FuncStartTimer } from "../types";
 import {

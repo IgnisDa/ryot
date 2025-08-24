@@ -1,11 +1,12 @@
 use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use common_models::{EntityAssets, MetadataSearchSourceSpecifics, PersonSourceSpecifics};
+use common_models::{EntityAssets, PersonSourceSpecifics};
 use common_utils::{PAGE_SIZE, ryot_log};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{
-    MetadataGroupPersonRelated, MetadataPersonRelated, PersonDetails, SearchResults,
+    MetadataGroupPersonRelated, MetadataPersonRelated, MetadataSearchSourceSpecifics,
+    PersonDetails, SearchResults,
 };
 use enum_models::{MediaLot, MediaSource};
 use media_models::{

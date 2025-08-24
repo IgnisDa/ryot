@@ -14,6 +14,7 @@ import {
 	Textarea,
 	Title,
 } from "@mantine/core";
+import { DateInput } from "@mantine/dates";
 import {
 	CreateCustomMetadataDocument,
 	MediaLot,
@@ -26,7 +27,12 @@ import {
 	parseSearchQuery,
 	processSubmission,
 } from "@ryot/ts-utils";
-import { IconCalendar, IconPhoto, IconVideo } from "@tabler/icons-react";
+import {
+	IconCalendar,
+	IconCalendarEvent,
+	IconPhoto,
+	IconVideo,
+} from "@tabler/icons-react";
 import { Form, redirect, useLoaderData } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
@@ -41,8 +47,8 @@ import {
 import type { Route } from "./+types/_dashboard.media.update.$action";
 
 enum Action {
-	Create = "create",
 	Edit = "edit",
+	Create = "create",
 }
 
 const searchParamsSchema = z.object({
@@ -100,6 +106,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	input.specifics = undefined;
 	input.genres = input.genres?.split(",");
 	input.creators = input.creators?.split(",");
+	input.publishDate = submission.publishDate || undefined;
 
 	const id = await match(submission.action)
 		.with(Action.Create, async () => {
@@ -140,6 +147,7 @@ const schema = z.object({
 	isNsfw: z.boolean().optional(),
 	lot: z.enum(MediaLot),
 	publishYear: z.number().optional(),
+	publishDate: optionalString,
 });
 
 export default function Page() {
@@ -232,20 +240,35 @@ export default function Page() {
 							multiple
 							name="videos"
 							label="Videos"
+							accept="video/*"
 							leftSection={<IconVideo />}
-							accept="video/mp4,video/x-m4v,video/*"
 							description={
 								loaderData.details &&
 								"Please re-upload the videos while updating the metadata, old ones will be deleted"
 							}
 						/>
 					) : null}
-					<NumberInput
-						name="publishYear"
-						label="Publish year"
-						leftSection={<IconCalendar />}
-						defaultValue={loaderData.details?.publishYear || undefined}
-					/>
+					<Group wrap="nowrap" justify="space-between">
+						<DateInput
+							flex={1}
+							name="publishDate"
+							label="Publish date"
+							valueFormat="YYYY-MM-DD"
+							leftSection={<IconCalendarEvent />}
+							defaultValue={
+								loaderData.details?.publishDate
+									? new Date(loaderData.details.publishDate)
+									: undefined
+							}
+						/>
+						<NumberInput
+							flex={1}
+							name="publishYear"
+							label="Publish year"
+							leftSection={<IconCalendar />}
+							defaultValue={loaderData.details?.publishYear || undefined}
+						/>
+					</Group>
 					<TextInput
 						name="creators"
 						label="Creators"

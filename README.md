@@ -85,6 +85,7 @@ You can also open an issue on GitHub if you find any bugs or have feature reques
 
 ## 🙏 Acknowledgements
 
-Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and other
-similar projects. Also a massive thanks to all the
-[contributors](https://github.com/IgnisDa/ryot/graphs/contributors).
+- Ryot is highly inspired by [MediaTracker](https://github.com/bonukai/MediaTracker) and
+  other similar projects.
+- [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) for exercise information.
+- Massive thanks to all the [contributors](https://github.com/IgnisDa/ryot/graphs/contributors).

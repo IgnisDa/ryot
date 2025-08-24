@@ -46,7 +46,7 @@ impl MediaProvider for NonMediaAnilistService {
                 ..
             })
         );
-        let (items, total, next_page) = if is_studio {
+        let (items, total_items, next_page) = if is_studio {
             let body = build_studio_search_query(query, page.unwrap_or(1), PAGE_SIZE);
             let search = self
                 .base
@@ -95,9 +95,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .unwrap()
                 .page
                 .unwrap();
-            let total = search.page_info.unwrap().total.unwrap();
+            let total_items = search.page_info.unwrap().total.unwrap();
             let next_page =
-                (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+                (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
             let items = search
                 .staff
                 .unwrap_or_default()
@@ -110,11 +110,14 @@ impl MediaProvider for NonMediaAnilistService {
                     birth_year: data.date_of_birth.and_then(|b| b.year),
                 })
                 .collect();
-            (items, total, next_page)
+            (items, total_items, next_page)
         };
         Ok(SearchResults {
             items,
-            details: SearchDetails { total, next_page },
+            details: SearchDetails {
+                next_page,
+                total_items,
+            },
         })
     }
 

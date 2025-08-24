@@ -81,7 +81,7 @@ import {
 	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import {
 	addExerciseToCurrentWorkout,
@@ -118,8 +118,8 @@ export const loader = async ({ params, request }: Route.LoaderArgs) => {
 	return { query, exerciseId, exerciseDetails, userExerciseDetails };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.exerciseDetails.name} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Exercise Details | Ryot" }];
 };
 
 export default function Page() {
@@ -614,11 +614,7 @@ export default function Page() {
 										variant="outline"
 										onClick={() => {
 											setMergingExercise(loaderData.exerciseDetails.id);
-											navigate(
-												$path("/fitness/exercises/list", {
-													type: loaderData.exerciseDetails.lot,
-												}),
-											);
+											navigate($path("/fitness/exercises/list"));
 										}}
 									>
 										Merge exercise
@@ -664,7 +660,7 @@ export default function Page() {
 									setCurrentWorkout,
 									[
 										{
-											name: loaderData.exerciseDetails.id,
+											id: loaderData.exerciseDetails.id,
 											lot: loaderData.exerciseDetails.lot,
 										},
 									],

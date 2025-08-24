@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, SimpleObject};
 use common_models::{
-    CollectionExtraInformation, IdAndNamedObject, UserToCollectionExtraInformation,
+    CollectionExtraInformation, StringIdAndNamedObject, UserToCollectionExtraInformation,
 };
 use enum_models::{EntityLot, MediaLot};
 use schematic::Schematic;
@@ -45,7 +45,7 @@ pub struct CollectionContentsFilter {
     FromJsonQueryResult,
 )]
 pub struct CollectionItemCollaboratorInformation {
-    pub collaborator: IdAndNamedObject,
+    pub collaborator: StringIdAndNamedObject,
     pub extra_information: Option<UserToCollectionExtraInformation>,
 }
 
@@ -57,7 +57,7 @@ pub struct CollectionItem {
     pub count: i64,
     pub name: String,
     pub is_default: bool,
-    pub creator: IdAndNamedObject,
+    pub creator: StringIdAndNamedObject,
     pub description: Option<String>,
     pub collaborators: Vec<CollectionItemCollaboratorInformation>,
     pub information_template: Option<Vec<CollectionExtraInformation>>,

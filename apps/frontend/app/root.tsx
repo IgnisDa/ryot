@@ -32,7 +32,7 @@ import {
 } from "react-router";
 import { Toaster } from "~/components/toaster";
 import { LOGO_IMAGE_URL } from "~/lib/shared/constants";
-import { queryClient } from "~/lib/shared/query-factory";
+import { queryClient } from "~/lib/shared/react-query";
 import {
 	colorSchemeCookie,
 	extendResponseHeaders,

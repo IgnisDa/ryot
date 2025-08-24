@@ -1,9 +1,10 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, MetadataSearchSourceSpecifics, SearchDetails};
+use common_models::{EntityAssets, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year};
 use convert_case::{Case, Casing};
+use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -96,17 +97,21 @@ impl MediaProvider for GoogleBooksService {
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_SIZE;
+        let pass_raw_query = source_specifics
+            .as_ref()
+            .and_then(|s| s.google_books.as_ref().and_then(|g| g.pass_raw_query))
+            .unwrap_or(false);
         let rsp = self
             .client
             .get(URL)
             .query(&serde_json::json!({
-                "q": match source_specifics.as_ref().and_then(|s| s.google_books_pass_raw_query).unwrap_or(false) {
+                "startIndex": index,
+                "printType": "books",
+                "maxResults": PAGE_SIZE,
+                "q": match pass_raw_query {
                     true => query.to_owned(),
                     false => format!("intitle:{query}")
                 },
-                "maxResults": PAGE_SIZE,
-                "printType": "books",
-                "startIndex": index
             }))
             .send()
             .await
@@ -138,7 +143,7 @@ impl MediaProvider for GoogleBooksService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.total_items,
+                total_items: search.total_items,
             },
         })
     }

@@ -1,13 +1,11 @@
 use anyhow::{Result, anyhow};
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{
-    EntityAssets, MetadataSearchSourceSpecifics, NamedObject, PersonSourceSpecifics, SearchDetails,
-};
+use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use convert_case::{Case, Casing};
 use database_models::metadata_group::MetadataGroupWithoutId;
-use dependent_models::{PersonDetails, SearchResults};
+use dependent_models::{MetadataSearchSourceSpecifics, PersonDetails, SearchResults};
 use educe::Educe;
 use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
@@ -201,7 +199,7 @@ impl MediaProvider for AudibleService {
         Ok(SearchResults {
             items,
             details: SearchDetails {
-                total: total_items.try_into().unwrap(),
+                total_items: total_items.try_into().unwrap(),
                 next_page: has_next_page.then(|| (internal_page + 1).try_into().unwrap()),
             },
         })
@@ -393,7 +391,7 @@ impl MediaProvider for AudibleService {
             items: resp,
             details: SearchDetails {
                 next_page,
-                total: search.total_results,
+                total_items: search.total_results,
             },
         })
     }

@@ -58,7 +58,7 @@
 	},
 	"devDependencies": {
 		"@react-router/dev": "7.7.1",
-		"@types/nodemailer": "6.4.17",
+		"@types/nodemailer": "7.0.1",
 		"@types/react": "19.1.9",
 		"@types/react-dom": "19.1.7",
 		"drizzle-kit": "0.31.4",

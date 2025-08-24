@@ -29,7 +29,7 @@ import { useState } from "react";
 import invariant from "tiny-invariant";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
-import { clientGqlService, queryFactory } from "~/lib/shared/query-factory";
+import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	clientSideFileUpload,
 	openConfirmationModal,

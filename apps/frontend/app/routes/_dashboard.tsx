@@ -65,16 +65,15 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { forcedDashboardPath } from "~/lib/shared/ui-utils";
+import { useOpenedSidebarLinks } from "~/lib/state/general";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-	useOpenedSidebarLinks,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import {
 	getCookieValue,
 	getCoreDetails,
-	getEnhancedCookieName,
 	getUserCollectionsList,
 	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
@@ -98,10 +97,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const currentColorScheme = await colorSchemeCookie.parse(
 		request.headers.get("cookie") || "",
 	);
-	const onboardingTourCompletedCookie = await getEnhancedCookieName({
-		name: "OnboardingCompleted",
-		request,
-	});
+	const onboardingTourCompletedCookie = "OnboardingCompleted";
 	const isOnboardingTourCompleted = getCookieValue(
 		request,
 		onboardingTourCompletedCookie,
@@ -151,12 +147,9 @@ export default function Layout() {
 		currentOnboardingTourStepIndex,
 	} = useOnboardingTour();
 
-	const mediaLinks = getMediaLinks(userPreferences, isOnboardingTourInProgress);
+	const mediaLinks = getMediaLinks(userPreferences);
 	const Icon = getThemeIcon(loaderData.currentColorScheme);
-	const fitnessLinks = getFitnessLinks(
-		userPreferences,
-		isOnboardingTourInProgress,
-	);
+	const fitnessLinks = getFitnessLinks(userPreferences);
 	const settingsLinks = getSettingsLinks(userDetails);
 
 	return (

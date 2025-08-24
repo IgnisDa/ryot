@@ -5,12 +5,12 @@ import {
 	useEditEntityCollectionInformation,
 } from "~/lib/state/collection";
 import { useMeasurementsDrawerOpen } from "~/lib/state/fitness";
-import { useOnboardingTour } from "~/lib/state/general";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import { useOnboardingTour } from "~/lib/state/onboarding-tour";
 import { AddEntityToCollectionsForm } from "./forms/add-entity-to-collections-form";
 import { CreateMeasurementForm } from "./forms/create-measurement-form";
 import { CreateOrUpdateCollectionModal } from "./forms/create-or-update-collection-form";

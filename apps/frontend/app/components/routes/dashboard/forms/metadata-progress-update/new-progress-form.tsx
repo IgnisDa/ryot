@@ -10,11 +10,11 @@ import { useState } from "react";
 import { match } from "ts-pattern";
 import { convertTimestampToUtcString } from "~/lib/shared/date-utils";
 import { useDeployBulkMetadataProgressUpdateMutation } from "~/lib/shared/hooks";
+import { useMetadataProgressUpdate } from "~/lib/state/media";
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
-import { useMetadataProgressUpdate } from "~/lib/state/media";
+} from "~/lib/state/onboarding-tour";
 import { WatchTimes } from "../../types";
 import { AnimeForm } from "./media-types/anime-form";
 import { MangaForm } from "./media-types/manga-form";

@@ -100,31 +100,28 @@ import {
 	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { getVerb } from "~/lib/shared/media-utils";
-import { clientGqlService } from "~/lib/shared/query-factory";
+import { clientGqlService } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { zodDateTimeString } from "~/lib/shared/validation";
-import {
-	OnboardingTourStepTargets,
-	useOnboardingTour,
-} from "~/lib/state/general";
 import {
 	useAddEntityToCollections,
 	useMetadataProgressUpdate,
 	useReviewEntity,
 } from "~/lib/state/media";
+import {
+	OnboardingTourStepTargets,
+	useOnboardingTour,
+} from "~/lib/state/onboarding-tour";
 import { Verb } from "~/lib/types";
 import {
 	MetadataIdSchema,
-	MetadataSpecificsSchema,
 	createToastHeaders,
 	redirectWithToast,
 	serverGqlService,
 } from "~/lib/utilities.server";
 import type { Route } from "./+types/_dashboard.media.item.$id._index";
 
-const searchParamsSchema = z
-	.object({ defaultTab: z.string().optional() })
-	.extend(MetadataSpecificsSchema.shape);
+const searchParamsSchema = z.object({ defaultTab: z.string().optional() });
 
 export type SearchParams = z.infer<typeof searchParamsSchema>;
 
@@ -150,8 +147,8 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 	return { query, metadataId, metadataDetails, userMetadataDetails };
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${data?.metadataDetails.title} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Media Item Details | Ryot" }];
 };
 
 export const action = async ({ request }: Route.ActionArgs) => {

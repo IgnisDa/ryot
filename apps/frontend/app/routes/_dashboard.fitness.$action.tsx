@@ -1,11 +1,6 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Button, Container, Group, Skeleton, Stack } from "@mantine/core";
-import {
-	changeCase,
-	isNumber,
-	isString,
-	parseParameters,
-} from "@ryot/ts-utils";
+import { isNumber, isString, parseParameters } from "@ryot/ts-utils";
 import { produce } from "immer";
 import { RESET } from "jotai/utils";
 import { useState } from "react";
@@ -42,7 +37,7 @@ import {
 import {
 	OnboardingTourStepTargets,
 	useOnboardingTour,
-} from "~/lib/state/general";
+} from "~/lib/state/onboarding-tour";
 import { FitnessAction } from "~/lib/types";
 import type { Route } from "./+types/_dashboard.fitness.$action";
 
@@ -58,8 +53,8 @@ export const loader = async ({ params }: Route.LoaderArgs) => {
 	};
 };
 
-export const meta = ({ data }: Route.MetaArgs) => {
-	return [{ title: `${changeCase(data?.action || "")} | Ryot` }];
+export const meta = () => {
+	return [{ title: "Fitness Action | Ryot" }];
 };
 
 export default function Page() {
@@ -85,8 +80,7 @@ export default function Page() {
 	} = useWorkoutModals();
 	const promptForRestTimer = userPreferences.fitness.logging.promptForRestTimer;
 	const performTasksAfterSetConfirmed = usePerformTasksAfterSetConfirmed();
-	const { isOnboardingTourInProgress, advanceOnboardingTourStep } =
-		useOnboardingTour();
+	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const playCheckSound = usePlayFitnessSound("check");
 	const timerCompleteSound = usePlayFitnessSound("timer-completed");
 
@@ -224,7 +218,6 @@ export default function Page() {
 						isWorkoutPaused,
 						setCurrentWorkout,
 						advanceOnboardingTourStep,
-						isOnboardingTourInProgress,
 						performTasksAfterSetConfirmed,
 					});
 				}

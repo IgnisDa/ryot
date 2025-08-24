@@ -20,7 +20,6 @@ query UserDetails {
 					landingPath
 					listPageSize
 					disableVideos
-					persistQueries
 					disableReviews
 					disableIntegrations
 					disableWatchProviders

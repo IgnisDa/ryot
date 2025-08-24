@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use async_graphql::{InputObject, OneofObject, SimpleObject};
-use common_models::IdAndNamedObject;
+use common_models::StringIdAndNamedObject;
 use enum_models::{ImportSource, Visibility};
 use rust_decimal::Decimal;
 use schematic::Schematic;
@@ -69,10 +69,10 @@ pub struct ImportOrExportItemReview {
 pub struct ImportOrExportItemReviewComment {
     pub id: String,
     pub text: String,
-    pub user: IdAndNamedObject,
     pub created_on: DateTimeUtc,
     /// The user ids of all those who liked it.
     pub liked_by: HashSet<String>,
+    pub user: StringIdAndNamedObject,
 }
 
 /// A rating given to an entity.
