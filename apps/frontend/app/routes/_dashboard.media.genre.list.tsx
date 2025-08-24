@@ -127,7 +127,7 @@ const DisplayGenre = (props: { genreId: string }) => {
 	const { ref, inViewport } = useInViewport();
 	const { data: genreData } = useQuery({
 		enabled: inViewport,
-		queryKey: queryFactory.miscellaneous.genreImages(props.genreId).queryKey,
+		queryKey: queryFactory.media.genreImages(props.genreId).queryKey,
 		queryFn: async () => {
 			const { genreDetails } = await clientGqlService.request(
 				GenreDetailsDocument,

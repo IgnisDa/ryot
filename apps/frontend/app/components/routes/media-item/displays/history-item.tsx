@@ -24,7 +24,7 @@ import { withQuery } from "ufo";
 import { PRO_REQUIRED_MESSAGE } from "~/lib/shared/constants";
 import { dayjsLib } from "~/lib/shared/date-utils";
 import { useConfirmSubmit, useCoreDetails } from "~/lib/shared/hooks";
-import { refreshReactQueryMediaKeys } from "~/lib/shared/react-query";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import { EditHistoryItemModal } from "../modals/edit-history-modal";
 import type { History, MetadataDetails, UserMetadataDetails } from "../types";
@@ -172,7 +172,7 @@ export const HistoryItem = (props: {
 									"Are you sure you want to delete this record from history?",
 									() => {
 										submit(form);
-										refreshReactQueryMediaKeys();
+										refreshEntityDetails(props.metadataDetails.id);
 									},
 								);
 							}}

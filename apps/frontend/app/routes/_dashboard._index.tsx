@@ -314,7 +314,7 @@ const TrendingSection = () => {
 		useDisclosure(false);
 
 	const trendingMetadata = useQuery({
-		queryKey: queryFactory.miscellaneous.trendingMetadata().queryKey,
+		queryKey: queryFactory.media.trendingMetadata().queryKey,
 		queryFn: () => clientGqlService.request(TrendingMetadataDocument),
 	});
 
