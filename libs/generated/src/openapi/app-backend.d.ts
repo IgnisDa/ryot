@@ -729,7 +729,7 @@ export interface paths {
                                     occurredAt: string;
                                     rating: number | null;
                                     /** @enum {string} */
-                                    eventSchemaSlug: "review" | "backlog" | "progress" | "complete";
+                                    eventSchemaSlug: "review" | "backlog" | "progress" | "complete" | "dropped" | "on_hold";
                                     entity: {
                                         name: string;
                                         image: {
