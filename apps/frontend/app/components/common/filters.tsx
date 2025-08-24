@@ -69,7 +69,6 @@ export const FiltersModal = (props: {
 };
 
 export const CollectionsFilter = (props: {
-	cookieName: string;
 	applied: MediaCollectionFilter[];
 	onFiltersChanged: (val: MediaCollectionFilter[]) => void;
 }) => {

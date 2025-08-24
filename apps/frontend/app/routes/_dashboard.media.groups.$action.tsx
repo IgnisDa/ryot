@@ -367,7 +367,6 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 			<Divider />
 			<CollectionsFilter
 				applied={filters.collections}
-				cookieName="GroupsListFilters"
 				onFiltersChanged={(val) => onFiltersChange("collections", val)}
 			/>
 		</>

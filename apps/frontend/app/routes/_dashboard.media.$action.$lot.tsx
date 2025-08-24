@@ -527,7 +527,6 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 			<Divider />
 			<CollectionsFilter
 				applied={filters.collections}
-				cookieName={`MediaListFilters_${props.lot}`}
 				onFiltersChanged={(val) => onFiltersChange("collections", val)}
 			/>
 			<Divider />
