@@ -109,8 +109,8 @@ export const meta = () => {
 	return [{ title: "Collection Details | Ryot" }];
 };
 
-export default function Page(props: { id: string }) {
-	const { id: collectionId } = props;
+export default function Page(props: { params: { id: string } }) {
+	const { id: collectionId } = props.params;
 	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
 	const navigate = useNavigate();

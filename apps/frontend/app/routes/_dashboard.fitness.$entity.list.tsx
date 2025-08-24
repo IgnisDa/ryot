@@ -105,8 +105,8 @@ export const meta = () => {
 	return [{ title: "Fitness Entity List | Ryot" }];
 };
 
-export default function Page(props: { entity: FitnessEntity }) {
-	const { entity } = props;
+export default function Page(props: { params: { entity: FitnessEntity } }) {
+	const { entity } = props.params;
 	invariant(entity);
 
 	const [filters, setFilters] = useLocalStorage(

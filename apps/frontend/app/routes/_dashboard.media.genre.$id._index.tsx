@@ -20,9 +20,8 @@ export const meta = () => {
 	return [{ title: "Genre | Ryot" }];
 };
 
-export default function Page(props: { id: string }) {
-	const { id: genreId } = props;
-
+export default function Page(props: { params: { id: string } }) {
+	const { id: genreId } = props.params;
 	invariant(genreId);
 
 	const [pagination, setPagination] = useLocalStorage(
