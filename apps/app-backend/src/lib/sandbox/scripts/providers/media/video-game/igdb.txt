@@ -50,17 +50,16 @@ const AUTH_URL = "https://id.twitch.tv/oauth2/token";
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
 
 async function getAccessToken() {
+  const { z } = await import("npm:zod");
+
   const cached = await getCachedValue(TOKEN_CACHE_KEY);
   if (cached?.success && cached.data !== null) {
-    const cachedData = cached.data;
-    if (
-      cachedData &&
-      typeof cachedData === "object" &&
-      typeof cachedData.accessToken === "string" &&
-      typeof cachedData.clientId === "string"
-    ) {
-      return { accessToken: cachedData.accessToken, clientId: cachedData.clientId };
-    }
+    const TokenSchema = z.object({
+      accessToken: z.string(),
+      clientId: z.string(),
+    });
+    const parsed = TokenSchema.safeParse(cached.data);
+    if (parsed.success) return parsed.data;
   }
 
   const { clientId, clientSecret } = await getCredentials();
@@ -110,18 +109,19 @@ function getImageUrl(imageId) {
   return `${IMAGE_BASE_URL}/${imageId}.jpg`;
 }
 
-function extractYear(unixTimestamp) {
+function extractYear(unixTimestamp, dayjs) {
   if (typeof unixTimestamp !== "number" || !Number.isFinite(unixTimestamp)) {
     return null;
   }
-  return new Date(unixTimestamp * 1000).getFullYear();
+  return dayjs.unix(unixTimestamp).year();
 }
 
-function unixToIsoDate(unixTimestamp) {
+function unixToIsoDate(unixTimestamp, dayjs) {
   if (typeof unixTimestamp !== "number" || !Number.isFinite(unixTimestamp)) {
     return null;
   }
-  return new Date(unixTimestamp * 1000).toISOString().split("T")[0];
+  const d = dayjs.unix(unixTimestamp);
+  return d.isValid() ? d.toISOString().split("T")[0] : null;
 }
 
 // IGDB game_time_to_beats values are in seconds; the app schema stores minutes.
@@ -150,7 +150,7 @@ function toSlug(str) {
 
 // IGDB release_dates entries each carry a platform name and an optional Unix
 // timestamp date.  release_region is a nested object with a string region field.
-function buildPlatformReleases(releaseDates) {
+function buildPlatformReleases(releaseDates, dayjs) {
   if (!Array.isArray(releaseDates) || releaseDates.length === 0) {
     return null;
   }
@@ -171,7 +171,7 @@ function buildPlatformReleases(releaseDates) {
         return null;
       }
 
-      const releaseDate = unixToIsoDate(rd.date);
+      const releaseDate = unixToIsoDate(rd.date, dayjs);
       const releaseRegion =
         rd.release_region &&
         typeof rd.release_region === "object" &&
@@ -232,21 +232,14 @@ const DETAIL_FIELDS = [
 ].join(", ");
 
 driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query =
-    typeof context?.query === "string" ? context.query.trim() : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const offset = (currentPage - 1) * pageSize;
 
@@ -290,7 +283,7 @@ driver("search", async function(context) {
         return null;
       }
 
-      const publishYear = extractYear(game.first_release_date);
+      const publishYear = extractYear(game.first_release_date, dayjs);
       const image =
         game.cover && typeof game.cover.image_id === "string"
           ? getImageUrl(game.cover.image_id)
@@ -322,14 +315,12 @@ driver("search", async function(context) {
 });
 
 driver("details", async function(context) {
-  const identifier =
-    typeof context?.identifier === "string"
-      ? context.identifier.trim()
-      : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!identifier) {
-    throw new Error("identifier is required");
-  }
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   if (!/^\d+$/.test(identifier)) {
     throw new Error(
@@ -390,7 +381,7 @@ driver("details", async function(context) {
         .filter((g) => g !== null && g.length > 0)
     : [];
 
-  const platformReleases = buildPlatformReleases(game.release_dates);
+  const platformReleases = buildPlatformReleases(game.release_dates, dayjs);
 
   const ttbList = ttbResult.data;
   const ttbEntry =
@@ -432,7 +423,7 @@ driver("details", async function(context) {
       platformReleases,
       productionStatus: null,
       assets: { remoteImages },
-      publishYear: extractYear(game.first_release_date),
+      publishYear: extractYear(game.first_release_date, dayjs),
       sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
     },
   };

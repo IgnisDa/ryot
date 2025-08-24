@@ -15,13 +15,10 @@ function getNullableString(value) {
   return s || null;
 }
 
-function getPublishYear(releaseDateStr) {
-  if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) {
-    return null;
-  }
-
-  const year = parseInt(releaseDateStr.slice(0, 4), 10);
-  return Number.isFinite(year) && year > 0 ? year : null;
+function getPublishYear(releaseDateStr, dayjs) {
+  if (typeof releaseDateStr !== "string" || !releaseDateStr.trim()) return null;
+  const d = dayjs(releaseDateStr.trim());
+  return d.isValid() && d.year() > 0 ? d.year() : null;
 }
 
 function getImagesSortedBySize(images) {
@@ -154,21 +151,14 @@ async function spotifyGet(path, params) {
 }
 
 driver("search", async function(context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : 20;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query =
-    typeof context?.query === "string" ? context.query.trim() : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
 
   const offset = (currentPage - 1) * pageSize;
 
@@ -193,7 +183,7 @@ driver("search", async function(context) {
 
       const title = getString(track?.name) || identifier;
       const album = track?.album;
-      const publishYear = album ? getPublishYear(album.release_date) : null;
+      const publishYear = album ? getPublishYear(album.release_date, dayjs) : null;
       const imageUrl = album?.images ? getFirstImage(album.images) : null;
 
       return {
@@ -223,14 +213,12 @@ driver("search", async function(context) {
 });
 
 driver("details", async function(context) {
-  const identifier =
-    typeof context?.identifier === "string"
-      ? context.identifier.trim()
-      : "";
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
 
-  if (!identifier) {
-    throw new Error("identifier is required");
-  }
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   const track = await spotifyGet(
     `/tracks/${encodeURIComponent(identifier)}`,
@@ -264,7 +252,7 @@ driver("details", async function(context) {
 
   const album = track?.album;
   const albumImages = Array.isArray(album?.images) ? album.images : [];
-  const publishYear = getPublishYear(album?.release_date);
+  const publishYear = getPublishYear(album?.release_date, dayjs);
 
   const durationMs =
     typeof track?.duration_ms === "number" &&

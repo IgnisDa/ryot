@@ -77,20 +77,12 @@ function buildArtistDescription(artist) {
 }
 
 driver("search", async function (context) {
-  const pageSize =
-    Number.isFinite(Number(context?.pageSize)) &&
-    Number(context.pageSize) > 0 &&
-    Number(context.pageSize) <= 100
-      ? Math.floor(Number(context.pageSize))
-      : PAGE_SIZE;
-  const currentPage = Number.isFinite(Number(context?.page))
-    ? Math.max(1, Math.floor(Number(context.page)))
-    : 1;
-  const query = typeof context?.query === "string" ? context.query.trim() : "";
-
-  if (!query) {
-    throw new Error("query is required");
-  }
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(PAGE_SIZE),
+  }).parse(context ?? {});
 
   const luceneQuery = buildLuceneQuery(query, ["artist", "alias"]);
   const data = await mbGet("artist", {
@@ -136,11 +128,11 @@ driver("search", async function (context) {
 });
 
 driver("details", async function (context) {
-  const identifier =
-    typeof context?.identifier === "string" ? context.identifier.trim() : "";
-  if (!identifier) {
-    throw new Error("identifier is required");
-  }
+  const { z } = await import("npm:zod");
+
+  const { identifier } = z.object({
+    identifier: z.string().trim().min(1, "identifier is required"),
+  }).parse(context ?? {});
 
   const artist = await mbGet(`artist/${identifier}`, {
     inc: "aliases",
