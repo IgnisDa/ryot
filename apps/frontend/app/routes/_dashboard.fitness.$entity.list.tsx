@@ -66,7 +66,6 @@ import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useCoreDetails,
 	useGetWorkoutStarter,
-	useUserPreferences,
 	useUserUnitSystem,
 } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
@@ -115,7 +114,6 @@ export default function Page(props: { entity: FitnessEntity }) {
 		defaultFilterState,
 	);
 	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
 	const startWorkout = useGetWorkoutStarter();
 	const [
 		filtersModalOpened,
@@ -154,10 +152,6 @@ export default function Page(props: { entity: FitnessEntity }) {
 				)
 				.exhaustive(),
 	});
-
-	const totalPages = listData
-		? Math.ceil(listData.details.total / userPreferences.general.listPageSize)
-		: 1;
 
 	const areListFiltersActive = isFilterChanged(filters, defaultFilterState);
 
@@ -246,7 +240,7 @@ export default function Page(props: { entity: FitnessEntity }) {
 				</Stack>
 				<ApplicationPagination
 					value={filters.page}
-					totalPages={totalPages}
+					totalItems={listData?.details.total}
 					onChange={(v) => updateFilter("page", v)}
 				/>
 			</Stack>

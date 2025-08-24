@@ -59,7 +59,7 @@ import {
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib, getStartTimeFromRange } from "~/lib/shared/date-utils";
-import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
+import { useCoreDetails } from "~/lib/shared/hooks";
 import { getLot } from "~/lib/shared/media-utils";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
@@ -116,7 +116,6 @@ export default function Page(props: {
 	const action = props.params.action;
 	const lot = getLot(props.params.lot) as MediaLot;
 	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
 	const navigate = useNavigate();
 	const [
 		filtersModalOpened,
@@ -348,10 +347,7 @@ export default function Page(props: {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalPages={Math.ceil(
-										userMetadataList.response.details.total /
-											userPreferences.general.listPageSize,
-									)}
+									totalItems={userMetadataList.response.details.total}
 								/>
 							</>
 						) : (
@@ -435,10 +431,7 @@ export default function Page(props: {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalPages={Math.ceil(
-										metadataSearch.response.details.total /
-											userPreferences.general.listPageSize,
-									)}
+									totalItems={metadataSearch.response.details.total}
 								/>
 							</>
 						) : (

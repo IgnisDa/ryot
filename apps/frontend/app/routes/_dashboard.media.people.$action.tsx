@@ -50,7 +50,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
-import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
+import { useCoreDetails } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
@@ -95,7 +95,6 @@ export const meta = () => {
 export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
-	const userPreferences = useUserPreferences();
 	const action = props.params.action;
 
 	const [
@@ -296,10 +295,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalPages={Math.ceil(
-										userPeopleList.response.details.total /
-											userPreferences.general.listPageSize,
-									)}
+									totalItems={userPeopleList.response.details.total}
 								/>
 							</>
 						) : (
@@ -332,10 +328,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									totalPages={Math.ceil(
-										peopleSearch.response.details.total /
-											userPreferences.general.listPageSize,
-									)}
+									totalItems={peopleSearch.response.details.total}
 								/>
 							</>
 						) : (

@@ -298,10 +298,7 @@ export default function Page(props: { id: string }) {
 											</Text>
 										)}
 										<ApplicationPagination
-											totalPages={Math.ceil(
-												details.results.details.total /
-													userPreferences.general.listPageSize,
-											)}
+											totalItems={details.results.details.total}
 											value={filters.page}
 											onChange={(v) => updateFilter("page", v)}
 										/>
@@ -474,7 +471,6 @@ const FiltersModalForm = (props: {
 };
 
 const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
-	const userPreferences = useUserPreferences();
 	const [search, setSearchInput] = useLocalStorage(
 		"CollectionRecommendationsSearchInput",
 		{ page: 1, query: "" },
@@ -510,10 +506,9 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 						<ApplicationPagination
 							value={search.page}
 							onChange={(v) => setSearchInput({ ...search, page: v })}
-							totalPages={Math.ceil(
-								recommendations.data.collectionRecommendations.details.total /
-									userPreferences.general.listPageSize,
-							)}
+							totalItems={
+								recommendations.data.collectionRecommendations.details.total
+							}
 						/>
 					</>
 				) : (

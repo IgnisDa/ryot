@@ -59,6 +59,7 @@ import {
 	useGetRandomMantineColor,
 	useRemoveEntitiesFromCollectionMutation,
 	useUserCollections,
+	useUserPreferences,
 } from "~/lib/shared/hooks";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
@@ -516,13 +517,20 @@ export const CollectionTemplateRenderer = (props: {
 export const ApplicationPagination = (props: {
 	value?: number;
 	size?: MantineSize;
-	totalPages?: number;
+	totalItems?: number;
+	pageSize?: number;
 	onChange: (value: number) => void;
 }) => {
-	if (!props.totalPages || props.totalPages <= 0) return null;
+	const userPreferences = useUserPreferences();
+	const pageSize = props.pageSize || userPreferences.general.listPageSize;
+	const totalPages = props.totalItems
+		? Math.ceil(props.totalItems / pageSize)
+		: 0;
+
+	if (!props.totalItems || props.totalItems <= 0 || totalPages <= 0)
+		return null;
 
 	const currentPage = props.value || 1;
-	const totalPages = props.totalPages;
 
 	if (totalPages <= 7) {
 		return (

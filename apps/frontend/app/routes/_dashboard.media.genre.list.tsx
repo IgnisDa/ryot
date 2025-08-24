@@ -32,7 +32,6 @@ import {
 	useCoreDetails,
 	useFallbackImageUrl,
 	useGetRandomMantineColor,
-	useUserPreferences,
 } from "~/lib/shared/hooks";
 import {
 	clientGqlService,
@@ -56,7 +55,6 @@ export const meta = () => {
 };
 
 export default function Page() {
-	const userPreferences = useUserPreferences();
 	const [filters, setFilters] = useLocalStorage(
 		"GenreListFilters",
 		defaultFilterState,
@@ -90,10 +88,7 @@ export default function Page() {
 							<ApplicationPagination
 								value={filters.page}
 								onChange={(v) => updateFilter("page", v)}
-								totalPages={Math.ceil(
-									userGenresList.details.total /
-										userPreferences.general.listPageSize,
-								)}
+								totalItems={userGenresList.details.total}
 							/>
 						</Group>
 						<DebouncedSearchInput
