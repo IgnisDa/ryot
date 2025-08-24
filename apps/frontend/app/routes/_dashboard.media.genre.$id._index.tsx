@@ -6,6 +6,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { ApplicationPagination, SkeletonLoader } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
 import { MetadataDisplayItem } from "~/components/media/display-items";
+import { useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 
 interface PaginationState {
@@ -24,6 +25,8 @@ export default function Page(props: { id: string }) {
 	const { id: genreId } = props;
 
 	invariant(genreId);
+
+	const userPreferences = useUserPreferences();
 
 	const [pagination, setPagination] = useLocalStorage(
 		`GenrePagination_${genreId}`,
@@ -57,9 +60,12 @@ export default function Page(props: { id: string }) {
 								<Text>{genreDetails.details.numItems} media items</Text>
 							</Box>
 							<ApplicationPagination
-								total={genreDetails.contents.details.total}
-								value={pagination.page}
 								onChange={updatePage}
+								value={pagination.page}
+								totalPages={Math.ceil(
+									genreDetails.contents.details.total /
+										userPreferences.general.listPageSize,
+								)}
 							/>
 						</Group>
 						<ApplicationGrid>

@@ -298,7 +298,7 @@ export default function Page(props: { id: string }) {
 											</Text>
 										)}
 										<ApplicationPagination
-											total={Math.ceil(
+											totalPages={Math.ceil(
 												details.results.details.total /
 													userPreferences.general.listPageSize,
 											)}
@@ -510,7 +510,7 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 						<ApplicationPagination
 							value={search.page}
 							onChange={(v) => setSearchInput({ ...search, page: v })}
-							total={Math.ceil(
+							totalPages={Math.ceil(
 								recommendations.data.collectionRecommendations.details.total /
 									userPreferences.general.listPageSize,
 							)}

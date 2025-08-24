@@ -50,7 +50,7 @@ import {
 } from "~/components/common/filters";
 import { ApplicationGrid } from "~/components/common/layout";
 import { PersonDisplayItem } from "~/components/media/display-items";
-import { useCoreDetails } from "~/lib/shared/hooks";
+import { useCoreDetails, useUserPreferences } from "~/lib/shared/hooks";
 import { clientGqlService, queryFactory } from "~/lib/shared/react-query";
 import {
 	convertEnumToSelectData,
@@ -95,6 +95,7 @@ export const meta = () => {
 export default function Page(props: { params: { action: string } }) {
 	const navigate = useNavigate();
 	const coreDetails = useCoreDetails();
+	const userPreferences = useUserPreferences();
 	const action = props.params.action;
 
 	const [
@@ -199,14 +200,7 @@ export default function Page(props: { params: { action: string } }) {
 						variant="default"
 						value={action}
 						onChange={(v) => {
-							if (v)
-								navigate(
-									$path(
-										"/media/people/:action",
-										{ action: v },
-										{ query: searchQuery },
-									),
-								);
+							if (v) navigate($path("/media/people/:action", { action: v }));
 						}}
 					>
 						<Tabs.List style={{ alignItems: "center" }}>
@@ -300,9 +294,12 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									total={Math.ceil(userPeopleList.response.details.total / 20)}
 									value={currentPage}
 									onChange={setCurrentPage}
+									totalPages={Math.ceil(
+										userPeopleList.response.details.total /
+											userPreferences.general.listPageSize,
+									)}
 								/>
 							</>
 						) : (
@@ -333,9 +330,12 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No people found matching your query</Text>
 								)}
 								<ApplicationPagination
-									total={Math.ceil(peopleSearch.response.details.total / 20)}
 									value={currentPage}
 									onChange={setCurrentPage}
+									totalPages={Math.ceil(
+										peopleSearch.response.details.total /
+											userPreferences.general.listPageSize,
+									)}
 								/>
 							</>
 						) : (

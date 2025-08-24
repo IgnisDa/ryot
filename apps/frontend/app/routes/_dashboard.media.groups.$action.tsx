@@ -276,7 +276,7 @@ export default function Page(props: { params: { action: string } }) {
 								<ApplicationPagination
 									value={currentPage}
 									onChange={setCurrentPage}
-									total={Math.ceil(
+									totalPages={Math.ceil(
 										userMetadataGroupsList.response.details.total /
 											userPreferences.general.listPageSize,
 									)}
@@ -310,11 +310,12 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No groups found matching your query</Text>
 								)}
 								<ApplicationPagination
-									total={Math.ceil(
-										metadataGroupSearch.response.details.total / 20,
-									)}
 									value={currentPage}
 									onChange={setCurrentPage}
+									totalPages={Math.ceil(
+										metadataGroupSearch.response.details.total /
+											userPreferences.general.listPageSize,
+									)}
 								/>
 							</>
 						) : (

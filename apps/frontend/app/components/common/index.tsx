@@ -515,14 +515,14 @@ export const CollectionTemplateRenderer = (props: {
 
 export const ApplicationPagination = (props: {
 	value?: number;
-	total?: number;
 	size?: MantineSize;
+	totalPages?: number;
 	onChange: (value: number) => void;
 }) => {
-	if (!props.total || props.total <= 0) return null;
+	if (!props.totalPages || props.totalPages <= 0) return null;
 
 	const currentPage = props.value || 1;
-	const totalPages = props.total;
+	const totalPages = props.totalPages;
 
 	if (totalPages <= 7) {
 		return (

@@ -309,7 +309,10 @@ export default function Page() {
 						<ApplicationPagination
 							value={filters.page}
 							onChange={(v) => updateFilter("page", v)}
-							total={userExercisesList.response.details.total}
+							totalPages={Math.ceil(
+								userExercisesList.response.details.total /
+									userPreferences.general.listPageSize,
+							)}
 						/>
 					</>
 				) : (
