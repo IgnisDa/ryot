@@ -59,6 +59,12 @@ const mediaQueryKeys = createQueryKeys("media", {
 	trendingMetadata: () => ({
 		queryKey: ["trendingMetadata"],
 	}),
+	genreImages: (genreId: string) => ({
+		queryKey: ["genreDetails", "images", genreId],
+	}),
+	userMetadataRecommendations: () => ({
+		queryKey: ["userMetadataRecommendations"],
+	}),
 	personDetails: (personId?: string) => ({
 		queryKey: ["personDetails", personId],
 	}),
@@ -67,9 +73,6 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	metadataDetails: (metadataId?: string) => ({
 		queryKey: ["metadataDetails", metadataId],
-	}),
-	userMetadataRecommendations: () => ({
-		queryKey: ["userMetadataRecommendations"],
 	}),
 	userPersonDetails: (personId?: string) => ({
 		queryKey: ["userPersonDetails", personId],
@@ -82,9 +85,6 @@ const mediaQueryKeys = createQueryKeys("media", {
 	}),
 	userMetadataDetails: (metadataId?: string) => ({
 		queryKey: ["userMetadataDetails", metadataId],
-	}),
-	genreImages: (genreId: string) => ({
-		queryKey: ["genreDetails", "images", genreId],
 	}),
 	metadataSearch: (input: MetadataSearchInput) => ({
 		queryKey: ["metadataSearch", input],
@@ -110,7 +110,7 @@ const mediaQueryKeys = createQueryKeys("media", {
 });
 
 const collectionQueryKeys = createQueryKeys("collections", {
-	collectionImages: (collectionId: string) => ({
+	collectionDetailsImages: (collectionId: string) => ({
 		queryKey: ["collectionDetails", "images", collectionId],
 	}),
 	collectionContents: (input: CollectionContentsInput) => ({
@@ -137,11 +137,11 @@ const fitnessQueryKeys = createQueryKeys("fitness", {
 	workoutTemplateDetails: (workoutTemplateId: string) => ({
 		queryKey: ["workoutTemplateDetails", workoutTemplateId],
 	}),
-	entityList: (entity: string, filters: UserTemplatesOrWorkoutsListInput) => ({
-		queryKey: ["fitnessEntityList", entity, filters],
-	}),
 	userMeasurementsList: (input: UserMeasurementsListInput) => ({
 		queryKey: ["userMeasurementsList", input],
+	}),
+	entityList: (entity: string, filters: UserTemplatesOrWorkoutsListInput) => ({
+		queryKey: ["fitnessEntityList", entity, filters],
 	}),
 });
 
