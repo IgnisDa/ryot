@@ -104,7 +104,7 @@ interface SearchFilterState {
 
 type FilterUpdateFunction<T> = (
 	key: keyof T,
-	value: string | number | boolean | string[] | null,
+	value: string | number | boolean | string[] | MediaCollectionFilter[] | null,
 ) => void;
 
 const defaultListFilters: ListFilterState = {
@@ -539,6 +539,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 			<CollectionsFilter
 				applied={filters.collections}
 				cookieName={`MediaListFilters_${props.lot}`}
+				onFiltersChanged={(val) => onFiltersChange("collections", val)}
 			/>
 			<Divider />
 			<Stack gap="xs">

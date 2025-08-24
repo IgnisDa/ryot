@@ -82,7 +82,7 @@ interface SearchFilterState {
 
 type FilterUpdateFunction<T> = (
 	key: keyof T,
-	value: string | number | boolean | null,
+	value: string | number | boolean | null | MediaCollectionFilter[],
 ) => void;
 
 const defaultListFilters: ListFilterState = {
@@ -92,8 +92,8 @@ const defaultListFilters: ListFilterState = {
 };
 
 const defaultSearchFilters: SearchFilterState = {
-	source: MediaSource.Tmdb,
 	sourceSpecifics: {},
+	source: MediaSource.Tmdb,
 };
 
 export const meta = ({ params }: { params: { action: string } }) => {
@@ -400,6 +400,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 			<CollectionsFilter
 				applied={filters.collections}
 				cookieName="PeopleListFilters"
+				onFiltersChanged={(val) => onFiltersChange("collections", val)}
 			/>
 		</>
 	);

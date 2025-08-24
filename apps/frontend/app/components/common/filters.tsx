@@ -29,7 +29,6 @@ import {
 import { produce } from "immer";
 import { type ReactNode, useState } from "react";
 import {
-	useAppSearchParam,
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
@@ -72,11 +71,11 @@ export const FiltersModal = (props: {
 export const CollectionsFilter = (props: {
 	cookieName: string;
 	applied: MediaCollectionFilter[];
+	onFiltersChanged: (val: MediaCollectionFilter[]) => void;
 }) => {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
 	const [parent] = useAutoAnimate();
-	const [_p, { setP }] = useAppSearchParam(props.cookieName);
 	const [filters, filtersHandlers] = useListState<
 		MediaCollectionFilter & { id: string }
 	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
@@ -85,11 +84,12 @@ export const CollectionsFilter = (props: {
 		const applicableFilters = coreDetails.isServerKeyValidated
 			? filters
 			: filters.slice(0, 1);
-		const final = applicableFilters
-			.filter((f) => f.collectionId)
-			.map((a) => `${a.collectionId}:${a.presence}`)
-			.join(",");
-		setP("collections", final);
+		props.onFiltersChanged(
+			applicableFilters.map((f) => ({
+				presence: f.presence,
+				collectionId: f.collectionId,
+			})),
+		);
 	}, [filters]);
 
 	return (

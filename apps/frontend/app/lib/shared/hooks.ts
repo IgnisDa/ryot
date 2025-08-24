@@ -13,20 +13,13 @@ import {
 	UsersListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import Cookies from "js-cookie";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import {
-	useRevalidator,
-	useRouteLoaderData,
-	useSearchParams,
-	useSubmit,
-} from "react-router";
+import { useRevalidator, useRouteLoaderData, useSubmit } from "react-router";
 import { $path } from "safe-routes";
 import invariant from "tiny-invariant";
 import { useInterval, useMediaQuery } from "usehooks-ts";
-import { dayjsLib } from "~/lib/shared/date-utils";
 import {
 	clientGqlService,
 	getMetadataDetailsQuery,
@@ -64,37 +57,6 @@ export const useFallbackImageUrl = (text = "No Image") => {
 	return `https://placehold.co/100x200/${
 		colorScheme === "dark" ? "343632" : "c1c4bb"
 	}/${colorScheme === "dark" ? "FFF" : "121211"}?text=${text}`;
-};
-
-export const useAppSearchParam = (cookieKey: string) => {
-	const [searchParams, setSearchParams] = useSearchParams();
-
-	const updateCookieP = (key: string, value?: string | null) => {
-		const cookieValue = Cookies.get(cookieKey);
-		const cookieSearchParams = new URLSearchParams(cookieValue);
-		if (!value) cookieSearchParams.delete(key);
-		else cookieSearchParams.set(key, value);
-		Cookies.set(cookieKey, cookieSearchParams.toString(), {
-			expires: dayjsLib().add(10, "day").toDate(),
-		});
-	};
-
-	const setP = (key: string, value?: string | null) => {
-		const shouldDelete = !value;
-
-		setSearchParams(
-			(prev) => {
-				if (shouldDelete) prev.delete(key);
-				else prev.set(key, value);
-				return prev;
-			},
-			{ replace: true },
-		);
-
-		updateCookieP(key, shouldDelete ? undefined : value);
-	};
-
-	return [searchParams, { setP }] as const;
 };
 
 export const useConfirmSubmit = () => {

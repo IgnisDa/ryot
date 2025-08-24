@@ -77,7 +77,7 @@ interface SearchFilterState {
 
 type FilterUpdateFunction<T> = (
 	key: keyof T,
-	value: string | number | null,
+	value: string | number | null | MediaCollectionFilter[],
 ) => void;
 
 const defaultListFilters: ListFilterState = {
@@ -367,6 +367,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 			<CollectionsFilter
 				applied={filters.collections}
 				cookieName="GroupsListFilters"
+				onFiltersChanged={(val) => onFiltersChange("collections", val)}
 			/>
 		</>
 	);
