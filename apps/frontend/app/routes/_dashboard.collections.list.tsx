@@ -20,8 +20,6 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	type UserCollectionsListQuery,
-	UsersListDocument,
-	type UsersListQuery,
 } from "@ryot/generated/graphql/backend/graphql";
 import { getActionIntent, processSubmission, truncate } from "@ryot/ts-utils";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
@@ -64,10 +62,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		request,
 	);
 	await redirectUsingEnhancedCookieSearchParams(request, cookieName);
-	const [{ usersList }] = await Promise.all([
-		serverGqlService.authenticatedRequest(request, UsersListDocument, {}),
-	]);
-	return { usersList, cookieName };
+	return { cookieName };
 };
 
 export const meta = () => {
@@ -178,12 +173,7 @@ export default function Page() {
 					itemContent={(index) => {
 						const c = filteredCollections[index];
 						return (
-							<DisplayCollection
-								key={c.id}
-								index={index}
-								collection={c}
-								usersList={loaderData.usersList}
-							/>
+							<DisplayCollection key={c.id} index={index} collection={c} />
 						);
 					}}
 				/>
@@ -200,7 +190,6 @@ const IMAGES_CONTAINER_WIDTH = 250;
 const DisplayCollection = (props: {
 	index: number;
 	collection: Collection;
-	usersList: UsersListQuery["usersList"];
 }) => {
 	const userDetails = useUserDetails();
 	const coreDetails = useCoreDetails();
