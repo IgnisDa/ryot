@@ -127,17 +127,17 @@ beforeAll(async () => {
 afterAll(async () => {
 	console.log("[E2E Teardown] Stopping services...");
 
-	if (backendProcess && !backendProcess.killed) {
+	if (!backendProcess.killed) {
 		backendProcess.kill("SIGINT");
 		await new Promise((resolve) => backendProcess.on("exit", resolve));
 		console.log("[E2E Teardown] Backend process stopped");
 	}
 
 	await Promise.all([
-		pgClient?.end(),
-		pgContainer?.stop(),
-		s3Container?.stop(),
-		redisContainer?.stop(),
+		pgClient.end(),
+		pgContainer.stop(),
+		s3Container.stop(),
+		redisContainer.stop(),
 	]);
 
 	console.log("[E2E Teardown] Complete!");

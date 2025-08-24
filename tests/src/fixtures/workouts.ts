@@ -75,7 +75,7 @@ export async function waitForSeededExerciseId(client: Client, cookies: string) {
 				return null;
 			}
 
-			const idField = result.data?.data.items[0]?.find(
+			const idField = result.data.data.items[0]?.find(
 				(field) => field.key === "column_0" && field.kind === "text",
 			);
 			return typeof idField?.value === "string" ? idField.value : null;

@@ -47,13 +47,7 @@ export async function createEntitySchema(
 		accentColor = "#00FF00",
 		slug = `schema-${crypto.randomUUID()}`,
 		propertiesSchema = {
-			fields: {
-				title: {
-					label: "Title",
-					description: "Title",
-					type: "string" as const,
-				},
-			},
+			fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 		},
 	} = options;
 
@@ -66,10 +60,10 @@ export async function createEntitySchema(
 			trackerId,
 			accentColor,
 			propertiesSchema,
-		} as never,
+		},
 	});
 
-	if (response.status !== 200 || !data?.data?.id || !data.data.slug) {
+	if (response.status !== 200 || !data?.data.id || !data.data.slug) {
 		throw new Error(`Failed to create entity schema '${name}'`);
 	}
 
@@ -167,7 +161,7 @@ export async function enqueueEntitySearch(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data?.jobId) {
+	if (response.status !== 200 || !data?.data.jobId) {
 		throw new Error("Failed to enqueue entity search");
 	}
 
@@ -207,7 +201,7 @@ export async function enqueueEntityImport(
 		headers: { Cookie: cookies },
 	});
 
-	if (response.status !== 200 || !data?.data?.jobId) {
+	if (response.status !== 200 || !data?.data.jobId) {
 		throw new Error("Failed to enqueue entity import");
 	}
 
