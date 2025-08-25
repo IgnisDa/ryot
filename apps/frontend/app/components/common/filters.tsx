@@ -4,12 +4,12 @@ import {
 	Button,
 	Group,
 	Modal,
-	rem,
 	Select,
 	Stack,
 	Text,
 	TextInput,
 	Title,
+	rem,
 } from "@mantine/core";
 import {
 	randomId,
@@ -22,6 +22,7 @@ import {
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
 } from "@ryot/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot/ts-utils";
 import {
 	IconFilterOff,
 	IconPlus,
@@ -34,7 +35,6 @@ import {
 	useCoreDetails,
 	useNonHiddenUserCollections,
 } from "~/lib/shared/hooks";
-import { convertEnumToSelectData } from "~/lib/shared/ui-utils";
 import type { OnboardingTourStepTargets } from "~/lib/state/onboarding-tour";
 import { ProRequiredAlert } from ".";
 
@@ -137,20 +137,25 @@ export const CollectionsFilter = (props: {
 									{f.data.strategy}
 								</Button>
 							) : null}
-							<Select
+							<Button
 								size="xs"
-								value={f.data.presence}
-								allowDeselect={false}
-								data={convertEnumToSelectData(MediaCollectionPresenceFilter)}
-								onChange={(v) =>
+								w={rem(200)}
+								variant="default"
+								onClick={() => {
 									filtersHandlers.setItem(
 										idx,
 										produce(f, (d) => {
-											d.data.presence = v as MediaCollectionPresenceFilter;
+											d.data.presence =
+												d.data.presence ===
+												MediaCollectionPresenceFilter.PresentIn
+													? MediaCollectionPresenceFilter.NotPresentIn
+													: MediaCollectionPresenceFilter.PresentIn;
 										}),
-									)
-								}
-							/>
+									);
+								}}
+							>
+								{changeCase(f.data.presence)}
+							</Button>
 							<Select
 								size="xs"
 								searchable
