@@ -16,7 +16,7 @@ use dependent_models::{
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
-use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
+use enum_models::{EntityLot, ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
@@ -140,13 +140,13 @@ pub async fn user_metadata_list(
                 )
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
+                    |query, collections| {
                         apply_collection_filters(
                             Expr::col((AliasedMetadata::Table, AliasedMetadata::Id)),
                             query,
-                            collection_to_entity::Column::MetadataId,
+                            EntityLot::Metadata,
                             user_id,
-                            v,
+                            collections,
                         )
                     },
                 )
@@ -392,13 +392,13 @@ pub async fn user_metadata_groups_list(
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
+                    |query, collections| {
                         apply_collection_filters(
                             Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Id)),
                             query,
-                            collection_to_entity::Column::MetadataGroupId,
+                            EntityLot::MetadataGroup,
                             user_id,
-                            v,
+                            collections,
                         )
                     },
                 )
@@ -476,13 +476,13 @@ pub async fn user_people_list(
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
+                    |query, collections| {
                         apply_collection_filters(
                             Expr::col((AliasedPerson::Table, AliasedPerson::Id)),
                             query,
-                            collection_to_entity::Column::PersonId,
+                            EntityLot::Person,
                             user_id,
-                            v,
+                            collections,
                         )
                     },
                 )

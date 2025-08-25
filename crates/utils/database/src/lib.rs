@@ -25,9 +25,9 @@ use media_models::{
 };
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, DbBackend,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
-    prelude::Expr, sea_query::PgFunc,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr,
+    sea_query::PgFunc,
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -190,37 +190,20 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filters<D, E>(
+pub fn apply_collection_filters<D>(
     id_column: Expr,
     query: Select<D>,
-    entity_column: E,
+    entity_lot: EntityLot,
     user_id: &String,
     collection_filters: Vec<MediaCollectionFilter>,
 ) -> Select<D>
 where
     D: EntityTrait,
-    E: ColumnTrait,
 {
     if collection_filters.is_empty() {
         return query;
     }
 
-    // Determine entity lot from the entity_column parameter name
-    let entity_column_name = entity_column.to_string().to_lowercase();
-    let entity_lot = if entity_column_name.contains("metadata_id") {
-        EntityLot::Metadata
-    } else if entity_column_name.contains("metadata_group_id") {
-        EntityLot::MetadataGroup
-    } else if entity_column_name.contains("person_id") {
-        EntityLot::Person
-    } else if entity_column_name.contains("exercise_id") {
-        EntityLot::Exercise
-    } else {
-        // Default fallback - this might need adjustment based on usage
-        EntityLot::Metadata
-    };
-
-    // Group filters by strategy to handle OR and AND logic correctly
     let mut or_present_filters = Vec::new();
     let mut or_not_present_filters = Vec::new();
     let mut and_present_filters = Vec::new();
@@ -245,7 +228,6 @@ where
 
     let mut main_condition = Condition::all();
 
-    // Handle OR + PresentIn filters: entity must be in ANY of these collections
     if !or_present_filters.is_empty() {
         let subquery = CollectionEntityMembership::find()
             .select_only()
@@ -260,7 +242,6 @@ where
         main_condition = main_condition.add(or_present_condition);
     }
 
-    // Handle OR + NotPresentIn filters: entity must NOT be in ANY of these collections
     if !or_not_present_filters.is_empty() {
         let subquery = CollectionEntityMembership::find()
             .select_only()
@@ -276,7 +257,6 @@ where
         main_condition = main_condition.add(or_not_present_condition);
     }
 
-    // Handle AND + PresentIn filters: entity must be in ALL of these collections
     for collection_id in and_present_filters {
         let subquery = CollectionEntityMembership::find()
             .select_only()
@@ -289,7 +269,6 @@ where
         main_condition = main_condition.add(and_present_condition);
     }
 
-    // Handle AND + NotPresentIn filters: entity must NOT be in ALL of these collections
     for collection_id in and_not_present_filters {
         let subquery = CollectionEntityMembership::find()
             .select_only()
@@ -302,9 +281,7 @@ where
         main_condition = main_condition.add(and_not_present_condition);
     }
 
-    let filter = query.filter(main_condition);
-    println!("{:?}", filter.build(DbBackend::Postgres).to_string());
-    filter
+    query.filter(main_condition)
 }
 
 /// If the token has an access link, then checks that:
