@@ -7,7 +7,7 @@ use database_models::{
     collection, collection_to_entity, exercise, genre, metadata, metadata_group, person,
     prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
-use database_utils::{apply_collection_filter, ilike_sql, user_by_id};
+use database_utils::{apply_collection_filters, ilike_sql, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
     UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
@@ -140,7 +140,7 @@ pub async fn user_metadata_list(
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, v| {
-                        apply_collection_filter(
+                        apply_collection_filters(
                             metadata::Column::Id,
                             query,
                             collection_to_entity::Column::MetadataId,
@@ -392,7 +392,7 @@ pub async fn user_metadata_groups_list(
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, v| {
-                        apply_collection_filter(
+                        apply_collection_filters(
                             metadata_group::Column::Id,
                             query,
                             collection_to_entity::Column::MetadataGroupId,
@@ -476,7 +476,7 @@ pub async fn user_people_list(
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, v| {
-                        apply_collection_filter(
+                        apply_collection_filters(
                             person::Column::Id,
                             query,
                             collection_to_entity::Column::PersonId,

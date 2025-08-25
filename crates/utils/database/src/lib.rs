@@ -187,7 +187,7 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filter<C, D, E>(
+pub fn apply_collection_filters<C, D, E>(
     id_column: C,
     query: Select<D>,
     entity_column: E,
