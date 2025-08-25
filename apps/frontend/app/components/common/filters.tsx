@@ -4,7 +4,6 @@ import {
 	Button,
 	Group,
 	Modal,
-	rem,
 	Select,
 	Stack,
 	Text,
@@ -118,9 +117,9 @@ export const CollectionsFilter = (props: {
 					{filters.map((f, idx) => (
 						<Group key={f.id} justify="space-between" wrap="nowrap">
 							{idx !== 0 ? (
-								<Button w={rem(80)} size="xs" variant="default">
-									AND
-								</Button>
+								<Text size="xs" c="dimmed">
+									OR
+								</Text>
 							) : null}
 							<Select
 								size="xs"
