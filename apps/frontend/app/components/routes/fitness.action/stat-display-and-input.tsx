@@ -93,10 +93,10 @@ export const StatInput = (props: {
 				size="xs"
 				required
 				hideControls
-				inputMode="decimal"
 				step={props.inputStep}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
+				inputMode={props.stat === "reps" ? "numeric" : "decimal"}
 				className={clsx(weightStepTourClassName, repsStepTourClassName)}
 				styles={{
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },
