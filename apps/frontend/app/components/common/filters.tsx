@@ -4,6 +4,7 @@ import {
 	Button,
 	Group,
 	Modal,
+	rem,
 	Select,
 	Stack,
 	Text,
@@ -117,9 +118,24 @@ export const CollectionsFilter = (props: {
 					{filters.map((f, idx) => (
 						<Group key={f.id} justify="space-between" wrap="nowrap">
 							{idx !== 0 ? (
-								<Text size="xs" c="dimmed">
-									OR
-								</Text>
+								<Button
+									size="xs"
+									w={rem(90)}
+									variant="default"
+									onClick={() => {
+										filtersHandlers.setItem(
+											idx,
+											produce(f, (d) => {
+												d.data.strategy =
+													d.data.strategy === MediaCollectionStrategyFilter.And
+														? MediaCollectionStrategyFilter.Or
+														: MediaCollectionStrategyFilter.And;
+											}),
+										);
+									}}
+								>
+									{f.data.strategy}
+								</Button>
 							) : null}
 							<Select
 								size="xs"
