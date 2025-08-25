@@ -6,10 +6,9 @@ use chrono::Utc;
 use common_models::{BackendError, EntityAssets, StringIdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
-    access_link, collection, collection_entity_membership, collection_to_entity,
+    access_link, collection, collection_entity_membership,
     prelude::{
-        AccessLink, CollectionEntityMembership, CollectionToEntity, Review, Seen, User, Workout,
-        WorkoutTemplate,
+        AccessLink, CollectionEntityMembership, Review, Seen, User, Workout, WorkoutTemplate,
     },
     review, seen, user, workout,
 };
@@ -21,12 +20,11 @@ use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
-use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewItem};
-use migrations::AliasedCollectionToEntity;
+use media_models::{MediaCollectionFilter, ReviewItem};
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr, sea_query::PgFunc,
+    QueryFilter, QueryOrder, QuerySelect, Select, prelude::Expr, sea_query::PgFunc,
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -193,6 +191,7 @@ pub fn apply_collection_filter<C, D, E>(
     id_column: C,
     query: Select<D>,
     entity_column: E,
+    user_id: &String,
     collection_filters: Vec<MediaCollectionFilter>,
 ) -> Select<D>
 where
@@ -203,55 +202,7 @@ where
     if collection_filters.is_empty() {
         return query;
     }
-    let is_in = collection_filters
-        .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::PresentIn)
-        .map(|f| f.collection_id.clone())
-        .collect_vec();
-    let is_not_in = collection_filters
-        .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
-        .map(|f| f.collection_id.clone())
-        .collect_vec();
-
-    if is_in.is_empty() && !is_not_in.is_empty() {
-        let items_in_collections = CollectionToEntity::find()
-            .select_only()
-            .column(entity_column)
-            .filter(entity_column.is_not_null())
-            .filter(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
-                ))
-                .is_in(is_not_in),
-            );
-        return query.filter(id_column.not_in_subquery(items_in_collections.into_query()));
-    }
-    let subquery = CollectionToEntity::find()
-        .select_only()
-        .column(entity_column)
-        .filter(entity_column.is_not_null())
-        .filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .is_in(is_in),
-        );
-
-    let subquery = match is_not_in.is_empty() {
-        true => subquery,
-        false => subquery.filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .is_not_in(is_not_in),
-        ),
-    };
-
-    query.filter(id_column.in_subquery(subquery.into_query()))
+    todo!()
 }
 
 /// If the token has an access link, then checks that:

@@ -144,6 +144,7 @@ pub async fn user_metadata_list(
                             metadata::Column::Id,
                             query,
                             collection_to_entity::Column::MetadataId,
+                            user_id,
                             v,
                         )
                     },
@@ -395,6 +396,7 @@ pub async fn user_metadata_groups_list(
                             metadata_group::Column::Id,
                             query,
                             collection_to_entity::Column::MetadataGroupId,
+                            user_id,
                             v,
                         )
                     },
@@ -478,6 +480,7 @@ pub async fn user_people_list(
                             person::Column::Id,
                             query,
                             collection_to_entity::Column::PersonId,
+                            user_id,
                             v,
                         )
                     },
