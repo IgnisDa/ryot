@@ -6,10 +6,9 @@ use chrono::Utc;
 use common_models::{BackendError, EntityAssets, StringIdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
-    access_link, collection, collection_entity_membership, collection_to_entity,
+    access_link, collection, collection_entity_membership,
     prelude::{
-        AccessLink, CollectionEntityMembership, CollectionToEntity, Review, Seen, User, Workout,
-        WorkoutTemplate,
+        AccessLink, CollectionEntityMembership, Review, Seen, User, Workout, WorkoutTemplate,
     },
     review, seen, user, workout,
 };
@@ -21,12 +20,14 @@ use enum_models::{EntityLot, UserLot, Visibility};
 
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
-use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewItem};
-use migrations::AliasedCollectionToEntity;
+use media_models::{
+    MediaCollectionFilter, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter, ReviewItem,
+};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr, sea_query::PgFunc,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr,
+    sea_query::PgFunc,
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -189,69 +190,98 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filter<C, D, E>(
-    id_column: C,
+pub fn apply_collection_filters<D>(
+    id_column: Expr,
     query: Select<D>,
-    entity_column: E,
+    entity_lot: EntityLot,
+    user_id: &String,
     collection_filters: Vec<MediaCollectionFilter>,
 ) -> Select<D>
 where
-    C: ColumnTrait,
     D: EntityTrait,
-    E: ColumnTrait,
 {
     if collection_filters.is_empty() {
         return query;
     }
-    let is_in = collection_filters
-        .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::PresentIn)
-        .map(|f| f.collection_id.clone())
-        .collect_vec();
-    let is_not_in = collection_filters
-        .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
-        .map(|f| f.collection_id.clone())
-        .collect_vec();
 
-    if is_in.is_empty() && !is_not_in.is_empty() {
-        let items_in_collections = CollectionToEntity::find()
-            .select_only()
-            .column(entity_column)
-            .filter(entity_column.is_not_null())
-            .filter(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
-                ))
-                .is_in(is_not_in),
-            );
-        return query.filter(id_column.not_in_subquery(items_in_collections.into_query()));
+    let mut or_present_filters = Vec::new();
+    let mut or_not_present_filters = Vec::new();
+    let mut and_present_filters = Vec::new();
+    let mut and_not_present_filters = Vec::new();
+
+    for filter in collection_filters {
+        match (filter.strategy, filter.presence) {
+            (MediaCollectionStrategyFilter::Or, MediaCollectionPresenceFilter::PresentIn) => {
+                or_present_filters.push(filter.collection_id);
+            }
+            (MediaCollectionStrategyFilter::Or, MediaCollectionPresenceFilter::NotPresentIn) => {
+                or_not_present_filters.push(filter.collection_id);
+            }
+            (MediaCollectionStrategyFilter::And, MediaCollectionPresenceFilter::PresentIn) => {
+                and_present_filters.push(filter.collection_id);
+            }
+            (MediaCollectionStrategyFilter::And, MediaCollectionPresenceFilter::NotPresentIn) => {
+                and_not_present_filters.push(filter.collection_id);
+            }
+        }
     }
-    let subquery = CollectionToEntity::find()
-        .select_only()
-        .column(entity_column)
-        .filter(entity_column.is_not_null())
-        .filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .is_in(is_in),
-        );
 
-    let subquery = match is_not_in.is_empty() {
-        true => subquery,
-        false => subquery.filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .is_not_in(is_not_in),
-        ),
-    };
+    let mut main_condition = Condition::all();
 
-    query.filter(id_column.in_subquery(subquery.into_query()))
+    if !or_present_filters.is_empty() {
+        let subquery = CollectionEntityMembership::find()
+            .select_only()
+            .column(collection_entity_membership::Column::EntityId)
+            .filter(collection_entity_membership::Column::UserId.eq(user_id))
+            .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+            .filter(
+                collection_entity_membership::Column::OriginCollectionId.is_in(or_present_filters),
+            )
+            .into_query();
+        let or_present_condition = id_column.clone().in_subquery(subquery);
+        main_condition = main_condition.add(or_present_condition);
+    }
+
+    if !or_not_present_filters.is_empty() {
+        let subquery = CollectionEntityMembership::find()
+            .select_only()
+            .column(collection_entity_membership::Column::EntityId)
+            .filter(collection_entity_membership::Column::UserId.eq(user_id))
+            .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+            .filter(
+                collection_entity_membership::Column::OriginCollectionId
+                    .is_in(or_not_present_filters),
+            )
+            .into_query();
+        let or_not_present_condition = id_column.clone().not_in_subquery(subquery);
+        main_condition = main_condition.add(or_not_present_condition);
+    }
+
+    for collection_id in and_present_filters {
+        let subquery = CollectionEntityMembership::find()
+            .select_only()
+            .column(collection_entity_membership::Column::EntityId)
+            .filter(collection_entity_membership::Column::UserId.eq(user_id))
+            .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+            .filter(collection_entity_membership::Column::OriginCollectionId.eq(collection_id))
+            .into_query();
+        let and_present_condition = id_column.clone().in_subquery(subquery);
+        main_condition = main_condition.add(and_present_condition);
+    }
+
+    for collection_id in and_not_present_filters {
+        let subquery = CollectionEntityMembership::find()
+            .select_only()
+            .column(collection_entity_membership::Column::EntityId)
+            .filter(collection_entity_membership::Column::UserId.eq(user_id))
+            .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
+            .filter(collection_entity_membership::Column::OriginCollectionId.eq(collection_id))
+            .into_query();
+        let and_not_present_condition = id_column.clone().not_in_subquery(subquery);
+        main_condition = main_condition.add(and_not_present_condition);
+    }
+
+    query.filter(main_condition)
 }
 
 /// If the token has an access link, then checks that:

@@ -7,7 +7,7 @@ use database_models::{
     collection, collection_to_entity, exercise, genre, metadata, metadata_group, person,
     prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
-use database_utils::{apply_collection_filter, ilike_sql, user_by_id};
+use database_utils::{apply_collection_filters, ilike_sql, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
     UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
@@ -16,14 +16,15 @@ use dependent_models::{
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
-use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
+use enum_models::{EntityLot, ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadataToGenre,
-    AliasedReview, AliasedUser, AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedUser,
+    AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{
@@ -139,12 +140,13 @@ pub async fn user_metadata_list(
                 )
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
-                        apply_collection_filter(
-                            metadata::Column::Id,
+                    |query, collections| {
+                        apply_collection_filters(
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Id)),
                             query,
-                            collection_to_entity::Column::MetadataId,
-                            v,
+                            EntityLot::Metadata,
+                            user_id,
+                            collections,
                         )
                     },
                 )
@@ -390,12 +392,13 @@ pub async fn user_metadata_groups_list(
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
-                        apply_collection_filter(
-                            metadata_group::Column::Id,
+                    |query, collections| {
+                        apply_collection_filters(
+                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Id)),
                             query,
-                            collection_to_entity::Column::MetadataGroupId,
-                            v,
+                            EntityLot::MetadataGroup,
+                            user_id,
+                            collections,
                         )
                     },
                 )
@@ -473,12 +476,13 @@ pub async fn user_people_list(
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
-                        apply_collection_filter(
-                            person::Column::Id,
+                    |query, collections| {
+                        apply_collection_filters(
+                            Expr::col((AliasedPerson::Table, AliasedPerson::Id)),
                             query,
-                            collection_to_entity::Column::PersonId,
-                            v,
+                            EntityLot::Person,
+                            user_id,
+                            collections,
                         )
                     },
                 )
