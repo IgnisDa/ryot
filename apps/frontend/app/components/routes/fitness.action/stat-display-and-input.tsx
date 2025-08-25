@@ -93,6 +93,7 @@ export const StatInput = (props: {
 				size="xs"
 				required
 				hideControls
+				inputMode="decimal"
 				step={props.inputStep}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
