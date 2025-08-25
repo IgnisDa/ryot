@@ -326,12 +326,12 @@ export const ExerciseDisplay = (props: {
 									PREVIOUS
 								</Text>
 								{durationCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
+									<Text size="xs" flex={1} ta="center">
 										DURATION (MIN)
 									</Text>
 								) : null}
 								{distanceCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
+									<Text size="xs" flex={1} ta="center">
 										DISTANCE (
 										{match(selectedUnitSystem)
 											.with(UserUnitSystem.Metric, () => "KM")
@@ -341,7 +341,7 @@ export const ExerciseDisplay = (props: {
 									</Text>
 								) : null}
 								{weightCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
+									<Text size="xs" flex={1} ta="center">
 										WEIGHT (
 										{match(selectedUnitSystem)
 											.with(UserUnitSystem.Metric, () => "KG")
@@ -351,7 +351,7 @@ export const ExerciseDisplay = (props: {
 									</Text>
 								) : null}
 								{repsCol ? (
-									<Text size="xs" style={{ flex: 1 }} ta="center">
+									<Text size="xs" flex={1} ta="center">
 										REPS
 									</Text>
 								) : null}

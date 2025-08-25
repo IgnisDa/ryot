@@ -88,7 +88,7 @@ export const StatInput = (props: {
 	}, [value, props.stat, props.setIdx, props.exerciseIdx]);
 
 	return currentWorkout ? (
-		<Flex style={{ flex: 1 }} justify="center">
+		<Flex flex={1} justify="center">
 			<NumberInput
 				size="xs"
 				required
