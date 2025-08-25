@@ -441,7 +441,7 @@ const ExerciseDisplay = (props: {
 			<Text fz="sm" ff="monospace">
 				{props.exercise.numSets} ×
 			</Text>
-			<Text style={{ flex: 1 }} fz="sm">
+			<Text flex={1} fz="sm">
 				{exerciseDetails?.name}
 			</Text>
 			{stat ? <Text fz="sm">{stat}</Text> : null}

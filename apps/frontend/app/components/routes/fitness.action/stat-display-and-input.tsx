@@ -88,7 +88,7 @@ export const StatInput = (props: {
 	}, [value, props.stat, props.setIdx, props.exerciseIdx]);
 
 	return currentWorkout ? (
-		<Flex style={{ flex: 1 }} justify="center">
+		<Flex flex={1} justify="center">
 			<NumberInput
 				size="xs"
 				required
@@ -96,6 +96,7 @@ export const StatInput = (props: {
 				step={props.inputStep}
 				onChange={(v) => setValue(v)}
 				onFocus={(e) => e.target.select()}
+				inputMode={props.stat === "reps" ? "numeric" : "decimal"}
 				className={clsx(weightStepTourClassName, repsStepTourClassName)}
 				styles={{
 					input: { fontSize: 15, width: rem(72), textAlign: "center" },

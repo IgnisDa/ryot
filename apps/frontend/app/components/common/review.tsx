@@ -244,11 +244,7 @@ export const ReviewItemDisplay = (props: {
 						>
 							<input hidden name="reviewId" defaultValue={props.review.id} />
 							<Group>
-								<TextInput
-									name="text"
-									placeholder="Enter comment"
-									style={{ flex: 1 }}
-								/>
+								<TextInput name="text" placeholder="Enter comment" flex={1} />
 								<ActionIcon color="green" type="submit">
 									<IconCheck />
 								</ActionIcon>

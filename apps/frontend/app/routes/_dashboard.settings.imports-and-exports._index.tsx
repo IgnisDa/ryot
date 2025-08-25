@@ -666,7 +666,7 @@ const ExportItem = (props: ExportItemProps) => {
 	return (
 		<Paper withBorder p={{ base: "sm", md: "md" }}>
 			<Group justify="space-between" wrap="wrap">
-				<Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
+				<Stack gap="xs" flex={1} miw={0}>
 					<Text span>
 						{dayjsLib(props.item.startedAt).format("MMM DD, YYYY [at] h:mm A")}
 					</Text>
