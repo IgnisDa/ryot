@@ -1188,11 +1188,17 @@ export type MediaCollectionContentsResults = {
 export type MediaCollectionFilter = {
   collectionId: Scalars['String']['input'];
   presence: MediaCollectionPresenceFilter;
+  strategy: MediaCollectionStrategyFilter;
 };
 
 export enum MediaCollectionPresenceFilter {
   NotPresentIn = 'NOT_PRESENT_IN',
   PresentIn = 'PRESENT_IN'
+}
+
+export enum MediaCollectionStrategyFilter {
+  And = 'AND',
+  Or = 'OR'
 }
 
 export type MediaFilter = {

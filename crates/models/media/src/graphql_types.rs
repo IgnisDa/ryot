@@ -140,6 +140,13 @@ pub enum MediaGeneralFilter {
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
+pub enum MediaCollectionStrategyFilter {
+    #[default]
+    Or,
+    And,
+}
+
+#[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaCollectionPresenceFilter {
     #[default]
     PresentIn,
@@ -149,6 +156,7 @@ pub enum MediaCollectionPresenceFilter {
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct MediaCollectionFilter {
     pub collection_id: String,
+    pub strategy: MediaCollectionStrategyFilter,
     pub presence: MediaCollectionPresenceFilter,
 }
 

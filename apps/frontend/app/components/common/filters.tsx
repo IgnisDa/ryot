@@ -19,6 +19,7 @@ import {
 import {
 	type MediaCollectionFilter,
 	MediaCollectionPresenceFilter,
+	MediaCollectionStrategyFilter,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	IconFilterOff,
@@ -75,20 +76,16 @@ export const CollectionsFilter = (props: {
 	const coreDetails = useCoreDetails();
 	const collections = useNonHiddenUserCollections();
 	const [parent] = useAutoAnimate();
-	const [filters, filtersHandlers] = useListState<
-		MediaCollectionFilter & { id: string }
-	>((props.applied || []).map((a) => ({ ...a, id: randomId() })));
+	const [filters, filtersHandlers] = useListState<{
+		id: string;
+		data: MediaCollectionFilter;
+	}>(props.applied.map((a) => ({ data: a, id: randomId() })));
 
 	useDidUpdate(() => {
 		const applicableFilters = coreDetails.isServerKeyValidated
 			? filters
 			: filters.slice(0, 1);
-		props.onFiltersChanged(
-			applicableFilters.map((f) => ({
-				presence: f.presence,
-				collectionId: f.collectionId,
-			})),
-		);
+		props.onFiltersChanged(applicableFilters.map((f) => f.data));
 	}, [filters]);
 
 	return (
@@ -104,8 +101,11 @@ export const CollectionsFilter = (props: {
 					onClick={() => {
 						filtersHandlers.append({
 							id: randomId(),
-							collectionId: "",
-							presence: MediaCollectionPresenceFilter.PresentIn,
+							data: {
+								collectionId: "",
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
 						});
 					}}
 				>
@@ -123,14 +123,14 @@ export const CollectionsFilter = (props: {
 							) : null}
 							<Select
 								size="xs"
-								value={f.presence}
+								value={f.data.presence}
 								allowDeselect={false}
 								data={convertEnumToSelectData(MediaCollectionPresenceFilter)}
 								onChange={(v) =>
 									filtersHandlers.setItem(
 										idx,
 										produce(f, (d) => {
-											d.presence = v as MediaCollectionPresenceFilter;
+											d.data.presence = v as MediaCollectionPresenceFilter;
 										}),
 									)
 								}
@@ -139,7 +139,7 @@ export const CollectionsFilter = (props: {
 								size="xs"
 								searchable
 								allowDeselect={false}
-								value={f.collectionId}
+								value={f.data.collectionId}
 								placeholder="Select a collection"
 								data={collections.map((c) => ({
 									label: c.name,
@@ -149,7 +149,7 @@ export const CollectionsFilter = (props: {
 									filtersHandlers.setItem(
 										idx,
 										produce(f, (d) => {
-											d.collectionId = v || "";
+											d.data.collectionId = v || "";
 										}),
 									)
 								}
