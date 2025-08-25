@@ -22,8 +22,9 @@ use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadataToGenre,
-    AliasedReview, AliasedUser, AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
+    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedUser,
+    AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{
@@ -141,7 +142,7 @@ pub async fn user_metadata_list(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, v| {
                         apply_collection_filters(
-                            metadata::Column::Id,
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Id)),
                             query,
                             collection_to_entity::Column::MetadataId,
                             user_id,
@@ -393,7 +394,7 @@ pub async fn user_metadata_groups_list(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, v| {
                         apply_collection_filters(
-                            metadata_group::Column::Id,
+                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Id)),
                             query,
                             collection_to_entity::Column::MetadataGroupId,
                             user_id,
@@ -477,7 +478,7 @@ pub async fn user_people_list(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, v| {
                         apply_collection_filters(
-                            person::Column::Id,
+                            Expr::col((AliasedPerson::Table, AliasedPerson::Id)),
                             query,
                             collection_to_entity::Column::PersonId,
                             user_id,
