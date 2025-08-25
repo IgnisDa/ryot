@@ -114,14 +114,15 @@ export const CollectionsFilter = (props: {
 				</Button>
 			</Group>
 			{filters.length > 0 ? (
-				<Stack gap="xs" px={{ md: "xs" }} ref={parent}>
+				<Stack gap="xs" px={{ md: 4 }} ref={parent}>
 					{filters.map((f, idx) => (
-						<Group key={f.id} justify="space-between" wrap="nowrap">
+						<Group key={f.id} gap="xs" justify="space-between" wrap="nowrap">
 							{idx !== 0 ? (
 								<Button
-									size="xs"
-									w={rem(90)}
+									size="compact-md"
+									w={rem(70)}
 									variant="default"
+									fz={{ base: 10, md: 12 }}
 									onClick={() => {
 										filtersHandlers.setItem(
 											idx,
@@ -138,9 +139,10 @@ export const CollectionsFilter = (props: {
 								</Button>
 							) : null}
 							<Button
-								size="xs"
-								w={rem(200)}
+								size="compact-md"
+								w={rem(170)}
 								variant="default"
+								fz={{ base: 10, md: 12 }}
 								onClick={() => {
 									filtersHandlers.setItem(
 										idx,
