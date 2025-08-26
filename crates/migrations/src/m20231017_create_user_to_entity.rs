@@ -29,6 +29,28 @@ pub static CONSTRAINT_SQL: &str = indoc! { r#"
         = 1
     );
 "# };
+pub static ENTITY_ID_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        COALESCE(
+            "exercise_id",
+            "metadata_id",
+            "person_id",
+            "metadata_group_id",
+            "collection_id"
+        )
+    ) STORED
+"# };
+pub static ENTITY_LOT_SQL: &str = indoc! { r#"
+    GENERATED ALWAYS AS (
+        CASE
+            WHEN "exercise_id" IS NOT NULL THEN 'exercise'
+            WHEN "metadata_id" IS NOT NULL THEN 'metadata'
+            WHEN "person_id" IS NOT NULL THEN 'person'
+            WHEN "metadata_group_id" IS NOT NULL THEN 'metadata_group'
+            WHEN "collection_id" IS NOT NULL THEN 'collection'
+        END
+    ) STORED
+"# };
 
 /// A media is related to a user if at least one of the following hold:
 /// - the user has it in their seen history
@@ -40,7 +62,9 @@ pub enum UserToEntity {
     Table,
     UserId,
     PersonId,
+    EntityId,
     CreatedOn,
+    EntityLot,
     MetadataId,
     ExerciseId,
     MediaReason,
@@ -91,6 +115,18 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(UserToEntity::CollectionId).text())
                     .col(ColumnDef::new(UserToEntity::CollectionExtraInformation).json_binary())
+                    .col(
+                        ColumnDef::new(UserToEntity::EntityLot)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_LOT_SQL),
+                    )
+                    .col(
+                        ColumnDef::new(UserToEntity::EntityId)
+                            .text()
+                            .not_null()
+                            .extra(ENTITY_ID_SQL),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("user_to_entity-fk1")
