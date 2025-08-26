@@ -7,6 +7,8 @@ pub struct Migration;
 
 pub static METADATA_TO_USER_FOREIGN_KEY: &str = "metadata_to_user_foreign_key";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
+pub static METADATA_DESCRIPTION_INDEX: &str = "idx_metadata_description";
+pub static METADATA_PROVIDER_RATING_INDEX: &str = "idx_metadata_provider_rating";
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
@@ -135,6 +137,26 @@ impl MigrationTrait for Migration {
                     .col(Metadata::Identifier)
                     .col(Metadata::Source)
                     .col(Metadata::Lot)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(METADATA_DESCRIPTION_INDEX)
+                    .table(Metadata::Table)
+                    .col(Metadata::Description)
+                    .index_type(IndexType::FullText)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(METADATA_PROVIDER_RATING_INDEX)
+                    .table(Metadata::Table)
+                    .col(Metadata::ProviderRating)
+                    .and_where(Expr::col((Metadata::Table, Metadata::ProviderRating)).is_not_null())
                     .to_owned(),
             )
             .await?;

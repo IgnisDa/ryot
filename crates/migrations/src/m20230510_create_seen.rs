@@ -10,6 +10,9 @@ use super::{
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static SEEN_USER_METADATA_INDEX: &str = "idx_seen_user_metadata";
+pub static SEEN_FINISHED_ON_INDEX: &str = "idx_seen_finished_on";
+
 #[derive(Iden)]
 pub enum Seen {
     Table,
@@ -110,6 +113,26 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(SEEN_USER_METADATA_INDEX)
+                    .table(Seen::Table)
+                    .col(Seen::UserId)
+                    .col(Seen::MetadataId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(SEEN_FINISHED_ON_INDEX)
+                    .table(Seen::Table)
+                    .col(Seen::FinishedOn)
+                    .and_where(Expr::col((Seen::Table, Seen::FinishedOn)).is_not_null())
                     .to_owned(),
             )
             .await?;

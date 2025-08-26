@@ -16,6 +16,8 @@ pub static PERSON_TO_REVIEW_FOREIGN_KEY: &str = "review_to_person_foreign_key";
 pub static METADATA_GROUP_TO_REVIEW_FOREIGN_KEY: &str = "review_to_metadata_group_foreign_key";
 pub static COLLECTION_TO_REVIEW_FOREIGN_KEY: &str = "review_to_collection_foreign_key";
 pub static EXERCISE_TO_REVIEW_FOREIGN_KEY: &str = "review_to_exercise_foreign_key";
+pub static REVIEW_USER_ENTITY_INDEX: &str = "idx_review_user_entity";
+pub static REVIEW_ENTITY_LOT_INDEX: &str = "idx_review_entity_lot";
 pub static ENTITY_ID_SQL: &str = indoc! { r#"
     GENERATED ALWAYS AS (
         COALESCE(
@@ -163,6 +165,26 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(REVIEW_USER_ENTITY_INDEX)
+                    .table(Review::Table)
+                    .col(Review::UserId)
+                    .col(Review::EntityId)
+                    .col(Review::EntityLot)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(REVIEW_ENTITY_LOT_INDEX)
+                    .table(Review::Table)
+                    .col(Review::EntityLot)
                     .to_owned(),
             )
             .await?;

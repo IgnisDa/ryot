@@ -16,6 +16,8 @@ pub static METADATA_GROUP_FK_NAME: &str = "user_to_entity-fk5";
 pub static COLLECTION_FK_NAME: &str = "user_to_entity-fk6";
 pub static METADATA_GROUP_INDEX_NAME: &str = "user_to_entity-uqi4";
 pub static COLLECTION_INDEX_NAME: &str = "user_to_entity-uqi5";
+pub static USER_TO_ENTITY_ENTITY_LOT_INDEX: &str = "idx_user_to_entity_entity_lot";
+pub static USER_TO_ENTITY_USER_ENTITY_LOT_INDEX: &str = "idx_user_to_entity_user_entity_lot";
 pub static CONSTRAINT_SQL: &str = indoc! { r#"
     ALTER TABLE "user_to_entity" DROP CONSTRAINT IF EXISTS "user_to_entity__ensure_one_entity";
     ALTER TABLE "user_to_entity"
@@ -230,6 +232,25 @@ impl MigrationTrait for Migration {
                     .table(UserToEntity::Table)
                     .col(UserToEntity::UserId)
                     .col(UserToEntity::CollectionId)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(USER_TO_ENTITY_ENTITY_LOT_INDEX)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::EntityLot)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name(USER_TO_ENTITY_USER_ENTITY_LOT_INDEX)
+                    .table(UserToEntity::Table)
+                    .col(UserToEntity::UserId)
+                    .col(UserToEntity::EntityLot)
                     .to_owned(),
             )
             .await?;
