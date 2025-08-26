@@ -19,6 +19,15 @@ impl MigrationTrait for Migration {
                                 .not_null()
                                 .extra(ENTITY_ID_SQL),
                         )
+                        .to_owned(),
+                )
+                .await?;
+        }
+        if !manager.has_column("user_to_entity", "entity_lot").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(UserToEntity::Table)
                         .add_column(
                             ColumnDef::new(UserToEntity::EntityLot)
                                 .text()
