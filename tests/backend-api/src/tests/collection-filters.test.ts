@@ -96,8 +96,8 @@ describe("Collection Filters Tests", () => {
 					creatorUserId: userId,
 					collectionName: COLLECTION_NAMES.FANTASY_AUDIOBOOKS,
 					entities: [
-						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
 						{ entityId: hobbitId, entityLot: EntityLot.Metadata },
+						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
 					],
 				},
 			},
@@ -111,8 +111,8 @@ describe("Collection Filters Tests", () => {
 					creatorUserId: userId,
 					collectionName: COLLECTION_NAMES.SCI_FI_CLASSICS,
 					entities: [
-						{ entityId: foundationId, entityLot: EntityLot.Metadata },
 						{ entityId: duneId, entityLot: EntityLot.Metadata },
+						{ entityId: foundationId, entityLot: EntityLot.Metadata },
 					],
 				},
 			},
@@ -126,8 +126,8 @@ describe("Collection Filters Tests", () => {
 					creatorUserId: userId,
 					collectionName: COLLECTION_NAMES.BEST_OF_THE_BEST,
 					entities: [
-						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
 						{ entityId: foundationId, entityLot: EntityLot.Metadata },
+						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
 					],
 				},
 			},
@@ -338,11 +338,7 @@ describe("Collection Filters Tests", () => {
 		const client = getGraphqlClient(url);
 		const { userMetadataList } = await client.request(
 			UserMetadataListDocument,
-			{
-				input: {
-					filter: {},
-				},
-			},
+			{ input: { filter: {} } },
 			getAuthHeaders(),
 		);
 
@@ -355,13 +351,7 @@ describe("Collection Filters Tests", () => {
 		const client = getGraphqlClient(url);
 		const { userMetadataList } = await client.request(
 			UserMetadataListDocument,
-			{
-				input: {
-					filter: {
-						collections: [],
-					},
-				},
-			},
+			{ input: { filter: { collections: [] } } },
 			getAuthHeaders(),
 		);
 
