@@ -4,8 +4,9 @@ use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, enriched_user_to_exercise, genre, metadata, metadata_group,
-    person, prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
+    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_person, genre,
+    metadata, metadata_group, prelude::*, review, seen, user_measurement, user_to_entity, workout,
+    workout_template,
 };
 use database_utils::{
     apply_collection_filters, ilike_sql, user_by_id, user_preferences_list_page_size,
@@ -25,7 +26,7 @@ use media_models::{
 };
 use migrations::{
     AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataGroup,
-    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedUser, AliasedUserToEntity,
+    AliasedMetadataToGenre, AliasedReview, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{
@@ -450,15 +451,17 @@ pub async fn user_people_list(
                 .unwrap();
             let (order_by, sort_order) = match input.sort {
                 None => (
-                    Expr::col(person::Column::AssociatedEntityCount),
+                    Expr::col(enriched_user_to_person::Column::AssociatedEntityCount),
                     Order::Desc,
                 ),
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
-                        PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                        PersonAndMetadataGroupsSortBy::Name => {
+                            Expr::col(enriched_user_to_person::Column::Name)
+                        }
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
-                            Expr::col(person::Column::AssociatedEntityCount)
+                            Expr::col(enriched_user_to_person::Column::AssociatedEntityCount)
                         }
                     },
                     graphql_to_db_order(ord.order),
@@ -470,31 +473,30 @@ pub async fn user_people_list(
                 .clone()
                 .and_then(|s| s.take)
                 .unwrap_or(page_size);
-            let creators_paginator = Person::find()
+            let creators_paginator = EnrichedUserToPerson::find()
+                .select_only()
+                .column(enriched_user_to_person::Column::PersonId)
+                .filter(enriched_user_to_person::Column::UserId.eq(user_id))
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                     query.filter(
                         Condition::any()
-                            .add(Expr::col(person::Column::Name).ilike(ilike_sql(&v)))
-                            .add(Expr::col(person::Column::Description).ilike(ilike_sql(&v))),
+                            .add(
+                                Expr::col(enriched_user_to_person::Column::Name)
+                                    .ilike(ilike_sql(&v)),
+                            )
+                            .add(
+                                Expr::col(enriched_user_to_person::Column::Description)
+                                    .ilike(ilike_sql(&v)),
+                            ),
                     )
                 })
-                .apply_if(
-                    input.filter.clone().and_then(|f| f.collections),
-                    |query, collections| {
-                        apply_collection_filters(
-                            Expr::col((AliasedPerson::Table, AliasedPerson::Id)),
-                            query,
-                            EntityLot::Person,
-                            user_id,
-                            collections,
-                        )
-                    },
-                )
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .left_join(MetadataToPerson)
-                .inner_join(UserToEntity)
-                .group_by(person::Column::Id)
-                .group_by(person::Column::Name)
+                // .apply_if(
+                //     input.filter.clone().and_then(|f| f.collections),
+                //     |query, collections| {
+                //         //
+                //         todo!()
+                //     },
+                // )
                 .order_by(order_by, sort_order)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
