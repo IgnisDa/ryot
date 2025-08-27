@@ -56,6 +56,14 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
     Ok(user)
 }
 
+pub async fn user_preferences_list_page_size(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<u64> {
+    let user = user_by_id(user_id, ss).await?;
+    Ok(user.preferences.general.list_page_size)
+}
+
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {
     let main_user = user_by_id(user_id, ss).await?;
     if main_user.lot != UserLot::Admin {

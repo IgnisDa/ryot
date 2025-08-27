@@ -7,7 +7,9 @@ use database_models::{
     collection, collection_to_entity, enriched_user_to_exercise, genre, metadata, metadata_group,
     person, prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
-use database_utils::{apply_collection_filters, ilike_sql, user_by_id};
+use database_utils::{
+    apply_collection_filters, ilike_sql, user_by_id, user_preferences_list_page_size,
+};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
     UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
@@ -65,11 +67,12 @@ pub async fn user_metadata_list(
                 UserReviewScale::OutOfFive => 20,
                 UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
             };
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
                 .clone()
                 .and_then(|s| s.take)
-                .unwrap_or(preferences.general.list_page_size);
+                .unwrap_or(page_size);
             let page: u64 = input
                 .search
                 .clone()
@@ -346,7 +349,6 @@ pub async fn user_metadata_groups_list(
         }),
         ApplicationCacheValue::UserMetadataGroupsList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page: u64 = input
                 .search
                 .clone()
@@ -371,11 +373,12 @@ pub async fn user_metadata_groups_list(
                     graphql_to_db_order(ord.order),
                 ),
             };
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
                 .clone()
                 .and_then(|s| s.take)
-                .unwrap_or(preferences.general.list_page_size);
+                .unwrap_or(page_size);
             let paginator = MetadataGroup::find()
                 .select_only()
                 .column(metadata_group::Column::Id)
@@ -438,7 +441,6 @@ pub async fn user_people_list(
         }),
         ApplicationCacheValue::UserPeopleList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page: u64 = input
                 .search
                 .clone()
@@ -462,11 +464,12 @@ pub async fn user_people_list(
                     graphql_to_db_order(ord.order),
                 ),
             };
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
                 .clone()
                 .and_then(|s| s.take)
-                .unwrap_or(preferences.general.list_page_size);
+                .unwrap_or(page_size);
             let creators_paginator = Person::find()
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                     query.filter(
@@ -527,12 +530,9 @@ pub async fn user_workouts_list(
         }),
         ApplicationCacheValue::UserWorkoutsList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page = input.search.page.unwrap_or(1);
-            let take = input
-                .search
-                .take
-                .unwrap_or(preferences.general.list_page_size);
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
+            let take = input.search.take.unwrap_or(page_size);
             let paginator = Workout::find()
                 .select_only()
                 .column(workout::Column::Id)
@@ -584,12 +584,9 @@ pub async fn user_workout_templates_list(
         }),
         ApplicationCacheValue::UserWorkoutTemplatesList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page = input.search.page.unwrap_or(1);
-            let take = input
-                .search
-                .take
-                .unwrap_or(preferences.general.list_page_size);
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
+            let take = input.search.take.unwrap_or(page_size);
             let paginator = WorkoutTemplate::find()
                 .select_only()
                 .column(workout_template::Column::Id)
@@ -641,12 +638,9 @@ pub async fn user_exercises_list(
         }),
         ApplicationCacheValue::UserExercisesList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let user_id = user_id.to_owned();
-            let take = input
-                .search
-                .take
-                .unwrap_or(preferences.general.list_page_size);
+            let page_size = user_preferences_list_page_size(&user_id, ss).await?;
+            let take = input.search.take.unwrap_or(page_size);
             let page = input.search.page.unwrap_or(1);
             let order_by_col = match input.sort_by {
                 None => Expr::col(enriched_user_to_exercise::Column::ExerciseId),
@@ -776,7 +770,6 @@ pub async fn user_genres_list(
     input: SearchInput,
 ) -> Result<SearchResults<String>> {
     let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
-    let preferences = user_by_id(&user_id, ss).await?.preferences;
     let num_items = "num_items";
     let query = Genre::find()
         .column_as(
@@ -795,10 +788,11 @@ pub async fn user_genres_list(
             Expr::col(genre::Column::Name).into(),
         ]))
         .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
+    let page_size = user_preferences_list_page_size(&user_id, ss).await?;
     let paginator = query
         .clone()
         .into_model::<GenreListItem>()
-        .paginate(&ss.db, preferences.general.list_page_size);
+        .paginate(&ss.db, page_size);
     let ItemsAndPagesNumber {
         number_of_items,
         number_of_pages,
