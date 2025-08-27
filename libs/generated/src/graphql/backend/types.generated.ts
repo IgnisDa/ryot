@@ -1332,7 +1332,8 @@ export type MetadataLotSourceMappings = {
 };
 
 export type MetadataProgressUpdateChange = {
-  changeLatestInProgress?: InputMaybe<MetadataProgressUpdateChangeLatestInProgressInput>;
+  changeLatestInProgress?: InputMaybe<Scalars['Decimal']['input']>;
+  changeLatestState?: InputMaybe<SeenState>;
   createNewCompleted?: InputMaybe<MetadataProgressUpdateChangeCreateNewCompletedInput>;
   createNewInProgress?: InputMaybe<MetadataProgressUpdateNewInProgressInput>;
 };
@@ -1342,11 +1343,6 @@ export type MetadataProgressUpdateChangeCreateNewCompletedInput = {
   startedAndFinishedOnDate?: InputMaybe<MetadataProgressUpdateStartedAndFinishedOnDateInput>;
   startedOnDate?: InputMaybe<MetadataProgressUpdateStartedOrFinishedOnDateInput>;
   withoutDates?: InputMaybe<MetadataProgressUpdateCommonInput>;
-};
-
-export type MetadataProgressUpdateChangeLatestInProgressInput = {
-  progress?: InputMaybe<Scalars['Decimal']['input']>;
-  state?: InputMaybe<SeenState>;
 };
 
 export type MetadataProgressUpdateCommonInput = {

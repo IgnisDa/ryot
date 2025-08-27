@@ -263,7 +263,7 @@ export default function Page() {
 	);
 
 	const changeProgressState = useCallback(
-		(state: SeenState) => changeProgress({ changeLatestInProgress: { state } }),
+		(state: SeenState) => changeProgress({ changeLatestState: state }),
 		[changeProgress],
 	);
 
@@ -838,9 +838,7 @@ export default function Page() {
 													) : null}
 													<Menu.Item
 														onClick={() =>
-															changeProgress({
-																changeLatestInProgress: { progress: "100" },
-															})
+															changeProgress({ changeLatestInProgress: "100" })
 														}
 													>
 														I finished it
