@@ -18,7 +18,7 @@ pub struct Model {
     pub force: ExerciseForce,
     pub source: ExerciseSource,
     pub user_id: Option<String>,
-    pub entity_id: Option<String>,
+    pub exercise_id: Option<String>,
     pub description: Option<String>,
     pub muscles: Vec<ExerciseMuscle>,
     pub num_times_interacted: Option<i32>,

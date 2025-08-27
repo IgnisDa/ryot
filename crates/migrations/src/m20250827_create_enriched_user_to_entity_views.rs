@@ -18,9 +18,9 @@ SELECT
   e.mechanic,
   e.equipment,
   ute.user_id,
-  ute.entity_id,
   ute.last_updated_on,
   e.created_by_user_id,
+  ute.entity_id as exercise_id,
   ute.exercise_num_times_interacted as num_times_interacted,
   ARRAY_TO_STRING(
     ARRAY (
