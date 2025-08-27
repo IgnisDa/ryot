@@ -4,8 +4,8 @@ use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, exercise, genre, metadata, metadata_group, person,
-    prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
+    collection, collection_to_entity, enriched_user_to_exercise, genre, metadata, metadata_group,
+    person, prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_collection_filters, ilike_sql, user_by_id};
 use dependent_models::{
@@ -22,9 +22,8 @@ use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadata,
-    AliasedMetadataGroup, AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedUser,
-    AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataGroup,
+    AliasedMetadataToGenre, AliasedPerson, AliasedReview, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{
@@ -649,81 +648,75 @@ pub async fn user_exercises_list(
                 .take
                 .unwrap_or(preferences.general.list_page_size);
             let page = input.search.page.unwrap_or(1);
-            let ex = Alias::new("exercise");
-            let etu = Alias::new("user_to_entity");
             let order_by_col = match input.sort_by {
-                None => Expr::col((ex, exercise::Column::Id)),
+                None => Expr::col(enriched_user_to_exercise::Column::ExerciseId),
                 Some(sb) => match sb {
                     // DEV: This is just a small hack to reduce duplicated code. We
                     // are ordering by name for the other `sort_by` anyway.
                     ExerciseSortBy::Name => Expr::val("1"),
                     ExerciseSortBy::Random => Expr::expr(Func::random()),
                     ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
-                        Expr::col((
-                            etu.clone(),
-                            user_to_entity::Column::ExerciseNumTimesInteracted,
-                        ))
-                        .into(),
+                        Expr::col(enriched_user_to_exercise::Column::NumTimesInteracted).into(),
                         Expr::val(0).into(),
                     ])),
                     ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
-                        Expr::col((etu.clone(), user_to_entity::Column::LastUpdatedOn)).into(),
+                        Expr::col(enriched_user_to_exercise::Column::LastUpdatedOn).into(),
                         // DEV: For some reason this does not work without explicit casting on postgres
                         Func::cast_as(Expr::val("1900-01-01"), Alias::new("timestamptz")).into(),
                     ])),
                 },
             };
-            let paginator = Exercise::find()
+            let paginator = EnrichedUserToExercise::find()
                 .select_only()
-                .column(exercise::Column::Id)
+                .column(enriched_user_to_exercise::Column::ExerciseId)
                 .filter(
-                    exercise::Column::Source
+                    enriched_user_to_exercise::Column::Source
                         .eq(ExerciseSource::Github)
-                        .or(exercise::Column::CreatedByUserId.eq(&user_id)),
+                        .or(enriched_user_to_exercise::Column::CreatedByUserId.eq(&user_id)),
                 )
                 .apply_if(input.filter, |query, q| {
                     query
-                        .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
-                        .apply_if(q.muscle, |q, v| {
-                            q.filter(
-                                Expr::val(v).eq(PgFunc::any(Expr::col(exercise::Column::Muscles))),
-                            )
+                        .apply_if(q.lot, |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Lot.eq(v))
                         })
-                        .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
-                        .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
+                        .apply_if(q.muscle, |q, v| {
+                            q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(
+                                enriched_user_to_exercise::Column::Muscles,
+                            ))))
+                        })
+                        .apply_if(q.level, |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Level.eq(v))
+                        })
+                        .apply_if(q.force, |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Force.eq(v))
+                        })
                         .apply_if(q.mechanic, |q, v| {
-                            q.filter(exercise::Column::Mechanic.eq(v))
+                            q.filter(enriched_user_to_exercise::Column::Mechanic.eq(v))
                         })
                         .apply_if(q.equipment, |q, v| {
-                            q.filter(exercise::Column::Equipment.eq(v))
+                            q.filter(enriched_user_to_exercise::Column::Equipment.eq(v))
                         })
                         .apply_if(q.collection, |q, v| {
-                            q.left_join(CollectionToEntity)
-                                .filter(collection_to_entity::Column::CollectionId.eq(v))
+                            q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(
+                                enriched_user_to_exercise::Column::CollectionIds,
+                            ))))
                         })
                 })
                 .apply_if(input.search.query, |query, v| {
                     query.filter(
                         Condition::any()
                             .add(
-                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
+                                Expr::col(enriched_user_to_exercise::Column::ExerciseId)
                                     .ilike(ilike_sql(&v)),
                             )
-                            .add(Expr::col(exercise::Column::Name).ilike(slugify(v))),
+                            .add(
+                                Expr::col(enriched_user_to_exercise::Column::Name)
+                                    .ilike(slugify(v)),
+                            ),
                     )
                 })
-                .join(
-                    JoinType::LeftJoin,
-                    user_to_entity::Relation::Exercise.def().rev().on_condition(
-                        move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, user_to_entity::Column::UserId)).eq(&user_id),
-                            )
-                        },
-                    ),
-                )
                 .order_by_desc(order_by_col)
-                .order_by_asc(exercise::Column::Id)
+                .order_by_asc(enriched_user_to_exercise::Column::ExerciseId)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
             let ItemsAndPagesNumber {
