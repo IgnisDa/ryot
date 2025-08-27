@@ -7,6 +7,7 @@ pub use super::collection::Entity as Collection;
 pub use super::collection_entity_membership::Entity as CollectionEntityMembership;
 pub use super::collection_to_entity::Entity as CollectionToEntity;
 pub use super::daily_user_activity::Entity as DailyUserActivity;
+pub use super::enriched_user_to_exercise::Entity as EnrichedUserToExercise;
 pub use super::exercise::Entity as Exercise;
 pub use super::genre::Entity as Genre;
 pub use super::import_report::Entity as ImportReport;
