@@ -17,7 +17,6 @@ SELECT
   e.muscles,
   e.mechanic,
   e.equipment,
-  ute.user_id,
   ute.last_updated_on,
   e.created_by_user_id,
   ute.entity_id as exercise_id,
@@ -28,10 +27,17 @@ SELECT
         JSONB_ARRAY_ELEMENTS_TEXT(e.attributes -> 'instructions')
     ),
     '\n'
-  ) AS description
+  ) AS description,
+  CASE
+    WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
+    ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
+  END AS collection_ids
 FROM
   exercise e
   LEFT JOIN user_to_entity ute ON ute.exercise_id = e.id
+  LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
+  AND cem.entity_id = ute.entity_id
+  AND cem.entity_lot = ute.entity_lot
 GROUP BY
   e.lot,
   e.name,
