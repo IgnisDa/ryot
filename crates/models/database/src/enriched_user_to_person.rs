@@ -13,7 +13,7 @@ pub struct Model {
     pub person_id: String,
     pub collection_ids: Vec<String>,
     pub description: Option<String>,
-    pub associated_metadata_count: i32,
+    pub associated_entity_count: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
