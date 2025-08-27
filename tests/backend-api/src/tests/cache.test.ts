@@ -265,7 +265,7 @@ describe("Cache related tests", () => {
 		await progressUpdate(url, userApiKey, [
 			{
 				metadataId: firstAudiobookId,
-				change: { changeLatestInProgress: { progress: "25" } },
+				change: { changeLatestInProgress: "25" },
 			},
 		]);
 		await waitFor(2000);
@@ -285,11 +285,11 @@ describe("Cache related tests", () => {
 		await progressUpdate(url, userApiKey, [
 			{
 				metadataId: firstAudiobookId,
-				change: { changeLatestInProgress: { progress: "100" } },
+				change: { changeLatestInProgress: "100" },
 			},
 			{
 				metadataId: secondAudiobookId,
-				change: { changeLatestInProgress: { progress: "100" } },
+				change: { changeLatestInProgress: "100" },
 			},
 		]);
 		await waitFor(2000);
