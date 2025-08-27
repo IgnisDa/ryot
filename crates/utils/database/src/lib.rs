@@ -198,7 +198,8 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filters<D>(
+// FIXME: Remove this
+pub fn old_apply_collection_filters<D>(
     id_column: Expr,
     query: Select<D>,
     entity_lot: EntityLot,

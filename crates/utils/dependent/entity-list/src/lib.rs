@@ -9,7 +9,7 @@ use database_models::{
     workout_template,
 };
 use database_utils::{
-    apply_collection_filters, ilike_sql, user_by_id, user_preferences_list_page_size,
+    ilike_sql, old_apply_collection_filters, user_by_id, user_preferences_list_page_size,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
@@ -144,7 +144,7 @@ pub async fn user_metadata_list(
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, collections| {
-                        apply_collection_filters(
+                        old_apply_collection_filters(
                             Expr::col((AliasedMetadata::Table, AliasedMetadata::Id)),
                             query,
                             EntityLot::Metadata,
@@ -396,7 +396,7 @@ pub async fn user_metadata_groups_list(
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, collections| {
-                        apply_collection_filters(
+                        old_apply_collection_filters(
                             Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Id)),
                             query,
                             EntityLot::MetadataGroup,
