@@ -10,14 +10,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "enriched_user_to_exercise")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub id: String,
     pub name: String,
     pub lot: ExerciseLot,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub exercise_id: String,
     pub level: ExerciseLevel,
     pub force: ExerciseForce,
     pub source: ExerciseSource,
-    pub exercise_id: Option<String>,
     pub description: Option<String>,
     pub collection_ids: Vec<String>,
     pub muscles: Vec<ExerciseMuscle>,

@@ -10,16 +10,15 @@ CREATE VIEW
 SELECT
   e.lot,
   e.name,
-  ute.id,
   e.level,
   e.force,
   e.source,
   e.muscles,
   e.mechanic,
   e.equipment,
+  e.id as exercise_id,
   ute.last_updated_on,
   e.created_by_user_id,
-  ute.entity_id as exercise_id,
   ute.exercise_num_times_interacted as num_times_interacted,
   ARRAY_TO_STRING(
     ARRAY (
@@ -39,9 +38,9 @@ FROM
   AND cem.entity_id = ute.entity_id
   AND cem.entity_lot = ute.entity_lot
 GROUP BY
+  e.id,
   e.lot,
   e.name,
-  ute.id,
   e.level,
   e.force,
   e.source,
