@@ -32,9 +32,6 @@ SELECT
 FROM
   exercise e
   LEFT JOIN user_to_entity ute ON ute.exercise_id = e.id
-  LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
-  AND cem.entity_id = ute.entity_id
-  AND cem.entity_lot = ute.entity_lot
 GROUP BY
   e.lot,
   e.name,
