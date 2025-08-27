@@ -140,7 +140,6 @@ const FeatureSection = (props: {
 	);
 };
 
-// Feature data structure
 const FEATURE_DATA = [
 	{
 		heading: "Media Tracking",
@@ -170,10 +169,10 @@ const FEATURE_DATA = [
 			},
 			{
 				text: "Consolidated activity and statistics graphs and views across all your media",
-				isPro: true,
 			},
 			{
 				text: "Set time spent manually on seen entries for more accurate tracking of media consumption",
+				isPro: true,
 			},
 			{
 				text: "Get notifications when a new episode is released or your favorite actor is back on screen",
@@ -198,6 +197,7 @@ const FEATURE_DATA = [
 			},
 			{
 				text: "Integrations with Youtube Music and Jellyfin for your music collection",
+				isPro: true,
 			},
 		],
 	},
@@ -228,7 +228,7 @@ const FEATURE_DATA = [
 				text: "Inline history and images of exercises while logging an active workout",
 				isPro: true,
 			},
-			{ text: "Create templates to pre plan workouts beforehand" },
+			{ text: "Create templates to pre plan workouts beforehand", isPro: true },
 			{
 				text: "Graphs of progress for exercises to visualize your progress over time",
 			},
