@@ -228,7 +228,7 @@ const FEATURE_DATA = [
 				text: "Inline history and images of exercises while logging an active workout",
 				isPro: true,
 			},
-			{ text: "Create templates to pre-plan workouts beforehand", isPro: true },
+			{ text: "Create templates to pre-plan workouts", isPro: true },
 			{
 				text: "Graphs of progress for exercises to visualize your progress over time",
 			},
