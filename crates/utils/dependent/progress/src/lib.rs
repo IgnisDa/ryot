@@ -15,8 +15,7 @@ use enum_models::{EntityLot, MediaLot, SeenState};
 use futures::{join, try_join};
 use media_models::{
     ImportOrExportMetadataItemSeen, MetadataProgressUpdateCacheInput, MetadataProgressUpdateChange,
-    MetadataProgressUpdateChangeCreateNewCompletedInput,
-    MetadataProgressUpdateChangeLatestInProgressInput, MetadataProgressUpdateCommonInput,
+    MetadataProgressUpdateChangeCreateNewCompletedInput, MetadataProgressUpdateCommonInput,
     MetadataProgressUpdateInput, MetadataProgressUpdateNewInProgressInput,
     MetadataProgressUpdateStartedAndFinishedOnDateInput,
     MetadataProgressUpdateStartedOrFinishedOnDateInput, SeenAnimeExtraInformation,
@@ -27,7 +26,7 @@ use rust_decimal_macros::dec;
 use sea_orm::prelude::DateTimeUtc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder,
+    QueryOrder, QueryTrait,
 };
 use supporting_service::SupportingService;
 
@@ -138,9 +137,7 @@ pub async fn commit_import_seen_item(
 
     if let Some(progress) = input.progress {
         ryot_log!(debug, "Updating in-progress seen for: {}", metadata_id);
-        let change = MetadataProgressUpdateChange::ChangeLatestInProgress(
-            MetadataProgressUpdateChangeLatestInProgressInput::Progress(progress),
-        );
+        let change = MetadataProgressUpdateChange::ChangeLatestInProgress(progress);
 
         metadata_progress_update(
             user_id,
@@ -265,6 +262,29 @@ async fn commit(input: CommitInput<'_>) -> Result<seen::Model> {
     Ok(resp)
 }
 
+async fn get_previous_seen_item(
+    user_id: &String,
+    metadata_id: &String,
+    no_progress_filter: bool,
+    ss: &Arc<SupportingService>,
+) -> Result<Option<seen::Model>> {
+    let previous_seen_in_progress = Seen::find()
+        .filter(seen::Column::UserId.eq(user_id))
+        .filter(seen::Column::State.ne(SeenState::Dropped))
+        .filter(seen::Column::MetadataId.eq(metadata_id))
+        .apply_if(
+            match no_progress_filter {
+                true => None,
+                false => Some(()),
+            },
+            |q, _v| q.filter(seen::Column::Progress.lt(100)),
+        )
+        .order_by_desc(seen::Column::LastUpdatedOn)
+        .one(&ss.db)
+        .await?;
+    Ok(previous_seen_in_progress)
+}
+
 pub async fn metadata_progress_update(
     user_id: &String,
     ss: &Arc<SupportingService>,
@@ -274,41 +294,30 @@ pub async fn metadata_progress_update(
         .one(&ss.db)
         .await?
         .ok_or_else(|| anyhow!("Metadata not found"))?;
-    let previous_seen = Seen::find()
-        .filter(seen::Column::Progress.lt(100))
-        .filter(seen::Column::UserId.eq(user_id))
-        .filter(seen::Column::State.ne(SeenState::Dropped))
-        .filter(seen::Column::MetadataId.eq(&input.metadata_id))
-        .order_by_desc(seen::Column::LastUpdatedOn)
-        .one(&ss.db)
-        .await?;
     ryot_log!(debug, "Metadata progress update: {:?}", input);
     let seen = match input.change {
-        MetadataProgressUpdateChange::ChangeLatestInProgress(change_latest_in_progress) => {
-            let Some(previous_seen) = previous_seen else {
+        MetadataProgressUpdateChange::ChangeLatestInProgress(new_progress) => {
+            let previous_seen_in_progress =
+                get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
+            let Some(previous_seen) = previous_seen_in_progress else {
                 bail!("No in progress seen found");
             };
             let mut state;
             let mut progress = previous_seen.progress;
             let mut finished_on = previous_seen.finished_on;
             let mut updated_at = previous_seen.updated_at.clone();
-            match change_latest_in_progress {
-                MetadataProgressUpdateChangeLatestInProgressInput::State(new_state) => {
-                    state = new_state;
-                }
-                MetadataProgressUpdateChangeLatestInProgressInput::Progress(new_progress) => {
-                    if new_progress == progress {
-                        bail!("No progress update required");
-                    }
-                    progress = new_progress;
-                    state = SeenState::InProgress;
-                    if new_progress >= dec!(100) {
-                        progress = dec!(100);
-                        state = SeenState::Completed;
-                        finished_on = Some(Utc::now());
-                    }
-                }
+
+            if new_progress == progress {
+                bail!("No progress update required");
             }
+            progress = new_progress;
+            state = SeenState::InProgress;
+            if new_progress >= dec!(100) {
+                progress = dec!(100);
+                state = SeenState::Completed;
+                finished_on = Some(Utc::now());
+            }
+
             updated_at.push(Utc::now());
             let mut last_seen = previous_seen.into_active_model();
             last_seen.state = ActiveValue::Set(state);
@@ -324,8 +333,31 @@ pub async fn metadata_progress_update(
             }
             resp
         }
+        MetadataProgressUpdateChange::ChangeLatestState(new_state) => {
+            let previous_seen =
+                get_previous_seen_item(user_id, &input.metadata_id, true, ss).await?;
+            let Some(previous_seen) = previous_seen else {
+                bail!("No in progress seen found");
+            };
+            let mut updated_at = previous_seen.updated_at.clone();
+
+            updated_at.push(Utc::now());
+            let mut last_seen = previous_seen.into_active_model();
+            last_seen.state = ActiveValue::Set(new_state);
+            last_seen.updated_at = ActiveValue::Set(updated_at);
+            let resp = last_seen.update(&ss.db).await?;
+            if resp.state == SeenState::Completed {
+                ss.perform_application_job(ApplicationJob::Lp(
+                    LpApplicationJob::HandleOnSeenComplete(resp.id.clone()),
+                ))
+                .await?;
+            }
+            resp
+        }
         MetadataProgressUpdateChange::CreateNewInProgress(create_new_in_progress) => {
-            if previous_seen.is_some() {
+            let previous_seen_in_progress =
+                get_previous_seen_item(user_id, &input.metadata_id, false, ss).await?;
+            if previous_seen_in_progress.is_some() {
                 bail!("An in-progress record already exists for this metadata",);
             };
             commit(CommitInput {

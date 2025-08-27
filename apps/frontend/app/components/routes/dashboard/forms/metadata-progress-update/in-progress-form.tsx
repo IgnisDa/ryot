@@ -120,9 +120,7 @@ export const MetadataInProgressUpdateForm = ({
 					await deployBulkMetadataProgressUpdate.mutateAsync([
 						{
 							metadataId: metadataToUpdate.metadataId,
-							change: {
-								changeLatestInProgress: { progress: value?.toString() },
-							},
+							change: { changeLatestInProgress: value?.toString() },
 						},
 					]);
 					onSubmit();
