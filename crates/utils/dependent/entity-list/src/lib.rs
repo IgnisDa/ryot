@@ -473,7 +473,9 @@ pub async fn user_people_list(
             let creators_paginator = Person::find()
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
                     query.filter(
-                        Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
+                        Condition::any()
+                            .add(Expr::col(person::Column::Name).ilike(ilike_sql(&v)))
+                            .add(Expr::col(person::Column::Description).ilike(ilike_sql(&v))),
                     )
                 })
                 .apply_if(
