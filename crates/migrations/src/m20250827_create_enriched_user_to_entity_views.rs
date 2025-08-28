@@ -71,7 +71,7 @@ SELECT
   END AS collection_ids
 FROM
   user_to_entity ute
-  LEFT JOIN person p ON ute.person_id = p.id
+  INNER JOIN person p ON ute.person_id = p.id
   LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
   AND cem.entity_id = ute.entity_id
   AND cem.entity_lot = ute.entity_lot
