@@ -9,7 +9,8 @@ use database_models::{
     workout_template,
 };
 use database_utils::{
-    ilike_sql, old_apply_collection_filters, user_by_id, user_preferences_list_page_size,
+    apply_collection_filters, ilike_sql, old_apply_collection_filters, user_by_id,
+    user_preferences_list_page_size,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
@@ -490,13 +491,16 @@ pub async fn user_people_list(
                             ),
                     )
                 })
-                // .apply_if(
-                //     input.filter.clone().and_then(|f| f.collections),
-                //     |query, collections| {
-                //         //
-                //         todo!()
-                //     },
-                // )
+                .apply_if(
+                    input.filter.clone().and_then(|f| f.collections),
+                    |query, collections| {
+                        apply_collection_filters(
+                            enriched_user_to_person::Column::CollectionIds,
+                            query,
+                            collections,
+                        )
+                    },
+                )
                 .order_by(order_by, sort_order)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
