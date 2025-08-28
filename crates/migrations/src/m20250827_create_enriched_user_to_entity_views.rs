@@ -110,6 +110,65 @@ GROUP BY
   mg.description;
 "# };
 
+pub static ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL: &str = indoc! { r#"
+CREATE VIEW
+  enriched_user_to_metadata AS
+SELECT
+  m.lot,
+  ute.id,
+  m.title,
+  ute.user_id,
+  m.description,
+  m.publish_date,
+  m.provider_rating,
+  ute.last_updated_on,
+  COUNT(s.id) AS times_seen,
+  ute.entity_id as metadata_id,
+  AVG(r.rating) AS average_rating,
+  COALESCE(ute.media_reason, ARRAY[]::TEXT[]) AS media_reason,
+  CASE
+    WHEN COUNT(s.id) = 0 THEN ARRAY[]::TEXT[]
+    ELSE ARRAY_AGG(s.state)
+  END AS seen_states,
+  CASE
+    WHEN COUNT(s.id) = 0 THEN NULL
+    ELSE MAX(s.finished_on)
+  END AS max_seen_finished_on,
+  CASE
+    WHEN COUNT(s.id) = 0 THEN NULL
+    ELSE MAX(s.last_updated_on)
+  END AS max_seen_last_updated_on,
+  CASE
+    WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
+    ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
+  END AS collection_ids
+FROM
+  user_to_entity ute
+  INNER JOIN metadata m ON ute.metadata_id = m.id
+  LEFT JOIN review r ON r.user_id = ute.user_id
+  AND r.entity_id = ute.entity_id
+  AND r.entity_lot = ute.entity_lot
+  LEFT JOIN seen s ON s.user_id = ute.user_id
+  AND s.metadata_id = ute.metadata_id
+  AND ute.entity_lot = r.entity_lot
+  LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
+  AND cem.entity_id = ute.entity_id
+  AND cem.entity_lot = ute.entity_lot
+WHERE
+  ute.metadata_id IS NOT NULL
+GROUP BY
+  m.lot,
+  ute.id,
+  m.title,
+  ute.user_id,
+  ute.entity_id,
+  m.description,
+  m.publish_date,
+  ute.media_reason,
+  m.provider_rating,
+  ute.last_updated_on;
+"# };
+
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -119,6 +178,8 @@ impl MigrationTrait for Migration {
         db.execute_unprepared(ENRICHED_USER_TO_PERSON_VIEW_CREATION_SQL)
             .await?;
         db.execute_unprepared(ENRICHED_USER_TO_METADATA_GROUP_VIEW_CREATION_SQL)
+            .await?;
+        db.execute_unprepared(ENRICHED_USER_TO_METADATA_VIEW_CREATION_SQL)
             .await?;
         Ok(())
     }
