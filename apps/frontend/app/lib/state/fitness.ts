@@ -435,7 +435,7 @@ export const getExerciseImages = (
 	exercise?: ExerciseDetailsQuery["exerciseDetails"],
 ) => {
 	return [
-		...(exercise?.attributes.assets.s3Images || []),
-		...(exercise?.attributes.assets.remoteImages || []),
+		...(exercise?.assets.s3Images || []),
+		...(exercise?.assets.remoteImages || []),
 	];
 };

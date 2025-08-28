@@ -19,6 +19,7 @@ import {
 	ExerciseLot,
 	ExerciseMechanic,
 	ExerciseMuscle,
+	ExerciseSource,
 	UpdateCustomExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -99,14 +100,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const input = {
 		...newInput,
 		muscles,
-		attributes: {
-			instructions: instructions?.split("\n").map((s) => s.trim()) || [],
-			assets: {
-				s3Videos: [],
-				remoteImages: [],
-				remoteVideos: [],
-				s3Images: submission.images || [],
-			},
+		source: ExerciseSource.Custom,
+		instructions: instructions?.split("\n").map((s) => s.trim()) || [],
+		assets: {
+			s3Videos: [],
+			remoteImages: [],
+			remoteVideos: [],
+			s3Images: submission.images || [],
 		},
 	};
 	try {
@@ -248,9 +248,7 @@ export default function Page() {
 						name="instructions"
 						label="Instructions"
 						description="Separate each instruction with a newline"
-						defaultValue={loaderData.details?.attributes.instructions.join(
-							"\n",
-						)}
+						defaultValue={loaderData.details?.instructions.join("\n")}
 					/>
 					{!fileUploadNotAllowed ? (
 						<FileInput
