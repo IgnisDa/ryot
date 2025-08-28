@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
@@ -26,8 +26,9 @@ use media_models::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    IntoActiveModel, IntoSimpleExpr, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
-    prelude::Expr, sea_query::PgFunc,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    prelude::Expr,
+    sea_query::{PgFunc, SimpleExpr},
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -198,6 +199,22 @@ pub async fn user_workout_template_details(
     })
 }
 
+fn build_collection_condition<C>(
+    collection_id: String,
+    id_column: C,
+    presence: MediaCollectionPresenceFilter,
+) -> SimpleExpr
+where
+    C: ColumnTrait,
+{
+    let value = Expr::val(collection_id);
+    let any_column = PgFunc::any(Expr::col(id_column));
+    match presence {
+        MediaCollectionPresenceFilter::PresentIn => value.eq(any_column),
+        MediaCollectionPresenceFilter::NotPresentIn => value.ne(any_column),
+    }
+}
+
 pub fn apply_collection_filters<C, D>(
     id_column: C,
     query: Select<D>,
@@ -211,39 +228,28 @@ where
         return query;
     }
 
-    let mut filters = VecDeque::from(filters);
-    let first_filter = filters.pop_front().unwrap();
+    let (base_filter, remaining_filters) = filters.split_first().unwrap();
 
-    let mut query_builder = Expr::val(first_filter.collection_id).into_simple_expr();
-    let initial_any = PgFunc::any(Expr::col(id_column.clone()));
+    let mut filter_condition = build_collection_condition(
+        base_filter.collection_id.clone(),
+        id_column.clone(),
+        base_filter.presence,
+    );
 
-    query_builder = match first_filter.presence {
-        MediaCollectionPresenceFilter::PresentIn => query_builder.eq(initial_any),
-        MediaCollectionPresenceFilter::NotPresentIn => query_builder.ne(initial_any),
-    };
+    for filter in remaining_filters {
+        let condition = build_collection_condition(
+            filter.collection_id.clone(),
+            id_column.clone(),
+            filter.presence,
+        );
 
-    for filter in filters {
-        let value = Expr::val(filter.collection_id);
-        let any = PgFunc::any(Expr::col(id_column.clone()));
-
-        query_builder = match (filter.strategy, filter.presence) {
-            (MediaCollectionStrategyFilter::And, MediaCollectionPresenceFilter::PresentIn) => {
-                query_builder.and(value.clone().eq(any.clone()))
-            }
-            (MediaCollectionStrategyFilter::And, MediaCollectionPresenceFilter::NotPresentIn) => {
-                query_builder.and(value.clone().ne(any.clone()))
-            }
-
-            (MediaCollectionStrategyFilter::Or, MediaCollectionPresenceFilter::PresentIn) => {
-                query_builder.or(value.clone().eq(any.clone()))
-            }
-            (MediaCollectionStrategyFilter::Or, MediaCollectionPresenceFilter::NotPresentIn) => {
-                query_builder.or(value.clone().ne(any.clone()))
-            }
+        filter_condition = match filter.strategy {
+            MediaCollectionStrategyFilter::And => filter_condition.and(condition),
+            MediaCollectionStrategyFilter::Or => filter_condition.or(condition),
         };
     }
 
-    query.filter(query_builder)
+    query.filter(filter_condition)
 }
 
 // FIXME: Remove this because it is incorrect
