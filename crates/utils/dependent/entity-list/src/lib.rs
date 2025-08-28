@@ -4,13 +4,12 @@ use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_metadata_group,
-    enriched_user_to_person, genre, metadata, prelude::*, review, seen, user_measurement,
+    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_metadata,
+    enriched_user_to_metadata_group, enriched_user_to_person, genre, prelude::*, user_measurement,
     user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    apply_collection_filters, apply_columns_search, old_apply_collection_filters, user_by_id,
-    user_preferences_list_page_size,
+    apply_collection_filters, apply_columns_search, user_preferences_list_page_size,
 };
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
@@ -20,25 +19,24 @@ use dependent_models::{
     UserTemplatesOrWorkoutsListInput, UserTemplatesOrWorkoutsListSortBy, UserWorkoutsListResponse,
     UserWorkoutsTemplatesListResponse,
 };
-use enum_models::{EntityLot, ExerciseSource, SeenState, UserToMediaReason};
+use enum_models::{ExerciseSource, SeenState, UserToMediaReason};
 use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsListInput};
 use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataToGenre,
-    AliasedReview, AliasedUser, AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedMetadataToGenre, AliasedUser,
+    AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::sea_query::{Query, SimpleExpr};
 use sea_orm::{
-    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    ColumnTrait, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait,
     prelude::Expr,
     sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
 use supporting_service::SupportingService;
-use user_models::UserReviewScale;
 
 pub async fn user_metadata_list(
     user_id: &String,
@@ -53,22 +51,11 @@ pub async fn user_metadata_list(
         }),
         ApplicationCacheValue::UserMetadataList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
-
-            let avg_rating_col = "user_average_rating";
-            let cloned_user_id_1 = user_id.clone();
-            let cloned_user_id_2 = user_id.clone();
-
             let order_by = input
                 .sort
                 .clone()
                 .map(|a| graphql_to_db_order(a.order))
                 .unwrap_or(Order::Asc);
-            let review_scale = match preferences.general.review_scale {
-                UserReviewScale::OutOfTen => 10,
-                UserReviewScale::OutOfFive => 20,
-                UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
-            };
             let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
@@ -82,53 +69,19 @@ pub async fn user_metadata_list(
                 .unwrap_or(1)
                 .try_into()
                 .unwrap();
-            let paginator = Metadata::find()
+            let paginator = EnrichedUserToMetadata::find()
                 .select_only()
-                .column(metadata::Column::Id)
-                .expr_as(
-                    Func::round_with_precision(
-                        Func::avg(
-                            Expr::col((AliasedReview::Table, AliasedReview::Rating))
-                                .div(review_scale),
-                        ),
-                        review_scale,
-                    ),
-                    avg_rating_col,
-                )
-                .group_by(metadata::Column::Id)
-                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .column(enriched_user_to_metadata::Column::MetadataId)
+                .filter(enriched_user_to_metadata::Column::UserId.eq(user_id))
                 .apply_if(input.lot, |query, v| {
-                    query.filter(metadata::Column::Lot.eq(v))
+                    query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
                 })
-                .inner_join(UserToEntity)
-                .join(
-                    JoinType::LeftJoin,
-                    metadata::Relation::Review
-                        .def()
-                        .on_condition(move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, review::Column::UserId))
-                                    .eq(cloned_user_id_1.clone()),
-                            )
-                        }),
-                )
-                .join(
-                    JoinType::LeftJoin,
-                    metadata::Relation::Seen
-                        .def()
-                        .on_condition(move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, seen::Column::UserId))
-                                    .eq(cloned_user_id_2.clone()),
-                            )
-                        }),
-                )
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
                     query.filter(apply_columns_search(
                         &v,
                         [
-                            Expr::col(metadata::Column::Title),
-                            Expr::col(metadata::Column::Description),
+                            Expr::col(enriched_user_to_metadata::Column::Title),
+                            Expr::col(enriched_user_to_metadata::Column::Description),
                         ],
                     ))
                 })
@@ -137,73 +90,93 @@ pub async fn user_metadata_list(
                     |outer_query, outer_value| {
                         outer_query
                             .apply_if(outer_value.start_date, |inner_query, inner_value| {
-                                inner_query.filter(seen::Column::FinishedOn.gte(inner_value))
+                                inner_query.filter(
+                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
+                                        .gte(inner_value),
+                                )
                             })
                             .apply_if(outer_value.end_date, |inner_query, inner_value| {
-                                inner_query.filter(seen::Column::FinishedOn.lte(inner_value))
+                                inner_query.filter(
+                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
+                                        .lte(inner_value),
+                                )
                             })
                     },
                 )
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, collections| {
-                        old_apply_collection_filters(
-                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Id)),
+                        apply_collection_filters(
+                            enriched_user_to_metadata::Column::CollectionIds,
                             query,
-                            EntityLot::Metadata,
-                            user_id,
                             collections,
                         )
                     },
                 )
                 .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
-                    MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
+                    MediaGeneralFilter::All => {
+                        query.filter(enriched_user_to_metadata::Column::MetadataId.is_not_null())
+                    }
+                    MediaGeneralFilter::Rated => {
+                        query.filter(enriched_user_to_metadata::Column::AverageRating.is_not_null())
+                    }
+                    MediaGeneralFilter::Unrated => {
+                        query.filter(enriched_user_to_metadata::Column::AverageRating.is_null())
+                    }
                     MediaGeneralFilter::Unfinished => query.filter(
-                        Expr::expr(
-                            Expr::val(UserToMediaReason::Finished.to_string())
-                                .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
-                        )
+                        Expr::expr(Expr::val(UserToMediaReason::Finished.to_string()).eq(
+                            PgFunc::any(Expr::col(enriched_user_to_metadata::Column::MediaReason)),
+                        ))
                         .not(),
                     ),
-                    s => query.filter(seen::Column::State.eq(match s {
-                        MediaGeneralFilter::Dropped => SeenState::Dropped,
-                        MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                        _ => unreachable!(),
-                    })),
+                    s => query.filter(
+                        match s {
+                            MediaGeneralFilter::Dropped => {
+                                Expr::val(SeenState::Dropped.to_string())
+                            }
+                            MediaGeneralFilter::OnAHold => {
+                                Expr::val(SeenState::OnAHold.to_string())
+                            }
+                            _ => unreachable!(),
+                        }
+                        .eq(PgFunc::any(Expr::col(
+                            enriched_user_to_metadata::Column::SeenStates,
+                        ))),
+                    ),
                 })
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-                    MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
+                    MediaSortBy::Title => {
+                        query.order_by(enriched_user_to_metadata::Column::Title, order_by)
+                    }
                     MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
                     MediaSortBy::TimesConsumed => {
-                        query.order_by(seen::Column::Id.count(), order_by)
+                        query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
                     }
-                    MediaSortBy::LastUpdated => query
-                        .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
-                        .group_by(user_to_entity::Column::LastUpdatedOn),
+                    MediaSortBy::LastUpdated => {
+                        query.order_by(enriched_user_to_metadata::Column::LastUpdatedOn, order_by)
+                    }
                     MediaSortBy::ReleaseDate => query.order_by_with_nulls(
-                        metadata::Column::PublishYear,
+                        enriched_user_to_metadata::Column::PublishDate,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::LastConsumed => query.order_by_with_nulls(
-                        seen::Column::FinishedOn.max(),
+                        enriched_user_to_metadata::Column::MaxSeenFinishedOn,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::UserRating => query.order_by_with_nulls(
-                        Expr::col(Alias::new(avg_rating_col)),
+                        enriched_user_to_metadata::Column::AverageRating,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::ProviderRating => query.order_by_with_nulls(
-                        metadata::Column::ProviderRating,
+                        enriched_user_to_metadata::Column::ProviderRating,
                         order_by,
                         NullOrdering::Last,
                     ),
                 })
-                .order_by_desc(seen::Column::LastUpdatedOn.max())
+                .order_by_desc(enriched_user_to_metadata::Column::MaxSeenLastUpdatedOn)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
             let ItemsAndPagesNumber {
