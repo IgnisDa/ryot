@@ -629,28 +629,18 @@ export type EntityWithLot = {
 
 export type Exercise = {
   __typename?: 'Exercise';
-  attributes: ExerciseAttributes;
+  assets: EntityAssets;
   createdByUserId?: Maybe<Scalars['String']['output']>;
   equipment?: Maybe<ExerciseEquipment>;
   force?: Maybe<ExerciseForce>;
   id: Scalars['String']['output'];
+  instructions: Array<Scalars['String']['output']>;
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: Maybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['output'];
   source: ExerciseSource;
-};
-
-export type ExerciseAttributes = {
-  __typename?: 'ExerciseAttributes';
-  assets: EntityAssets;
-  instructions: Array<Scalars['String']['output']>;
-};
-
-export type ExerciseAttributesInput = {
-  assets: EntityAssetsInput;
-  instructions: Array<Scalars['String']['input']>;
 };
 
 export type ExerciseBestSetRecord = {
@@ -692,15 +682,17 @@ export enum ExerciseForce {
 }
 
 export type ExerciseInput = {
-  attributes: ExerciseAttributesInput;
+  assets: EntityAssetsInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   id: Scalars['String']['input'];
+  instructions: Array<Scalars['String']['input']>;
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['input'];
+  source: ExerciseSource;
 };
 
 export enum ExerciseLevel {
@@ -2520,16 +2512,18 @@ export type UniqueMediaIdentifier = {
 };
 
 export type UpdateCustomExerciseInput = {
-  attributes: ExerciseAttributesInput;
+  assets: EntityAssetsInput;
   equipment?: InputMaybe<ExerciseEquipment>;
   force?: InputMaybe<ExerciseForce>;
   id: Scalars['String']['input'];
+  instructions: Array<Scalars['String']['input']>;
   level: ExerciseLevel;
   lot: ExerciseLot;
   mechanic?: InputMaybe<ExerciseMechanic>;
   muscles: Array<ExerciseMuscle>;
   name: Scalars['String']['input'];
   shouldDelete?: InputMaybe<Scalars['Boolean']['input']>;
+  source: ExerciseSource;
 };
 
 export type UpdateCustomMetadataInput = {
@@ -3059,6 +3053,8 @@ export type UserToEntity = {
   collectionExtraInformation?: Maybe<UserToCollectionExtraInformation>;
   collectionId?: Maybe<Scalars['String']['output']>;
   createdOn: Scalars['DateTime']['output'];
+  entityId: Scalars['String']['output'];
+  entityLot: EntityLot;
   exerciseExtraInformation?: Maybe<UserToExerciseExtraInformation>;
   exerciseId?: Maybe<Scalars['String']['output']>;
   exerciseNumTimesInteracted?: Maybe<Scalars['Int']['output']>;
