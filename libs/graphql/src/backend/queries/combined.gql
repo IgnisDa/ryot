@@ -203,12 +203,10 @@ query ExerciseDetails($exerciseId: String!) {
 		muscles
 		mechanic
 		equipment
+		instructions
 		createdByUserId
-		attributes {
-			instructions
-			assets {
-				...EntityAssetsPart
-			}
+		assets {
+			...EntityAssetsPart
 		}
 	}
 }
