@@ -4,9 +4,9 @@ use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_person, genre,
-    metadata, metadata_group, prelude::*, review, seen, user_measurement, user_to_entity, workout,
-    workout_template,
+    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_metadata_group,
+    enriched_user_to_person, genre, metadata, prelude::*, review, seen, user_measurement,
+    user_to_entity, workout, workout_template,
 };
 use database_utils::{
     apply_collection_filters, ilike_sql, old_apply_collection_filters, user_by_id,
@@ -26,8 +26,8 @@ use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
 use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataGroup,
-    AliasedMetadataToGenre, AliasedReview, AliasedUser, AliasedUserToEntity,
+    AliasedCollection, AliasedCollectionToEntity, AliasedMetadata, AliasedMetadataToGenre,
+    AliasedReview, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
 use sea_orm::{
@@ -358,18 +358,19 @@ pub async fn user_metadata_groups_list(
                 .unwrap_or(1)
                 .try_into()
                 .unwrap();
-            let alias = "parts";
-            let metadata_group_parts_col = Expr::col(Alias::new(alias));
             let (order_by, sort_order) = match input.sort {
-                None => (metadata_group_parts_col, Order::Desc),
+                None => (
+                    Expr::col(enriched_user_to_metadata_group::Column::Parts),
+                    Order::Desc,
+                ),
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
-                            metadata_group_parts_col
+                            Expr::col(enriched_user_to_metadata_group::Column::Parts)
                         }
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(metadata_group::Column::Title)
+                            Expr::col(enriched_user_to_metadata_group::Column::Title)
                         }
                     },
                     graphql_to_db_order(ord.order),
@@ -381,30 +382,29 @@ pub async fn user_metadata_groups_list(
                 .clone()
                 .and_then(|s| s.take)
                 .unwrap_or(page_size);
-            let paginator = MetadataGroup::find()
+            let paginator = EnrichedUserToMetadataGroup::find()
                 .select_only()
-                .column(metadata_group::Column::Id)
-                .group_by(metadata_group::Column::Id)
-                .inner_join(UserToEntity)
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(metadata_group::Column::Id.is_not_null())
+                .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
+                .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
                     query.filter(
-                        Condition::all()
-                            .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v)))
+                        Condition::any()
                             .add(
-                                Expr::col(metadata_group::Column::Description).ilike(ilike_sql(&v)),
+                                Expr::col(enriched_user_to_metadata_group::Column::Title)
+                                    .ilike(ilike_sql(&v)),
+                            )
+                            .add(
+                                Expr::col(enriched_user_to_metadata_group::Column::Description)
+                                    .ilike(ilike_sql(&v)),
                             ),
                     )
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
                     |query, collections| {
-                        old_apply_collection_filters(
-                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Id)),
+                        apply_collection_filters(
+                            enriched_user_to_metadata_group::Column::CollectionIds,
                             query,
-                            EntityLot::MetadataGroup,
-                            user_id,
                             collections,
                         )
                     },
