@@ -25,7 +25,7 @@ use media_models::{
 use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
-    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Select,
     prelude::Expr,
     sea_query::{PgFunc, SimpleExpr, extension::postgres::PgExpr},
 };
@@ -257,110 +257,6 @@ where
     }
 
     query.filter(filter_condition)
-}
-
-// FIXME: Remove this because it is incorrect
-pub fn old_apply_collection_filters<D>(
-    id_column: Expr,
-    query: Select<D>,
-    entity_lot: EntityLot,
-    user_id: &String,
-    collection_filters: Vec<MediaCollectionFilter>,
-) -> Select<D>
-where
-    D: EntityTrait,
-{
-    if collection_filters.is_empty() {
-        return query;
-    }
-
-    let mut filter_groups = Vec::new();
-    let mut current_and_group = Vec::new();
-
-    for filter in collection_filters {
-        match filter.strategy {
-            MediaCollectionStrategyFilter::Or => {
-                if !current_and_group.is_empty() {
-                    filter_groups.push(current_and_group);
-                    current_and_group = Vec::new();
-                }
-                filter_groups.push(vec![filter]);
-            }
-            MediaCollectionStrategyFilter::And => {
-                current_and_group.push(filter);
-            }
-        }
-    }
-
-    if !current_and_group.is_empty() {
-        filter_groups.push(current_and_group);
-    }
-
-    let mut group_conditions = Vec::new();
-
-    for group in filter_groups {
-        if group.is_empty() {
-            continue;
-        }
-
-        let first_filter = &group[0];
-
-        if group.len() == 1 {
-            let condition =
-                create_single_filter_condition(&id_column, user_id, entity_lot, first_filter);
-            group_conditions.push(condition);
-        } else {
-            let mut and_condition = Condition::all();
-
-            for filter in group {
-                let condition =
-                    create_single_filter_condition(&id_column, user_id, entity_lot, &filter);
-                and_condition = and_condition.add(condition);
-            }
-
-            group_conditions.push(and_condition);
-        }
-    }
-
-    if group_conditions.is_empty() {
-        return query;
-    }
-
-    let final_condition = if group_conditions.len() == 1 {
-        group_conditions.into_iter().next().unwrap()
-    } else {
-        let mut or_condition = Condition::any();
-        for condition in group_conditions {
-            or_condition = or_condition.add(condition);
-        }
-        or_condition
-    };
-
-    query.filter(final_condition)
-}
-
-fn create_single_filter_condition(
-    id_column: &Expr,
-    user_id: &String,
-    entity_lot: EntityLot,
-    filter: &MediaCollectionFilter,
-) -> Condition {
-    let subquery = CollectionEntityMembership::find()
-        .select_only()
-        .column(collection_entity_membership::Column::EntityId)
-        .filter(collection_entity_membership::Column::UserId.eq(user_id))
-        .filter(collection_entity_membership::Column::EntityLot.eq(entity_lot))
-        .filter(collection_entity_membership::Column::OriginCollectionId.eq(&filter.collection_id))
-        .into_query();
-
-    match filter.presence {
-        MediaCollectionPresenceFilter::PresentIn => {
-            Condition::all().add(id_column.clone().in_subquery(subquery))
-        }
-        MediaCollectionPresenceFilter::NotPresentIn => {
-            Condition::all().add(id_column.clone().not_in_subquery(subquery))
-        }
-    }
 }
 
 /// If the token has an access link, then checks that:
