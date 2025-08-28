@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
 use database_models::metadata;
-use database_utils::ilike_sql;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
@@ -40,9 +39,9 @@ pub async fn get_show_by_episode_identifier(
                         Expr::col(metadata::Column::ShowSpecifics),
                         Alias::new("text"),
                     ))
-                    .ilike(ilike_sql(episode)),
+                    .ilike(format!("%{episode}%")),
                 )
-                .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(series))),
+                .add(Expr::col(metadata::Column::Title).ilike(format!("%{series}%"))),
         )
         .one(db)
         .await?;

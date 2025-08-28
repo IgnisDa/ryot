@@ -9,7 +9,7 @@ use database_models::{
     user_to_entity, workout, workout_template,
 };
 use database_utils::{
-    apply_collection_filters, ilike_sql, old_apply_collection_filters, user_by_id,
+    apply_collection_filters, apply_columns_search, old_apply_collection_filters, user_by_id,
     user_preferences_list_page_size,
 };
 use dependent_models::{
@@ -34,9 +34,7 @@ use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, prelude::Expr,
 };
-use sea_query::extension::postgres::PgExpr;
 use sea_query::{Alias, Func, NullOrdering, PgFunc};
-use slug::slugify;
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
 
@@ -124,11 +122,13 @@ pub async fn user_metadata_list(
                         }),
                 )
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
-                            .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(metadata::Column::Title),
+                            Expr::col(metadata::Column::Description),
+                        ],
+                    ))
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.date_range),
@@ -387,17 +387,13 @@ pub async fn user_metadata_groups_list(
                 .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
                 .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col(enriched_user_to_metadata_group::Column::Title)
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col(enriched_user_to_metadata_group::Column::Description)
-                                    .ilike(ilike_sql(&v)),
-                            ),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_metadata_group::Column::Title),
+                            Expr::col(enriched_user_to_metadata_group::Column::Description),
+                        ],
+                    ))
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
@@ -482,17 +478,13 @@ pub async fn user_people_list(
                 .column(enriched_user_to_person::Column::PersonId)
                 .filter(enriched_user_to_person::Column::UserId.eq(user_id))
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col(enriched_user_to_person::Column::Name)
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col(enriched_user_to_person::Column::Description)
-                                    .ilike(ilike_sql(&v)),
-                            ),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_person::Column::Name),
+                            Expr::col(enriched_user_to_person::Column::Description),
+                        ],
+                    ))
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
@@ -549,7 +541,7 @@ pub async fn user_workouts_list(
                 .column(workout::Column::Id)
                 .filter(workout::Column::UserId.eq(user_id))
                 .apply_if(input.search.query, |query, v| {
-                    query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
+                    query.filter(apply_columns_search(&v, [Expr::col(workout::Column::Name)]))
                 })
                 .apply_if(input.sort, |query, v| {
                     query.order_by(
@@ -603,7 +595,10 @@ pub async fn user_workout_templates_list(
                 .column(workout_template::Column::Id)
                 .filter(workout_template::Column::UserId.eq(user_id))
                 .apply_if(input.search.query, |query, v| {
-                    query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
+                    query.filter(apply_columns_search(
+                        &v,
+                        [Expr::col(workout_template::Column::Name)],
+                    ))
                 })
                 .apply_if(input.sort, |query, v| {
                     query.order_by(
@@ -708,17 +703,13 @@ pub async fn user_exercises_list(
                         })
                 })
                 .apply_if(input.search.query, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col(enriched_user_to_exercise::Column::ExerciseId)
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col(enriched_user_to_exercise::Column::Name)
-                                    .ilike(slugify(v)),
-                            ),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_exercise::Column::ExerciseId),
+                            Expr::col(enriched_user_to_exercise::Column::Name),
+                        ],
+                    ))
                 })
                 .order_by_desc(order_by_col)
                 .order_by_asc(enriched_user_to_exercise::Column::ExerciseId)
@@ -791,7 +782,7 @@ pub async fn user_genres_list(
             num_items,
         )
         .apply_if(input.query, |query, v| {
-            query.filter(Condition::all().add(Expr::col(genre::Column::Name).ilike(ilike_sql(&v))))
+            query.filter(apply_columns_search(&v, [Expr::col(genre::Column::Name)]))
         })
         .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
         .group_by(Expr::tuple([

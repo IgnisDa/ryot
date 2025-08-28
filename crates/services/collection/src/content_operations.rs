@@ -7,7 +7,9 @@ use database_models::{
     collection_to_entity,
     prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
 };
-use database_utils::{ilike_sql, item_reviews, user_by_id, user_preferences_list_page_size};
+use database_utils::{
+    apply_columns_search, item_reviews, user_by_id, user_preferences_list_page_size,
+};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
@@ -19,7 +21,7 @@ use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
     QueryTrait,
 };
-use sea_query::{Condition, Expr, Func, extension::postgres::PgExpr};
+use sea_query::{Condition, Expr, Func};
 use supporting_service::SupportingService;
 
 pub async fn collection_contents(
@@ -59,28 +61,15 @@ pub async fn collection_contents(
                 .left_join(Workout)
                 .filter(collection_to_entity::Column::CollectionId.eq(details.id.clone()))
                 .apply_if(search.query, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col((AliasedMetadata::Table, AliasedMetadata::Title))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((
-                                    AliasedMetadataGroup::Table,
-                                    AliasedMetadataGroup::Title,
-                                ))
-                                .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedPerson::Table, AliasedPerson::Name))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(
-                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
-                                    .ilike(ilike_sql(&v)),
-                            ),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
+                            Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title)),
+                            Expr::col((AliasedPerson::Table, AliasedPerson::Name)),
+                            Expr::col((AliasedExercise::Table, AliasedExercise::Id)),
+                        ],
+                    ))
                 })
                 .apply_if(filter.metadata_lot, |query, v| {
                     query.filter(

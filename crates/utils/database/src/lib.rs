@@ -17,7 +17,6 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
-
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
 use media_models::{
@@ -28,7 +27,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
     IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select,
     prelude::Expr,
-    sea_query::{PgFunc, SimpleExpr},
+    sea_query::{PgFunc, SimpleExpr, extension::postgres::PgExpr},
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -47,6 +46,17 @@ pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String)
 
 pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
+}
+
+pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition
+where
+{
+    let pattern = ilike_sql(value);
+    let mut condition = Condition::any();
+    for column in columns {
+        condition = condition.add(column.ilike(pattern.clone()));
+    }
+    condition
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {

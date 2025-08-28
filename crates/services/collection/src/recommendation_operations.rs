@@ -4,7 +4,7 @@ use anyhow::Result;
 use common_models::SearchDetails;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{metadata, prelude::Metadata};
-use database_utils::{ilike_sql, user_preferences_list_page_size};
+use database_utils::{apply_columns_search, user_preferences_list_page_size};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CollectionRecommendationsCachedInput,
@@ -15,7 +15,7 @@ use sea_orm::{
     ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
     PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement,
 };
-use sea_query::{Condition, Expr, extension::postgres::PgExpr};
+use sea_query::Expr;
 use supporting_service::SupportingService;
 
 pub async fn collection_recommendations(
@@ -78,11 +78,13 @@ ORDER BY RANDOM() LIMIT 10;
         .column(metadata::Column::Id)
         .filter(metadata::Column::Id.is_in(required_set))
         .apply_if(search.query, |query, v| {
-            query.filter(
-                Condition::any()
-                    .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
-                    .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
-            )
+            query.filter(apply_columns_search(
+                &v,
+                [
+                    Expr::col(metadata::Column::Title),
+                    Expr::col(metadata::Column::Description),
+                ],
+            ))
         })
         .into_tuple::<String>()
         .paginate(&ss.db, take);
