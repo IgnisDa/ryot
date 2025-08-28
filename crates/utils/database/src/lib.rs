@@ -232,16 +232,13 @@ where
 
     let mut filter_condition = build_collection_condition(
         base_filter.collection_id.clone(),
-        id_column.clone(),
+        id_column,
         base_filter.presence,
     );
 
     for filter in remaining_filters {
-        let condition = build_collection_condition(
-            filter.collection_id.clone(),
-            id_column.clone(),
-            filter.presence,
-        );
+        let condition =
+            build_collection_condition(filter.collection_id.clone(), id_column, filter.presence);
 
         filter_condition = match filter.strategy {
             MediaCollectionStrategyFilter::And => filter_condition.and(condition),
