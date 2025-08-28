@@ -391,7 +391,10 @@ pub async fn user_metadata_groups_list(
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
                     query.filter(
                         Condition::all()
-                            .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
+                            .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v)))
+                            .add(
+                                Expr::col(metadata_group::Column::Description).ilike(ilike_sql(&v)),
+                            ),
                     )
                 })
                 .apply_if(
