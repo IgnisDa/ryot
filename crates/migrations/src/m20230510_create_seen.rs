@@ -7,6 +7,8 @@ use super::{
     m20230508_create_review::Review,
 };
 
+pub static SEEN_USER_METADATA_INDEX: &str = "seen_user_metadata_idx";
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
@@ -113,6 +115,18 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name(SEEN_USER_METADATA_INDEX)
+                    .table(Seen::Table)
+                    .col(Seen::UserId)
+                    .col(Seen::MetadataId)
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 

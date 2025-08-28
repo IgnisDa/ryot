@@ -2,6 +2,8 @@ use sea_orm_migration::prelude::*;
 
 use super::{
     m20230505_create_exercise::Exercise,
+    m20230508_create_review::REVIEW_USER_ENTITY_INDEX,
+    m20230510_create_seen::SEEN_USER_METADATA_INDEX,
     m20231017_create_user_to_entity::{ENTITY_ID_SQL, ENTITY_LOT_SQL, UserToEntity},
 };
 
@@ -98,6 +100,37 @@ ALTER TABLE exercise ALTER COLUMN assets SET NOT NULL;
                 )
                 .await?;
         }
+
+        if !manager.has_index("seen", SEEN_USER_METADATA_INDEX).await? {
+            manager
+                .create_index(
+                    Index::create()
+                        .name(SEEN_USER_METADATA_INDEX)
+                        .table(Alias::new("seen"))
+                        .col(Alias::new("user_id"))
+                        .col(Alias::new("metadata_id"))
+                        .to_owned(),
+                )
+                .await?;
+        }
+
+        if !manager
+            .has_index("review", REVIEW_USER_ENTITY_INDEX)
+            .await?
+        {
+            manager
+                .create_index(
+                    Index::create()
+                        .name(REVIEW_USER_ENTITY_INDEX)
+                        .table(Alias::new("review"))
+                        .col(Alias::new("user_id"))
+                        .col(Alias::new("entity_id"))
+                        .col(Alias::new("entity_lot"))
+                        .to_owned(),
+                )
+                .await?;
+        }
+
         Ok(())
     }
 
