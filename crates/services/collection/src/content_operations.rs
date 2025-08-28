@@ -20,8 +20,8 @@ use migrations::{AliasedExercise, AliasedMetadata, AliasedMetadataGroup, Aliased
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
     QueryTrait,
+    sea_query::{Condition, Expr, Func},
 };
-use sea_query::{Condition, Expr, Func};
 use supporting_service::SupportingService;
 
 pub async fn collection_contents(

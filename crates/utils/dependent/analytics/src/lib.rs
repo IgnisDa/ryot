@@ -30,8 +30,8 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     Order, QueryFilter, QueryOrder, QuerySelect,
     prelude::{Date, DateTimeUtc},
+    sea_query::NullOrdering,
 };
-use sea_query::NullOrdering;
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 

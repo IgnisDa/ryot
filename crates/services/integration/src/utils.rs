@@ -2,8 +2,10 @@ use anyhow::{Result, bail};
 use database_models::metadata;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
-use sea_orm::{ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::{Alias, Expr, Func, extension::postgres::PgExpr};
+use sea_orm::{
+    ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter,
+    sea_query::{Alias, Expr, Func, extension::postgres::PgExpr},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]

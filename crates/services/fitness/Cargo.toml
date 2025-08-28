@@ -10,7 +10,6 @@ futures = { workspace = true }
 nanoid = { workspace = true }
 reqwest = { workspace = true }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
 tracing = { workspace = true }
 
 background-models = { workspace = true }

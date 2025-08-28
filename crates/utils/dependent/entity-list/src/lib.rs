@@ -30,11 +30,13 @@ use migrations::{
     AliasedReview, AliasedUser, AliasedUserToEntity,
 };
 use sea_orm::Iterable;
+use sea_orm::sea_query::{Query, SimpleExpr};
 use sea_orm::{
     ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, prelude::Expr,
+    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    prelude::Expr,
+    sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
-use sea_query::{Alias, Func, NullOrdering, PgFunc};
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
 
@@ -260,7 +262,7 @@ pub async fn user_collections_list(
                     )),
                 ),
             ]);
-            let collaborators_subquery = sea_query::Query::select()
+            let collaborators_subquery = Query::select()
                 .from(UserToEntity)
                 .expr(PgFunc::json_agg(outer_collaborator.clone()))
                 .join(
@@ -277,7 +279,7 @@ pub async fn user_collections_list(
                     .equals((AliasedCollection::Table, AliasedCollection::Id)),
                 )
                 .to_owned();
-            let count_subquery = sea_query::Query::select()
+            let count_subquery = Query::select()
                 .expr(collection_to_entity::Column::Id.count())
                 .from(CollectionToEntity)
                 .and_where(
@@ -303,19 +305,16 @@ pub async fn user_collections_list(
                 )
                 .column(collection::Column::InformationTemplate)
                 .expr_as(
-                    sea_query::SimpleExpr::SubQuery(
-                        None,
-                        Box::new(count_subquery.into_sub_query_statement()),
-                    ),
+                    SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
                     "count",
                 )
                 .expr_as(
                     Func::coalesce([
-                        sea_query::SimpleExpr::SubQuery(
+                        SimpleExpr::SubQuery(
                             None,
                             Box::new(collaborators_subquery.into_sub_query_statement()),
                         ),
-                        sea_query::SimpleExpr::FunctionCall(Func::cast_as(
+                        SimpleExpr::FunctionCall(Func::cast_as(
                             Expr::val("[]"),
                             Alias::new("JSON"),
                         )),

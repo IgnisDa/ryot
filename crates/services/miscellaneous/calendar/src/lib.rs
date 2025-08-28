@@ -23,8 +23,8 @@ use migrations::{AliasedCalendarEvent, AliasedMetadata, AliasedUserToEntity};
 use sea_orm::{
     ColumnTrait, EntityTrait, FromQueryResult, JoinType, Order, QueryFilter, QueryOrder,
     QuerySelect, QueryTrait,
+    sea_query::{Alias, Asterisk, Condition, Expr, PgFunc, Query},
 };
-use sea_query::{Alias, Asterisk, Condition, Expr, PgFunc, Query};
 use supporting_service::SupportingService;
 use user_models::DashboardElementLot;
 

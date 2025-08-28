@@ -13,9 +13,8 @@ use dependent_models::{
 use dependent_notification_utils::update_metadata_and_notify_users;
 use sea_orm::{
     ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
-    PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement,
+    PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement, sea_query::Expr,
 };
-use sea_query::Expr;
 use supporting_service::SupportingService;
 
 pub async fn collection_recommendations(

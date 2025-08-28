@@ -23,8 +23,8 @@ use rust_decimal_macros::dec;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     Iterable, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
+    sea_query::OnConflict,
 };
-use sea_query::OnConflict;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 

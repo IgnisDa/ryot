@@ -7,8 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
-slug = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { workspace = true }

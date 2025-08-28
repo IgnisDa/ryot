@@ -22,7 +22,6 @@ dependent-models = { workspace = true }
 enum-models = { workspace = true }
 file-storage-service = { workspace = true }
 media-models = { workspace = true }
-migrations = { workspace = true }
 session-service = { workspace = true }
 supporting-service = { workspace = true }
 user-models = { workspace = true }
