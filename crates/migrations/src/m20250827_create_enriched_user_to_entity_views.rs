@@ -19,14 +19,8 @@ SELECT
   e.id as exercise_id,
   ute.last_updated_on,
   e.created_by_user_id,
+  ARRAY_TO_STRING(e.instructions, '\n') AS description,
   ute.exercise_num_times_interacted as num_times_interacted,
-  ARRAY_TO_STRING(
-    ARRAY (
-      SELECT
-        JSONB_ARRAY_ELEMENTS_TEXT(e.attributes -> 'instructions')
-    ),
-    '\n'
-  ) AS description,
   CASE
     WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
     ELSE ARRAY_AGG(DISTINCT cem.origin_collection_id)
@@ -48,7 +42,6 @@ GROUP BY
   e.mechanic,
   e.equipment,
   ute.user_id,
-  e.attributes,
   ute.entity_id,
   ute.last_updated_on,
   e.created_by_user_id,
