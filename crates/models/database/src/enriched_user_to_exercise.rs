@@ -15,10 +15,10 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub exercise_id: String,
     pub level: ExerciseLevel,
-    pub force: ExerciseForce,
     pub source: ExerciseSource,
     pub description: Option<String>,
     pub collection_ids: Vec<String>,
+    pub force: Option<ExerciseForce>,
     pub muscles: Vec<ExerciseMuscle>,
     pub num_times_interacted: Option<i32>,
     pub created_by_user_id: Option<String>,
