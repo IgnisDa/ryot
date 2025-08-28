@@ -136,8 +136,8 @@ pub enum MediaGeneralFilter {
 
 #[derive(Debug, Hash, Serialize, Deserialize, Enum, Clone, Copy, Eq, PartialEq, Default)]
 pub enum MediaCollectionStrategyFilter {
-    #[default]
     Or,
+    #[default]
     And,
 }
 
