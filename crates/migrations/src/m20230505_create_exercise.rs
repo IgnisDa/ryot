@@ -16,10 +16,11 @@ pub enum Exercise {
     Force,
     Level,
     Source,
+    Assets,
     Muscles,
     Mechanic,
     Equipment,
-    Attributes,
+    Instructions,
     CreatedByUserId,
 }
 
@@ -38,17 +39,19 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Exercise::Mechanic).text())
                     .col(ColumnDef::new(Exercise::Equipment).text())
                     .col(ColumnDef::new(Exercise::Source).text().not_null())
-                    .col(
-                        ColumnDef::new(Exercise::Attributes)
-                            .json_binary()
-                            .not_null(),
-                    )
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .col(
                         ColumnDef::new(Exercise::Muscles)
                             .array(ColumnType::Text)
                             .not_null(),
                     )
+                    .col(
+                        ColumnDef::new(Exercise::Instructions)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(ColumnDef::new(Exercise::Assets).json_binary().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("exercise_to_user_foreign_key")
