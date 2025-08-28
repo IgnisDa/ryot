@@ -104,7 +104,7 @@ export const CollectionsFilter = (props: {
 							id: randomId(),
 							data: {
 								collectionId: "",
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 						});
