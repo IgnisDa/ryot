@@ -214,7 +214,7 @@ export default function Page(props: { params: { action: string } }) {
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
 							placeholder="Search for people"
-							initialValue={searchQuery}
+							value={searchQuery}
 							onChange={(value) => {
 								setSearchQuery(value);
 								setCurrentPage(1);

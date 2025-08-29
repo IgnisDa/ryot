@@ -196,17 +196,21 @@ export const CollectionsFilter = (props: {
 };
 
 export const DebouncedSearchInput = (props: {
+	value: string;
 	queryParam?: string;
 	placeholder?: string;
-	initialValue?: string;
 	onChange: (query: string) => void;
 	tourControl?: {
 		target: OnboardingTourStepTargets;
 		onQueryChange: (query: string) => void;
 	};
 }) => {
-	const [query, setQuery] = useState(props.initialValue || "");
+	const [query, setQuery] = useState(props.value);
 	const [debounced] = useDebouncedValue(query, 1000);
+
+	useDidUpdate(() => {
+		setQuery(props.value);
+	}, [props.value]);
 
 	useDidUpdate(() => {
 		const query = debounced.trim().toLowerCase();

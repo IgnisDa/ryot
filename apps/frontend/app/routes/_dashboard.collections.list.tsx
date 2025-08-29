@@ -113,7 +113,7 @@ export default function Page() {
 		value: string | boolean | null,
 	) => setSearchFilters((prev) => ({ ...prev, [key]: value }));
 
-	const query = searchFilters.query || undefined;
+	const query = searchFilters.query;
 	const showHidden = searchFilters.showHidden;
 	const hasHiddenCollections = collections.some(
 		(c) =>
@@ -148,7 +148,7 @@ export default function Page() {
 					</Flex>
 				</Group>
 				<DebouncedSearchInput
-					initialValue={query}
+					value={query}
 					placeholder="Search collections"
 					onChange={(value) => updateFilter("query", value)}
 				/>

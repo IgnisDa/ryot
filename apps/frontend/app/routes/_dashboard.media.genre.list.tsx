@@ -42,12 +42,12 @@ import {
 
 interface FilterState {
 	page: number;
-	query?: string;
+	query: string;
 }
 
 const defaultFilterState: FilterState = {
 	page: 1,
-	query: undefined,
+	query: "",
 };
 
 export const meta = () => {
@@ -92,7 +92,7 @@ export default function Page() {
 							/>
 						</Group>
 						<DebouncedSearchInput
-							initialValue={filters.query}
+							value={filters.query}
 							placeholder="Search for genres"
 							onChange={(value) => updateFilter("query", value)}
 						/>

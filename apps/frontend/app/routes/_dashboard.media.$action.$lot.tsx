@@ -293,7 +293,7 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
-										initialValue={searchQuery}
+										value={searchQuery}
 										placeholder={`Sift through your ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
@@ -357,7 +357,7 @@ export default function Page(props: {
 							<>
 								<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 									<DebouncedSearchInput
-										initialValue={searchQuery}
+										value={searchQuery}
 										placeholder={`Search for ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
