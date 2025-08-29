@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	CreateOrUpdateCollectionDocument,
 	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
 	type EntityLot,
@@ -218,6 +219,21 @@ export async function addEntitiesToCollection(
 	);
 	await waitFor(1000);
 	return response;
+}
+
+export async function createCollection(
+	baseUrl: string,
+	userApiKey: string,
+	name: string,
+	description?: string,
+) {
+	const client = getGraphqlClient(baseUrl);
+	const response = await client.request(
+		CreateOrUpdateCollectionDocument,
+		{ input: { name, description } },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return response.createOrUpdateCollection;
 }
 
 export async function registerAdminUser(baseUrl: string) {

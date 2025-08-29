@@ -1,6 +1,5 @@
 import { faker } from "@faker-js/faker";
 import {
-	CreateOrUpdateCollectionDocument,
 	EntityLot,
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
@@ -8,6 +7,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	addEntitiesToCollection,
+	createCollection,
 	getGraphqlClient,
 	registerTestUser,
 	searchAudibleAudiobook,
@@ -48,59 +48,54 @@ describe("Collection Filters Tests", () => {
 
 	beforeAll(async () => {
 		[userApiKey, userId] = await registerTestUser(url);
-		const client = getGraphqlClient(url);
 
-		const { createOrUpdateCollection: fantasyCollection } =
-			await client.request(
-				CreateOrUpdateCollectionDocument,
-				{ input: { name: COLLECTION_NAMES.FANTASY_AUDIOBOOKS } },
-				{ Authorization: `Bearer ${userApiKey}` },
-			);
+		const fantasyCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.FANTASY_AUDIOBOOKS,
+		);
 		fantasyCollectionId = fantasyCollection.id;
 
-		const { createOrUpdateCollection: sciFiCollection } = await client.request(
-			CreateOrUpdateCollectionDocument,
-			{ input: { name: COLLECTION_NAMES.SCI_FI_CLASSICS } },
-			{ Authorization: `Bearer ${userApiKey}` },
+		const sciFiCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.SCI_FI_CLASSICS,
 		);
 		sciFiCollectionId = sciFiCollection.id;
 
-		const { createOrUpdateCollection: bestOfCollection } = await client.request(
-			CreateOrUpdateCollectionDocument,
-			{ input: { name: COLLECTION_NAMES.BEST_OF_THE_BEST } },
-			{ Authorization: `Bearer ${userApiKey}` },
+		const bestOfCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.BEST_OF_THE_BEST,
 		);
 		bestOfCollectionId = bestOfCollection.id;
 
-		const { createOrUpdateCollection: horrorCollection } = await client.request(
-			CreateOrUpdateCollectionDocument,
-			{ input: { name: COLLECTION_NAMES.HORROR_COLLECTION } },
-			{ Authorization: `Bearer ${userApiKey}` },
+		const horrorCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.HORROR_COLLECTION,
 		);
 		horrorCollectionId = horrorCollection.id;
 
-		const { createOrUpdateCollection: mysteryCollection } =
-			await client.request(
-				CreateOrUpdateCollectionDocument,
-				{ input: { name: COLLECTION_NAMES.MYSTERY_COLLECTION } },
-				{ Authorization: `Bearer ${userApiKey}` },
-			);
+		const mysteryCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.MYSTERY_COLLECTION,
+		);
 		mysteryCollectionId = mysteryCollection.id;
 
-		const { createOrUpdateCollection: awardWinnersCollection } =
-			await client.request(
-				CreateOrUpdateCollectionDocument,
-				{ input: { name: COLLECTION_NAMES.AWARD_WINNERS } },
-				{ Authorization: `Bearer ${userApiKey}` },
-			);
+		const awardWinnersCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.AWARD_WINNERS,
+		);
 		awardWinnersId = awardWinnersCollection.id;
 
-		const { createOrUpdateCollection: newReleasesCollection } =
-			await client.request(
-				CreateOrUpdateCollectionDocument,
-				{ input: { name: COLLECTION_NAMES.NEW_RELEASES } },
-				{ Authorization: `Bearer ${userApiKey}` },
-			);
+		const newReleasesCollection = await createCollection(
+			url,
+			userApiKey,
+			COLLECTION_NAMES.NEW_RELEASES,
+		);
 		newReleasesId = newReleasesCollection.id;
 
 		const harryPotterResults = await searchAudibleAudiobook(

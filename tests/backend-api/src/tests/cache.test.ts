@@ -1,5 +1,4 @@
 import {
-	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
@@ -13,6 +12,7 @@ import {
 import {
 	DEFAULT_USER_COLLECTIONS_COUNT,
 	addEntitiesToCollection,
+	createCollection,
 	getCollectionContents,
 	getFirstExerciseId,
 	getGraphqlClient,
@@ -46,17 +46,13 @@ describe("Cache related tests", () => {
 		const initial = await getUserCollectionsList(url, userApiKey);
 		expect(initial).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 
-		const createResult = await client.request(
-			CreateOrUpdateCollectionDocument,
-			{
-				input: {
-					name: "Test Cache Collection",
-					description: "Collection for cache testing",
-				},
-			},
-			getAuthHeaders(),
+		const createResult = await createCollection(
+			url,
+			userApiKey,
+			"Test Cache Collection",
+			"Collection for cache testing",
 		);
-		expect(createResult.createOrUpdateCollection.id).toBeDefined();
+		expect(createResult.id).toBeDefined();
 
 		const afterCreate = await getUserCollectionsList(url, userApiKey);
 		expect(afterCreate).toHaveLength(8);
