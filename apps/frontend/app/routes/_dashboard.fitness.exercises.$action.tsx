@@ -100,10 +100,10 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const input = {
 		...newInput,
 		muscles,
-		source: ExerciseSource.Custom,
-		instructions: instructions?.split("\n").map((s) => s.trim()) || [],
-		assets: {
-			s3Videos: [],
+        source: ExerciseSource.Custom,
+        instructions: instructions?.split("\n").map((s) => s.trim()).filter(Boolean) || [],
+        assets: {
+            s3Videos: [],
 			remoteImages: [],
 			remoteVideos: [],
 			s3Images: submission.images || [],
