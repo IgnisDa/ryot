@@ -61,6 +61,7 @@ import {
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
@@ -78,7 +79,6 @@ import {
 	PersonDisplayItem,
 } from "../media/display-items";
 import { MultiSelectCreatable } from "./multi-select-creatable";
-import { refreshEntityDetails } from "~/lib/shared/react-query";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
 
