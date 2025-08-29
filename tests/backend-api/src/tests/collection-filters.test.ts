@@ -135,37 +135,37 @@ describe("Collection Filters Tests", () => {
 		expect(hobbitResults.length).toBeGreaterThan(0);
 		hobbitId = hobbitResults[0];
 
-		const theShiningResults = await searchAudibleAudiobook(
+		const frankensteinResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"Frankenstein Mary Shelley",
 		);
-		expect(theShiningResults.length).toBeGreaterThan(0);
-		frankensteinId = theShiningResults[0];
+		expect(frankensteinResults.length).toBeGreaterThan(0);
+		frankensteinId = frankensteinResults[0];
 
-		const orientExpressResults = await searchAudibleAudiobook(
+		const prideAndPrejudiceResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"Pride and Prejudice Jane Austen",
 		);
-		expect(orientExpressResults.length).toBeGreaterThan(0);
-		prideAndPrejudiceId = orientExpressResults[0];
+		expect(prideAndPrejudiceResults.length).toBeGreaterThan(0);
+		prideAndPrejudiceId = prideAndPrejudiceResults[0];
 
-		const stormLightResults = await searchAudibleAudiobook(
+		const nineteenEightyFourResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"1984 George Orwell",
 		);
-		expect(stormLightResults.length).toBeGreaterThan(0);
-		nineteenEightyFourId = stormLightResults[0];
+		expect(nineteenEightyFourResults.length).toBeGreaterThan(0);
+		nineteenEightyFourId = nineteenEightyFourResults[0];
 
-		const robotsResults = await searchAudibleAudiobook(
+		const endersGameResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"Ender's Game Orson Scott Card",
 		);
-		expect(robotsResults.length).toBeGreaterThan(0);
-		endersGameId = robotsResults[0];
+		expect(endersGameResults.length).toBeGreaterThan(0);
+		endersGameId = endersGameResults[0];
 
 		await addEntitiesToCollection(
 			url,
