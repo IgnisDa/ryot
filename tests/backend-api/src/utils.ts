@@ -64,9 +64,7 @@ export async function registerTestUser(baseUrl: string) {
 			);
 		}
 
-		console.log(
-			`[Test Utils] Test user '${username}' logged in successfully with API key: ${loginUser.apiKey}`,
-		);
+		console.log(`[Test Utils] Test user '${username}' logged in`);
 
 		return [loginUser.apiKey, registerUser.id] as const;
 	} catch (err) {
