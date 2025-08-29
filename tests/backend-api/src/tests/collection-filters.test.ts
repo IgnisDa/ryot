@@ -634,7 +634,7 @@ describe("Collection Filters Tests", () => {
 		expect(items.length).toBe(7);
 	});
 
-	it("should filter items present in exactly 2 collections: Best Of AND Award Winners", async () => {
+	it("should filter items present in Best Of AND Award Winners", async () => {
 		const client = getGraphqlClient(url);
 		const { userMetadataList } = await client.request(
 			UserMetadataListDocument,

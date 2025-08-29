@@ -55,7 +55,7 @@ describe("Cache related tests", () => {
 		expect(createResult.id).toBeDefined();
 
 		const afterCreate = await getUserCollectionsList(url, userApiKey);
-		expect(afterCreate).toHaveLength(8);
+		expect(afterCreate).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT + 1);
 
 		const deleteResult = await client.request(
 			DeleteCollectionDocument,
