@@ -581,6 +581,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
+		expect(items).toHaveLength(1);
 		expect(items).toContain(hobbitId);
 		expect(items).not.toContain(harryPotterId);
 		expect(items).not.toContain(nineteenEightyFourId);
