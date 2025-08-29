@@ -36,14 +36,14 @@ pub async fn get_show_by_episode_identifier(
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
         .filter(apply_columns_search(
-            &episode,
+            episode,
             [Expr::expr(Func::cast_as(
                 Expr::col(metadata::Column::ShowSpecifics),
                 Alias::new("text"),
             ))],
         ))
         .filter(apply_columns_search(
-            &series,
+            series,
             [Expr::col(metadata::Column::Title)],
         ))
         .one(db)
