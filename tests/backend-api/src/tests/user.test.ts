@@ -215,12 +215,16 @@ describe("Reset User functionality", () => {
 
 		const additionalCollections = 2;
 		for (let i = 0; i < additionalCollections; i++) {
-			await createCollection(
+			const collectionResult = await createCollection(
 				url,
 				targetUserApiKey,
 				`Custom Collection ${i + 1}`,
 				faker.lorem.sentence(),
 			);
+			expect(
+				collectionResult.id,
+				`Custom Collection ${i + 1} should be created successfully`,
+			).toBeTruthy();
 		}
 
 		const collectionsWithCustom = await getUserCollectionsList(
