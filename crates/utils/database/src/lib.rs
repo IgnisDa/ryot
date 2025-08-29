@@ -221,7 +221,7 @@ where
     let any_column = PgFunc::any(Expr::col(id_column));
     match presence {
         MediaCollectionPresenceFilter::PresentIn => value.eq(any_column),
-        MediaCollectionPresenceFilter::NotPresentIn => value.ne(any_column),
+        MediaCollectionPresenceFilter::NotPresentIn => value.eq(any_column).not(),
     }
 }
 
