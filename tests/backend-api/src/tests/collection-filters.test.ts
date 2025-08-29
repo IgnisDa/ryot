@@ -277,7 +277,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(3);
+		expect(items.length).toBe(3);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
 		expect(items).toContain(nineteenEightyFourId);
@@ -342,7 +342,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(6);
+		expect(items.length).toBe(6);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
 		expect(items).toContain(nineteenEightyFourId);
@@ -420,7 +420,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(7);
+		expect(items.length).toBe(7);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
 		expect(items).toContain(nineteenEightyFourId);
@@ -477,7 +477,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(8);
+		expect(items.length).toBe(8);
 	});
 
 	it("should handle empty collection filters array", async () => {
@@ -490,7 +490,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(8);
+		expect(items.length).toBe(8);
 	});
 
 	it("should handle non-existent collection ID gracefully", async () => {
