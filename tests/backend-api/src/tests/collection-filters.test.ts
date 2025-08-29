@@ -16,9 +16,13 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 
 const COLLECTION_NAMES = {
+	NEW_RELEASES: "New Releases",
+	AWARD_WINNERS: "Award Winners",
 	SCI_FI_CLASSICS: "Sci-Fi Classics",
 	BEST_OF_THE_BEST: "Best of the Best",
+	HORROR_COLLECTION: "Horror Collection",
 	FANTASY_AUDIOBOOKS: "Fantasy Audiobooks",
+	MYSTERY_COLLECTION: "Mystery Collection",
 } as const;
 
 describe("Collection Filters Tests", () => {
@@ -26,14 +30,22 @@ describe("Collection Filters Tests", () => {
 	let userId: string;
 	let userApiKey: string;
 
-	let sciFiCollectionId: string;
-	let bestOfCollectionId: string;
-	let fantasyCollectionId: string;
-
 	let duneId: string;
+	let robotsId: string;
 	let hobbitId: string;
 	let foundationId: string;
+	let stormLightId: string;
+	let theShiningId: string;
 	let harryPotterId: string;
+	let orientExpressId: string;
+
+	let newReleasesId: string;
+	let awardWinnersId: string;
+	let sciFiCollectionId: string;
+	let bestOfCollectionId: string;
+	let horrorCollectionId: string;
+	let fantasyCollectionId: string;
+	let mysteryCollectionId: string;
 
 	beforeAll(async () => {
 		[userApiKey, userId] = await registerTestUser(url);
@@ -60,6 +72,37 @@ describe("Collection Filters Tests", () => {
 			{ Authorization: `Bearer ${userApiKey}` },
 		);
 		bestOfCollectionId = bestOfCollection.id;
+
+		const { createOrUpdateCollection: horrorCollection } = await client.request(
+			CreateOrUpdateCollectionDocument,
+			{ input: { name: COLLECTION_NAMES.HORROR_COLLECTION } },
+			{ Authorization: `Bearer ${userApiKey}` },
+		);
+		horrorCollectionId = horrorCollection.id;
+
+		const { createOrUpdateCollection: mysteryCollection } =
+			await client.request(
+				CreateOrUpdateCollectionDocument,
+				{ input: { name: COLLECTION_NAMES.MYSTERY_COLLECTION } },
+				{ Authorization: `Bearer ${userApiKey}` },
+			);
+		mysteryCollectionId = mysteryCollection.id;
+
+		const { createOrUpdateCollection: awardWinnersCollection } =
+			await client.request(
+				CreateOrUpdateCollectionDocument,
+				{ input: { name: COLLECTION_NAMES.AWARD_WINNERS } },
+				{ Authorization: `Bearer ${userApiKey}` },
+			);
+		awardWinnersId = awardWinnersCollection.id;
+
+		const { createOrUpdateCollection: newReleasesCollection } =
+			await client.request(
+				CreateOrUpdateCollectionDocument,
+				{ input: { name: COLLECTION_NAMES.NEW_RELEASES } },
+				{ Authorization: `Bearer ${userApiKey}` },
+			);
+		newReleasesId = newReleasesCollection.id;
 
 		const harryPotterResults = await searchAudibleAudiobook(
 			url,
@@ -93,6 +136,38 @@ describe("Collection Filters Tests", () => {
 		expect(hobbitResults.length).toBeGreaterThan(0);
 		hobbitId = hobbitResults[0];
 
+		const theShiningResults = await searchAudibleAudiobook(
+			url,
+			userApiKey,
+			"Frankenstein Mary Shelley",
+		);
+		expect(theShiningResults.length).toBeGreaterThan(0);
+		theShiningId = theShiningResults[0];
+
+		const orientExpressResults = await searchAudibleAudiobook(
+			url,
+			userApiKey,
+			"Pride and Prejudice Jane Austen",
+		);
+		expect(orientExpressResults.length).toBeGreaterThan(0);
+		orientExpressId = orientExpressResults[0];
+
+		const stormLightResults = await searchAudibleAudiobook(
+			url,
+			userApiKey,
+			"1984 George Orwell",
+		);
+		expect(stormLightResults.length).toBeGreaterThan(0);
+		stormLightId = stormLightResults[0];
+
+		const robotsResults = await searchAudibleAudiobook(
+			url,
+			userApiKey,
+			"Ender's Game Orson Scott Card",
+		);
+		expect(robotsResults.length).toBeGreaterThan(0);
+		robotsId = robotsResults[0];
+
 		await client.request(
 			DeployAddEntitiesToCollectionJobDocument,
 			{
@@ -101,6 +176,7 @@ describe("Collection Filters Tests", () => {
 					collectionName: COLLECTION_NAMES.FANTASY_AUDIOBOOKS,
 					entities: [
 						{ entityId: hobbitId, entityLot: EntityLot.Metadata },
+						{ entityId: stormLightId, entityLot: EntityLot.Metadata },
 						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
 					],
 				},
@@ -116,6 +192,7 @@ describe("Collection Filters Tests", () => {
 					collectionName: COLLECTION_NAMES.SCI_FI_CLASSICS,
 					entities: [
 						{ entityId: duneId, entityLot: EntityLot.Metadata },
+						{ entityId: robotsId, entityLot: EntityLot.Metadata },
 						{ entityId: foundationId, entityLot: EntityLot.Metadata },
 					],
 				},
@@ -130,8 +207,72 @@ describe("Collection Filters Tests", () => {
 					creatorUserId: userId,
 					collectionName: COLLECTION_NAMES.BEST_OF_THE_BEST,
 					entities: [
+						{ entityId: duneId, entityLot: EntityLot.Metadata },
 						{ entityId: foundationId, entityLot: EntityLot.Metadata },
 						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
+						{ entityId: orientExpressId, entityLot: EntityLot.Metadata },
+					],
+				},
+			},
+			{ Authorization: `Bearer ${userApiKey}` },
+		);
+
+		await client.request(
+			DeployAddEntitiesToCollectionJobDocument,
+			{
+				input: {
+					creatorUserId: userId,
+					collectionName: COLLECTION_NAMES.HORROR_COLLECTION,
+					entities: [
+						{ entityId: theShiningId, entityLot: EntityLot.Metadata },
+						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
+					],
+				},
+			},
+			{ Authorization: `Bearer ${userApiKey}` },
+		);
+
+		await client.request(
+			DeployAddEntitiesToCollectionJobDocument,
+			{
+				input: {
+					creatorUserId: userId,
+					collectionName: COLLECTION_NAMES.MYSTERY_COLLECTION,
+					entities: [
+						{ entityId: theShiningId, entityLot: EntityLot.Metadata },
+						{ entityId: orientExpressId, entityLot: EntityLot.Metadata },
+					],
+				},
+			},
+			{ Authorization: `Bearer ${userApiKey}` },
+		);
+
+		await client.request(
+			DeployAddEntitiesToCollectionJobDocument,
+			{
+				input: {
+					creatorUserId: userId,
+					collectionName: COLLECTION_NAMES.AWARD_WINNERS,
+					entities: [
+						{ entityId: duneId, entityLot: EntityLot.Metadata },
+						{ entityId: hobbitId, entityLot: EntityLot.Metadata },
+						{ entityId: foundationId, entityLot: EntityLot.Metadata },
+						{ entityId: orientExpressId, entityLot: EntityLot.Metadata },
+					],
+				},
+			},
+			{ Authorization: `Bearer ${userApiKey}` },
+		);
+
+		await client.request(
+			DeployAddEntitiesToCollectionJobDocument,
+			{
+				input: {
+					creatorUserId: userId,
+					collectionName: COLLECTION_NAMES.NEW_RELEASES,
+					entities: [
+						{ entityId: robotsId, entityLot: EntityLot.Metadata },
+						{ entityId: stormLightId, entityLot: EntityLot.Metadata },
 					],
 				},
 			},
@@ -167,9 +308,10 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(2);
+		expect(items.length).toBeGreaterThanOrEqual(3);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
+		expect(items).toContain(stormLightId);
 	});
 
 	it("should filter audiobooks NOT present in Fantasy collection", async () => {
@@ -196,8 +338,12 @@ describe("Collection Filters Tests", () => {
 
 		expect(items).not.toContain(harryPotterId);
 		expect(items).not.toContain(hobbitId);
+		expect(items).not.toContain(stormLightId);
 		expect(items).toContain(foundationId);
 		expect(items).toContain(duneId);
+		expect(items).toContain(robotsId);
+		expect(items).toContain(theShiningId);
+		expect(items).toContain(orientExpressId);
 	});
 
 	it("should use OR strategy to get audiobooks from Fantasy OR Sci-Fi collections", async () => {
@@ -227,11 +373,13 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(4);
+		expect(items.length).toBeGreaterThanOrEqual(6);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
+		expect(items).toContain(stormLightId);
 		expect(items).toContain(foundationId);
 		expect(items).toContain(duneId);
+		expect(items).toContain(robotsId);
 	});
 
 	it("should use AND strategy to get audiobooks in BOTH Fantasy AND Best Of collections", async () => {
@@ -263,8 +411,12 @@ describe("Collection Filters Tests", () => {
 
 		expect(items).toContain(harryPotterId);
 		expect(items).not.toContain(hobbitId);
+		expect(items).not.toContain(stormLightId);
 		expect(items).not.toContain(foundationId);
 		expect(items).not.toContain(duneId);
+		expect(items).not.toContain(orientExpressId);
+		expect(items).not.toContain(robotsId);
+		expect(items).not.toContain(theShiningId);
 	});
 
 	it("should handle mixed strategies: present in Fantasy OR Sci-Fi OR Best Of", async () => {
@@ -299,11 +451,14 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(4);
+		expect(items.length).toBeGreaterThanOrEqual(7);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
+		expect(items).toContain(stormLightId);
 		expect(items).toContain(foundationId);
 		expect(items).toContain(duneId);
+		expect(items).toContain(robotsId);
+		expect(items).toContain(orientExpressId);
 	});
 
 	it("should handle complex NOT present scenario: NOT in Fantasy AND NOT in Sci-Fi", async () => {
@@ -335,8 +490,12 @@ describe("Collection Filters Tests", () => {
 
 		expect(items).not.toContain(harryPotterId);
 		expect(items).not.toContain(hobbitId);
+		expect(items).not.toContain(stormLightId);
 		expect(items).not.toContain(foundationId);
 		expect(items).not.toContain(duneId);
+		expect(items).not.toContain(robotsId);
+		expect(items).toContain(theShiningId);
+		expect(items).toContain(orientExpressId);
 	});
 
 	it("should return all audiobooks when no collection filters applied", async () => {
@@ -349,7 +508,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(4);
+		expect(items.length).toBeGreaterThanOrEqual(8);
 	});
 
 	it("should handle empty collection filters array", async () => {
@@ -362,7 +521,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(4);
+		expect(items.length).toBeGreaterThanOrEqual(8);
 	});
 
 	it("should handle non-existent collection ID gracefully", async () => {
@@ -419,6 +578,319 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
-		expect(items.length).toBeGreaterThanOrEqual(4);
+		expect(items.length).toBeGreaterThanOrEqual(8);
+	});
+
+	it("should handle chain of AND operations: Fantasy AND Award Winners", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: fantasyCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: awardWinnersId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(hobbitId);
+		expect(items).not.toContain(harryPotterId);
+		expect(items).not.toContain(stormLightId);
+	});
+
+	it("should handle complex 4-collection filter: Horror AND Mystery OR Award Winners OR New Releases", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: horrorCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: mysteryCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: awardWinnersId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: newReleasesId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(theShiningId);
+		expect(items).toContain(duneId);
+		expect(items).toContain(foundationId);
+		expect(items).toContain(hobbitId);
+		expect(items).toContain(orientExpressId);
+		expect(items).toContain(stormLightId);
+		expect(items).toContain(robotsId);
+		expect(items.length).toBeGreaterThanOrEqual(7);
+	});
+
+	it("should filter items present in exactly 2 collections: Best Of AND Award Winners", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: bestOfCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: awardWinnersId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(foundationId);
+		expect(items).toContain(duneId);
+		expect(items).toContain(orientExpressId);
+		expect(items).not.toContain(harryPotterId);
+		expect(items).not.toContain(hobbitId);
+		expect(items.length).toBe(3);
+	});
+
+	it("should handle mixed NOT present operations: NOT in Horror AND NOT in Mystery", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: horrorCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.NotPresentIn,
+							},
+							{
+								collectionId: mysteryCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.NotPresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(hobbitId);
+		expect(items).toContain(foundationId);
+		expect(items).toContain(duneId);
+		expect(items).toContain(stormLightId);
+		expect(items).toContain(robotsId);
+		expect(items).not.toContain(theShiningId);
+		expect(items).not.toContain(orientExpressId);
+		expect(items).not.toContain(harryPotterId);
+	});
+
+	it("should test complex additive union: Fantasy OR Horror OR Mystery OR New Releases", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: fantasyCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: horrorCollectionId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: mysteryCollectionId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: newReleasesId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(harryPotterId);
+		expect(items).toContain(hobbitId);
+		expect(items).toContain(stormLightId);
+		expect(items).toContain(theShiningId);
+		expect(items).toContain(orientExpressId);
+		expect(items).toContain(robotsId);
+		expect(items.length).toBe(6);
+	});
+
+	it("should handle 5-collection complex filter with mixed strategies", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: fantasyCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: sciFiCollectionId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: bestOfCollectionId,
+								strategy: MediaCollectionStrategyFilter.Or,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: horrorCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.NotPresentIn,
+							},
+							{
+								collectionId: mysteryCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.NotPresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(hobbitId);
+		expect(items).toContain(stormLightId);
+		expect(items).toContain(foundationId);
+		expect(items).toContain(duneId);
+		expect(items).toContain(robotsId);
+		expect(items).not.toContain(harryPotterId);
+		expect(items).not.toContain(theShiningId);
+		expect(items).not.toContain(orientExpressId);
+		expect(items.length).toBe(5);
+	});
+
+	it("should validate empty intersection scenario: Sci-Fi AND Fantasy", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: sciFiCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+							{
+								collectionId: fantasyCollectionId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toHaveLength(0);
+	});
+
+	it("should test maximum collection overlap scenario: Award Winners", async () => {
+		const client = getGraphqlClient(url);
+		const { userMetadataList } = await client.request(
+			UserMetadataListDocument,
+			{
+				input: {
+					filter: {
+						collections: [
+							{
+								collectionId: awardWinnersId,
+								strategy: MediaCollectionStrategyFilter.And,
+								presence: MediaCollectionPresenceFilter.PresentIn,
+							},
+						],
+					},
+				},
+			},
+			getAuthHeaders(),
+		);
+
+		const items = userMetadataList.response.items;
+
+		expect(items).toContain(duneId);
+		expect(items).toContain(foundationId);
+		expect(items).toContain(hobbitId);
+		expect(items).toContain(orientExpressId);
+		expect(items).not.toContain(harryPotterId);
+		expect(items).not.toContain(theShiningId);
+		expect(items).not.toContain(stormLightId);
+		expect(items).not.toContain(robotsId);
+		expect(items.length).toBe(4);
 	});
 });
