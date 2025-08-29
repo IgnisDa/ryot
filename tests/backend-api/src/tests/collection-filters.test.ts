@@ -66,28 +66,32 @@ describe("Collection Filters Tests", () => {
 			userApiKey,
 			"Harry Potter and the Philosopher's Stone",
 		);
-		harryPotterId = harryPotterResults[0] || "test-hp-id";
+		expect(harryPotterResults.length).toBeGreaterThan(0);
+		harryPotterId = harryPotterResults[0];
 
 		const foundationResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"Foundation Isaac Asimov",
 		);
-		foundationId = foundationResults[0] || "test-foundation-id";
+		expect(foundationResults.length).toBeGreaterThan(0);
+		foundationId = foundationResults[0];
 
 		const duneResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"Dune Frank Herbert",
 		);
-		duneId = duneResults[0] || "test-dune-id";
+		expect(duneResults.length).toBeGreaterThan(0);
+		duneId = duneResults[0];
 
 		const hobbitResults = await searchAudibleAudiobook(
 			url,
 			userApiKey,
 			"The Hobbit Tolkien",
 		);
-		hobbitId = hobbitResults[0] || "test-hobbit-id";
+		expect(hobbitResults.length).toBeGreaterThan(0);
+		hobbitId = hobbitResults[0];
 
 		await client.request(
 			DeployAddEntitiesToCollectionJobDocument,
