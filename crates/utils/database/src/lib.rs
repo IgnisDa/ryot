@@ -48,9 +48,7 @@ pub fn ilike_sql(value: &str) -> String {
     format!("%{value}%")
 }
 
-pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition
-where
-{
+pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition {
     let pattern = ilike_sql(value);
     let mut condition = Condition::any();
     for column in columns {
