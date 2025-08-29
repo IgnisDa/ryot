@@ -56,13 +56,13 @@ pub struct MangaUpdatesConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]
 pub struct AnimeAndMangaConfig {
-    /// Settings related to Anilist.
-    #[setting(nested)]
-    pub anilist: AnilistConfig,
     /// Settings related to MAL.
     #[setting(nested)]
     #[mask_nested]
     pub mal: MalConfig,
+    /// Settings related to Anilist.
+    #[setting(nested)]
+    pub anilist: AnilistConfig,
     /// Settings related to MangaUpdates.
     #[setting(nested)]
     pub manga_updates: MangaUpdatesConfig,
@@ -172,12 +172,12 @@ pub struct ExerciseConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
-    /// The access token for the TMDB API.
-    #[mask]
-    pub access_token: String,
     /// The locale to use for making requests to TMDB API.
     #[setting(default = "en")]
     pub locale: String,
+    /// The access token for the TMDB API.
+    #[mask]
+    pub access_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
@@ -208,13 +208,13 @@ pub struct ITunesConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]
 pub struct PodcastConfig {
+    /// Settings related to iTunes.
+    #[setting(nested)]
+    pub itunes: ITunesConfig,
     /// Settings related to Listennotes.
     #[setting(nested)]
     #[mask_nested]
     pub listennotes: ListenNotesConfig,
-    /// Settings related to iTunes.
-    #[setting(nested)]
-    pub itunes: ITunesConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
@@ -290,23 +290,23 @@ pub struct VisualNovelConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
+    /// The URL for the S3 compatible file storage.
+    #[mask]
+    pub s3_url: String,
+    /// The region for the S3 compatible file storage.
+    #[setting(default = "us-east-1")]
+    pub s3_region: String,
+    /// The name of the S3 compatible bucket. **Required** to enable file storage.
+    #[mask]
+    pub s3_bucket_name: String,
     /// The access key ID for the S3 compatible file storage. **Required** to
     /// enable file storage.
     #[mask]
     pub s3_access_key_id: String,
-    /// The name of the S3 compatible bucket. **Required** to enable file storage.
-    #[mask]
-    pub s3_bucket_name: String,
-    /// The region for the S3 compatible file storage.
-    #[setting(default = "us-east-1")]
-    pub s3_region: String,
     /// The secret access key for the S3 compatible file storage. **Required**
     /// to enable file storage.
     #[mask]
     pub s3_secret_access_key: String,
-    /// The URL for the S3 compatible file storage.
-    #[mask]
-    pub s3_url: String,
 }
 
 impl FileStorageConfig {
@@ -367,9 +367,9 @@ pub struct SchedulerConfig {
 #[config(rename_all = "snake_case", env_prefix = "SERVER_SMTP_")]
 pub struct SmtpConfig {
     #[mask]
-    pub server: String,
-    #[mask]
     pub user: String,
+    #[mask]
+    pub server: String,
     #[mask]
     pub password: String,
     #[setting(default = "Ryot <no-reply@mailer.io>")]
@@ -393,9 +393,9 @@ pub struct OidcConfig {
     #[mask]
     pub client_id: String,
     #[mask]
-    pub client_secret: String,
-    #[mask]
     pub issuer_url: String,
+    #[mask]
+    pub client_secret: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
@@ -409,91 +409,98 @@ pub struct ImporterConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
-    /// The host address to bind the backend server to.
-    #[setting(default = "0.0.0.0")]
-    pub backend_host: String,
-    /// The port number to bind the backend server to.
-    #[setting(default = 5000)]
-    pub backend_port: usize,
-    /// Whether this is a demo instance.
-    #[setting(default = false)]
-    pub is_demo_instance: bool,
-    /// The mailer related settings.
-    #[setting(nested)]
-    #[mask_nested]
-    pub smtp: SmtpConfig,
+    /// The pro key that can be used to enable pro Ryot features.
+    #[mask]
+    pub pro_key: String,
     /// The OIDC related settings.
     #[setting(nested)]
     #[mask_nested]
     pub oidc: OidcConfig,
+    /// The mailer related settings.
+    #[setting(nested)]
+    #[mask_nested]
+    pub smtp: SmtpConfig,
+    /// The port number to bind the backend server to.
+    #[setting(default = 5000)]
+    pub backend_port: usize,
+    /// The host address to bind the backend server to.
+    #[setting(default = "0.0.0.0")]
+    pub backend_host: String,
+    /// Whether this is a demo instance.
+    #[setting(default = false)]
+    pub is_demo_instance: bool,
+    /// The maximum file size in MB for user uploads.
+    #[setting(default = 70)]
+    pub max_file_size_mb: usize,
     /// The importer related settings.
     #[setting(nested)]
     #[mask_nested]
     pub importer: ImporterConfig,
-    /// The pro key assigned to the user.
-    #[mask]
-    pub pro_key: String,
     /// An array of URLs for CORS.
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
+    /// An access token that can be used for admin operations.
+    #[setting(default = format!("{}", PROJECT_NAME))]
+    #[mask]
+    pub admin_access_token: String,
+    /// Disable all background jobs.
+    #[setting(default = false)]
+    pub disable_background_jobs: bool,
     /// The hours in which a media can be marked as seen again for a user. This
     /// is used so that the same media can not be used marked as started when
     /// it has been already marked as seen in the last `n` hours.
     #[setting(default = 2)]
     pub progress_update_threshold: i64,
-    /// The maximum file size in MB for user uploads.
-    #[setting(default = 70)]
-    pub max_file_size_mb: usize,
     /// Whether the graphql playground will be enabled.
     #[setting(default = true)]
     pub graphql_playground_enabled: bool,
-    /// Disable all background jobs.
-    #[setting(default = false)]
-    pub disable_background_jobs: bool,
     /// Number of seconds to sleep before starting the server.
     #[setting(default = 0)]
     pub sleep_before_startup_seconds: u64,
-    /// An access token that can be used for admin operations.
-    #[setting(default = format!("{}", PROJECT_NAME))]
-    #[mask]
-    pub admin_access_token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "USERS_")]
 pub struct UsersConfig {
+    /// Whether to validate password for users.
+    #[setting(default = true, skip)]
+    pub validate_password: bool,
+    /// Whether to disable local user authentication completely.
+    #[setting(default = false)]
+    pub disable_local_auth: bool,
     /// Whether new users will be allowed to sign up to this instance.
     #[setting(default = true)]
     pub allow_registration: bool,
     /// The number of days till login authentication token is valid.
     #[setting(default = 90)]
     pub token_valid_for_days: i32,
-    /// Whether to disable local user authentication completely.
-    #[setting(default = false)]
-    pub disable_local_auth: bool,
-    /// Whether to validate password for users.
-    #[setting(default = true, skip)]
-    pub validate_password: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case")]
 pub struct AppConfig {
-    /// Settings related to music.
-    #[setting(nested)]
-    #[mask_nested]
-    pub music: MusicConfig,
-    /// Settings related to anime and manga.
-    #[setting(nested)]
-    #[mask_nested]
-    pub anime_and_manga: AnimeAndMangaConfig,
-    /// Settings related to audio books.
-    #[setting(nested)]
-    pub audio_books: AudioBookConfig,
     /// Settings related to books.
     #[setting(nested)]
     #[mask_nested]
     pub books: BookConfig,
+    /// Settings related to users.
+    #[setting(nested)]
+    pub users: UsersConfig,
+    /// Settings related to music.
+    #[setting(nested)]
+    #[mask_nested]
+    pub music: MusicConfig,
+    /// Settings related to server.
+    #[setting(nested)]
+    #[mask_nested]
+    pub server: ServerConfig,
+    /// Settings related to podcasts.
+    #[setting(nested)]
+    #[mask_nested]
+    pub podcasts: PodcastConfig,
+    /// Settings related to frontend storage.
+    #[setting(nested)]
+    pub frontend: FrontendConfig,
     /// The database related settings.
     #[setting(nested)]
     #[mask_nested]
@@ -501,38 +508,31 @@ pub struct AppConfig {
     /// Settings related to exercises.
     #[setting(nested)]
     pub exercise: ExerciseConfig,
-    /// Settings related to file storage.
-    #[setting(nested)]
-    #[mask_nested]
-    pub file_storage: FileStorageConfig,
-    /// Settings related to frontend storage.
-    #[setting(nested)]
-    pub frontend: FrontendConfig,
-    /// Settings related to movies and shows.
-    #[setting(nested)]
-    #[mask_nested]
-    pub movies_and_shows: MovieAndShowConfig,
-    /// Settings related to podcasts.
-    #[setting(nested)]
-    #[mask_nested]
-    pub podcasts: PodcastConfig,
     /// Settings related to scheduler.
     #[setting(nested)]
     pub scheduler: SchedulerConfig,
-    /// Settings related to server.
-    #[setting(nested)]
-    #[mask_nested]
-    pub server: ServerConfig,
-    /// Settings related to users.
-    #[setting(nested)]
-    pub users: UsersConfig,
     /// Settings related to video games.
     #[setting(nested)]
     #[mask_nested]
     pub video_games: VideoGameConfig,
+    /// Settings related to audio books.
+    #[setting(nested)]
+    pub audio_books: AudioBookConfig,
+    /// Settings related to file storage.
+    #[setting(nested)]
+    #[mask_nested]
+    pub file_storage: FileStorageConfig,
     /// Settings related to visual novels.
     #[setting(nested)]
     pub visual_novels: VisualNovelConfig,
+    /// Settings related to anime and manga.
+    #[setting(nested)]
+    #[mask_nested]
+    pub anime_and_manga: AnimeAndMangaConfig,
+    /// Settings related to movies and shows.
+    #[setting(nested)]
+    #[mask_nested]
+    pub movies_and_shows: MovieAndShowConfig,
 
     // Global options
     /// Whether to disable telemetry.

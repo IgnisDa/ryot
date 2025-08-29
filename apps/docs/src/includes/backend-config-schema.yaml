@@ -203,7 +203,7 @@ server:
     # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
-  # The pro key assigned to the user.
+  # The pro key that can be used to enable pro Ryot features.
   # @envvar SERVER_PRO_KEY
   pro_key: ""
 
