@@ -135,7 +135,7 @@ export const CollectionsFilter = (props: {
 										);
 									}}
 								>
-									{changeCase(f.data.strategy)}
+									{f.data.strategy}
 								</Button>
 							) : null}
 							<Button
