@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{cmp::Reverse, collections::HashMap, sync::Arc};
 
 use anyhow::{Result, anyhow, bail};
 use common_models::{ChangeCollectionToEntitiesInput, DefaultCollection, EntityToCollectionInput};
@@ -33,7 +33,6 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
     QueryFilter, prelude::DateTimeUtc,
 };
-use std::cmp::Reverse;
 use supporting_service::SupportingService;
 use user_models::UserStatisticsMeasurement;
 
