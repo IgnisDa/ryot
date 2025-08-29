@@ -353,13 +353,17 @@ const TrendingSection = () => {
 				onClose={toggleTrendingMetadataList}
 			>
 				<ApplicationGrid>
-					{trendingMetadata.data?.trendingMetadata.map((lm) => (
-						<MetadataDisplayItem
-							key={lm}
-							metadataId={lm}
-							shouldHighlightNameIfInteracted
-						/>
-					))}
+					{trendingMetadata.data ? (
+						trendingMetadata.data.trendingMetadata.map((lm) => (
+							<MetadataDisplayItem
+								key={lm}
+								metadataId={lm}
+								shouldHighlightNameIfInteracted
+							/>
+						))
+					) : (
+						<SkeletonLoader />
+					)}
 				</ApplicationGrid>
 			</Drawer>
 			<Group justify="space-between">
