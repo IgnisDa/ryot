@@ -60,13 +60,16 @@ import { useBulkEditCollection } from "~/lib/state/collection";
 import type { FilterUpdateFunction } from "~/lib/types";
 
 interface ListFilterState {
+	page: number;
+	query: string;
 	orderBy: GraphqlSortOrder;
 	collections: MediaCollectionFilter[];
 	sortBy: PersonAndMetadataGroupsSortBy;
 }
 
 interface SearchFilterState {
-	query?: string;
+	page: number;
+	query: string;
 	source: MediaSource;
 	sourceSpecifics: {
 		isTmdbCompany?: boolean;
@@ -77,12 +80,16 @@ interface SearchFilterState {
 }
 
 const defaultListFilters: ListFilterState = {
+	page: 1,
+	query: "",
 	collections: [],
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: PersonAndMetadataGroupsSortBy.AssociatedEntityCount,
 };
 
 const defaultSearchFilters: SearchFilterState = {
+	page: 1,
+	query: "",
 	sourceSpecifics: {},
 	source: MediaSource.Tmdb,
 };
@@ -113,19 +120,14 @@ export default function Page(props: { params: { action: string } }) {
 		"PeopleSearchFilters",
 		defaultSearchFilters,
 	);
-	const [searchQuery, setSearchQuery] = useLocalStorage(
-		"PeopleSearchQuery",
-		"",
-	);
-	const [currentPage, setCurrentPage] = useLocalStorage("PeopleCurrentPage", 1);
 
 	const listInput: UserPeopleListInput = useMemo(
 		() => ({
 			filter: { collections: listFilters.collections },
 			sort: { by: listFilters.sortBy, order: listFilters.orderBy },
-			search: { page: currentPage, query: searchQuery },
+			search: { page: listFilters.page, query: listFilters.query },
 		}),
-		[listFilters, searchQuery, currentPage],
+		[listFilters],
 	);
 
 	const { data: userPeopleList, refetch: refetchUserPeopleList } = useQuery({
@@ -141,9 +143,9 @@ export default function Page(props: { params: { action: string } }) {
 		() => ({
 			source: searchFilters.source,
 			sourceSpecifics: searchFilters.sourceSpecifics,
-			search: { page: currentPage, query: searchQuery },
+			search: { page: searchFilters.page, query: searchFilters.query },
 		}),
-		[searchFilters, searchQuery, currentPage],
+		[searchFilters],
 	);
 
 	const { data: peopleSearch } = useQuery({
@@ -214,10 +216,17 @@ export default function Page(props: { params: { action: string } }) {
 					<Group wrap="nowrap">
 						<DebouncedSearchInput
 							placeholder="Search for people"
-							value={searchQuery}
+							value={
+								action === "list" ? listFilters.query : searchFilters.query
+							}
 							onChange={(value) => {
-								setSearchQuery(value);
-								setCurrentPage(1);
+								if (action === "list") {
+									updateListFilters("query", value);
+									updateListFilters("page", 1);
+								} else {
+									updateSearchFilters("query", value);
+									updateSearchFilters("page", 1);
+								}
 							}}
 						/>
 						{action === "list" ? (
@@ -289,8 +298,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No information to display</Text>
 								)}
 								<ApplicationPagination
-									value={currentPage}
-									onChange={setCurrentPage}
+									value={listFilters.page}
+									onChange={(v) => updateListFilters("page", v)}
 									totalItems={userPeopleList.response.details.totalItems}
 								/>
 							</>
@@ -322,8 +331,8 @@ export default function Page(props: { params: { action: string } }) {
 									<Text>No people found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={currentPage}
-									onChange={setCurrentPage}
+									value={searchFilters.page}
+									onChange={(v) => updateSearchFilters("page", v)}
 									totalItems={peopleSearch.response.details.totalItems}
 								/>
 							</>
