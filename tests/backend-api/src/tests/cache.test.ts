@@ -5,7 +5,6 @@ import {
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
-	DeployAddEntitiesToCollectionJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	SetLot,
@@ -13,6 +12,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	DEFAULT_USER_COLLECTIONS_COUNT,
+	addEntitiesToCollection,
 	getCollectionContents,
 	getFirstExerciseId,
 	getGraphqlClient,
@@ -179,21 +179,17 @@ describe("Cache related tests", () => {
 		expect(searchResult.length).toBeGreaterThan(0);
 
 		const firstMetadataId = searchResult[0];
-		const addToCollectionResult = await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: "Watchlist",
-					entities: [
-						{
-							entityId: firstMetadataId,
-							entityLot: EntityLot.Metadata,
-						},
-					],
+		const addToCollectionResult = await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			"Watchlist",
+			[
+				{
+					entityId: firstMetadataId,
+					entityLot: EntityLot.Metadata,
 				},
-			},
-			getAuthHeaders(),
+			],
 		);
 		expect(addToCollectionResult.deployAddEntitiesToCollectionJob).toBe(true);
 		await waitFor(4000);

@@ -2,7 +2,9 @@ import { faker } from "@faker-js/faker";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
+	type EntityLot,
 	GraphqlSortOrder,
 	LoginUserDocument,
 	MediaLot,
@@ -203,13 +205,32 @@ export async function progressUpdate(
 	return deployBulkMetadataProgressUpdate;
 }
 
+export async function addEntitiesToCollection(
+	baseUrl: string,
+	userApiKey: string,
+	userId: string,
+	collectionName: string,
+	entities: { entityId: string; entityLot: EntityLot }[],
+) {
+	const client = getGraphqlClient(baseUrl);
+	return await client.request(
+		DeployAddEntitiesToCollectionJobDocument,
+		{
+			input: {
+				creatorUserId: userId,
+				collectionName,
+				entities,
+			},
+		},
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+}
+
 export async function registerAdminUser(baseUrl: string) {
 	const client = getGraphqlClient(baseUrl);
 
-	// First register a regular user
 	const [userApiKey, userId] = await registerTestUser(baseUrl);
 
-	// Then upgrade them to admin using the test admin token
 	await client.request(UpdateUserDocument, {
 		input: {
 			userId,

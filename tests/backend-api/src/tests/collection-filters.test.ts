@@ -1,13 +1,13 @@
 import { faker } from "@faker-js/faker";
 import {
 	CreateOrUpdateCollectionDocument,
-	DeployAddEntitiesToCollectionJobDocument,
 	EntityLot,
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
 	UserMetadataListDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
+	addEntitiesToCollection,
 	getGraphqlClient,
 	registerTestUser,
 	searchAudibleAudiobook,
@@ -31,13 +31,13 @@ describe("Collection Filters Tests", () => {
 	let userApiKey: string;
 
 	let duneId: string;
-	let endersGameId: string;
 	let hobbitId: string;
+	let endersGameId: string;
 	let foundationId: string;
-	let nineteenEightyFourId: string;
-	let frankensteinId: string;
 	let harryPotterId: string;
+	let frankensteinId: string;
 	let prideAndPrejudiceId: string;
+	let nineteenEightyFourId: string;
 
 	let newReleasesId: string;
 	let awardWinnersId: string;
@@ -168,115 +168,87 @@ describe("Collection Filters Tests", () => {
 		expect(robotsResults.length).toBeGreaterThan(0);
 		endersGameId = robotsResults[0];
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.FANTASY_AUDIOBOOKS,
-					entities: [
-						{ entityId: hobbitId, entityLot: EntityLot.Metadata },
-						{ entityId: nineteenEightyFourId, entityLot: EntityLot.Metadata },
-						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.FANTASY_AUDIOBOOKS,
+			[
+				{ entityId: hobbitId, entityLot: EntityLot.Metadata },
+				{ entityId: nineteenEightyFourId, entityLot: EntityLot.Metadata },
+				{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
+			],
 		);
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.SCI_FI_CLASSICS,
-					entities: [
-						{ entityId: duneId, entityLot: EntityLot.Metadata },
-						{ entityId: endersGameId, entityLot: EntityLot.Metadata },
-						{ entityId: foundationId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.SCI_FI_CLASSICS,
+			[
+				{ entityId: duneId, entityLot: EntityLot.Metadata },
+				{ entityId: endersGameId, entityLot: EntityLot.Metadata },
+				{ entityId: foundationId, entityLot: EntityLot.Metadata },
+			],
 		);
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.BEST_OF_THE_BEST,
-					entities: [
-						{ entityId: duneId, entityLot: EntityLot.Metadata },
-						{ entityId: foundationId, entityLot: EntityLot.Metadata },
-						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
-						{ entityId: prideAndPrejudiceId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.BEST_OF_THE_BEST,
+			[
+				{ entityId: duneId, entityLot: EntityLot.Metadata },
+				{ entityId: foundationId, entityLot: EntityLot.Metadata },
+				{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
+				{ entityId: prideAndPrejudiceId, entityLot: EntityLot.Metadata },
+			],
 		);
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.HORROR_COLLECTION,
-					entities: [
-						{ entityId: frankensteinId, entityLot: EntityLot.Metadata },
-						{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.HORROR_COLLECTION,
+			[
+				{ entityId: frankensteinId, entityLot: EntityLot.Metadata },
+				{ entityId: harryPotterId, entityLot: EntityLot.Metadata },
+			],
 		);
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.MYSTERY_COLLECTION,
-					entities: [
-						{ entityId: frankensteinId, entityLot: EntityLot.Metadata },
-						{ entityId: prideAndPrejudiceId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.MYSTERY_COLLECTION,
+			[
+				{ entityId: frankensteinId, entityLot: EntityLot.Metadata },
+				{ entityId: prideAndPrejudiceId, entityLot: EntityLot.Metadata },
+			],
 		);
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.AWARD_WINNERS,
-					entities: [
-						{ entityId: duneId, entityLot: EntityLot.Metadata },
-						{ entityId: hobbitId, entityLot: EntityLot.Metadata },
-						{ entityId: foundationId, entityLot: EntityLot.Metadata },
-						{ entityId: prideAndPrejudiceId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.AWARD_WINNERS,
+			[
+				{ entityId: duneId, entityLot: EntityLot.Metadata },
+				{ entityId: hobbitId, entityLot: EntityLot.Metadata },
+				{ entityId: foundationId, entityLot: EntityLot.Metadata },
+				{ entityId: prideAndPrejudiceId, entityLot: EntityLot.Metadata },
+			],
 		);
 
-		await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: COLLECTION_NAMES.NEW_RELEASES,
-					entities: [
-						{ entityId: endersGameId, entityLot: EntityLot.Metadata },
-						{ entityId: nineteenEightyFourId, entityLot: EntityLot.Metadata },
-					],
-				},
-			},
-			{ Authorization: `Bearer ${userApiKey}` },
+		await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			COLLECTION_NAMES.NEW_RELEASES,
+			[
+				{ entityId: endersGameId, entityLot: EntityLot.Metadata },
+				{ entityId: nineteenEightyFourId, entityLot: EntityLot.Metadata },
+			],
 		);
 
 		await waitFor(4000);
