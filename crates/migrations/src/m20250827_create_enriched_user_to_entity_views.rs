@@ -150,7 +150,6 @@ FROM
   AND r.entity_lot = ute.entity_lot
   LEFT JOIN seen s ON s.user_id = ute.user_id
   AND s.metadata_id = ute.metadata_id
-  AND ute.entity_lot = r.entity_lot
   LEFT JOIN collection_entity_membership cem ON cem.user_id = ute.user_id
   AND cem.entity_id = ute.entity_id
   AND cem.entity_lot = ute.entity_lot
