@@ -213,7 +213,7 @@ export const DebouncedSearchInput = (props: {
 	}, [props.value]);
 
 	useDidUpdate(() => {
-		const query = debounced.trim().toLowerCase();
+		const query = debounced?.trim().toLowerCase() || "";
 		if (props.onChange) {
 			props.onChange(query);
 			return;
