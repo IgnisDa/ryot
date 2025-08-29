@@ -44,12 +44,8 @@ pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String)
     Ok(true)
 }
 
-pub fn ilike_sql(value: &str) -> String {
-    format!("%{value}%")
-}
-
 pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition {
-    let pattern = ilike_sql(value);
+    let pattern = format!("%{value}%");
     let mut condition = Condition::any();
     for column in columns {
         condition = condition.add(column.ilike(pattern.clone()));
