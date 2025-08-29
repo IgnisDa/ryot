@@ -69,116 +69,110 @@ pub async fn user_metadata_list(
                 .unwrap_or(1)
                 .try_into()
                 .unwrap();
-            let paginator = EnrichedUserToMetadata::find()
-                .select_only()
-                .column(enriched_user_to_metadata::Column::MetadataId)
-                .filter(enriched_user_to_metadata::Column::UserId.eq(user_id))
-                .apply_if(input.lot, |query, v| {
-                    query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
-                })
-                .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(apply_columns_search(
-                        &v,
-                        [
-                            Expr::col(enriched_user_to_metadata::Column::Title),
-                            Expr::col(enriched_user_to_metadata::Column::Description),
-                        ],
-                    ))
-                })
-                .apply_if(
-                    input.filter.clone().and_then(|f| f.date_range),
-                    |outer_query, outer_value| {
-                        outer_query
-                            .apply_if(outer_value.start_date, |inner_query, inner_value| {
-                                inner_query.filter(
-                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
-                                        .gte(inner_value),
-                                )
-                            })
-                            .apply_if(outer_value.end_date, |inner_query, inner_value| {
-                                inner_query.filter(
-                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
-                                        .lte(inner_value),
-                                )
-                            })
-                    },
-                )
-                .apply_if(
-                    input.filter.clone().and_then(|f| f.collections),
-                    |query, collections| {
-                        apply_collection_filters(
-                            enriched_user_to_metadata::Column::CollectionIds,
-                            query,
-                            collections,
-                        )
-                    },
-                )
-                .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
-                    MediaGeneralFilter::All => {
-                        query.filter(enriched_user_to_metadata::Column::MetadataId.is_not_null())
-                    }
-                    MediaGeneralFilter::Rated => {
-                        query.filter(enriched_user_to_metadata::Column::AverageRating.is_not_null())
-                    }
-                    MediaGeneralFilter::Unrated => {
-                        query.filter(enriched_user_to_metadata::Column::AverageRating.is_null())
-                    }
-                    MediaGeneralFilter::Unfinished => query.filter(
-                        Expr::expr(Expr::val(UserToMediaReason::Finished.to_string()).eq(
-                            PgFunc::any(Expr::col(enriched_user_to_metadata::Column::MediaReason)),
+            let paginator =
+                EnrichedUserToMetadata::find()
+                    .select_only()
+                    .column(enriched_user_to_metadata::Column::MetadataId)
+                    .filter(enriched_user_to_metadata::Column::UserId.eq(user_id))
+                    .apply_if(input.lot, |query, v| {
+                        query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
+                    })
+                    .apply_if(input.search.and_then(|s| s.query), |query, v| {
+                        query.filter(apply_columns_search(
+                            &v,
+                            [
+                                Expr::col(enriched_user_to_metadata::Column::Title),
+                                Expr::col(enriched_user_to_metadata::Column::Description),
+                            ],
                         ))
-                        .not(),
-                    ),
-                    s => query.filter(
-                        match s {
-                            MediaGeneralFilter::Dropped => {
-                                Expr::val(SeenState::Dropped.to_string())
-                            }
-                            MediaGeneralFilter::OnAHold => {
-                                Expr::val(SeenState::OnAHold.to_string())
-                            }
-                            _ => unreachable!(),
+                    })
+                    .apply_if(
+                        input.filter.clone().and_then(|f| f.date_range),
+                        |outer_query, outer_value| {
+                            outer_query
+                                .apply_if(outer_value.start_date, |inner_query, inner_value| {
+                                    inner_query.filter(
+                                        enriched_user_to_metadata::Column::MaxSeenFinishedOn
+                                            .gte(inner_value),
+                                    )
+                                })
+                                .apply_if(outer_value.end_date, |inner_query, inner_value| {
+                                    inner_query.filter(
+                                        enriched_user_to_metadata::Column::MaxSeenFinishedOn
+                                            .lte(inner_value),
+                                    )
+                                })
+                        },
+                    )
+                    .apply_if(
+                        input.filter.clone().and_then(|f| f.collections),
+                        |query, collections| {
+                            apply_collection_filters(
+                                enriched_user_to_metadata::Column::CollectionIds,
+                                query,
+                                collections,
+                            )
+                        },
+                    )
+                    .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
+                        MediaGeneralFilter::All => query
+                            .filter(enriched_user_to_metadata::Column::MetadataId.is_not_null()),
+                        MediaGeneralFilter::Rated => query
+                            .filter(enriched_user_to_metadata::Column::AverageRating.is_not_null()),
+                        MediaGeneralFilter::Unrated => {
+                            query.filter(enriched_user_to_metadata::Column::AverageRating.is_null())
                         }
-                        .eq(PgFunc::any(Expr::col(
-                            enriched_user_to_metadata::Column::SeenStates,
-                        ))),
-                    ),
-                })
-                .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-                    MediaSortBy::Title => {
-                        query.order_by(enriched_user_to_metadata::Column::Title, order_by)
-                    }
-                    MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
-                    MediaSortBy::TimesConsumed => {
-                        query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
-                    }
-                    MediaSortBy::LastUpdated => {
-                        query.order_by(enriched_user_to_metadata::Column::LastUpdatedOn, order_by)
-                    }
-                    MediaSortBy::ReleaseDate => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::PublishDate,
-                        order_by,
-                        NullOrdering::Last,
-                    ),
-                    MediaSortBy::LastConsumed => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::MaxSeenFinishedOn,
-                        order_by,
-                        NullOrdering::Last,
-                    ),
-                    MediaSortBy::UserRating => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::AverageRating,
-                        order_by,
-                        NullOrdering::Last,
-                    ),
-                    MediaSortBy::ProviderRating => query.order_by_with_nulls(
-                        enriched_user_to_metadata::Column::ProviderRating,
-                        order_by,
-                        NullOrdering::Last,
-                    ),
-                })
-                .order_by_desc(enriched_user_to_metadata::Column::MaxSeenLastUpdatedOn)
-                .into_tuple::<String>()
-                .paginate(&ss.db, take);
+                        MediaGeneralFilter::Unfinished => query.filter(
+                            Expr::expr(Expr::val(UserToMediaReason::Finished).eq(PgFunc::any(
+                                Expr::col(enriched_user_to_metadata::Column::MediaReason),
+                            )))
+                            .not(),
+                        ),
+                        s => query.filter(
+                            match s {
+                                MediaGeneralFilter::Dropped => Expr::val(SeenState::Dropped),
+                                MediaGeneralFilter::OnAHold => Expr::val(SeenState::OnAHold),
+                                _ => unreachable!(),
+                            }
+                            .eq(PgFunc::any(Expr::col(
+                                enriched_user_to_metadata::Column::SeenStates,
+                            ))),
+                        ),
+                    })
+                    .apply_if(input.sort.map(|s| s.by), |query, v| match v {
+                        MediaSortBy::Title => {
+                            query.order_by(enriched_user_to_metadata::Column::Title, order_by)
+                        }
+                        MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
+                        MediaSortBy::TimesConsumed => {
+                            query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
+                        }
+                        MediaSortBy::LastUpdated => query
+                            .order_by(enriched_user_to_metadata::Column::LastUpdatedOn, order_by),
+                        MediaSortBy::ReleaseDate => query.order_by_with_nulls(
+                            enriched_user_to_metadata::Column::PublishDate,
+                            order_by,
+                            NullOrdering::Last,
+                        ),
+                        MediaSortBy::LastConsumed => query.order_by_with_nulls(
+                            enriched_user_to_metadata::Column::MaxSeenFinishedOn,
+                            order_by,
+                            NullOrdering::Last,
+                        ),
+                        MediaSortBy::UserRating => query.order_by_with_nulls(
+                            enriched_user_to_metadata::Column::AverageRating,
+                            order_by,
+                            NullOrdering::Last,
+                        ),
+                        MediaSortBy::ProviderRating => query.order_by_with_nulls(
+                            enriched_user_to_metadata::Column::ProviderRating,
+                            order_by,
+                            NullOrdering::Last,
+                        ),
+                    })
+                    .order_by_desc(enriched_user_to_metadata::Column::MaxSeenLastUpdatedOn)
+                    .into_tuple::<String>()
+                    .paginate(&ss.db, take);
             let ItemsAndPagesNumber {
                 number_of_items,
                 number_of_pages,
