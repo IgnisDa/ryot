@@ -213,13 +213,7 @@ export async function addEntitiesToCollection(
 	const client = getGraphqlClient(baseUrl);
 	const response = await client.request(
 		DeployAddEntitiesToCollectionJobDocument,
-		{
-			input: {
-				creatorUserId: userId,
-				collectionName,
-				entities,
-			},
-		},
+		{ input: { entities, collectionName, creatorUserId: userId } },
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
 	await waitFor(1000);
