@@ -137,10 +137,10 @@ pub async fn user_metadata_list(
                     query.filter(filter_expression)
                 })
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
+                    MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
                     MediaSortBy::Title => {
                         query.order_by(enriched_user_to_metadata::Column::Title, order_by)
                     }
-                    MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
                     MediaSortBy::TimesConsumed => {
                         query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
                     }
