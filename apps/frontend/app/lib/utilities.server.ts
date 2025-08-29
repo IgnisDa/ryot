@@ -161,7 +161,6 @@ const getUserDetails = async (request: Request) => {
 	const { userDetails } = await serverGqlService.authenticatedRequest(
 		request,
 		UserDetailsDocument,
-		undefined,
 	);
 	return userDetails;
 };

@@ -75,7 +75,6 @@ import {
 	getCookieValue,
 	getCoreDetails,
 	getUserCollectionsList,
-	getUserPreferences,
 	redirectIfNotAuthenticatedOrUpdated,
 } from "~/lib/utilities.server";
 import { colorSchemeCookie } from "~/lib/utilities.server";
@@ -84,8 +83,7 @@ import type { Route } from "./+types/_dashboard";
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const userDetails = await redirectIfNotAuthenticatedOrUpdated(request);
-	const [userPreferences, userCollections, coreDetails] = await Promise.all([
-		getUserPreferences(request),
+	const [userCollections, coreDetails] = await Promise.all([
 		getUserCollectionsList(request),
 		getCoreDetails(),
 	]);
@@ -116,7 +114,6 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		userDetails,
 		coreDetails,
 		isDemoInstance,
-		userPreferences,
 		shouldHaveUmami,
 		userCollections,
 		currentColorScheme,
@@ -124,6 +121,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		desktopSidebarCollapsed,
 		isOnboardingTourCompleted,
 		onboardingTourCompletedCookie,
+		userPreferences: userDetails.preferences,
 	};
 };
 
