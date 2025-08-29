@@ -1,6 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use application_utils::get_base_http_client;
 use common_utils::{convert_date_to_year, ryot_log};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TmdbLanguage, TmdbSettings};
@@ -188,7 +188,7 @@ impl TmdbService {
             .get(format!("{URL}/{media_type}/{identifier}/external_ids"))
             .send()
             .await?;
-        rsp.json().await.map_err(|e| anyhow!(e))
+        Ok(rsp.json().await?)
     }
 
     pub async fn fetch_paginated_data<T, F, Fut>(
