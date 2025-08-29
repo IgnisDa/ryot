@@ -174,7 +174,6 @@ export const getUserCollectionsListRaw = async (request: Request) => {
 	const { userCollectionsList } = await serverGqlService.authenticatedRequest(
 		request,
 		UserCollectionsListDocument,
-		{},
 	);
 	return userCollectionsList;
 };
