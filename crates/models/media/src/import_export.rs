@@ -34,7 +34,7 @@ pub struct ImportOrExportMetadataItemSeen {
     pub podcast_episode_number: Option<i32>,
     /// If for a manga, the chapter which was seen.
     pub manga_chapter_number: Option<Decimal>,
-    /// The providers this item was watched on.
+    /// The providers this item was consumed on.
     pub providers_consumed_on: Option<Vec<String>>,
 }
 
