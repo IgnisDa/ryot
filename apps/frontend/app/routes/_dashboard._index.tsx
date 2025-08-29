@@ -197,7 +197,10 @@ export default function Page() {
 										<ApplicationGrid>
 											{userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.map(
 												(um) => (
-													<UpComingMedia um={um} key={um.calendarEventId} />
+													<UpcomingMediaSection
+														um={um}
+														key={um.calendarEventId}
+													/>
 												),
 											)}
 										</ApplicationGrid>
@@ -408,7 +411,7 @@ const SectionTitle = (props: { text: string }) => (
 	</Text>
 );
 
-const UpComingMedia = (props: { um: CalendarEventPartFragment }) => {
+const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 
