@@ -378,14 +378,8 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
+		expect(items.length).toBe(1);
 		expect(items).toContain(harryPotterId);
-		expect(items).not.toContain(hobbitId);
-		expect(items).not.toContain(nineteenEightyFourId);
-		expect(items).not.toContain(foundationId);
-		expect(items).not.toContain(duneId);
-		expect(items).not.toContain(prideAndPrejudiceId);
-		expect(items).not.toContain(endersGameId);
-		expect(items).not.toContain(frankensteinId);
 	});
 
 	it("should handle mixed strategies: present in Fantasy OR Sci-Fi OR Best Of", async () => {
@@ -626,7 +620,7 @@ describe("Collection Filters Tests", () => {
 		expect(items).toContain(prideAndPrejudiceId);
 		expect(items).toContain(nineteenEightyFourId);
 		expect(items).toContain(endersGameId);
-		expect(items.length).toBeGreaterThanOrEqual(7);
+		expect(items.length).toBe(7);
 	});
 
 	it("should filter items present in exactly 2 collections: Best Of AND Award Winners", async () => {
@@ -691,6 +685,7 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
+		expect(items.length).toBe(5);
 		expect(items).toContain(hobbitId);
 		expect(items).toContain(foundationId);
 		expect(items).toContain(duneId);
