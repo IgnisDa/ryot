@@ -179,7 +179,7 @@ export interface ImportOrExportMetadataItemSeen {
 	podcast_episode_number: number | null;
 	/** The progress of media done. If none, it is considered as done. */
 	progress: string | null;
-	/** The providers this item was watched on. */
+	/** The providers this item was consumed on. */
 	providers_consumed_on: string[] | null;
 	/** If for a show, the episode which was seen. */
 	show_episode_number: number | null;
