@@ -73,16 +73,16 @@ pub async fn perform_export(ss: &Arc<SupportingService>, user_id: String) -> Res
         writer.name(&export.to_string())?;
         writer.begin_array()?;
         match export {
-            ExportItem::Metadata => export_media(ss, &user_id, &mut writer).await?,
             ExportItem::People => export_people(ss, &user_id, &mut writer).await?,
-            ExportItem::MetadataGroups => export_media_group(ss, &user_id, &mut writer).await?,
+            ExportItem::Metadata => export_media(ss, &user_id, &mut writer).await?,
             ExportItem::Workouts => export_workouts(ss, &user_id, &mut writer).await?,
             ExportItem::Exercises => export_exercises(ss, &user_id, &mut writer).await?,
+            ExportItem::Collections => export_collections(ss, &user_id, &mut writer).await?,
             ExportItem::Measurements => export_measurements(ss, &user_id, &mut writer).await?,
+            ExportItem::MetadataGroups => export_media_group(ss, &user_id, &mut writer).await?,
             ExportItem::WorkoutTemplates => {
                 export_workout_templates(ss, &user_id, &mut writer).await?
             }
-            ExportItem::Collections => export_collections(ss, &user_id, &mut writer).await?,
         };
         writer.end_array()?;
     }
