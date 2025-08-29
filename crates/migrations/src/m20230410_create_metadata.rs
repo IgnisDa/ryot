@@ -120,15 +120,6 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("metadata__title__index")
-                    .table(Metadata::Table)
-                    .col(Metadata::Title)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
                     .unique()
                     .name(METADATA_UNIQUE_INDEX)
                     .table(Metadata::Table)

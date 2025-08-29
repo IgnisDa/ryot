@@ -13,6 +13,8 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        let db = manager.get_connection();
+
         if !manager.has_column("user_to_entity", "entity_id").await? {
             manager
                 .alter_table(
@@ -70,7 +72,6 @@ impl MigrationTrait for Migration {
         }
 
         if manager.has_column("exercise", "attributes").await? {
-            let db = manager.get_connection();
             db.execute_unprepared(
                 r#"
 UPDATE exercise SET assets = attributes->'assets' WHERE attributes IS NOT NULL;
@@ -128,6 +129,14 @@ ALTER TABLE exercise ALTER COLUMN assets SET NOT NULL;
                         .col(Alias::new("entity_lot"))
                         .to_owned(),
                 )
+                .await?;
+        }
+
+        if manager
+            .has_index("metadata", "metadata__title__index")
+            .await?
+        {
+            db.execute_unprepared("DROP INDEX metadata__title__index")
                 .await?;
         }
 

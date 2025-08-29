@@ -43,6 +43,7 @@ GROUP BY
   e.equipment,
   ute.user_id,
   ute.entity_id,
+  e.instructions,
   ute.last_updated_on,
   e.created_by_user_id,
   ute.exercise_num_times_interacted;
