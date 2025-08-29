@@ -229,8 +229,11 @@ export default function Page() {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						value={filters.query}
-						onChange={(value) => updateFilter("query", value)}
 						placeholder="Search for exercises by name or instructions"
+						onChange={(value) => {
+							updateFilter("query", value);
+							updateFilter("page", 1);
+						}}
 						tourControl={{
 							target: OnboardingTourStepTargets.SearchForExercise,
 							onQueryChange: (query) => {

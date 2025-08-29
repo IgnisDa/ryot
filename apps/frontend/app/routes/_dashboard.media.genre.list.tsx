@@ -94,7 +94,10 @@ export default function Page() {
 						<DebouncedSearchInput
 							value={filters.query}
 							placeholder="Search for genres"
-							onChange={(value) => updateFilter("query", value)}
+							onChange={(value) => {
+								updateFilter("query", value);
+								updateFilter("page", 1);
+							}}
 						/>
 						{userGenresList.details.totalItems > 0 ? (
 							<>

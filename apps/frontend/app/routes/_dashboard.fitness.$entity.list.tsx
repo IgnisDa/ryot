@@ -193,7 +193,10 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
 						value={filters.query}
-						onChange={(value) => updateFilter("query", value)}
+						onChange={(value) => {
+							updateFilter("query", value);
+							updateFilter("page", 1);
+						}}
 						placeholder={`Search for ${entity}`}
 					/>
 					<ActionIcon

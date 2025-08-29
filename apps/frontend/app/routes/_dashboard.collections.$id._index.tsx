@@ -241,7 +241,10 @@ export default function Page(props: { params: { id: string } }) {
 													<DebouncedSearchInput
 														value={filters.query}
 														placeholder="Search in the collection"
-														onChange={(value) => updateFilter("query", value)}
+														onChange={(value) => {
+															updateFilter("query", value);
+															updateFilter("page", 1);
+														}}
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
