@@ -96,15 +96,15 @@ export const getAuthorizationCookie = (request: Request) =>
 	getCookieValue(request, FRONTEND_AUTH_COOKIE_NAME);
 
 export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
+	const getResponseInit = async (toastMessage: string) => ({
+		status: 302,
+		headers: combineHeaders(
+			await createToastHeaders({ type: "error", message: toastMessage }),
+			getLogoutCookies(),
+		),
+	});
 	try {
 		const userDetails = await getUserDetails(request);
-		const getResponseInit = async (toastMessage: string) => ({
-			status: 302,
-			headers: combineHeaders(
-				await createToastHeaders({ type: "error", message: toastMessage }),
-				getLogoutCookies(),
-			),
-		});
 		if (!userDetails || userDetails.__typename === "UserDetailsError") {
 			const nextUrl = withoutHost(request.url);
 			throw redirect(
@@ -120,15 +120,10 @@ export const redirectIfNotAuthenticatedOrUpdated = async (request: Request) => {
 
 		return userDetails;
 	} catch {
-		throw redirect($path("/auth"), {
-			headers: combineHeaders(
-				await createToastHeaders({
-					type: "error",
-					message: "Your session has expired",
-				}),
-				getLogoutCookies(),
-			),
-		});
+		throw redirect(
+			$path("/auth"),
+			await getResponseInit("You must be logged in to view this page"),
+		);
 	}
 };
 
