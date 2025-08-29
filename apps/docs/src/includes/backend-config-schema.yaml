@@ -116,6 +116,12 @@ movies_and_shows:
     # @envvar MOVIES_AND_SHOWS_TMDB_LOCALE
     locale: "en"
 
+  # Settings related to TVDB.
+  tvdb:
+    # The access token for the TVDB API.
+    # @envvar MOVIES_AND_SHOWS_TVDB_API_KEY
+    api_key: ""
+
 # Settings related to music.
 music:
   # Settings related to Spotify.

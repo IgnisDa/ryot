@@ -170,6 +170,14 @@ pub struct DatabaseConfig {
 pub struct ExerciseConfig {}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
+#[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TVDB_")]
+pub struct TvdbConfig {
+    /// The access token for the TVDB API.
+    #[mask]
+    pub api_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TMDB_")]
 pub struct TmdbConfig {
     /// The locale to use for making requests to TMDB API.
@@ -187,6 +195,9 @@ pub struct MovieAndShowConfig {
     #[setting(nested)]
     #[mask_nested]
     pub tmdb: TmdbConfig,
+    /// Settings related to TVDB.
+    #[setting(nested)]
+    pub tvdb: TvdbConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
