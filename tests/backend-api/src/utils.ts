@@ -213,7 +213,7 @@ export async function addEntitiesToCollection(
 	entities: { entityId: string; entityLot: EntityLot }[],
 ) {
 	const client = getGraphqlClient(baseUrl);
-	return await client.request(
+	const response = await client.request(
 		DeployAddEntitiesToCollectionJobDocument,
 		{
 			input: {
@@ -224,6 +224,8 @@ export async function addEntitiesToCollection(
 		},
 		{ Authorization: `Bearer ${userApiKey}` },
 	);
+	await waitFor(1000);
+	return response;
 }
 
 export async function registerAdminUser(baseUrl: string) {

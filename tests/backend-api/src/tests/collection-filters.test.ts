@@ -11,7 +11,6 @@ import {
 	getGraphqlClient,
 	registerTestUser,
 	searchAudibleAudiobook,
-	waitFor,
 } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -250,8 +249,6 @@ describe("Collection Filters Tests", () => {
 				{ entityId: nineteenEightyFourId, entityLot: EntityLot.Metadata },
 			],
 		);
-
-		await waitFor(4000);
 	});
 
 	const getAuthHeaders = () => ({
