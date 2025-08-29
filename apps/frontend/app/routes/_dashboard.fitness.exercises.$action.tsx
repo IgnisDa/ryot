@@ -92,18 +92,23 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as Array<ExerciseMuscle>)
 		: [];
-	const instructions = submission.instructions;
+	const submissionInstructions = submission.instructions;
 	const newInput = cloneDeep(submission);
 	newInput.muscles = undefined;
 	newInput.instructions = undefined;
 	newInput.images = undefined;
+	const instructions =
+		submissionInstructions
+			?.split("\n")
+			.map((s) => s.trim())
+			.filter(Boolean) || [];
 	const input = {
 		...newInput,
 		muscles,
-        source: ExerciseSource.Custom,
-        instructions: instructions?.split("\n").map((s) => s.trim()).filter(Boolean) || [],
-        assets: {
-            s3Videos: [],
+		instructions,
+		source: ExerciseSource.Custom,
+		assets: {
+			s3Videos: [],
 			remoteImages: [],
 			remoteVideos: [],
 			s3Images: submission.images || [],
