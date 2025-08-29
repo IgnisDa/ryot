@@ -300,14 +300,28 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
+		expect(items).toHaveLength(5);
+
 		expect(items).not.toContain(harryPotterId);
 		expect(items).not.toContain(hobbitId);
 		expect(items).not.toContain(nineteenEightyFourId);
+
 		expect(items).toContain(foundationId);
 		expect(items).toContain(duneId);
 		expect(items).toContain(endersGameId);
 		expect(items).toContain(frankensteinId);
 		expect(items).toContain(prideAndPrejudiceId);
+
+		const expectedIds = [
+			duneId,
+			foundationId,
+			endersGameId,
+			frankensteinId,
+			prideAndPrejudiceId,
+		];
+		const sortedItems = [...items].sort();
+		const sortedExpected = [...expectedIds].sort();
+		expect(sortedItems).toEqual(sortedExpected);
 	});
 
 	it("should use OR strategy to get audiobooks from Fantasy OR Sci-Fi collections", async () => {
