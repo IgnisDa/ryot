@@ -66,9 +66,8 @@ impl TmdbService {
             .client
             .get(format!("{URL}/{media_type}/{identifier}/images"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let new_images: TmdbImagesResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let new_images: TmdbImagesResponse = rsp.json().await?;
         if let Some(imgs) = new_images.posters {
             for image in imgs {
                 images.push(self.get_image_url(image.file_path));
@@ -131,11 +130,9 @@ impl TmdbService {
             .get(format!("{URL}/{media_type}/{identifier}/watch/providers"))
             .query(&json!({ "language": self.language }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let mut watch_providers = Vec::<WatchProvider>::new();
         for (country, lang_providers) in watch_providers_with_langs.results {
             self.append_to_watch_provider(
@@ -190,8 +187,7 @@ impl TmdbService {
             .client
             .get(format!("{URL}/{media_type}/{identifier}/external_ids"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         rsp.json().await.map_err(|e| anyhow!(e))
     }
 
@@ -212,11 +208,9 @@ impl TmdbService {
             .get(&url)
             .query(&query_params)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
 
         let total_pages = match max_pages {
             Some(max) => first_page.total_pages.min(max),
@@ -243,11 +237,9 @@ impl TmdbService {
                             .get(url)
                             .query(&page_query)
                             .send()
-                            .await
-                            .map_err(|e| anyhow!(e))?
+                            .await?
                             .json()
-                            .await
-                            .map_err(|e| anyhow!(e))?;
+                            .await?;
 
                         let mut page_results = vec![];
                         for entry in page_response.results {
@@ -312,11 +304,9 @@ impl TmdbService {
                 "language": self.language,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
 
         let results = response
             .results

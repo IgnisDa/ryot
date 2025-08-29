@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Datelike;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
@@ -43,9 +43,8 @@ impl MediaProvider for OpenlibraryService {
                 "limit": PAGE_SIZE,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: AuthorLibrarySearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: AuthorLibrarySearchResponse = rsp.json().await?;
         let resp = search
             .docs
             .into_iter()
@@ -75,9 +74,8 @@ impl MediaProvider for OpenlibraryService {
             .client
             .get(format!("{URL}/authors/{identifier}.json"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: PersonDetailsAuthor = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: PersonDetailsAuthor = rsp.json().await?;
         ryot_log!(debug, "Got person data: {:?}", data);
         let description = data.bio.map(|d| match d {
             Description::Text(s) => s,
@@ -120,18 +118,16 @@ impl MediaProvider for OpenlibraryService {
             .client
             .get(format!("{URL}/works/{identifier}.json"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: MetadataDetailsBook = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: MetadataDetailsBook = rsp.json().await?;
         ryot_log!(debug, "Openlibrary response: {:?}", data);
 
         let rsp = self
             .client
             .get(format!("{URL}/works/{identifier}/editions.json"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let editions: EditionsResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let editions: EditionsResponse = rsp.json().await?;
 
         let num_pages = editions
             .entries
@@ -254,9 +250,8 @@ impl MediaProvider for OpenlibraryService {
                 "type": "work".to_owned(),
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: MediaLibrarySearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: MediaLibrarySearchResponse = rsp.json().await?;
         let resp = search
             .docs
             .into_iter()

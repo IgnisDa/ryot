@@ -138,7 +138,7 @@ pub async fn add_entities_to_collection(
         add_single_entity_to_collection(user_id, entity, &input.collection_name, ss).await?;
     }
     try_join!(
-        expire_user_metadata_list_cache(&user_id, ss),
+        expire_user_metadata_list_cache(user_id, ss),
         expire_user_collections_list_cache(user_id, ss),
     )?;
     Ok(true)

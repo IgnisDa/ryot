@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
@@ -49,9 +49,8 @@ impl MediaProvider for TmdbShowService {
                 "append_to_response": "videos",
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let show_data: TmdbMediaEntry = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let show_data: TmdbMediaEntry = rsp.json().await?;
         let mut remote_videos = vec![];
         if let Some(vid) = show_data.videos {
             remote_videos.extend(vid.results.into_iter().map(|vid| EntityRemoteVideo {
@@ -276,9 +275,8 @@ impl MediaProvider for TmdbShowService {
                 "include_adult": display_nsfw,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: TmdbListResponse = rsp.json().await?;
         let resp = search
             .results
             .into_iter()
@@ -325,8 +323,8 @@ pub async fn fetch_season_with_credits(
 
     let (season_resp, credits_resp) = try_join!(season_data_future, season_credits_future)?;
 
-    let mut season_data: TmdbSeason = season_resp.json().await.map_err(|e| anyhow!(e))?;
-    let credits: TmdbSeasonCredit = credits_resp.json().await.map_err(|e| anyhow!(e))?;
+    let mut season_data: TmdbSeason = season_resp.json().await?;
+    let credits: TmdbSeasonCredit = credits_resp.json().await?;
 
     for episode in season_data.episodes.iter_mut() {
         episode.guest_stars.extend(credits.cast.clone());

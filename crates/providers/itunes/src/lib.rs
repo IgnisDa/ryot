@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
@@ -78,9 +78,8 @@ impl MediaProvider for ITunesService {
                 "lang": self.language
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let details: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let details: SearchResponse = rsp.json().await?;
         let ht = details.results.unwrap()[0].clone();
         let description = ht.description.clone();
         let creators = Vec::from_iter(ht.artist_name.clone())
@@ -114,14 +113,13 @@ impl MediaProvider for ITunesService {
                 "lang": self.language
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let remote_images = details.image.into_iter().collect();
         let assets = EntityAssets {
             remote_images,
             ..Default::default()
         };
-        let episodes: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let episodes: SearchResponse = rsp.json().await?;
         let episodes = episodes.results.unwrap_or_default();
         let publish_date = episodes
             .last()
@@ -183,9 +181,8 @@ impl MediaProvider for ITunesService {
                 "lang": self.language
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: SearchResponse = rsp.json().await?;
         let resp = search
             .results
             .unwrap_or_default()

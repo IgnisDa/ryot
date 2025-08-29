@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_models::DefaultCollection;
 use common_utils::ryot_log;
@@ -43,11 +43,9 @@ pub async fn yank_progress(
     let resp = client
         .get(format!("{url}/me/items-in-progress"))
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<audiobookshelf::Response>()
-        .await
-        .map_err(|e| anyhow!(e))?;
+        .await?;
 
     ryot_log!(debug, "Got response for items in progress {:?}", resp);
 
@@ -123,11 +121,9 @@ pub async fn yank_progress(
         match client
             .get(format!("{url}/me/progress/{progress_id}"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<audiobookshelf::ItemProgress>()
             .await
-            .map_err(|e| anyhow!(e))
         {
             Ok(resp) => {
                 ryot_log!(
@@ -181,8 +177,7 @@ pub async fn sync_to_owned_collection(
     let libraries_resp = client
         .get("libraries")
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<LibrariesListResponse>()
         .await
         .unwrap();
@@ -190,8 +185,7 @@ pub async fn sync_to_owned_collection(
         let items = client
             .get(format!("libraries/{}/items", library.id))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<ListResponse>()
             .await
             .unwrap();

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, SearchDetails};
@@ -146,11 +146,9 @@ async fn search(
         .get(format!("{URL}/{media_type}"))
         .query(&json!({ "q": query, "limit": PAGE_SIZE, "offset": offset, "fields": "start_date" }))
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json()
-        .await
-        .map_err(|e| anyhow!(e))?;
+        .await?;
     let items = search
         .data
         .into_iter()
@@ -200,10 +198,10 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         .query(&json!({ "fields": "start_date,end_date,synopsis,genres,status,num_episodes,num_volumes,num_chapters,recommendations,related_manga,related_anime,mean,nsfw" }))
         .send()
         .await
-        .map_err(|e| anyhow!(e))?
+        ?
         .json()
         .await
-        .map_err(|e| anyhow!(e))?;
+        ?;
     let lot = match media_type {
         "manga" => MediaLot::Manga,
         "anime" => MediaLot::Anime,

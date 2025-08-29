@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -174,11 +174,9 @@ impl MediaProvider for MangaUpdatesService {
                 "perpage": PAGE_SIZE,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let items = data
             .results
             .into_iter()
@@ -206,21 +204,17 @@ impl MediaProvider for MangaUpdatesService {
             .client
             .get(format!("{URL}/authors/{identity}"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let related_data: ItemPersonRelatedSeries = self
             .client
             .post(format!("{URL}/authors/{identity}/series"))
             .json(&serde_json::json!({ "orderby": "year" }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let related_metadata = related_data
             .series_list
             .into_iter()
@@ -264,11 +258,9 @@ impl MediaProvider for MangaUpdatesService {
             .client
             .get(format!("{URL}/series/{identifier}"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let people = data
             .authors
             .unwrap_or_default()
@@ -300,8 +292,7 @@ impl MediaProvider for MangaUpdatesService {
                 .client
                 .get(format!("{URL}/series/{series_id}"))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .json::<MetadataItemRecord>()
                 .await
             {
@@ -371,11 +362,9 @@ impl MediaProvider for MangaUpdatesService {
                 "page": page
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let items = search
             .results
             .into_iter()

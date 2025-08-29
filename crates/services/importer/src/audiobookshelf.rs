@@ -1,6 +1,6 @@
 use std::{result::Result as StdResult, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::{get_base_http_client, get_podcast_episode_number_by_name};
 use common_utils::ryot_log;
 use data_encoding::BASE64;
@@ -57,8 +57,7 @@ pub async fn import(
     let libraries_resp = client
         .get(format!("{url}/libraries"))
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<audiobookshelf_models::LibrariesListResponse>()
         .await
         .unwrap();
@@ -72,8 +71,7 @@ pub async fn import(
             .get(format!("{}/libraries/{}/items", url, library.id))
             .query(&query)
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<audiobookshelf_models::ListResponse>()
             .await
             .unwrap();
@@ -249,8 +247,7 @@ async fn get_item_details(
         .get(format!("{url}/items/{id}"))
         .query(&query)
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<audiobookshelf_models::Item>()
         .await?;
     Ok(item)

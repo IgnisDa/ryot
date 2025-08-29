@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
@@ -54,11 +54,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .post(URL)
                 .json(&body)
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .json::<GraphQLResponse<MediaSearchResponse>>()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .data
                 .unwrap()
                 .page
@@ -86,11 +84,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .post(URL)
                 .json(&body)
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .json::<GraphQLResponse<MediaSearchResponse>>()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .data
                 .unwrap()
                 .page
@@ -141,11 +137,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .post(URL)
                 .json(&body)
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .json::<GraphQLResponse<StudioDetailsResponse>>()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .data
                 .unwrap()
                 .studio
@@ -192,11 +186,9 @@ impl MediaProvider for NonMediaAnilistService {
                 .post(URL)
                 .json(&body)
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .json::<GraphQLResponse<StaffDetailsResponse>>()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .data
                 .unwrap()
                 .staff
