@@ -78,6 +78,7 @@ import {
 	PersonDisplayItem,
 } from "../media/display-items";
 import { MultiSelectCreatable } from "./multi-select-creatable";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 
 export const SkeletonLoader = () => <Skeleton height={100} />;
 
@@ -184,6 +185,7 @@ export const DisplayCollectionToEntity = (props: {
 					},
 					{
 						onSuccess: () => {
+							refreshEntityDetails(props.entityId);
 							notifications.show({
 								color: "green",
 								title: "Success",
