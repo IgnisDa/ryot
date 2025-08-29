@@ -155,7 +155,7 @@ describe("Collection Filters Tests", () => {
 						collections: [
 							{
 								collectionId: fantasyCollectionId,
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 						],
@@ -182,7 +182,7 @@ describe("Collection Filters Tests", () => {
 						collections: [
 							{
 								collectionId: fantasyCollectionId,
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.NotPresentIn,
 							},
 						],
@@ -210,7 +210,7 @@ describe("Collection Filters Tests", () => {
 						collections: [
 							{
 								collectionId: fantasyCollectionId,
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 							{
@@ -267,7 +267,7 @@ describe("Collection Filters Tests", () => {
 		expect(items).not.toContain(duneId);
 	});
 
-	it("should handle mixed strategies: present in Fantasy OR (present in Sci-Fi AND Best Of)", async () => {
+	it("should handle mixed strategies: present in Fantasy OR Sci-Fi OR Best Of", async () => {
 		const client = getGraphqlClient(url);
 		const { userMetadataList } = await client.request(
 			UserMetadataListDocument,
@@ -277,17 +277,17 @@ describe("Collection Filters Tests", () => {
 						collections: [
 							{
 								collectionId: fantasyCollectionId,
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 							{
 								collectionId: sciFiCollectionId,
-								strategy: MediaCollectionStrategyFilter.And,
+								strategy: MediaCollectionStrategyFilter.Or,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 							{
 								collectionId: bestOfCollectionId,
-								strategy: MediaCollectionStrategyFilter.And,
+								strategy: MediaCollectionStrategyFilter.Or,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 						],
@@ -299,10 +299,11 @@ describe("Collection Filters Tests", () => {
 
 		const items = userMetadataList.response.items;
 
+		expect(items.length).toBeGreaterThanOrEqual(4);
 		expect(items).toContain(harryPotterId);
 		expect(items).toContain(hobbitId);
 		expect(items).toContain(foundationId);
-		expect(items).not.toContain(duneId);
+		expect(items).toContain(duneId);
 	});
 
 	it("should handle complex NOT present scenario: NOT in Fantasy AND NOT in Sci-Fi", async () => {
@@ -376,7 +377,7 @@ describe("Collection Filters Tests", () => {
 						collections: [
 							{
 								collectionId: nonExistentCollectionId,
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 						],
@@ -401,7 +402,7 @@ describe("Collection Filters Tests", () => {
 						collections: [
 							{
 								collectionId: fantasyCollectionId,
-								strategy: MediaCollectionStrategyFilter.Or,
+								strategy: MediaCollectionStrategyFilter.And,
 								presence: MediaCollectionPresenceFilter.PresentIn,
 							},
 							{
