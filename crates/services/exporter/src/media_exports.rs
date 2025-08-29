@@ -76,6 +76,7 @@ pub async fn export_media(
                         ended_on: s.finished_on,
                         started_on: s.started_on,
                         progress: Some(s.progress),
+                        manual_time_spent: s.manual_time_spent,
                         providers_consumed_on: Some(s.providers_consumed_on),
                     }
                 })

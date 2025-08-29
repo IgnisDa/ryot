@@ -173,6 +173,8 @@ export interface ImportOrExportMetadataItemSeen {
 	manga_chapter_number: string | null;
 	/** If for a manga, the volume which was seen. */
 	manga_volume_number: number | null;
+	/** The amount of time spent watching the item manually. */
+	manual_time_spent: string | null;
 	/** If for a podcast, the episode which was seen. */
 	podcast_episode_number: number | null;
 	/** The progress of media done. If none, it is considered as done. */
