@@ -345,25 +345,23 @@ const TrendingSection = () => {
 
 	return (
 		<>
-			{isTrendingMetadataListOpen ? (
-				<Drawer
-					size="xl"
-					position="right"
-					title="Trending Media"
-					opened={isTrendingMetadataListOpen}
-					onClose={toggleTrendingMetadataList}
-				>
-					<ApplicationGrid>
-						{trendingMetadata.data?.trendingMetadata.map((lm) => (
-							<MetadataDisplayItem
-								key={lm}
-								metadataId={lm}
-								shouldHighlightNameIfInteracted
-							/>
-						))}
-					</ApplicationGrid>
-				</Drawer>
-			) : null}
+			<Drawer
+				size="xl"
+				position="right"
+				title="Trending Media"
+				opened={isTrendingMetadataListOpen}
+				onClose={toggleTrendingMetadataList}
+			>
+				<ApplicationGrid>
+					{trendingMetadata.data?.trendingMetadata.map((lm) => (
+						<MetadataDisplayItem
+							key={lm}
+							metadataId={lm}
+							shouldHighlightNameIfInteracted
+						/>
+					))}
+				</ApplicationGrid>
+			</Drawer>
 			<Group justify="space-between">
 				<SectionTitle text="Trending" />
 				{trendingMetadata.data &&
