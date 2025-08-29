@@ -1,11 +1,11 @@
 use anyhow::{Result, bail};
 use database_models::metadata;
-use database_utils::ilike_sql;
+use database_utils::apply_columns_search;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{
-    ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter,
-    sea_query::{Alias, Expr, Func, extension::postgres::PgExpr},
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    sea_query::{Alias, Expr, Func},
 };
 use serde::{Deserialize, Serialize};
 
@@ -35,17 +35,17 @@ pub async fn get_show_by_episode_identifier(
     let db_show = metadata::Entity::find()
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-        .filter(
-            Condition::all()
-                .add(
-                    Expr::expr(Func::cast_as(
-                        Expr::col(metadata::Column::ShowSpecifics),
-                        Alias::new("text"),
-                    ))
-                    .ilike(ilike_sql(&episode)),
-                )
-                .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&series))),
-        )
+        .filter(apply_columns_search(
+            &episode,
+            [Expr::expr(Func::cast_as(
+                Expr::col(metadata::Column::ShowSpecifics),
+                Alias::new("text"),
+            ))],
+        ))
+        .filter(apply_columns_search(
+            &series,
+            [Expr::col(metadata::Column::Title)],
+        ))
         .one(db)
         .await?;
     match db_show {
