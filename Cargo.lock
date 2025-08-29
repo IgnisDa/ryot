@@ -1956,6 +1956,7 @@ dependencies = [
  "enum-models",
  "enum_meta",
  "fitness-models",
+ "futures",
  "itertools 0.14.0",
  "nanoid",
  "rust_decimal",

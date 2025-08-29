@@ -8,7 +8,8 @@ use database_utils::{schedule_user_for_workout_revision, user_by_id};
 use dependent_collection_utils::add_entities_to_collection;
 use dependent_notification_utils::send_notification_for_user;
 use dependent_utility_utils::{
-    expire_user_measurements_list_cache, expire_user_workouts_list_cache,
+    expire_user_exercises_list_cache, expire_user_measurements_list_cache,
+    expire_user_workouts_list_cache,
 };
 use enum_meta::Meta;
 use enum_models::{
@@ -23,6 +24,7 @@ use fitness_models::{
     WorkoutMuscleFocusedSummary, WorkoutOrExerciseTotals, WorkoutSetRecord, WorkoutSetStatistic,
     WorkoutSetTotals, WorkoutSummary, WorkoutSummaryExercise,
 };
+use futures::try_join;
 use itertools::Itertools;
 use nanoid::nanoid;
 use rust_decimal::Decimal;
@@ -676,6 +678,9 @@ pub async fn create_or_update_user_workout(
             }
         }
     };
-    expire_user_workouts_list_cache(user_id, ss).await?;
+    try_join!(
+        expire_user_workouts_list_cache(user_id, ss),
+        expire_user_exercises_list_cache(user_id, ss)
+    )?;
     Ok(data.id)
 }

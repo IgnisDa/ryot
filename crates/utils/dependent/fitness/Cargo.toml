@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = { workspace = true }
 enum_meta = { workspace = true }
 itertools = { workspace = true }
+futures = { workspace = true }
 nanoid = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
