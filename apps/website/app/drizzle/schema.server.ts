@@ -72,7 +72,5 @@ export const customerPurchases = pgTable(
 		createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
 		updatedOn: timestamp("updated_on", { withTimezone: true }).defaultNow().notNull(),
 	},
-	(table) => ({
-		customerIdIdx: index("customer_purchase_customer_id_idx").on(table.customerId),
-	}),
+	(table) => [index("customer_purchase_customer_id_idx").on(table.customerId)],
 );

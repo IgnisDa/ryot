@@ -5,6 +5,14 @@ import { withFragment } from "ufo";
 
 import type { TPrices } from "./config.server";
 
+type ConfigData = {
+	prices: TPrices;
+	isSandbox: boolean;
+	clientToken: string;
+	isLoggedIn: boolean;
+	turnstileSiteKey: string;
+};
+
 export const contactEmail = "ignisda2001@gmail.com";
 export const startUrl = withFragment($path("/"), "start-here");
 export const logoUrl =
@@ -33,12 +41,7 @@ export const useConfigData = () =>
 			if (!response.ok) {
 				throw new Error("Failed to fetch config");
 			}
-			return response.json() as Promise<{
-				prices: TPrices;
-				isSandbox: boolean;
-				clientToken: string;
-				isLoggedIn: boolean;
-				turnstileSiteKey: string;
-			}>;
+			const data: ConfigData = await response.json();
+			return data;
 		},
 	});
