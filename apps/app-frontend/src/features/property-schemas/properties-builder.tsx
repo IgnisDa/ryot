@@ -163,9 +163,7 @@ export function PropertySchemasBuilder(props: PropertySchemasBuilderProps) {
 														onBlur={field.handleBlur}
 														disabled={props.isLoading}
 														data={propertySchemaTypeOptions}
-														onChange={(value) =>
-															field.handleChange((value ?? "string"))
-														}
+														onChange={(value) => field.handleChange(value ?? "string")}
 													/>
 												);
 											}}

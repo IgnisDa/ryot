@@ -32,7 +32,8 @@ export interface TrackerOverviewProps {
 }
 
 export function TrackerOverview(props: TrackerOverviewProps) {
-	const accentColor = props.tracker.accentColor || props.entitySchemas[0]?.accentColor ?? "#D4A574";
+	const accentColor =
+		(props.tracker.accentColor || props.entitySchemas[0]?.accentColor) ?? "#D4A574";
 	const overview = useTrackerOverviewData({
 		tracker: props.tracker,
 		entitySchemas: props.entitySchemas,
