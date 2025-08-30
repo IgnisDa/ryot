@@ -127,7 +127,7 @@ function collectImages(coverImage, bannerImage) {
     }
   }
 
-  return [...imageSet].map((url) => ({ kind: "remote", url }));
+  return [...imageSet].map((url) => ({ type: "remote", url }));
 }
 
 function collectGenres(genres, tags) {
@@ -266,7 +266,7 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);

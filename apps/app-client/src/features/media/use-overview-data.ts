@@ -82,13 +82,21 @@ export function useMediaOverviewData() {
 				body: {
 					mode: "entities",
 					scope: [...MEDIA_SCOPE_SLUGS],
-					relationships: [{ relationshipSchemaSlug: "in-library" }],
+					pagination: { page: 1, limit: 6 },
 					eventJoins: [
 						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
 						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
 						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
 					],
-					pagination: { page: 1, limit: 6 },
+					relationshipJoins: [
+						{
+							required: true,
+							key: "inLibrary",
+							direction: "outgoing",
+							kind: "latestRelationship",
+							relationshipSchemaSlug: "in-library",
+						},
+					],
 					sort: {
 						direction: "desc",
 						expression: {
@@ -188,7 +196,7 @@ export function useMediaOverviewData() {
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			const data = response.data.data;
+			const data = response.data;
 			if (data.mode !== "entities") {
 				return [];
 			}
@@ -226,7 +234,15 @@ export function useMediaOverviewData() {
 				body: {
 					mode: "entities",
 					scope: [...MEDIA_SCOPE_SLUGS],
-					relationships: [{ relationshipSchemaSlug: "in-library" }],
+					relationshipJoins: [
+						{
+							key: "inLibrary",
+							kind: "latestRelationship",
+							relationshipSchemaSlug: "in-library",
+							direction: "outgoing",
+							required: true,
+						},
+					],
 					eventJoins: [
 						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
 						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
@@ -346,7 +362,7 @@ export function useMediaOverviewData() {
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			const data = response.data.data;
+			const data = response.data;
 			if (data.mode !== "entities") {
 				return [];
 			}
@@ -409,7 +425,15 @@ export function useMediaOverviewData() {
 				body: {
 					mode: "entities",
 					scope: [...MEDIA_SCOPE_SLUGS],
-					relationships: [{ relationshipSchemaSlug: "in-library" }],
+					relationshipJoins: [
+						{
+							key: "inLibrary",
+							kind: "latestRelationship",
+							relationshipSchemaSlug: "in-library",
+							direction: "outgoing",
+							required: true,
+						},
+					],
 					eventJoins: [
 						{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
 						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
@@ -512,7 +536,7 @@ export function useMediaOverviewData() {
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			const data = response.data.data;
+			const data = response.data;
 			if (data.mode !== "entities") {
 				return [];
 			}
@@ -606,7 +630,7 @@ export function useMediaOverviewData() {
 			if (response.error) {
 				throw new Error(JSON.stringify(response.error));
 			}
-			const data = response.data.data;
+			const data = response.data;
 			if (data.mode !== "events") {
 				return [];
 			}

@@ -243,7 +243,7 @@ query {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -366,7 +366,7 @@ query GetHardcoverBookDetails($id: Int!) {
       publishYear: releaseYear,
       genres: collectGenres(bookData.cached_tags),
       people: collectPeople(bookData.contributions),
-      images: collectImages(bookData.image, bookData.images).map((url) => ({ kind: "remote", url })),
+      images: collectImages(bookData.image, bookData.images).map((url) => ({ type: "remote", url })),
       description:
         typeof bookData.description === "string" ? bookData.description : null,
     },

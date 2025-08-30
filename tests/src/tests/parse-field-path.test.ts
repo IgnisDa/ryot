@@ -101,4 +101,121 @@ describe("parseFieldPath", () => {
 		);
 		expect(() => parseFieldPath("event.review")).toThrow("Invalid field path: event.review");
 	});
+
+	describe("relationship namespace", () => {
+		it("parses a relationship join built-in column", () => {
+			expect(parseFieldPath("relationship.myJoin.createdAt")).toEqual({
+				joinKey: "myJoin",
+				path: ["createdAt"],
+				type: "relationship-join",
+			});
+		});
+
+		it("parses all four built-in columns", () => {
+			expect(parseFieldPath("relationship.myJoin.id")).toEqual({
+				path: ["id"],
+				joinKey: "myJoin",
+				type: "relationship-join",
+			});
+			expect(parseFieldPath("relationship.myJoin.createdAt")).toEqual({
+				joinKey: "myJoin",
+				path: ["createdAt"],
+				type: "relationship-join",
+			});
+			expect(parseFieldPath("relationship.myJoin.sourceEntityId")).toEqual({
+				joinKey: "myJoin",
+				path: ["sourceEntityId"],
+				type: "relationship-join",
+			});
+			expect(parseFieldPath("relationship.myJoin.targetEntityId")).toEqual({
+				joinKey: "myJoin",
+				path: ["targetEntityId"],
+				type: "relationship-join",
+			});
+		});
+
+		it("parses a relationship property path", () => {
+			expect(parseFieldPath("relationship.myJoin.properties.rating")).toEqual({
+				joinKey: "myJoin",
+				type: "relationship-join",
+				path: ["properties", "rating"],
+			});
+		});
+
+		it("parses a deep relationship property path", () => {
+			expect(parseFieldPath("relationship.myJoin.properties.meta.source")).toEqual({
+				joinKey: "myJoin",
+				type: "relationship-join",
+				path: ["properties", "meta", "source"],
+			});
+		});
+
+		it("parses a sourceEntity built-in column", () => {
+			expect(parseFieldPath("relationship.myJoin.sourceEntity.name")).toEqual({
+				joinKey: "myJoin",
+				type: "relationship-join",
+				path: ["sourceEntity", "name"],
+			});
+		});
+
+		it("parses a targetEntity built-in column", () => {
+			expect(parseFieldPath("relationship.myJoin.targetEntity.id")).toEqual({
+				joinKey: "myJoin",
+				type: "relationship-join",
+				path: ["targetEntity", "id"],
+			});
+		});
+
+		it("parses a sourceEntity property path", () => {
+			expect(parseFieldPath("relationship.myJoin.sourceEntity.properties.year")).toEqual({
+				joinKey: "myJoin",
+				type: "relationship-join",
+				path: ["sourceEntity", "properties", "year"],
+			});
+		});
+
+		it("parses a deep targetEntity property path", () => {
+			expect(parseFieldPath("relationship.myJoin.targetEntity.properties.meta.source")).toEqual({
+				joinKey: "myJoin",
+				type: "relationship-join",
+				path: ["targetEntity", "properties", "meta", "source"],
+			});
+		});
+
+		it("rejects relationship.myJoin (missing tail segment)", () => {
+			expect(() => parseFieldPath("relationship.myJoin")).toThrow(
+				"Invalid field path: relationship.myJoin",
+			);
+		});
+
+		it("rejects relationship.myJoin.properties (properties without property segment)", () => {
+			expect(() => parseFieldPath("relationship.myJoin.properties")).toThrow(
+				"Invalid field path: relationship.myJoin.properties",
+			);
+		});
+
+		it("rejects relationship.myJoin.sourceEntity (entity side without column)", () => {
+			expect(() => parseFieldPath("relationship.myJoin.sourceEntity")).toThrow(
+				"Invalid field path: relationship.myJoin.sourceEntity",
+			);
+		});
+
+		it("rejects relationship.myJoin.sourceEntity.properties (entity properties without property segment)", () => {
+			expect(() => parseFieldPath("relationship.myJoin.sourceEntity.properties")).toThrow(
+				"Invalid field path: relationship.myJoin.sourceEntity.properties",
+			);
+		});
+
+		it("rejects relationship.myJoin.unknownColumn (not a valid builtin)", () => {
+			expect(() => parseFieldPath("relationship.myJoin.unknownColumn")).toThrow(
+				"Invalid field path: relationship.myJoin.unknownColumn",
+			);
+		});
+
+		it("rejects relationship.myJoin.sourceEntity.unknownColumn (not a valid entity builtin)", () => {
+			expect(() => parseFieldPath("relationship.myJoin.sourceEntity.unknownColumn")).toThrow(
+				"Invalid field path: relationship.myJoin.sourceEntity.unknownColumn",
+			);
+		});
+	});
 });

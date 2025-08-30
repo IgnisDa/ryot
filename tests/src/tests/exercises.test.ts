@@ -108,11 +108,11 @@ describe("Exercises E2E", () => {
 			name: "All Exercises",
 			trackerId: fitnessTracker.id,
 			queryDefinition: {
-				computedFields: [],
 				filter: null,
 				eventJoins: [],
+				computedFields: [],
 				scope: ["exercise"],
-				relationships: [],
+				relationshipJoins: [],
 				sort: {
 					direction: "asc",
 					expression: createEntityColumnExpression("exercise", "name"),
@@ -189,7 +189,7 @@ describe("Exercises E2E", () => {
 		expect(getQueryEngineFieldOrThrow(exercise, "image")).toEqual({
 			key: "image",
 			kind: "image",
-			value: { kind: "remote", url: seededExerciseImageUrl },
+			value: { type: "remote", url: seededExerciseImageUrl },
 		});
 		expect(getQueryEngineFieldOrThrow(exercise, "callout")).toEqual({
 			kind: "text",

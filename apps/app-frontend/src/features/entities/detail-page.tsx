@@ -37,7 +37,7 @@ export function EntityDetailIdentityHeader(props: {
 	const imageQuery = useResolvedEntityImageUrl(props.entity);
 	const hasImage = !!imageQuery.imageUrl;
 	const isLoadingImage =
-		props.entity.image?.kind === "s3" && imageQuery.isLoading && !imageQuery.imageUrl;
+		props.entity.image?.type === "s3" && imageQuery.isLoading && !imageQuery.imageUrl;
 
 	return (
 		<Box mb="xl">

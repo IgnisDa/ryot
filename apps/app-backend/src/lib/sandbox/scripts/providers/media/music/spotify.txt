@@ -198,7 +198,7 @@ driver("search", async function(context) {
         imageProperty:
           imageUrl === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: imageUrl } },
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
       };
     })
     .filter((item) => item !== null);
@@ -285,7 +285,7 @@ driver("details", async function(context) {
       publishYear,
       byVariousArtists,
       providerRating: popularity,
-      images: getImagesSortedBySize(albumImages).map((url) => ({ kind: "remote", url })),
+      images: getImagesSortedBySize(albumImages).map((url) => ({ type: "remote", url })),
     },
   };
 });

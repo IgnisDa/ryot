@@ -149,12 +149,12 @@ describe("resolveEntityCreateInput", () => {
 				name: "Book",
 				propertiesSchema,
 				properties: { title: "Test Book" },
-				image: { kind: "remote", url: "https://example.com/image.jpg" },
+				image: { type: "remote", url: "https://example.com/image.jpg" },
 			}),
 		).toEqual({
 			name: "Book",
 			properties: { title: "Test Book" },
-			image: { kind: "remote", url: "https://example.com/image.jpg" },
+			image: { type: "remote", url: "https://example.com/image.jpg" },
 		});
 	});
 
@@ -166,12 +166,12 @@ describe("resolveEntityCreateInput", () => {
 				name: "Book",
 				propertiesSchema,
 				properties: { title: "Test Book" },
-				image: { kind: "s3", key: "uploads/entities/entity-image-123" },
+				image: { type: "s3", key: "uploads/entities/entity-image-123" },
 			}),
 		).toEqual({
 			name: "Book",
 			properties: { title: "Test Book" },
-			image: { kind: "s3", key: "uploads/entities/entity-image-123" },
+			image: { type: "s3", key: "uploads/entities/entity-image-123" },
 		});
 	});
 
@@ -183,7 +183,7 @@ describe("resolveEntityCreateInput", () => {
 				name: "Book",
 				propertiesSchema,
 				properties: { title: "Test Book" },
-				image: { kind: "remote", url: "not-a-url" },
+				image: { type: "remote", url: "not-a-url" },
 			}),
 		).toThrow("Entity image remote url must be a valid URL");
 	});

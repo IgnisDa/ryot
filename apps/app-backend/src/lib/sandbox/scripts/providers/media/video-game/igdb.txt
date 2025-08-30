@@ -301,7 +301,7 @@ driver("search", async function(context) {
         imageProperty:
           image === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
+            : { kind: "image", value: { type: "remote", url: image } },
       };
     })
     .filter((item) => item !== null);
@@ -364,12 +364,12 @@ driver("details", async function(context) {
 
   const images = [];
   if (game.cover && typeof game.cover.image_id === "string") {
-    images.push({ kind: "remote", url: getImageUrl(game.cover.image_id) });
+    images.push({ type: "remote", url: getImageUrl(game.cover.image_id) });
   }
   if (Array.isArray(game.artworks)) {
     for (const artwork of game.artworks) {
       if (artwork && typeof artwork.image_id === "string") {
-        images.push({ kind: "remote", url: getImageUrl(artwork.image_id) });
+        images.push({ type: "remote", url: getImageUrl(artwork.image_id) });
       }
     }
   }

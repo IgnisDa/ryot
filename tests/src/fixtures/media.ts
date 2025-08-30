@@ -1,5 +1,69 @@
 import { getPgClient } from "../setup";
 
+export async function createRelationshipSchema(input: {
+	slug: string;
+	name: string;
+	userId: string;
+	propertiesSchema: Record<string, unknown>;
+}) {
+	const pg = getPgClient();
+	const id = crypto.randomUUID();
+
+	await pg.query(
+		`insert into relationship_schema (id, slug, name, user_id, properties_schema, is_builtin)
+		 values ($1, $2, $3, $4, $5::jsonb, false)`,
+		[id, input.slug, input.name, input.userId, JSON.stringify(input.propertiesSchema)],
+	);
+
+	return { id, slug: input.slug };
+}
+
+export async function insertRelationshipRow(input: {
+	userId: string;
+	createdAt?: Date;
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaId: string;
+	properties?: Record<string, unknown>;
+}) {
+	const pg = getPgClient();
+	const id = crypto.randomUUID();
+	const properties = input.properties ?? {};
+
+	if (input.createdAt) {
+		await pg.query(
+			`insert into relationship (id, user_id, relationship_schema_id, properties, source_entity_id, target_entity_id, created_at)
+			 values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+			 on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
+			[
+				id,
+				input.userId,
+				input.relationshipSchemaId,
+				JSON.stringify(properties),
+				input.sourceEntityId,
+				input.targetEntityId,
+				input.createdAt.toISOString(),
+			],
+		);
+	} else {
+		await pg.query(
+			`insert into relationship (id, user_id, relationship_schema_id, properties, source_entity_id, target_entity_id)
+			 values ($1, $2, $3, $4::jsonb, $5, $6)
+			 on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
+			[
+				id,
+				input.userId,
+				input.relationshipSchemaId,
+				JSON.stringify(properties),
+				input.sourceEntityId,
+				input.targetEntityId,
+			],
+		);
+	}
+
+	return { id };
+}
+
 export async function queryInLibraryRelationship(entityId: string, email: string) {
 	return getPgClient().query<{ id: string }>(
 		`select r.id

@@ -134,7 +134,7 @@ driver("search", async function(context) {
         imageProperty:
           imageUrl === null
             ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: imageUrl } },
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
       };
     })
     .filter((item) => item !== null);
@@ -188,7 +188,7 @@ driver("details", async function(context) {
     product?.product_images?.["2400"] ??
     product?.product_images?.["500"] ??
     null;
-  const images = imageUrl ? [{ kind: "remote", url: imageUrl }] : [];
+  const images = imageUrl ? [{ type: "remote", url: imageUrl }] : [];
 
   const publishYear = parseReleaseYear(product?.release_date, dayjs);
 

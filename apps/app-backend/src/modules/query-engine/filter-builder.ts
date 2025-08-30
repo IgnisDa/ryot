@@ -1,43 +1,22 @@
+import { sql } from "drizzle-orm";
+
 import type { ViewComputedField, ViewPredicate } from "~/lib/views/expression";
 
-import { createScalarExpressionCompiler, type ExpressionCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
+import type { ExpressionCompiler } from "./expression-compiler";
 import { buildPredicateClause } from "./predicate-clause-builder";
 import type { QueryEngineContext } from "./schemas";
 
-export const buildFilterWhereClause = (input: {
-	alias?: string;
+type FilterBuilderInput = {
 	context: QueryEngineContext;
-	compiler?: ExpressionCompiler;
+	compiler: ExpressionCompiler;
 	predicate: ViewPredicate | null;
 	computedFields?: ViewComputedField[];
-}) => {
-	if (!input.predicate) {
-		return undefined;
-	}
-
-	const compiler = input.compiler ?? createDefaultCompiler(input);
-
-	return buildPredicateClause({ compiler, predicate: input.predicate });
 };
 
-const createDefaultCompiler = (input: {
-	alias?: string;
-	context: QueryEngineContext;
-	computedFields?: ViewComputedField[];
-}): ExpressionCompiler => {
-	if (!input.alias) {
-		throw new Error("alias is required when no compiler is provided");
+export const buildFilterWhereClause = (input: FilterBuilderInput) => {
+	if (!input.predicate) {
+		return sql`true`;
 	}
-	const getTypeInfo = createExpressionTypeResolver({
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	const { compile } = createScalarExpressionCompiler({
-		getTypeInfo,
-		alias: input.alias,
-		context: input.context,
-		computedFields: input.computedFields,
-	});
-	return { compile, getTypeInfo };
+
+	return buildPredicateClause({ compiler: input.compiler, predicate: input.predicate });
 };

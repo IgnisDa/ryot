@@ -6,7 +6,8 @@ import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/view
 import type { QueryEngineEventJoinLike, QueryEngineEventSchemaLike } from "~/lib/views/reference";
 import { propertySchemaObjectSchema } from "~/modules/property-schemas";
 
-import type { EventJoinDefinition, RelationshipFilter } from "../saved-views/schemas";
+import type { EventJoinDefinition, LatestRelationshipJoinDefinition } from "../saved-views/schemas";
+import type { LoadedRelationshipJoin } from "./context";
 import type { QueryEngineSchemaRow } from "./query-cte-shared";
 
 const parseAppSchema = (value: unknown) => {
@@ -75,17 +76,9 @@ export const validateVisibleEventJoins = (
 export const validateEventSchemaSlugs = (uniqueSlugs: string[], rows: { slug: string }[]) => {
 	for (const slug of uniqueSlugs) {
 		if (!rows.some((r) => r.slug === slug)) {
-			throw new QueryEngineNotFoundError(
+			throw new QueryEngineValidationError(
 				`Event schema '${slug}' not found for the requested entity schemas`,
 			);
-		}
-	}
-};
-
-export const validateRelationshipSlugs = (uniqueSlugs: string[], foundSlugs: Set<string>) => {
-	for (const slug of uniqueSlugs) {
-		if (!foundSlugs.has(slug)) {
-			throw new QueryEngineNotFoundError(`Relationship schema '${slug}' not found`);
 		}
 	}
 };
@@ -104,7 +97,7 @@ export const validateVisibleRelationshipSchemaRows = (
 	for (const slug of slugs) {
 		const found = rowsBySlug.get(slug);
 		if (!found?.length) {
-			throw new QueryEngineNotFoundError(`Relationship schema '${slug}' not found`);
+			throw new QueryEngineValidationError(`Relationship schema '${slug}' not found`);
 		}
 		if (found.length > 1) {
 			throw new QueryEngineValidationError(
@@ -183,32 +176,24 @@ export const loadVisibleEventJoins = async (input: {
 	return validateVisibleEventJoins(input.eventJoins, visibleEventSchemas);
 };
 
-export const loadRelationshipSchemaIds = async (
-	relationships: RelationshipFilter[],
-): Promise<string[]> => {
-	if (!relationships.length) {
+export const loadVisibleRelationshipJoins = async (input: {
+	userId: string;
+	runtimeSchemas?: QueryEngineSchemaRow[];
+	relationshipJoins: LatestRelationshipJoinDefinition[];
+}): Promise<LoadedRelationshipJoin[]> => {
+	if (!input.relationshipJoins.length) {
 		return [];
 	}
 
-	const uniqueSlugs = [...new Set(relationships.map((r) => r.relationshipSchemaSlug))];
+	const uniqueSlugs = [...new Set(input.relationshipJoins.map((r) => r.relationshipSchemaSlug))];
 	const rows = await db
-		.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
-		.from(relationshipSchema)
-		.where(and(inArray(relationshipSchema.slug, uniqueSlugs), isNull(relationshipSchema.userId)));
-
-	const foundSlugs = new Set(rows.map((r) => r.slug));
-	validateRelationshipSlugs(uniqueSlugs, foundSlugs);
-
-	return rows.map((r) => r.id);
-};
-
-export const loadVisibleRelationshipSchemas = async (input: {
-	userId: string;
-	relationshipSchemaSlugs: string[];
-}): Promise<{ id: string; slug: string }[]> => {
-	const uniqueSlugs = [...new Set(input.relationshipSchemaSlugs)];
-	const rows = await db
-		.select({ id: relationshipSchema.id, slug: relationshipSchema.slug })
+		.select({
+			id: relationshipSchema.id,
+			slug: relationshipSchema.slug,
+			propertiesSchema: relationshipSchema.propertiesSchema,
+			sourceEntitySchemaId: relationshipSchema.sourceEntitySchemaId,
+			targetEntitySchemaId: relationshipSchema.targetEntitySchemaId,
+		})
 		.from(relationshipSchema)
 		.where(
 			and(
@@ -218,7 +203,71 @@ export const loadVisibleRelationshipSchemas = async (input: {
 		);
 
 	validateVisibleRelationshipSchemaRows(uniqueSlugs, rows);
-	return rows;
+
+	const entitySchemaIds = [
+		...new Set(
+			rows.flatMap((r) =>
+				[r.sourceEntitySchemaId, r.targetEntitySchemaId].filter((id): id is string => id !== null),
+			),
+		),
+	];
+
+	const entitySchemaRows = entitySchemaIds.length
+		? await db
+				.select({
+					id: entitySchema.id,
+					slug: entitySchema.slug,
+					propertiesSchema: entitySchema.propertiesSchema,
+				})
+				.from(entitySchema)
+				.where(inArray(entitySchema.id, entitySchemaIds))
+		: [];
+
+	const entitySchemaById = new Map(entitySchemaRows.map((r) => [r.id, r]));
+	const schemaBySlug = new Map(rows.map((r) => [r.slug, r]));
+	const scopeSlugs = input.runtimeSchemas ? new Set(input.runtimeSchemas.map((s) => s.slug)) : null;
+
+	return input.relationshipJoins.map((join) => {
+		const schema = schemaBySlug.get(join.relationshipSchemaSlug);
+		if (!schema) {
+			throw new QueryEngineValidationError(
+				`Relationship schema '${join.relationshipSchemaSlug}' not found`,
+			);
+		}
+
+		const sourceRow = schema.sourceEntitySchemaId
+			? entitySchemaById.get(schema.sourceEntitySchemaId)
+			: null;
+		const targetRow = schema.targetEntitySchemaId
+			? entitySchemaById.get(schema.targetEntitySchemaId)
+			: null;
+
+		if (scopeSlugs) {
+			if (join.direction === "outgoing" && sourceRow && !scopeSlugs.has(sourceRow.slug)) {
+				throw new QueryEngineValidationError(
+					`Relationship join '${join.key}': outgoing direction requires source entity schema '${sourceRow.slug}' to be in the query scope`,
+				);
+			}
+			if (join.direction === "incoming" && targetRow && !scopeSlugs.has(targetRow.slug)) {
+				throw new QueryEngineValidationError(
+					`Relationship join '${join.key}': incoming direction requires target entity schema '${targetRow.slug}' to be in the query scope`,
+				);
+			}
+		}
+
+		return {
+			...join,
+			schemaId: schema.id,
+			filter: join.filter ?? null,
+			propertiesSchema: parseAppSchema(schema.propertiesSchema),
+			sourceEntitySchema: sourceRow
+				? { slug: sourceRow.slug, propertiesSchema: parseAppSchema(sourceRow.propertiesSchema) }
+				: undefined,
+			targetEntitySchema: targetRow
+				? { slug: targetRow.slug, propertiesSchema: parseAppSchema(targetRow.propertiesSchema) }
+				: undefined,
+		};
+	});
 };
 
 export const loadEventSchemaSlugs = async (input: {
