@@ -1,24 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
-	findBuiltinTracker,
-	listEntitySchemas,
+	findBuiltinSchemaBySlug,
+	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "../fixtures";
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, {
-			trackerId: builtinTracker.id,
-		});
-		const mediaSchema = schemas.find((schema) => schema.slug === "book");
-
-		expect(mediaSchema).toBeDefined();
-		if (!mediaSchema) {
-			throw new Error("Missing built-in book schema");
-		}
+		const { schema: mediaSchema } = await findBuiltinSchemaBySlug(
+			client,
+			cookies,
+			"book",
+		);
 
 		const eventSchemas = await listEventSchemas(
 			client,
@@ -37,10 +32,7 @@ describe("GET /event-schemas", () => {
 
 	it("exposes lifecycle schemas for each supported built-in media schema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, {
-			trackerId: builtinTracker.id,
-		});
+		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
 
 		for (const slug of ["book", "anime", "manga"]) {
 			const mediaSchema = schemas.find((schema) => schema.slug === slug);

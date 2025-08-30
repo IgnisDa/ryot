@@ -11,6 +11,17 @@ type CreateEventSchemaBody = Omit<
 	"propertiesSchema"
 > & { propertiesSchema: AppSchema };
 
+export function requireEventSchemaBySlug<T extends { slug: string }>(
+	schemas: T[],
+	slug: string,
+): T {
+	const schema = schemas.find((s) => s.slug === slug);
+	if (!schema) {
+		throw new Error(`Event schema '${slug}' not found`);
+	}
+	return schema;
+}
+
 export async function createEventSchema(
 	client: Client,
 	cookies: string,
