@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePathname } from "expo-router";
 import { atom, useAtomValue, useSetAtom } from "jotai";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useApiClient } from "@/lib/api-client";
 import {
@@ -17,11 +17,60 @@ export { navHref };
 
 const navSheetOpenAtom = atom(false);
 const subFlyoutOpenAtom = atom(false);
+const hoveredTrackerSlugAtom = atom<string | null>(null);
 
 export const useNavSheetOpen = () => useAtomValue(navSheetOpenAtom);
 export const useSetNavSheetOpen = () => useSetAtom(navSheetOpenAtom);
 export const useSubFlyoutOpen = () => useAtomValue(subFlyoutOpenAtom);
-export const useSetSubFlyoutOpen = () => useSetAtom(subFlyoutOpenAtom);
+export const useHoveredTrackerSlug = () => useAtomValue(hoveredTrackerSlugAtom);
+
+// Module-level timer for hover close debounce (singleton — one flyout exists)
+let flyoutCloseTimer: ReturnType<typeof setTimeout> | null = null;
+const FLYOUT_HOVER_CLOSE_DELAY_MS = 300;
+
+export function useOpenFlyout() {
+	const setOpen = useSetAtom(subFlyoutOpenAtom);
+	const setSlug = useSetAtom(hoveredTrackerSlugAtom);
+	return useCallback(
+		(trackerSlug: string) => {
+			if (flyoutCloseTimer) {
+				clearTimeout(flyoutCloseTimer);
+				flyoutCloseTimer = null;
+			}
+			setSlug(trackerSlug);
+			setOpen(true);
+		},
+		[setOpen, setSlug],
+	);
+}
+
+export function useScheduleFlyoutClose() {
+	const setOpen = useSetAtom(subFlyoutOpenAtom);
+	const setSlug = useSetAtom(hoveredTrackerSlugAtom);
+	return useCallback(() => {
+		if (flyoutCloseTimer) {
+			clearTimeout(flyoutCloseTimer);
+		}
+		flyoutCloseTimer = setTimeout(() => {
+			setOpen(false);
+			setSlug(null);
+			flyoutCloseTimer = null;
+		}, FLYOUT_HOVER_CLOSE_DELAY_MS);
+	}, [setOpen, setSlug]);
+}
+
+export function useCloseFlyout() {
+	const setOpen = useSetAtom(subFlyoutOpenAtom);
+	const setSlug = useSetAtom(hoveredTrackerSlugAtom);
+	return useCallback(() => {
+		if (flyoutCloseTimer) {
+			clearTimeout(flyoutCloseTimer);
+			flyoutCloseTimer = null;
+		}
+		setOpen(false);
+		setSlug(null);
+	}, [setOpen, setSlug]);
+}
 
 interface UseNavigationDataResult {
 	isError: boolean;
