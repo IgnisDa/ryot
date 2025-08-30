@@ -3,7 +3,9 @@ import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 
 import { config, IS_DEVELOPMENT } from "~/lib/config";
 import { db, schema } from "~/lib/db";
@@ -37,6 +39,7 @@ export const auth = betterAuth({
 	],
 	user: {
 		additionalFields: {
+			bannedAt: { type: "date", required: false, input: false },
 			preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 		},
 	},
@@ -63,6 +66,23 @@ export const auth = betterAuth({
 		},
 	},
 	databaseHooks: {
+		session: {
+			create: {
+				before: async (session) => {
+					const [foundUser] = await db
+						.select({ bannedAt: schema.user.bannedAt })
+						.from(schema.user)
+						.where(eq(schema.user.id, session.userId))
+						.limit(1);
+					if (foundUser?.bannedAt) {
+						throw APIError.from("FORBIDDEN", {
+							code: "USER_DISABLED",
+							message: "This user has been disabled.",
+						});
+					}
+				},
+			},
+		},
 		user: {
 			create: {
 				after: async (user) => {
