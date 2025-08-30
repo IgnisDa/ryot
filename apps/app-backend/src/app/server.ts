@@ -2,6 +2,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
+import { adminAccessTokenHeader } from "~/lib/auth";
 import { config } from "~/lib/config";
 import { metricsMiddleware } from "~/modules/system";
 
@@ -12,8 +13,8 @@ export const getServer = () => {
 	const corsMiddleware = cors({
 		credentials: true,
 		origin: corsOrigins,
-		allowHeaders: ["Accept", "Authorization", "Content-Type", "X-Api-Key"],
 		allowMethods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+		allowHeaders: ["Accept", adminAccessTokenHeader, "Content-Type", "X-Api-Key"],
 	});
 
 	const app = new Hono()
