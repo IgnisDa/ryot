@@ -116,8 +116,7 @@ function collectGenres(genresArray) {
 }
 
 function collectCompanies(networks, productionCompanies) {
-	const companies = [];
-	const seen = new Set();
+	const companyByKey = new Map();
 
 	const addCompany = (company, role) => {
 		const id =
@@ -127,25 +126,35 @@ function collectCompanies(networks, productionCompanies) {
 		if (id === null) {
 			return;
 		}
-		const key = `${id}:${role}`;
-		if (seen.has(key)) {
-			return;
-		}
-		seen.add(key);
 
 		const name =
 			typeof company?.name === "string" && company.name.trim()
 				? company.name.trim()
-				: null;
-		if (!name) {
+				: "Loading...";
+
+		const key = `company.tmdb:${id}`;
+		const existing = companyByKey.get(key);
+		if (existing) {
+			const roles = new Set([
+				...(Array.isArray(existing.relationshipProperties.roles)
+					? existing.relationshipProperties.roles
+					: []),
+				role,
+			]);
+			existing.relationshipProperties.roles = [...roles];
+			if (existing.name === "Loading..." && name !== "Loading...") {
+				existing.name = name;
+			}
 			return;
 		}
 
-		companies.push({
+		companyByKey.set(key, {
 			name,
-			role,
 			externalId: String(id),
 			scriptSlug: "company.tmdb",
+			relationshipProperties: {
+				roles: [role],
+			},
 		});
 	};
 
@@ -161,47 +170,75 @@ function collectCompanies(networks, productionCompanies) {
 		}
 	}
 
-	return companies;
+	return [...companyByKey.values()];
 }
 
 function collectPeople(cast, crew, createdBy) {
-	const people = [];
+	const relatedEntityByKey = new Map();
 	const unlinkedCreators = [];
-	const seen = new Set();
+	const unlinkedByKey = new Set();
+
+	const addRelatedEntity = (relatedEntity) => {
+		const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+		const existing = relatedEntityByKey.get(key);
+		if (!existing) {
+			relatedEntityByKey.set(key, relatedEntity);
+			return;
+		}
+
+		const roles = new Set([
+			...(Array.isArray(existing.relationshipProperties.roles)
+				? existing.relationshipProperties.roles
+				: []),
+			...(Array.isArray(relatedEntity.relationshipProperties.roles)
+				? relatedEntity.relationshipProperties.roles
+				: []),
+		]);
+		existing.relationshipProperties.roles = [...roles];
+		if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+			existing.name = relatedEntity.name;
+		}
+	};
+
+	const addUnlinkedCreator = (name, role) => {
+		const key = `${name}:${role}`;
+		if (unlinkedByKey.has(key)) {
+			return;
+		}
+		unlinkedByKey.add(key);
+		unlinkedCreators.push({ name, role });
+	};
 
 	const creatorList = Array.isArray(createdBy) ? createdBy : [];
 	for (const creator of creatorList) {
-		const name = typeof creator?.name === "string" ? creator.name.trim() : "";
-		if (!name) {
-			continue;
-		}
+		const name =
+			typeof creator?.name === "string" && creator.name.trim()
+				? creator.name.trim()
+				: "Loading...";
 		const id =
 			typeof creator?.id === "number" && Number.isFinite(creator.id)
 				? Math.trunc(creator.id)
 				: null;
-		const key = `${id ?? name}:Creator`;
-		if (seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
 		if (id !== null) {
-			people.push({
+			addRelatedEntity({
 				name,
-				role: "Creator",
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
+				relationshipProperties: {
+					roles: ["Creator"],
+				},
 			});
 		} else {
-			unlinkedCreators.push({ name, role: "Creator" });
+			addUnlinkedCreator(name, "Creator");
 		}
 	}
 
 	const castList = Array.isArray(cast) ? cast : [];
 	for (const member of castList.slice(0, 15)) {
-		const name = typeof member?.name === "string" ? member.name.trim() : "";
-		if (!name) {
-			continue;
-		}
+		const name =
+			typeof member?.name === "string" && member.name.trim()
+				? member.name.trim()
+				: "Loading...";
 		const id =
 			typeof member?.id === "number" && Number.isFinite(member.id)
 				? Math.trunc(member.id)
@@ -211,20 +248,17 @@ function collectPeople(cast, crew, createdBy) {
 			member.known_for_department.trim()
 				? member.known_for_department.trim()
 				: "Acting";
-		const key = `${id ?? name}:${role}`;
-		if (seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
 		if (id !== null) {
-			people.push({
+			addRelatedEntity({
 				name,
-				role,
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
+				relationshipProperties: {
+					roles: [role],
+				},
 			});
 		} else {
-			unlinkedCreators.push({ name, role });
+			addUnlinkedCreator(name, role);
 		}
 	}
 
@@ -238,33 +272,33 @@ function collectPeople(cast, crew, createdBy) {
 
 	const crewList = Array.isArray(crew) ? crew : [];
 	for (const member of crewList) {
-		const name = typeof member?.name === "string" ? member.name.trim() : "";
+		const name =
+			typeof member?.name === "string" && member.name.trim()
+				? member.name.trim()
+				: "Loading...";
 		const job = typeof member?.job === "string" ? member.job.trim() : "";
-		if (!name || !job || !NOTABLE_JOBS.has(job)) {
+		if (!job || !NOTABLE_JOBS.has(job)) {
 			continue;
 		}
 		const id =
 			typeof member?.id === "number" && Number.isFinite(member.id)
 				? Math.trunc(member.id)
 				: null;
-		const key = `${id ?? name}:${job}`;
-		if (seen.has(key)) {
-			continue;
-		}
-		seen.add(key);
 		if (id !== null) {
-			people.push({
+			addRelatedEntity({
 				name,
-				role: job,
 				externalId: String(id),
 				scriptSlug: "person.tmdb",
+				relationshipProperties: {
+					roles: [job],
+				},
 			});
 		} else {
-			unlinkedCreators.push({ name, role: job });
+			addUnlinkedCreator(name, job);
 		}
 	}
 
-	return { people, unlinkedCreators };
+	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
 }
 
 function buildSeason(seasonData, dayjs) {
@@ -513,6 +547,17 @@ driver("details", async function (context) {
 			? showData.vote_average * 10
 			: null;
 
+	const { relatedEntities: peopleRelatedEntities, unlinkedCreators } = collectPeople(
+		creditsData?.cast,
+		creditsData?.crew,
+		showData?.created_by,
+	);
+
+	const relatedEntities = [
+		...peopleRelatedEntities,
+		...collectCompanies(showData?.networks, showData?.production_companies),
+	];
+
 	return {
 		name: title,
 		properties: {
@@ -523,15 +568,6 @@ driver("details", async function (context) {
 			isNsfw: showData?.adult === true ? true : null,
 			sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
 			publishYear: parsePublishYear(showData?.first_air_date, dayjs),
-			...collectPeople(
-				creditsData?.cast,
-				creditsData?.crew,
-				showData?.created_by,
-			),
-			companies: collectCompanies(
-				showData?.networks,
-				showData?.production_companies,
-			),
 			description:
 				typeof showData?.overview === "string" && showData.overview.trim()
 					? showData.overview.trim()
@@ -540,6 +576,8 @@ driver("details", async function (context) {
 				typeof showData?.status === "string" && showData.status.trim()
 					? showData.status.trim()
 					: null,
+			unlinkedCreators,
 		},
+		relatedEntities,
 	};
 });

@@ -1,83 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
-import type { Job } from "bullmq";
-
-import { mediaGroupPropertiesJsonSchema } from "~/lib/media/media-group";
-import { createListedEntity, createOptionalTitlePropertiesSchema } from "~/lib/test-fixtures";
-import type { SandboxScript } from "~/modules/sandbox";
-
-import { mediaJobWaitingForSandboxStep } from "./jobs";
 import {
-	hasImportedEntityDetails,
-	processGroupPopulateJob,
-	processMediaImportJob,
-	processPersonPopulateJob,
-	processPersonStubs,
-} from "./worker";
+	createJob,
+	createListedEntity,
+	createMediaDeps,
+	createOptionalTitlePropertiesSchema,
+} from "~/lib/test-fixtures";
 
-const createJob = (data: unknown): Job =>
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	({
-		data,
-		id: "job_1",
-		updateData: () => Promise.resolve(),
-		queueQualifiedName: "bull:media",
-		getChildrenValues: () => Promise.resolve({}),
-		moveToWaitingChildren: () => Promise.resolve(false),
-	}) as unknown as Job;
-
-const createMediaDeps = (
-	overrides: Partial<NonNullable<Parameters<typeof processMediaImportJob>[2]>> = {},
-): NonNullable<Parameters<typeof processMediaImportJob>[2]> => ({
-	upsertInLibraryRelationship: () => Promise.resolve(),
-	getUserLibraryEntityId: () => Promise.resolve("library_1"),
-	getEntitySchemaScopeForUser: () => Promise.resolve(undefined),
-	findGlobalEntityByExternalId: () => Promise.resolve(undefined),
-	getBuiltinEntitySchemaBySlug: () => Promise.resolve(undefined),
-	getBuiltinSandboxScriptBySlug: () => Promise.resolve(undefined),
-	writeEntityRelationship: () => Promise.resolve({ data: undefined }),
-	getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(undefined),
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	getSandboxScriptForUser: () => Promise.resolve({ id: "script_1" } as never),
-	createGlobalEntity: () => {
-		throw new Error("createGlobalEntity should not be called");
-	},
-	updateGlobalEntityById: () => {
-		throw new Error("updateGlobalEntityById should not be called");
-	},
-	...overrides,
-});
+import { hasImportedEntityDetails, processMediaImportJob, processRelatedEntities } from "./worker";
 
 type MediaDeps = NonNullable<Parameters<typeof processMediaImportJob>[2]>;
-type UpdateGlobalEntityInput = Parameters<MediaDeps["updateGlobalEntityById"]>[0];
-
-const createPersonDeps = (
-	overrides: Partial<NonNullable<Parameters<typeof processPersonPopulateJob>[2]>> = {},
-): NonNullable<Parameters<typeof processPersonPopulateJob>[2]> => ({
-	upsertInLibraryRelationship: () => Promise.resolve(),
-	getUserLibraryEntityId: () => Promise.resolve("library_1"),
-	getEntitySchemaScopeForUser: () => Promise.resolve(undefined),
-	findGlobalEntityByExternalId: () => Promise.resolve(undefined),
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	getSandboxScriptForUser: () => Promise.resolve({ id: "script_1" } as never),
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	getBuiltinSandboxScriptBySlug: () => Promise.resolve({ id: "person_script_1" } as never),
-	getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(undefined),
-	writeEntityRelationship: () => Promise.resolve({ data: undefined }),
-	createGlobalEntity: () => {
-		throw new Error("createGlobalEntity should not be called");
-	},
-	updateGlobalEntityById: () => {
-		throw new Error("updateGlobalEntityById should not be called");
-	},
-	getBuiltinEntitySchemaBySlug: () =>
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		Promise.resolve({
-			id: "person_schema_1",
-			propertiesSchema: { fields: {} },
-		} as never),
-	...overrides,
-});
 
 describe("hasImportedEntityDetails", () => {
 	it("returns false for empty placeholder entities", () => {
@@ -176,235 +108,6 @@ describe("processMediaImportJob", () => {
 
 		expect(sandboxScriptLookups).toBe(1);
 	});
-});
-
-describe("processGroupPopulateJob", () => {
-	const groupScript = {
-		code: "",
-		metadata: {},
-		id: "script_1",
-		name: "Group Script",
-		slug: "movie-group.tmdb",
-	} satisfies SandboxScript;
-	const groupSchema = {
-		id: "group_schema_1",
-		propertiesSchema: mediaGroupPropertiesJsonSchema,
-	} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinEntitySchemaBySlug"]>>>;
-
-	it("updates a group entity from sandbox details", async () => {
-		let updates = 0;
-		let updatedInput: UpdateGlobalEntityInput | undefined;
-
-		await processGroupPopulateJob(
-			Object.assign(
-				createJob({
-					userId: "user_1",
-					externalId: "ext_1",
-					groupEntityId: "group_1",
-					scriptSlug: "movie-group.tmdb",
-					groupSchemaSlug: "movie-group",
-					step: mediaJobWaitingForSandboxStep,
-				}),
-				{
-					moveToWaitingChildren: () => Promise.resolve(false),
-					getChildrenValues: () =>
-						Promise.resolve({
-							child_1: {
-								logs: null,
-								error: null,
-								success: true,
-								value: {
-									name: "Movie Collection",
-									properties: {
-										parts: 12,
-										description: "A collection of movies",
-										sourceUrl: "https://example.com/collection",
-										images: [{ type: "remote", url: "https://example.com/group.jpg" }],
-									},
-								},
-							},
-						}),
-				},
-			),
-			"token_1",
-			createMediaDeps({
-				getBuiltinSandboxScriptBySlug: () => Promise.resolve(groupScript),
-				getBuiltinEntitySchemaBySlug: () => Promise.resolve(groupSchema),
-				updateGlobalEntityById: (input) => {
-					updates += 1;
-					updatedInput = input;
-					return Promise.resolve(
-						createListedEntity({
-							name: input.name,
-							image: input.image,
-							id: input.entityId,
-							externalId: "ext_1",
-							sandboxScriptId: "script_1",
-							properties: input.properties,
-							populatedAt: input.populatedAt,
-							entitySchemaId: input.entitySchemaId,
-						}),
-					);
-				},
-			}),
-		);
-
-		expect(updates).toBe(1);
-		expect(updatedInput?.entityId).toBe("group_1");
-		expect(updatedInput?.entitySchemaId).toBe("group_schema_1");
-		expect(updatedInput?.name).toBe("Movie Collection");
-		expect(updatedInput?.image).toEqual({ type: "remote", url: "https://example.com/group.jpg" });
-		expect(updatedInput?.removePropertyKeys).toEqual(["assets"]);
-		expect(updatedInput?.properties).toEqual({
-			parts: 12,
-			description: "A collection of movies",
-			sourceUrl: "https://example.com/collection",
-			images: [{ type: "remote", url: "https://example.com/group.jpg" }],
-		});
-		expect(updatedInput?.populatedAt instanceof Date).toBe(true);
-	});
-
-	it("skips sandbox population when the group already has imported details", async () => {
-		let updates = 0;
-
-		await processGroupPopulateJob(
-			createJob({
-				userId: "user_1",
-				externalId: "ext_1",
-				groupEntityId: "group_1",
-				groupSchemaSlug: "movie-group",
-				scriptSlug: "movie-group.tmdb",
-			}),
-			undefined,
-			createMediaDeps({
-				getBuiltinSandboxScriptBySlug: () => Promise.resolve(groupScript),
-				getBuiltinEntitySchemaBySlug: () => Promise.resolve(groupSchema),
-				findGlobalEntityByExternalId: () =>
-					Promise.resolve(
-						createListedEntity({
-							id: "group_1",
-							externalId: "ext_1",
-							sandboxScriptId: "script_1",
-							properties: { sourceUrl: "https://example.com/collection" },
-							populatedAt: new Date("2024-01-02T00:00:00.000Z"),
-						}),
-					),
-				updateGlobalEntityById: () => {
-					updates += 1;
-					throw new Error("updateGlobalEntityById should not be called");
-				},
-			}),
-		);
-
-		expect(updates).toBe(0);
-	});
-
-	it("continues to populate placeholder group entities", () => {
-		let scriptLookups = 0;
-
-		expect(
-			processGroupPopulateJob(
-				createJob({
-					userId: "user_1",
-					externalId: "ext_1",
-					groupEntityId: "group_1",
-					groupSchemaSlug: "movie-group",
-					scriptSlug: "movie-group.tmdb",
-				}),
-				undefined,
-				createMediaDeps({
-					getBuiltinSandboxScriptBySlug: () => {
-						scriptLookups += 1;
-						return Promise.resolve(groupScript);
-					},
-					getBuiltinEntitySchemaBySlug: () => Promise.resolve(groupSchema),
-					findGlobalEntityByExternalId: () =>
-						Promise.resolve(
-							createListedEntity({
-								image: null,
-								id: "group_1",
-								properties: {},
-								populatedAt: null,
-								externalId: "ext_1",
-								sandboxScriptId: "script_1",
-							}),
-						),
-				}),
-			),
-		).rejects.toThrow();
-
-		expect(scriptLookups).toBe(1);
-	});
-});
-
-describe("processPersonPopulateJob", () => {
-	it("skips sandbox population when the person already has imported details", async () => {
-		let updates = 0;
-
-		await processPersonPopulateJob(
-			createJob({
-				userId: "user_1",
-				externalId: "ext_1",
-				scriptSlug: "person.tmdb",
-				personEntityId: "person_1",
-			}),
-			undefined,
-			createPersonDeps({
-				findGlobalEntityByExternalId: () =>
-					Promise.resolve(
-						createListedEntity({
-							id: "person_1",
-							externalId: "ext_1",
-							sandboxScriptId: "person_script_1",
-							properties: { sourceUrl: "https://example.com/person" },
-							populatedAt: new Date("2024-01-02T00:00:00.000Z"),
-						}),
-					),
-				updateGlobalEntityById: () => {
-					updates += 1;
-					throw new Error("updateGlobalEntityById should not be called");
-				},
-			}),
-		);
-
-		expect(updates).toBe(0);
-	});
-
-	it("continues to populate placeholder person entities", () => {
-		let sandboxScriptLookups = 0;
-
-		expect(
-			processPersonPopulateJob(
-				createJob({
-					userId: "user_1",
-					externalId: "ext_1",
-					scriptSlug: "person.tmdb",
-					personEntityId: "person_1",
-				}),
-				undefined,
-				createPersonDeps({
-					getBuiltinSandboxScriptBySlug: () => {
-						sandboxScriptLookups += 1;
-						// oxlint-disable-next-line no-unsafe-type-assertion
-						return Promise.resolve({ id: "person_script_1" } as never);
-					},
-					findGlobalEntityByExternalId: () =>
-						Promise.resolve(
-							createListedEntity({
-								image: null,
-								id: "person_1",
-								properties: {},
-								populatedAt: null,
-								externalId: "ext_1",
-								sandboxScriptId: "person_script_1",
-							}),
-						),
-				}),
-			),
-		).rejects.toThrow();
-
-		expect(sandboxScriptLookups).toBe(1);
-	});
 
 	it("does not link media into the library before the entity update succeeds", () => {
 		let linkedMediaEntityId: string | undefined;
@@ -482,73 +185,243 @@ describe("processPersonPopulateJob", () => {
 
 		expect(linkedMediaEntityId).toBeUndefined();
 	});
-});
 
-describe("processPersonStubs", () => {
-	const personSchema = {
-		id: "person_schema_1",
-		propertiesSchema: { fields: {} },
-	};
-	const relSchema = {
-		id: "rel_schema_person_to_movie",
-		propertiesSchema: { fields: {} },
-	};
-	const personScript = { id: "person_script_1" };
-	const personEntity = createListedEntity({
-		properties: {},
-		populatedAt: null,
-		id: "person_entity_1",
-		externalId: "person_ext_1",
-		sandboxScriptId: "person_script_1",
-	});
-
-	const baseInput = {
-		userId: "user_1",
-		mediaEntityId: "media_1",
-		mediaEntitySchemaSlug: "movie",
-		rawProperties: {
-			people: [
-				{
-					role: "Director",
-					name: "Jane Smith",
-					externalId: "person_ext_1",
-					scriptSlug: "person.tmdb",
+	it("succeeds on full job retry after a related write failure", async () => {
+		const entity = createListedEntity({
+			id: "media_1",
+			properties: {},
+			populatedAt: null,
+			externalId: "ext_1",
+			sandboxScriptId: "script_1",
+		});
+		const relatedEntity = createListedEntity({
+			id: "person_1",
+			properties: {},
+			populatedAt: null,
+			externalId: "person_ext_1",
+			sandboxScriptId: "person_script_1",
+		});
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		const bookScope = {
+			slug: "book",
+			userId: null,
+			id: "schema_1",
+			isBuiltin: false,
+			propertiesSchema: {
+				fields: {
+					...createOptionalTitlePropertiesSchema().fields,
+					images: {
+						type: "array",
+						label: "Images",
+						description: "Images",
+						items: {
+							type: "object",
+							label: "Image",
+							description: "Image",
+							properties: {
+								url: { description: "URL", label: "URL", type: "string" },
+								kind: { description: "Kind", label: "Kind", type: "string" },
+							},
+						},
+					},
 				},
-			],
-		},
-	};
+			},
+		} as NonNullable<Awaited<ReturnType<MediaDeps["getEntitySchemaScopeForUser"]>>>;
+		const personSchema = {
+			slug: "person",
+			id: "person_schema_1",
+			propertiesSchema: { fields: {} },
+		} satisfies NonNullable<
+			Awaited<ReturnType<MediaDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
+		>;
+		const relationshipSchema = {
+			id: "rel_schema_1",
+			propertiesSchema: { fields: {} },
+		} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinRelationshipSchemaBySlug"]>>>;
+		const relatedScript = {
+			id: "person_script_1",
+		} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinSandboxScriptBySlug"]>>>;
+		let relatedScriptLookups = 0;
+		let relatedWrites = 0;
+		let updateCalls = 0;
 
-	const baseDeps = () => ({
-		writeEntityRelationship: () => Promise.resolve({ data: undefined }),
-		getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(relSchema),
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		getBuiltinEntitySchemaBySlug: () => Promise.resolve(personSchema as never),
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		getBuiltinSandboxScriptBySlug: () => Promise.resolve(personScript as never),
-		createGlobalEntity: () => Promise.resolve({ isNew: false, entity: personEntity }),
-	});
-
-	it("skips a stub that fails relationship schema validation rather than throwing", async () => {
-		let writeCallCount = 0;
-
-		await processPersonStubs(baseInput, {
-			...baseDeps(),
+		const deps = createMediaDeps({
+			findGlobalEntityByExternalId: () => Promise.resolve(entity),
+			getEntitySchemaScopeForUser: () => Promise.resolve(bookScope),
+			getBuiltinEntitySchemaBySandboxScriptId: () => Promise.resolve(personSchema),
+			getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(relationshipSchema),
+			getBuiltinSandboxScriptBySlug: () => {
+				relatedScriptLookups += 1;
+				return Promise.resolve(relatedScript);
+			},
+			createGlobalEntity: (input) =>
+				Promise.resolve(
+					input.entitySchemaId === "schema_1"
+						? { entity, isNew: false }
+						: { isNew: false, entity: relatedEntity },
+				),
 			writeEntityRelationship: () => {
-				writeCallCount++;
-				return Promise.resolve({ error: "validation" as const, message: "Invalid properties" });
+				relatedWrites += 1;
+				if (relatedWrites === 1) {
+					return Promise.resolve({ error: "not_found" as const, message: "boom" });
+				}
+
+				return Promise.resolve({ data: undefined });
+			},
+			updateGlobalEntityById: (input) => {
+				updateCalls += 1;
+				return Promise.resolve(
+					createListedEntity({
+						name: input.name,
+						image: input.image,
+						id: input.entityId,
+						externalId: "ext_1",
+						sandboxScriptId: "script_1",
+						properties: input.properties,
+						populatedAt: input.populatedAt,
+					}),
+				);
 			},
 		});
 
-		expect(writeCallCount).toBe(1);
-	});
+		const job = createJob({
+			userId: "user_1",
+			externalId: "ext_1",
+			scriptId: "script_1",
+			entitySchemaId: "schema_1",
+			step: "waiting_for_sandbox",
+		});
+		Object.assign(job, {
+			moveToWaitingChildren: () => Promise.resolve(false),
+			getChildrenValues: () =>
+				Promise.resolve({
+					child_1: {
+						logs: null,
+						error: null,
+						success: true,
+						value: {
+							name: "Imported title",
+							properties: { title: "Imported title", images: [] },
+							relatedEntities: [
+								{
+									name: "Loading...",
+									externalId: "person_ext_1",
+									scriptSlug: "person.openlibrary",
+									relationshipProperties: { roles: ["Author"] },
+								},
+							],
+						},
+					},
+				}),
+		});
 
-	it("throws for non-validation relationship errors", () => {
-		expect(
-			processPersonStubs(baseInput, {
-				...baseDeps(),
-				writeEntityRelationship: () =>
-					Promise.resolve({ error: "not_found" as const, message: "Schema not found" }),
-			}),
-		).rejects.toThrow("Failed to write person-to-media relationship: Schema not found");
+		let firstError: unknown;
+		try {
+			await processMediaImportJob(job, "token_1", deps);
+		} catch (error) {
+			firstError = error;
+		}
+
+		expect(firstError).toBeInstanceOf(Error);
+		if (!(firstError instanceof Error)) {
+			throw new Error("Expected first retry attempt to fail");
+		}
+		expect(firstError.message).toBe("Failed to write person-to-book relationship: boom");
+		const result = await processMediaImportJob(job, "token_1", deps);
+
+		expect(relatedScriptLookups).toBe(2);
+		expect(relatedWrites).toBe(2);
+		expect(updateCalls).toBe(1);
+		expect(result.populatedAt instanceof Date).toBe(true);
+	});
+});
+
+describe("processRelatedEntities", () => {
+	const relatedPersonSchema = {
+		slug: "person",
+		id: "person_schema_1",
+		propertiesSchema: { fields: {} },
+	} satisfies NonNullable<
+		Awaited<ReturnType<MediaDeps["getBuiltinEntitySchemaBySandboxScriptId"]>>
+	>;
+	const relatedRelationshipSchema = {
+		id: "rel_schema_1",
+		propertiesSchema: { fields: {} },
+	} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinRelationshipSchemaBySlug"]>>>;
+	const relatedSandboxScript = {
+		id: "person_script_1",
+	} satisfies NonNullable<Awaited<ReturnType<MediaDeps["getBuiltinSandboxScriptBySlug"]>>>;
+
+	it("creates placeholder related entities and writes relationships", async () => {
+		let relationshipSlug: string | undefined;
+		let createdEntityInput:
+			| Parameters<
+					NonNullable<Parameters<typeof processRelatedEntities>[1]>["createGlobalEntity"]
+			  >[0]
+			| undefined;
+		let relationshipInput:
+			| Parameters<
+					NonNullable<Parameters<typeof processRelatedEntities>[1]>["writeEntityRelationship"]
+			  >[0]
+			| undefined;
+
+		await processRelatedEntities(
+			{
+				mediaEntityId: "book_1",
+				mediaEntitySchemaSlug: "book",
+				relatedEntities: [
+					{
+						name: "Loading...",
+						externalId: "OL151749A",
+						scriptSlug: "person.openlibrary",
+						relationshipProperties: {
+							order: 1,
+							character: "Jane Doe",
+							roles: ["Author", "Editor"],
+						},
+					},
+				],
+			},
+			{
+				getBuiltinSandboxScriptBySlug: () => Promise.resolve(relatedSandboxScript),
+				getBuiltinEntitySchemaBySandboxScriptId: () => Promise.resolve(relatedPersonSchema),
+				getBuiltinRelationshipSchemaBySlug: (slug) => {
+					relationshipSlug = slug;
+					return Promise.resolve(relatedRelationshipSchema);
+				},
+				writeEntityRelationship: (input) => {
+					relationshipInput = input;
+					return Promise.resolve({ data: undefined });
+				},
+				createGlobalEntity: (input) => {
+					createdEntityInput = input;
+					return Promise.resolve({
+						isNew: true,
+						entity: createListedEntity({
+							id: "person_1",
+							properties: {},
+							name: input.name,
+							populatedAt: null,
+							externalId: input.externalId,
+							sandboxScriptId: input.sandboxScriptId,
+						}),
+					});
+				},
+			} satisfies NonNullable<Parameters<typeof processRelatedEntities>[1]>,
+		);
+
+		expect(relationshipSlug).toBe("person-to-book");
+		expect(createdEntityInput).toEqual({
+			name: "Loading...",
+			externalId: "OL151749A",
+			entitySchemaId: "person_schema_1",
+			sandboxScriptId: "person_script_1",
+		});
+		expect(relationshipInput).toEqual({
+			targetEntityId: "book_1",
+			sourceEntityId: "person_1",
+			relationshipSchemaId: "rel_schema_1",
+			properties: { order: 1, character: "Jane Doe", roles: ["Author", "Editor"] },
+		});
 	});
 });

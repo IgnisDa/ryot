@@ -12,6 +12,7 @@ export const createQueues = () => {
 	const connection = getRedisConnection();
 	const eventsQueue = new Queue("event", { connection, defaultJobOptions });
 	const sandboxQueue = new Queue("sandbox", { connection, defaultJobOptions });
+	// TODO: rename this queue once the media import worker is renamed for generic entity import.
 	const mediaQueue = new Queue("media", {
 		connection,
 		defaultJobOptions: {
