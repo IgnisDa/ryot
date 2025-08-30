@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { extractErrorMessage } from "@ryot/ts-utils";
 import { sql } from "drizzle-orm";
 
 import { appConfigEnvIndex, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";
@@ -70,7 +71,7 @@ export const systemApi = new OpenAPIHono()
 			return c.json(
 				errorResponse(
 					ERROR_CODES.HEALTH_CHECK_FAILED,
-					`Database check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+					`Database check failed: ${extractErrorMessage(error, "Unknown error")}`,
 				),
 				503,
 			);
@@ -82,7 +83,7 @@ export const systemApi = new OpenAPIHono()
 			return c.json(
 				errorResponse(
 					ERROR_CODES.HEALTH_CHECK_FAILED,
-					`Redis check failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+					`Redis check failed: ${extractErrorMessage(error, "Unknown error")}`,
 				),
 				503,
 			);

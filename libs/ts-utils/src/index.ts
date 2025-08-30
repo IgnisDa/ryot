@@ -61,7 +61,23 @@ export const zodNumAsString = z
 	.transform(Number);
 
 export const zodNonEmptyTrimmedString = (errorMessage: string) =>
-	z.string().refine((value) => value.trim().length > 0, errorMessage);
+	z.string().trim().min(1, errorMessage);
+
+export const extractErrorMessage = (error: unknown, fallback: string) => {
+	return error instanceof Error ? error.message : fallback;
+};
+
+export const resolveDataOrError = <T, E>(input: {
+	fallback: string;
+	callback: () => T;
+	onError: (message: string) => E;
+}) => {
+	try {
+		return { data: input.callback() } as const;
+	} catch (error) {
+		return input.onError(extractErrorMessage(error, input.fallback));
+	}
+};
 
 export const zodRequiredName = zodNonEmptyTrimmedString("Name is required");
 

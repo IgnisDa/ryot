@@ -4,11 +4,14 @@ import { match } from "ts-pattern";
 
 import { db } from "~/lib/db";
 
-import { buildQueryContext, type PreparedQueryContext } from "./context";
+import type { PreparedQueryContext } from "./context";
 import { buildEventFirstCte } from "./event-query-ctes";
-import { createQueryCompiler, createScalarExpressionCompiler } from "./expression-compiler";
-import { createExpressionTypeResolver } from "./expression-type-resolver";
-import { buildFilterWhereClause } from "./filter-builder";
+import {
+	buildQueryFilterClause,
+	buildQueryRuntime,
+	buildScalarCompiler,
+	resolveRequestedEventSchemaSlugs,
+} from "./query-builder-shared";
 import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, TIMESERIES_CTE_ALIASES } from "./query-cte-shared";
 import type { QueryEngineTimeSeriesResponse, TimeSeriesQueryEngineRequest } from "./schemas";
 
@@ -57,10 +60,15 @@ export const executeTimeSeriesQuery = async (input: {
 	context: PreparedQueryContext;
 	request: TimeSeriesQueryEngineRequest;
 }): Promise<QueryEngineTimeSeriesResponse> => {
-	const queryContext = buildQueryContext(input.userId, input.context, {
-		eventJoinMap: new Map(),
-		eventSchemaMap: input.context.eventSchemaMap,
-		entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
+	const runtime = buildQueryRuntime({
+		userId: input.userId,
+		context: input.context,
+		computedFields: input.request.computedFields,
+		overrides: {
+			eventJoinMap: new Map(),
+			eventSchemaMap: input.context.eventSchemaMap,
+			entityColumnOverrides: EVENT_FIRST_ENTITY_COLUMN_OVERRIDES,
+		},
 	});
 
 	const bucketInterval = buildBucketInterval(input.request.bucket);
@@ -73,30 +81,19 @@ export const executeTimeSeriesQuery = async (input: {
 		dateRange: input.request.dateRange,
 		cteName: TIMESERIES_CTE_ALIASES.matchingEvents,
 		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
-		eventSchemaSlugs: input.request.eventSchemas?.length
-			? input.request.eventSchemas
-			: [...input.context.eventSchemaSlugs],
+		eventSchemaSlugs: resolveRequestedEventSchemaSlugs(
+			input.request.eventSchemas,
+			input.context.eventSchemaSlugs,
+		),
 	});
-
-	const getTypeInfo = createExpressionTypeResolver({
-		context: queryContext,
-		computedFields: input.request.computedFields,
-	});
-
-	const filterWhereClause = buildFilterWhereClause({
-		context: queryContext,
+	const filterWhereClause = buildQueryFilterClause({
+		runtime,
 		predicate: input.request.filter,
+		alias: TIMESERIES_CTE_ALIASES.matchingEvents,
 		computedFields: input.request.computedFields,
-		compiler: createQueryCompiler({
-			getTypeInfo,
-			context: queryContext,
-			alias: TIMESERIES_CTE_ALIASES.matchingEvents,
-			computedFields: input.request.computedFields,
-		}),
 	});
-	const compiler = createScalarExpressionCompiler({
-		getTypeInfo,
-		context: queryContext,
+	const compiler = buildScalarCompiler({
+		runtime,
 		alias: TIMESERIES_CTE_ALIASES.filteredEvents,
 		computedFields: input.request.computedFields,
 	});

@@ -1,4 +1,4 @@
-import { dayjs } from "@ryot/ts-utils";
+import { dayjs, extractErrorMessage } from "@ryot/ts-utils";
 
 import { redis } from "~/lib/redis";
 
@@ -138,12 +138,12 @@ export class BridgeServer {
 				return sendJson(200, { result });
 			} catch (error) {
 				return sendJson(500, {
-					error: error instanceof Error ? error.message : String(error),
+					error: extractErrorMessage(error, String(error)),
 				});
 			}
 		} catch (error) {
 			return sendJson(400, {
-				error: error instanceof Error ? error.message : String(error),
+				error: extractErrorMessage(error, String(error)),
 			});
 		}
 	}
