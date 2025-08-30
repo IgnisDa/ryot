@@ -1,439 +1,482 @@
 function parseJsonResponse(responseBody) {
-  try {
-    return JSON.parse(responseBody);
-  } catch {
-    throw new Error("TMDB returned invalid JSON");
-  }
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("TMDB returned invalid JSON");
+	}
 }
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 async function getTmdbAccessToken() {
-  const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN");
-  if (!resp?.success) {
-    throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
-  }
+	const resp = await getAppConfigValue("MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN");
+	if (!resp?.success) {
+		throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
+	}
 
-  const token =
-    typeof resp.data === "string" ? resp.data.trim() : null;
-  if (!token) {
-    throw new Error(
-      "TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
-    );
-  }
+	const token = typeof resp.data === "string" ? resp.data.trim() : null;
+	if (!token) {
+		throw new Error(
+			"TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+		);
+	}
 
-  return token;
+	return token;
 }
 
 function getImageUrl(path) {
-  if (typeof path !== "string" || !path.trim()) {
-    return null;
-  }
-  return `${TMDB_IMAGE_BASE}${path.trim()}`;
+	if (typeof path !== "string" || !path.trim()) {
+		return null;
+	}
+	return `${TMDB_IMAGE_BASE}${path.trim()}`;
 }
 
 function parsePublishYear(dateStr, dayjs) {
-  if (typeof dateStr !== "string" || !dateStr.trim()) return null;
-  const d = dayjs(dateStr.trim());
-  return d.isValid() && d.year() > 0 ? d.year() : null;
+	if (typeof dateStr !== "string" || !dateStr.trim()) return null;
+	const d = dayjs(dateStr.trim());
+	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
 
 async function tmdbGet(path, params, token) {
-  const query = new URLSearchParams(params);
-  const url = `${TMDB_BASE_URL}${path}?${query.toString()}`;
-  const response = await httpCall("GET", url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+	const query = new URLSearchParams(params);
+	const url = `${TMDB_BASE_URL}${path}?${query.toString()}`;
+	const response = await httpCall("GET", url, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
 
-  if (!response?.success) {
-    throw new Error(response?.error ?? `TMDB request failed: ${path}`);
-  }
+	if (!response?.success) {
+		throw new Error(response?.error ?? `TMDB request failed: ${path}`);
+	}
 
-  const payload = parseJsonResponse(response.data.body);
+	const payload = parseJsonResponse(response.data.body);
 
-  if (
-    typeof payload?.status_code === "number" &&
-    payload.status_code !== 1
-  ) {
-    throw new Error(
-      payload.status_message ?? `TMDB API error (status ${payload.status_code})`,
-    );
-  }
+	if (typeof payload?.status_code === "number" && payload.status_code !== 1) {
+		throw new Error(
+			payload.status_message ??
+				`TMDB API error (status ${payload.status_code})`,
+		);
+	}
 
-  return payload;
+	return payload;
 }
 
 function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
-  const seen = new Set();
-  const images = [];
+	const seen = new Set();
+	const images = [];
 
-  const addImage = (path) => {
-    const url = getImageUrl(path);
-    if (url && !seen.has(url)) {
-      seen.add(url);
-      images.push(url);
-    }
-  };
+	const addImage = (path) => {
+		const url = getImageUrl(path);
+		if (url && !seen.has(url)) {
+			seen.add(url);
+			images.push(url);
+		}
+	};
 
-  addImage(posterPath);
-  addImage(backdropPath);
+	addImage(posterPath);
+	addImage(backdropPath);
 
-  if (Array.isArray(postersArray)) {
-    for (const item of postersArray) {
-      addImage(item?.file_path);
-    }
-  }
+	if (Array.isArray(postersArray)) {
+		for (const item of postersArray) {
+			addImage(item?.file_path);
+		}
+	}
 
-  if (Array.isArray(backdropsArray)) {
-    for (const item of backdropsArray) {
-      addImage(item?.file_path);
-    }
-  }
+	if (Array.isArray(backdropsArray)) {
+		for (const item of backdropsArray) {
+			addImage(item?.file_path);
+		}
+	}
 
-  return images;
+	return images;
 }
 
 function collectGenres(genresArray) {
-  if (!Array.isArray(genresArray)) {
-    return [];
-  }
+	if (!Array.isArray(genresArray)) {
+		return [];
+	}
 
-  const genres = [];
-  for (const g of genresArray) {
-    const name = typeof g?.name === "string" ? g.name.trim() : "";
-    if (name) {
-      genres.push(name);
-    }
-  }
+	const genres = [];
+	for (const g of genresArray) {
+		const name = typeof g?.name === "string" ? g.name.trim() : "";
+		if (name) {
+			genres.push(name);
+		}
+	}
 
-  return genres;
+	return genres;
 }
 
-function collectFreeCreators(cast, crew, createdBy) {
-  const freeCreators = [];
-  const seen = new Set();
+function collectPeople(cast, crew, createdBy) {
+	const people = [];
+	const freeCreators = [];
+	const seen = new Set();
 
-  const creatorList = Array.isArray(createdBy) ? createdBy : [];
-  for (const creator of creatorList) {
-    const name =
-      typeof creator?.name === "string" ? creator.name.trim() : "";
-    if (!name) {
-      continue;
-    }
-    const key = `${name}:Creator`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    freeCreators.push({ name, role: "Creator" });
-  }
+	const creatorList = Array.isArray(createdBy) ? createdBy : [];
+	for (const creator of creatorList) {
+		const name = typeof creator?.name === "string" ? creator.name.trim() : "";
+		if (!name) {
+			continue;
+		}
+		const id =
+			typeof creator?.id === "number" && Number.isFinite(creator.id)
+				? Math.trunc(creator.id)
+				: null;
+		const key = `${id ?? name}:Creator`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		if (id !== null) {
+			people.push({
+				name,
+				role: "Creator",
+				externalId: String(id),
+				scriptSlug: "person.tmdb",
+			});
+		} else {
+			freeCreators.push({ name, role: "Creator" });
+		}
+	}
 
-  const castList = Array.isArray(cast) ? cast : [];
-  for (const member of castList.slice(0, 15)) {
-    const name =
-      typeof member?.name === "string" ? member.name.trim() : "";
-    if (!name) {
-      continue;
-    }
-    const character =
-      typeof member?.character === "string" && member.character.trim()
-        ? member.character.trim()
-        : null;
-    const role = character ? character : "Cast";
-    const key = `${name}:${role}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    freeCreators.push({ name, role });
-  }
+	const castList = Array.isArray(cast) ? cast : [];
+	for (const member of castList.slice(0, 15)) {
+		const name = typeof member?.name === "string" ? member.name.trim() : "";
+		if (!name) {
+			continue;
+		}
+		const id =
+			typeof member?.id === "number" && Number.isFinite(member.id)
+				? Math.trunc(member.id)
+				: null;
+		const role =
+			typeof member?.known_for_department === "string" &&
+			member.known_for_department.trim()
+				? member.known_for_department.trim()
+				: "Acting";
+		const key = `${id ?? name}:${role}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		if (id !== null) {
+			people.push({
+				name,
+				role,
+				externalId: String(id),
+				scriptSlug: "person.tmdb",
+			});
+		} else {
+			freeCreators.push({ name, role });
+		}
+	}
 
-  const NOTABLE_JOBS = new Set([
-    "Director",
-    "Producer",
-    "Screenplay",
-    "Writer",
-    "Story",
-  ]);
+	const NOTABLE_JOBS = new Set([
+		"Director",
+		"Producer",
+		"Screenplay",
+		"Writer",
+		"Story",
+	]);
 
-  const crewList = Array.isArray(crew) ? crew : [];
-  for (const member of crewList) {
-    const name =
-      typeof member?.name === "string" ? member.name.trim() : "";
-    const job =
-      typeof member?.job === "string" ? member.job.trim() : "";
-    if (!name || !job || !NOTABLE_JOBS.has(job)) {
-      continue;
-    }
-    const key = `${name}:${job}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    freeCreators.push({ name, role: job });
-  }
+	const crewList = Array.isArray(crew) ? crew : [];
+	for (const member of crewList) {
+		const name = typeof member?.name === "string" ? member.name.trim() : "";
+		const job = typeof member?.job === "string" ? member.job.trim() : "";
+		if (!name || !job || !NOTABLE_JOBS.has(job)) {
+			continue;
+		}
+		const id =
+			typeof member?.id === "number" && Number.isFinite(member.id)
+				? Math.trunc(member.id)
+				: null;
+		const key = `${id ?? name}:${job}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		if (id !== null) {
+			people.push({
+				name,
+				role: job,
+				externalId: String(id),
+				scriptSlug: "person.tmdb",
+			});
+		} else {
+			freeCreators.push({ name, role: job });
+		}
+	}
 
-  return freeCreators;
+	return { people, freeCreators };
 }
 
 function buildSeason(seasonData, dayjs) {
-  const id =
-    typeof seasonData?.id === "number" &&
-    Number.isFinite(seasonData.id) &&
-    seasonData.id > 0
-      ? Math.trunc(seasonData.id)
-      : -1;
-  const name =
-    typeof seasonData?.name === "string" && seasonData.name.trim()
-      ? seasonData.name.trim()
-      : "Unknown Season";
-  const seasonNumber =
-    typeof seasonData?.season_number === "number" &&
-    Number.isFinite(seasonData.season_number)
-      ? Math.trunc(seasonData.season_number)
-      : 0;
-  const overview =
-    typeof seasonData?.overview === "string" && seasonData.overview.trim()
-      ? seasonData.overview.trim()
-      : null;
-  const publishDate =
-    typeof seasonData?.air_date === "string" && seasonData.air_date.trim()
-      ? seasonData.air_date.trim()
-      : null;
+	const id =
+		typeof seasonData?.id === "number" &&
+		Number.isFinite(seasonData.id) &&
+		seasonData.id > 0
+			? Math.trunc(seasonData.id)
+			: -1;
+	const name =
+		typeof seasonData?.name === "string" && seasonData.name.trim()
+			? seasonData.name.trim()
+			: "Unknown Season";
+	const seasonNumber =
+		typeof seasonData?.season_number === "number" &&
+		Number.isFinite(seasonData.season_number)
+			? Math.trunc(seasonData.season_number)
+			: 0;
+	const overview =
+		typeof seasonData?.overview === "string" && seasonData.overview.trim()
+			? seasonData.overview.trim()
+			: null;
+	const publishDate =
+		typeof seasonData?.air_date === "string" && seasonData.air_date.trim()
+			? seasonData.air_date.trim()
+			: null;
 
-  const posterUrl = getImageUrl(seasonData?.poster_path);
-  const posterImages = posterUrl ? [posterUrl] : [];
-  const backdropImages = [];
+	const posterUrl = getImageUrl(seasonData?.poster_path);
+	const posterImages = posterUrl ? [posterUrl] : [];
+	const backdropImages = [];
 
-  const episodeList = Array.isArray(seasonData?.episodes)
-    ? seasonData.episodes
-    : [];
-  const episodes = episodeList.map((ep) => {
-    const epId =
-      typeof ep?.id === "number" &&
-      Number.isFinite(ep.id) &&
-      ep.id > 0
-        ? Math.trunc(ep.id)
-        : -1;
-    const epName =
-      typeof ep?.name === "string" && ep.name.trim()
-        ? ep.name.trim()
-        : "";
-    const epRuntime =
-      typeof ep?.runtime === "number" &&
-      Number.isFinite(ep.runtime) &&
-      ep.runtime > 0
-        ? Math.trunc(ep.runtime)
-        : null;
-    const epOverview =
-      typeof ep?.overview === "string" && ep.overview.trim()
-        ? ep.overview.trim()
-        : null;
-    const epNumber =
-      typeof ep?.episode_number === "number" &&
-      Number.isFinite(ep.episode_number)
-        ? Math.trunc(ep.episode_number)
-        : 0;
-    const epPublishDate =
-      typeof ep?.air_date === "string" && ep.air_date.trim()
-        ? ep.air_date.trim()
-        : null;
-    const epPosterUrl = getImageUrl(ep?.still_path);
-    const epPosterImages = epPosterUrl ? [epPosterUrl] : [];
+	const episodeList = Array.isArray(seasonData?.episodes)
+		? seasonData.episodes
+		: [];
+	const episodes = episodeList.map((ep) => {
+		const epId =
+			typeof ep?.id === "number" && Number.isFinite(ep.id) && ep.id > 0
+				? Math.trunc(ep.id)
+				: -1;
+		const epName =
+			typeof ep?.name === "string" && ep.name.trim() ? ep.name.trim() : "";
+		const epRuntime =
+			typeof ep?.runtime === "number" &&
+			Number.isFinite(ep.runtime) &&
+			ep.runtime > 0
+				? Math.trunc(ep.runtime)
+				: null;
+		const epOverview =
+			typeof ep?.overview === "string" && ep.overview.trim()
+				? ep.overview.trim()
+				: null;
+		const epNumber =
+			typeof ep?.episode_number === "number" &&
+			Number.isFinite(ep.episode_number)
+				? Math.trunc(ep.episode_number)
+				: 0;
+		const epPublishDate =
+			typeof ep?.air_date === "string" && ep.air_date.trim()
+				? ep.air_date.trim()
+				: null;
+		const epPosterUrl = getImageUrl(ep?.still_path);
+		const epPosterImages = epPosterUrl ? [epPosterUrl] : [];
 
-    return {
-      name: epName,
-      id: epId,
-      runtime: epRuntime,
-      overview: epOverview,
-      episodeNumber: epNumber,
-      publishDate: epPublishDate,
-      posterImages: epPosterImages,
-    };
-  });
+		return {
+			name: epName,
+			id: epId,
+			runtime: epRuntime,
+			overview: epOverview,
+			episodeNumber: epNumber,
+			publishDate: epPublishDate,
+			posterImages: epPosterImages,
+		};
+	});
 
-  return {
-    name,
-    id,
-    overview,
-    seasonNumber,
-    posterImages,
-    publishDate,
-    backdropImages,
-    episodes,
-  };
+	return {
+		name,
+		id,
+		overview,
+		seasonNumber,
+		posterImages,
+		publishDate,
+		backdropImages,
+		episodes,
+	};
 }
 
 driver("search", async function (context) {
-  const { z } = await import("npm:zod");
-  const dayjs = (await import("npm:dayjs")).default;
+	const { z } = await import("npm:zod");
+	const dayjs = (await import("npm:dayjs")).default;
 
-  const { query, page: currentPage, pageSize } = z.object({
-    query: z.string().trim().min(1, "query is required"),
-    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
-    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
-  }).parse(context ?? {});
+	const {
+		query,
+		page: currentPage,
+		pageSize,
+	} = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce
+				.number()
+				.min(1)
+				.max(100)
+				.transform(Math.floor)
+				.catch(20),
+		})
+		.parse(context ?? {});
 
-  const token = await getTmdbAccessToken();
-  const data = await tmdbGet(
-    "/search/tv",
-    {
-      query,
-      page: String(currentPage),
-      language: "en-US",
-      include_adult: "true",
-    },
-    token,
-  );
+	const token = await getTmdbAccessToken();
+	const data = await tmdbGet(
+		"/search/tv",
+		{
+			query,
+			page: String(currentPage),
+			language: "en-US",
+			include_adult: "true",
+		},
+		token,
+	);
 
-  const results = Array.isArray(data?.results) ? data.results : [];
-  const totalItems =
-    typeof data?.total_results === "number" && Number.isFinite(data.total_results)
-      ? data.total_results
-      : results.length;
-  const totalPages =
-    typeof data?.total_pages === "number" && Number.isFinite(data.total_pages)
-      ? data.total_pages
-      : 1;
+	const results = Array.isArray(data?.results) ? data.results : [];
+	const totalItems =
+		typeof data?.total_results === "number" &&
+		Number.isFinite(data.total_results)
+			? data.total_results
+			: results.length;
+	const totalPages =
+		typeof data?.total_pages === "number" && Number.isFinite(data.total_pages)
+			? data.total_pages
+			: 1;
 
-  const items = results
-    .map((show) => {
-      const id =
-        typeof show?.id === "number" && Number.isFinite(show.id)
-          ? String(Math.trunc(show.id))
-          : null;
-      if (!id) {
-        return null;
-      }
+	const items = results
+		.map((show) => {
+			const id =
+				typeof show?.id === "number" && Number.isFinite(show.id)
+					? String(Math.trunc(show.id))
+					: null;
+			if (!id) {
+				return null;
+			}
 
-      const title =
-        typeof show?.name === "string" && show.name.trim()
-          ? show.name.trim()
-          : null;
-      if (!title) {
-        return null;
-      }
+			const title =
+				typeof show?.name === "string" && show.name.trim()
+					? show.name.trim()
+					: null;
+			if (!title) {
+				return null;
+			}
 
-      const publishYear = parsePublishYear(show?.first_air_date, dayjs);
-      const image = getImageUrl(show?.poster_path);
+			const publishYear = parsePublishYear(show?.first_air_date, dayjs);
+			const image = getImageUrl(show?.poster_path);
 
-      return {
-        externalId: id,
-        badgeProperty: { kind: "null", value: null },
-        titleProperty: { kind: "text", value: title },
-        subtitleProperty:
-          publishYear === null
-            ? { kind: "null", value: null }
-            : { kind: "number", value: publishYear },
-        imageProperty:
-          image === null
-            ? { kind: "null", value: null }
-            : { kind: "image", value: { kind: "remote", url: image } },
-      };
-    })
-    .filter((item) => item !== null)
-    .slice(0, pageSize);
+			return {
+				externalId: id,
+				badgeProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: title },
+				subtitleProperty:
+					publishYear === null
+						? { kind: "null", value: null }
+						: { kind: "number", value: publishYear },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { kind: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null)
+		.slice(0, pageSize);
 
-  return {
-    items,
-    details: {
-      totalItems,
-      nextPage: currentPage < totalPages ? currentPage + 1 : null,
-    },
-  };
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage < totalPages ? currentPage + 1 : null,
+		},
+	};
 });
 
 driver("details", async function (context) {
-  const { z } = await import("npm:zod");
-  const dayjs = (await import("npm:dayjs")).default;
+	const { z } = await import("npm:zod");
+	const dayjs = (await import("npm:dayjs")).default;
 
-  const { externalId } = z.object({
-    externalId: z.string().trim().min(1, "externalId is required"),
-  }).parse(context ?? {});
+	const { externalId } = z
+		.object({
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
 
-  if (!/^\d+$/.test(externalId)) {
-    throw new Error("externalId must be a numeric TMDB show ID");
-  }
+	if (!/^\d+$/.test(externalId)) {
+		throw new Error("externalId must be a numeric TMDB show ID");
+	}
 
-  const token = await getTmdbAccessToken();
+	const token = await getTmdbAccessToken();
 
-  const [showData, imagesData, creditsData] = await Promise.all([
-    tmdbGet(`/tv/${externalId}`, { language: "en-US" }, token),
-    tmdbGet(`/tv/${externalId}/images`, {}, token),
-    tmdbGet(`/tv/${externalId}/credits`, { language: "en-US" }, token),
-  ]);
+	const [showData, imagesData, creditsData] = await Promise.all([
+		tmdbGet(`/tv/${externalId}`, { language: "en-US" }, token),
+		tmdbGet(`/tv/${externalId}/images`, {}, token),
+		tmdbGet(`/tv/${externalId}/credits`, { language: "en-US" }, token),
+	]);
 
-  const title =
-    typeof showData?.name === "string" && showData.name.trim()
-      ? showData.name.trim()
-      : null;
-  if (!title) {
-    throw new Error("TMDB returned no name for this show");
-  }
+	const title =
+		typeof showData?.name === "string" && showData.name.trim()
+			? showData.name.trim()
+			: null;
+	if (!title) {
+		throw new Error("TMDB returned no name for this show");
+	}
 
-  const seasonNumbers = Array.isArray(showData?.seasons)
-    ? showData.seasons
-        .map((s) =>
-          typeof s?.season_number === "number" &&
-          Number.isFinite(s.season_number)
-            ? Math.trunc(s.season_number)
-            : null,
-        )
-        .filter((n) => n !== null)
-    : [];
+	const seasonNumbers = Array.isArray(showData?.seasons)
+		? showData.seasons
+				.map((s) =>
+					typeof s?.season_number === "number" &&
+					Number.isFinite(s.season_number)
+						? Math.trunc(s.season_number)
+						: null,
+				)
+				.filter((n) => n !== null)
+		: [];
 
-  const SEASON_BATCH_SIZE = 5;
-  const seasonDataList = [];
-  for (let i = 0; i < seasonNumbers.length; i += SEASON_BATCH_SIZE) {
-    const batch = seasonNumbers.slice(i, i + SEASON_BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map((n) =>
-        tmdbGet(`/tv/${externalId}/season/${n}`, { language: "en-US" }, token),
-      ),
-    );
-    seasonDataList.push(...batchResults);
-  }
+	const SEASON_BATCH_SIZE = 5;
+	const seasonDataList = [];
+	for (let i = 0; i < seasonNumbers.length; i += SEASON_BATCH_SIZE) {
+		const batch = seasonNumbers.slice(i, i + SEASON_BATCH_SIZE);
+		const batchResults = await Promise.all(
+			batch.map((n) =>
+				tmdbGet(`/tv/${externalId}/season/${n}`, { language: "en-US" }, token),
+			),
+		);
+		seasonDataList.push(...batchResults);
+	}
 
-  const showSeasons = seasonDataList.map((s) => buildSeason(s, dayjs));
+	const showSeasons = seasonDataList.map((s) => buildSeason(s, dayjs));
 
-  const remoteImages = collectImages(
-    showData?.poster_path,
-    showData?.backdrop_path,
-    imagesData?.posters,
-    imagesData?.backdrops,
-  );
+	const remoteImages = collectImages(
+		showData?.poster_path,
+		showData?.backdrop_path,
+		imagesData?.posters,
+		imagesData?.backdrops,
+	);
 
-  const providerRating =
-    typeof showData?.vote_average === "number" &&
-    Number.isFinite(showData.vote_average) &&
-    showData.vote_average > 0
-      ? showData.vote_average * 10
-      : null;
+	const providerRating =
+		typeof showData?.vote_average === "number" &&
+		Number.isFinite(showData.vote_average) &&
+		showData.vote_average > 0
+			? showData.vote_average * 10
+			: null;
 
-  return {
-    name: title,
-    properties: {
-      showSeasons,
-      providerRating,
-      assets: { remoteImages },
-      genres: collectGenres(showData?.genres),
-      isNsfw: showData?.adult === true ? true : null,
-      sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
-      publishYear: parsePublishYear(showData?.first_air_date, dayjs),
-      freeCreators: collectFreeCreators(
-        creditsData?.cast,
-        creditsData?.crew,
-        showData?.created_by,
-      ),
-      description:
-        typeof showData?.overview === "string" && showData.overview.trim()
-          ? showData.overview.trim()
-          : null,
-      productionStatus:
-        typeof showData?.status === "string" && showData.status.trim()
-          ? showData.status.trim()
-          : null,
-    },
-  };
+	return {
+		name: title,
+		properties: {
+			showSeasons,
+			providerRating,
+			assets: { remoteImages },
+			isNsfw: showData?.adult === true ? true : null,
+			genres: collectGenres(showData?.genres),
+			sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
+			publishYear: parsePublishYear(showData?.first_air_date, dayjs),
+			...collectPeople(
+				creditsData?.cast,
+				creditsData?.crew,
+				showData?.created_by,
+			),
+			description:
+				typeof showData?.overview === "string" && showData.overview.trim()
+					? showData.overview.trim()
+					: null,
+			productionStatus:
+				typeof showData?.status === "string" && showData.status.trim()
+					? showData.status.trim()
+					: null,
+		},
+	};
 });
