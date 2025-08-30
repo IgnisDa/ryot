@@ -45,6 +45,7 @@ const dropLegacyMetadataGroupTables = async (database: DbClient) => {
 };
 
 export const dropLegacyTables = async (database: DbClient) => {
+	console.info("[legacy-bootstrap] dropping legacy tables");
 	await dropLegacyMigrationsTable(database);
 	await dropLegacyMetadataTable(database);
 	await dropLegacyMetadataGroupTables(database);
