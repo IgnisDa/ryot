@@ -9,7 +9,7 @@ import Svg, { Circle } from "react-native-svg";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import type { EntityImage } from "@/lib/image";
+import type { EntityImage } from "@/lib/entity-image";
 
 import { activityLabel, hexToRgba, timeAgo } from "./overview-utils";
 

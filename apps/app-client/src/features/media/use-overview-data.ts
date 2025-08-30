@@ -2,7 +2,8 @@ import { getQueryEngineField } from "@ryot/ts-utils";
 import { useQuery } from "@tanstack/react-query";
 
 import { useApiClient } from "@/lib/api-client";
-import { toEntityImage, useResolvedImageUrls } from "@/lib/image";
+import { toEntityImage } from "@/lib/entity-image";
+import { useResolvedImageUrls } from "@/lib/image";
 
 import { MEDIA_SCOPE_SLUGS } from "./constants";
 
