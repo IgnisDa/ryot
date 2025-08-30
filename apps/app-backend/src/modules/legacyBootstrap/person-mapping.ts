@@ -463,7 +463,7 @@ export const getUnsupportedPersonSources = async (database: DbClient) => {
 			SELECT DISTINCT
 				legacy_person.source AS source,
 				CASE
-					WHEN ${legacyPersonCompanyPredicateSql("legacy_person")} THEN 'company'
+					WHEN ${sql.raw(legacyPersonCompanyPredicateSql("legacy_person"))} THEN 'company'
 					ELSE 'person'
 				END AS entity_kind
 			FROM "person" legacy_person
