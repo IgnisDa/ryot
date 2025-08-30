@@ -18,9 +18,17 @@ TypeScript backend (`apps/app-backend`) during startup.
 
 - V1 `user` is renamed to `old_user` so the new Drizzle `user` table can be created.
 - V1 `metadata` is migrated to `entity` with empty `properties`, the first legacy image preserved, `external_id = identifier`, `entity_schema_id`/`sandbox_script_id` derived from `lot`/`source` (with `Custom` rows keeping a null sandbox script), and `populated_at = last_updated_on` for the first pass.
+- V1 `metadata_group` is migrated to `entity` following the same pattern as `metadata`: empty `properties`, first image preserved, `external_id = identifier`, `entity_schema_id`/`sandbox_script_id` derived from `lot`/`source`. `created_at` and `updated_at` are both set to `last_updated_on` (V1 `metadata_group` has no `created_on` column). Legacy ids are preserved. Lots without a V2 group entity schema (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are silently skipped via the migration join; all other lots with unsupported sources cause a hard error.
+- V1 `metadata_to_metadata_group` (the many-to-many between metadata and groups) is migrated to `relationship` rows using the appropriate builtin group-to-media relationship schema (e.g., `movie-group-to-movie`). Relationship `properties` are empty (`{}`); the `part` field has no V2 equivalent in `groupRolesPropertiesSchema` and is dropped.
 - Preserve legacy ids.
 - Derive new emails from the old user name as `name@ryot.local`, with normalization and a stable fallback for collisions.
 - New users get `email_verified = true` because the legacy account was already trusted.
+
+## Ignored For Now (metadata_group)
+
+- `metadata_group_to_person`: no V2 relationship schema exists that links a group entity to a person entity.
+- Group `properties` fields (`parts`, `description`, `source_url`): deferred to re-population from the source provider, matching the same decision made for `metadata`.
+- Metadata groups for lots without V2 group entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`): silently skipped, no V2 schema exists for them.
 
 ## Ignored For Now
 
