@@ -3,7 +3,6 @@ import {
 	createPropertySchemaInputFixture,
 	createPropertySchemaRowFixture,
 } from "~/features/test-fixtures";
-import { resolveNextPropertySchemaSlug } from "../property-schemas/form";
 import {
 	buildDefaultEntitySchemaPropertyRow,
 	buildEntitySchemaFormValues,
@@ -122,38 +121,6 @@ describe("buildEntitySchemaFormValues", () => {
 			required: false,
 		});
 		expect(row.id).toEqual(expect.any(String));
-	});
-});
-
-describe("resolveNextPropertySchemaSlug", () => {
-	it("derives the slug while it is blank", () => {
-		expect(
-			resolveNextPropertySchemaSlug({
-				slug: "",
-				name: "  Shelf Status  ",
-				previousDerivedSlug: "shelf",
-			}),
-		).toBe("shelf-status");
-	});
-
-	it("keeps auto-updating when the slug still matches the previous derivation", () => {
-		expect(
-			resolveNextPropertySchemaSlug({
-				name: "Reading Status",
-				slug: "reading-status-old",
-				previousDerivedSlug: "reading-status-old",
-			}),
-		).toBe("reading-status");
-	});
-
-	it("treats a whitespace-only slug as blank", () => {
-		expect(
-			resolveNextPropertySchemaSlug({
-				slug: "  \n\t ",
-				name: "Reading Status",
-				previousDerivedSlug: "reading-status-old",
-			}),
-		).toBe("reading-status");
 	});
 });
 

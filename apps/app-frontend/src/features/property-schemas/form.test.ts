@@ -113,4 +113,64 @@ describe("resolveNextPropertySchemaSlug", () => {
 			}),
 		).toBe("saved-schema");
 	});
+
+	it("derives the slug while it is blank", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				slug: "",
+				name: "  Shelf Status  ",
+				previousDerivedSlug: "shelf",
+			}),
+		).toBe("shelf-status");
+	});
+
+	it("keeps auto-updating when the slug still matches the previous derivation", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				name: "Reading Status",
+				slug: "reading-status-old",
+				previousDerivedSlug: "reading-status-old",
+			}),
+		).toBe("reading-status");
+	});
+
+	it("preserves a customized slug", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				name: "Tasting Mood",
+				slug: "house-special",
+				previousDerivedSlug: "tasting-mood",
+			}),
+		).toBe("house-special");
+	});
+
+	it("clears the slug when the name is cleared and it was still auto-derived", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				name: "   ",
+				slug: "tasting-mood",
+				previousDerivedSlug: "tasting-mood",
+			}),
+		).toBe("");
+	});
+
+	it("treats a whitespace-only slug as blank", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				slug: "  \n\t ",
+				name: "Reading Status",
+				previousDerivedSlug: "reading-status-old",
+			}),
+		).toBe("reading-status");
+	});
+
+	it("keeps auto-updating when the previous derived slug only differs by whitespace", () => {
+		expect(
+			resolveNextPropertySchemaSlug({
+				name: "Tasting Mood",
+				slug: "tasting-mood ",
+				previousDerivedSlug: "tasting-mood",
+			}),
+		).toBe("tasting-mood");
+	});
 });
