@@ -2,10 +2,10 @@
 	"name": "@ryot/app-backend",
 	"main": "src/index.ts",
 	"scripts": {
+		"format": "oxfmt . --write",
 		"test": "bun test --only-failures",
 		"dev": "bun run --watch src/index.ts",
-		"lint": "oxlint . --fix && oxfmt . --write",
-		"typecheck": "tsc && oxlint . --type-aware",
+		"check": "tsc && oxlint . --type-aware --fix",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
 	},

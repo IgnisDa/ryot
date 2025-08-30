@@ -116,7 +116,7 @@ docker compose up -d ryot-postgres ryot-redis
 bun run dev
 ```
 
-Configure `apps/app-backend/.env` with at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`. Other commands: `bun run test`, `bun run typecheck`, `bun run lint`.
+Configure `apps/app-backend/.env` with at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`. Other commands: `bun run test`, `bun run check`, `bun run format`.
 
 ## Project Structure
 

@@ -58,7 +58,7 @@ BullMQ with Redis. Infrastructure in `src/lib/queue/` and `src/lib/sandbox/`.
 
 ### Testing
 
-- Run `bun run typecheck`, `bun run test`, and `bun run lint` after changes.
+- Run `bun run check`, `bun run test`, and `bun run format` after changes.
 - Shared fixtures in `src/lib/test-fixtures`. Module-specific fixtures preferred; cross-module primitives only in shared helpers.
 - E2E tests go in `<root>/tests/src`.
 
