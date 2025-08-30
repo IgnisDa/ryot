@@ -47,6 +47,6 @@ COPY --from=artifact --chown=ryot:ryot /artifact/backend /usr/local/bin/backend
 CMD [ \
     "concurrently", "--names", "frontend,backend,proxy", "--kill-others", \
     "PORT=3000 npx react-router-serve ./build/server/index.js", \
-    "BACKEND_PORT=5000 RUST_MIN_STACK=8388608 /usr/local/bin/backend", \
+    "BACKEND_PORT=5000 /usr/local/bin/backend", \
     "caddy run --config /etc/caddy/Caddyfile" \
     ]
