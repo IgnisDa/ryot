@@ -1888,10 +1888,12 @@ dependencies = [
  "itertools 0.14.0",
  "rustypipe",
  "sea-orm",
+ "serde",
  "serde_json",
  "sqlx",
  "supporting-service",
  "tracing",
+ "unkey",
 ]
 
 [[package]]
@@ -1913,7 +1915,6 @@ dependencies = [
  "sea-orm",
  "supporting-service",
  "tracing",
- "user-models",
 ]
 
 [[package]]
@@ -6970,14 +6971,9 @@ dependencies = [
  "bon",
  "chrono",
  "chrono-tz",
- "common-utils",
  "config-definition",
- "env-utils",
  "sea-orm",
- "serde",
- "serde_json",
  "tracing",
- "unkey",
 ]
 
 [[package]]
