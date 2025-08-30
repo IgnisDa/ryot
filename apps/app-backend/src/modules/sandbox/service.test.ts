@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import type { SandboxEnqueueOptions } from "~/lib/sandbox/types";
 import {
+	createSandboxDeps,
+	createSandboxScriptDeps,
+} from "~/lib/test-fixtures";
+import {
 	createSandboxScript,
 	enqueueSandbox,
 	getSandboxResult,
@@ -26,11 +30,7 @@ describe("enqueueSandbox", () => {
 				userId: "user_1",
 				body: { driverName: "search", scriptId: "script_1" },
 			},
-			{
-				getSandboxJobByIdForUser: async () => null,
-				getSandboxScriptForUser: async () => undefined,
-				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
-			},
+			createSandboxDeps(),
 		);
 
 		expect(result).toEqual({
@@ -45,11 +45,7 @@ describe("enqueueSandbox", () => {
 				userId: "user_1",
 				body: { driverName: "search", scriptId: "script_1" },
 			},
-			{
-				getSandboxJobByIdForUser: async () => null,
-				getSandboxScriptForUser: async () => undefined,
-				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
-			},
+			createSandboxDeps(),
 		);
 
 		expect(result).toEqual({
@@ -70,8 +66,7 @@ describe("enqueueSandbox", () => {
 					context: { source: "test" },
 				},
 			},
-			{
-				getSandboxJobByIdForUser: async () => null,
+			createSandboxDeps({
 				getSandboxScriptForUser: async () => ({
 					isBuiltin: true,
 					userId: "user_2",
@@ -80,7 +75,7 @@ describe("enqueueSandbox", () => {
 					queuedInput = input;
 					return { jobId: "job_1" };
 				},
-			},
+			}),
 		);
 
 		expect(result).toEqual({ data: { jobId: "job_1" } });
@@ -99,11 +94,7 @@ describe("getSandboxResult", () => {
 	it("returns validation when the job id is blank", async () => {
 		const result = await getSandboxResult(
 			{ jobId: "   ", userId: "user_1" },
-			{
-				getSandboxJobByIdForUser: async () => null,
-				getSandboxScriptForUser: async () => undefined,
-				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
-			},
+			createSandboxDeps(),
 		);
 
 		expect(result).toEqual({
@@ -115,11 +106,7 @@ describe("getSandboxResult", () => {
 	it("returns not found when the job is missing", async () => {
 		const result = await getSandboxResult(
 			{ jobId: "job_1", userId: "user_1" },
-			{
-				getSandboxJobByIdForUser: async () => null,
-				getSandboxScriptForUser: async () => undefined,
-				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
-			},
+			createSandboxDeps(),
 		);
 
 		expect(result).toEqual({
@@ -131,9 +118,7 @@ describe("getSandboxResult", () => {
 	it("returns a normalized completed result", async () => {
 		const result = await getSandboxResult(
 			{ jobId: "job_1", userId: "user_1" },
-			{
-				getSandboxScriptForUser: async () => undefined,
-				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
+			createSandboxDeps({
 				getSandboxJobByIdForUser: async () => ({
 					jobData: {
 						code: "run()",
@@ -152,7 +137,7 @@ describe("getSandboxResult", () => {
 						},
 					},
 				}),
-			},
+			}),
 		);
 
 		expect(result).toEqual({
@@ -163,9 +148,7 @@ describe("getSandboxResult", () => {
 	it("returns a fallback failure when the completed payload is invalid", async () => {
 		const result = await getSandboxResult(
 			{ jobId: "job_1", userId: "user_1" },
-			{
-				getSandboxScriptForUser: async () => undefined,
-				enqueueSandboxJob: async () => ({ jobId: "job_1" }),
+			createSandboxDeps({
 				getSandboxJobByIdForUser: async () => ({
 					job: {
 						data: {},
@@ -179,7 +162,7 @@ describe("getSandboxResult", () => {
 						scriptId: "script_1",
 					},
 				}),
-			},
+			}),
 		);
 
 		expect(result).toEqual({
@@ -189,23 +172,12 @@ describe("getSandboxResult", () => {
 });
 
 describe("createSandboxScript", () => {
-	const mockCreated = {
-		id: "script_1",
-		name: "My Script",
-		slug: "my-script",
-		code: 'driver("main", async function() { return 1; });',
-	};
+	const mockCode = 'driver("main", async function() { return 1; });';
 
 	it("returns validation when the name is blank", async () => {
 		const result = await createSandboxScript(
-			{
-				userId: "user_1",
-				body: { name: "   ", code: mockCreated.code },
-			},
-			{
-				createSandboxScriptForUser: async () => mockCreated,
-				getSandboxScriptBySlugForUser: async () => undefined,
-			},
+			{ userId: "user_1", body: { name: "   ", code: mockCode } },
+			createSandboxScriptDeps(),
 		);
 
 		expect(result).toMatchObject({ error: "validation" });
@@ -213,16 +185,13 @@ describe("createSandboxScript", () => {
 
 	it("returns validation when a script with the same slug already exists", async () => {
 		const result = await createSandboxScript(
-			{
-				userId: "user_1",
-				body: { name: "My Script", code: mockCreated.code },
-			},
-			{
+			{ userId: "user_1", body: { name: "My Script", code: mockCode } },
+			createSandboxScriptDeps({
 				getSandboxScriptBySlugForUser: async () => ({ id: "existing_script" }),
 				createSandboxScriptForUser: async () => {
 					throw new Error("should not be called");
 				},
-			},
+			}),
 		);
 
 		expect(result).toEqual({
@@ -233,16 +202,17 @@ describe("createSandboxScript", () => {
 
 	it("returns the created script on success", async () => {
 		const result = await createSandboxScript(
-			{
-				userId: "user_1",
-				body: { name: "My Script", code: mockCreated.code },
-			},
-			{
-				createSandboxScriptForUser: async () => mockCreated,
-				getSandboxScriptBySlugForUser: async () => undefined,
-			},
+			{ userId: "user_1", body: { name: "My Script", code: mockCode } },
+			createSandboxScriptDeps(),
 		);
 
-		expect(result).toEqual({ data: mockCreated });
+		expect(result).toEqual({
+			data: {
+				id: "script_1",
+				code: mockCode,
+				name: "My Script",
+				slug: "my-script",
+			},
+		});
 	});
 });
