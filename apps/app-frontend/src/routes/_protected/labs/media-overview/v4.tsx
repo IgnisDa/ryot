@@ -238,9 +238,7 @@ function colorMix(color: string, alpha: number) {
 function groupByDate(events: typeof ACTIVITY_EVENTS): Record<string, typeof ACTIVITY_EVENTS> {
 	const groups: Record<string, typeof ACTIVITY_EVENTS> = {};
 	for (const event of events) {
-		if (!groups[event.date]) {
-			groups[event.date] = [];
-		}
+		groups[event.date] ??= [];
 		groups[event.date]?.push(event);
 	}
 	return groups;
@@ -700,7 +698,7 @@ function RateTheseSection() {
 
 function LibraryBreakdown() {
 	const types = Object.entries(LIBRARY_STATS.entityTypeCounts) as [SchemaSlug, number][];
-	const sorted = types.toSorted((a, b) => b[1] - a[1]);
+	const sorted = [...types].toSorted((a, b) => b[1] - a[1]);
 	const maxCount = Math.max(...sorted.map(([, c]) => c), 1);
 
 	return (

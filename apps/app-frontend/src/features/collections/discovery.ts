@@ -1,6 +1,9 @@
 import { createEntityPropertyExpression, createEntitySchemaExpression } from "@ryot/ts-utils";
 
-import { createEntityRuntimeRequest } from "~/features/entities/model";
+import {
+	createEntityRuntimeRequest,
+	isQueryEngineEntitiesResponse,
+} from "~/features/entities/model";
 import { useApiClient } from "~/hooks/api";
 
 import {
@@ -40,7 +43,7 @@ export function useCollectionsQuery(enabled = true) {
 		{ enabled },
 	);
 
-	const payload = query.data?.data;
+	const payload = isQueryEngineEntitiesResponse(query.data) ? query.data : undefined;
 	const collections: AppCollection[] =
 		payload?.mode === "entities" ? payload.data.items.map(toAppCollection) : [];
 
@@ -58,5 +61,5 @@ export function useCollectionDiscovery(enabled = true): {
 
 	const state = getCollectionDiscoveryState(isLoading, isError, collections);
 
-	return { state, refetch };
+	return { state, refetch: () => void refetch() };
 }
