@@ -244,6 +244,7 @@ function SearchResultActions(props: {
 export function SearchResultRow(props: {
 	onAdd: () => void;
 	entityName: string;
+	isTracked: boolean;
 	isExpanded: boolean;
 	accentColor: string;
 	providerName: string;
@@ -271,7 +272,7 @@ export function SearchResultRow(props: {
 		props.item.imageProperty.kind === "image"
 			? (props.item.imageProperty.value?.url ?? undefined)
 			: undefined;
-	const isTracked = props.actionState.doneActions.includes("track");
+	const isTracked = props.isTracked;
 	const isBacklogged = props.actionState.doneActions.includes("backlog");
 	const canUseLifecycleActions =
 		!props.isLifecycleLoading && !props.lifecycleErrorMessage;
