@@ -148,7 +148,28 @@ const metadataMigrationTargetValuesSql = sql.join(
 	sql`, `,
 );
 
-const buildMetadataPropertiesSql = () => `
+const buildMetadataCommonPropertiesSql = () => `
+COALESCE(
+	jsonb_strip_nulls(jsonb_build_object(
+		'genres', COALESCE((
+			SELECT jsonb_agg(genre.name ORDER BY genre.name)
+			FROM metadata_to_genre metadata_genre
+			INNER JOIN genre ON genre.id = metadata_genre.genre_id
+			WHERE metadata_genre.metadata_id = metadata.id
+		), '[]'::jsonb),
+		'publishYear', metadata.publish_year,
+		'isNsfw', metadata.is_nsfw,
+		'publishDate', to_char(metadata.publish_date, 'YYYY-MM-DD'),
+		'sourceUrl', metadata.source_url,
+		'description', metadata.description,
+		'providerRating', metadata.provider_rating,
+		'productionStatus', metadata.production_status
+	)),
+	'{}'::jsonb
+)
+`;
+
+const buildMetadataLotSpecificPropertiesSql = () => `
 COALESCE(jsonb_strip_nulls(
 	CASE
 		WHEN metadata.lot = 'show' THEN jsonb_build_object(
@@ -228,6 +249,14 @@ COALESCE(jsonb_strip_nulls(
 		)
 	END
 ), '{}'::jsonb)
+`;
+
+export const buildMetadataPropertiesSql = () => `
+(
+	${buildMetadataCommonPropertiesSql()}
+	||
+	${buildMetadataLotSpecificPropertiesSql()}
+)
 `;
 
 export const buildMetadataMigrationSql = (targets: ResolvedLotEntityMigrationTarget[]) => `
