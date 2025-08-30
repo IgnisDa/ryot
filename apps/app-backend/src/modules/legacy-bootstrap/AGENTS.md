@@ -35,7 +35,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 **metadata_group**: Groups for lots without V2 entity schemas (`anime`, `manga`, `show`, `podcast`, `visual_novel`) are silently skipped. `metadata_group_to_person` is migrated only for music and video game groups (`person-to-music-group`, `person-to-video-game-group`).
 
-**review**: `visibility` (V2 has no visibility concept), `comments` (V2 has no comments on events). Ratings above 100 are clamped to 100.
+**review**: `visibility` (V2 has no visibility concept), `comments` (V2 has no comments on events). Ratings above 100 are clamped to 100. V1 `NULL` ratings produce no `rating` key in V2 — use `CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END`; PostgreSQL's `LEAST(NULL, 100)` returns `100`, not `NULL`.
 
 **seen**: `review_id` (seen-to-review link — no inter-event references in V2; lost). `manual_time_spent` on `InProgress` rows and episodic `Completed` rows (V2 `progress` events have no `timeSpent` field; lost). `started_on` on `InProgress` rows and episodic `Completed` rows (V2 `progress` events have no `startedOn` field; lost). Synthetic episodic whole-entity `complete` events use the timestamp and `consumedOn` source of the progress event that completed coverage; they do not aggregate `manual_time_spent` or `started_on` from per-episode rows. Legacy IDs are NOT preserved because one seen row expands to multiple events; deterministic md5 IDs are used instead.
 
