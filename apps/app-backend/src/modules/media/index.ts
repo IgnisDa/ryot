@@ -1,5 +1,4 @@
-export type { MediaImportJobData } from "./jobs";
-export { mediaImportJobData, mediaImportJobName } from "./jobs";
+// TODO: Delete this module once app-frontend is removed. app-client does not consume any of these routes.
 export type {
 	BuiltInMediaOverviewContinueResponse,
 	BuiltInMediaOverviewLibraryResponse,
@@ -16,4 +15,3 @@ export {
 	getUpNextItems,
 	getWeekActivity,
 } from "./service";
-export { createMediaWorker } from "./worker";
