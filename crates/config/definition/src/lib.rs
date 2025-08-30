@@ -197,6 +197,7 @@ pub struct MovieAndShowConfig {
     pub tmdb: TmdbConfig,
     /// Settings related to TVDB.
     #[setting(nested)]
+    #[mask_nested]
     pub tvdb: TvdbConfig,
 }
 
