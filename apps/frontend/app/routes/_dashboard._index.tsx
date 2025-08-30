@@ -274,33 +274,35 @@ export default function Page() {
 const RecommendationsSection = () => {
 	const coreDetails = useCoreDetails();
 
+	const expireCacheKey = useExpireCacheKeyMutation();
 	const { data, refetch } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserMetadataRecommendationsDocument),
 	});
-	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<>
 			<Group justify="space-between">
 				<SectionTitle text="Recommendations" />
-				<ActionIcon
-					variant="subtle"
-					onClick={() => {
-						openConfirmationModal(
-							"Are you sure you want to refresh the recommendations?",
-							async () => {
-								await expireCacheKey.mutateAsync(
-									data?.userMetadataRecommendations.cacheId ?? "",
-								);
-								refetch();
-							},
-						);
-					}}
-				>
-					<IconRotateClockwise />
-				</ActionIcon>
+				{data ? (
+					<ActionIcon
+						variant="subtle"
+						onClick={() => {
+							openConfirmationModal(
+								"Are you sure you want to refresh the recommendations?",
+								async () => {
+									await expireCacheKey.mutateAsync(
+										data.userMetadataRecommendations.cacheId,
+									);
+									refetch();
+								},
+							);
+						}}
+					>
+						<IconRotateClockwise />
+					</ActionIcon>
+				) : null}
 			</Group>
 			{data ? (
 				coreDetails.isServerKeyValidated ? (
