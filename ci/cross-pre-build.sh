@@ -5,7 +5,9 @@ apt-get update
 apt-get --assume-yes install patch
 
 if [[ $CROSS_TARGET == "x86_64-unknown-linux-gnu" ]]; then
-  apt-get update && apt-get --assume-yes install libssl-dev clang
+  apt-get update
+  apt-get remove gcc-9
+  apt-get --assume-yes install libssl-dev clang
 fi
 
 if [[ "$CROSS_TARGET" == "aarch64-unknown-linux-gnu" ]]; then
