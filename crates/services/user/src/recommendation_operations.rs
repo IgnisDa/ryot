@@ -181,7 +181,7 @@ pub async fn user_metadata_recommendations(
         }),
         ApplicationCacheValue::UserMetadataRecommendations,
         || async {
-            if is_server_key_validated(&ss).await? {
+            if is_server_key_validated(ss).await? {
                 return Ok(vec![]);
             }
             let metadata_count = Metadata::find().count(&ss.db).await?;
