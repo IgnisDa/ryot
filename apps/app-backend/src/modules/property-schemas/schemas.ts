@@ -171,6 +171,7 @@ const stringPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("string"),
+		defaultValue: z.string().optional(),
 		description: propertyDescriptionSchema,
 		validation: stringValidationSchema.optional(),
 	})
@@ -180,6 +181,7 @@ const numberPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("number"),
+		defaultValue: z.number().optional(),
 		description: propertyDescriptionSchema,
 		transform: numberTransformSchema.optional(),
 		validation: numberValidationSchema.optional(),
@@ -191,6 +193,7 @@ const integerPropertySchema = z
 		label: propertyLabelSchema,
 		type: z.literal("integer"),
 		description: propertyDescriptionSchema,
+		defaultValue: z.number().int().optional(),
 		transform: numberTransformSchema.optional(),
 		validation: numberValidationSchema.optional(),
 	})
@@ -200,6 +203,7 @@ const booleanPropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("boolean"),
+		defaultValue: z.boolean().optional(),
 		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
 	})
@@ -209,6 +213,7 @@ const datePropertySchema = z
 	.strictObject({
 		label: propertyLabelSchema,
 		type: z.literal("date"),
+		defaultValue: z.iso.date().optional(),
 		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
 	})
@@ -219,6 +224,7 @@ const datetimePropertySchema = z
 		label: propertyLabelSchema,
 		type: z.literal("datetime"),
 		description: propertyDescriptionSchema,
+		defaultValue: z.iso.datetime().optional(),
 		validation: requiredOnlyValidationSchema.optional(),
 	})
 	.openapi("AppDateTimeProperty");
@@ -230,6 +236,7 @@ const arrayPropertySchema = z
 		description: propertyDescriptionSchema,
 		validation: arrayValidationSchema.optional(),
 		items: z.lazy(() => propertyDefinitionSchema),
+		defaultValue: z.array(z.unknown()).optional(),
 	})
 	.openapi("AppArrayProperty");
 
@@ -240,6 +247,7 @@ const objectPropertySchema = z
 		description: propertyDescriptionSchema,
 		unknownKeys: unknownKeysPolicySchema.optional(),
 		validation: requiredOnlyValidationSchema.optional(),
+		defaultValue: z.record(z.string(), z.unknown()).optional(),
 		properties: z.record(
 			z.string(),
 			z.lazy(() => propertyDefinitionSchema),
@@ -254,8 +262,13 @@ const enumPropertySchema = z
 		options: enumOptionsSchema,
 		label: propertyLabelSchema,
 		type: z.literal("enum"),
+		defaultValue: z.string().optional(),
 		description: propertyDescriptionSchema,
 		validation: requiredOnlyValidationSchema.optional(),
+	})
+	.refine((v) => v.defaultValue === undefined || v.options.includes(v.defaultValue), {
+		message: "defaultValue must be one of the enum options",
+		path: ["defaultValue"],
 	})
 	.openapi("AppEnumProperty");
 
@@ -266,7 +279,12 @@ const enumArrayPropertySchema = z
 		type: z.literal("enum-array"),
 		description: propertyDescriptionSchema,
 		validation: arrayValidationSchema.optional(),
+		defaultValue: z.array(z.string()).optional(),
 	})
+	.refine(
+		(v) => v.defaultValue === undefined || v.defaultValue.every((item) => v.options.includes(item)),
+		{ message: "defaultValue items must be one of the enum options", path: ["defaultValue"] },
+	)
 	.openapi("AppEnumArrayProperty");
 
 // oxlint-disable-next-line no-unsafe-type-assertion
@@ -338,12 +356,12 @@ const ruleConditionNotInSchema = z
 appSchemaRuleConditionSchema = z
 	.lazy(() =>
 		z.discriminatedUnion("operator", [
-			ruleConditionPropertySchema,
-			ruleConditionNotEqualsSchema,
-			ruleConditionExistsSchema,
-			ruleConditionNotExistsSchema,
 			ruleConditionInSchema,
 			ruleConditionNotInSchema,
+			ruleConditionExistsSchema,
+			ruleConditionPropertySchema,
+			ruleConditionNotEqualsSchema,
+			ruleConditionNotExistsSchema,
 			z.strictObject({
 				operator: z.literal("all"),
 				conditions: z.array(appSchemaRuleConditionSchema).min(1),
@@ -451,8 +469,8 @@ const validateRulePaths = (schema: AppSchema, ctx: z.RefinementCtx) => {
 export const createPropertySchemaObjectSchema = (message?: string) =>
 	z
 		.strictObject({
-			rules: z.array(appSchemaRuleSchema).optional(),
 			unknownKeys: unknownKeysPolicySchema.optional(),
+			rules: z.array(appSchemaRuleSchema).optional(),
 			fields: message ? createNonEmptyFieldsSchema(message) : fieldsSchema,
 		})
 		.superRefine(validateRulePaths);
