@@ -7,6 +7,7 @@ import {
 	validateRelationshipSlugs,
 	validateUniqueSchemaSlugs,
 	validateVisibleEventJoins,
+	validateVisibleRelationshipSchemaRows,
 } from "./loaders";
 import type { QueryEngineSchemaRow } from "./query-cte-shared";
 
@@ -120,5 +121,40 @@ describe("validateRelationshipSlugs", () => {
 		expect(() => validateRelationshipSlugs(["owner", "editor"], new Set(["owner"]))).toThrow(
 			QueryEngineNotFoundError,
 		);
+	});
+});
+
+describe("validateVisibleRelationshipSchemaRows", () => {
+	it("passes when each slug is found exactly once", () => {
+		expect(() =>
+			validateVisibleRelationshipSchemaRows(
+				["in-library", "member-of"],
+				[
+					{ id: "rs_1", slug: "in-library" },
+					{ id: "rs_2", slug: "member-of" },
+				],
+			),
+		).not.toThrow();
+	});
+
+	it("throws NOT_FOUND when a slug is missing", () => {
+		expect(() =>
+			validateVisibleRelationshipSchemaRows(
+				["in-library", "missing"],
+				[{ id: "rs_1", slug: "in-library" }],
+			),
+		).toThrow(QueryEngineNotFoundError);
+	});
+
+	it("throws VALIDATION when a slug resolves to multiple schemas", () => {
+		expect(() =>
+			validateVisibleRelationshipSchemaRows(
+				["in-library"],
+				[
+					{ id: "rs_1", slug: "in-library" },
+					{ id: "rs_2", slug: "in-library" },
+				],
+			),
+		).toThrow(QueryEngineValidationError);
 	});
 });

@@ -2,6 +2,9 @@ import { describe, expect, it } from "bun:test";
 
 import {
 	createAuthenticatedClient,
+	createEntitySchema,
+	createEventSchema,
+	createTracker,
 	findBuiltinSchemaBySlug,
 	listBuiltinEntitySchemas,
 	listEventSchemas,
@@ -315,5 +318,80 @@ describe("GET /event-schemas", () => {
 		}
 
 		expect(showProgressSchema).not.toEqual(movieProgressSchema);
+	});
+});
+
+describe("POST /event-schemas", () => {
+	it("successfully creates an event schema for a custom entity schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Event Schema Tracker",
+		});
+		const { schemaId: entitySchemaId } = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Custom Entity",
+			slug: "custom-entity",
+		});
+
+		const { data, response } = await client.POST("/event-schemas", {
+			headers: { Cookie: cookies },
+			body: {
+				entitySchemaId,
+				name: "My Event",
+				slug: "my-event",
+				propertiesSchema: {
+					fields: {
+						note: { type: "string", label: "Note", description: "Note" },
+					},
+				},
+			},
+		});
+
+		expect(response.status).toBe(200);
+		expect(data?.data).toBeDefined();
+		expect(data?.data.name).toBe("My Event");
+		expect(data?.data.slug).toBe("my-event");
+		expect(data?.data.entitySchemaId).toBe(entitySchemaId);
+	});
+
+	it("returns 400 when event schema slug already exists for the same entity schema", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, cookies, {
+			name: "Event Schema Tracker",
+		});
+		const { schemaId: entitySchemaId } = await createEntitySchema(client, cookies, {
+			trackerId,
+			name: "Custom Entity",
+			slug: "custom-entity",
+		});
+
+		await createEventSchema(client, cookies, {
+			entitySchemaId,
+			name: "First Event",
+			slug: "duplicate-event-slug",
+			propertiesSchema: {
+				fields: {
+					note: { type: "string", label: "Note", description: "Note" },
+				},
+			},
+		});
+
+		const { response, error } = await client.POST("/event-schemas", {
+			headers: { Cookie: cookies },
+			body: {
+				entitySchemaId,
+				name: "Second Event",
+				slug: "duplicate-event-slug",
+				propertiesSchema: {
+					fields: {
+						note: { type: "string", label: "Note", description: "Note" },
+					},
+				},
+			},
+		});
+
+		expect(response.status).toBe(400);
+		expect(error?.error).toBeDefined();
+		expect(error?.error.message).toBe("Event schema slug already exists");
 	});
 });
