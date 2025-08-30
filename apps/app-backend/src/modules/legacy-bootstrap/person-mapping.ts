@@ -497,9 +497,11 @@ BEGIN
 			rollups.person_id,
 			rollups.metadata_group_id,
 			rollups.relationship_schema_id,
-			jsonb_build_object(
-				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles
+			jsonb_strip_nulls(
+				jsonb_build_object(
+					'order', rollups.relationship_order,
+					'roles', roles_rollup.roles
+				)
 			),
 			NULL,
 			NOW()
@@ -575,9 +577,11 @@ BEGIN
 			rollups.person_id,
 			rollups.metadata_group_id,
 			rollups.relationship_schema_id,
-			jsonb_build_object(
-				'order', rollups.relationship_order,
-				'roles', roles_rollup.roles
+			jsonb_strip_nulls(
+				jsonb_build_object(
+					'order', rollups.relationship_order,
+					'roles', roles_rollup.roles
+				)
 			),
 			rollups.user_id,
 			NOW()
