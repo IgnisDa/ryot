@@ -1,5 +1,5 @@
 import { and, eq, isNull, or } from "drizzle-orm";
-import { db } from "~/lib/db";
+import { assertPersisted, db } from "~/lib/db";
 import { sandboxScript } from "~/lib/db/schema/tables";
 
 const sandboxScriptCreationSelection = {
@@ -57,11 +57,7 @@ export const createSandboxScriptForUser = async (input: {
 		})
 		.returning(sandboxScriptCreationSelection);
 
-	if (!createdScript) {
-		throw new Error("Could not persist sandbox script");
-	}
-
-	return createdScript;
+	return assertPersisted(createdScript, "sandbox script");
 };
 
 export const getSandboxScriptBySlugForUser = async (input: {

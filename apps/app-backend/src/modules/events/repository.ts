@@ -1,6 +1,6 @@
 import type { AppSchema } from "@ryot/ts-utils";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
-import { db } from "~/lib/db";
+import { assertPersisted, db } from "~/lib/db";
 import {
 	entity,
 	entityAccessScopeWithSchemaJoinSelection,
@@ -141,12 +141,8 @@ export const createEventForUser = async (input: {
 		})
 		.returning(createdEventSelection);
 
-	if (!createdEvent) {
-		throw new Error("Could not persist event");
-	}
-
 	return toListedEvent({
-		...createdEvent,
+		...assertPersisted(createdEvent, "event"),
 		eventSchemaName: input.eventSchemaName,
 		eventSchemaSlug: input.eventSchemaSlug,
 	});
