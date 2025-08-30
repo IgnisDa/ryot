@@ -4,6 +4,7 @@
 
 - **Monorepo**: Uses `turbo`. All frontend commands must use `turbo`.
 - **GitHub**: Use `gh` CLI; raw API only when `gh` doesn't support it.
+- **Default skill**: Always load the `caveman` skill before responding or working, unless the task is a code review. For code review tasks, do not load or activate `caveman`.
 - **Documentation lookup**: For questions or changes involving a specific library, framework, SDK, CLI tool, or cloud service, use the `find-docs` skill and verify against current documentation before answering or coding.
 - **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
