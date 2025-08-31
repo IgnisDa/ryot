@@ -1,8 +1,5 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { isAPIError } from "better-auth/api";
 
-import { auth, type MaybeAuthType } from "~/lib/auth";
-import { db } from "~/lib/db";
 import {
 	createValidationErrorResult,
 	jsonResponse,
@@ -10,24 +7,10 @@ import {
 	resolveValidationData,
 	successResponse,
 } from "~/lib/openapi";
-import { createLibraryEntityForUser } from "~/modules/collections";
 
-import { createTrackerEntitySchemas, listBuiltinEntitySchemas } from "../entity-schemas/repository";
-import { createSavedViewsForUser } from "../saved-views/repository";
-import { createBuiltinTrackersForUser } from "../trackers/repository";
-import {
-	authenticationBuiltinEntitySchemas,
-	authenticationBuiltinSavedViews,
-	authenticationBuiltinTrackers,
-} from "./bootstrap/manifests";
+import { signUpAndInitializeUser } from "./bootstrap/sign-up";
 import { defaultUserPreferences, signUpBody, signUpResponseSchema } from "./schemas";
-import {
-	buildAuthenticationSavedViewInputs,
-	buildAuthenticationTrackerEntitySchemaLinks,
-	buildAuthenticationTrackerInputs,
-	buildLibraryEntityInput,
-	resolveAuthenticationName,
-} from "./service";
+import { resolveAuthenticationName } from "./service";
 
 const signUpRoute = createRoute({
 	path: "/email",
@@ -43,9 +26,7 @@ const signUpRoute = createRoute({
 	},
 });
 
-export const authenticationApi = new OpenAPIHono<{
-	Variables: MaybeAuthType;
-}>().openapi(signUpRoute, async (c) => {
+export const authenticationApi = new OpenAPIHono().openapi(signUpRoute, async (c) => {
 	const body = c.req.valid("json");
 
 	const nameResult = resolveValidationData(
@@ -56,69 +37,16 @@ export const authenticationApi = new OpenAPIHono<{
 		return c.json(nameResult.body, nameResult.status);
 	}
 
-	try {
-		const signUpResult = await auth.api.signUpEmail({
-			body: {
-				email: body.email,
-				name: nameResult.data,
-				password: body.password,
-				preferences: defaultUserPreferences,
-			},
-		});
-
-		await db.transaction(async (tx) => {
-			const createdTrackers = await createBuiltinTrackersForUser({
-				database: tx,
-				userId: signUpResult.user.id,
-				trackers: buildAuthenticationTrackerInputs({
-					trackers: authenticationBuiltinTrackers(),
-				}),
-			});
-
-			const builtinEntitySchemaRows = await listBuiltinEntitySchemas({
-				database: tx,
-			});
-
-			await createTrackerEntitySchemas({
-				database: tx,
-				links: buildAuthenticationTrackerEntitySchemaLinks({
-					trackers: createdTrackers,
-					entitySchemas: builtinEntitySchemaRows,
-					schemaLinks: authenticationBuiltinEntitySchemas()
-						.filter(
-							(schema): schema is typeof schema & { trackerSlug: string } =>
-								typeof (schema as { trackerSlug?: string }).trackerSlug === "string",
-						)
-						.map((schema) => ({
-							slug: schema.slug,
-							trackerSlug: schema.trackerSlug,
-						})),
-				}),
-			});
-
-			await createSavedViewsForUser({
-				database: tx,
-				userId: signUpResult.user.id,
-				views: buildAuthenticationSavedViewInputs({
-					trackers: createdTrackers,
-					entitySchemas: builtinEntitySchemaRows,
-					savedViews: authenticationBuiltinSavedViews(),
-				}),
-			});
-
-			const libraryEntityInput = buildLibraryEntityInput({
-				entitySchemas: builtinEntitySchemaRows,
-			});
-			await createLibraryEntityForUser({ userId: signUpResult.user.id, ...libraryEntityInput }, tx);
-		});
-	} catch (error) {
-		if (isAPIError(error)) {
-			const message = error.message || "Could not create account";
-			return c.json(createValidationErrorResult(message).body, 400);
-		}
-
-		throw error;
+	const signUpResult = await signUpAndInitializeUser({
+		email: body.email,
+		name: nameResult.data,
+		password: body.password,
+		preferences: defaultUserPreferences,
+	});
+	if ("error" in signUpResult) {
+		const response = createValidationErrorResult(signUpResult.message);
+		return c.json(response.body, response.status);
 	}
 
-	return c.json(successResponse({ created: true as const }), 200);
+	return c.json(successResponse(signUpResult.data), 200);
 });

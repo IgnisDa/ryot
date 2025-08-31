@@ -2,12 +2,14 @@ import { dayjs } from "@ryot/ts-utils";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
+import type { UserPreferences } from "~/modules/authentication";
+
 export const user = pgTable("user", {
 	image: text(),
 	name: text().notNull(),
 	id: text().primaryKey(),
-	preferences: jsonb().notNull(),
 	email: text().notNull().unique(),
+	preferences: jsonb().$type<UserPreferences>().notNull(),
 	emailVerified: boolean().default(false).notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true })

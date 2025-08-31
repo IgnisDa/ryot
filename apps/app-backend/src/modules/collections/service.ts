@@ -8,7 +8,7 @@ import {
 	upsertInLibraryIfGlobal,
 	upsertInLibraryRelationship,
 } from "~/modules/entities";
-import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas/service";
+import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 
 import {
 	addEntityToCollection,

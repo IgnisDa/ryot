@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { dayjs } from "@ryot/ts-utils";
 
 import {
 	computedFieldArraySchema,
@@ -11,14 +12,13 @@ import type {
 	QueryEngineSchemaLike,
 } from "~/lib/views/reference";
 import { createUniqueNonEmptyTrimmedStringArraySchema } from "~/lib/zod";
-
 import {
 	aggregationFieldArraySchema,
 	eventJoinDefinitionArraySchema,
 	relationshipJoinDefinitionArraySchema,
 	sortDefinitionSchema,
 	timeSeriesMetricSchema,
-} from "../saved-views/schemas";
+} from "~/modules/saved-views/schemas";
 
 export type QueryEngineContext = QueryEngineReferenceContext<
 	QueryEngineSchemaLike,
@@ -130,7 +130,7 @@ export const timeSeriesQueryEngineRequestSchema = queryEngineRequestCoreSchema
 			.object({ endAt: dateRangeDateTimeSchema, startAt: dateRangeDateTimeSchema })
 			.strict()
 			.refine(
-				(range) => new Date(range.startAt) < new Date(range.endAt),
+				(range) => dayjs(range.startAt).isBefore(dayjs(range.endAt)),
 				"startAt must be before endAt",
 			),
 	})
