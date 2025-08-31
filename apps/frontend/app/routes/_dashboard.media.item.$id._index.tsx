@@ -617,38 +617,39 @@ export default function Page() {
 						<Tabs.Panel value="overview">
 							<MediaScrollArea>
 								<Stack gap="sm">
-									<SimpleGrid
-										cols={{ base: 3, xl: 4 }}
-										spacing={{ base: "md", lg: "xs" }}
-									>
-										{userPreferences.featuresEnabled.media.genres
-											? loaderData.metadataDetails.genres
-													.slice(0, 12)
-													.map((g) => {
-														const color = useGetRandomMantineColor(g.name);
-														return (
-															<Group key={g.id} wrap="nowrap">
-																<Box
-																	h={11}
-																	w={11}
-																	bg={color}
-																	style={{ borderRadius: 2, flex: "none" }}
-																/>
-																<Anchor
-																	component={Link}
-																	to={$path("/media/genre/:id", {
-																		id: g.id,
-																	})}
-																	fz="sm"
-																	truncate
-																>
-																	{g.name.trim()}
-																</Anchor>
-															</Group>
-														);
-													})
-											: null}
-									</SimpleGrid>
+									{userPreferences.featuresEnabled.media.genres &&
+									loaderData.metadataDetails.genres.length > 0 ? (
+										<SimpleGrid
+											cols={{ base: 3, xl: 4 }}
+											spacing={{ base: "md", lg: "xs" }}
+										>
+											{loaderData.metadataDetails.genres
+												.slice(0, 12)
+												.map((g) => {
+													const color = useGetRandomMantineColor(g.name);
+													return (
+														<Group key={g.id} wrap="nowrap">
+															<Box
+																h={11}
+																w={11}
+																bg={color}
+																style={{ borderRadius: 2, flex: "none" }}
+															/>
+															<Anchor
+																component={Link}
+																to={$path("/media/genre/:id", {
+																	id: g.id,
+																})}
+																fz="sm"
+																truncate
+															>
+																{g.name.trim()}
+															</Anchor>
+														</Group>
+													);
+												})}
+										</SimpleGrid>
+									) : null}
 									<VideoGameSpecificsDisplay
 										specifics={loaderData.metadataDetails.videoGameSpecifics}
 									/>
