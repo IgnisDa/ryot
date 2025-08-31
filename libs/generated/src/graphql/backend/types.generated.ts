@@ -830,7 +830,7 @@ export type GenreDetails = {
 
 export type GenreDetailsInput = {
   genreId: Scalars['String']['input'];
-  page?: InputMaybe<Scalars['Int']['input']>;
+  search?: InputMaybe<SearchInput>;
 };
 
 export type GenreListItem = {
@@ -1254,6 +1254,7 @@ export enum MediaSource {
   Openlibrary = 'OPENLIBRARY',
   Spotify = 'SPOTIFY',
   Tmdb = 'TMDB',
+  Tvdb = 'TVDB',
   Vndb = 'VNDB',
   YoutubeMusic = 'YOUTUBE_MUSIC'
 }
@@ -2211,7 +2212,7 @@ export type QueryRootUserExercisesListArgs = {
 
 
 export type QueryRootUserGenresListArgs = {
-  input: SearchInput;
+  input?: InputMaybe<SearchInput>;
 };
 
 
@@ -2638,7 +2639,7 @@ export type UserExerciseInput = {
 
 export type UserExercisesListInput = {
   filter?: InputMaybe<ExerciseListFilter>;
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sortBy?: InputMaybe<ExerciseSortBy>;
 };
 
@@ -3030,7 +3031,7 @@ export type UserStatisticsMeasurement = {
 };
 
 export type UserTemplatesOrWorkoutsListInput = {
-  search: SearchInput;
+  search?: InputMaybe<SearchInput>;
   sort?: InputMaybe<UserWorkoutsListSortInput>;
 };
 
