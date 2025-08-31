@@ -537,8 +537,7 @@ export default function Page() {
 					) : null}
 					{inProgress ? (
 						<Alert icon={<IconAlertCircle />} variant="outline">
-							You are currently {getVerb(Verb.Read, lot)}
-							ing{" "}
+							You are currently {getVerb(Verb.Read, lot)}ing{" "}
 							{inProgress.podcastExtraInformation
 								? `EP-${inProgress.podcastExtraInformation.episode}`
 								: inProgress.showExtraInformation
@@ -862,8 +861,7 @@ export default function Page() {
 																})
 															}
 														>
-															I'm {getVerb(Verb.Read, lot)}
-															ing it
+															I'm {getVerb(Verb.Read, lot)}ing it
 														</Menu.Item>
 													) : null}
 													<Menu.Item
