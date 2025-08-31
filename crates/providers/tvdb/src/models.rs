@@ -4,16 +4,15 @@ use serde::Deserialize;
 pub static URL: &str = "https://api4.thetvdb.com/v4";
 
 #[derive(Debug, Deserialize)]
-pub struct TvdbLanguagesApiResponse {
-    pub data: Vec<TvdbLanguage>,
+pub struct TvdbApiResponse<T> {
+    pub data: T,
 }
+
+pub type TvdbLanguagesApiResponse = TvdbApiResponse<Vec<TvdbLanguage>>;
 
 #[derive(Debug, Deserialize)]
 pub struct TvdbLoginData {
     pub token: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct TvdbLoginResponse {
-    pub data: TvdbLoginData,
-}
+pub type TvdbLoginResponse = TvdbApiResponse<TvdbLoginData>;
