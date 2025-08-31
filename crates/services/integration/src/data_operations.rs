@@ -57,7 +57,7 @@ impl IntegrationService {
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
-                        &self.0.db,
+                        &self.0,
                     )
                     .await
                 }
@@ -148,7 +148,7 @@ impl IntegrationService {
                         specifics.komga_username.unwrap(),
                         specifics.komga_password.unwrap(),
                         specifics.komga_provider.unwrap(),
-                        &self.0.db,
+                        &self.0,
                     )
                     .await
                 }

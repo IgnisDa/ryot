@@ -1,13 +1,16 @@
+use std::sync::Arc;
+
 use anyhow::{Result, bail};
 use database_models::metadata;
 use database_utils::apply_columns_search;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    ColumnTrait, EntityTrait, QueryFilter,
     sea_query::{Alias, Expr, Func},
 };
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 
 #[derive(Debug, Clone)]
 pub enum ArrPushConfigExternalId {
@@ -28,9 +31,9 @@ pub struct ArrPushConfig {
 }
 
 pub async fn get_show_by_episode_identifier(
-    db: &DatabaseConnection,
     series: &str,
     episode: &str,
+    ss: &Arc<SupportingService>,
 ) -> Result<metadata::Model> {
     let db_show = metadata::Entity::find()
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
@@ -46,7 +49,7 @@ pub async fn get_show_by_episode_identifier(
             series,
             [Expr::col(metadata::Column::Title)],
         ))
-        .one(db)
+        .one(&ss.db)
         .await?;
     match db_show {
         Some(show) => Ok(show),

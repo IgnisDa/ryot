@@ -143,10 +143,10 @@ pub async fn disassociate_metadata(
         .await?;
     ryot_log!(debug, "Deleted {} seen items", delete_seen.rows_affected);
     let collections_part_of = entity_in_collections_with_collection_to_entity_ids(
-        &ss.db,
         &user_id,
         &metadata_id,
         EntityLot::Metadata,
+        ss,
     )
     .await?
     .into_iter()
@@ -337,7 +337,7 @@ pub async fn handle_metadata_eligible_for_smart_collection_moving(
         .await?;
 
     for user_id in users_with_both {
-        let (is_finished, _) = is_metadata_finished_by_user(&user_id, &metadata_id, &ss.db).await?;
+        let (is_finished, _) = is_metadata_finished_by_user(&user_id, &metadata_id, ss).await?;
         if is_finished {
             continue;
         }

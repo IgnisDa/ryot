@@ -203,7 +203,7 @@ pub async fn notify_users_for_released_media(ss: &Arc<SupportingService>) -> Res
         .collect_vec();
     for (metadata_id, notification) in notifications.into_iter() {
         let users_to_notify =
-            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, &ss.db).await?;
+            get_users_monitoring_entity(&metadata_id, EntityLot::Metadata, ss).await?;
         for user in users_to_notify {
             send_notification_for_user(&user, ss, notification.clone()).await?;
         }

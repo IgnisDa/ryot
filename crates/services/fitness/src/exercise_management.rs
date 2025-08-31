@@ -47,7 +47,7 @@ pub async fn user_exercise_details(
     exercise_id: String,
 ) -> Result<UserExerciseDetails> {
     let (collections, reviews) = try_join!(
-        entity_in_collections_with_details(&ss.db, &user_id, &exercise_id, EntityLot::Exercise),
+        entity_in_collections_with_details(&user_id, &exercise_id, EntityLot::Exercise, ss),
         item_reviews(&user_id, &exercise_id, EntityLot::Exercise, true, ss)
     )?;
     let mut resp = UserExerciseDetails {

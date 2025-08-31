@@ -101,16 +101,12 @@ pub async fn export_exercises(
                 .into_iter()
                 .map(get_review_export_item)
                 .collect_vec();
-            let collections = entity_in_collections_with_details(
-                &ss.db,
-                user_id,
-                &exercise_id,
-                EntityLot::Exercise,
-            )
-            .await?
-            .into_iter()
-            .map(|c| c.details)
-            .collect_vec();
+            let collections =
+                entity_in_collections_with_details(user_id, &exercise_id, EntityLot::Exercise, ss)
+                    .await?
+                    .into_iter()
+                    .map(|c| c.details)
+                    .collect_vec();
             if reviews.is_empty() && collections.is_empty() {
                 continue;
             }
@@ -157,8 +153,7 @@ pub async fn export_workout_templates(
         .await?;
         ryot_log!(debug, "Exporting templates list page: {current_page}");
         for workout_template_id in workout_template_ids.response.items {
-            let details =
-                user_workout_template_details(&ss.db, user_id, workout_template_id).await?;
+            let details = user_workout_template_details(user_id, workout_template_id, ss).await?;
             let exp = ImportOrExportWorkoutTemplateItem {
                 details: details.details,
                 collections: details.collections.into_iter().map(|c| c.details).collect(),

@@ -1,11 +1,13 @@
+use std::sync::Arc;
+
 use anyhow::{Result, anyhow, bail};
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
+use supporting_service::SupportingService;
 
 use crate::utils::get_show_by_episode_identifier;
 
@@ -49,7 +51,7 @@ mod models {
 
 pub async fn sink_progress(
     payload: String,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<Option<ImportResult>> {
     let payload: models::EmbyWebhookPayload = serde_json::from_str(&payload)?;
     let runtime = payload
@@ -81,7 +83,7 @@ pub async fn sink_progress(
                 .episode_name
                 .as_ref()
                 .ok_or_else(|| anyhow!("No episode name associated with this media"))?;
-            let db_show = get_show_by_episode_identifier(db, series_name, episode_name).await?;
+            let db_show = get_show_by_episode_identifier(series_name, episode_name, ss).await?;
             (db_show.identifier, MediaLot::Show)
         }
         _ => bail!("Only movies and shows supported"),

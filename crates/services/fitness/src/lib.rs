@@ -57,7 +57,7 @@ impl FitnessService {
         user_id: String,
         workout_template_id: String,
     ) -> Result<UserWorkoutTemplateDetails> {
-        user_workout_template_details(&self.0.db, &user_id, workout_template_id).await
+        user_workout_template_details(&user_id, workout_template_id, &self.0).await
     }
 
     pub async fn create_or_update_user_workout_template(

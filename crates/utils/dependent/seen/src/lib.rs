@@ -12,19 +12,19 @@ use rust_decimal::{
     Decimal,
     prelude::{One, ToPrimitive},
 };
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use supporting_service::SupportingService;
 
 pub async fn seen_history(
     user_id: &String,
     metadata_id: &String,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<Vec<seen::Model>> {
     let seen_items = Seen::find()
         .filter(seen::Column::UserId.eq(user_id))
         .filter(seen::Column::MetadataId.eq(metadata_id))
         .order_by_desc(seen::Column::LastUpdatedOn)
-        .all(db)
+        .all(&ss.db)
         .await
         .unwrap();
     Ok(seen_items)
@@ -33,14 +33,14 @@ pub async fn seen_history(
 pub async fn is_metadata_finished_by_user(
     user_id: &String,
     metadata_id: &String,
-    db: &DatabaseConnection,
+    ss: &Arc<SupportingService>,
 ) -> Result<(bool, Vec<seen::Model>)> {
     let metadata = Metadata::find_by_id(metadata_id)
-        .one(db)
+        .one(&ss.db)
         .await
         .unwrap()
         .unwrap();
-    let seen_history = seen_history(user_id, metadata_id, db).await?;
+    let seen_history = seen_history(user_id, metadata_id, ss).await?;
     let is_finished = if metadata.lot == MediaLot::Podcast
         || metadata.lot == MediaLot::Show
         || metadata.lot == MediaLot::Anime
@@ -170,7 +170,7 @@ pub async fn handle_after_metadata_seen_tasks(
                 || metadata.lot == MediaLot::Manga
             {
                 let (is_complete, _) =
-                    is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, &ss.db).await?;
+                    is_metadata_finished_by_user(&seen.user_id, &seen.metadata_id, ss).await?;
                 if is_complete {
                     remove_entities_from_collection(&DefaultCollection::InProgress.to_string())
                         .await?;

@@ -23,7 +23,7 @@ pub async fn revoke_invalid_access_tokens(ss: &Arc<SupportingService>) -> Result
         .all(&ss.db)
         .await?;
     for access_link in access_links {
-        revoke_access_link(&ss.db, access_link).await?;
+        revoke_access_link(access_link, ss).await?;
     }
     Ok(())
 }
