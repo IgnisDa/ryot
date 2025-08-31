@@ -66,7 +66,7 @@ The OIDC test file has its own `beforeAll`/`afterAll` that starts a fully indepe
 - PostgreSQL (`postgres:18-alpine`)
 - Redis (`redis:alpine`)
 - S3-compatible object store (`rustfs/rustfs`)
-- Mock OIDC server (`ghcr.io/navikt/mock-oauth2-server:2.1.10`)
+- Mock OIDC server (`ghcr.io/navikt/mock-oauth2-server:4.0.0`)
 
 The OIDC container is considered ready when `GET /{issuerId}/.well-known/openid-configuration` returns HTTP 200. The issuer ID used is `default` (the mock server's built-in default).
 
