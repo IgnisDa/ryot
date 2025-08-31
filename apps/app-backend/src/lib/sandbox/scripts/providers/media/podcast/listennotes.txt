@@ -337,19 +337,20 @@ driver("details", async function(context) {
     name: title,
     suggestions: recommendations,
     properties: {
+      episodes,
+      sourceUrl: getSourceUrl(title, externalId),
+      totalEpisodes: totalEpisodes ?? episodes.length,
+      description: getNullableString(podcast?.description),
       genres: collectGenres(podcast?.genre_ids, genresById),
+      images: image ? [{ type: "remote", url: image }] : [],
+      providerRating: getNullableNumber(podcast?.listen_score),
+      publishDate: getIsoDateFromTimestamp(podcast?.earliest_pub_date_ms, dayjs),
+      unlinkedCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
+      publishYear: getPublishYearFromTimestamp(podcast?.earliest_pub_date_ms, dayjs),
       isNsfw:
         typeof podcast?.explicit_content === "boolean"
           ? podcast.explicit_content
           : null,
-      publishYear: getPublishYearFromTimestamp(podcast?.earliest_pub_date_ms, dayjs),
-      providerRating: getNullableNumber(podcast?.listen_score),
-      description: getNullableString(podcast?.description),
-      sourceUrl: getSourceUrl(title, externalId),
-      images: image ? [{ type: "remote", url: image }] : [],
-      unlinkedCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
-      totalEpisodes: totalEpisodes ?? episodes.length,
-      episodes,
     },
   };
 });

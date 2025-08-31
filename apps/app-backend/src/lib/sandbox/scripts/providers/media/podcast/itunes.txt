@@ -257,18 +257,20 @@ driver("details", async function(context) {
 
   const image = collectImages(podcast);
   const publishYear = getPublishYear(podcast?.releaseDate, dayjs);
+  const publishDate = getIsoDate(podcast?.releaseDate, dayjs);
 
   return {
     name: title,
     properties: {
-      genres: collectGenres(podcast),
-      publishYear,
-      description: getNullableString(podcast?.description),
-      sourceUrl: buildSourceUrl(externalId, title),
-      images: image.map((url) => ({ type: "remote", url })),
-      unlinkedCreators,
-      totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,
+      publishDate,
+      publishYear,
+      unlinkedCreators,
+      genres: collectGenres(podcast),
+      sourceUrl: buildSourceUrl(externalId, title),
+      totalEpisodes: totalEpisodes ?? episodes.length,
+      description: getNullableString(podcast?.description),
+      images: image.map((url) => ({ type: "remote", url })),
     },
   };
 });
