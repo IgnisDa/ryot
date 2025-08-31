@@ -1,18 +1,14 @@
-import { Menu } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Box } from "@/components/ui/box";
-import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useSetNavSheetOpen } from "@/lib/navigation";
 
 type Props = { title: string; eyebrow: string; children?: ReactNode };
 
 export function PageHeader({ eyebrow, title, children }: Props) {
 	const insets = useSafeAreaInsets();
-	const setNavSheetOpen = useSetNavSheetOpen();
 
 	return (
 		<Box className="flex-1 bg-background">
@@ -24,16 +20,7 @@ export function PageHeader({ eyebrow, title, children }: Props) {
 					paddingTop: insets.top + 16,
 				}}
 			>
-				<Box className="flex-row justify-end md:hidden">
-					<Pressable
-						className="-mr-1 p-1"
-						accessibilityRole="button"
-						accessibilityLabel="Open navigation"
-						onPress={() => setNavSheetOpen(true)}
-					>
-						<Menu size={20} color="#78716c" strokeWidth={1.5} />
-					</Pressable>
-				</Box>
+				<Box className="h-7 md:hidden" />
 				<Text className="text-[10px] mt-[14] tracking-[2px] text-muted-foreground font-sans uppercase">
 					{eyebrow}
 				</Text>
