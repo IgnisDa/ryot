@@ -78,7 +78,7 @@ fn should_respect_version(key: &ApplicationCacheKey) -> bool {
     )
 }
 
-pub async fn set_keys_with_custom_expiry(
+async fn set_keys_with_custom_expiry(
     ss: &Arc<SupportingService>,
     items: Vec<(ApplicationCacheKey, ApplicationCacheValue)>,
     custom_expiry: Option<Duration>,
