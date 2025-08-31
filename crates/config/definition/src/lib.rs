@@ -201,6 +201,19 @@ pub struct MovieAndShowConfig {
     pub tvdb: TvdbConfig,
 }
 
+impl MovieAndShowConfig {
+    pub fn is_enabled(&self) -> bool {
+        let mut enabled = false;
+        if !self.tmdb.access_token.is_empty() {
+            enabled = true;
+        }
+        if !self.tvdb.api_key.is_empty() {
+            enabled = true;
+        }
+        enabled
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "PODCASTS_LISTENNOTES_")]
 pub struct ListenNotesConfig {
