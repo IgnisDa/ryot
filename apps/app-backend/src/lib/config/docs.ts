@@ -1,6 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-
 import { appConfigDef, systemConfigDef } from "./definition";
 import type { ConfigNode, GroupDef } from "./types";
 
@@ -54,7 +51,7 @@ function collectFields(node: ConfigNode, level: number, lines: string[]): void {
 	}
 }
 
-export function generateConfigDocs(outputPath: string): void {
+export async function generateConfigDocs(outputPath: string) {
 	const lines: string[] = [
 		"# App Backend Configuration Reference\n",
 		"> Auto-generated from the configuration definition. Do not edit manually.\n",
@@ -63,6 +60,5 @@ export function generateConfigDocs(outputPath: string): void {
 	collectFields(systemConfigDef, 2, lines);
 	collectFields(appConfigDef, 2, lines);
 
-	mkdirSync(dirname(outputPath), { recursive: true });
-	writeFileSync(outputPath, lines.join("\n"), "utf8");
+	await Bun.write(outputPath, lines.join("\n"));
 }
