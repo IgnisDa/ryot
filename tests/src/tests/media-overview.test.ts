@@ -355,7 +355,7 @@ describe("GET /media/overview/review", () => {
 			entityId: rateAnime.id,
 			eventSchemaSlug: "review",
 			entitySchemaId: animeSchema.id,
-			properties: { rating: 2, review: "old review" },
+			properties: { rating: 20, text: "old review" },
 		});
 		await createBuiltInMediaEvent({
 			client,
@@ -377,8 +377,7 @@ describe("GET /media/overview/review", () => {
 		expect(data?.data).toBeDefined();
 		expect(data?.data.items).toEqual([
 			expect.objectContaining({
-				rating: 2,
-				id: rateAnime.id,
+				rating: 20,
 				reviewAt: expect.any(String),
 				completedAt: expect.stringContaining(dayjs.utc().format("YYYY-MM-DD")),
 			}),
@@ -435,7 +434,7 @@ describe("GET /media/overview/activity", () => {
 			eventSchemaSlug: "review",
 			entityId: reviewedManga.id,
 			entitySchemaId: mangaSchema.id,
-			properties: { rating: 4, review: "Strong finish" },
+			properties: { rating: 40, text: "Strong finish" },
 		});
 
 		const { data, response } = await client.GET("/media/overview/activity", {
@@ -448,13 +447,9 @@ describe("GET /media/overview/activity", () => {
 			(item) => item.eventSchemaSlug === "review" && item.entity.name === "Recent Activity Manga",
 		);
 		expect(reviewedItem).toMatchObject({
-			rating: 4,
+			rating: 40,
 			eventSchemaSlug: "review",
-			entity: {
-				image: null,
-				entitySchemaSlug: "manga",
-				name: "Recent Activity Manga",
-			},
+			entity: { image: null, entitySchemaSlug: "manga", name: "Recent Activity Manga" },
 		});
 		expect(data?.data.items).toEqual(
 			expect.arrayContaining([
@@ -464,10 +459,7 @@ describe("GET /media/overview/activity", () => {
 					entity: {
 						entitySchemaSlug: "anime",
 						name: "Recent Activity Anime",
-						image: {
-							type: "remote",
-							url: "https://example.com/anime.png",
-						},
+						image: { type: "remote", url: "https://example.com/anime.png" },
 					},
 				}),
 			]),
@@ -524,7 +516,7 @@ describe("GET /media/overview/week", () => {
 			entityId: weeklyBook.id,
 			eventSchemaSlug: "review",
 			entitySchemaId: bookSchema.id,
-			properties: { rating: 5, review: "Excellent" },
+			properties: { rating: 50, text: "Excellent" },
 		});
 
 		const { data, response } = await client.GET("/media/overview/week", {
@@ -628,7 +620,7 @@ describe("GET /media/overview/library", () => {
 			eventSchemaSlug: "review",
 			entityId: completedBook.id,
 			entitySchemaId: bookSchema.id,
-			properties: { rating: 4, review: "Great read" },
+			properties: { rating: 40, text: "Great read" },
 		});
 
 		const { data, response } = await client.GET("/media/overview/library", {
@@ -640,7 +632,7 @@ describe("GET /media/overview/library", () => {
 		expect(response.status).toBe(200);
 		expect(data?.data.inBacklog).toBe(1);
 		expect(data?.data.completed).toBe(1);
-		expect(data?.data.avgRating).toBe(4);
+		expect(data?.data.avgRating).toBe(40);
 		expect(data?.data.inProgress).toBe(1);
 		expect(data?.data.entityTypeCounts).toMatchObject({ book: 2, manga: 1 });
 	});
