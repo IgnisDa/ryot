@@ -232,8 +232,11 @@ export default function Page() {
 	const userPreferences = useUserPreferences();
 	const userDetails = useUserDetails();
 	const submit = useConfirmSubmit();
+
+	const lot = loaderData.metadataDetails.lot;
+	const source = loaderData.metadataDetails.source;
 	const canCurrentUserUpdate =
-		loaderData.metadataDetails.source === MediaSource.Custom &&
+		source === MediaSource.Custom &&
 		userDetails.id === loaderData.metadataDetails.createdByUserId;
 	const [tab, setTab] = useState<string | null>(
 		loaderData.query.defaultTab || "overview",
@@ -383,8 +386,8 @@ export default function Page() {
 					title={loaderData.metadataDetails.title}
 					assets={loaderData.metadataDetails.assets}
 					externalLink={{
-						lot: loaderData.metadataDetails.lot,
-						source: loaderData.metadataDetails.source,
+						lot,
+						source,
 						href: loaderData.metadataDetails.sourceUrl,
 					}}
 					partialDetailsFetcher={{
@@ -425,18 +428,16 @@ export default function Page() {
 									p={4}
 									display="flex"
 									style={{
-										flexDirection: "column",
-										alignItems: "center",
 										gap: 6,
+										alignItems: "center",
+										flexDirection: "column",
 									}}
 								>
 									<Image
 										h={24}
 										w={24}
 										alt="Logo"
-										src={`/provider-logos/${match(
-											loaderData.metadataDetails.source,
-										)
+										src={`/provider-logos/${match(source)
 											.with(MediaSource.Anilist, () => "anilist.svg")
 											.with(MediaSource.Audible, () => "audible.svg")
 											.with(MediaSource.GoogleBooks, () => "google-books.svg")
@@ -447,6 +448,7 @@ export default function Page() {
 											.with(MediaSource.MangaUpdates, () => "manga-updates.svg")
 											.with(MediaSource.Openlibrary, () => "openlibrary.svg")
 											.with(MediaSource.Tmdb, () => "tmdb.svg")
+											.with(MediaSource.Tvdb, () => "tvdb.svg")
 											.with(MediaSource.Vndb, () => "vndb.ico")
 											.with(MediaSource.YoutubeMusic, () => "youtube-music.png")
 											.with(MediaSource.Hardcover, () => "hardcover.png")
@@ -459,10 +461,11 @@ export default function Page() {
 										{Number(loaderData.metadataDetails.providerRating).toFixed(
 											1,
 										)}
-										{match(loaderData.metadataDetails.source)
+										{match(source)
 											.with(
 												MediaSource.Igdb,
 												MediaSource.Tmdb,
+												MediaSource.Tvdb,
 												MediaSource.Vndb,
 												MediaSource.Anilist,
 												MediaSource.Listennotes,
@@ -534,8 +537,7 @@ export default function Page() {
 					) : null}
 					{inProgress ? (
 						<Alert icon={<IconAlertCircle />} variant="outline">
-							You are currently{" "}
-							{getVerb(Verb.Read, loaderData.metadataDetails.lot)}
+							You are currently {getVerb(Verb.Read, lot)}
 							ing{" "}
 							{inProgress.podcastExtraInformation
 								? `EP-${inProgress.podcastExtraInformation.episode}`
@@ -568,7 +570,7 @@ export default function Page() {
 							>
 								History
 							</Tabs.Tab>
-							{loaderData.metadataDetails.lot === MediaLot.Show ? (
+							{lot === MediaLot.Show ? (
 								<Tabs.Tab
 									value="showSeasons"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -576,7 +578,7 @@ export default function Page() {
 									Seasons
 								</Tabs.Tab>
 							) : null}
-							{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
+							{lot === MediaLot.Podcast ? (
 								<Tabs.Tab
 									value="podcastEpisodes"
 									leftSection={<IconPlayerPlay size={16} />}
@@ -707,7 +709,7 @@ export default function Page() {
 											<Button variant="outline">Update progress</Button>
 										</Menu.Target>
 										<Menu.Dropdown>
-											{loaderData.metadataDetails.lot === MediaLot.Show ? (
+											{lot === MediaLot.Show ? (
 												<>
 													<Menu.Label>Shows</Menu.Label>
 													{nextEntry ? (
@@ -740,7 +742,7 @@ export default function Page() {
 													)}
 												</>
 											) : null}
-											{loaderData.metadataDetails.lot === MediaLot.Anime ? (
+											{lot === MediaLot.Anime ? (
 												<>
 													<Menu.Label>Anime</Menu.Label>
 													<Menu.Item
@@ -761,7 +763,7 @@ export default function Page() {
 													) : null}
 												</>
 											) : null}
-											{loaderData.metadataDetails.lot === MediaLot.Manga ? (
+											{lot === MediaLot.Manga ? (
 												<>
 													<Menu.Label>Manga</Menu.Label>
 													<Menu.Item
@@ -789,7 +791,7 @@ export default function Page() {
 													) : null}
 												</>
 											) : null}
-											{loaderData.metadataDetails.lot === MediaLot.Podcast ? (
+											{lot === MediaLot.Podcast ? (
 												<>
 													<Menu.Label>Podcasts</Menu.Label>
 													{nextEntry ? (
@@ -832,7 +834,7 @@ export default function Page() {
 														Set progress
 													</Menu.Item>
 													{!METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
-														loaderData.metadataDetails.lot,
+														lot,
 													) ? (
 														<StateChangeButtons />
 													) : null}
@@ -844,14 +846,10 @@ export default function Page() {
 														I finished it
 													</Menu.Item>
 												</>
-											) : !METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(
-													loaderData.metadataDetails.lot,
-												) ? (
+											) : !METADATA_LOTS_WITH_GRANULAR_UPDATES.includes(lot) ? (
 												<>
 													<Menu.Label>Not in progress</Menu.Label>
-													{![MediaLot.Anime, MediaLot.Manga].includes(
-														loaderData.metadataDetails.lot,
-													) ? (
+													{![MediaLot.Anime, MediaLot.Manga].includes(lot) ? (
 														<Menu.Item
 															onClick={() =>
 																changeProgress({
@@ -863,11 +861,7 @@ export default function Page() {
 																})
 															}
 														>
-															I'm{" "}
-															{getVerb(
-																Verb.Read,
-																loaderData.metadataDetails.lot,
-															)}
+															I'm {getVerb(Verb.Read, lot)}
 															ing it
 														</Menu.Item>
 													) : null}
@@ -878,9 +872,7 @@ export default function Page() {
 															});
 														}}
 													>
-														Add to{" "}
-														{getVerb(Verb.Read, loaderData.metadataDetails.lot)}{" "}
-														history
+														Add to {getVerb(Verb.Read, lot)} history
 													</Menu.Item>
 												</>
 											) : null}
@@ -892,10 +884,10 @@ export default function Page() {
 											w="100%"
 											onClick={() => {
 												setEntityToReview({
-													entityId: loaderData.metadataId,
+													metadataLot: lot,
 													entityLot: EntityLot.Metadata,
+													entityId: loaderData.metadataId,
 													entityTitle: loaderData.metadataDetails.title,
-													metadataLot: loaderData.metadataDetails.lot,
 													existingReview: {
 														showExtraInformation: {
 															episode:
@@ -1082,11 +1074,11 @@ export default function Page() {
 										data={loaderData.userMetadataDetails.reviews}
 										itemContent={(_review, r) => (
 											<ReviewItemDisplay
+												lot={lot}
 												key={r.id}
 												review={r}
 												entityLot={EntityLot.Metadata}
 												entityId={loaderData.metadataId}
-												lot={loaderData.metadataDetails.lot}
 												title={loaderData.metadataDetails.title}
 											/>
 										)}

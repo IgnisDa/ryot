@@ -32,12 +32,12 @@ export default function Page(props: { params: { id: string } }) {
 	const { data: genreDetails } = useQuery({
 		queryKey: queryFactory.media.genreDetails({
 			genreId,
-			page: pagination.page,
+			search: { page: pagination.page },
 		}).queryKey,
 		queryFn: () =>
 			clientGqlService
 				.request(GenreDetailsDocument, {
-					input: { genreId, page: pagination.page },
+					input: { genreId, search: { page: pagination.page } },
 				})
 				.then((data) => data.genreDetails),
 	});
