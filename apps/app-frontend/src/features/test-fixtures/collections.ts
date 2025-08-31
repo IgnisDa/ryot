@@ -6,7 +6,17 @@ import {
 
 type ApiQueryEngineCollection = QueryEngineEntitiesItem;
 
-type CollectionField = ApiQueryEngineCollection[number];
+type CollectionField = {
+	key: string;
+	kind: ApiQueryEngineCollection[string]["kind"];
+	value: unknown;
+};
+
+const toQueryEngineCollection = (fields: CollectionField[]): ApiQueryEngineCollection => {
+	return Object.fromEntries(
+		fields.map(({ key, ...field }) => [key, field]),
+	) as ApiQueryEngineCollection;
+};
 
 function createJsonField(key: string, value: unknown): CollectionField {
 	return { key, kind: "json", value };
@@ -27,7 +37,7 @@ export function createQueryEngineCollectionFixture(
 	const image = overrides.image ?? null;
 	const createdAt = overrides.createdAt ?? "2026-03-08T08:00:00.000Z";
 	const updatedAt = overrides.updatedAt ?? "2026-03-08T08:30:00.000Z";
-	return [
+	return toQueryEngineCollection([
 		{ key: queryEngineEntityFieldKeys.id, kind: "text", value: id },
 		{ key: queryEngineEntityFieldKeys.name, kind: "text", value: name },
 		{
@@ -56,7 +66,7 @@ export function createQueryEngineCollectionFixture(
 			value: null,
 		},
 		...(overrides.fields ?? []),
-	];
+	]);
 }
 
 export function createAppCollectionFixture(overrides: Partial<AppCollection> = {}): AppCollection {

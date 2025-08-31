@@ -7,9 +7,9 @@ import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/view
 import type {
 	AggregateQueryEngineRequest,
 	EventsQueryEngineRequest,
+	QueryEngineItem,
 	QueryEngineAggregateResponseData,
 	QueryEngineResponse,
-	ResolvedDisplayValue,
 	TimeSeriesQueryEngineRequest,
 } from "~/modules/query-engine";
 
@@ -24,10 +24,42 @@ import {
 
 const date = (value: string) => dayjs.utc(value).toDate();
 
-type SectionField = {
-	key: string;
-	value: Date | number | string | null;
-	kind: "date" | "number" | "text" | "null" | "image";
+type SectionField =
+	| { key: string; value: Date; kind: "date" }
+	| { key: string; value: null; kind: "null" }
+	| { key: string; kind: "text"; value: string }
+	| { key: string; value: number; kind: "number" }
+	| {
+			key: string;
+			kind: "image";
+			value: { type: "remote"; url: string } | null;
+	  };
+
+const makeImageField = (
+	key: string,
+	image: { type: "remote"; url: string } | null,
+): SectionField => {
+	return image ? { key, kind: "image", value: image } : { key, kind: "null", value: null };
+};
+
+const makeDateField = (key: string, value: Date | null | undefined): SectionField => {
+	return value ? { key, kind: "date", value } : { key, kind: "null", value: null };
+};
+
+const makeNumberField = (key: string, value: number | null | undefined): SectionField => {
+	return value != null ? { key, kind: "number", value } : { key, kind: "null", value: null };
+};
+
+const toQueryEngineField = (field: SectionField): QueryEngineItem[string] => {
+	if (field.kind === "date") {
+		return { kind: "date", value: field.value.toISOString() };
+	}
+
+	return field;
+};
+
+const toQueryEngineItem = (fields: SectionField[]): QueryEngineItem => {
+	return Object.fromEntries(fields.map((field) => [field.key, toQueryEngineField(field)]));
 };
 
 const makeSectionItem = (opts: {
@@ -36,27 +68,25 @@ const makeSectionItem = (opts: {
 	fields?: SectionField[];
 	entitySchemaSlug: string;
 	image?: { type: "remote"; url: string } | null;
-}) => [
-	{ key: "entityId", kind: "text" as const, value: opts.id },
-	{ key: "entityName", kind: "text" as const, value: opts.name },
-	{
-		key: "entityImage",
-		kind: opts.image ? ("image" as const) : ("null" as const),
-		value: opts.image ?? null,
-	},
-	{
-		kind: "text" as const,
-		key: "entitySchemaSlug",
-		value: opts.entitySchemaSlug,
-	},
-	...(opts.fields ?? []),
-];
+}) =>
+	toQueryEngineItem([
+		{ key: "entityId", kind: "text" as const, value: opts.id },
+		{ key: "entityName", kind: "text" as const, value: opts.name },
+		makeImageField("entityImage", opts.image ?? null),
+		{
+			kind: "text" as const,
+			key: "entitySchemaSlug",
+			value: opts.entitySchemaSlug,
+		},
+		...(opts.fields ?? []),
+	]);
 
-const makeSectionResult = <T>(items: T[], opts: { limit?: number } = {}) => ({
+const makeSectionResult = (items: QueryEngineItem[], opts: { limit?: number } = {}) => ({
 	mode: "entities" as const,
 	data: {
 		items,
 		meta: {
+			fieldOrder: Object.keys(items[0] ?? {}),
 			pagination: {
 				page: 1,
 				hasNextPage: false,
@@ -641,13 +671,14 @@ describe("getRateTheseItems", () => {
 });
 
 const makeEventsResult = (
-	items: Array<Array<ResolvedDisplayValue & { key: string }>>,
+	items: QueryEngineItem[],
 	opts: { limit?: number } = {},
 ): QueryEngineResponse => ({
 	mode: "events" as const,
 	data: {
 		items,
 		meta: {
+			fieldOrder: Object.keys(items[0] ?? {}),
 			pagination: {
 				page: 1,
 				hasNextPage: false,
@@ -665,34 +696,23 @@ const makeEventsItem = (opts: {
 	entityId: string;
 	entityName: string;
 	eventCreatedAt: Date;
-	entityImage?: unknown;
 	eventSchemaSlug: string;
 	entitySchemaSlug: string;
 	eventRating?: number | null;
 	eventCompletedOn?: Date | null;
-}): Array<ResolvedDisplayValue & { key: string }> => [
-	{ key: "eventId", kind: "text", value: opts.eventId },
-	{ key: "entityId", kind: "text", value: opts.entityId },
-	{ key: "entityName", kind: "text", value: opts.entityName },
-	{
-		key: "entityImage",
-		kind: opts.entityImage ? "image" : "null",
-		value: opts.entityImage ?? null,
-	},
-	{ key: "entitySchemaSlug", kind: "text", value: opts.entitySchemaSlug },
-	{ key: "eventSchemaSlug", kind: "text", value: opts.eventSchemaSlug },
-	{ key: "eventCreatedAt", kind: "date", value: opts.eventCreatedAt },
-	{
-		key: "eventCompletedOn",
-		kind: opts.eventCompletedOn ? "date" : "null",
-		value: opts.eventCompletedOn ?? null,
-	},
-	{
-		key: "eventRating",
-		kind: opts.eventRating != null ? "number" : "null",
-		value: opts.eventRating ?? null,
-	},
-];
+	entityImage?: { type: "remote"; url: string } | null;
+}): QueryEngineItem =>
+	toQueryEngineItem([
+		{ key: "eventId", kind: "text", value: opts.eventId },
+		{ key: "entityId", kind: "text", value: opts.entityId },
+		{ key: "entityName", kind: "text", value: opts.entityName },
+		makeImageField("entityImage", opts.entityImage ?? null),
+		{ key: "entitySchemaSlug", kind: "text", value: opts.entitySchemaSlug },
+		{ key: "eventSchemaSlug", kind: "text", value: opts.eventSchemaSlug },
+		makeDateField("eventCreatedAt", opts.eventCreatedAt),
+		makeDateField("eventCompletedOn", opts.eventCompletedOn),
+		makeNumberField("eventRating", opts.eventRating),
+	]);
 
 describe("getRecentActivityItems", () => {
 	it("returns recent activity items mapped from events mode response", async () => {
@@ -877,11 +897,10 @@ describe("getRecentActivityItems", () => {
 			eventSchemaSlug: "progress",
 			eventCreatedAt: date("2024-03-20T12:00:00Z"),
 		});
-		const itemWithNullCreatedAt = item.map((field) =>
-			field.key === "eventCreatedAt"
-				? { key: "eventCreatedAt", kind: "null" as const, value: null }
-				: field,
-		);
+		const itemWithNullCreatedAt = {
+			...item,
+			eventCreatedAt: { kind: "null" as const, value: null },
+		};
 
 		const result = expectDataResult(
 			await getRecentActivityItems("user_1", {
