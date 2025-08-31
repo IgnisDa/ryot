@@ -121,7 +121,6 @@ pub struct TmdbSettings {
 pub struct TvdbLanguage {
     pub id: String,
     pub name: String,
-    pub short_code: String,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]

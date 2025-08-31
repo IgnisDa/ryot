@@ -19,7 +19,6 @@ const URL: &str = "https://api4.thetvdb.com/v4";
 pub struct TvdbLanguageResponse {
     pub id: String,
     pub name: Option<String>,
-    pub short_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -57,7 +56,7 @@ impl TvdbService {
         self.settings
             .languages
             .iter()
-            .map(|l| l.short_code.clone())
+            .map(|l| l.id.clone())
             .collect()
     }
 }
@@ -95,15 +94,7 @@ async fn get_settings(
             let languages: Vec<TvdbLanguage> = languages_response
                 .data
                 .into_iter()
-                .flat_map(|l| {
-                    l.short_code.and_then(|short_code| {
-                        l.name.map(|name| TvdbLanguage {
-                            name,
-                            id: l.id,
-                            short_code,
-                        })
-                    })
-                })
+                .flat_map(|l| l.name.map(|name| TvdbLanguage { name, id: l.id }))
                 .collect();
 
             let settings = TvdbSettings {
