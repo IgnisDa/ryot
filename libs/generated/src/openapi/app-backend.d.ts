@@ -4063,24 +4063,14 @@ export interface components {
         };
         QueryEngineReference: {
             slug: string;
-            column: string;
             /** @enum {string} */
-            type: "entity-column";
-        } | {
-            slug: string;
-            property: string[];
-            /** @enum {string} */
-            type: "schema-property";
-        } | {
-            column: string;
-            joinKey: string;
-            /** @enum {string} */
-            type: "event-join-column";
+            type: "entity";
+            path: string[];
         } | {
             joinKey: string;
-            property: string[];
             /** @enum {string} */
-            type: "event-join-property";
+            type: "event";
+            path: string[];
         } | {
             key: string;
             /** @enum {string} */

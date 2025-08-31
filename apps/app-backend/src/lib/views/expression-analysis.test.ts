@@ -2,8 +2,8 @@ import { describe, expect, it } from "bun:test";
 import {
 	createSmartphoneSchema,
 	createTabletSchema,
-	schemaPropertyExpression,
 	literalExpression,
+	schemaPropertyExpression,
 } from "~/lib/test-fixtures";
 import type { ViewComputedField } from "./expression";
 import { inferViewExpressionType } from "./expression-analysis";
@@ -69,9 +69,9 @@ describe("inferViewExpressionType", () => {
 		const imageExpression = {
 			type: "reference" as const,
 			reference: {
-				column: "image",
+				path: ["image"],
 				slug: "smartphones",
-				type: "entity-column" as const,
+				type: "entity" as const,
 			},
 		};
 
