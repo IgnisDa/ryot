@@ -6,39 +6,39 @@ import { textStyle } from "./styles";
 
 type ITextProps = React.ComponentProps<typeof RNText> & VariantProps<typeof textStyle>;
 
-const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(function Text(
-	{
-		className,
-		isTruncated,
-		bold,
-		underline,
-		strikeThrough,
-		size = "md",
-		sub,
-		italic,
-		highlight,
-		...props
+const Text = React.forwardRef<React.ComponentRef<typeof RNText>, ITextProps>(
+	function Text(props, ref) {
+		const {
+			className,
+			isTruncated,
+			bold,
+			underline,
+			strikeThrough,
+			size = "md",
+			sub,
+			italic,
+			highlight,
+			...rest
+		} = props;
+		return (
+			<RNText
+				className={textStyle({
+					isTruncated: isTruncated ?? false,
+					bold: bold ?? false,
+					underline: underline ?? false,
+					strikeThrough: strikeThrough ?? false,
+					size,
+					sub: sub ?? false,
+					italic: italic ?? false,
+					highlight: highlight ?? false,
+					class: className,
+				})}
+				{...rest}
+				ref={ref}
+			/>
+		);
 	},
-	ref,
-) {
-	return (
-		<RNText
-			className={textStyle({
-				isTruncated: isTruncated ?? false,
-				bold: bold ?? false,
-				underline: underline ?? false,
-				strikeThrough: strikeThrough ?? false,
-				size,
-				sub: sub ?? false,
-				italic: italic ?? false,
-				highlight: highlight ?? false,
-				class: className,
-			})}
-			{...props}
-			ref={ref}
-		/>
-	);
-});
+);
 
 Text.displayName = "Text";
 

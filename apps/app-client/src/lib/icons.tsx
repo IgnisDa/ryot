@@ -98,7 +98,8 @@ type TrackerIconProps = {
 	strokeWidth?: number;
 };
 
-function FallbackIcon({ size = 16 }: { size?: number }) {
+function FallbackIcon(props: { size?: number }) {
+	const size = props.size ?? 16;
 	return (
 		<View
 			style={{
@@ -111,8 +112,10 @@ function FallbackIcon({ size = 16 }: { size?: number }) {
 	);
 }
 
-export function TrackerIcon({ icon, size = 16, strokeWidth = 1.5 }: TrackerIconProps) {
-	const IconComponent = iconRegistry[icon];
+export function TrackerIcon(props: TrackerIconProps) {
+	const size = props.size ?? 16;
+	const strokeWidth = props.strokeWidth ?? 1.5;
+	const IconComponent = iconRegistry[props.icon];
 	if (!IconComponent) {
 		return <FallbackIcon size={size} />;
 	}
