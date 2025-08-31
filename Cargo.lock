@@ -4285,10 +4285,15 @@ version = "0.1.0"
 dependencies = [
  "enum-models",
  "indoc",
+ "migrations-utils",
  "sea-orm",
  "sea-orm-migration",
  "tracing",
 ]
+
+[[package]]
+name = "migrations-utils"
+version = "0.1.0"
 
 [[package]]
 name = "mime"
