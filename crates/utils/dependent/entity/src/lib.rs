@@ -159,8 +159,8 @@ pub async fn change_metadata_associations(
 
     for name in genres {
         let genre = genre::ActiveModel {
-            id: ActiveValue::Set(format!("gen_{}", nanoid!(12))),
             name: ActiveValue::Set(name.clone()),
+            id: ActiveValue::Set(format!("gen_{}", nanoid!(12))),
         };
         let db_genre = Genre::insert(genre)
             .on_conflict(
