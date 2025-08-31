@@ -78,11 +78,8 @@ export const sendEmail = async (input: {
 	const client = createTransport({
 		host: serverVariables.SERVER_SMTP_SERVER,
 		secure: serverVariables.SERVER_SMTP_SECURE,
+		auth: { user: serverVariables.SERVER_SMTP_USER, pass: serverVariables.SERVER_SMTP_PASSWORD },
 		port: serverVariables.SERVER_SMTP_PORT ? Number(serverVariables.SERVER_SMTP_PORT) : undefined,
-		auth: {
-			user: serverVariables.SERVER_SMTP_USER,
-			pass: serverVariables.SERVER_SMTP_PASSWORD,
-		},
 	});
 	const html = await render(input.element, { pretty: true });
 	const text = await render(input.element, { plainText: true });
@@ -146,8 +143,8 @@ export const getCustomerWithActivePurchase = async (request: Request) => {
 		hasCancelled: !!activePurchase?.cancelledOn,
 		productType: activePurchase?.productType ?? null,
 		ryotUserId: activePurchase?.productType === "cloud" ? customer.ryotUserId : null,
-		renewOn: activePurchase?.renewOn ? formatDateToNaiveDate(activePurchase.renewOn) : null,
 		unkeyKeyId: activePurchase?.productType === "self_hosted" ? customer.unkeyKeyId : null,
+		renewOn: activePurchase?.renewOn ? formatDateToNaiveDate(activePurchase.renewOn) : null,
 	};
 };
 
@@ -190,10 +187,7 @@ export const verifyTurnstileToken = async (input: { token: string; remoteIp?: st
 };
 
 export const validateTurnstile = async (request: Request, token: string) => {
-	const isTurnstileValid = await verifyTurnstileToken({
-		token,
-		remoteIp: getClientIp(request),
-	});
+	const isTurnstileValid = await verifyTurnstileToken({ token, remoteIp: getClientIp(request) });
 	if (!isTurnstileValid) {
 		throw new Error("CAPTCHA verification failed. Please try again.");
 	}
