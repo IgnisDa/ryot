@@ -118,7 +118,7 @@ movies_and_shows:
 
   # Settings related to TVDB.
   tvdb:
-    # The access token for the TVDB API.
+    # The API key for the TVDB API.
     # @envvar MOVIES_AND_SHOWS_TVDB_API_KEY
     api_key: ""
 
@@ -209,7 +209,7 @@ server:
     # @envvar SERVER_OIDC_ISSUER_URL
     issuer_url: ""
 
-  # The pro key that can be used to enable pro Ryot features.
+  # The key that can be used to enable Ryot Pro features.
   # @envvar SERVER_PRO_KEY
   pro_key: ""
 

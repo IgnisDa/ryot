@@ -172,7 +172,7 @@ pub struct ExerciseConfig {}
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "MOVIES_AND_SHOWS_TVDB_")]
 pub struct TvdbConfig {
-    /// The access token for the TVDB API.
+    /// The API key for the TVDB API.
     #[mask]
     pub api_key: String,
 }
@@ -421,7 +421,7 @@ pub struct ImporterConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
 #[config(rename_all = "snake_case", env_prefix = "SERVER_")]
 pub struct ServerConfig {
-    /// The pro key that can be used to enable pro Ryot features.
+    /// The key that can be used to enable Ryot Pro features.
     #[mask]
     pub pro_key: String,
     /// The OIDC related settings.
