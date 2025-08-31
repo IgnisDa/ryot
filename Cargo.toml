@@ -198,7 +198,6 @@ serde_json = "=1.0.143"
 serde_with = { version = "=3.14.0", features = ["chrono_0_4"] }
 serde-xml-rs = "=0.8.1"
 slug = "=0.1.6"
-sqlx = { version = "=0.8.6", default-features = false, features = ["postgres"] }
 strum = { version = "=0.26.3", features = ["derive"] }
 struson = { version = "=0.6.0", features = ["serde"] }
 subtle = "=2.6.1"

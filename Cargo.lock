@@ -1983,7 +1983,6 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "sqlx",
  "supporting-service",
  "tmdb-provider",
  "tracing",
@@ -2256,7 +2255,6 @@ dependencies = [
  "enum-models",
  "sea-orm",
  "serde_json",
- "sqlx",
  "supporting-service",
  "tracing",
 ]
