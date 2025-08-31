@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use application_utils::get_base_http_client;
-use cache_service;
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TvdbSettings};
 use reqwest::{
     Client,
