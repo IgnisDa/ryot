@@ -9,6 +9,7 @@ use database_models::{
     user_to_entity,
 };
 use database_utils::user_by_id;
+use dependent_core_utils::is_server_key_validated;
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, ApplicationRecommendations, CachedResponse,
@@ -180,6 +181,9 @@ pub async fn user_metadata_recommendations(
         }),
         ApplicationCacheValue::UserMetadataRecommendations,
         || async {
+            if !is_server_key_validated(ss).await? {
+                return Ok(vec![]);
+            }
             let metadata_count = Metadata::find().count(&ss.db).await?;
             let recommendations = match metadata_count {
                 0 => vec![],

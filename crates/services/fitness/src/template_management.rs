@@ -13,8 +13,9 @@ use fitness_models::{
     WorkoutSummaryExercise,
 };
 use nanoid::nanoid;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
-use sea_query::OnConflict;
+use sea_orm::{
+    ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, sea_query::OnConflict,
+};
 use std::{collections::HashMap, sync::Arc};
 use supporting_service::SupportingService;
 

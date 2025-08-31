@@ -61,6 +61,7 @@ import {
 	useUserCollections,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
+import { refreshEntityDetails } from "~/lib/shared/react-query";
 import { openConfirmationModal } from "~/lib/shared/ui-utils";
 import {
 	type BulkAddEntities,
@@ -184,6 +185,7 @@ export const DisplayCollectionToEntity = (props: {
 					},
 					{
 						onSuccess: () => {
+							refreshEntityDetails(props.entityId);
 							notifications.show({
 								color: "green",
 								title: "Success",

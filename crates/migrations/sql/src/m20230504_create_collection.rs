@@ -1,9 +1,12 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230404_create_user::User;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+pub static COLLECTION_NAME_TRIGRAM_INDEX: &str = "collection_name_trigram_idx";
 
 #[derive(Iden)]
 pub enum Collection {
@@ -68,6 +71,9 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        create_trigram_index_if_required(manager, "collection", "name", COLLECTION_NAME_TRIGRAM_INDEX).await?;
+
         Ok(())
     }
 

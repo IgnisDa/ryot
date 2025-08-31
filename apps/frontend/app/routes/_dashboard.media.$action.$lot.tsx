@@ -75,6 +75,8 @@ import {
 import { ApplicationTimeRange, type FilterUpdateFunction } from "~/lib/types";
 
 interface ListFilterState {
+	page: number;
+	query: string;
 	sortBy: MediaSortBy;
 	endDateRange?: string;
 	startDateRange?: string;
@@ -85,7 +87,8 @@ interface ListFilterState {
 }
 
 interface SearchFilterState {
-	query?: string;
+	page: number;
+	query: string;
 	source: MediaSource;
 	igdbThemeIds?: string[];
 	igdbGenreIds?: string[];
@@ -98,6 +101,8 @@ interface SearchFilterState {
 }
 
 const defaultListFilters: ListFilterState = {
+	page: 1,
+	query: "",
 	collections: [],
 	sortBy: MediaSortBy.LastUpdated,
 	sortOrder: GraphqlSortOrder.Desc,
@@ -134,26 +139,20 @@ export default function Page(props: {
 		defaultListFilters,
 	);
 	const defaultSearchFilters: SearchFilterState = {
+		page: 1,
+		query: "",
 		source: metadataLotSourceMapping?.sources[0] || MediaSource.Tmdb,
 	};
 	const [searchFilters, setSearchFilters] = useLocalStorage<SearchFilterState>(
 		`MediaSearchFilters_${lot}`,
 		defaultSearchFilters,
 	);
-	const [searchQuery, setSearchQuery] = useLocalStorage(
-		`MediaSearchQuery_${lot}`,
-		"",
-	);
-	const [currentPage, setCurrentPage] = useLocalStorage(
-		`MediaCurrentPage_${lot}`,
-		1,
-	);
 
 	const listInput: UserMetadataListInput = useMemo(
 		() => ({
 			lot,
+			search: { page: listFilters.page, query: listFilters.query },
 			sort: { order: listFilters.sortOrder, by: listFilters.sortBy },
-			search: { page: currentPage, query: searchQuery },
 			filter: {
 				general: listFilters.generalFilter,
 				collections: listFilters.collections,
@@ -163,14 +162,14 @@ export default function Page(props: {
 				},
 			},
 		}),
-		[lot, listFilters, searchQuery, currentPage],
+		[lot, listFilters],
 	);
 
 	const searchInput: MetadataSearchInput = useMemo(
 		() => ({
 			lot,
 			source: searchFilters.source,
-			search: { page: currentPage, query: searchQuery },
+			search: { page: searchFilters.page, query: searchFilters.query },
 			sourceSpecifics: {
 				googleBooks: { passRawQuery: searchFilters.googleBooksPassRawQuery },
 				igdb: {
@@ -186,7 +185,7 @@ export default function Page(props: {
 				},
 			},
 		}),
-		[lot, searchFilters, searchQuery, currentPage],
+		[lot, searchFilters],
 	);
 
 	const { data: userMetadataList, refetch: refetchUserMetadataList } = useQuery(
@@ -293,13 +292,13 @@ export default function Page(props: {
 							<>
 								<Group wrap="nowrap">
 									<DebouncedSearchInput
-										initialValue={searchQuery}
+										value={listFilters.query}
 										placeholder={`Sift through your ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
 										onChange={(value) => {
-											setSearchQuery(value);
-											setCurrentPage(1);
+											updateListFilters("query", value);
+											updateListFilters("page", 1);
 										}}
 									/>
 									<ActionIcon
@@ -343,8 +342,8 @@ export default function Page(props: {
 									<Text>You do not have any saved yet</Text>
 								)}
 								<ApplicationPagination
-									value={currentPage}
-									onChange={setCurrentPage}
+									value={listFilters.page}
+									onChange={(v) => updateListFilters("page", v)}
 									totalItems={userMetadataList.response.details.totalItems}
 								/>
 							</>
@@ -357,13 +356,13 @@ export default function Page(props: {
 							<>
 								<Flex gap="xs" direction={{ base: "column", md: "row" }}>
 									<DebouncedSearchInput
-										initialValue={searchQuery}
+										value={searchFilters.query}
 										placeholder={`Search for ${changeCase(
 											lot.toLowerCase(),
 										).toLowerCase()}s`}
 										onChange={(value) => {
-											setSearchQuery(value);
-											setCurrentPage(1);
+											updateSearchFilters("query", value);
+											updateSearchFilters("page", 1);
 										}}
 										tourControl={{
 											target: OnboardingTourStepTargets.SearchAudiobook,
@@ -427,8 +426,8 @@ export default function Page(props: {
 									<Text>No media found matching your query</Text>
 								)}
 								<ApplicationPagination
-									value={currentPage}
-									onChange={setCurrentPage}
+									value={searchFilters.page}
+									onChange={(v) => updateSearchFilters("page", v)}
 									totalItems={metadataSearch.response.details.totalItems}
 								/>
 							</>

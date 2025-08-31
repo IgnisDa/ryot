@@ -1,11 +1,9 @@
 import {
-	CreateOrUpdateCollectionDocument,
 	CreateOrUpdateUserWorkoutDocument,
 	CreateUserMeasurementDocument,
 	DeleteCollectionDocument,
 	DeleteUserMeasurementDocument,
 	DeleteUserWorkoutDocument,
-	DeployAddEntitiesToCollectionJobDocument,
 	DisassociateMetadataDocument,
 	EntityLot,
 	SetLot,
@@ -13,6 +11,8 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	DEFAULT_USER_COLLECTIONS_COUNT,
+	addEntitiesToCollection,
+	createCollection,
 	getCollectionContents,
 	getFirstExerciseId,
 	getGraphqlClient,
@@ -46,20 +46,16 @@ describe("Cache related tests", () => {
 		const initial = await getUserCollectionsList(url, userApiKey);
 		expect(initial).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 
-		const createResult = await client.request(
-			CreateOrUpdateCollectionDocument,
-			{
-				input: {
-					name: "Test Cache Collection",
-					description: "Collection for cache testing",
-				},
-			},
-			getAuthHeaders(),
+		const createResult = await createCollection(
+			url,
+			userApiKey,
+			"Test Cache Collection",
+			"Collection for cache testing",
 		);
-		expect(createResult.createOrUpdateCollection.id).toBeDefined();
+		expect(createResult.id).toBeDefined();
 
 		const afterCreate = await getUserCollectionsList(url, userApiKey);
-		expect(afterCreate).toHaveLength(8);
+		expect(afterCreate).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT + 1);
 
 		const deleteResult = await client.request(
 			DeleteCollectionDocument,
@@ -179,21 +175,17 @@ describe("Cache related tests", () => {
 		expect(searchResult.length).toBeGreaterThan(0);
 
 		const firstMetadataId = searchResult[0];
-		const addToCollectionResult = await client.request(
-			DeployAddEntitiesToCollectionJobDocument,
-			{
-				input: {
-					creatorUserId: userId,
-					collectionName: "Watchlist",
-					entities: [
-						{
-							entityId: firstMetadataId,
-							entityLot: EntityLot.Metadata,
-						},
-					],
+		const addToCollectionResult = await addEntitiesToCollection(
+			url,
+			userApiKey,
+			userId,
+			"Watchlist",
+			[
+				{
+					entityId: firstMetadataId,
+					entityLot: EntityLot.Metadata,
 				},
-			},
-			getAuthHeaders(),
+			],
 		);
 		expect(addToCollectionResult.deployAddEntitiesToCollectionJob).toBe(true);
 		await waitFor(4000);

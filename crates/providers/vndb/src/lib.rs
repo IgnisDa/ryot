@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
@@ -90,11 +90,9 @@ impl MediaProvider for VndbService {
                 "page": page
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json::<SearchResponse>()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let resp = data
             .results
             .unwrap_or_default()
@@ -129,9 +127,8 @@ impl MediaProvider for VndbService {
                 "fields": "id,name,description"
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: SearchResponse = rsp.json().await?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         Ok(PersonDetails {
             identifier: item.id,
@@ -152,9 +149,8 @@ impl MediaProvider for VndbService {
                 "fields": METADATA_FIELDS
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: SearchResponse = rsp.json().await?;
         let item = data.results.unwrap_or_default().pop().unwrap();
         let d = self.vndb_response_to_search_response(item);
         Ok(d)
@@ -179,9 +175,8 @@ impl MediaProvider for VndbService {
                 "page": page
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: SearchResponse = rsp.json().await?;
         let resp = search
             .results
             .unwrap_or_default()

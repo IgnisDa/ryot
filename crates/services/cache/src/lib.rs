@@ -10,8 +10,7 @@ use dependent_models::{
     GetCacheKeyResponse,
 };
 use itertools::Itertools;
-use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
-use sea_query::OnConflict;
+use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
 use serde::de::DeserializeOwned;
 use supporting_service::SupportingService;
 use uuid::Uuid;

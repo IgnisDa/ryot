@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use chrono::Datelike;
@@ -71,11 +71,9 @@ impl MediaProvider for ListennotesService {
                 self.url, identifier
             ))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         details.suggestions = rec_data
             .recommendations
             .into_iter()
@@ -147,10 +145,9 @@ impl MediaProvider for ListennotesService {
                 "offset": (page - 1) * PAGE_SIZE,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
 
-        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+        let search: SearchResponse = rsp.json().await?;
         let total_items = search.total;
 
         let next_page = search.next_offset.map(|_| page + 1);
@@ -233,8 +230,8 @@ impl ListennotesService {
             }))
             .send()
             .await
-            .map_err(|e| anyhow!(e))?;
-        let podcast_data: Podcast = resp.json().await.map_err(|e| anyhow!(e))?;
+            ?;
+        let podcast_data: Podcast = resp.json().await?;
         let genres = self.get_genres().await?;
         Ok(MetadataDetails {
             lot: MediaLot::Podcast,

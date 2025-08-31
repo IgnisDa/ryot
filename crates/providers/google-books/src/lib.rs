@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, SearchDetails};
@@ -81,9 +81,8 @@ impl MediaProvider for GoogleBooksService {
             .client
             .get(format!("{URL}/{identifier}"))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: ItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: ItemResponse = rsp.json().await?;
         let d = self.google_books_response_to_search_response(data.volume_info, data.id);
         Ok(d)
     }
@@ -114,9 +113,8 @@ impl MediaProvider for GoogleBooksService {
                 },
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: SearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: SearchResponse = rsp.json().await?;
         let resp = search
             .items
             .unwrap_or_default()

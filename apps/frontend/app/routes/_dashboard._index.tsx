@@ -197,7 +197,10 @@ export default function Page() {
 										<ApplicationGrid>
 											{userUpcomingCalendarEventsQuery.data.userUpcomingCalendarEvents.map(
 												(um) => (
-													<UpComingMedia um={um} key={um.calendarEventId} />
+													<UpcomingMediaSection
+														um={um}
+														key={um.calendarEventId}
+													/>
 												),
 											)}
 										</ApplicationGrid>
@@ -271,33 +274,35 @@ export default function Page() {
 const RecommendationsSection = () => {
 	const coreDetails = useCoreDetails();
 
+	const expireCacheKey = useExpireCacheKeyMutation();
 	const { data, refetch } = useQuery({
 		queryKey: queryFactory.media.userMetadataRecommendations().queryKey,
 		queryFn: () =>
 			clientGqlService.request(UserMetadataRecommendationsDocument),
 	});
-	const expireCacheKey = useExpireCacheKeyMutation();
 
 	return (
 		<>
 			<Group justify="space-between">
 				<SectionTitle text="Recommendations" />
-				<ActionIcon
-					variant="subtle"
-					onClick={() => {
-						openConfirmationModal(
-							"Are you sure you want to refresh the recommendations?",
-							async () => {
-								await expireCacheKey.mutateAsync(
-									data?.userMetadataRecommendations.cacheId ?? "",
-								);
-								refetch();
-							},
-						);
-					}}
-				>
-					<IconRotateClockwise />
-				</ActionIcon>
+				{data ? (
+					<ActionIcon
+						variant="subtle"
+						onClick={() => {
+							openConfirmationModal(
+								"Are you sure you want to refresh the recommendations?",
+								async () => {
+									await expireCacheKey.mutateAsync(
+										data.userMetadataRecommendations.cacheId,
+									);
+									refetch();
+								},
+							);
+						}}
+					>
+						<IconRotateClockwise />
+					</ActionIcon>
+				) : null}
 			</Group>
 			{data ? (
 				coreDetails.isServerKeyValidated ? (
@@ -345,16 +350,16 @@ const TrendingSection = () => {
 
 	return (
 		<>
-			{isTrendingMetadataListOpen ? (
-				<Drawer
-					size="xl"
-					position="right"
-					title="Trending Media"
-					opened={isTrendingMetadataListOpen}
-					onClose={toggleTrendingMetadataList}
-				>
+			<Drawer
+				size="xl"
+				position="right"
+				title="Trending Media"
+				opened={isTrendingMetadataListOpen}
+				onClose={toggleTrendingMetadataList}
+			>
+				{trendingMetadata.data ? (
 					<ApplicationGrid>
-						{trendingMetadata.data?.trendingMetadata.map((lm) => (
+						{trendingMetadata.data.trendingMetadata.map((lm) => (
 							<MetadataDisplayItem
 								key={lm}
 								metadataId={lm}
@@ -362,8 +367,10 @@ const TrendingSection = () => {
 							/>
 						))}
 					</ApplicationGrid>
-				</Drawer>
-			) : null}
+				) : (
+					<SkeletonLoader />
+				)}
+			</Drawer>
 			<Group justify="space-between">
 				<SectionTitle text="Trending" />
 				{trendingMetadata.data &&
@@ -406,7 +413,7 @@ const SectionTitle = (props: { text: string }) => (
 	</Text>
 );
 
-const UpComingMedia = (props: { um: CalendarEventPartFragment }) => {
+const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const today = dayjsLib().startOf("day");
 	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 

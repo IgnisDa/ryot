@@ -89,14 +89,14 @@ import {
 
 interface FilterState {
 	page: number;
-	query?: string;
+	query: string;
 	orderBy: GraphqlSortOrder;
 	sortBy: UserTemplatesOrWorkoutsListSortBy;
 }
 
 const defaultFilterState: FilterState = {
 	page: 1,
-	query: undefined,
+	query: "",
 	orderBy: GraphqlSortOrder.Desc,
 	sortBy: UserTemplatesOrWorkoutsListSortBy.Time,
 };
@@ -192,8 +192,11 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 				</Flex>
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
-						initialValue={filters.query}
-						onChange={(value) => updateFilter("query", value)}
+						value={filters.query}
+						onChange={(value) => {
+							updateFilter("query", value);
+							updateFilter("page", 1);
+						}}
 						placeholder={`Search for ${entity}`}
 					/>
 					<ActionIcon

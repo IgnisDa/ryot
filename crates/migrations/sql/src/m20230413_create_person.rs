@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::{m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup};
@@ -10,6 +11,8 @@ pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__uniqu
 pub static PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0)) STORED"#;
 pub static PERSON_ASSOCIATED_METADATA_GROUPS_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
 pub static PERSON_ASSOCIATED_ENTITY_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0) + COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
+pub static PERSON_NAME_TRIGRAM_INDEX: &str = "person_name_trigram_idx";
+pub static PERSON_DESCRIPTION_TRIGRAM_INDEX: &str = "person_description_trigram_idx";
 
 #[derive(Iden)]
 pub enum Person {
@@ -217,6 +220,16 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        create_trigram_index_if_required(manager, "person", "name", PERSON_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(
+            manager,
+            "person",
+            "description",
+            PERSON_DESCRIPTION_TRIGRAM_INDEX,
+        )
+        .await?;
+
         Ok(())
     }
 

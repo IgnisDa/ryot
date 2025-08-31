@@ -19,6 +19,7 @@ import {
 	ExerciseLot,
 	ExerciseMechanic,
 	ExerciseMuscle,
+	ExerciseSource,
 	UpdateCustomExerciseDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -91,22 +92,26 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const muscles = submission.muscles
 		? (submission.muscles.split(",") as Array<ExerciseMuscle>)
 		: [];
-	const instructions = submission.instructions;
+	const submissionInstructions = submission.instructions;
 	const newInput = cloneDeep(submission);
 	newInput.muscles = undefined;
 	newInput.instructions = undefined;
 	newInput.images = undefined;
+	const instructions =
+		submissionInstructions
+			?.split("\n")
+			.map((s) => s.trim())
+			.filter(Boolean) || [];
 	const input = {
 		...newInput,
 		muscles,
-		attributes: {
-			instructions: instructions?.split("\n").map((s) => s.trim()) || [],
-			assets: {
-				s3Videos: [],
-				remoteImages: [],
-				remoteVideos: [],
-				s3Images: submission.images || [],
-			},
+		instructions,
+		source: ExerciseSource.Custom,
+		assets: {
+			s3Videos: [],
+			remoteImages: [],
+			remoteVideos: [],
+			s3Images: submission.images || [],
 		},
 	};
 	try {
@@ -248,9 +253,7 @@ export default function Page() {
 						name="instructions"
 						label="Instructions"
 						description="Separate each instruction with a newline"
-						defaultValue={loaderData.details?.attributes.instructions.join(
-							"\n",
-						)}
+						defaultValue={loaderData.details?.instructions.join("\n")}
 					/>
 					{!fileUploadNotAllowed ? (
 						<FileInput

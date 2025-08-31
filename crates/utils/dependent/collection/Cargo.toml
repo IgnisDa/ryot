@@ -10,7 +10,6 @@ futures = { workspace = true }
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 

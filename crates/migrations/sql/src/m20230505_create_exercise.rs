@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230404_create_user::User;
@@ -5,7 +6,9 @@ use super::m20230404_create_user::User;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static EXERCISE_NAME_INDEX: &str = "exercise__name__index";
+pub static EXERCISE_NAME_TRIGRAM_INDEX: &str = "exercise_name_trigram_idx";
+pub static EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX: &str =
+    "exercise_aggregated_instructions_trigram_idx";
 
 #[derive(Iden)]
 pub enum Exercise {
@@ -16,11 +19,13 @@ pub enum Exercise {
     Force,
     Level,
     Source,
+    Assets,
     Muscles,
     Mechanic,
     Equipment,
-    Attributes,
+    Instructions,
     CreatedByUserId,
+    AggregatedInstructions,
 }
 
 #[async_trait::async_trait]
@@ -38,16 +43,24 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Exercise::Mechanic).text())
                     .col(ColumnDef::new(Exercise::Equipment).text())
                     .col(ColumnDef::new(Exercise::Source).text().not_null())
-                    .col(
-                        ColumnDef::new(Exercise::Attributes)
-                            .json_binary()
-                            .not_null(),
-                    )
                     .col(ColumnDef::new(Exercise::CreatedByUserId).text())
                     .col(
                         ColumnDef::new(Exercise::Muscles)
                             .array(ColumnType::Text)
                             .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Exercise::Instructions)
+                            .array(ColumnType::Text)
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(ColumnDef::new(Exercise::Assets).json_binary().not_null())
+                    .col(
+                        ColumnDef::new(Exercise::AggregatedInstructions)
+                            .text()
+                            .not_null()
+                            .extra("GENERATED ALWAYS AS (array_to_string_immutable(instructions, E'\\n')) STORED")
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -60,15 +73,16 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(EXERCISE_NAME_INDEX)
-                    .table(Exercise::Table)
-                    .col(Exercise::Name)
-                    .to_owned(),
-            )
-            .await?;
+
+        create_trigram_index_if_required(manager, "exercise", "name", EXERCISE_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(
+            manager,
+            "exercise",
+            "aggregated_instructions",
+            EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX,
+        )
+        .await?;
+
         Ok(())
     }
 

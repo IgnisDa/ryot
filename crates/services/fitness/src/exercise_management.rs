@@ -15,8 +15,8 @@ use database_utils::{
 use dependent_models::{UpdateCustomExerciseInput, UserExerciseDetails};
 use enum_models::{EntityLot, ExerciseLot, ExerciseSource};
 use fitness_models::{
-    ExerciseAttributes, ExerciseCategory, GithubExercise, GithubExerciseAttributes,
-    UpdateUserExerciseSettings, UserToExerciseExtraInformation,
+    ExerciseCategory, GithubExercise, GithubExerciseAttributes, UpdateUserExerciseSettings,
+    UserToExerciseExtraInformation,
 };
 use futures::try_join;
 use sea_orm::{
@@ -35,7 +35,7 @@ pub async fn exercise_details(
     match maybe_exercise {
         None => bail!("Exercise with the given ID could not be found."),
         Some(mut e) => {
-            transform_entity_assets(&mut e.attributes.assets, ss).await?;
+            transform_entity_assets(&mut e.assets, ss).await?;
             Ok(e)
         }
     }
@@ -79,7 +79,7 @@ pub async fn update_custom_exercise(
     let id = input.update.id.clone();
     let mut update = input.update.clone();
     let old_exercise = Exercise::find_by_id(&id).one(&ss.db).await?.unwrap();
-    for image in old_exercise.attributes.assets.s3_images.clone() {
+    for image in old_exercise.assets.s3_images.clone() {
         file_storage_service::delete_object(ss, image).await?;
     }
     if input.should_delete.unwrap_or_default() {
@@ -222,13 +222,11 @@ pub async fn get_all_exercises_from_dataset(
 }
 
 pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExercise) -> Result<()> {
-    let attributes = ExerciseAttributes {
-        instructions: ex.attributes.instructions,
-        assets: EntityAssets {
-            remote_images: ex.attributes.images,
-            ..Default::default()
-        },
+    let assets = EntityAssets {
+        remote_images: ex.attributes.images,
+        ..Default::default()
     };
+    let instructions = ex.attributes.instructions;
     let mut muscles = ex.attributes.primary_muscles;
     muscles.extend(ex.attributes.secondary_muscles);
     if let Some(e) = Exercise::find()
@@ -239,8 +237,9 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
     {
         ryot_log!(debug, "Updating existing exercise with id: {}", ex.name);
         let mut db_ex = e.into_active_model();
-        db_ex.attributes = ActiveValue::Set(attributes);
+        db_ex.assets = ActiveValue::Set(assets);
         db_ex.muscles = ActiveValue::Set(muscles);
+        db_ex.instructions = ActiveValue::Set(instructions);
         db_ex.update(&ss.db).await?;
     } else {
         let lot = match ex.attributes.category {
@@ -253,16 +252,17 @@ pub async fn update_github_exercise(ss: &Arc<SupportingService>, ex: GithubExerc
         };
         let db_exercise = exercise::ActiveModel {
             lot: ActiveValue::Set(lot),
+            assets: ActiveValue::Set(assets),
             muscles: ActiveValue::Set(muscles),
             id: ActiveValue::Set(ex.name.clone()),
             name: ActiveValue::Set(ex.name.clone()),
-            attributes: ActiveValue::Set(attributes),
             created_by_user_id: ActiveValue::Set(None),
             level: ActiveValue::Set(ex.attributes.level),
+            instructions: ActiveValue::Set(instructions),
             force: ActiveValue::Set(ex.attributes.force),
             source: ActiveValue::Set(ExerciseSource::Github),
-            equipment: ActiveValue::Set(ex.attributes.equipment),
             mechanic: ActiveValue::Set(ex.attributes.mechanic),
+            equipment: ActiveValue::Set(ex.attributes.equipment),
         };
         let created_exercise = db_exercise.insert(&ss.db).await?;
         ryot_log!(debug, "Created exercise with id: {}", created_exercise.id);

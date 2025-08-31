@@ -1,5 +1,5 @@
 [package]
-name = "migrations"
+name = "migrations-sql"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,6 +10,7 @@ sea-orm-migration = { workspace = true }
 tracing = { workspace = true }
 
 enum-models = { workspace = true }
+migrations-utils = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]

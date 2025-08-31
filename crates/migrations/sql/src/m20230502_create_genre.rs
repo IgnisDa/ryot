@@ -1,9 +1,12 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230410_create_metadata::Metadata;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+pub static GENRE_NAME_TRIGRAM_INDEX: &str = "genre_name_trigram_idx";
 
 #[derive(Iden)]
 pub enum MetadataToGenre {
@@ -28,16 +31,6 @@ impl MigrationTrait for Migration {
                     .table(Genre::Table)
                     .col(ColumnDef::new(Genre::Id).text().not_null().primary_key())
                     .col(ColumnDef::new(Genre::Name).text().not_null())
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name("genre_name_index")
-                    .table(Genre::Table)
-                    .col(Genre::Name)
                     .to_owned(),
             )
             .await?;
@@ -76,6 +69,10 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        create_trigram_index_if_required(manager, "genre", "name", GENRE_NAME_TRIGRAM_INDEX)
+            .await?;
+
         Ok(())
     }
 

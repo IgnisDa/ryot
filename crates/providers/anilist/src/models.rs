@@ -441,11 +441,9 @@ pub async fn media_details(
         .post(URL)
         .json(&body)
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<GraphQLResponse<MediaDetailsResponse>>()
-        .await
-        .map_err(|e| anyhow!(e))?;
+        .await?;
 
     let data = details.data.ok_or_else(|| anyhow!("No data in response"))?;
     let media = data.media.ok_or_else(|| anyhow!("No media in data"))?;
@@ -677,11 +675,9 @@ pub async fn search(
         .post(URL)
         .json(&body)
         .send()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .json::<GraphQLResponse<MediaSearchResponse>>()
-        .await
-        .map_err(|e| anyhow!(e))?
+        .await?
         .data
         .unwrap()
         .page

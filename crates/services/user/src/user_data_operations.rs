@@ -6,12 +6,9 @@ use database_models::{
     prelude::{AccessLink, Integration, NotificationPlatform, User},
     user,
 };
-use database_utils::{get_enabled_users_query, ilike_sql};
+use database_utils::{apply_columns_search, get_enabled_users_query};
 use dependent_models::BasicUserDetails;
-use sea_orm::{
-    ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr,
-    sea_query::extension::postgres::PgExpr,
-};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QueryTrait, prelude::Expr};
 use supporting_service::SupportingService;
 
 pub async fn user_access_links(
@@ -32,11 +29,10 @@ pub async fn users_list(
 ) -> Result<Vec<BasicUserDetails>> {
     let users = User::find()
         .apply_if(query, |query, value| {
-            query.filter(
-                Expr::col(user::Column::Name)
-                    .ilike(ilike_sql(&value))
-                    .or(Expr::col(user::Column::Id).ilike(ilike_sql(&value))),
-            )
+            query.filter(apply_columns_search(
+                &value,
+                [Expr::col(user::Column::Name), Expr::col(user::Column::Id)],
+            ))
         })
         .order_by_asc(user::Column::Name)
         .all(&ss.db)

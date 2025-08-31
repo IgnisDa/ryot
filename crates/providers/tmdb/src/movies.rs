@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{
     EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
@@ -55,9 +55,8 @@ impl MediaProvider for TmdbMovieService {
                 "include_adult": display_nsfw,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: TmdbListResponse = rsp.json().await?;
 
         let resp = search
             .results
@@ -89,9 +88,8 @@ impl MediaProvider for TmdbMovieService {
                 "append_to_response": "videos",
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: TmdbMediaEntry = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: TmdbMediaEntry = rsp.json().await?;
         let mut remote_videos = vec![];
         if let Some(vid) = data.videos {
             remote_videos.extend(vid.results.into_iter().map(|vid| EntityRemoteVideo {
@@ -107,9 +105,8 @@ impl MediaProvider for TmdbMovieService {
                 "language": self.base.language,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let credits: TmdbCreditsResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let credits: TmdbCreditsResponse = rsp.json().await?;
         let mut people = vec![];
         people.extend(
             credits
@@ -260,9 +257,8 @@ impl MediaProvider for TmdbMovieService {
                 "include_adult": display_nsfw,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: TmdbListResponse = rsp.json().await?;
         let resp = search
             .results
             .into_iter()
@@ -293,11 +289,9 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("{URL}/collection/{identifier}"))
             .query(&json!({ "language": self.base.language }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let mut images = vec![];
         if let Some(i) = data.poster_path {
             images.push(self.base.get_image_url(i));

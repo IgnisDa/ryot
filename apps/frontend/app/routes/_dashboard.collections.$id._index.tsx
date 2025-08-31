@@ -88,8 +88,8 @@ enum TabNames {
 const DEFAULT_TAB = TabNames.Contents;
 
 interface FilterState {
-	query?: string;
 	page: number;
+	query: string;
 	entityLot?: EntityLot;
 	metadataLot?: MediaLot;
 	orderBy: GraphqlSortOrder;
@@ -98,7 +98,7 @@ interface FilterState {
 
 const defaultFilters: FilterState = {
 	page: 1,
-	query: undefined,
+	query: "",
 	entityLot: undefined,
 	metadataLot: undefined,
 	orderBy: GraphqlSortOrder.Desc,
@@ -239,9 +239,12 @@ export default function Page(props: { params: { id: string } }) {
 											<>
 												<Group wrap="nowrap">
 													<DebouncedSearchInput
-														initialValue={filters.query}
+														value={filters.query}
 														placeholder="Search in the collection"
-														onChange={(value) => updateFilter("query", value)}
+														onChange={(value) => {
+															updateFilter("query", value);
+															updateFilter("page", 1);
+														}}
 													/>
 													<ActionIcon
 														onClick={() => openFiltersModal()}
@@ -488,7 +491,7 @@ const RecommendationsSection = ({ collectionId }: { collectionId: string }) => {
 	return (
 		<Stack gap="xs">
 			<DebouncedSearchInput
-				initialValue={search.query}
+				value={search.query}
 				onChange={(query) => setSearchInput({ ...search, query })}
 			/>
 			{recommendations.data ? (

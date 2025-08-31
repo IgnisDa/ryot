@@ -1,9 +1,11 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
 pub static IS_DISABLED_INDEX: &str = "user_is_disabled_idx";
+pub static USER_NAME_TRIGRAM_INDEX: &str = "user_name_trigram_idx";
 
 #[derive(Iden)]
 pub enum User {
@@ -53,16 +55,6 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .unique()
-                    .name("user__name__index")
-                    .table(User::Table)
-                    .col(User::Name)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .unique()
                     .name("user__oidc_issuer_id__index")
                     .table(User::Table)
                     .col(User::OidcIssuerId)
@@ -78,6 +70,9 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        create_trigram_index_if_required(manager, "user", "name", USER_NAME_TRIGRAM_INDEX).await?;
+
         Ok(())
     }
 

@@ -216,7 +216,7 @@ export default function Page() {
 					onSuccess={handleInvitationSuccess}
 				/>
 				<DebouncedSearchInput
-					initialValue={query}
+					value={query}
 					onChange={(q) => setQuery(q)}
 					placeholder="Search by name or ID"
 				/>

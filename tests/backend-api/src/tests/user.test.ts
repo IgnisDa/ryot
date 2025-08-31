@@ -1,6 +1,5 @@
 import { faker } from "@faker-js/faker";
 import {
-	CreateOrUpdateCollectionDocument,
 	ResetUserDocument,
 	UserDetailsDocument,
 	UserImportReportsDocument,
@@ -10,6 +9,7 @@ import {
 } from "@ryot/generated/graphql/backend/graphql";
 import {
 	DEFAULT_USER_COLLECTIONS_COUNT,
+	createCollection,
 	getGraphqlClient,
 	getUserCollectionsList,
 	getUserMeasurementsList,
@@ -215,16 +215,16 @@ describe("Reset User functionality", () => {
 
 		const additionalCollections = 2;
 		for (let i = 0; i < additionalCollections; i++) {
-			await client.request(
-				CreateOrUpdateCollectionDocument,
-				{
-					input: {
-						name: `Custom Collection ${i + 1}`,
-						description: faker.lorem.sentence(),
-					},
-				},
-				{ Authorization: `Bearer ${targetUserApiKey}` },
+			const collectionResult = await createCollection(
+				url,
+				targetUserApiKey,
+				`Custom Collection ${i + 1}`,
+				faker.lorem.sentence(),
 			);
+			expect(
+				collectionResult.id,
+				`Custom Collection ${i + 1} should be created successfully`,
+			).toBeTruthy();
 		}
 
 		const collectionsWithCustom = await getUserCollectionsList(

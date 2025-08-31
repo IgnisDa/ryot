@@ -147,9 +147,7 @@ pub async fn create_app_services(
             "/integrations/{integration_slug}",
             post(integration_webhook_handler),
         )
-        .layer(GovernorLayer {
-            config: governor_conf,
-        });
+        .layer(GovernorLayer::new(governor_conf));
 
     let mut gql = post(graphql_handler);
     if config.server.graphql_playground_enabled {

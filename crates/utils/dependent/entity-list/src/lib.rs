@@ -4,10 +4,13 @@ use anyhow::Result;
 use application_utils::graphql_to_db_order;
 use common_models::{SearchDetails, SearchInput, UserLevelCacheKey};
 use database_models::{
-    collection, collection_to_entity, exercise, genre, metadata, metadata_group, person,
-    prelude::*, review, seen, user_measurement, user_to_entity, workout, workout_template,
+    collection, collection_to_entity, enriched_user_to_exercise, enriched_user_to_metadata,
+    enriched_user_to_metadata_group, enriched_user_to_person, genre, prelude::*, user_measurement,
+    user_to_entity, workout, workout_template,
 };
-use database_utils::{apply_collection_filter, ilike_sql, user_by_id};
+use database_utils::{
+    apply_collection_filters, apply_columns_search, user_preferences_list_page_size,
+};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CachedResponse, SearchResults,
     UserCollectionsListResponse, UserExercisesListResponse, UserMeasurementsListResponse,
@@ -21,20 +24,19 @@ use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsLis
 use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
-use migrations::{
-    AliasedCollection, AliasedCollectionToEntity, AliasedExercise, AliasedMetadataToGenre,
-    AliasedReview, AliasedUser, AliasedUserToEntity,
+use migrations_sql::{
+    AliasedCollection, AliasedCollectionToEntity, AliasedMetadataToGenre, AliasedUser,
+    AliasedUserToEntity,
 };
 use sea_orm::Iterable;
+use sea_orm::sea_query::{Query, SimpleExpr};
 use sea_orm::{
-    ColumnTrait, Condition, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, prelude::Expr,
+    ColumnTrait, EntityTrait, ItemsAndPagesNumber, JoinType, Order, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait,
+    prelude::Expr,
+    sea_query::{Alias, Func, NullOrdering, PgFunc},
 };
-use sea_query::extension::postgres::PgExpr;
-use sea_query::{Alias, Func, NullOrdering, PgFunc};
-use slug::slugify;
 use supporting_service::SupportingService;
-use user_models::UserReviewScale;
 
 pub async fn user_metadata_list(
     user_id: &String,
@@ -49,27 +51,17 @@ pub async fn user_metadata_list(
         }),
         ApplicationCacheValue::UserMetadataList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
-
-            let avg_rating_col = "user_average_rating";
-            let cloned_user_id_1 = user_id.clone();
-            let cloned_user_id_2 = user_id.clone();
-
             let order_by = input
                 .sort
                 .clone()
                 .map(|a| graphql_to_db_order(a.order))
                 .unwrap_or(Order::Asc);
-            let review_scale = match preferences.general.review_scale {
-                UserReviewScale::OutOfTen => 10,
-                UserReviewScale::OutOfFive => 20,
-                UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => 1,
-            };
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
                 .clone()
                 .and_then(|s| s.take)
-                .unwrap_or(preferences.general.list_page_size);
+                .unwrap_or(page_size);
             let page: u64 = input
                 .search
                 .clone()
@@ -77,125 +69,106 @@ pub async fn user_metadata_list(
                 .unwrap_or(1)
                 .try_into()
                 .unwrap();
-            let paginator = Metadata::find()
+            let paginator = EnrichedUserToMetadata::find()
                 .select_only()
-                .column(metadata::Column::Id)
-                .expr_as(
-                    Func::round_with_precision(
-                        Func::avg(
-                            Expr::col((AliasedReview::Table, AliasedReview::Rating))
-                                .div(review_scale),
-                        ),
-                        review_scale,
-                    ),
-                    avg_rating_col,
-                )
-                .group_by(metadata::Column::Id)
-                .filter(user_to_entity::Column::UserId.eq(user_id))
+                .column(enriched_user_to_metadata::Column::MetadataId)
+                .filter(enriched_user_to_metadata::Column::UserId.eq(user_id))
                 .apply_if(input.lot, |query, v| {
-                    query.filter(metadata::Column::Lot.eq(v))
+                    query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
                 })
-                .inner_join(UserToEntity)
-                .join(
-                    JoinType::LeftJoin,
-                    metadata::Relation::Review
-                        .def()
-                        .on_condition(move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, review::Column::UserId))
-                                    .eq(cloned_user_id_1.clone()),
-                            )
-                        }),
-                )
-                .join(
-                    JoinType::LeftJoin,
-                    metadata::Relation::Seen
-                        .def()
-                        .on_condition(move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, seen::Column::UserId))
-                                    .eq(cloned_user_id_2.clone()),
-                            )
-                        }),
-                )
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(Expr::col(metadata::Column::Title).ilike(ilike_sql(&v)))
-                            .add(Expr::col(metadata::Column::Description).ilike(ilike_sql(&v))),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_metadata::Column::Title),
+                            Expr::col(enriched_user_to_metadata::Column::Description),
+                        ],
+                    ))
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.date_range),
                     |outer_query, outer_value| {
                         outer_query
                             .apply_if(outer_value.start_date, |inner_query, inner_value| {
-                                inner_query.filter(seen::Column::FinishedOn.gte(inner_value))
+                                inner_query.filter(
+                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
+                                        .gte(inner_value),
+                                )
                             })
                             .apply_if(outer_value.end_date, |inner_query, inner_value| {
-                                inner_query.filter(seen::Column::FinishedOn.lte(inner_value))
+                                inner_query.filter(
+                                    enriched_user_to_metadata::Column::MaxSeenFinishedOn
+                                        .lte(inner_value),
+                                )
                             })
                     },
                 )
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
-                        apply_collection_filter(
-                            metadata::Column::Id,
+                    |query, collections| {
+                        apply_collection_filters(
+                            enriched_user_to_metadata::Column::CollectionIds,
                             query,
-                            collection_to_entity::Column::MetadataId,
-                            v,
+                            collections,
                         )
                     },
                 )
-                .apply_if(input.filter.and_then(|f| f.general), |query, v| match v {
-                    MediaGeneralFilter::All => query.filter(metadata::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Rated => query.filter(review::Column::Id.is_not_null()),
-                    MediaGeneralFilter::Unrated => query.filter(review::Column::Id.is_null()),
-                    MediaGeneralFilter::Unfinished => query.filter(
-                        Expr::expr(
-                            Expr::val(UserToMediaReason::Finished.to_string())
-                                .eq(PgFunc::any(Expr::col(user_to_entity::Column::MediaReason))),
-                        )
-                        .not(),
-                    ),
-                    s => query.filter(seen::Column::State.eq(match s {
-                        MediaGeneralFilter::Dropped => SeenState::Dropped,
-                        MediaGeneralFilter::OnAHold => SeenState::OnAHold,
-                        _ => unreachable!(),
-                    })),
+                .apply_if(input.filter.and_then(|f| f.general), |query, v| {
+                    let sa = PgFunc::any(Expr::col(enriched_user_to_metadata::Column::SeenStates));
+                    let filter_expression = match v {
+                        MediaGeneralFilter::Dropped => Expr::val(SeenState::Dropped).eq(sa),
+                        MediaGeneralFilter::OnAHold => Expr::val(SeenState::OnAHold).eq(sa),
+                        MediaGeneralFilter::Unrated => {
+                            enriched_user_to_metadata::Column::AverageRating.is_null()
+                        }
+                        MediaGeneralFilter::All => {
+                            enriched_user_to_metadata::Column::MetadataId.is_not_null()
+                        }
+                        MediaGeneralFilter::Rated => {
+                            enriched_user_to_metadata::Column::AverageRating.is_not_null()
+                        }
+                        MediaGeneralFilter::Unfinished => {
+                            Expr::expr(Expr::val(UserToMediaReason::Finished).eq(PgFunc::any(
+                                Expr::col(enriched_user_to_metadata::Column::MediaReason),
+                            )))
+                            .not()
+                        }
+                    };
+                    query.filter(filter_expression)
                 })
                 .apply_if(input.sort.map(|s| s.by), |query, v| match v {
-                    MediaSortBy::Title => query.order_by(metadata::Column::Title, order_by),
                     MediaSortBy::Random => query.order_by(Expr::expr(Func::random()), order_by),
-                    MediaSortBy::TimesConsumed => {
-                        query.order_by(seen::Column::Id.count(), order_by)
+                    MediaSortBy::Title => {
+                        query.order_by(enriched_user_to_metadata::Column::Title, order_by)
                     }
-                    MediaSortBy::LastUpdated => query
-                        .order_by(user_to_entity::Column::LastUpdatedOn, order_by)
-                        .group_by(user_to_entity::Column::LastUpdatedOn),
+                    MediaSortBy::TimesConsumed => {
+                        query.order_by(enriched_user_to_metadata::Column::TimesSeen, order_by)
+                    }
+                    MediaSortBy::LastUpdated => {
+                        query.order_by(enriched_user_to_metadata::Column::LastUpdatedOn, order_by)
+                    }
                     MediaSortBy::ReleaseDate => query.order_by_with_nulls(
-                        metadata::Column::PublishYear,
+                        enriched_user_to_metadata::Column::PublishDate,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::LastConsumed => query.order_by_with_nulls(
-                        seen::Column::FinishedOn.max(),
+                        enriched_user_to_metadata::Column::MaxSeenFinishedOn,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::UserRating => query.order_by_with_nulls(
-                        Expr::col(Alias::new(avg_rating_col)),
+                        enriched_user_to_metadata::Column::AverageRating,
                         order_by,
                         NullOrdering::Last,
                     ),
                     MediaSortBy::ProviderRating => query.order_by_with_nulls(
-                        metadata::Column::ProviderRating,
+                        enriched_user_to_metadata::Column::ProviderRating,
                         order_by,
                         NullOrdering::Last,
                     ),
                 })
-                .order_by_desc(seen::Column::LastUpdatedOn.max())
+                .order_by_desc(enriched_user_to_metadata::Column::MaxSeenLastUpdatedOn)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
             let ItemsAndPagesNumber {
@@ -254,7 +227,7 @@ pub async fn user_collections_list(
                     )),
                 ),
             ]);
-            let collaborators_subquery = sea_query::Query::select()
+            let collaborators_subquery = Query::select()
                 .from(UserToEntity)
                 .expr(PgFunc::json_agg(outer_collaborator.clone()))
                 .join(
@@ -271,7 +244,7 @@ pub async fn user_collections_list(
                     .equals((AliasedCollection::Table, AliasedCollection::Id)),
                 )
                 .to_owned();
-            let count_subquery = sea_query::Query::select()
+            let count_subquery = Query::select()
                 .expr(collection_to_entity::Column::Id.count())
                 .from(CollectionToEntity)
                 .and_where(
@@ -297,19 +270,16 @@ pub async fn user_collections_list(
                 )
                 .column(collection::Column::InformationTemplate)
                 .expr_as(
-                    sea_query::SimpleExpr::SubQuery(
-                        None,
-                        Box::new(count_subquery.into_sub_query_statement()),
-                    ),
+                    SimpleExpr::SubQuery(None, Box::new(count_subquery.into_sub_query_statement())),
                     "count",
                 )
                 .expr_as(
                     Func::coalesce([
-                        sea_query::SimpleExpr::SubQuery(
+                        SimpleExpr::SubQuery(
                             None,
                             Box::new(collaborators_subquery.into_sub_query_statement()),
                         ),
-                        sea_query::SimpleExpr::FunctionCall(Func::cast_as(
+                        SimpleExpr::FunctionCall(Func::cast_as(
                             Expr::val("[]"),
                             Alias::new("JSON"),
                         )),
@@ -345,7 +315,6 @@ pub async fn user_metadata_groups_list(
         }),
         ApplicationCacheValue::UserMetadataGroupsList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page: u64 = input
                 .search
                 .clone()
@@ -353,49 +322,50 @@ pub async fn user_metadata_groups_list(
                 .unwrap_or(1)
                 .try_into()
                 .unwrap();
-            let alias = "parts";
-            let metadata_group_parts_col = Expr::col(Alias::new(alias));
             let (order_by, sort_order) = match input.sort {
-                None => (metadata_group_parts_col, Order::Desc),
+                None => (
+                    Expr::col(enriched_user_to_metadata_group::Column::Parts),
+                    Order::Desc,
+                ),
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
-                            metadata_group_parts_col
+                            Expr::col(enriched_user_to_metadata_group::Column::Parts)
                         }
                         PersonAndMetadataGroupsSortBy::Name => {
-                            Expr::col(metadata_group::Column::Title)
+                            Expr::col(enriched_user_to_metadata_group::Column::Title)
                         }
                     },
                     graphql_to_db_order(ord.order),
                 ),
             };
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
                 .clone()
                 .and_then(|s| s.take)
-                .unwrap_or(preferences.general.list_page_size);
-            let paginator = MetadataGroup::find()
+                .unwrap_or(page_size);
+            let paginator = EnrichedUserToMetadataGroup::find()
                 .select_only()
-                .column(metadata_group::Column::Id)
-                .group_by(metadata_group::Column::Id)
-                .inner_join(UserToEntity)
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .filter(metadata_group::Column::Id.is_not_null())
+                .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
+                .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
-                    query.filter(
-                        Condition::all()
-                            .add(Expr::col(metadata_group::Column::Title).ilike(ilike_sql(&v))),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_metadata_group::Column::Title),
+                            Expr::col(enriched_user_to_metadata_group::Column::Description),
+                        ],
+                    ))
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
-                        apply_collection_filter(
-                            metadata_group::Column::Id,
+                    |query, collections| {
+                        apply_collection_filters(
+                            enriched_user_to_metadata_group::Column::CollectionIds,
                             query,
-                            collection_to_entity::Column::MetadataGroupId,
-                            v,
+                            collections,
                         )
                     },
                 )
@@ -436,7 +406,6 @@ pub async fn user_people_list(
         }),
         ApplicationCacheValue::UserPeopleList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page: u64 = input
                 .search
                 .clone()
@@ -446,47 +415,51 @@ pub async fn user_people_list(
                 .unwrap();
             let (order_by, sort_order) = match input.sort {
                 None => (
-                    Expr::col(person::Column::AssociatedEntityCount),
+                    Expr::col(enriched_user_to_person::Column::AssociatedEntityCount),
                     Order::Desc,
                 ),
                 Some(ord) => (
                     match ord.by {
                         PersonAndMetadataGroupsSortBy::Random => Expr::expr(Func::random()),
-                        PersonAndMetadataGroupsSortBy::Name => Expr::col(person::Column::Name),
+                        PersonAndMetadataGroupsSortBy::Name => {
+                            Expr::col(enriched_user_to_person::Column::Name)
+                        }
                         PersonAndMetadataGroupsSortBy::AssociatedEntityCount => {
-                            Expr::col(person::Column::AssociatedEntityCount)
+                            Expr::col(enriched_user_to_person::Column::AssociatedEntityCount)
                         }
                     },
                     graphql_to_db_order(ord.order),
                 ),
             };
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
             let take = input
                 .search
                 .clone()
                 .and_then(|s| s.take)
-                .unwrap_or(preferences.general.list_page_size);
-            let creators_paginator = Person::find()
+                .unwrap_or(page_size);
+            let creators_paginator = EnrichedUserToPerson::find()
+                .select_only()
+                .column(enriched_user_to_person::Column::PersonId)
+                .filter(enriched_user_to_person::Column::UserId.eq(user_id))
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                    query.filter(
-                        Condition::all().add(Expr::col(person::Column::Name).ilike(ilike_sql(&v))),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_person::Column::Name),
+                            Expr::col(enriched_user_to_person::Column::Description),
+                        ],
+                    ))
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
-                    |query, v| {
-                        apply_collection_filter(
-                            person::Column::Id,
+                    |query, collections| {
+                        apply_collection_filters(
+                            enriched_user_to_person::Column::CollectionIds,
                             query,
-                            collection_to_entity::Column::PersonId,
-                            v,
+                            collections,
                         )
                     },
                 )
-                .filter(user_to_entity::Column::UserId.eq(user_id))
-                .left_join(MetadataToPerson)
-                .inner_join(UserToEntity)
-                .group_by(person::Column::Id)
-                .group_by(person::Column::Name)
                 .order_by(order_by, sort_order)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
@@ -524,18 +497,15 @@ pub async fn user_workouts_list(
         }),
         ApplicationCacheValue::UserWorkoutsList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page = input.search.page.unwrap_or(1);
-            let take = input
-                .search
-                .take
-                .unwrap_or(preferences.general.list_page_size);
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
+            let take = input.search.take.unwrap_or(page_size);
             let paginator = Workout::find()
                 .select_only()
                 .column(workout::Column::Id)
                 .filter(workout::Column::UserId.eq(user_id))
                 .apply_if(input.search.query, |query, v| {
-                    query.filter(Expr::col(workout::Column::Name).ilike(ilike_sql(&v)))
+                    query.filter(apply_columns_search(&v, [Expr::col(workout::Column::Name)]))
                 })
                 .apply_if(input.sort, |query, v| {
                     query.order_by(
@@ -581,18 +551,18 @@ pub async fn user_workout_templates_list(
         }),
         ApplicationCacheValue::UserWorkoutTemplatesList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let page = input.search.page.unwrap_or(1);
-            let take = input
-                .search
-                .take
-                .unwrap_or(preferences.general.list_page_size);
+            let page_size = user_preferences_list_page_size(user_id, ss).await?;
+            let take = input.search.take.unwrap_or(page_size);
             let paginator = WorkoutTemplate::find()
                 .select_only()
                 .column(workout_template::Column::Id)
                 .filter(workout_template::Column::UserId.eq(user_id))
                 .apply_if(input.search.query, |query, v| {
-                    query.filter(Expr::col(workout_template::Column::Name).ilike(ilike_sql(&v)))
+                    query.filter(apply_columns_search(
+                        &v,
+                        [Expr::col(workout_template::Column::Name)],
+                    ))
                 })
                 .apply_if(input.sort, |query, v| {
                     query.order_by(
@@ -638,88 +608,75 @@ pub async fn user_exercises_list(
         }),
         ApplicationCacheValue::UserExercisesList,
         || async {
-            let preferences = user_by_id(user_id, ss).await?.preferences;
             let user_id = user_id.to_owned();
-            let take = input
-                .search
-                .take
-                .unwrap_or(preferences.general.list_page_size);
+            let page_size = user_preferences_list_page_size(&user_id, ss).await?;
+            let take = input.search.take.unwrap_or(page_size);
             let page = input.search.page.unwrap_or(1);
-            let ex = Alias::new("exercise");
-            let etu = Alias::new("user_to_entity");
             let order_by_col = match input.sort_by {
-                None => Expr::col((ex, exercise::Column::Id)),
+                None => Expr::col(enriched_user_to_exercise::Column::ExerciseId),
                 Some(sb) => match sb {
                     // DEV: This is just a small hack to reduce duplicated code. We
                     // are ordering by name for the other `sort_by` anyway.
                     ExerciseSortBy::Name => Expr::val("1"),
                     ExerciseSortBy::Random => Expr::expr(Func::random()),
                     ExerciseSortBy::TimesPerformed => Expr::expr(Func::coalesce([
-                        Expr::col((
-                            etu.clone(),
-                            user_to_entity::Column::ExerciseNumTimesInteracted,
-                        ))
-                        .into(),
+                        Expr::col(enriched_user_to_exercise::Column::NumTimesInteracted).into(),
                         Expr::val(0).into(),
                     ])),
                     ExerciseSortBy::LastPerformed => Expr::expr(Func::coalesce([
-                        Expr::col((etu.clone(), user_to_entity::Column::LastUpdatedOn)).into(),
+                        Expr::col(enriched_user_to_exercise::Column::LastUpdatedOn).into(),
                         // DEV: For some reason this does not work without explicit casting on postgres
                         Func::cast_as(Expr::val("1900-01-01"), Alias::new("timestamptz")).into(),
                     ])),
                 },
             };
-            let paginator = Exercise::find()
+            let paginator = EnrichedUserToExercise::find()
                 .select_only()
-                .column(exercise::Column::Id)
+                .column(enriched_user_to_exercise::Column::ExerciseId)
                 .filter(
-                    exercise::Column::Source
+                    enriched_user_to_exercise::Column::Source
                         .eq(ExerciseSource::Github)
-                        .or(exercise::Column::CreatedByUserId.eq(&user_id)),
+                        .or(enriched_user_to_exercise::Column::CreatedByUserId.eq(&user_id)),
                 )
                 .apply_if(input.filter, |query, q| {
                     query
-                        .apply_if(q.lot, |q, v| q.filter(exercise::Column::Lot.eq(v)))
-                        .apply_if(q.muscle, |q, v| {
-                            q.filter(
-                                Expr::val(v).eq(PgFunc::any(Expr::col(exercise::Column::Muscles))),
-                            )
+                        .apply_if(q.lot, |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Lot.eq(v))
                         })
-                        .apply_if(q.level, |q, v| q.filter(exercise::Column::Level.eq(v)))
-                        .apply_if(q.force, |q, v| q.filter(exercise::Column::Force.eq(v)))
+                        .apply_if(q.muscle, |q, v| {
+                            q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(
+                                enriched_user_to_exercise::Column::Muscles,
+                            ))))
+                        })
+                        .apply_if(q.level, |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Level.eq(v))
+                        })
+                        .apply_if(q.force, |q, v| {
+                            q.filter(enriched_user_to_exercise::Column::Force.eq(v))
+                        })
                         .apply_if(q.mechanic, |q, v| {
-                            q.filter(exercise::Column::Mechanic.eq(v))
+                            q.filter(enriched_user_to_exercise::Column::Mechanic.eq(v))
                         })
                         .apply_if(q.equipment, |q, v| {
-                            q.filter(exercise::Column::Equipment.eq(v))
+                            q.filter(enriched_user_to_exercise::Column::Equipment.eq(v))
                         })
                         .apply_if(q.collection, |q, v| {
-                            q.left_join(CollectionToEntity)
-                                .filter(collection_to_entity::Column::CollectionId.eq(v))
+                            q.filter(Expr::val(v).eq(PgFunc::any(Expr::col(
+                                enriched_user_to_exercise::Column::CollectionIds,
+                            ))))
                         })
                 })
                 .apply_if(input.search.query, |query, v| {
-                    query.filter(
-                        Condition::any()
-                            .add(
-                                Expr::col((AliasedExercise::Table, AliasedExercise::Id))
-                                    .ilike(ilike_sql(&v)),
-                            )
-                            .add(Expr::col(exercise::Column::Name).ilike(slugify(v))),
-                    )
+                    query.filter(apply_columns_search(
+                        &v,
+                        [
+                            Expr::col(enriched_user_to_exercise::Column::Name),
+                            Expr::col(enriched_user_to_exercise::Column::Instructions),
+                        ],
+                    ))
                 })
-                .join(
-                    JoinType::LeftJoin,
-                    user_to_entity::Relation::Exercise.def().rev().on_condition(
-                        move |_left, right| {
-                            Condition::all().add(
-                                Expr::col((right, user_to_entity::Column::UserId)).eq(&user_id),
-                            )
-                        },
-                    ),
-                )
                 .order_by_desc(order_by_col)
-                .order_by_asc(exercise::Column::Id)
+                .order_by_asc(enriched_user_to_exercise::Column::ExerciseId)
                 .into_tuple::<String>()
                 .paginate(&ss.db, take);
             let ItemsAndPagesNumber {
@@ -779,7 +736,6 @@ pub async fn user_genres_list(
     input: SearchInput,
 ) -> Result<SearchResults<String>> {
     let page: u64 = input.page.unwrap_or(1).try_into().unwrap();
-    let preferences = user_by_id(&user_id, ss).await?.preferences;
     let num_items = "num_items";
     let query = Genre::find()
         .column_as(
@@ -790,7 +746,7 @@ pub async fn user_genres_list(
             num_items,
         )
         .apply_if(input.query, |query, v| {
-            query.filter(Condition::all().add(Expr::col(genre::Column::Name).ilike(ilike_sql(&v))))
+            query.filter(apply_columns_search(&v, [Expr::col(genre::Column::Name)]))
         })
         .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
         .group_by(Expr::tuple([
@@ -798,10 +754,11 @@ pub async fn user_genres_list(
             Expr::col(genre::Column::Name).into(),
         ]))
         .order_by(Expr::col(Alias::new(num_items)), Order::Desc);
+    let page_size = user_preferences_list_page_size(&user_id, ss).await?;
     let paginator = query
         .clone()
         .into_model::<GenreListItem>()
-        .paginate(&ss.db, preferences.general.list_page_size);
+        .paginate(&ss.db, page_size);
     let ItemsAndPagesNumber {
         number_of_items,
         number_of_pages,

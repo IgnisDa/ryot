@@ -34,8 +34,8 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict},
 };
-use sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict};
 use supporting_service::SupportingService;
 
 async fn ensure_metadata_updated(

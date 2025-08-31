@@ -98,7 +98,7 @@ import type { Route } from "./+types/_dashboard.fitness.exercises.list";
 
 interface FilterState {
 	page: number;
-	query?: string;
+	query: string;
 	type?: ExerciseLot;
 	collection?: string;
 	level?: ExerciseLevel;
@@ -111,10 +111,10 @@ interface FilterState {
 
 const defaultFilters: FilterState = {
 	page: 1,
+	query: "",
 	type: undefined,
 	force: undefined,
 	level: undefined,
-	query: undefined,
 	muscle: undefined,
 	mechanic: undefined,
 	equipment: undefined,
@@ -228,9 +228,12 @@ export default function Page() {
 				</Flex>
 				<Group wrap="nowrap">
 					<DebouncedSearchInput
-						initialValue={filters.query}
-						onChange={(value) => updateFilter("query", value)}
+						value={filters.query}
 						placeholder="Search for exercises by name or instructions"
+						onChange={(value) => {
+							updateFilter("query", value);
+							updateFilter("page", 1);
+						}}
 						tourControl={{
 							target: OnboardingTourStepTargets.SearchForExercise,
 							onQueryChange: (query) => {

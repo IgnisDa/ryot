@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230404_create_user::User;
@@ -7,6 +8,8 @@ pub struct Migration;
 
 pub static METADATA_TO_USER_FOREIGN_KEY: &str = "metadata_to_user_foreign_key";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
+pub static METADATA_TITLE_TRIGRAM_INDEX: &str = "metadata_title_trigram_idx";
+pub static METADATA_DESCRIPTION_TRIGRAM_INDEX: &str = "metadata_description_trigram_idx";
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
@@ -120,15 +123,6 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("metadata__title__index")
-                    .table(Metadata::Table)
-                    .col(Metadata::Title)
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
                     .unique()
                     .name(METADATA_UNIQUE_INDEX)
                     .table(Metadata::Table)
@@ -138,6 +132,22 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        create_trigram_index_if_required(
+            manager,
+            "metadata",
+            "title",
+            METADATA_TITLE_TRIGRAM_INDEX,
+        )
+        .await?;
+        create_trigram_index_if_required(
+            manager,
+            "metadata",
+            "description",
+            METADATA_DESCRIPTION_TRIGRAM_INDEX,
+        )
+        .await?;
+
         Ok(())
     }
 

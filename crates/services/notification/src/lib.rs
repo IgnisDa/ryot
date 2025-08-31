@@ -1,6 +1,6 @@
 use std::env;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use common_utils::{APPLICATION_JSON_HEADER, AVATAR_URL, PROJECT_NAME, ryot_log};
 use convert_case::{Case, Casing};
 use reqwest::{
@@ -26,8 +26,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                     "title": project_name,
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
         }
         NotificationPlatformSpecifics::Discord { url } => {
             client
@@ -38,8 +37,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                     "avatar_url": AVATAR_URL
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
         }
         NotificationPlatformSpecifics::Gotify {
             url,
@@ -60,8 +58,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                      }
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
         }
         NotificationPlatformSpecifics::Ntfy {
             url,
@@ -89,11 +86,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                     HeaderValue::from_str(&format!("Bearer {token}")).unwrap(),
                 );
             }
-            request
-                .body(msg.to_owned())
-                .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+            request.body(msg.to_owned()).send().await?;
         }
         NotificationPlatformSpecifics::PushBullet { api_token } => {
             client
@@ -105,8 +98,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                     "type": "note"
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
         }
         NotificationPlatformSpecifics::PushOver { key, app_key } => {
             client.post("https://api.pushover.net/1/messages.json")
@@ -117,8 +109,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                         "title": project_name
                     }))
                     .send()
-                    .await
-                    .map_err(|e| anyhow!(e))?;
+                    .await?;
         }
         NotificationPlatformSpecifics::PushSafer { key } => {
             client
@@ -129,8 +120,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                     "t": project_name
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
         }
         NotificationPlatformSpecifics::Telegram { bot_token, chat_id } => {
             client
@@ -143,8 +133,7 @@ pub async fn send_notification(specifics: NotificationPlatformSpecifics, msg: &s
                     "parse_mode": "Markdown"
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
         }
     }
     Ok(())

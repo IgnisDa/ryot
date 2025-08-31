@@ -394,19 +394,16 @@ export default function Page() {
 										</Group>
 									</>
 								) : null}
-								{loaderData.exerciseDetails.attributes.instructions.length >
-								0 ? (
+								{loaderData.exerciseDetails.instructions.length > 0 ? (
 									<>
 										<Divider />
 										<Text size="xl" fw="bold">
 											Instructions
 										</Text>
 										<List type="ordered" spacing="xs">
-											{loaderData.exerciseDetails.attributes.instructions.map(
-												(d) => (
-													<List.Item key={d}>{d}</List.Item>
-												),
-											)}
+											{loaderData.exerciseDetails.instructions.map((d) => (
+												<List.Item key={d}>{d}</List.Item>
+											))}
 										</List>
 									</>
 								) : null}

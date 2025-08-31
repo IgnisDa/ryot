@@ -1,7 +1,12 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
+
+pub static METADATA_GROUP_TITLE_TRIGRAM_INDEX: &str = "metadata_group_title_trigram_idx";
+pub static METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX: &str =
+    "metadata_group_description_trigram_idx";
 
 #[derive(Iden)]
 pub enum MetadataGroup {
@@ -64,6 +69,22 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        create_trigram_index_if_required(
+            manager,
+            "metadata_group",
+            "title",
+            METADATA_GROUP_TITLE_TRIGRAM_INDEX,
+        )
+        .await?;
+        create_trigram_index_if_required(
+            manager,
+            "metadata_group",
+            "description",
+            METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX,
+        )
+        .await?;
+
         Ok(())
     }
 

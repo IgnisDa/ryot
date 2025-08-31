@@ -2,7 +2,10 @@ import { faker } from "@faker-js/faker";
 import {
 	CollectionContentsDocument,
 	CollectionContentsSortBy,
+	CreateOrUpdateCollectionDocument,
+	DeployAddEntitiesToCollectionJobDocument,
 	DeployBulkMetadataProgressUpdateDocument,
+	type EntityLot,
 	GraphqlSortOrder,
 	LoginUserDocument,
 	MediaLot,
@@ -62,9 +65,7 @@ export async function registerTestUser(baseUrl: string) {
 			);
 		}
 
-		console.log(
-			`[Test Utils] Test user '${username}' logged in successfully with API key: ${loginUser.apiKey}`,
-		);
+		console.log(`[Test Utils] Test user '${username}' logged in`);
 
 		return [loginUser.apiKey, registerUser.id] as const;
 	} catch (err) {
@@ -203,13 +204,43 @@ export async function progressUpdate(
 	return deployBulkMetadataProgressUpdate;
 }
 
+export async function addEntitiesToCollection(
+	baseUrl: string,
+	userApiKey: string,
+	userId: string,
+	collectionName: string,
+	entities: { entityId: string; entityLot: EntityLot }[],
+) {
+	const client = getGraphqlClient(baseUrl);
+	const response = await client.request(
+		DeployAddEntitiesToCollectionJobDocument,
+		{ input: { entities, collectionName, creatorUserId: userId } },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	await waitFor(1000);
+	return response;
+}
+
+export async function createCollection(
+	baseUrl: string,
+	userApiKey: string,
+	name: string,
+	description?: string,
+) {
+	const client = getGraphqlClient(baseUrl);
+	const response = await client.request(
+		CreateOrUpdateCollectionDocument,
+		{ input: { name, description } },
+		{ Authorization: `Bearer ${userApiKey}` },
+	);
+	return response.createOrUpdateCollection;
+}
+
 export async function registerAdminUser(baseUrl: string) {
 	const client = getGraphqlClient(baseUrl);
 
-	// First register a regular user
 	const [userApiKey, userId] = await registerTestUser(baseUrl);
 
-	// Then upgrade them to admin using the test admin token
 	await client.request(UpdateUserDocument, {
 		input: {
 			userId,

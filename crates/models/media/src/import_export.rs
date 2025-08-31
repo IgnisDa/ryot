@@ -28,12 +28,14 @@ pub struct ImportOrExportMetadataItemSeen {
     pub show_episode_number: Option<i32>,
     /// If for an anime, the episode which was seen.
     pub anime_episode_number: Option<i32>,
-    /// The providers this item was watched on.
-    pub providers_consumed_on: Option<Vec<String>>,
+    /// The amount of time spent watching the item manually.
+    pub manual_time_spent: Option<Decimal>,
     /// If for a podcast, the episode which was seen.
     pub podcast_episode_number: Option<i32>,
     /// If for a manga, the chapter which was seen.
     pub manga_chapter_number: Option<Decimal>,
+    /// The providers this item was consumed on.
+    pub providers_consumed_on: Option<Vec<String>>,
 }
 
 /// Review data associated to a rating.

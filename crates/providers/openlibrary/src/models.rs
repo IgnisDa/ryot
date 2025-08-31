@@ -11,7 +11,7 @@ pub struct EditionsResponse {
 pub struct Edition {
     pub key: String,
     pub title: Option<String>,
-    pub covers: Option<Vec<u64>>,
+    pub covers: Option<Vec<i64>>,
     pub publish_date: Option<String>,
     pub number_of_pages: Option<i32>,
 }
@@ -52,9 +52,9 @@ pub struct Key {
 
 #[derive(Debug, Clone)]
 pub struct OpenlibraryService {
+    pub client: Client,
     pub image_url: String,
     pub image_size: String,
-    pub client: Client,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -85,12 +85,12 @@ pub struct PersonDetailsLink {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PersonDetailsAuthor {
     pub key: String,
-    pub bio: Option<Description>,
     pub name: String,
-    pub photos: Option<Vec<u64>>,
-    pub links: Option<Vec<PersonDetailsLink>>,
+    pub bio: Option<Description>,
+    pub photos: Option<Vec<i64>>,
     pub birth_date: Option<String>,
     pub death_date: Option<String>,
+    pub links: Option<Vec<PersonDetailsLink>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -111,7 +111,7 @@ pub enum MetadataDetailsAuthorResponse {
 pub struct MetadataDetailsBook {
     pub key: String,
     pub title: String,
-    pub covers: Option<Vec<u64>>,
+    pub covers: Option<Vec<i64>>,
     pub subjects: Option<Vec<String>>,
     pub description: Option<Description>,
     pub authors: Option<Vec<MetadataDetailsAuthorResponse>>,
@@ -121,7 +121,7 @@ pub struct MetadataDetailsBook {
 pub struct MetadataSearchBook {
     pub key: String,
     pub title: String,
-    pub cover_i: Option<u64>,
+    pub cover_i: Option<i64>,
     pub publish_year: Option<Vec<i32>>,
     pub first_publish_year: Option<i32>,
     pub author_name: Option<Vec<String>>,

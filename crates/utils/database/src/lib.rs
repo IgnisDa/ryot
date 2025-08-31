@@ -6,10 +6,9 @@ use chrono::Utc;
 use common_models::{BackendError, EntityAssets, StringIdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
-    access_link, collection, collection_entity_membership, collection_to_entity,
+    access_link, collection, collection_entity_membership,
     prelude::{
-        AccessLink, CollectionEntityMembership, CollectionToEntity, Review, Seen, User, Workout,
-        WorkoutTemplate,
+        AccessLink, CollectionEntityMembership, Review, Seen, User, Workout, WorkoutTemplate,
     },
     review, seen, user, workout,
 };
@@ -18,15 +17,17 @@ use dependent_models::{
     UserWorkoutTemplateDetails,
 };
 use enum_models::{EntityLot, UserLot, Visibility};
-
 use itertools::Itertools;
 use markdown::to_html as markdown_to_html;
-use media_models::{MediaCollectionFilter, MediaCollectionPresenceFilter, ReviewItem};
-use migrations::AliasedCollectionToEntity;
+use media_models::{
+    MediaCollectionFilter, MediaCollectionPresenceFilter, MediaCollectionStrategyFilter, ReviewItem,
+};
 use rust_decimal_macros::dec;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    QueryFilter, QueryOrder, QuerySelect, QueryTrait, Select, prelude::Expr, sea_query::PgFunc,
+    ActiveModelTrait, ActiveValue, ColumnTrait, Condition, DatabaseConnection, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, Select,
+    prelude::Expr,
+    sea_query::{PgFunc, SimpleExpr, extension::postgres::PgExpr},
 };
 use supporting_service::SupportingService;
 use user_models::UserReviewScale;
@@ -43,8 +44,13 @@ pub async fn revoke_access_link(db: &DatabaseConnection, access_link_id: String)
     Ok(true)
 }
 
-pub fn ilike_sql(value: &str) -> String {
-    format!("%{value}%")
+pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition {
+    let pattern = format!("%{value}%");
+    let mut condition = Condition::any();
+    for column in columns {
+        condition = condition.add(column.ilike(pattern.clone()));
+    }
+    condition
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {
@@ -53,6 +59,14 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
         .await?
         .ok_or_else(|| anyhow!("No user found"))?;
     Ok(user)
+}
+
+pub async fn user_preferences_list_page_size(
+    user_id: &String,
+    ss: &Arc<SupportingService>,
+) -> Result<u64> {
+    let user = user_by_id(user_id, ss).await?;
+    Ok(user.preferences.general.list_page_size)
 }
 
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {
@@ -189,69 +203,54 @@ pub async fn user_workout_template_details(
     })
 }
 
-pub fn apply_collection_filter<C, D, E>(
+fn build_collection_condition<C>(
+    collection_id: String,
+    id_column: C,
+    presence: MediaCollectionPresenceFilter,
+) -> SimpleExpr
+where
+    C: ColumnTrait,
+{
+    let value = Expr::val(collection_id);
+    let any_column = PgFunc::any(Expr::col(id_column));
+    match presence {
+        MediaCollectionPresenceFilter::PresentIn => value.eq(any_column),
+        MediaCollectionPresenceFilter::NotPresentIn => value.eq(any_column).not(),
+    }
+}
+
+pub fn apply_collection_filters<C, D>(
     id_column: C,
     query: Select<D>,
-    entity_column: E,
-    collection_filters: Vec<MediaCollectionFilter>,
+    filters: Vec<MediaCollectionFilter>,
 ) -> Select<D>
 where
     C: ColumnTrait,
     D: EntityTrait,
-    E: ColumnTrait,
 {
-    if collection_filters.is_empty() {
+    if filters.is_empty() {
         return query;
     }
-    let is_in = collection_filters
-        .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::PresentIn)
-        .map(|f| f.collection_id.clone())
-        .collect_vec();
-    let is_not_in = collection_filters
-        .iter()
-        .filter(|f| f.presence == MediaCollectionPresenceFilter::NotPresentIn)
-        .map(|f| f.collection_id.clone())
-        .collect_vec();
 
-    if is_in.is_empty() && !is_not_in.is_empty() {
-        let items_in_collections = CollectionToEntity::find()
-            .select_only()
-            .column(entity_column)
-            .filter(entity_column.is_not_null())
-            .filter(
-                Expr::col((
-                    AliasedCollectionToEntity::Table,
-                    collection_to_entity::Column::CollectionId,
-                ))
-                .is_in(is_not_in),
-            );
-        return query.filter(id_column.not_in_subquery(items_in_collections.into_query()));
+    let (base_filter, remaining_filters) = filters.split_first().unwrap();
+
+    let mut filter_condition = build_collection_condition(
+        base_filter.collection_id.clone(),
+        id_column,
+        base_filter.presence,
+    );
+
+    for filter in remaining_filters {
+        let condition =
+            build_collection_condition(filter.collection_id.clone(), id_column, filter.presence);
+
+        filter_condition = match filter.strategy {
+            MediaCollectionStrategyFilter::And => filter_condition.and(condition),
+            MediaCollectionStrategyFilter::Or => filter_condition.or(condition),
+        };
     }
-    let subquery = CollectionToEntity::find()
-        .select_only()
-        .column(entity_column)
-        .filter(entity_column.is_not_null())
-        .filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .is_in(is_in),
-        );
 
-    let subquery = match is_not_in.is_empty() {
-        true => subquery,
-        false => subquery.filter(
-            Expr::col((
-                AliasedCollectionToEntity::Table,
-                collection_to_entity::Column::CollectionId,
-            ))
-            .is_not_in(is_not_in),
-        ),
-    };
-
-    query.filter(id_column.in_subquery(subquery.into_query()))
+    query.filter(filter_condition)
 }
 
 /// If the token has an access link, then checks that:

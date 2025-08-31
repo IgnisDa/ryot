@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
 use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
@@ -178,11 +178,9 @@ impl MediaProvider for AudibleService {
             .get(format!("{AUDNEX_URL}/authors"))
             .query(&json!({ "region": self.locale, "name": query }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let data = data
             .into_iter()
             .map(|a| PeopleSearchItem {
@@ -215,11 +213,9 @@ impl MediaProvider for AudibleService {
             .get(format!("{AUDNEX_URL}/authors/{identity}"))
             .query(&json!({ "region": self.locale }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let name = data.name;
         Ok(PersonDetails {
             name: name.clone(),
@@ -244,11 +240,9 @@ impl MediaProvider for AudibleService {
             .get(format!("{}/{}", self.url, identifier))
             .query(&PrimaryQuery::default())
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let items = data
             .product
             .relationships
@@ -264,9 +258,8 @@ impl MediaProvider for AudibleService {
                 .get(format!("{}/{}", self.url, i))
                 .query(&PrimaryQuery::default())
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?;
-            let data: AudibleItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+                .await?;
+            let data: AudibleItemResponse = rsp.json().await?;
             collection_contents.push(PartialMetadataWithoutId {
                 identifier: i,
                 lot: MediaLot::AudioBook,
@@ -299,9 +292,8 @@ impl MediaProvider for AudibleService {
             .get(format!("{}/{}", self.url, identifier))
             .query(&PrimaryQuery::default())
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let data: AudibleItemResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let data: AudibleItemResponse = rsp.json().await?;
         let mut item = self.audible_response_to_search_response(data.product.clone());
         let mut suggestions = vec![];
         let mut groups = vec![];
@@ -325,11 +317,9 @@ impl MediaProvider for AudibleService {
                     "response_groups": "media"
                 }))
                 .send()
-                .await
-                .map_err(|e| anyhow!(e))?
+                .await?
                 .json()
-                .await
-                .map_err(|e| anyhow!(e))?;
+                .await?;
             for sim in data.similar_products.into_iter() {
                 suggestions.push(PartialMetadataWithoutId {
                     title: sim.title,
@@ -370,9 +360,8 @@ impl MediaProvider for AudibleService {
                 primary: PrimaryQuery::default(),
             })
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: AudibleSearchResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: AudibleSearchResponse = rsp.json().await?;
         let resp = search
             .products
             .into_iter()

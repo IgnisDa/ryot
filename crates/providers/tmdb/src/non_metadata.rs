@@ -58,9 +58,8 @@ impl MediaProvider for NonMediaTmdbService {
                 "include_adult": display_nsfw,
             }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?;
-        let search: TmdbListResponse = rsp.json().await.map_err(|e| anyhow!(e))?;
+            .await?;
+        let search: TmdbListResponse = rsp.json().await?;
         let resp = search
             .results
             .into_iter()
@@ -99,11 +98,9 @@ impl MediaProvider for NonMediaTmdbService {
             .get(format!("{URL}/{person_type}/{identifier}"))
             .query(&json!({ "language": self.base.language }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         let mut images = vec![];
         let description = details.description.or(details.biography);
         let mut related_metadata = vec![];
@@ -118,8 +115,7 @@ impl MediaProvider for NonMediaTmdbService {
                         .get(format!("{URL}/{person_type}/{identifier}/combined_credits"))
                         .query(&json!({ "language": self.base.language }))
                         .send()
-                        .await
-                        .map_err(|e| anyhow!(e))?;
+                        .await?;
                     resp.json::<TmdbCreditsResponse>()
                         .await
                         .map_err(|e| anyhow!(e))
@@ -212,11 +208,9 @@ impl NonMediaTmdbService {
             .get(format!("{URL}/find/{external_id}"))
             .query(&json!({ "language": self.base.language, "external_source": external_source }))
             .send()
-            .await
-            .map_err(|e| anyhow!(e))?
+            .await?
             .json()
-            .await
-            .map_err(|e| anyhow!(e))?;
+            .await?;
         if !details.movie_results.is_empty() {
             Ok(details.movie_results[0].id.to_string())
         } else if !details.tv_results.is_empty() {

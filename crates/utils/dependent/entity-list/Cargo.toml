@@ -7,8 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
-sea-query = { workspace = true }
-slug = { workspace = true }
 tracing = { workspace = true }
 
 application-utils = { workspace = true }
@@ -18,11 +16,10 @@ database-models = { workspace = true }
 database-utils = { workspace = true }
 dependent-models = { workspace = true }
 fitness-models = { workspace = true }
-migrations = { workspace = true }
+migrations-sql = { workspace = true }
 enum-models = { workspace = true }
 media-models = { workspace = true }
 supporting-service = { workspace = true }
-user-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
