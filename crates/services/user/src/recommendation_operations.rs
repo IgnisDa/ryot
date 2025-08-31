@@ -44,7 +44,6 @@ async fn get_or_generate_recommendation_set(
             let media_items = Metadata::find()
                 .select_only()
                 .column(metadata::Column::Id)
-                .distinct()
                 .inner_join(UserToEntity)
                 .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
                 .filter(user_to_entity::Column::MetadataId.is_not_null())
