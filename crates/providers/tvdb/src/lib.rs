@@ -56,7 +56,7 @@ impl TvdbService {
         self.settings
             .languages
             .iter()
-            .map(|l| l.id.clone())
+            .map(|l| l.code.clone())
             .collect()
     }
 }
@@ -94,7 +94,7 @@ async fn get_settings(
             let languages: Vec<TvdbLanguage> = languages_response
                 .data
                 .into_iter()
-                .flat_map(|l| l.name.map(|name| TvdbLanguage { name, id: l.id }))
+                .flat_map(|l| l.name.map(|name| TvdbLanguage { name, code: l.id }))
                 .collect();
 
             let settings = TvdbSettings {
