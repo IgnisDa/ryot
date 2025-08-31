@@ -41,7 +41,9 @@ import igdbVideoGameScriptCode from "~/lib/sandbox/scripts/providers/media/video
 import vndbVisualNovelScriptCode from "~/lib/sandbox/scripts/providers/media/visual-novel/vndb.txt";
 import anilistPersonScriptCode from "~/lib/sandbox/scripts/providers/person/anilist.txt";
 import audiblePersonScriptCode from "~/lib/sandbox/scripts/providers/person/audible.txt";
+import giantBombPersonScriptCode from "~/lib/sandbox/scripts/providers/person/giant-bomb.txt";
 import hardcoverPersonScriptCode from "~/lib/sandbox/scripts/providers/person/hardcover.txt";
+import mangaUpdatesPersonScriptCode from "~/lib/sandbox/scripts/providers/person/manga-updates.txt";
 import metronPersonScriptCode from "~/lib/sandbox/scripts/providers/person/metron.txt";
 import musicbrainzPersonScriptCode from "~/lib/sandbox/scripts/providers/person/musicbrainz.txt";
 import openLibraryPersonScriptCode from "~/lib/sandbox/scripts/providers/person/openlibrary.txt";
@@ -113,6 +115,10 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("VNDB", "company.vndb", vndbCompanyScriptCode),
 	script("Anilist", "person.anilist", anilistPersonScriptCode),
 	script("Audible", "person.audible", audiblePersonScriptCode),
+	script("GiantBomb", "person.giant-bomb", giantBombPersonScriptCode, [
+		"videoGames.giantBomb.apiKey",
+	]),
+	script("MangaUpdates", "person.manga-updates", mangaUpdatesPersonScriptCode),
 	script("MangaUpdates", "manga.manga-updates", mangaUpdatesMangaScriptCode),
 	script("MusicBrainz", "music.musicbrainz", musicbrainzMusicScriptCode),
 	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
@@ -251,6 +257,8 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
 		{ schemaSlug: "person", scriptSlug: "person.openlibrary" },
 		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
+		{ schemaSlug: "person", scriptSlug: "person.giant-bomb" },
+		{ schemaSlug: "person", scriptSlug: "person.manga-updates" },
 	] as const;
 
 export const companySchemaScriptLinks = () =>
