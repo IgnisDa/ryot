@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
+sea-orm-migration = { workspace = true }
 
 [package.metadata.cargo-machete]

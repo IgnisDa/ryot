@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::{m20230410_create_metadata::Metadata, m20230411_create_metadata_group::MetadataGroup};
@@ -220,15 +221,13 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        let db = manager.get_connection();
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{PERSON_NAME_TRIGRAM_INDEX}" ON person USING gin (name gin_trgm_ops);"#
-        ))
-        .await?;
-
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{PERSON_DESCRIPTION_TRIGRAM_INDEX}" ON person USING gin (description gin_trgm_ops);"#
-        ))
+        create_trigram_index_if_required(manager, "person", "name", PERSON_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(
+            manager,
+            "person",
+            "description",
+            PERSON_DESCRIPTION_TRIGRAM_INDEX,
+        )
         .await?;
 
         Ok(())

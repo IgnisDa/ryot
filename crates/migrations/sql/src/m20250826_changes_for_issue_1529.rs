@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::{
@@ -198,109 +199,72 @@ AS $$ SELECT array_to_string($1, $2) $$;
             db.execute_unprepared("DROP INDEX genre_name_index").await?;
         }
 
-        if !manager
-            .has_index("metadata", METADATA_TITLE_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{METADATA_TITLE_TRIGRAM_INDEX}" ON metadata USING gin (title gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "metadata",
+            "title",
+            METADATA_TITLE_TRIGRAM_INDEX,
+        )
+        .await?;
 
-        if !manager
-            .has_index("metadata", METADATA_DESCRIPTION_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{METADATA_DESCRIPTION_TRIGRAM_INDEX}" ON metadata USING gin (description gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "metadata",
+            "description",
+            METADATA_DESCRIPTION_TRIGRAM_INDEX,
+        )
+        .await?;
 
-        if !manager
-            .has_index("person", PERSON_NAME_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{PERSON_NAME_TRIGRAM_INDEX}" ON person USING gin (name gin_trgm_ops);"#
-            ))
+        create_trigram_index_if_required(manager, "person", "name", PERSON_NAME_TRIGRAM_INDEX)
             .await?;
-        }
 
-        if !manager
-            .has_index("person", PERSON_DESCRIPTION_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{PERSON_DESCRIPTION_TRIGRAM_INDEX}" ON person USING gin (description gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "person",
+            "description",
+            PERSON_DESCRIPTION_TRIGRAM_INDEX,
+        )
+        .await?;
 
-        if !manager
-            .has_index("metadata_group", METADATA_GROUP_TITLE_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{METADATA_GROUP_TITLE_TRIGRAM_INDEX}" ON metadata_group USING gin (title gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "metadata_group",
+            "title",
+            METADATA_GROUP_TITLE_TRIGRAM_INDEX,
+        )
+        .await?;
 
-        if !manager
-            .has_index("metadata_group", METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX}" ON metadata_group USING gin (description gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "metadata_group",
+            "description",
+            METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX,
+        )
+        .await?;
 
-        if !manager.has_index("genre", GENRE_NAME_TRIGRAM_INDEX).await? {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{GENRE_NAME_TRIGRAM_INDEX}" ON genre USING gin (name gin_trgm_ops);"#
-            ))
+        create_trigram_index_if_required(manager, "genre", "name", GENRE_NAME_TRIGRAM_INDEX)
             .await?;
-        }
 
-        if !manager.has_index("user", USER_NAME_TRIGRAM_INDEX).await? {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{USER_NAME_TRIGRAM_INDEX}" ON "user" USING gin (name gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(manager, "user", "name", USER_NAME_TRIGRAM_INDEX).await?;
 
-        if !manager
-            .has_index("collection", COLLECTION_NAME_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{COLLECTION_NAME_TRIGRAM_INDEX}" ON collection USING gin (name gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "collection",
+            "name",
+            COLLECTION_NAME_TRIGRAM_INDEX,
+        )
+        .await?;
 
-        if !manager
-            .has_index("exercise", EXERCISE_NAME_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{EXERCISE_NAME_TRIGRAM_INDEX}" ON exercise USING gin (name gin_trgm_ops);"#
-            ))
+        create_trigram_index_if_required(manager, "exercise", "name", EXERCISE_NAME_TRIGRAM_INDEX)
             .await?;
-        }
 
-        if !manager
-            .has_index("exercise", EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX)
-            .await?
-        {
-            db.execute_unprepared(&format!(
-                r#"CREATE INDEX "{EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX}" ON exercise USING gin (aggregated_instructions gin_trgm_ops);"#
-            ))
-            .await?;
-        }
+        create_trigram_index_if_required(
+            manager,
+            "exercise",
+            "aggregated_instructions",
+            EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX,
+        )
+        .await?;
 
         Ok(())
     }

@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 pub static APPLICATION_CACHE_SANITIZED_KEY_INDEX: &str = "application_cache_sanitized_key_index";
@@ -96,10 +97,12 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        let db = manager.get_connection();
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX}" ON application_cache USING gin (sanitized_key gin_trgm_ops);"#
-        ))
+        create_trigram_index_if_required(
+            manager,
+            "application_cache",
+            "sanitized_key",
+            APPLICATION_CACHE_SANITIZED_KEY_TRIGRAM_INDEX,
+        )
         .await?;
 
         Ok(())

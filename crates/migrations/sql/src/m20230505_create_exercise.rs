@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230404_create_user::User;
@@ -73,15 +74,13 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        let db = manager.get_connection();
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{EXERCISE_NAME_TRIGRAM_INDEX}" ON exercise USING gin (name gin_trgm_ops);"#
-        ))
-        .await?;
-
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX}" ON exercise USING gin (aggregated_instructions gin_trgm_ops);"#
-        ))
+        create_trigram_index_if_required(manager, "exercise", "name", EXERCISE_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(
+            manager,
+            "exercise",
+            "aggregated_instructions",
+            EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX,
+        )
         .await?;
 
         Ok(())

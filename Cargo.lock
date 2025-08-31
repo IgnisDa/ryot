@@ -4294,6 +4294,9 @@ dependencies = [
 [[package]]
 name = "migrations-utils"
 version = "0.1.0"
+dependencies = [
+ "sea-orm-migration",
+]
 
 [[package]]
 name = "mime"

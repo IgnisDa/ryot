@@ -1,3 +1,4 @@
+use migrations_utils::create_trigram_index_if_required;
 use sea_orm_migration::prelude::*;
 
 use super::m20230410_create_metadata::Metadata;
@@ -69,11 +70,8 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        let db = manager.get_connection();
-        db.execute_unprepared(&format!(
-            r#"CREATE INDEX "{GENRE_NAME_TRIGRAM_INDEX}" ON genre USING gin (name gin_trgm_ops);"#
-        ))
-        .await?;
+        create_trigram_index_if_required(manager, "genre", "name", GENRE_NAME_TRIGRAM_INDEX)
+            .await?;
 
         Ok(())
     }
