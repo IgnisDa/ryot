@@ -5,7 +5,7 @@ use common_models::UserLevelCacheKey;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{
     metadata, metadata_to_metadata,
-    prelude::{Metadata, MetadataToMetadata},
+    prelude::{Metadata, MetadataToMetadata, UserToEntity},
     user_to_entity,
 };
 use database_utils::user_by_id;
@@ -21,8 +21,8 @@ use itertools::Itertools;
 use nanoid::nanoid;
 use rand::seq::{IndexedRandom, SliceRandom};
 use sea_orm::{
-    ActiveValue, ColumnTrait, Condition, DatabaseBackend, EntityTrait, FromQueryResult, JoinType,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, RelationTrait, Statement,
+    ActiveValue, ColumnTrait, Condition, EntityTrait, JoinType, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, RelationTrait,
     prelude::Expr,
     sea_query::{Func, extension::postgres::PgExpr},
 };
@@ -41,32 +41,16 @@ async fn get_or_generate_recommendation_set(
         }),
         ApplicationCacheValue::UserMetadataRecommendationsSet,
         || async {
-            #[derive(Debug, FromQueryResult)]
-            struct CustomQueryResponse {
-                id: String,
-            }
-
-            let mut args = vec![user_id.into()];
-            args.extend(
-                MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS
-                    .into_iter()
-                    .map(|s| s.into()),
-            );
-
-            let media_items =
-                CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
-                    DatabaseBackend::Postgres,
-                    r#"
-SELECT "m"."id"
-FROM (
-    SELECT "user_id", "metadata_id" FROM "user_to_entity"
-    WHERE "user_id" = $1 AND "metadata_id" IS NOT NULL
-) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5, $6, $7)
-ORDER BY RANDOM() LIMIT 10;
-                    "#,
-                    args,
-                ))
+            let media_items = Metadata::find()
+                .select_only()
+                .column(metadata::Column::Id)
+                .inner_join(UserToEntity)
+                .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
+                .filter(user_to_entity::Column::MetadataId.is_not_null())
+                .filter(metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS))
+                .limit(10)
+                .order_by(Expr::expr(Func::random()), sea_orm::Order::Asc)
+                .into_tuple::<String>()
                 .all(&ss.db)
                 .await?;
 
@@ -79,13 +63,13 @@ ORDER BY RANDOM() LIMIT 10;
             let mut media_item_ids = vec![];
             for media in media_items.into_iter() {
                 ryot_log!(debug, "Getting recommendations: {:?}", media);
-                update_metadata_and_notify_users(&media.id, ss).await?;
-                let recommendations = generic_metadata(&media.id, ss, None).await?.suggestions;
+                update_metadata_and_notify_users(&media, ss).await?;
+                let recommendations = generic_metadata(&media, ss, None).await?.suggestions;
                 ryot_log!(debug, "Found recommendations: {:?}", recommendations);
                 for rec in recommendations {
                     let relation = metadata_to_metadata::ActiveModel {
                         to_metadata_id: ActiveValue::Set(rec.clone()),
-                        from_metadata_id: ActiveValue::Set(media.id.clone()),
+                        from_metadata_id: ActiveValue::Set(media.clone()),
                         relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
                         ..Default::default()
                     };
