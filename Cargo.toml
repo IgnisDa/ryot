@@ -28,6 +28,7 @@ members = [
     "crates/providers/openlibrary",
     "crates/providers/spotify",
     "crates/providers/tmdb",
+    "crates/providers/tvdb",
     "crates/providers/vndb",
     "crates/providers/youtube-music",
     "crates/resolvers/collection",

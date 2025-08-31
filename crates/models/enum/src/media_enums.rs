@@ -44,30 +44,30 @@ pub enum MediaLot {
 meta! {
     MediaLot, Vec<MediaSource>;
 
+    VisualNovel, vec![MediaSource::Vndb];
     AudioBook, vec![MediaSource::Audible];
-    Book, vec![
-        MediaSource::Openlibrary,
-        MediaSource::GoogleBooks,
-        MediaSource::Hardcover,
+    Show, vec![MediaSource::Tmdb, MediaSource::Tvdb];
+    Movie, vec![MediaSource::Tmdb, MediaSource::Tvdb];
+    VideoGame, vec![MediaSource::Igdb, MediaSource::GiantBomb];
+    Music, vec![MediaSource::YoutubeMusic, MediaSource::Spotify];
+    Anime, vec![
+        MediaSource::Anilist,
+        MediaSource::Myanimelist,
     ];
     Podcast, vec![
         MediaSource::Itunes,
         MediaSource::Listennotes,
     ];
-    VideoGame, vec![MediaSource::Igdb, MediaSource::GiantBomb];
-    Anime, vec![
-        MediaSource::Anilist,
-        MediaSource::Myanimelist,
+    Book, vec![
+        MediaSource::Hardcover,
+        MediaSource::Openlibrary,
+        MediaSource::GoogleBooks,
     ];
     Manga, vec![
         MediaSource::Anilist,
-        MediaSource::MangaUpdates,
         MediaSource::Myanimelist,
+        MediaSource::MangaUpdates,
     ];
-    Movie, vec![MediaSource::Tmdb];
-    Music, vec![MediaSource::YoutubeMusic, MediaSource::Spotify];
-    Show, vec![MediaSource::Tmdb];
-    VisualNovel, vec![MediaSource::Vndb];
 }
 
 /// The different sources (or providers) from which data can be obtained from.
@@ -95,6 +95,7 @@ meta! {
 pub enum MediaSource {
     Igdb,
     Tmdb,
+    Tvdb,
     Vndb,
     #[default]
     Custom,
@@ -126,6 +127,7 @@ meta! {
     Openlibrary, None;
     MangaUpdates, None;
     Tmdb, Some(MediaLot::Movie);
+    Tvdb, Some(MediaLot::Movie);
     Spotify, Some(MediaLot::Music);
     Igdb, Some(MediaLot::VideoGame);
     Hardcover, Some(MediaLot::Book);

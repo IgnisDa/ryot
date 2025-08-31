@@ -54,6 +54,7 @@ pub async fn get_metadata_provider(
 ) -> Result<Provider> {
     let err = || Err(anyhow!("This source is not supported".to_owned()));
     let service: Provider = match source {
+        MediaSource::Tvdb => todo!(),
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await?),
@@ -106,6 +107,7 @@ pub async fn get_non_metadata_provider(
 ) -> Result<Provider> {
     let err = || Err(anyhow!("This source is not supported".to_owned()));
     let service: Provider = match source {
+        MediaSource::Tvdb => todo!(),
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
         MediaSource::Vndb => Box::new(VndbService::new(&ss.config.visual_novels).await?),

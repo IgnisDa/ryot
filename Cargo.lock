@@ -7733,6 +7733,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "tvdb-provider"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application-utils",
+ "async-trait",
+ "cache-service",
+ "chrono",
+ "common-models",
+ "common-utils",
+ "database-models",
+ "dependent-models",
+ "enum-models",
+ "futures",
+ "hashbag",
+ "itertools 0.14.0",
+ "media-models",
+ "reqwest",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "serde",
+ "serde_json",
+ "supporting-service",
+ "tracing",
+ "traits",
+]
+
+[[package]]
 name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

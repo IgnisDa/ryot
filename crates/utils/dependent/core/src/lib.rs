@@ -72,6 +72,7 @@ fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
     MediaSource::iter()
         .map(|source| {
             let (supported, default) = match source {
+                MediaSource::Tvdb => todo!(),
                 MediaSource::YoutubeMusic => (
                     LANGUAGES.iter().map(|l| l.name().to_owned()).collect(),
                     Language::En.name().to_owned(),
