@@ -34,7 +34,7 @@ use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
     ModelTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
-    sea_query::{Asterisk, Condition, Expr, JoinType, OnConflict},
+    sea_query::{Asterisk, Condition, Expr, JoinType},
 };
 use supporting_service::SupportingService;
 
@@ -158,21 +158,24 @@ pub async fn change_metadata_associations(
     }
 
     for name in genres {
-        let genre = genre::ActiveModel {
-            name: ActiveValue::Set(name.clone()),
-            id: ActiveValue::Set(format!("gen_{}", nanoid!(12))),
-        };
-        let db_genre = Genre::insert(genre)
-            .on_conflict(
-                OnConflict::column(genre::Column::Name)
-                    .update_column(genre::Column::Name)
-                    .to_owned(),
-            )
-            .exec_with_returning(&ss.db)
+        let maybe_genre = Genre::find()
+            .filter(genre::Column::Name.eq(&name))
+            .one(&ss.db)
             .await?;
+        let genre = match maybe_genre {
+            Some(g) => g,
+            None => {
+                genre::ActiveModel {
+                    name: ActiveValue::Set(name.clone()),
+                    id: ActiveValue::Set(format!("gen_{}", nanoid!(12))),
+                }
+                .insert(&ss.db)
+                .await?
+            }
+        };
 
         let intermediate = metadata_to_genre::ActiveModel {
-            genre_id: ActiveValue::Set(db_genre.id),
+            genre_id: ActiveValue::Set(genre.id),
             metadata_id: ActiveValue::Set(metadata_id.to_owned()),
         };
         intermediate.insert(&ss.db).await.ok();
@@ -181,8 +184,8 @@ pub async fn change_metadata_associations(
     for data in suggestions {
         let (db_partial_metadata, _) = commit_metadata(data, ss, None).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
-            to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             from_metadata_id: ActiveValue::Set(metadata_id.to_owned()),
+            to_metadata_id: ActiveValue::Set(db_partial_metadata.id.clone()),
             relation: ActiveValue::Set(MetadataToMetadataRelation::Suggestion),
             ..Default::default()
         };
