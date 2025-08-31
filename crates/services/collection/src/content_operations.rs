@@ -16,7 +16,7 @@ use dependent_models::{
 };
 use enum_models::EntityLot;
 use media_models::{CollectionContentsSortBy, EntityWithLot};
-use migrations::{AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson};
+use migrations_sql::{AliasedExercise, AliasedMetadata, AliasedMetadataGroup, AliasedPerson};
 use sea_orm::{
     ColumnTrait, EntityTrait, ItemsAndPagesNumber, PaginatorTrait, QueryFilter, QueryOrder,
     QueryTrait,

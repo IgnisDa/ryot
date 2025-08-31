@@ -46,7 +46,7 @@ fitness-service = { workspace = true }
 importer-resolver = { workspace = true }
 importer-service = { workspace = true }
 integration-service = { workspace = true }
-migrations = { workspace = true }
+migrations-sql = { workspace = true }
 miscellaneous-grouping-resolver = { workspace = true }
 miscellaneous-metadata-resolver = { workspace = true }
 miscellaneous-search-resolver = { workspace = true }

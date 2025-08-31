@@ -24,7 +24,7 @@ use fitness_models::{ExerciseSortBy, UserExercisesListInput, UserMeasurementsLis
 use media_models::{
     CollectionItem, GenreListItem, MediaGeneralFilter, MediaSortBy, PersonAndMetadataGroupsSortBy,
 };
-use migrations::{
+use migrations_sql::{
     AliasedCollection, AliasedCollectionToEntity, AliasedMetadataToGenre, AliasedUser,
     AliasedUserToEntity,
 };

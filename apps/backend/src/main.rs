@@ -16,7 +16,7 @@ use common_utils::{PROJECT_NAME, get_temporary_directory, ryot_log};
 use dependent_models::CompleteExport;
 use env_utils::APP_VERSION;
 use logs_wheel::LogFileInitializer;
-use migrations::Migrator;
+use migrations_sql::Migrator;
 use schematic::schema::{SchemaGenerator, TypeScriptRenderer, YamlTemplateRenderer};
 use sea_orm::{ConnectionTrait, Database, DatabaseConnection};
 use sea_orm_migration::MigratorTrait;

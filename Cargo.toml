@@ -3,7 +3,7 @@ members = [
     "apps/backend",
     "crates/config/definition",
     "crates/config/macros",
-    "crates/migrations",
+    "crates/migrations/sql",
     "crates/models/background",
     "crates/models/common",
     "crates/models/database",
@@ -265,7 +265,7 @@ itunes-provider = { path = "crates/providers/itunes" }
 listennotes-provider = { path = "crates/providers/listennotes" }
 manga-updates-provider = { path = "crates/providers/manga-updates" }
 media-models = { path = "crates/models/media" }
-migrations = { path = "crates/migrations" }
+migrations-sql = { path = "crates/migrations/sql" }
 miscellaneous-background-service = { path = "crates/services/miscellaneous/background" }
 miscellaneous-calendar-service = { path = "crates/services/miscellaneous/calendar" }
 miscellaneous-entity-details-service = { path = "crates/services/miscellaneous/entity-details" }
