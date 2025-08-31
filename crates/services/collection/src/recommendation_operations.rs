@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use common_models::SearchDetails;
@@ -34,18 +34,25 @@ pub async fn collection_recommendations(
         ApplicationCacheValue::CollectionRecommendations,
         || async {
             let mut data = vec![];
-            let media_items = CollectionToEntity::find()
-                .select_only()
-                .inner_join(Metadata)
-                .column(collection_to_entity::Column::MetadataId)
-                .filter(collection_to_entity::Column::MetadataId.is_not_null())
-                .filter(metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS))
-                .filter(collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()))
-                .limit(10)
-                .order_by(Expr::expr(Func::random()), Order::Asc)
-                .into_tuple::<String>()
-                .all(&ss.db)
-                .await?;
+            let media_items: HashSet<String> = HashSet::from_iter(
+                CollectionToEntity::find()
+                    .select_only()
+                    .inner_join(Metadata)
+                    .column(collection_to_entity::Column::MetadataId)
+                    .filter(collection_to_entity::Column::MetadataId.is_not_null())
+                    .filter(
+                        metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS),
+                    )
+                    .filter(
+                        collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()),
+                    )
+                    .limit(10)
+                    .order_by(Expr::expr(Func::random()), Order::Asc)
+                    .into_tuple::<String>()
+                    .all(&ss.db)
+                    .await?
+                    .into_iter(),
+            );
             ryot_log!(debug, "Media items: {:?}", media_items);
             for item in media_items {
                 update_metadata_and_notify_users(&item, ss).await?;

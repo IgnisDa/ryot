@@ -41,18 +41,23 @@ async fn get_or_generate_recommendation_set(
         }),
         ApplicationCacheValue::UserMetadataRecommendationsSet,
         || async {
-            let media_items = Metadata::find()
-                .select_only()
-                .column(metadata::Column::Id)
-                .inner_join(UserToEntity)
-                .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
-                .filter(user_to_entity::Column::MetadataId.is_not_null())
-                .filter(metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS))
-                .limit(10)
-                .order_by(Expr::expr(Func::random()), sea_orm::Order::Asc)
-                .into_tuple::<String>()
-                .all(&ss.db)
-                .await?;
+            let media_items: HashSet<String> = HashSet::from_iter(
+                Metadata::find()
+                    .select_only()
+                    .column(metadata::Column::Id)
+                    .inner_join(UserToEntity)
+                    .filter(user_to_entity::Column::UserId.eq(user_id.clone()))
+                    .filter(user_to_entity::Column::MetadataId.is_not_null())
+                    .filter(
+                        metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS),
+                    )
+                    .limit(10)
+                    .order_by(Expr::expr(Func::random()), sea_orm::Order::Asc)
+                    .into_tuple::<String>()
+                    .all(&ss.db)
+                    .await?
+                    .into_iter(),
+            );
 
             ryot_log!(
                 debug,
