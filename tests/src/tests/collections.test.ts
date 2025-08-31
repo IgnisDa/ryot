@@ -71,7 +71,7 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("Invalid input");
+		expect(error?.error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
 	});
 
 	it("rejects unauthenticated requests", async () => {
