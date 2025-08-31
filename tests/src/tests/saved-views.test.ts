@@ -105,10 +105,10 @@ describe("Saved views E2E", () => {
 				isNsfw: null,
 				showSeasons: [],
 				sourceUrl: null,
-				freeCreators: [],
 				description: null,
 				publishYear: 2016,
 				providerRating: 92.4,
+				unlinkedCreators: [],
 				productionStatus: "Ended",
 			},
 		});
@@ -201,10 +201,10 @@ describe("Saved views E2E", () => {
 				isNsfw: null,
 				showSeasons: [],
 				sourceUrl: null,
-				freeCreators: [],
 				description: null,
 				publishYear: 2017,
 				providerRating: 90.1,
+				unlinkedCreators: [],
 				productionStatus: "Ended",
 			},
 		});

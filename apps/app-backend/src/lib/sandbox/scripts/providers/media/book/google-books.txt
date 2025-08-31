@@ -41,8 +41,8 @@ function collectImages(imageLinks) {
   return [...imageSet];
 }
 
-function collectFreeCreators(authors, publisher) {
-  const freeCreators = [];
+function collectUnlinkedCreators(authors, publisher) {
+  const unlinkedCreators = [];
   const seen = new Set();
 
   if (Array.isArray(authors)) {
@@ -61,7 +61,7 @@ function collectFreeCreators(authors, publisher) {
       }
       seen.add(key);
 
-      freeCreators.push({ role: "Author", name: trimmedAuthor });
+      unlinkedCreators.push({ role: "Author", name: trimmedAuthor });
     }
   }
 
@@ -71,12 +71,12 @@ function collectFreeCreators(authors, publisher) {
       const key = `Publisher:${trimmedPublisher}`;
       if (!seen.has(key)) {
         seen.add(key);
-        freeCreators.push({ role: "Publisher", name: trimmedPublisher });
+        unlinkedCreators.push({ role: "Publisher", name: trimmedPublisher });
       }
     }
   }
 
-  return freeCreators;
+  return unlinkedCreators;
 }
 
 function collectGenres(categories, mainCategory) {
@@ -286,7 +286,7 @@ driver("details", async function(context) {
       images: collectImages(volumeInfo?.imageLinks).map((url) => ({ type: "remote", url })),
       genres: collectGenres(volumeInfo?.categories, volumeInfo?.mainCategory),
       sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
-      freeCreators: collectFreeCreators(volumeInfo?.authors, volumeInfo?.publisher),
+      unlinkedCreators: collectUnlinkedCreators(volumeInfo?.authors, volumeInfo?.publisher),
       description:
         typeof volumeInfo?.description === "string"
           ? volumeInfo.description

@@ -347,7 +347,7 @@ driver("details", async function(context) {
       description: getNullableString(podcast?.description),
       sourceUrl: getSourceUrl(title, externalId),
       images: image ? [{ type: "remote", url: image }] : [],
-      freeCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
+      unlinkedCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
       totalEpisodes: totalEpisodes ?? episodes.length,
       episodes,
     },
