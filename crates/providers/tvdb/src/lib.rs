@@ -44,8 +44,12 @@ pub struct TvdbService {
 
 impl TvdbService {
     pub async fn new(ss: Arc<SupportingService>) -> Result<Self> {
-        let client = get_base_http_client(None);
-        let settings = get_settings(&ss).await.unwrap_or_default();
+        let (access_token, client) = get_api_token_and_client_config(&ss)
+            .await
+            .unwrap_or_default();
+        let settings = get_settings(&client, access_token, &ss)
+            .await
+            .unwrap_or_default();
         Ok(Self { client, settings })
     }
 
@@ -58,29 +62,35 @@ impl TvdbService {
     }
 }
 
-async fn get_settings(ss: &Arc<SupportingService>) -> Result<TvdbSettings> {
+async fn get_api_token_and_client_config(ss: &Arc<SupportingService>) -> Result<(String, Client)> {
+    let client = Client::new();
+    let login_response = client
+        .post(format!("{URL}/login"))
+        .json(&json!({
+            "apikey": ss.config.movies_and_shows.tvdb.api_key
+        }))
+        .send()
+        .await?;
+    let login_data: TvdbLoginResponse = login_response.json().await?;
+    let access_token = format!("Bearer {}", login_data.data.token);
+    let auth_client = get_base_http_client(Some(vec![(
+        AUTHORIZATION,
+        HeaderValue::from_str(&access_token).unwrap(),
+    )]));
+    Ok((access_token, auth_client))
+}
+
+async fn get_settings(
+    client: &Client,
+    access_token: String,
+    ss: &Arc<SupportingService>,
+) -> Result<TvdbSettings> {
     cache_service::get_or_set_with_callback(
         ss,
         ApplicationCacheKey::TvdbSettings,
         ApplicationCacheValue::TvdbSettings,
         || async {
-            let client = Client::new();
-            let login_response = client
-                .post(format!("{URL}/login"))
-                .json(&json!({
-                    "apikey": ss.config.movies_and_shows.tvdb.api_key
-                }))
-                .send()
-                .await?;
-            let login_data: TvdbLoginResponse = login_response.json().await?;
-            let access_token = format!("Bearer {}", login_data.data.token);
-
-            let auth_client = get_base_http_client(Some(vec![(
-                AUTHORIZATION,
-                HeaderValue::from_str(&access_token).unwrap(),
-            )]));
-
-            let resp = auth_client.get(format!("{URL}/languages")).send().await?;
+            let resp = client.get(format!("{URL}/languages")).send().await?;
             let languages_response: TvdbLanguagesApiResponse = resp.json().await?;
             let languages: Vec<TvdbLanguage> = languages_response
                 .data
