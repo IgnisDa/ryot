@@ -32,16 +32,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
         manager
-            .create_index(
-                Index::create()
-                    .unique()
-                    .name("genre_name_index")
-                    .table(Genre::Table)
-                    .col(Genre::Name)
-                    .to_owned(),
-            )
-            .await?;
-        manager
             .create_table(
                 Table::create()
                     .table(MetadataToGenre::Table)

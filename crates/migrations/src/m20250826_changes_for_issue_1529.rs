@@ -140,6 +140,10 @@ ALTER TABLE exercise ALTER COLUMN assets SET NOT NULL;
                 .await?;
         }
 
+        if manager.has_index("genre", "genre_name_index").await? {
+            db.execute_unprepared("DROP INDEX genre_name_index").await?;
+        }
+
         Ok(())
     }
 
