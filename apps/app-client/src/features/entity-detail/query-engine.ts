@@ -1,15 +1,17 @@
 import type { paths } from "@ryot/generated/openapi/app-backend";
 
-type QueryEngineRequestBody = NonNullable<
+export type QueryEngineRequestBody = NonNullable<
 	paths["/query-engine/execute"]["post"]["requestBody"]
 >["content"]["application/json"];
-type QueryEngineResponse =
-	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"];
+export type QueryEngineResponse = NonNullable<
+	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"]
+>;
 
-export type QueryEngineEntityItem = Extract<
-	QueryEngineResponse,
-	{ mode: "entities" }
->["data"]["items"][number];
+export type QueryEngineEntitiesRequestBody = Extract<QueryEngineRequestBody, { mode: "entities" }>;
+
+export type QueryEngineEntitiesResponse = Extract<QueryEngineResponse, { mode: "entities" }>;
+
+export type QueryEngineEntityItem = QueryEngineEntitiesResponse["data"]["items"][number];
 
 export type QueryEngineClient = {
 	POST: (

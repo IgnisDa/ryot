@@ -57,6 +57,7 @@
         "@react-navigation/bottom-tabs": "^7.15.5",
         "@react-navigation/elements": "^2.9.10",
         "@react-navigation/native": "^7.1.33",
+        "@ryot/app-backend": "workspace:*",
         "@ryot/generated": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tanstack/react-form": "^1.29.1",
