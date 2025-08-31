@@ -10,6 +10,8 @@ pub static PERSON_IDENTIFIER_UNIQUE_KEY: &str = "person-identifier-source__uniqu
 pub static PERSON_ASSOCIATED_METADATA_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0)) STORED"#;
 pub static PERSON_ASSOCIATED_METADATA_GROUPS_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
 pub static PERSON_ASSOCIATED_ENTITY_COUNT_GENERATED_SQL: &str = r#"GENERATED ALWAYS AS (COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_associated'), 0) + COALESCE(JSONB_ARRAY_LENGTH("state_changes"->'metadata_groups_associated'), 0)) STORED"#;
+pub static PERSON_NAME_TRIGRAM_INDEX: &str = "person_name_trigram_idx";
+pub static PERSON_DESCRIPTION_TRIGRAM_INDEX: &str = "person_description_trigram_idx";
 
 #[derive(Iden)]
 pub enum Person {
@@ -217,6 +219,18 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{PERSON_NAME_TRIGRAM_INDEX}" ON person USING gin (name gin_trgm_ops);"#
+        ))
+        .await?;
+
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{PERSON_DESCRIPTION_TRIGRAM_INDEX}" ON person USING gin (description gin_trgm_ops);"#
+        ))
+        .await?;
+
         Ok(())
     }
 

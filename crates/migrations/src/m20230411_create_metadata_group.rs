@@ -3,6 +3,10 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static METADATA_GROUP_TITLE_TRIGRAM_INDEX: &str = "metadata_group_title_trigram_idx";
+pub static METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX: &str =
+    "metadata_group_description_trigram_idx";
+
 #[derive(Iden)]
 pub enum MetadataGroup {
     Table,
@@ -64,6 +68,18 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{METADATA_GROUP_TITLE_TRIGRAM_INDEX}" ON metadata_group USING gin (title gin_trgm_ops);"#
+        ))
+        .await?;
+
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX}" ON metadata_group USING gin (description gin_trgm_ops);"#
+        ))
+        .await?;
+
         Ok(())
     }
 

@@ -1,6 +1,14 @@
 use sea_orm_migration::prelude::*;
 
 use super::{
+    m20230404_create_user::USER_NAME_TRIGRAM_INDEX,
+    m20230410_create_metadata::{METADATA_DESCRIPTION_TRIGRAM_INDEX, METADATA_TITLE_TRIGRAM_INDEX},
+    m20230411_create_metadata_group::{
+        METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX, METADATA_GROUP_TITLE_TRIGRAM_INDEX,
+    },
+    m20230413_create_person::{PERSON_DESCRIPTION_TRIGRAM_INDEX, PERSON_NAME_TRIGRAM_INDEX},
+    m20230502_create_genre::GENRE_NAME_TRIGRAM_INDEX,
+    m20230504_create_collection::COLLECTION_NAME_TRIGRAM_INDEX,
     m20230505_create_exercise::Exercise,
     m20230508_create_review::REVIEW_USER_ENTITY_INDEX,
     m20230510_create_seen::SEEN_USER_METADATA_INDEX,
@@ -140,8 +148,97 @@ ALTER TABLE exercise ALTER COLUMN assets SET NOT NULL;
                 .await?;
         }
 
+        if manager.has_index("user", "user__name__index").await? {
+            db.execute_unprepared("DROP INDEX user__name__index")
+                .await?;
+        }
+
         if manager.has_index("genre", "genre_name_index").await? {
             db.execute_unprepared("DROP INDEX genre_name_index").await?;
+        }
+
+        if !manager
+            .has_index("metadata", METADATA_TITLE_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{METADATA_TITLE_TRIGRAM_INDEX}" ON metadata USING gin (title gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("metadata", METADATA_DESCRIPTION_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{METADATA_DESCRIPTION_TRIGRAM_INDEX}" ON metadata USING gin (description gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("person", PERSON_NAME_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{PERSON_NAME_TRIGRAM_INDEX}" ON person USING gin (name gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("person", PERSON_DESCRIPTION_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{PERSON_DESCRIPTION_TRIGRAM_INDEX}" ON person USING gin (description gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("metadata_group", METADATA_GROUP_TITLE_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{METADATA_GROUP_TITLE_TRIGRAM_INDEX}" ON metadata_group USING gin (title gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("metadata_group", METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{METADATA_GROUP_DESCRIPTION_TRIGRAM_INDEX}" ON metadata_group USING gin (description gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager.has_index("genre", GENRE_NAME_TRIGRAM_INDEX).await? {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{GENRE_NAME_TRIGRAM_INDEX}" ON genre USING gin (name gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager.has_index("user", USER_NAME_TRIGRAM_INDEX).await? {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{USER_NAME_TRIGRAM_INDEX}" ON "user" USING gin (name gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("collection", COLLECTION_NAME_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{COLLECTION_NAME_TRIGRAM_INDEX}" ON collection USING gin (name gin_trgm_ops);"#
+            ))
+            .await?;
         }
 
         Ok(())

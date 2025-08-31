@@ -5,6 +5,8 @@ use super::m20230410_create_metadata::Metadata;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static GENRE_NAME_TRIGRAM_INDEX: &str = "genre_name_trigram_idx";
+
 #[derive(Iden)]
 pub enum MetadataToGenre {
     Table,
@@ -66,6 +68,13 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{GENRE_NAME_TRIGRAM_INDEX}" ON genre USING gin (name gin_trgm_ops);"#
+        ))
+        .await?;
+
         Ok(())
     }
 

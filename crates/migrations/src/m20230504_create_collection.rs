@@ -5,6 +5,8 @@ use super::m20230404_create_user::User;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static COLLECTION_NAME_TRIGRAM_INDEX: &str = "collection_name_trigram_idx";
+
 #[derive(Iden)]
 pub enum Collection {
     Table,
@@ -68,6 +70,13 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{COLLECTION_NAME_TRIGRAM_INDEX}" ON collection USING gin (name gin_trgm_ops);"#
+        ))
+        .await?;
+
         Ok(())
     }
 

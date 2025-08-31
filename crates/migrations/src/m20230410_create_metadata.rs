@@ -7,6 +7,8 @@ pub struct Migration;
 
 pub static METADATA_TO_USER_FOREIGN_KEY: &str = "metadata_to_user_foreign_key";
 pub static METADATA_UNIQUE_INDEX: &str = "metadata-identifier-source-lot__unique-index";
+pub static METADATA_TITLE_TRIGRAM_INDEX: &str = "metadata_title_trigram_idx";
+pub static METADATA_DESCRIPTION_TRIGRAM_INDEX: &str = "metadata_description_trigram_idx";
 
 // This is responsible for storing common metadata about all media items
 #[derive(Iden)]
@@ -129,6 +131,18 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{METADATA_TITLE_TRIGRAM_INDEX}" ON metadata USING gin (title gin_trgm_ops);"#
+        ))
+        .await?;
+
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{METADATA_DESCRIPTION_TRIGRAM_INDEX}" ON metadata USING gin (description gin_trgm_ops);"#
+        ))
+        .await?;
+
         Ok(())
     }
 
