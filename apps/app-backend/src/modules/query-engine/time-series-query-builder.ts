@@ -10,7 +10,6 @@ import {
 	buildQueryFilterClause,
 	buildQueryRuntime,
 	buildScalarCompiler,
-	resolveRequestedEventSchemaSlugs,
 } from "./query-builder-shared";
 import { EVENT_FIRST_ENTITY_COLUMN_OVERRIDES, TIMESERIES_CTE_ALIASES } from "./query-cte-shared";
 import type { QueryEngineTimeSeriesResponse, TimeSeriesQueryEngineRequest } from "./schemas";
@@ -79,12 +78,9 @@ export const executeTimeSeriesQuery = async (input: {
 	const matchingEventsCte = buildEventFirstCte({
 		userId: input.userId,
 		dateRange: input.request.dateRange,
+		eventSchemaSlugs: input.request.eventSchemas,
 		cteName: TIMESERIES_CTE_ALIASES.matchingEvents,
 		entitySchemaIds: input.context.runtimeSchemas.map((s) => s.id),
-		eventSchemaSlugs: resolveRequestedEventSchemaSlugs(
-			input.request.eventSchemas,
-			input.context.eventSchemaSlugs,
-		),
 	});
 	const filterWhereClause = buildQueryFilterClause({
 		runtime,

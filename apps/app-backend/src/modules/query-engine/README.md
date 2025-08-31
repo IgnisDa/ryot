@@ -44,12 +44,13 @@ For concrete executable examples, see:
 - `aggregations`: one or more aggregation field definitions (`aggregate` only, required)
 - `metric`: `{ type: "count" }` or `{ type: "sum", expression }` (`timeSeries` only)
 - `bucket`: `"day"` | `"hour"` | `"week"` | `"month"` — time bucket size (`timeSeries` only)
-- `dateRange`: `{ startAt, endAt }` — ISO 8601 UTC datetime strings with no more than millisecond precision, `startAt` must be before `endAt` (`timeSeries` only)
+- `dateRange`: `{ startAt, endAt }` — ISO 8601 datetime strings with an offset, no more than millisecond precision; `startAt` must be before `endAt` (`timeSeries` only)
 
 In `aggregate` mode:
 
 - `sort`, `pagination`, and `fields` are omitted.
 - `aggregations` is required.
+- Supported aggregation kinds: `count`, `sum`, `avg`, `min`, `max`, `countBy`, and `countWhere`.
 - The filtered entity set is still defined by `scope`, `filter`, `eventJoins`, `relationshipJoins`, and `computedFields`.
 - `countBy.groupBy` must resolve to a comparable scalar value. Response keys are always strings (values are cast to `::text` for JSONB map keys).
 
@@ -191,7 +192,7 @@ Aggregations: `avg`, `count`, `max`, `min`, `sum`. Type inference returns `integ
 - For `count`, `path` may be omitted — it counts all matching events.
 - For non-`count`, `path` must reference a numeric property; non-numeric values are treated as NULL.
 - Do not require an `eventJoins` entry — run via correlated subquery.
-- Usable anywhere expressions are accepted.
+- Usable in `entities` and `aggregate` modes anywhere expressions are accepted.
 
 ## Event Joins
 
@@ -339,33 +340,31 @@ Combine predicates with `and` / `or` (each takes a `predicates` array). Negate a
 
 ## Response Shape
 
-The HTTP response body is always `{ "data": <payload> }`. The `payload` is a discriminated union on `mode`.
+The HTTP response body is always a discriminated union on `mode`.
 
 Entity mode:
 
 ```json
 {
+	"mode": "entities",
 	"data": {
-		"mode": "entities",
-		"data": {
-			"meta": {
-				"pagination": {
-					"page": 1,
-					"total": 42,
-					"limit": 20,
-					"totalPages": 3,
-					"hasNextPage": true,
-					"hasPreviousPage": false
-				},
-				"fieldOrder": ["title", "rating"]
+		"meta": {
+			"pagination": {
+				"page": 1,
+				"total": 42,
+				"limit": 20,
+				"totalPages": 3,
+				"hasNextPage": true,
+				"hasPreviousPage": false
 			},
-			"items": [
-				{
-					"title": { "kind": "text", "value": "Dune" },
-					"rating": { "kind": "number", "value": 5 }
-				}
-			]
-		}
+			"fieldOrder": ["title", "rating"]
+		},
+		"items": [
+			{
+				"title": { "kind": "text", "value": "Dune" },
+				"rating": { "kind": "number", "value": 5 }
+			}
+		]
 	}
 }
 ```
@@ -374,14 +373,12 @@ Aggregate mode:
 
 ```json
 {
+	"mode": "aggregate",
 	"data": {
-		"mode": "aggregate",
-		"data": {
-			"values": [
-				{ "key": "total", "kind": "number", "value": 42 },
-				{ "key": "bySchema", "kind": "json", "value": { "book": 18, "movie": 24 } }
-			]
-		}
+		"values": [
+			{ "key": "total", "kind": "number", "value": 42 },
+			{ "key": "bySchema", "kind": "json", "value": { "book": 18, "movie": 24 } }
+		]
 	}
 }
 ```
@@ -390,27 +387,25 @@ Events mode (same shape as entity mode, each row is an event):
 
 ```json
 {
+	"mode": "events",
 	"data": {
-		"mode": "events",
-		"data": {
-			"meta": {
-				"pagination": {
-					"page": 1,
-					"total": 7,
-					"limit": 20,
-					"totalPages": 1,
-					"hasNextPage": false,
-					"hasPreviousPage": false
-				},
-				"fieldOrder": ["rating", "reviewedAt"]
+		"meta": {
+			"pagination": {
+				"page": 1,
+				"total": 7,
+				"limit": 20,
+				"totalPages": 1,
+				"hasNextPage": false,
+				"hasPreviousPage": false
 			},
-			"items": [
-				{
-					"rating": { "kind": "number", "value": 5 },
-					"reviewedAt": { "kind": "date", "value": "2024-01-15T00:00:00.000Z" }
-				}
-			]
-		}
+			"fieldOrder": ["rating", "reviewedAt"]
+		},
+		"items": [
+			{
+				"rating": { "kind": "number", "value": 5 },
+				"reviewedAt": { "kind": "date", "value": "2024-01-15T00:00:00.000Z" }
+			}
+		]
 	}
 }
 ```
@@ -419,20 +414,25 @@ Time-series mode:
 
 ```json
 {
+	"mode": "timeSeries",
 	"data": {
-		"mode": "timeSeries",
-		"data": {
-			"buckets": [
-				{ "date": "2024-01-01T00:00:00.000Z", "value": 3 },
-				{ "date": "2024-01-02T00:00:00.000Z", "value": 0 },
-				{ "date": "2024-01-03T00:00:00.000Z", "value": 5 }
-			]
-		}
+		"meta": {
+			"alignedDateRange": {
+				"startAt": "2024-01-01T00:00:00.000Z",
+				"endAt": "2024-01-04T00:00:00.000Z"
+			}
+		},
+		"buckets": [
+			{ "date": "2024-01-01T00:00:00.000Z", "value": 3 },
+			{ "date": "2024-01-02T00:00:00.000Z", "value": 0 },
+			{ "date": "2024-01-03T00:00:00.000Z", "value": 5 }
+		]
 	}
 }
 ```
 
 - `buckets` covers every aligned interval touched by `dateRange` — missing buckets are filled with `0`.
+- `meta.alignedDateRange` expands the request range to bucket boundaries.
 - `date` is an ISO 8601 UTC string truncated to the requested `bucket` granularity.
 
 Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
@@ -470,10 +470,10 @@ Field result kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`
 ## Gotchas
 
 - All references must be explicit; shorthand like `book.title` is invalid in request bodies.
-- `fields` may be empty, but then every `items[n]` will also be an empty array.
+- `fields` may be empty, but then every `items[n]` will also be an empty object.
 - `event-join.*` references require the join to be declared in `eventJoins`.
 - `event-aggregate` references do not require an entry in `eventJoins`.
-- `event` and `event-schema` references are only valid in `events` and `timeSeries` modes (where `eventSchemas` is present).
+- `event` and `event-schema` references are only valid in `events` and `timeSeries` modes (where `eventSchemas` is required).
 - Built-in reference paths must be exactly one segment; only `properties` paths support nesting.
 - `event-join` references are not valid in `timeSeries` mode.
 - `relationshipJoins` is not supported in `events` or `timeSeries` modes.
