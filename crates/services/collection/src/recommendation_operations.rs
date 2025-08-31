@@ -3,7 +3,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use common_models::SearchDetails;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
-use database_models::{metadata, prelude::Metadata};
+use database_models::{
+    collection_to_entity, metadata,
+    prelude::{CollectionToEntity, Metadata},
+};
 use database_utils::{apply_columns_search, extract_pagination_params};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
@@ -12,8 +15,9 @@ use dependent_models::{
 };
 use dependent_notification_utils::update_metadata_and_notify_users;
 use sea_orm::{
-    ColumnTrait, DatabaseBackend, EntityTrait, FromQueryResult, ItemsAndPagesNumber,
-    PaginatorTrait, QueryFilter, QuerySelect, QueryTrait, Statement, sea_query::Expr,
+    ColumnTrait, EntityTrait, ItemsAndPagesNumber, Order, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, QueryTrait,
+    sea_query::{Expr, Func},
 };
 use supporting_service::SupportingService;
 
@@ -30,34 +34,22 @@ pub async fn collection_recommendations(
         ApplicationCacheValue::CollectionRecommendations,
         || async {
             let mut data = vec![];
-            #[derive(Debug, FromQueryResult)]
-            struct CustomQueryResponse {
-                metadata_id: String,
-            }
-            let mut args = vec![input.collection_id.into()];
-            // Note: The following args are included for future SQL extension but not currently used
-            args.extend(
-                MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS
-                    .into_iter()
-                    .map(|s| s.into()),
-            );
-            let media_items =
-                CustomQueryResponse::find_by_statement(Statement::from_sql_and_values(
-                    DatabaseBackend::Postgres,
-                    r#"
-SELECT "cte"."metadata_id"
-FROM "collection_to_entity" "cte"
-WHERE "cte"."collection_id" = $1 AND "cte"."metadata_id" IS NOT NULL
-ORDER BY RANDOM() LIMIT 10;
-        "#,
-                    args,
-                ))
+            let media_items = CollectionToEntity::find()
+                .select_only()
+                .inner_join(Metadata)
+                .column(collection_to_entity::Column::MetadataId)
+                .filter(collection_to_entity::Column::MetadataId.is_not_null())
+                .filter(metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS))
+                .filter(collection_to_entity::Column::CollectionId.eq(input.collection_id.clone()))
+                .limit(10)
+                .order_by(Expr::expr(Func::random()), Order::Asc)
+                .into_tuple::<String>()
                 .all(&ss.db)
                 .await?;
             ryot_log!(debug, "Media items: {:?}", media_items);
             for item in media_items {
-                update_metadata_and_notify_users(&item.metadata_id, ss).await?;
-                let generic = generic_metadata(&item.metadata_id, ss, None).await?;
+                update_metadata_and_notify_users(&item, ss).await?;
+                let generic = generic_metadata(&item, ss, None).await?;
                 data.extend(generic.suggestions);
             }
             Ok(data)
