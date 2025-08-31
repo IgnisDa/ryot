@@ -203,9 +203,9 @@ pub async fn fetch_company_media_by_type(
     base.fetch_paginated_data(
         format!("{}/discover/{}", URL, &media_type),
         json!({
-            "with_companies": identifier,
             "page": 1,
-            "language": base.language
+            "language": base.language,
+            "with_companies": identifier
         }),
         None,
         |entry| async move {
