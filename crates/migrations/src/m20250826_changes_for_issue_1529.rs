@@ -9,7 +9,9 @@ use super::{
     m20230413_create_person::{PERSON_DESCRIPTION_TRIGRAM_INDEX, PERSON_NAME_TRIGRAM_INDEX},
     m20230502_create_genre::GENRE_NAME_TRIGRAM_INDEX,
     m20230504_create_collection::COLLECTION_NAME_TRIGRAM_INDEX,
-    m20230505_create_exercise::Exercise,
+    m20230505_create_exercise::{
+        EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX, EXERCISE_NAME_TRIGRAM_INDEX, Exercise,
+    },
     m20230508_create_review::REVIEW_USER_ENTITY_INDEX,
     m20230510_create_seen::SEEN_USER_METADATA_INDEX,
     m20231017_create_user_to_entity::{ENTITY_ID_SQL, ENTITY_LOT_SQL, UserToEntity},
@@ -276,6 +278,26 @@ AS $$ SELECT array_to_string($1, $2) $$;
         {
             db.execute_unprepared(&format!(
                 r#"CREATE INDEX "{COLLECTION_NAME_TRIGRAM_INDEX}" ON collection USING gin (name gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("exercise", EXERCISE_NAME_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{EXERCISE_NAME_TRIGRAM_INDEX}" ON exercise USING gin (name gin_trgm_ops);"#
+            ))
+            .await?;
+        }
+
+        if !manager
+            .has_index("exercise", EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX)
+            .await?
+        {
+            db.execute_unprepared(&format!(
+                r#"CREATE INDEX "{EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX}" ON exercise USING gin (aggregated_instructions gin_trgm_ops);"#
             ))
             .await?;
         }

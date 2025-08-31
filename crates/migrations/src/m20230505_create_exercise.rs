@@ -5,6 +5,10 @@ use super::m20230404_create_user::User;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+pub static EXERCISE_NAME_TRIGRAM_INDEX: &str = "exercise_name_trigram_idx";
+pub static EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX: &str =
+    "exercise_aggregated_instructions_trigram_idx";
+
 #[derive(Iden)]
 pub enum Exercise {
     Table,
@@ -19,8 +23,8 @@ pub enum Exercise {
     Mechanic,
     Equipment,
     Instructions,
-    AggregatedInstructions,
     CreatedByUserId,
+    AggregatedInstructions,
 }
 
 #[async_trait::async_trait]
@@ -68,6 +72,18 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        let db = manager.get_connection();
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{EXERCISE_NAME_TRIGRAM_INDEX}" ON exercise USING gin (name gin_trgm_ops);"#
+        ))
+        .await?;
+
+        db.execute_unprepared(&format!(
+            r#"CREATE INDEX "{EXERCISE_AGGREGATED_INSTRUCTIONS_TRIGRAM_INDEX}" ON exercise USING gin (aggregated_instructions gin_trgm_ops);"#
+        ))
+        .await?;
+
         Ok(())
     }
 
