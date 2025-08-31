@@ -3,7 +3,6 @@ import {
 	createUpdatedAt,
 	withOverrides,
 } from "~/lib/test-fixtures/fixture-helpers";
-import { entityExpression } from "~/lib/test-fixtures/view-language";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -12,6 +11,7 @@ import type {
 	SavedViewServiceDeps,
 	UpdateSavedViewBody,
 } from "~/modules/saved-views";
+import { buildEntityColumnExpression } from "~/modules/saved-views/constants";
 
 const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	filter: null,
@@ -19,7 +19,7 @@ const queryDefinitionDefaults: SavedViewQueryDefinition = {
 	entitySchemaSlugs: ["books"],
 	sort: {
 		direction: "asc",
-		expression: entityExpression("books", "@name"),
+		expression: buildEntityColumnExpression("books", "name"),
 	},
 };
 
@@ -27,20 +27,23 @@ const displayConfigurationDefaults: CreateSavedViewBody["displayConfiguration"] 
 	{
 		table: {
 			columns: [
-				{ label: "Name", expression: entityExpression("books", "@name") },
+				{
+					label: "Name",
+					expression: buildEntityColumnExpression("books", "name"),
+				},
 			],
 		},
 		grid: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: entityExpression("books", "@name"),
-			imageProperty: entityExpression("books", "@image"),
+			titleProperty: buildEntityColumnExpression("books", "name"),
+			imageProperty: buildEntityColumnExpression("books", "image"),
 		},
 		list: {
 			badgeProperty: null,
 			subtitleProperty: null,
-			titleProperty: entityExpression("books", "@name"),
-			imageProperty: entityExpression("books", "@image"),
+			titleProperty: buildEntityColumnExpression("books", "name"),
+			imageProperty: buildEntityColumnExpression("books", "image"),
 		},
 	};
 
