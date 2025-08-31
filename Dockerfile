@@ -2,7 +2,7 @@ FROM oven/bun:1.3.14-debian AS base
 WORKDIR /app
 
 FROM base AS prepare
-RUN bun install --global turbo@2.8.10
+RUN bun install --global turbo@2.9.16
 COPY . .
 RUN turbo prune @ryot/app-client @ryot/app-backend --docker
 
