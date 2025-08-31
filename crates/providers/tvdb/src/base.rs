@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use cache_service;
-use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TvdbLanguage, TvdbSettings};
+use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, TvdbSettings};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -32,7 +32,7 @@ impl TvdbService {
         self.settings
             .languages
             .iter()
-            .map(|l| l.code.clone())
+            .map(|l| l.id.clone())
             .collect()
     }
 }
@@ -60,15 +60,10 @@ async fn get_settings(ss: &Arc<SupportingService>) -> Result<TvdbSettings> {
 
             let resp = client.get(format!("{URL}/languages")).send().await?;
             let languages_response: TvdbLanguagesApiResponse = resp.json().await?;
-            let languages: Vec<TvdbLanguage> = languages_response
-                .data
-                .into_iter()
-                .flat_map(|l| l.name.map(|name| TvdbLanguage { name, code: l.id }))
-                .collect();
 
             let settings = TvdbSettings {
-                languages,
                 access_token,
+                languages: languages_response.data,
             };
             Ok(settings)
         },
