@@ -130,7 +130,7 @@ SELECT
   COALESCE(ute.media_reason, ARRAY[]::TEXT[]) AS media_reason,
   CASE
     WHEN COUNT(s.id) = 0 THEN ARRAY[]::TEXT[]
-    ELSE ARRAY_AGG(s.state)
+    ELSE ARRAY_AGG(DISTINCT s.state)
   END AS seen_states,
   CASE
     WHEN COUNT(s.id) = 0 THEN NULL
