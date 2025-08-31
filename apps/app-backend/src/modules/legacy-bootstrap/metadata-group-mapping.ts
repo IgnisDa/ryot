@@ -16,8 +16,6 @@ type MetadataGroupRelationshipTarget = {
 	relationshipSchemaSlug: string;
 };
 
-// Lots without a V2 group entity schema (anime, manga, show, podcast, visual_novel) are
-// intentionally omitted here and will be skipped via the INNER JOIN in the migration SQL.
 export const metadataGroupEntityTargets = [
 	{
 		lot: "audio_book",
@@ -268,8 +266,6 @@ BEGIN
 END $$;
 `;
 
-// Only checks for unsupported source values within lots that DO have V2 group schemas.
-// Lots without a V2 group schema (anime, manga, show, podcast, visual_novel) are silently skipped.
 export const getUnsupportedMetadataGroupSources = async (database: DbClient) => {
 	const result = await database.execute<{ lot: string; source: string }>(sql`
 		WITH metadata_group_targets (lot, source, entity_schema_slug, sandbox_script_slug) AS (
