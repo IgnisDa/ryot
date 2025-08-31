@@ -21,6 +21,7 @@ pub enum Exercise {
     Mechanic,
     Equipment,
     Instructions,
+    AggregatedInstructions,
     CreatedByUserId,
 }
 
@@ -52,6 +53,12 @@ impl MigrationTrait for Migration {
                             .default("{}"),
                     )
                     .col(ColumnDef::new(Exercise::Assets).json_binary().not_null())
+                    .col(
+                        ColumnDef::new(Exercise::AggregatedInstructions)
+                            .text()
+                            .not_null()
+                            .extra("GENERATED ALWAYS AS (array_to_string_immutable(instructions, E'\\n')) STORED")
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("exercise_to_user_foreign_key")

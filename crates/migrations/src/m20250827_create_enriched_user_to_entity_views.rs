@@ -19,7 +19,7 @@ SELECT
   e.id as exercise_id,
   ute.last_updated_on,
   e.created_by_user_id,
-  ARRAY_TO_STRING(e.instructions, '\n') AS description,
+  e.aggregated_instructions AS instructions,
   ute.exercise_num_times_interacted as num_times_interacted,
   CASE
     WHEN COUNT(cem.origin_collection_id) = 0 THEN ARRAY[]::TEXT[]
@@ -46,6 +46,7 @@ GROUP BY
   e.instructions,
   ute.last_updated_on,
   e.created_by_user_id,
+  e.aggregated_instructions,
   ute.exercise_num_times_interacted;
 "# };
 

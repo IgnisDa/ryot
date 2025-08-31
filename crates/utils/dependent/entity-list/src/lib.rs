@@ -670,8 +670,8 @@ pub async fn user_exercises_list(
                     query.filter(apply_columns_search(
                         &v,
                         [
-                            Expr::col(enriched_user_to_exercise::Column::ExerciseId),
                             Expr::col(enriched_user_to_exercise::Column::Name),
+                            Expr::col(enriched_user_to_exercise::Column::Instructions),
                         ],
                     ))
                 })

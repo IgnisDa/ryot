@@ -110,6 +110,37 @@ ALTER TABLE exercise ALTER COLUMN assets SET NOT NULL;
                 .await?;
         }
 
+        db.execute_unprepared(
+            r#"
+CREATE OR REPLACE FUNCTION array_to_string_immutable(text[], text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+AS $$ SELECT array_to_string($1, $2) $$;
+        "#,
+        )
+        .await?;
+
+        if !manager
+            .has_column("exercise", "aggregated_instructions")
+            .await?
+        {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Exercise::Table)
+                        .add_column(
+                            ColumnDef::new(Exercise::AggregatedInstructions)
+                                .text()
+                                .not_null()
+                                .extra("GENERATED ALWAYS AS (array_to_string_immutable(instructions, E'\\n')) STORED")
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
+
         if !manager.has_index("seen", SEEN_USER_METADATA_INDEX).await? {
             manager
                 .create_index(
