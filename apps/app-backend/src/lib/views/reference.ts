@@ -1,12 +1,11 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils";
+import type {
+	AppPropertyDefinition,
+	AppSchema,
+	RuntimeRef,
+} from "@ryot/ts-utils";
 import { QueryEngineValidationError } from "./errors";
-import type { RuntimeRef } from "./expression";
 
 export type PropertyType = AppPropertyDefinition["type"];
-
-const eventReferencePrefix = "event";
-const entityReferencePrefix = "entity";
-const computedReferencePrefix = "computed";
 
 export type QueryEngineSchemaLike = {
 	slug: string;
@@ -157,57 +156,46 @@ const stringifyPropertyDefinition = (property: AppPropertyDefinition) => {
 	return JSON.stringify(property);
 };
 
-export const parseFieldPath = (field: string): RuntimeRef => {
-	const [namespace, segment, tail, ...rest] = field.split(".");
-	if (namespace === computedReferencePrefix) {
-		if (!segment || tail || rest.length > 0) {
-			throw new Error(`Invalid field path: ${field}`);
+export const getPropertyDefinition = (
+	schema: { slug: string; propertiesSchema: AppSchema },
+	propertyPath: string[],
+): AppPropertyDefinition | null => {
+	const [first, ...rest] = propertyPath;
+	if (!first) {
+		return null;
+	}
+
+	const definition = schema.propertiesSchema.fields[first];
+	if (!definition) {
+		return null;
+	}
+
+	if (rest.length === 0) {
+		return definition;
+	}
+
+	let current: AppPropertyDefinition = definition;
+	for (const segment of rest) {
+		if (current.type !== "object") {
+			return null;
 		}
 
-		return { key: segment, type: "computed-field" };
-	}
-
-	if (namespace === eventReferencePrefix) {
-		if (!segment || !tail || rest.length > 0) {
-			throw new Error(`Invalid field path: ${field}`);
+		const next = current.properties[segment];
+		if (!next) {
+			return null;
 		}
 
-		if (tail.startsWith("@")) {
-			return {
-				joinKey: segment,
-				type: "event-join-column",
-				column: tail.slice(1),
-			};
-		}
-
-		return {
-			property: tail,
-			joinKey: segment,
-			type: "event-join-property",
-		};
+		current = next;
 	}
 
-	if (
-		namespace !== entityReferencePrefix ||
-		!segment ||
-		!tail ||
-		rest.length > 0
-	) {
-		throw new Error(`Invalid field path: ${field}`);
-	}
-
-	if (tail.startsWith("@")) {
-		return { slug: segment, column: tail.slice(1), type: "entity-column" };
-	}
-
-	return { slug: segment, property: tail, type: "schema-property" };
+	return current;
 };
 
 export const getPropertyType = (
 	schema: { slug: string; propertiesSchema: AppSchema },
-	propertyName: string,
+	propertyPath: string[],
 ): PropertyType | null => {
-	return schema.propertiesSchema.fields[propertyName]?.type ?? null;
+	return getPropertyDefinition(schema, propertyPath)?.type ?? null;
 };
 
 export const buildSchemaMap = <TSchema extends { slug: string }>(
@@ -220,26 +208,6 @@ export const buildEventJoinMap = <TJoin extends { key: string }>(
 	joins: TJoin[],
 ): Map<string, TJoin> => {
 	return new Map(joins.map((join) => [join.key, join]));
-};
-
-export const resolveRuntimeReference = (reference: string): RuntimeRef => {
-	try {
-		if (
-			reference.startsWith(`${computedReferencePrefix}.`) ||
-			reference.startsWith(`${entityReferencePrefix}.`) ||
-			reference.startsWith(`${eventReferencePrefix}.`)
-		) {
-			return parseFieldPath(reference);
-		}
-	} catch (error) {
-		throw new QueryEngineValidationError(
-			error instanceof Error ? error.message : "Invalid field reference",
-		);
-	}
-
-	throw new QueryEngineValidationError(
-		"Explicit field references are required",
-	);
 };
 
 export const getSchemaForReference = <TSchema extends QueryEngineSchemaLike>(
@@ -278,29 +246,56 @@ export const getEventJoinPropertyDefinition = <
 	TJoin extends QueryEngineEventJoinLike,
 >(
 	join: TJoin,
-	propertyName: string,
-): AppPropertyDefinition | null => {
+	propertyPath: string[],
+): AppPropertyDefinition => {
+	const [first, ...rest] = propertyPath;
+	if (!first) {
+		throw new QueryEngineValidationError(
+			`Property path must not be empty for join '${join.key}'`,
+		);
+	}
+
 	const definitions = join.eventSchemas.map((schema) => {
-		const property = schema.propertiesSchema.fields[propertyName];
-		if (!property) {
+		const rootProperty = schema.propertiesSchema.fields[first];
+		if (!rootProperty) {
 			throw new QueryEngineValidationError(
-				`Property '${propertyName}' not found in event schema '${schema.slug}' for join '${join.key}'`,
+				`Property '${propertyPath.join(".")}' not found in event schema '${schema.slug}' for join '${join.key}'`,
 			);
 		}
 
-		return property;
+		let current: AppPropertyDefinition = rootProperty;
+		for (const segment of rest) {
+			if (current.type !== "object") {
+				throw new QueryEngineValidationError(
+					`Property '${propertyPath.join(".")}' not found in event schema '${schema.slug}' for join '${join.key}'`,
+				);
+			}
+
+			const next = current.properties[segment];
+			if (!next) {
+				throw new QueryEngineValidationError(
+					`Property '${propertyPath.join(".")}' not found in event schema '${schema.slug}' for join '${join.key}'`,
+				);
+			}
+
+			current = next;
+		}
+
+		return current;
 	});
 
-	const [firstDefinition, ...rest] = definitions;
+	const [firstDefinition, ...restDefinitions] = definitions;
 	if (!firstDefinition) {
-		return null;
+		throw new QueryEngineValidationError(
+			`Join '${join.key}' has no event schemas`,
+		);
 	}
 
 	const firstSerialized = stringifyPropertyDefinition(firstDefinition);
-	for (const definition of rest) {
+	for (const definition of restDefinitions) {
 		if (stringifyPropertyDefinition(definition) !== firstSerialized) {
 			throw new QueryEngineValidationError(
-				`Property '${propertyName}' has incompatible definitions across event schemas for join '${join.key}'`,
+				`Property '${propertyPath.join(".")}' has incompatible definitions across event schemas for join '${join.key}'`,
 			);
 		}
 	}
@@ -312,7 +307,7 @@ export const getEventJoinPropertyType = <
 	TJoin extends QueryEngineEventJoinLike,
 >(
 	join: TJoin,
-	propertyName: string,
-): PropertyType | null => {
-	return getEventJoinPropertyDefinition(join, propertyName)?.type ?? null;
+	propertyPath: string[],
+): PropertyType => {
+	return getEventJoinPropertyDefinition(join, propertyPath).type;
 };
