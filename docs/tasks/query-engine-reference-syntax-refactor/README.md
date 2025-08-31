@@ -219,17 +219,17 @@ Prior art for E2E: `tests/src/tests/query-engine.test.ts`.
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** [Task 01](./01-core-type-parser-and-sql.md) (todo)
+**Current Task:** All tasks complete
 
 ### Task List
 
 | #   | Task                                                                          | Type | Status | Blocked By      |
 | --- | ----------------------------------------------------------------------------- | ---- | ------ | --------------- |
-| 01  | [Core Type, Parser, and SQL Changes](./01-core-type-parser-and-sql.md)        | AFK  | todo   | None            |
-| 02  | [OpenAPI Spec Regeneration](./02-openapi-spec-regeneration.md)                | AFK  | todo   | Task 01         |
-| 03  | [Frontend resolvePropertyType Update](./03-frontend-resolve-property-type.md) | AFK  | todo   | Task 02         |
-| 04  | [E2E Test Infrastructure and Test Updates](./04-e2e-test-infrastructure.md)   | AFK  | todo   | Task 02         |
-| 05  | [Cleanup Dead Code and Useless Tests](./05-cleanup-dead-code.md)              | AFK  | todo   | Task 01, 03, 04 |
-| 06  | [Documentation Update](./06-documentation.md)                                 | AFK  | todo   | Task 01         |
+| 01  | [Core Type, Parser, and SQL Changes](./01-core-type-parser-and-sql.md)        | AFK  | done   | None            |
+| 02  | [OpenAPI Spec Regeneration](./02-openapi-spec-regeneration.md)                | AFK  | done   | Task 01         |
+| 03  | [Frontend resolvePropertyType Update](./03-frontend-resolve-property-type.md) | AFK  | done   | Task 02         |
+| 04  | [E2E Test Infrastructure and Test Updates](./04-e2e-test-infrastructure.md)   | AFK  | done   | Task 02         |
+| 05  | [Cleanup Dead Code and Useless Tests](./05-cleanup-dead-code.md)              | AFK  | done   | Task 01, 03, 04 |
+| 06  | [Documentation Update](./06-documentation.md)                                 | AFK  | done   | Task 01         |
