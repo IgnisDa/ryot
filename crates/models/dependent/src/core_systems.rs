@@ -122,10 +122,10 @@ pub struct TvdbLanguage {
     pub id: String,
     pub name: String,
     pub short_code: String,
-    pub native_name: String,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TvdbSettings {
+    pub access_token: String,
     pub languages: Vec<TvdbLanguage>,
 }

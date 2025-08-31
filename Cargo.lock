@@ -7735,6 +7735,7 @@ dependencies = [
  "dependent-models",
  "reqwest",
  "serde",
+ "serde_json",
  "supporting-service",
  "tracing",
 ]
