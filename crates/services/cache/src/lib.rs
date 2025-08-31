@@ -72,6 +72,7 @@ fn should_respect_version(key: &ApplicationCacheKey) -> bool {
         ApplicationCacheKey::CoreDetails
             | ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
+            | ApplicationCacheKey::TmdbSettings
             | ApplicationCacheKey::TvdbSettings
             | ApplicationCacheKey::SpotifyAccessToken
             | ApplicationCacheKey::ListennotesSettings
