@@ -124,9 +124,9 @@ SELECT
   m.publish_date,
   m.provider_rating,
   ute.last_updated_on,
-  COUNT(s.id) AS times_seen,
   ute.entity_id as metadata_id,
   AVG(r.rating) AS average_rating,
+  COUNT(DISTINCT s.id) AS times_seen,
   COALESCE(ute.media_reason, ARRAY[]::TEXT[]) AS media_reason,
   CASE
     WHEN COUNT(s.id) = 0 THEN ARRAY[]::TEXT[]
