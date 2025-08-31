@@ -116,3 +116,16 @@ pub struct TmdbSettings {
     pub image_url: String,
     pub languages: Vec<TmdbLanguage>,
 }
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct TvdbLanguage {
+    pub id: String,
+    pub name: String,
+    pub short_code: String,
+    pub native_name: String,
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+pub struct TvdbSettings {
+    pub languages: Vec<TvdbLanguage>,
+}

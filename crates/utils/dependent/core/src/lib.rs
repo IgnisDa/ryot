@@ -24,6 +24,7 @@ use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 use tmdb_provider::TmdbService;
+use tvdb_provider::TvdbService;
 use unkey::{Client, models::VerifyKeyRequest};
 
 fn build_metadata_mappings() -> (
@@ -70,14 +71,26 @@ fn build_exercise_parameters() -> ExerciseParameters {
     }
 }
 
-async fn build_provider_language_information(
+async fn create_providers(
     ss: &Arc<SupportingService>,
+) -> Result<(TmdbService, TvdbService, IgdbService)> {
+    let (tmdb_service, tvdb_service, igdb_service) = try_join!(
+        TmdbService::new(ss.clone()),
+        TvdbService::new(ss.clone()),
+        IgdbService::new(ss.clone())
+    )?;
+    Ok((tmdb_service, tvdb_service, igdb_service))
+}
+
+fn build_provider_language_information(
+    tmdb_service: &TmdbService,
+    tvdb_service: &TvdbService,
 ) -> Result<Vec<ProviderLanguageInformation>> {
-    let tmdb_service = TmdbService::new(ss.clone()).await?;
     let information = MediaSource::iter()
         .map(|source| {
             let (supported, default) = match source {
                 MediaSource::Tmdb => (tmdb_service.get_all_languages(), "en".to_owned()),
+                MediaSource::Tvdb => (tvdb_service.get_all_languages(), "en".to_owned()),
                 MediaSource::YoutubeMusic => (
                     LANGUAGES.iter().map(|l| l.name().to_owned()).collect(),
                     Language::En.name().to_owned(),
@@ -94,7 +107,6 @@ async fn build_provider_language_information(
                     "us".to_owned(),
                 ),
                 MediaSource::Igdb
-                | MediaSource::Tvdb
                 | MediaSource::Vndb
                 | MediaSource::Custom
                 | MediaSource::Anilist
@@ -118,14 +130,12 @@ async fn build_provider_language_information(
 }
 
 async fn build_provider_specifics(
-    ss: &Arc<SupportingService>,
+    igdb_service: &IgdbService,
 ) -> Result<CoreDetailsProviderSpecifics> {
     let mut specifics = CoreDetailsProviderSpecifics::default();
 
-    if let Ok(service) = IgdbService::new(ss.clone()).await {
-        if let Ok(igdb) = service.get_provider_specifics().await {
-            specifics.igdb = igdb;
-        }
+    if let Ok(igdb) = igdb_service.get_provider_specifics().await {
+        specifics.igdb = igdb;
     }
 
     Ok(specifics)
@@ -183,13 +193,15 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
                 files_enabled = false;
             }
 
+            let (tmdb_service, tvdb_service, igdb_service) = create_providers(ss).await?;
+
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
-            let (provider_specifics, metadata_provider_languages) = try_join!(
-                build_provider_specifics(ss),
-                build_provider_language_information(ss),
-            )?;
+            let metadata_provider_languages =
+                build_provider_language_information(&tmdb_service, &tvdb_service)?;
+
+            let provider_specifics = build_provider_specifics(&igdb_service).await?;
 
             let core_details = CoreDetails {
                 provider_specifics,

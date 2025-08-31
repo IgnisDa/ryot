@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 enum_meta = { workspace = true }
-isolang = { workspace = true }
 itertools = { workspace = true }
 futures = { workspace = true }
 rustypipe = { workspace = true }
@@ -27,6 +26,7 @@ igdb-provider = { workspace = true }
 file-storage-service = { workspace = true }
 supporting-service = { workspace = true }
 tmdb-provider = { workspace = true }
+tvdb-provider = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json", "sqlx", "tracing"]

@@ -139,7 +139,6 @@ hex = "=0.4.3"
 http = "=1.3.1"
 indexmap = "=2.11.0"
 indoc = "=2.0.6"
-isolang = { version = "=2.4.0", features = ["list_languages"] }
 itertools = "=0.14.0"
 logs-wheel = "=0.3.1"
 markdown = "=1.0.0"
@@ -298,6 +297,7 @@ statistics-resolver = { path = "crates/resolvers/statistics" }
 statistics-service = { path = "crates/services/statistics" }
 supporting-service = { path = "crates/services/supporting" }
 tmdb-provider = { path = "crates/providers/tmdb" }
+tvdb-provider = { path = "crates/providers/tvdb" }
 traits = { path = "crates/traits" }
 user-models = { path = "crates/models/user" }
 user-resolver = { path = "crates/resolvers/user" }

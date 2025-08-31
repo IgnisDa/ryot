@@ -55,7 +55,8 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::TmdbSettings
         | ApplicationCacheKey::ListennotesSettings => Duration::days(5),
 
-        ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
+        ApplicationCacheKey::TvdbSettings
+        | ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
 
         ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
 
@@ -71,6 +72,7 @@ fn should_respect_version(key: &ApplicationCacheKey) -> bool {
         ApplicationCacheKey::CoreDetails
             | ApplicationCacheKey::IgdbSettings
             | ApplicationCacheKey::TmdbSettings
+            | ApplicationCacheKey::TvdbSettings
             | ApplicationCacheKey::SpotifyAccessToken
             | ApplicationCacheKey::ListennotesSettings
     )

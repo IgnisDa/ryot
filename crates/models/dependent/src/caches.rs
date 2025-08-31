@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     analytics::UserAnalytics,
-    core_systems::{CoreDetails, TmdbSettings},
+    core_systems::{CoreDetails, TmdbSettings, TvdbSettings},
     generic_types::{
         CollectionContentsInput, CollectionContentsResponse, CollectionRecommendationsResponse,
         MetadataGroupSearchResponse, MetadataSearchResponse, PeopleSearchResponse,
@@ -87,6 +87,7 @@ pub enum ApplicationCacheKey {
     CoreDetails,
     IgdbSettings,
     TmdbSettings,
+    TvdbSettings,
     SpotifyAccessToken,
     ListennotesSettings,
     TrendingMetadataIds,
@@ -128,6 +129,7 @@ pub type ListennotesSettings = HashMap<i32, String>;
 #[derive(Clone, Debug, PartialEq, FromJsonQueryResult, Serialize, Deserialize, Eq)]
 pub enum ApplicationCacheValue {
     TmdbSettings(TmdbSettings),
+    TvdbSettings(TvdbSettings),
     IgdbSettings(IgdbSettings),
     UserAnalytics(UserAnalytics),
     CoreDetails(Box<CoreDetails>),

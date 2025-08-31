@@ -1978,7 +1978,6 @@ dependencies = [
  "file-storage-service",
  "futures",
  "igdb-provider",
- "isolang",
  "itertools 0.14.0",
  "rustypipe",
  "sea-orm",
@@ -1988,6 +1987,7 @@ dependencies = [
  "supporting-service",
  "tmdb-provider",
  "tracing",
+ "tvdb-provider",
  "unkey",
 ]
 
@@ -3942,15 +3942,6 @@ name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
-
-[[package]]
-name = "isolang"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe50d48c77760c55188549098b9a7f6e37ae980c586a24693d6b01c3b2010c3c"
-dependencies = [
- "phf 0.11.3",
-]
 
 [[package]]
 name = "itertools"
@@ -7740,26 +7731,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
- "async-trait",
  "cache-service",
- "chrono",
- "common-models",
- "common-utils",
- "database-models",
  "dependent-models",
- "enum-models",
- "futures",
- "hashbag",
- "itertools 0.14.0",
- "media-models",
  "reqwest",
- "rust_decimal",
- "rust_decimal_macros",
  "serde",
- "serde_json",
  "supporting-service",
  "tracing",
- "traits",
 ]
 
 [[package]]
