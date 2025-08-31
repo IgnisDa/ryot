@@ -465,7 +465,6 @@ pub struct ServerConfig {
     #[setting(default = vec![], parse_env = schematic::env::split_comma)]
     pub cors_origins: Vec<String>,
     /// An access token that can be used for admin operations.
-    #[setting(default = format!("{}", PROJECT_NAME))]
     #[mask]
     pub admin_access_token: String,
     /// Disable all background jobs.
