@@ -20,7 +20,10 @@ use itertools::Itertools;
 use media_models::{
     SeenAnimeExtraInformation, SeenPodcastExtraInformation, SeenShowExtraInformation,
 };
-use sea_orm::{ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+use nanoid::nanoid;
+use sea_orm::{
+    ActiveValue, ColumnTrait, EntityTrait, ModelTrait, QueryFilter, sea_query::OnConflict,
+};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
@@ -159,9 +162,23 @@ pub async fn recalculate_calendar_events(ss: &Arc<SupportingService>) -> Result<
         };
         metadata_updates.push(meta.id.clone());
     }
-    for cal_insert in calendar_events_inserts {
+    for mut cal_insert in calendar_events_inserts {
+        cal_insert.id = ActiveValue::Set(format!("cal_{}", nanoid!(12)));
         ryot_log!(debug, "Inserting calendar event: {:?}", cal_insert);
-        cal_insert.insert(&ss.db).await.ok();
+        CalendarEvent::insert(cal_insert)
+            .on_conflict(
+                OnConflict::columns([
+                    calendar_event::Column::Timestamp,
+                    calendar_event::Column::MetadataId,
+                    calendar_event::Column::MetadataShowExtraInformation,
+                    calendar_event::Column::MetadataPodcastExtraInformation,
+                    calendar_event::Column::MetadataAnimeExtraInformation,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .exec_without_returning(&ss.db)
+            .await?;
     }
     ryot_log!(debug, "Finished updating calendar events");
     Ok(())
