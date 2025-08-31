@@ -571,7 +571,6 @@ export const ApplicationPagination = (props: {
 
 				<Select
 					size="xs"
-					limit={10}
 					searchable
 					w={rem(100)}
 					data={pageOptions}
