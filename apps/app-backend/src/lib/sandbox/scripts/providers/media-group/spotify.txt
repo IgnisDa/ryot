@@ -182,6 +182,27 @@ driver("details", async function (context) {
   const parts =
     typeof album?.total_tracks === "number" ? album.total_tracks : null;
 
+  const trackItems = Array.isArray(album?.tracks?.items) ? album.tracks.items : [];
+  const relatedEntities = trackItems
+    .map((item, idx) => {
+      const track = item?.track ?? item;
+      const memberId =
+        typeof track?.id === "string" && track.id.trim() ? track.id.trim() : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof track?.name === "string" && track.name.trim()
+          ? track.name.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "music.spotify",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
+
   const imageUrls = getImagesSortedBySize(album?.images ?? []);
   const images = imageUrls.map((url) => ({ type: "remote", url }));
 
@@ -192,6 +213,7 @@ driver("details", async function (context) {
 
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       images,

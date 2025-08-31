@@ -157,9 +157,27 @@ driver("details", async function (context) {
     imagesData?.backdrops,
   );
 
-  const parts = Array.isArray(collectionData?.parts)
-    ? collectionData.parts.length
-    : null;
+  const partsData = Array.isArray(collectionData?.parts) ? collectionData.parts : [];
+  const parts = partsData.length || null;
+
+  const relatedEntities = partsData
+    .map((part, idx) => {
+      const memberId =
+        typeof part?.id === "number" ? String(Math.trunc(part.id)) : null;
+      if (!memberId) return null;
+      const memberName =
+        typeof part?.title === "string" && part.title.trim()
+          ? part.title.trim()
+          : "Loading...";
+      return {
+        name: memberName,
+        externalId: memberId,
+        reverseDirection: true,
+        scriptSlug: "movie.tmdb",
+        relationshipProperties: { order: idx + 1 },
+      };
+    })
+    .filter((e) => e !== null);
 
   const description =
     typeof collectionData?.overview === "string" && collectionData.overview.trim()
@@ -168,6 +186,7 @@ driver("details", async function (context) {
 
   return {
     name: title,
+    relatedEntities,
     properties: {
       parts,
       images,
