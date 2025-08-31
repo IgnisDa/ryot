@@ -77,7 +77,8 @@ Everything else must throw. Do not add new `RETURN` statements inside DO blocks 
 export PGHOST=localhost PGDATABASE=postgres PGPASSWORD=postgres PGUSER=postgres && dropdb "$PGDATABASE" --force && createdb "$PGDATABASE" && pg_restore -d "$PGDATABASE" < tmp/file.sql
 ```
 
-The directory is `./tmp` and not `/tmp`. use `ls` to check instead of the grep tool.
+The directory is `./tmp` and not `/tmp`. use `ls` to check instead of the grep tool. There is also `./tmp/file2.sql`
+which is a lot bigger and allows catching even more edge cases. Please use it to be doubly sure that the migration works as expected.
 
 2. Run the app backend:
 
