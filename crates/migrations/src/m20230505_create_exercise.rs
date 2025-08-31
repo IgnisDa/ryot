@@ -5,8 +5,6 @@ use super::m20230404_create_user::User;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-pub static EXERCISE_NAME_INDEX: &str = "exercise__name__index";
-
 #[derive(Iden)]
 pub enum Exercise {
     Table,
@@ -67,15 +65,6 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::SetNull)
                             .on_update(ForeignKeyAction::Cascade),
                     )
-                    .to_owned(),
-            )
-            .await?;
-        manager
-            .create_index(
-                Index::create()
-                    .name(EXERCISE_NAME_INDEX)
-                    .table(Exercise::Table)
-                    .col(Exercise::Name)
                     .to_owned(),
             )
             .await?;

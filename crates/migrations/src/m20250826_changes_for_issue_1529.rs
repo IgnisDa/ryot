@@ -179,6 +179,14 @@ AS $$ SELECT array_to_string($1, $2) $$;
                 .await?;
         }
 
+        if manager
+            .has_index("exercise", "exercise__name__index")
+            .await?
+        {
+            db.execute_unprepared("DROP INDEX exercise__name__index")
+                .await?;
+        }
+
         if manager.has_index("user", "user__name__index").await? {
             db.execute_unprepared("DROP INDEX user__name__index")
                 .await?;
