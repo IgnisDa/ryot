@@ -6,7 +6,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { db } from "~/lib/db";
 import { entity, entitySchema } from "~/lib/db/schema";
-import { personStubSchema } from "~/lib/media/common";
+import { companyStubSchema, personStubSchema } from "~/lib/media/common";
+import { companyPropertiesSchema } from "~/lib/media/company";
 import { personPropertiesSchema } from "~/lib/media/person";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
@@ -30,6 +31,8 @@ import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schem
 import { getBuiltinSandboxScriptBySlug, getSandboxScriptForUser } from "~/modules/sandbox";
 
 import {
+	companyPopulateJobData,
+	companyPopulateJobName,
 	mediaImportJobData,
 	mediaImportJobName,
 	mediaJobWaitingForSandboxStep,
@@ -43,6 +46,11 @@ const mediaDetailsResultSchema = z.object({
 });
 
 const personDetailsResultSchema = z.object({
+	name: z.string(),
+	properties: z.record(z.string(), z.unknown()),
+});
+
+const companyDetailsResultSchema = z.object({
 	name: z.string(),
 	properties: z.record(z.string(), z.unknown()),
 });
@@ -262,6 +270,95 @@ const processPersonStubs = async (input: {
 	}
 };
 
+const processCompanyStubs = async (input: {
+	userId: string;
+	mediaEntityId: string;
+	rawProperties: Record<string, unknown>;
+}) => {
+	const rawCompanies = input.rawProperties.companies;
+	if (!Array.isArray(rawCompanies) || rawCompanies.length === 0) {
+		return;
+	}
+
+	const companySchema = await getBuiltinEntitySchemaBySlug("company");
+	if (!companySchema) {
+		return;
+	}
+
+	const [mediaEntityRow] = await db
+		.select({ entitySchemaSlug: entitySchema.slug })
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.where(and(eq(entity.id, input.mediaEntityId), isNull(entity.userId)))
+		.limit(1);
+
+	if (!mediaEntityRow) {
+		return;
+	}
+
+	const companyToMediaSlug = normalizeSlug(`company to ${mediaEntityRow.entitySchemaSlug}`);
+	const mediaRelSchema = await getBuiltinRelationshipSchemaBySlug(companyToMediaSlug);
+
+	if (!mediaRelSchema) {
+		throw new Error(
+			`No company relationship schema seeded for media type "${mediaEntityRow.entitySchemaSlug}" (slug: "${companyToMediaSlug}") — check bootstrap manifests`,
+		);
+	}
+
+	for (const rawStub of rawCompanies) {
+		const stubResult = companyStubSchema.safeParse(rawStub);
+		if (!stubResult.success) {
+			continue;
+		}
+
+		const stub = stubResult.data;
+
+		// oxlint-disable-next-line no-await-in-loop
+		const companyScript = await getBuiltinSandboxScriptBySlug(stub.scriptSlug);
+		if (!companyScript) {
+			continue;
+		}
+
+		// oxlint-disable-next-line no-await-in-loop
+		const { entity: existingOrCreated, isNew } = await createGlobalEntity({
+			name: stub.name,
+			externalId: stub.externalId,
+			entitySchemaId: companySchema.id,
+			sandboxScriptId: companyScript.id,
+		});
+
+		const roleSlug = normalizeSlug(stub.role);
+
+		const extraProperties: Record<string, unknown> = {};
+		if (stub.order !== undefined) {
+			extraProperties.order = stub.order;
+		}
+
+		// oxlint-disable-next-line no-await-in-loop
+		await upsertPersonRelationship({
+			role: roleSlug,
+			extraProperties,
+			targetEntityId: input.mediaEntityId,
+			sourceEntityId: existingOrCreated.id,
+			relationshipSchemaId: mediaRelSchema.id,
+		});
+
+		if (isNew || !hasImportedEntityDetails(existingOrCreated)) {
+			// oxlint-disable-next-line no-await-in-loop
+			await getQueues().mediaQueue.add(
+				companyPopulateJobName,
+				{
+					userId: input.userId,
+					scriptSlug: stub.scriptSlug,
+					externalId: stub.externalId,
+					companyEntityId: existingOrCreated.id,
+				},
+				{ jobId: `company-populate-${existingOrCreated.id}` },
+			);
+		}
+	}
+};
+
 export const processMediaImportJob = async (
 	job: Job,
 	token?: string,
@@ -383,6 +480,12 @@ export const processMediaImportJob = async (
 		rawProperties: details.properties,
 	});
 
+	await processCompanyStubs({
+		userId,
+		mediaEntityId: mediaEntity.id,
+		rawProperties: details.properties,
+	});
+
 	return updatedEntity;
 };
 
@@ -486,6 +589,106 @@ export const processPersonPopulateJob = async (
 	});
 };
 
+export const processCompanyPopulateJob = async (
+	job: Job,
+	token?: string,
+	deps: MediaWorkerDeps = mediaWorkerDeps,
+) => {
+	const parsed = companyPopulateJobData.safeParse(job.data);
+	if (!parsed.success) {
+		throw new Error("Company populate job payload is invalid");
+	}
+
+	const { userId, scriptSlug, externalId, companyEntityId } = parsed.data;
+	const companyScript = await deps.getBuiltinSandboxScriptBySlug(scriptSlug);
+	if (!companyScript) {
+		throw new Error("Company script not found");
+	}
+
+	const companySchema = await deps.getBuiltinEntitySchemaBySlug("company");
+	if (!companySchema) {
+		throw new Error("Company entity schema not found");
+	}
+
+	const existingEntity = await findImportedGlobalEntity(
+		{
+			externalId,
+			entitySchemaId: companySchema.id,
+			sandboxScriptId: companyScript.id,
+		},
+		deps,
+	);
+	if (existingEntity) {
+		return;
+	}
+
+	let step = parsed.data.step;
+	if (!step) {
+		await queueSandboxChildRun({
+			job,
+			childJobId: `${job.id}_sandbox`,
+			jobData: {
+				...parsed.data,
+				step: mediaJobWaitingForSandboxStep,
+			},
+			sandboxJobData: {
+				userId,
+				driverName: "details",
+				context: { externalId },
+				scriptId: companyScript.id,
+			},
+		});
+		step = mediaJobWaitingForSandboxStep;
+	}
+
+	// oxlint-disable-next-line no-unnecessary-condition
+	if (step !== mediaJobWaitingForSandboxStep) {
+		throw new Error(`Unsupported company populate job step: ${String(step)}`);
+	}
+
+	await waitForSandboxChildRun(job, token);
+
+	const sandboxResult = await getSandboxChildRunResult(job);
+
+	if (!sandboxResult.success) {
+		throw new Error(sandboxResult.error ?? "Company details script failed");
+	}
+	if (sandboxResult.error) {
+		throw new Error(sandboxResult.error);
+	}
+
+	const detailsParsed = companyDetailsResultSchema.safeParse(sandboxResult.value);
+	if (!detailsParsed.success) {
+		throw new Error("Company details script returned an unexpected shape");
+	}
+
+	const details = detailsParsed.data;
+	const schemaFieldKeys = Object.keys(companySchema.propertiesSchema.fields);
+	const filteredProperties: Record<string, unknown> = {};
+	for (const key of schemaFieldKeys) {
+		if (details.properties[key] !== undefined) {
+			filteredProperties[key] = details.properties[key];
+		}
+	}
+
+	const validatedProperties = companyPropertiesSchema.partial().safeParse(filteredProperties);
+	if (!validatedProperties.success) {
+		throw new Error("Company details properties are invalid");
+	}
+
+	const image = extractPrimaryImage(validatedProperties.data.images);
+
+	await deps.updateGlobalEntityById({
+		image,
+		name: details.name,
+		populatedAt: new Date(),
+		entityId: companyEntityId,
+		removePropertyKeys: ["assets"],
+		entitySchemaId: companySchema.id,
+		properties: { ...validatedProperties.data },
+	});
+};
+
 const processMediaJob = async (job: Job, token?: string) => {
 	if (job.name === mediaImportJobName) {
 		return processMediaImportJob(job, token);
@@ -493,6 +696,10 @@ const processMediaJob = async (job: Job, token?: string) => {
 
 	if (job.name === personPopulateJobName) {
 		return processPersonPopulateJob(job, token);
+	}
+
+	if (job.name === companyPopulateJobName) {
+		return processCompanyPopulateJob(job, token);
 	}
 
 	throw new Error(`Unsupported media job: ${job.name}`);

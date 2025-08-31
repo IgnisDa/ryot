@@ -119,6 +119,61 @@ function collectGenres(genresArray) {
 		.filter((name) => name.length > 0);
 }
 
+function collectCompanies(companiesObj) {
+	if (!companiesObj || typeof companiesObj !== "object") {
+		return [];
+	}
+
+	const companies = [];
+	const seen = new Set();
+
+	const roleMap = {
+		studio: "Studio",
+		network: "Network",
+		production: "Production Company",
+		distributor: "Distributor",
+		special_effects: "Special Effects",
+	};
+
+	for (const [key, role] of Object.entries(roleMap)) {
+		const list = companiesObj[key];
+		if (!Array.isArray(list)) {
+			continue;
+		}
+
+		for (const company of list) {
+			const id =
+				typeof company?.id === "number" && Number.isFinite(company.id)
+					? Math.trunc(company.id)
+					: null;
+			if (id === null) {
+				continue;
+			}
+			if (seen.has(id)) {
+				continue;
+			}
+			seen.add(id);
+
+			const name =
+				typeof company?.name === "string" && company.name.trim()
+					? company.name.trim()
+					: null;
+			if (!name) {
+				continue;
+			}
+
+			companies.push({
+				name,
+				role,
+				externalId: String(id),
+				scriptSlug: "company.tvdb",
+			});
+		}
+	}
+
+	return companies;
+}
+
 function collectPeople(characters) {
 	if (!Array.isArray(characters)) {
 		return { people: [], unlinkedCreators: [] };
@@ -315,10 +370,11 @@ driver("details", async function (context) {
 			images,
 			genres,
 			people,
-			unlinkedCreators,
 			runtime,
 			sourceUrl,
 			publishYear,
+			unlinkedCreators,
+			companies: collectCompanies(movie?.companies),
 			description:
 				typeof movie?.overview === "string" && movie.overview.trim()
 					? movie.overview.trim()
