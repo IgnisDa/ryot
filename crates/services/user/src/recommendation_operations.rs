@@ -62,7 +62,7 @@ FROM (
     SELECT "user_id", "metadata_id" FROM "user_to_entity"
     WHERE "user_id" = $1 AND "metadata_id" IS NOT NULL
 ) "sub"
-JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5, $6)
+JOIN "metadata" "m" ON "sub"."metadata_id" = "m"."id" AND "m"."source" NOT IN ($2, $3, $4, $5, $6, $7)
 ORDER BY RANDOM() LIMIT 10;
                     "#,
                     args,
