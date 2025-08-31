@@ -105,13 +105,13 @@ pub struct MetadataBaseData {
     pub creators: Vec<MetadataCreatorGroupedByRole>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TmdbLanguage {
     pub iso_639_1: String,
     pub english_name: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize, Clone, SimpleObject)]
 pub struct TmdbSettings {
     pub image_url: String,
     pub languages: Vec<TmdbLanguage>,

@@ -23,6 +23,7 @@ use rustypipe::param::{LANGUAGES, Language};
 use sea_orm::{Iterable, prelude::Date};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
+use tmdb_provider::TmdbService;
 use unkey::{Client, models::VerifyKeyRequest};
 
 fn build_metadata_mappings() -> (
@@ -69,10 +70,14 @@ fn build_exercise_parameters() -> ExerciseParameters {
     }
 }
 
-async fn build_provider_language_information() -> Result<Vec<ProviderLanguageInformation>> {
+async fn build_provider_language_information(
+    ss: &Arc<SupportingService>,
+) -> Result<Vec<ProviderLanguageInformation>> {
+    let tmdb_service = TmdbService::new(ss.clone()).await?;
     let information = MediaSource::iter()
         .map(|source| {
             let (supported, default) = match source {
+                MediaSource::Tmdb => (tmdb_service.get_all_languages(), "en".to_owned()),
                 MediaSource::YoutubeMusic => (
                     LANGUAGES.iter().map(|l| l.name().to_owned()).collect(),
                     Language::En.name().to_owned(),
@@ -87,12 +92,6 @@ async fn build_provider_language_information() -> Result<Vec<ProviderLanguageInf
                         .map(String::from)
                         .collect(),
                     "us".to_owned(),
-                ),
-                MediaSource::Tmdb => (
-                    isolang::languages()
-                        .filter_map(|l| l.to_639_1().map(String::from))
-                        .collect(),
-                    "en".to_owned(),
                 ),
                 MediaSource::Igdb
                 | MediaSource::Tvdb
@@ -187,9 +186,9 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
-            let (metadata_provider_languages, provider_specifics) = try_join!(
-                build_provider_language_information(),
-                build_provider_specifics(ss)
+            let (provider_specifics, metadata_provider_languages) = try_join!(
+                build_provider_specifics(ss),
+                build_provider_language_information(ss),
             )?;
 
             let core_details = CoreDetails {

@@ -34,7 +34,7 @@ impl TmdbService {
             AUTHORIZATION,
             HeaderValue::from_str(&format!("Bearer {access_token}"))?,
         )]));
-        let settings = get_settings(&client, &ss).await?;
+        let settings = get_settings(&client, &ss).await.unwrap_or_default();
         Ok(Self {
             client,
             settings,
@@ -44,6 +44,14 @@ impl TmdbService {
 
     pub fn get_image_url(&self, c: String) -> String {
         format!("{}{}{}", self.settings.image_url, "original", c)
+    }
+
+    pub fn get_all_languages(&self) -> Vec<String> {
+        self.settings
+            .languages
+            .iter()
+            .map(|l| l.iso_639_1.clone())
+            .collect()
     }
 
     pub fn get_language_name(&self, iso: Option<String>) -> Option<String> {
@@ -339,13 +347,12 @@ async fn get_settings(client: &Client, ss: &Arc<SupportingService>) -> Result<Tm
         || async {
             let config_future = client.get(format!("{URL}/configuration")).send();
             let languages_future = client.get(format!("{URL}/configuration/languages")).send();
-
             let (config_resp, languages_resp) = try_join!(config_future, languages_future)?;
-            let data_1: TmdbConfiguration = config_resp.json().await?;
-            let data_2: Vec<TmdbLanguage> = languages_resp.json().await?;
+            let configuration: TmdbConfiguration = config_resp.json().await?;
+            let languages: Vec<TmdbLanguage> = languages_resp.json().await?;
             let settings = TmdbSettings {
-                image_url: data_1.images.secure_base_url,
-                languages: data_2,
+                languages,
+                image_url: configuration.images.secure_base_url,
             };
             Ok(settings)
         },

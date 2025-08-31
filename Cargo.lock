@@ -1986,6 +1986,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "supporting-service",
+ "tmdb-provider",
  "tracing",
  "unkey",
 ]

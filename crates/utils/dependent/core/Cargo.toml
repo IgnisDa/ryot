@@ -26,6 +26,7 @@ env-utils = { workspace = true }
 igdb-provider = { workspace = true }
 file-storage-service = { workspace = true }
 supporting-service = { workspace = true }
+tmdb-provider = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["serde_json", "sqlx", "tracing"]
