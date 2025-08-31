@@ -241,7 +241,10 @@ query GetHardcoverAuthorDetails($id: Int!) {
       website,
       sourceUrl,
       alternateNames,
-      assets: { remoteImages: image ? [image] : [] },
+      assets: {
+        images: image ? [{ kind: "remote", url: image }] : [],
+        videos: [],
+      },
       description: typeof authorData.bio === "string" ? authorData.bio : null,
       birthDate:
         typeof authorData.born_date === "string" ? authorData.born_date : null,

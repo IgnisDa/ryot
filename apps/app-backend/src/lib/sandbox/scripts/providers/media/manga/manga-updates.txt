@@ -98,7 +98,7 @@ function collectImages(image) {
   }
 
   const trimmedCandidate = candidate.trim();
-  return trimmedCandidate ? [trimmedCandidate] : [];
+  return trimmedCandidate ? [{ kind: "remote", url: trimmedCandidate }] : [];
 }
 
 driver("search", async function(context) {
@@ -233,7 +233,7 @@ driver("details", async function(context) {
       chapters,
       productionStatus: productionStatus,
       publishYear: parsePublishYear(payload?.year, dayjs),
-      assets: { remoteImages: collectImages(payload?.image) },
+      assets: { images: collectImages(payload?.image), videos: [] },
       genres: collectGenres(payload?.genres, payload?.categories),
       sourceUrl: typeof payload?.url === "string" ? payload.url : null,
       description: typeof payload?.description === "string" ? payload.description : null,

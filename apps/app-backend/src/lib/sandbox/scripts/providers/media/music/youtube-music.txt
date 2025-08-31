@@ -158,7 +158,10 @@ driver("details", async function (context) {
       publishYear,
       byVariousArtists,
       sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
-      assets: { remoteImages: getThumbnailUrls(trackItem.thumbnail) },
+      assets: {
+        images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ kind: "remote", url })),
+        videos: [],
+      },
     },
   };
 });
