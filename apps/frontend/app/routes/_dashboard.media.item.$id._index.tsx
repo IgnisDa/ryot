@@ -82,6 +82,7 @@ import {
 	JUST_WATCH_URL,
 	METADATA_LOTS_WITH_GRANULAR_UPDATES,
 } from "~/components/routes/media-item/constants";
+import { GenreItem } from "~/components/routes/media-item/displays/genre-item";
 import { HistoryItem } from "~/components/routes/media-item/displays/history-item";
 import { MetadataCreator } from "~/components/routes/media-item/displays/metadata-creator";
 import { DisplayPodcastEpisode } from "~/components/routes/media-item/displays/podcast-episode";
@@ -95,7 +96,6 @@ import { convertTimestampToUtcString, dayjsLib } from "~/lib/shared/date-utils";
 import {
 	useConfirmSubmit,
 	useDeployBulkMetadataProgressUpdateMutation,
-	useGetRandomMantineColor,
 	useUserDetails,
 	useUserPreferences,
 } from "~/lib/shared/hooks";
@@ -624,29 +624,9 @@ export default function Page() {
 										>
 											{loaderData.metadataDetails.genres
 												.slice(0, 12)
-												.map((g) => {
-													const color = useGetRandomMantineColor(g.name);
-													return (
-														<Group key={g.id} wrap="nowrap">
-															<Box
-																h={11}
-																w={11}
-																bg={color}
-																style={{ borderRadius: 2, flex: "none" }}
-															/>
-															<Anchor
-																component={Link}
-																to={$path("/media/genre/:id", {
-																	id: g.id,
-																})}
-																fz="sm"
-																truncate
-															>
-																{g.name.trim()}
-															</Anchor>
-														</Group>
-													);
-												})}
+												.map((g) => (
+													<GenreItem key={g.id} genre={g} />
+												))}
 										</SimpleGrid>
 									) : null}
 									<VideoGameSpecificsDisplay
