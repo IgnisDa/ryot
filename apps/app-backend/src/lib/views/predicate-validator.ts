@@ -22,6 +22,13 @@ import type {
 	QueryEngineSchemaLike,
 } from "./reference";
 
+const validateLiteralAgainstSchema = (value: unknown, schema: z.ZodType, message: string) => {
+	const result = schema.safeParse(value);
+	if (!result.success) {
+		throw new QueryEngineValidationError(message);
+	}
+};
+
 export const validateViewPredicateAgainstSchemas = <
 	TSchema extends QueryEngineSchemaLike,
 	TJoin extends QueryEngineEventJoinLike,
@@ -49,13 +56,6 @@ export const validateViewPredicateAgainstSchemas = <
 		return match(property)
 			.with({ type: "object" }, (prop) => createObjectContainsSchema(prop))
 			.otherwise((prop) => fromAppSchema(prop));
-	};
-
-	const validateLiteralAgainstSchema = (value: unknown, schema: z.ZodType, message: string) => {
-		const result = schema.safeParse(value);
-		if (!result.success) {
-			throw new QueryEngineValidationError(message);
-		}
 	};
 
 	const getType = (expression: Parameters<typeof inferViewExpressionType>[0]["expression"]) => {
