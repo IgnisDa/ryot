@@ -108,7 +108,7 @@ describe("Workout Templates E2E", () => {
 				description: "Supersets in this template",
 				items: {
 					type: "object",
-					description: "Superset in this template",
+					description: "Superset grouping within a workout or template",
 					properties: {
 						color: {
 							label: "Color",
