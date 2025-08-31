@@ -16,6 +16,7 @@ use enum_models::{
     MediaLot, MediaSource,
 };
 use env_utils::{APP_VERSION, UNKEY_API_ID};
+use futures::try_join;
 use igdb_provider::IgdbService;
 use itertools::Itertools;
 use rustypipe::param::{LANGUAGES, Language};
@@ -68,8 +69,8 @@ fn build_exercise_parameters() -> ExerciseParameters {
     }
 }
 
-fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
-    MediaSource::iter()
+async fn build_provider_language_information() -> Result<Vec<ProviderLanguageInformation>> {
+    let information = MediaSource::iter()
         .map(|source| {
             let (supported, default) = match source {
                 MediaSource::YoutubeMusic => (
@@ -113,7 +114,8 @@ fn build_provider_language_information() -> Vec<ProviderLanguageInformation> {
                 supported,
             }
         })
-        .collect()
+        .collect();
+    Ok(information)
 }
 
 async fn build_provider_specifics(
@@ -185,8 +187,10 @@ pub async fn core_details(ss: &Arc<SupportingService>) -> Result<CoreDetails> {
             let (metadata_lot_source_mappings, metadata_group_source_lot_mappings) =
                 build_metadata_mappings();
             let exercise_parameters = build_exercise_parameters();
-            let metadata_provider_languages = build_provider_language_information();
-            let provider_specifics = build_provider_specifics(ss).await?;
+            let (metadata_provider_languages, provider_specifics) = try_join!(
+                build_provider_language_information(),
+                build_provider_specifics(ss)
+            )?;
 
             let core_details = CoreDetails {
                 provider_specifics,
