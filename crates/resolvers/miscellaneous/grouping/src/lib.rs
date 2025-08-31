@@ -63,7 +63,7 @@ impl MiscellaneousGroupingQueryResolver {
     async fn user_genres_list(
         &self,
         gql_ctx: &Context<'_>,
-        input: SearchInput,
+        input: Option<SearchInput>,
     ) -> Result<SearchResults<String>> {
         let (service, user_id) = self.svc_and_user(gql_ctx).await?;
         Ok(service.user_genres_list(user_id, input).await?)

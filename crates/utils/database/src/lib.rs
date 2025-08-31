@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob, LpApplicationJob};
 use chrono::Utc;
-use common_models::{BackendError, EntityAssets, StringIdAndNamedObject};
+use common_models::{BackendError, EntityAssets, SearchInput, StringIdAndNamedObject};
 use common_utils::ryot_log;
 use database_models::{
     access_link, collection, collection_entity_membership,
@@ -61,12 +61,21 @@ pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result
     Ok(user)
 }
 
-pub async fn user_preferences_list_page_size(
+pub async fn extract_pagination_params(
+    search: Option<SearchInput>,
     user_id: &String,
     ss: &Arc<SupportingService>,
-) -> Result<u64> {
+) -> Result<(u64, u64)> {
     let user = user_by_id(user_id, ss).await?;
-    Ok(user.preferences.general.list_page_size)
+    let page_size = user.preferences.general.list_page_size;
+    let take = search.as_ref().and_then(|s| s.take).unwrap_or(page_size);
+    let page: u64 = search
+        .as_ref()
+        .and_then(|s| s.page)
+        .unwrap_or(1)
+        .try_into()
+        .unwrap();
+    Ok((take, page))
 }
 
 pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) -> Result<()> {

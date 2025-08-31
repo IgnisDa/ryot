@@ -1,6 +1,6 @@
 use async_graphql::{Enum, InputObject, OneofObject, SimpleObject};
 use chrono::NaiveDate;
-use common_models::ApplicationDateRange;
+use common_models::{ApplicationDateRange, SearchInput};
 use enum_models::{EntityLot, MediaLot, SeenState, UserNotificationContent, Visibility};
 use rust_decimal::Decimal;
 use sea_orm::{prelude::DateTimeUtc, strum::Display};
@@ -92,7 +92,7 @@ pub struct MetadataProgressUpdateCacheInput {
 #[derive(Debug, InputObject)]
 pub struct GenreDetailsInput {
     pub genre_id: String,
-    pub page: Option<u64>,
+    pub search: Option<SearchInput>,
 }
 
 #[derive(Debug, Serialize, Hash, Deserialize, Enum, Clone, PartialEq, Eq, Copy, Default)]

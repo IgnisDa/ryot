@@ -274,7 +274,7 @@ impl MiscellaneousService {
     pub async fn user_genres_list(
         &self,
         user_id: String,
-        input: SearchInput,
+        input: Option<SearchInput>,
     ) -> Result<SearchResults<String>> {
         user_genres_list(&self.0, user_id, input).await
     }

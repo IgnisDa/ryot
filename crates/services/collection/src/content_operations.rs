@@ -7,9 +7,7 @@ use database_models::{
     collection_to_entity,
     prelude::{Collection, CollectionToEntity, Exercise, Metadata, MetadataGroup, Person, Workout},
 };
-use database_utils::{
-    apply_columns_search, item_reviews, user_by_id, user_preferences_list_page_size,
-};
+use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
@@ -37,16 +35,10 @@ pub async fn collection_contents(
         }),
         |val| ApplicationCacheValue::UserCollectionContents(Box::new(val)),
         || async {
-            let page_size = user_preferences_list_page_size(user_id, ss).await?;
-            let take = input
-                .search
-                .clone()
-                .and_then(|s| s.take)
-                .unwrap_or(page_size as u64);
+            let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
             let search = input.search.unwrap_or_default();
             let sort = input.sort.unwrap_or_default();
             let filter = input.filter.unwrap_or_default();
-            let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
             let maybe_collection = Collection::find_by_id(input.collection_id.clone())
                 .one(&ss.db)
                 .await?;

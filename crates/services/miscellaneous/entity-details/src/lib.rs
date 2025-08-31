@@ -9,7 +9,7 @@ use database_models::{
         MetadataToPerson, Person,
     },
 };
-use database_utils::{transform_entity_assets, user_preferences_list_page_size};
+use database_utils::{extract_pagination_params, transform_entity_assets};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     GenreDetails, GraphqlPersonDetails, MetadataBaseData, MetadataGroupDetails, SearchResults,
@@ -89,15 +89,14 @@ pub async fn genre_details(
     user_id: String,
     input: GenreDetailsInput,
 ) -> Result<GenreDetails> {
-    let page = input.page.unwrap_or(1);
+    let (take, page) = extract_pagination_params(input.search, &user_id, ss).await?;
     let genre = Genre::find_by_id(input.genre_id.clone())
         .one(&ss.db)
         .await?
         .unwrap();
-    let page_size = user_preferences_list_page_size(&user_id, ss).await?;
     let paginator = MetadataToGenre::find()
         .filter(metadata_to_genre::Column::GenreId.eq(input.genre_id))
-        .paginate(&ss.db, page_size);
+        .paginate(&ss.db, take);
     let ItemsAndPagesNumber {
         number_of_items,
         number_of_pages,

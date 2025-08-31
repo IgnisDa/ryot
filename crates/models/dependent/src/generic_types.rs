@@ -135,7 +135,7 @@ pub enum UserTemplatesOrWorkoutsListSortBy {
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, InputObject, Clone, Default)]
 pub struct UserTemplatesOrWorkoutsListInput {
-    pub search: SearchInput,
+    pub search: Option<SearchInput>,
     pub sort: Option<SortInput<UserTemplatesOrWorkoutsListSortBy>>,
 }
 

@@ -4,7 +4,7 @@ use anyhow::Result;
 use common_models::SearchDetails;
 use common_utils::{MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS, ryot_log};
 use database_models::{metadata, prelude::Metadata};
-use database_utils::{apply_columns_search, user_preferences_list_page_size};
+use database_utils::{apply_columns_search, extract_pagination_params};
 use dependent_entity_utils::generic_metadata;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, CollectionRecommendationsCachedInput,
@@ -67,16 +67,13 @@ ORDER BY RANDOM() LIMIT 10;
     let required_set = cached_response.response;
     ryot_log!(debug, "Required set: {:?}", required_set);
 
-    let page_size = user_preferences_list_page_size(user_id, ss).await?;
-    let search = input.search.unwrap_or_default();
-    let take = search.take.unwrap_or(page_size as u64);
-    let page: u64 = search.page.unwrap_or(1).try_into().unwrap();
+    let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
 
     let paginator = Metadata::find()
         .select_only()
         .column(metadata::Column::Id)
         .filter(metadata::Column::Id.is_in(required_set))
-        .apply_if(search.query, |query, v| {
+        .apply_if(input.search.and_then(|s| s.query), |query, v| {
             query.filter(apply_columns_search(
                 &v,
                 [

@@ -34,11 +34,11 @@ pub async fn export_workouts(
         let workout_ids = user_workouts_list(
             user_id,
             UserTemplatesOrWorkoutsListInput {
-                search: SearchInput {
+                search: Some(SearchInput {
                     take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
-                },
+                }),
                 ..Default::default()
             },
             ss,
@@ -85,11 +85,11 @@ pub async fn export_exercises(
         let exercises = user_exercises_list(
             user_id,
             UserExercisesListInput {
-                search: SearchInput {
+                search: Some(SearchInput {
                     take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
-                },
+                }),
                 ..Default::default()
             },
             ss,
@@ -146,11 +146,11 @@ pub async fn export_workout_templates(
             user_id,
             ss,
             UserTemplatesOrWorkoutsListInput {
-                search: SearchInput {
+                search: Some(SearchInput {
                     take: Some(1000),
                     page: Some(current_page),
                     ..Default::default()
-                },
+                }),
                 ..Default::default()
             },
         )

@@ -74,7 +74,8 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        create_trigram_index_if_required(manager, "exercise", "name", EXERCISE_NAME_TRIGRAM_INDEX).await?;
+        create_trigram_index_if_required(manager, "exercise", "name", EXERCISE_NAME_TRIGRAM_INDEX)
+            .await?;
         create_trigram_index_if_required(
             manager,
             "exercise",
