@@ -421,12 +421,8 @@ pub async fn user_people_list(
                 number_of_items,
                 number_of_pages,
             } = creators_paginator.num_items_and_pages().await?;
-            let mut items = vec![];
-            for cr in creators_paginator.fetch_page(page - 1).await? {
-                items.push(cr);
-            }
             let response = SearchResults {
-                items,
+                items: creators_paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1) as i32),
@@ -476,9 +472,8 @@ pub async fn user_workouts_list(
                 number_of_items,
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
-            let items = paginator.fetch_page(page - 1).await?;
             let response = SearchResults {
-                items,
+                items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1) as i32),
@@ -531,9 +526,8 @@ pub async fn user_workout_templates_list(
                 number_of_items,
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
-            let items = paginator.fetch_page(page - 1).await?;
             let response = SearchResults {
-                items,
+                items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1) as i32),
@@ -632,12 +626,8 @@ pub async fn user_exercises_list(
                 number_of_items,
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
-            let mut items = vec![];
-            for ex in paginator.fetch_page(page - 1).await? {
-                items.push(ex);
-            }
             let response = SearchResults {
-                items,
+                items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1) as i32),
@@ -711,12 +701,9 @@ pub async fn user_genres_list(
         number_of_items,
         number_of_pages,
     } = paginator.num_items_and_pages().await?;
-    let mut items = vec![];
-    for c in paginator.fetch_page(page - 1).await? {
-        items.push(c.id);
-    }
+    let items = paginator.fetch_page(page - 1).await?;
     Ok(SearchResults {
-        items,
+        items: items.into_iter().map(|g| g.id).collect(),
         details: SearchDetails {
             total_items: number_of_items.try_into().unwrap(),
             next_page: (page < number_of_pages).then(|| (page + 1) as i32),
