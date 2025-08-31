@@ -64,6 +64,11 @@ pub async fn collection_recommendations(
     )
     .await?;
     let required_set = cached_response.response;
+
+    if required_set.is_empty() {
+        return Ok(SearchResults::default());
+    }
+
     ryot_log!(debug, "Required set: {:?}", required_set);
 
     let (take, page) = extract_pagination_params(input.search.clone(), user_id, ss).await?;
