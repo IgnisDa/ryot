@@ -236,16 +236,16 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 							) : (
 								<Text>No {entity} found</Text>
 							)}
+							<ApplicationPagination
+								value={filters.page}
+								totalItems={listData.details.totalItems}
+								onChange={(v) => updateFilter("page", v)}
+							/>
 						</>
 					) : (
 						<SkeletonLoader />
 					)}
 				</Stack>
-				<ApplicationPagination
-					value={filters.page}
-					totalItems={listData?.details.totalItems}
-					onChange={(v) => updateFilter("page", v)}
-				/>
 			</Stack>
 		</Container>
 	);

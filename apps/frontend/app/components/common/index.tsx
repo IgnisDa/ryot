@@ -11,7 +11,6 @@ import {
 	Divider,
 	Flex,
 	Group,
-	type MantineSize,
 	Modal,
 	NumberInput,
 	Pagination,
@@ -517,31 +516,24 @@ export const CollectionTemplateRenderer = (props: {
 };
 
 export const ApplicationPagination = (props: {
-	value?: number;
-	size?: MantineSize;
-	totalItems?: number;
-	pageSize?: number;
+	value: number;
+	totalItems: number;
 	onChange: (value: number) => void;
 }) => {
 	const userPreferences = useUserPreferences();
-	const pageSize = props.pageSize || userPreferences.general.listPageSize;
-	const totalPages = props.totalItems
-		? Math.ceil(props.totalItems / pageSize)
-		: 0;
+	const pageSize = userPreferences.general.listPageSize;
+	const totalPages = Math.ceil(props.totalItems / pageSize);
 
-	if (!props.totalItems || props.totalItems <= 0 || totalPages <= 0)
-		return null;
-
-	const currentPage = props.value || 1;
+	if (!props.totalItems || totalPages <= 1) return null;
 
 	if (totalPages <= 7) {
 		return (
 			<Center>
 				<Pagination
+					size="sm"
 					total={totalPages}
-					value={currentPage}
+					value={props.value}
 					onChange={props.onChange}
-					size={props.size || "sm"}
 				/>
 			</Center>
 		);
@@ -555,11 +547,11 @@ export const ApplicationPagination = (props: {
 	return (
 		<Center>
 			<Group gap="xs">
-				{currentPage > 1 && (
+				{props.value > 1 && (
 					<ActionIcon
 						size="sm"
 						variant="default"
-						onClick={() => props.onChange(currentPage - 1)}
+						onClick={() => props.onChange(props.value - 1)}
 					>
 						<IconChevronLeft size={16} />
 					</ActionIcon>
@@ -574,11 +566,11 @@ export const ApplicationPagination = (props: {
 					searchable
 					w={rem(100)}
 					data={pageOptions}
-					value={String(currentPage)}
+					value={String(props.value)}
 					onChange={(value) => value && props.onChange(Number(value))}
 				/>
 
-				{currentPage < totalPages && (
+				{props.value < totalPages && (
 					<>
 						<Button
 							size="compact-xs"
@@ -589,7 +581,7 @@ export const ApplicationPagination = (props: {
 						<ActionIcon
 							size="sm"
 							variant="default"
-							onClick={() => props.onChange(currentPage + 1)}
+							onClick={() => props.onChange(props.value + 1)}
 						>
 							<IconChevronRight size={16} />
 						</ActionIcon>
