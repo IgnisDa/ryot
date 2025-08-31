@@ -169,7 +169,7 @@ pub async fn user_metadata_list(
                 items,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
+                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
                 },
             };
             Ok(response)
@@ -358,7 +358,7 @@ pub async fn user_metadata_groups_list(
                 items,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
+                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
                 },
             };
             Ok(response)
@@ -437,7 +437,7 @@ pub async fn user_people_list(
                 items,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
-                    next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
+                    next_page: (page < number_of_pages).then(|| (page + 1) as i32),
                 },
             };
             Ok(response)
@@ -727,7 +727,7 @@ pub async fn user_genres_list(
         items,
         details: SearchDetails {
             total_items: number_of_items.try_into().unwrap(),
-            next_page: (page < number_of_pages).then(|| (page + 1).try_into().unwrap()),
+            next_page: (page < number_of_pages).then(|| (page + 1) as i32),
         },
     })
 }
