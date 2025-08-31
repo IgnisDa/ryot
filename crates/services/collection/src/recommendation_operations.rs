@@ -37,6 +37,7 @@ pub async fn collection_recommendations(
             let media_items = CollectionToEntity::find()
                 .select_only()
                 .inner_join(Metadata)
+                .distinct()
                 .column(collection_to_entity::Column::MetadataId)
                 .filter(collection_to_entity::Column::MetadataId.is_not_null())
                 .filter(metadata::Column::Source.is_not_in(MEDIA_SOURCES_WITHOUT_RECOMMENDATIONS))
