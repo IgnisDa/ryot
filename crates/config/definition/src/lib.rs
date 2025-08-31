@@ -203,14 +203,7 @@ pub struct MovieAndShowConfig {
 
 impl MovieAndShowConfig {
     pub fn is_enabled(&self) -> bool {
-        let mut enabled = false;
-        if !self.tmdb.access_token.is_empty() {
-            enabled = true;
-        }
-        if !self.tvdb.api_key.is_empty() {
-            enabled = true;
-        }
-        enabled
+        !self.tmdb.access_token.is_empty() || !self.tvdb.api_key.is_empty()
     }
 }
 
