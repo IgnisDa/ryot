@@ -161,12 +161,8 @@ pub async fn user_metadata_list(
                 number_of_items,
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
-            let mut items = vec![];
-            for c in paginator.fetch_page(page - 1).await? {
-                items.push(c);
-            }
             let response = SearchResults {
-                items,
+                items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1) as i32),
@@ -350,12 +346,8 @@ pub async fn user_metadata_groups_list(
                 number_of_items,
                 number_of_pages,
             } = paginator.num_items_and_pages().await?;
-            let mut items = vec![];
-            for c in paginator.fetch_page(page - 1).await? {
-                items.push(c);
-            }
             let response = SearchResults {
-                items,
+                items: paginator.fetch_page(page - 1).await?,
                 details: SearchDetails {
                     total_items: number_of_items.try_into().unwrap(),
                     next_page: (page < number_of_pages).then(|| (page + 1) as i32),
