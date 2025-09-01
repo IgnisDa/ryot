@@ -34,8 +34,8 @@ impl NonMediaAnilistService {
 impl MediaProvider for NonMediaAnilistService {
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -47,7 +47,7 @@ impl MediaProvider for NonMediaAnilistService {
             })
         );
         let (items, total_items, next_page) = if is_studio {
-            let body = build_studio_search_query(query, page.unwrap_or(1), PAGE_SIZE);
+            let body = build_studio_search_query(query, page, PAGE_SIZE);
             let search = self
                 .base
                 .client
@@ -62,8 +62,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total = search.page_info.unwrap().total.unwrap();
-            let next_page =
-                (total - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+            let next_page = (total - (page * PAGE_SIZE) > 0).then(|| page + 1);
             let items = search
                 .studios
                 .unwrap_or_default()
@@ -77,7 +76,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .collect();
             (items, total, next_page)
         } else {
-            let body = build_staff_search_query(query, page.unwrap_or(1), PAGE_SIZE);
+            let body = build_staff_search_query(query, page, PAGE_SIZE);
             let search = self
                 .base
                 .client
@@ -92,8 +91,7 @@ impl MediaProvider for NonMediaAnilistService {
                 .page
                 .unwrap();
             let total_items = search.page_info.unwrap().total.unwrap();
-            let next_page =
-                (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+            let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
             let items = search
                 .staff
                 .unwrap_or_default()

@@ -33,8 +33,8 @@ impl NonMediaTmdbService {
 impl MediaProvider for NonMediaTmdbService {
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -46,7 +46,6 @@ impl MediaProvider for NonMediaTmdbService {
             }) => "company",
             _ => "person",
         };
-        let page = page.unwrap_or(1);
         let rsp = self
             .base
             .client

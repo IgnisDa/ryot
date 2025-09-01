@@ -38,12 +38,11 @@ impl TmdbMovieService {
 impl MediaProvider for TmdbMovieService {
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .base
             .client
@@ -241,11 +240,10 @@ impl MediaProvider for TmdbMovieService {
 
     async fn metadata_group_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .base
             .client
