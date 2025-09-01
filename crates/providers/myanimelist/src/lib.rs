@@ -67,7 +67,7 @@ impl MediaProvider for MalAnimeService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total_items, next_page) =
-            search(&self.base.client, "anime", query, Some(page)).await?;
+            search(&self.base.client, "anime", query, page).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -107,7 +107,7 @@ impl MediaProvider for MalMangaService {
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total_items, next_page) =
-            search(&self.base.client, "manga", query, Some(page)).await?;
+            search(&self.base.client, "manga", query, page).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -129,9 +129,8 @@ async fn search(
     client: &Client,
     media_type: &str,
     query: &str,
-    page: Option<i32>,
+    page: i32,
 ) -> Result<(Vec<MetadataSearchItem>, i32, Option<i32>)> {
-    let page = page.unwrap_or(1);
     let offset = (page - 1) * PAGE_SIZE;
     #[derive(Serialize, Deserialize, Debug)]
     struct SearchPaging {
