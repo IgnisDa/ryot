@@ -159,12 +159,11 @@ impl MangaUpdatesService {
 impl MediaProvider for MangaUpdatesService {
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
         let data: MetadataSearchResponse<PersonItemResponse> = self
             .client
             .post(format!("{URL}/authors/search"))
@@ -347,12 +346,11 @@ impl MediaProvider for MangaUpdatesService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let search: MetadataSearchResponse<MetadataItemResponse> = self
             .client
             .post(format!("{URL}/series/search"))

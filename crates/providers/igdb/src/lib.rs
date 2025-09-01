@@ -223,9 +223,9 @@ impl MediaProvider for IgdbService {
     #[allow(unused_variables)]
     async fn metadata_group_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
-        _display_nsfw: bool,
+        display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let client = self.get_client_config().await?;
         let req_body = format!(
@@ -238,7 +238,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COLLECTION_FIELDS,
-            offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
+            offset = (page - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/collections"))
@@ -256,8 +256,7 @@ offset: {offset};
                 image: d.cover.map(|c| self.get_cover_image_url(c.image_id)),
             })
             .collect_vec();
-        let next_page =
-            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -326,8 +325,8 @@ where id = {identifier};
 
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -342,7 +341,7 @@ offset: {offset};
             query = query,
             limit = PAGE_SIZE,
             fields = COMPANY_FIELDS,
-            offset = (page.unwrap_or(1) - 1) * PAGE_SIZE
+            offset = (page - 1) * PAGE_SIZE
         );
         let rsp = client
             .post(format!("{URL}/companies"))
@@ -363,8 +362,7 @@ offset: {offset};
                 }
             })
             .collect_vec();
-        let next_page =
-            (total_items - (page.unwrap_or(1) * PAGE_SIZE) > 0).then(|| page.unwrap_or(1) + 1);
+        let next_page = (total_items - (page * PAGE_SIZE) > 0).then(|| page + 1);
         Ok(SearchResults {
             items: resp.clone(),
             details: SearchDetails {
@@ -501,12 +499,11 @@ where id = {identity};
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let client = self.get_client_config().await?;
         let search_filters = source_specifics
             .as_ref()

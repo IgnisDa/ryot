@@ -61,13 +61,13 @@ impl MediaProvider for MalAnimeService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total_items, next_page) =
-            search(&self.base.client, "anime", query, page).await?;
+            search(&self.base.client, "anime", query, Some(page)).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {
@@ -101,13 +101,13 @@ impl MediaProvider for MalMangaService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (items, total_items, next_page) =
-            search(&self.base.client, "manga", query, page).await?;
+            search(&self.base.client, "manga", query, Some(page)).await?;
         Ok(SearchResults {
             items,
             details: SearchDetails {

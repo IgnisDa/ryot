@@ -127,8 +127,8 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn metadata_search(
         &self,
+        _page: i32,
         query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
@@ -196,8 +196,8 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn metadata_group_search(
         &self,
+        _page: i32,
         query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let data = self.client.music_search_albums(query).await?;
@@ -294,8 +294,8 @@ impl MediaProvider for YoutubeMusicService {
 
     async fn people_search(
         &self,
+        _page: i32,
         query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
