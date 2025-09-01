@@ -53,15 +53,16 @@ pub async fn collection_contents(
                 .left_join(Workout)
                 .filter(collection_to_entity::Column::CollectionId.eq(details.id.clone()))
                 .apply_if(search.query, |query, v| {
-                    query.filter(apply_columns_search(
+                    apply_columns_search(
                         &v,
+                        query,
                         [
                             Expr::col((AliasedMetadata::Table, AliasedMetadata::Title)),
                             Expr::col((AliasedMetadataGroup::Table, AliasedMetadataGroup::Title)),
                             Expr::col((AliasedPerson::Table, AliasedPerson::Name)),
                             Expr::col((AliasedExercise::Table, AliasedExercise::Id)),
                         ],
-                    ))
+                    )
                 })
                 .apply_if(filter.metadata_lot, |query, v| {
                     query.filter(

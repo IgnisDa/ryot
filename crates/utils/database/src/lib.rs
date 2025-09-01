@@ -47,13 +47,20 @@ pub async fn revoke_access_link(
     Ok(true)
 }
 
-pub fn apply_columns_search(value: &str, columns: impl IntoIterator<Item = Expr>) -> Condition {
+pub fn apply_columns_search<D>(
+    value: &str,
+    query: Select<D>,
+    columns: impl IntoIterator<Item = Expr>,
+) -> Select<D>
+where
+    D: EntityTrait,
+{
     let pattern = format!("%{value}%");
     let mut condition = Condition::any();
     for column in columns {
         condition = condition.add(column.ilike(pattern.clone()));
     }
-    condition
+    query.filter(condition)
 }
 
 pub async fn user_by_id(user_id: &String, ss: &Arc<SupportingService>) -> Result<user::Model> {

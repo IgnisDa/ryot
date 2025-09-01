@@ -6,7 +6,7 @@ use database_utils::apply_columns_search;
 use enum_models::{MediaLot, MediaSource};
 use rust_decimal::Decimal;
 use sea_orm::{
-    ColumnTrait, EntityTrait, QueryFilter,
+    ColumnTrait, EntityTrait, QueryFilter, QueryTrait,
     sea_query::{Alias, Expr, Func},
 };
 use serde::{Deserialize, Serialize};
@@ -38,17 +38,19 @@ pub async fn get_show_by_episode_identifier(
     let db_show = metadata::Entity::find()
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
-        .filter(apply_columns_search(
-            episode,
-            [Expr::expr(Func::cast_as(
-                Expr::col(metadata::Column::ShowSpecifics),
-                Alias::new("text"),
-            ))],
-        ))
-        .filter(apply_columns_search(
-            series,
-            [Expr::col(metadata::Column::Title)],
-        ))
+        .apply_if(Some(episode), |query, episode| {
+            apply_columns_search(
+                episode,
+                query,
+                [Expr::expr(Func::cast_as(
+                    Expr::col(metadata::Column::ShowSpecifics),
+                    Alias::new("text"),
+                ))],
+            )
+        })
+        .apply_if(Some(series), |query, series| {
+            apply_columns_search(series, query, [Expr::col(metadata::Column::Title)])
+        })
         .one(&ss.db)
         .await?;
     match db_show {

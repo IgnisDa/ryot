@@ -78,13 +78,14 @@ pub async fn collection_recommendations(
         .column(metadata::Column::Id)
         .filter(metadata::Column::Id.is_in(required_set))
         .apply_if(input.search.and_then(|s| s.query), |query, v| {
-            query.filter(apply_columns_search(
+            apply_columns_search(
                 &v,
+                query,
                 [
                     Expr::col(metadata::Column::Title),
                     Expr::col(metadata::Column::Description),
                 ],
-            ))
+            )
         })
         .into_tuple::<String>()
         .paginate(&ss.db, take);

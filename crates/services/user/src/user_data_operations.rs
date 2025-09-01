@@ -29,10 +29,11 @@ pub async fn users_list(
 ) -> Result<Vec<BasicUserDetails>> {
     let users = User::find()
         .apply_if(query, |query, value| {
-            query.filter(apply_columns_search(
+            apply_columns_search(
                 &value,
+                query,
                 [Expr::col(user::Column::Name), Expr::col(user::Column::Id)],
-            ))
+            )
         })
         .order_by_asc(user::Column::Name)
         .all(&ss.db)

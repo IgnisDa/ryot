@@ -63,13 +63,14 @@ pub async fn user_metadata_list(
                     query.filter(enriched_user_to_metadata::Column::Lot.eq(v))
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(apply_columns_search(
+                    apply_columns_search(
                         &v,
+                        query,
                         [
                             Expr::col(enriched_user_to_metadata::Column::Title),
                             Expr::col(enriched_user_to_metadata::Column::Description),
                         ],
-                    ))
+                    )
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.date_range),
@@ -321,13 +322,14 @@ pub async fn user_metadata_groups_list(
                 .column(enriched_user_to_metadata_group::Column::MetadataGroupId)
                 .filter(enriched_user_to_metadata_group::Column::UserId.eq(user_id))
                 .apply_if(input.search.and_then(|f| f.query), |query, v| {
-                    query.filter(apply_columns_search(
+                    apply_columns_search(
                         &v,
+                        query,
                         [
                             Expr::col(enriched_user_to_metadata_group::Column::Title),
                             Expr::col(enriched_user_to_metadata_group::Column::Description),
                         ],
-                    ))
+                    )
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
@@ -396,13 +398,14 @@ pub async fn user_people_list(
                 .column(enriched_user_to_person::Column::PersonId)
                 .filter(enriched_user_to_person::Column::UserId.eq(user_id))
                 .apply_if(input.search.clone().and_then(|s| s.query), |query, v| {
-                    query.filter(apply_columns_search(
+                    apply_columns_search(
                         &v,
+                        query,
                         [
                             Expr::col(enriched_user_to_person::Column::Name),
                             Expr::col(enriched_user_to_person::Column::Description),
                         ],
-                    ))
+                    )
                 })
                 .apply_if(
                     input.filter.clone().and_then(|f| f.collections),
@@ -453,7 +456,7 @@ pub async fn user_workouts_list(
                 .column(workout::Column::Id)
                 .filter(workout::Column::UserId.eq(user_id))
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(apply_columns_search(&v, [Expr::col(workout::Column::Name)]))
+                    apply_columns_search(&v, query, [Expr::col(workout::Column::Name)])
                 })
                 .apply_if(input.sort, |query, v| {
                     query.order_by(
@@ -504,10 +507,7 @@ pub async fn user_workout_templates_list(
                 .column(workout_template::Column::Id)
                 .filter(workout_template::Column::UserId.eq(user_id))
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(apply_columns_search(
-                        &v,
-                        [Expr::col(workout_template::Column::Name)],
-                    ))
+                    apply_columns_search(&v, query, [Expr::col(workout_template::Column::Name)])
                 })
                 .apply_if(input.sort, |query, v| {
                     query.order_by(
@@ -610,13 +610,14 @@ pub async fn user_exercises_list(
                         })
                 })
                 .apply_if(input.search.and_then(|s| s.query), |query, v| {
-                    query.filter(apply_columns_search(
+                    apply_columns_search(
                         &v,
+                        query,
                         [
                             Expr::col(enriched_user_to_exercise::Column::Name),
                             Expr::col(enriched_user_to_exercise::Column::Instructions),
                         ],
-                    ))
+                    )
                 })
                 .order_by_desc(order_by_col)
                 .order_by_asc(enriched_user_to_exercise::Column::ExerciseId)
@@ -685,7 +686,7 @@ pub async fn user_genres_list(
             num_items,
         )
         .apply_if(input.and_then(|i| i.query), |query, v| {
-            query.filter(apply_columns_search(&v, [Expr::col(genre::Column::Name)]))
+            apply_columns_search(&v, query, [Expr::col(genre::Column::Name)])
         })
         .join(JoinType::Join, genre::Relation::MetadataToGenre.def())
         .group_by(Expr::tuple([
