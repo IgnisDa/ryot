@@ -26,6 +26,7 @@ spotify-provider = { workspace = true }
 supporting-service = { workspace = true }
 traits = { workspace = true }
 tmdb-provider = { workspace = true }
+tvdb-provider = { workspace = true }
 vndb-provider = { workspace = true }
 youtube-music-provider = { workspace = true }
 
