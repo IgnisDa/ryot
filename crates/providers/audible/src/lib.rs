@@ -166,12 +166,12 @@ impl AudibleService {
 impl MediaProvider for AudibleService {
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let internal_page: usize = page.unwrap_or(1).try_into().unwrap();
+        let internal_page: usize = page.try_into().unwrap();
         let req_internal_page = internal_page - 1;
         let client = Client::new();
         let data: Vec<AudibleAuthor> = client
@@ -338,12 +338,11 @@ impl MediaProvider for AudibleService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         #[derive(Serialize, Deserialize, Debug)]
         struct AudibleSearchResponse {
             total_results: i32,
