@@ -55,6 +55,10 @@ pub fn apply_columns_search<D>(
 where
     D: EntityTrait,
 {
+    if value.is_empty() {
+        return query;
+    }
+
     let pattern = format!("%{value}%");
     let mut condition = Condition::any();
     for column in columns {
