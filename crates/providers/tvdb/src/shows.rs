@@ -25,8 +25,8 @@ impl TvdbShowService {
 impl MediaProvider for TvdbShowService {
     async fn metadata_search(
         &self,
+        _page: i32,
         _query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {

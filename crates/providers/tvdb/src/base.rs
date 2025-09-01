@@ -10,7 +10,7 @@ use reqwest::{
 use serde_json::json;
 use supporting_service::SupportingService;
 
-use crate::models::*;
+use crate::models::{TvdbLanguagesApiResponse, TvdbLoginResponse, URL};
 
 pub struct TvdbService {
     pub client: Client,

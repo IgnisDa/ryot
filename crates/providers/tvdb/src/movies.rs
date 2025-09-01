@@ -28,8 +28,8 @@ impl TvdbMovieService {
 impl MediaProvider for TvdbMovieService {
     async fn metadata_search(
         &self,
+        _page: i32,
         _query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
@@ -42,8 +42,8 @@ impl MediaProvider for TvdbMovieService {
 
     async fn metadata_group_search(
         &self,
+        _page: i32,
         _query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         todo!("Implement TVDB movie group search")

@@ -26,8 +26,8 @@ impl NonMediaTvdbService {
 impl MediaProvider for NonMediaTvdbService {
     async fn people_search(
         &self,
+        _page: i32,
         _query: &str,
-        _page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
