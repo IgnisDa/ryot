@@ -328,7 +328,8 @@ pub struct FileStorageConfig {
 impl FileStorageConfig {
     pub fn is_enabled(&self) -> bool {
         let mut enabled = false;
-        if !self.s3_access_key_id.is_empty()
+        if !self.s3_url.is_empty()
+            && !self.s3_access_key_id.is_empty()
             && !self.s3_bucket_name.is_empty()
             && !self.s3_secret_access_key.is_empty()
         {
