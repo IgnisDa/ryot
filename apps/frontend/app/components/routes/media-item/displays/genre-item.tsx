@@ -10,7 +10,7 @@ export function GenreItem(props: {
 	const color = useGetRandomMantineColor(props.genre.name);
 
 	return (
-		<Group key={props.genre.id} wrap="nowrap">
+		<Group wrap="nowrap">
 			<Box h={11} w={11} bg={color} style={{ borderRadius: 2, flex: "none" }} />
 			<Anchor
 				fz="sm"
