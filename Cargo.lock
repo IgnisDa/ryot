@@ -7729,13 +7729,18 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "application-utils",
+ "async-trait",
  "cache-service",
+ "common-models",
+ "database-models",
  "dependent-models",
+ "media-models",
  "reqwest",
  "serde",
  "serde_json",
  "supporting-service",
  "tracing",
+ "traits",
 ]
 
 [[package]]

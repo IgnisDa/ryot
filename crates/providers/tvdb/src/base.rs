@@ -34,6 +34,16 @@ impl TvdbService {
             .map(|l| l.id.clone())
             .collect()
     }
+
+    pub fn get_language_name(&self, iso: Option<String>) -> Option<String> {
+        iso.and_then(|i| {
+            self.settings
+                .languages
+                .iter()
+                .find(|l| l.id == i)
+                .map(|l| l.name.clone())
+        })
+    }
 }
 
 async fn get_settings(ss: &Arc<SupportingService>) -> Result<TvdbSettings> {

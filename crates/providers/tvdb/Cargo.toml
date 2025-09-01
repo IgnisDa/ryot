@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -12,8 +13,12 @@ tracing = { workspace = true }
 
 application-utils = { workspace = true }
 cache-service = { workspace = true }
+common-models = { workspace = true }
+database-models = { workspace = true }
 dependent-models = { workspace = true }
+media-models = { workspace = true }
 supporting-service = { workspace = true }
+traits = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["tracing"]
