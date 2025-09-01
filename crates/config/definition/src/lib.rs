@@ -456,6 +456,7 @@ pub struct ServerConfig {
     pub cors_origins: Vec<String>,
     /// An access token that can be used for admin operations.
     #[mask]
+    #[setting(validate = not_empty)]
     pub admin_access_token: String,
     /// Disable all background jobs.
     #[setting(default = false)]
