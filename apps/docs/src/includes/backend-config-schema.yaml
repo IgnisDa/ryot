@@ -226,7 +226,7 @@ server:
   # The mailer related settings.
   smtp:
     # @envvar SERVER_SMTP_MAILBOX
-    mailbox: "Ryot <no-reply@mailer.io>"
+    mailbox: "Ryot <no-reply@ryot.io>"
 
     # @envvar SERVER_SMTP_PASSWORD
     password: ""
