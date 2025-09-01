@@ -309,13 +309,11 @@ pub struct VisualNovelConfig {}
 #[config(rename_all = "snake_case", env_prefix = "FILE_STORAGE_")]
 pub struct FileStorageConfig {
     /// The URL for the S3 compatible file storage.
-    #[mask]
     pub s3_url: String,
     /// The region for the S3 compatible file storage.
     #[setting(default = "us-east-1")]
     pub s3_region: String,
     /// The name of the S3 compatible bucket. **Required** to enable file storage.
-    #[mask]
     pub s3_bucket_name: String,
     /// The access key ID for the S3 compatible file storage. **Required** to
     /// enable file storage.
