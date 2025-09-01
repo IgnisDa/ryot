@@ -37,8 +37,8 @@ pub async fn metadata_search(
             let provider = get_metadata_provider(input.lot, input.source, ss).await?;
             let results = provider
                 .metadata_search(
+                    input.search.page.unwrap_or(1),
                     &query,
-                    input.search.page,
                     preferences.general.display_nsfw,
                     &input.source_specifics,
                 )
@@ -93,8 +93,8 @@ pub async fn people_search(
             let provider = get_non_metadata_provider(input.source, ss).await?;
             let results = provider
                 .people_search(
+                    input.search.page.unwrap_or(1),
                     &query,
-                    input.search.page,
                     preferences.general.display_nsfw,
                     &input.source_specifics,
                 )
@@ -146,7 +146,11 @@ pub async fn metadata_group_search(
             let preferences = user_by_id(user_id, ss).await?.preferences;
             let provider = get_metadata_provider(input.lot, input.source, ss).await?;
             let results = provider
-                .metadata_group_search(&query, input.search.page, preferences.general.display_nsfw)
+                .metadata_group_search(
+                    input.search.page.unwrap_or(1),
+                    &query,
+                    preferences.general.display_nsfw,
+                )
                 .await?;
             let promises = results.items.iter().map(|i| {
                 commit_metadata_group(
