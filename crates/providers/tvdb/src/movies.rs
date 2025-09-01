@@ -14,7 +14,10 @@ use serde_json::json;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
-use crate::{base::TvdbService, models::*};
+use crate::{
+    base::TvdbService,
+    models::{TvdbSearchResponse, URL},
+};
 
 pub struct TvdbMovieService {
     pub base: TvdbService,
