@@ -28,12 +28,11 @@ use crate::{
 impl MediaProvider for GiantBombService {
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb for: {}", query);
@@ -213,12 +212,11 @@ impl MediaProvider for GiantBombService {
 
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
 
         let search_type = match source_specifics {
@@ -400,11 +398,10 @@ impl MediaProvider for GiantBombService {
 
     async fn metadata_group_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
-        let page = page.unwrap_or(1);
         let offset = (page - 1) * PAGE_SIZE;
 
         ryot_log!(debug, "Searching GiantBomb franchises for: {}", query);

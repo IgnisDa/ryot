@@ -89,12 +89,11 @@ impl MediaProvider for GoogleBooksService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let index = (page - 1) * PAGE_SIZE;
         let pass_raw_query = source_specifics
             .as_ref()

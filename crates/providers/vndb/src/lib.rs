@@ -74,8 +74,8 @@ struct SearchResponse {
 impl MediaProvider for VndbService {
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
@@ -103,7 +103,7 @@ impl MediaProvider for VndbService {
                 ..Default::default()
             })
             .collect();
-        let next_page = data.more.then(|| page.unwrap_or(1) + 1);
+        let next_page = data.more.then(|| page + 1);
         Ok(SearchResults {
             items: resp,
             details: SearchDetails {
@@ -158,12 +158,11 @@ impl MediaProvider for VndbService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .client
             .post(format!("{URL}/vn"))

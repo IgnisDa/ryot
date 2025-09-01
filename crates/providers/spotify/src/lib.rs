@@ -328,13 +328,13 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
         let (search_response, page): (SpotifySearchResponse, i32) =
-            self.search_spotify(query, "track", page).await?;
+            self.search_spotify(query, "track", Some(page)).await?;
 
         let next_page = (search_response.tracks.total > (page * PAGE_SIZE)).then(|| page + 1);
 
@@ -421,12 +421,12 @@ impl MediaProvider for SpotifyService {
 
     async fn metadata_group_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
     ) -> Result<SearchResults<MetadataGroupSearchItem>> {
         let (search_response, page): (SpotifyAlbumSearchResponse, i32) =
-            self.search_spotify(query, "album", page).await?;
+            self.search_spotify(query, "album", Some(page)).await?;
 
         let next_page = (search_response.albums.total > (page * PAGE_SIZE)).then(|| page + 1);
 
@@ -547,13 +547,13 @@ impl MediaProvider for SpotifyService {
 
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
         let (search_response, page): (SpotifyArtistSearchResponse, i32) =
-            self.search_spotify(query, "artist", page).await?;
+            self.search_spotify(query, "artist", Some(page)).await?;
 
         let next_page = (search_response.artists.total > (page * PAGE_SIZE)).then(|| page + 1);
 

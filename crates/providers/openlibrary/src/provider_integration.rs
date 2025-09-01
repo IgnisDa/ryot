@@ -28,12 +28,11 @@ use crate::{
 impl MediaProvider for OpenlibraryService {
     async fn people_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<PersonSourceSpecifics>,
     ) -> Result<SearchResults<PeopleSearchItem>> {
-        let page = page.unwrap_or(1);
         let rsp = self
             .client
             .get(format!("{URL}/search/authors.json"))
@@ -225,12 +224,11 @@ impl MediaProvider for OpenlibraryService {
 
     async fn metadata_search(
         &self,
+        page: i32,
         query: &str,
-        page: Option<i32>,
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let page = page.unwrap_or(1);
         let fields = [
             "key",
             "title",
