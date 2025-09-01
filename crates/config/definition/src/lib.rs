@@ -407,7 +407,6 @@ impl SmtpConfig {
 pub struct OidcConfig {
     #[mask]
     pub client_id: String,
-    #[mask]
     pub issuer_url: String,
     #[mask]
     pub client_secret: String,
