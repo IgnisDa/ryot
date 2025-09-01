@@ -384,7 +384,6 @@ pub struct SchedulerConfig {
 pub struct SmtpConfig {
     #[mask]
     pub user: String,
-    #[mask]
     pub server: String,
     #[mask]
     pub password: String,
