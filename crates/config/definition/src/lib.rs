@@ -387,7 +387,7 @@ pub struct SmtpConfig {
     pub server: String,
     #[mask]
     pub password: String,
-    #[setting(default = "Ryot <no-reply@mailer.io>")]
+    #[setting(default = "Ryot <no-reply@ryot.io>")]
     pub mailbox: String,
 }
 
