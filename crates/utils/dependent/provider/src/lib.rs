@@ -53,7 +53,7 @@ pub async fn get_metadata_provider(
     source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
-    let err = || Err(anyhow!("This source is not supported".to_owned()));
+    let err = || Err(anyhow!("This source ({}) is not supported", source));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Hardcover => Box::new(get_hardcover_service(&ss.config).await?),
@@ -110,7 +110,7 @@ pub async fn get_non_metadata_provider(
     source: MediaSource,
     ss: &Arc<SupportingService>,
 ) -> Result<Provider> {
-    let err = || Err(anyhow!("This source is not supported".to_owned()));
+    let err = || Err(anyhow!("This source ({}) is not supported", source));
     let service: Provider = match source {
         MediaSource::YoutubeMusic => Box::new(YoutubeMusicService::new().await?),
         MediaSource::Tvdb => Box::new(NonMediaTvdbService::new(ss.clone()).await?),
