@@ -680,7 +680,7 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 					/>
 				</>
 			) : (
-				<Text>No filters are available</Text>
+				<Text>No filters are available for {startCase(filters.source)}</Text>
 			)}
 		</Stack>
 	);
