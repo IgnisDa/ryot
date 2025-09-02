@@ -364,10 +364,10 @@ impl MediaProvider for AudibleService {
             .products
             .into_iter()
             .map(|d| {
-                let a = self.audible_response_to_search_response(d);
+                let a = self.audible_response_to_search_response(d.clone());
                 MetadataSearchItem {
                     title: a.title,
-                    identifier: a.identifier,
+                    identifier: d.asin,
                     publish_year: a.publish_year,
                     image: a.assets.remote_images.first().cloned(),
                 }
@@ -428,7 +428,6 @@ impl AudibleService {
             assets,
             provider_rating: rating,
             title: item.title.clone(),
-            identifier: item.asin.clone(),
             is_nsfw: item.is_adult_product,
             source_url: Some(format!(
                 "https://www.audible.com/pd/{}/{}",

@@ -201,7 +201,6 @@ impl MediaProvider for OpenlibraryService {
             genres,
             description,
             title: data.title.clone(),
-            identifier: identifier.clone(),
             publish_year: first_release_date.map(|d| d.year()),
             source_url: Some(format!(
                 "https://openlibrary.org/works/{}/{}",

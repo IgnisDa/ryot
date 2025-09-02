@@ -189,7 +189,6 @@ impl MediaProvider for GiantBombService {
             description,
             suggestions,
             title: game.name.unwrap(),
-            identifier: game.guid.unwrap(),
             source_url: game.site_detail_url,
             publish_year: extract_year_from_date(game.original_release_date),
             assets: EntityAssets {

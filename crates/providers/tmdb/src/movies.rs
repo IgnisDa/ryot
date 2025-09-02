@@ -183,7 +183,6 @@ impl MediaProvider for TmdbMovieService {
             is_nsfw: data.adult,
             title: title.clone(),
             description: data.overview,
-            identifier: data.id.to_string(),
             production_status: data.status.clone(),
             external_identifiers: Some(external_identifiers),
             original_language: self.base.get_language_name(data.original_language.clone()),

@@ -199,7 +199,6 @@ impl MediaProvider for TvdbMovieService {
             publish_year,
             title: title.clone(),
             description: movie_data.overview,
-            identifier: identifier.to_owned().clone(),
             source_url: Some(format!("https://thetvdb.com/movies/{}", identifier)),
             original_language: self.base.get_language_name(movie_data.original_language),
             movie_specifics: Some(MovieSpecifics {

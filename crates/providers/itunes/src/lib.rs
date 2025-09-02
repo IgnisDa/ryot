@@ -146,7 +146,6 @@ impl MediaProvider for ITunesService {
             description,
             publish_date,
             title: details.title.clone(),
-            identifier: details.identifier,
             publish_year: publish_date.map(|d| d.year()),
             source_url: Some(format!(
                 "https://podcasts.apple.com/us/podcast/{}/id{}",

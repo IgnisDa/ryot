@@ -165,7 +165,6 @@ impl MediaProvider for TmdbShowService {
             is_nsfw: show_data.adult,
             description: show_data.overview,
             production_status: show_data.status,
-            identifier: show_data.id.to_string(),
             external_identifiers: Some(external_identifiers),
             original_language: self.base.get_language_name(show_data.original_language),
             publish_year: convert_date_to_year(

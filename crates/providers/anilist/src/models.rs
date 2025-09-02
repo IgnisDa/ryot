@@ -607,7 +607,6 @@ pub async fn media_details(
         title: title.clone(),
         provider_rating: score,
         is_nsfw: media.is_adult,
-        identifier: identifier.clone(),
         description: media.description,
         genres: genres.into_iter().unique().collect(),
         production_status: media_status_string(media.status),

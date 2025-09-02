@@ -125,7 +125,7 @@ struct IgdbRegionResponse {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbCompany {
     country: Option<i32>,
     logo: Option<IgdbImage>,
@@ -139,12 +139,12 @@ struct IgdbCompany {
     published: Option<Vec<IgdbItemResponse>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbVideo {
     video_id: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbInvolvedCompany {
     id: i32,
     porting: bool,
@@ -170,7 +170,7 @@ struct IgdbReleaseDate {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct IgdbItemResponse {
     id: i32,
     name: Option<String>,
@@ -581,10 +581,10 @@ offset: {offset};
         let resp = search
             .into_iter()
             .map(|r| {
-                let a = self.igdb_response_to_search_response(r, None);
+                let a = self.igdb_response_to_search_response(r.clone(), None);
                 MetadataSearchItem {
                     title: a.title,
-                    identifier: a.identifier,
+                    identifier: r.id.to_string(),
                     publish_year: a.publish_year,
                     image: a.assets.remote_images.first().cloned(),
                 }
@@ -719,7 +719,6 @@ impl IgdbService {
             title: title.clone(),
             description: item.summary,
             provider_rating: item.rating,
-            identifier: item.id.to_string(),
             publish_year: item.first_release_date.map(|d| d.year()),
             publish_date: item.first_release_date.map(|d| d.date_naive()),
             source_url: Some(format!("https://www.igdb.com/games/{}", slugify(title))),

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use application_utils::get_base_http_client;
 use async_trait::async_trait;
-use common_models::{EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails};
+use common_models::{
+    EntityAssets, NamedObject, PersonSourceSpecifics, SearchDetails, StringIdAndNamedObject,
+};
 use common_utils::{PAGE_SIZE, convert_date_to_year, convert_string_to_date};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::{PersonDetails, SearchResults};
@@ -36,31 +38,25 @@ impl VndbService {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct ImageLinks {
     url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Developer {
-    id: String,
-    name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Clone, Deserialize, Debug)]
 struct ItemResponse {
     id: String,
     #[serde(alias = "name")]
     title: Option<String>,
+    devstatus: Option<i32>,
     rating: Option<Decimal>,
     released: Option<String>,
-    description: Option<String>,
     image: Option<ImageLinks>,
     length_minutes: Option<i32>,
-    devstatus: Option<i32>,
-    developers: Option<Vec<Developer>>,
-    screenshots: Option<Vec<ImageLinks>>,
+    description: Option<String>,
     tags: Option<Vec<NamedObject>>,
+    screenshots: Option<Vec<ImageLinks>>,
+    developers: Option<Vec<StringIdAndNamedObject>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -184,16 +180,15 @@ impl MediaProvider for VndbService {
                 let MetadataDetails {
                     title,
                     assets,
-                    identifier,
                     publish_year,
                     ..
-                } = self.vndb_response_to_search_response(b);
+                } = self.vndb_response_to_search_response(b.clone());
                 let image = assets.remote_images.first().cloned();
                 MetadataSearchItem {
                     title,
                     image,
-                    identifier,
                     publish_year,
+                    identifier: b.id,
                 }
             })
             .collect();
@@ -238,7 +233,6 @@ impl VndbService {
             .collect_vec();
         let identifier = item.id;
         MetadataDetails {
-            identifier: identifier.clone(),
             production_status: item.devstatus.map(|s| match s {
                 0 => "Finished".to_owned(),
                 1 => "In development".to_owned(),

@@ -124,16 +124,15 @@ impl MediaProvider for GoogleBooksService {
                 let MetadataDetails {
                     title,
                     assets,
-                    identifier,
                     publish_year,
                     ..
-                } = self.google_books_response_to_search_response(b.volume_info, b.id);
+                } = self.google_books_response_to_search_response(b.volume_info, b.id.clone());
                 let image = assets.remote_images.first().cloned();
                 MetadataSearchItem {
                     title,
                     image,
-                    identifier,
                     publish_year,
+                    identifier: b.id,
                 }
             })
             .collect();
@@ -208,7 +207,6 @@ impl GoogleBooksService {
         };
         MetadataDetails {
             assets,
-            identifier: id.clone(),
             title: item.title.clone(),
             description: item.description,
             provider_rating: item.average_rating,

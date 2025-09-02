@@ -75,7 +75,6 @@ impl MediaProvider for YoutubeMusicService {
         Ok(MetadataDetails {
             suggestions,
             title: details.track.name,
-            identifier: identifier.clone(),
             source_url: Some(format!("https://music.youtube.com/watch?v={identifier}")),
             music_specifics: Some(MusicSpecifics {
                 by_various_artists: Some(details.track.by_va),

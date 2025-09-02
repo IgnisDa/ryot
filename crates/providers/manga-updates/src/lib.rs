@@ -315,7 +315,6 @@ impl MediaProvider for MangaUpdatesService {
             title: data.title.unwrap(),
             description: data.description,
             provider_rating: data.bayesian_rating,
-            identifier: data.series_id.unwrap().to_string(),
             publish_year: data.year.and_then(|y| y.parse().ok()),
             assets: EntityAssets {
                 remote_images: Vec::from_iter(data.image.unwrap().url.original),

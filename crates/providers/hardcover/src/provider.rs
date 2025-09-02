@@ -84,7 +84,6 @@ query {{
             description: data.description,
             publish_date: data.release_date,
             publish_year: data.release_year,
-            identifier: data.id.to_string(),
             book_specifics: Some(BookSpecifics {
                 pages: data.pages,
                 is_compilation: data.compilation,

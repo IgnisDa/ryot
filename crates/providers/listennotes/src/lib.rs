@@ -236,7 +236,6 @@ impl ListennotesService {
         let podcast_data: Podcast = resp.json().await?;
         let genres = self.get_genres().await?;
         Ok(MetadataDetails {
-            identifier: podcast_data.id,
             title: podcast_data.title.clone(),
             description: podcast_data.description,
             is_nsfw: podcast_data.explicit_content,

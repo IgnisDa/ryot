@@ -266,7 +266,6 @@ async fn details(client: &Client, media_type: &str, id: &str) -> Result<Metadata
         title: title.clone(),
         description: details.synopsis,
         provider_rating: details.mean,
-        identifier: identifier.clone(),
         source_url: Some(format!(
             "https://myanimelist.net/{media_type}/{identifier}/{title}"
         )),
