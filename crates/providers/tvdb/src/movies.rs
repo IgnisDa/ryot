@@ -2,19 +2,25 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use common_models::SearchDetails;
+use common_models::{
+    EntityAssets, EntityRemoteVideo, EntityRemoteVideoSource, PersonSourceSpecifics, SearchDetails,
+};
+use common_utils::{convert_date_to_year, convert_string_to_date};
 use database_models::metadata_group::MetadataGroupWithoutId;
 use dependent_models::{MetadataSearchSourceSpecifics, SearchResults};
+use enum_models::{MediaLot, MediaSource};
 use itertools::Itertools;
 use media_models::{
-    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, PartialMetadataWithoutId,
+    MetadataDetails, MetadataGroupSearchItem, MetadataSearchItem, MovieSpecifics,
+    PartialMetadataPerson, PartialMetadataWithoutId,
 };
+use rust_decimal::Decimal;
 use supporting_service::SupportingService;
 use traits::MediaProvider;
 
 use crate::{
     base::TvdbService,
-    models::{TvdbSearchResponse, URL},
+    models::{TvdbMovieExtendedResponse, TvdbSearchResponse, URL},
 };
 
 pub struct TvdbMovieService {
@@ -83,8 +89,141 @@ impl MediaProvider for TvdbMovieService {
         })
     }
 
-    async fn metadata_details(&self, _identifier: &str) -> Result<MetadataDetails> {
-        todo!("Implement TVDB movie details")
+    async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
+        let rsp = self
+            .base
+            .client
+            .get(format!("{URL}/movies/{identifier}/extended"))
+            .send()
+            .await?;
+        let data: TvdbMovieExtendedResponse = rsp.json().await?;
+        let movie_data = data.data;
+
+        let title = movie_data
+            .name
+            .or(movie_data.title.clone())
+            .unwrap_or_default();
+
+        let mut remote_images = Vec::new();
+        if let Some(artworks) = movie_data.artworks {
+            remote_images.extend(
+                artworks
+                    .into_iter()
+                    .filter_map(|art| art.image)
+                    .collect_vec(),
+            );
+        }
+        if let Some(poster) = movie_data.poster.clone() {
+            remote_images.push(poster);
+        }
+        if let Some(image_url) = movie_data.image_url.clone() {
+            remote_images.push(image_url);
+        }
+
+        let mut remote_videos = Vec::new();
+        if let Some(trailers) = movie_data.trailers {
+            remote_videos.extend(
+                trailers
+                    .into_iter()
+                    .filter_map(|trailer| {
+                        trailer.url.map(|url| EntityRemoteVideo {
+                            url,
+                            source: EntityRemoteVideoSource::Youtube,
+                        })
+                    })
+                    .collect_vec(),
+            );
+        }
+
+        let mut people = Vec::new();
+        if let Some(characters) = movie_data.characters {
+            people.extend(
+                characters
+                    .into_iter()
+                    .filter_map(|char| {
+                        if let (Some(name), Some(role)) = (char.people_name, char.role) {
+                            Some(PartialMetadataPerson {
+                                name,
+                                role,
+                                character: char.name,
+                                source_specifics: None,
+                                source: MediaSource::Tvdb,
+                                identifier: char.id.map(|id| id.to_string()).unwrap_or_default(),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect_vec(),
+            );
+        }
+
+        if let Some(companies) = movie_data.companies {
+            people.extend(
+                companies
+                    .into_iter()
+                    .map(|company| PartialMetadataPerson {
+                        character: None,
+                        name: company.name,
+                        source: MediaSource::Tvdb,
+                        identifier: company.id.to_string(),
+                        role: "Production Company".to_string(),
+                        source_specifics: Some(PersonSourceSpecifics {
+                            is_tvdb_company: Some(true),
+                            ..Default::default()
+                        }),
+                    })
+                    .collect_vec(),
+            );
+        }
+
+        let genres = movie_data
+            .genres
+            .unwrap_or_default()
+            .into_iter()
+            .map(|g| g.name)
+            .collect_vec();
+
+        let publish_date = movie_data
+            .first_air_date
+            .as_ref()
+            .and_then(|date| convert_string_to_date(date));
+
+        let publish_year = movie_data.year.or_else(|| {
+            movie_data
+                .first_air_date
+                .as_ref()
+                .and_then(|date| convert_date_to_year(date))
+        });
+
+        let provider_rating = movie_data
+            .score
+            .filter(|&score| score > 0.0)
+            .map(|score| Decimal::from_f64_retain(score * 10.0).unwrap_or_default());
+
+        Ok(MetadataDetails {
+            genres,
+            people,
+            publish_date,
+            publish_year,
+            provider_rating,
+            title: title.clone(),
+            lot: MediaLot::Movie,
+            source: MediaSource::Tvdb,
+            description: movie_data.overview,
+            identifier: movie_data.id.clone(),
+            source_url: Some(format!("https://thetvdb.com/movies/{}", movie_data.id)),
+            original_language: self.base.get_language_name(movie_data.original_language),
+            movie_specifics: Some(MovieSpecifics {
+                runtime: movie_data.runtime,
+            }),
+            assets: EntityAssets {
+                remote_images,
+                remote_videos,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
     }
 
     async fn metadata_group_search(

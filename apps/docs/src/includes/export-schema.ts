@@ -251,6 +251,7 @@ export interface PersonSourceSpecifics {
 	is_giant_bomb_company: boolean | null;
 	is_hardcover_publisher: boolean | null;
 	is_tmdb_company: boolean | null;
+	is_tvdb_company: boolean | null;
 }
 
 /** Details about a specific creator item that needs to be exported. */
